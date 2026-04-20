@@ -13,13 +13,13 @@
 
 #### Feature E-12.F-01: Status Page Configuration
 
-| Story ID | User Story | Acceptance Criteria |
-|----------|-----------|-------------------|
-| E-12.F-01.S-01 | As a tenant admin, I want to configure a public status page with my branding (logo, colors, custom CSS) so that it matches our company identity | Branding editor in admin panel; logo upload; color picker; CSS override; live preview |
-| E-12.F-01.S-02 | As a tenant admin, I want to set up a custom domain (status.mycompany.com) for my status page so that it looks professional | Custom domain input; CNAME instructions; domain verification |
-| E-12.F-01.S-03 | As an operator, I need automatic SSL certificate provisioning and renewal for custom status page domains so that HTTPS works without manual intervention | Certificate auto-provisioned on domain verification; renewal before expiry; fallback to platform domain on failure |
-| E-12.F-01.S-04 | As a tenant admin, I want to choose which internal services are exposed on the public page and how they're grouped so that I control external visibility | Service selector; drag-and-drop grouping; group naming; public names can differ from internal names |
-| E-12.F-01.S-05 | As a tenant admin, I want to configure a status page as internal-only (authenticated) so that sensitive service status is only visible to my organization | Internal flag toggle; page requires KeyCloak authentication when internal; RBAC respected; public visitors see 403 or redirect to login |
+| Story ID | User Story | Acceptance Criteria | ADRs |
+|----------|-----------|-------------------|------|
+| E-12.F-01.S-01 | As a tenant admin, I want to configure a public status page with my branding (logo, colors, custom CSS) so that it matches our company identity | Branding editor in admin panel; logo upload; color picker; CSS override; live preview | |
+| E-12.F-01.S-02 | As a tenant admin, I want to set up a custom domain (status.mycompany.com) for my status page so that it looks professional | Custom domain input; CNAME instructions; domain verification | [0052](../../architecture/decisions/ADR-0052-custom-domains-with-auto-ssl.md) |
+| E-12.F-01.S-03 | As an operator, I need automatic SSL certificate provisioning and renewal for custom status page domains so that HTTPS works without manual intervention | Certificate auto-provisioned on domain verification; renewal before expiry; fallback to platform domain on failure | [0052](../../architecture/decisions/ADR-0052-custom-domains-with-auto-ssl.md) |
+| E-12.F-01.S-04 | As a tenant admin, I want to choose which internal services are exposed on the public page and how they're grouped so that I control external visibility | Service selector; drag-and-drop grouping; group naming; public names can differ from internal names | |
+| E-12.F-01.S-05 | As a tenant admin, I want to configure a status page as internal-only (authenticated) so that sensitive service status is only visible to my organization | Internal flag toggle; page requires KeyCloak authentication when internal; RBAC respected; public visitors see 403 or redirect to login | [0010](../../architecture/decisions/ADR-0010-internal-status-page-auth-via-keycloak.md) |
 
 #### Feature E-12.F-02: Status Management
 
@@ -30,6 +30,8 @@
 | E-12.F-02.S-03 | As a DevOps engineer, I want to schedule maintenance windows so that customers are informed in advance | Maintenance creation: title, description, start/end time, affected components; displayed on status page before and during window |
 
 #### Feature E-12.F-03: Subscriber Notifications
+
+> **ADRs (feature-level):** [ADR-0051](../../architecture/decisions/ADR-0051-multi-channel-status-page-subscribers.md)
 
 | Story ID | User Story | Acceptance Criteria |
 |----------|-----------|-------------------|
@@ -46,8 +48,10 @@
 
 #### Feature E-12.F-05: Status Page Infrastructure & High Availability
 
-| Story ID | User Story | Acceptance Criteria |
-|----------|-----------|-------------------|
-| E-12.F-05.S-01 | As an operator, I need the status page deployed as a separate K8s cluster/namespace independent from the main platform so that it remains available even when the main platform is down (99.99% SLA) | Separate deployment; independent database replica or cache; serves from cache if main platform unavailable; no dependency on main platform for page rendering |
-| E-12.F-05.S-02 | As an operator, I need data sync from the main platform to the status page service (status updates, incidents, subscriber list) so that the status page is always current | Async replication from main platform; eventual consistency acceptable (< 30s lag); status page continues serving last known state during main platform outage |
-| E-12.F-05.S-03 | As an operator, I need health monitoring and alerting for the status page service itself so that its 99.99% SLA is measurable and maintained | Independent health checks; uptime tracking; alert on status page degradation; SLA compliance dashboard |
+> **ADRs (feature-level):** [ADR-0053](../../architecture/decisions/ADR-0053-status-page-99-99-sla-target.md) (99.99% SLA)
+
+| Story ID | User Story | Acceptance Criteria | ADRs |
+|----------|-----------|-------------------|------|
+| E-12.F-05.S-01 | As an operator, I need the status page deployed as a separate K8s cluster/namespace independent from the main platform so that it remains available even when the main platform is down (99.99% SLA) | Separate deployment; independent database replica or cache; serves from cache if main platform unavailable; no dependency on main platform for page rendering | [0005](../../architecture/decisions/ADR-0005-independent-data-replica-for-status-page.md), [0023](../../architecture/decisions/ADR-0023-status-page-as-separate-k8s-cluster.md) |
+| E-12.F-05.S-02 | As an operator, I need data sync from the main platform to the status page service (status updates, incidents, subscriber list) so that the status page is always current | Async replication from main platform; eventual consistency acceptable (< 30s lag); status page continues serving last known state during main platform outage | [0005](../../architecture/decisions/ADR-0005-independent-data-replica-for-status-page.md) |
+| E-12.F-05.S-03 | As an operator, I need health monitoring and alerting for the status page service itself so that its 99.99% SLA is measurable and maintained | Independent health checks; uptime tracking; alert on status page degradation; SLA compliance dashboard | |

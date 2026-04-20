@@ -9,7 +9,11 @@
 
 > Connect to Git providers (GitHub, Azure DevOps) for repository access and webhooks.
 
+> **ADRs (epic-level, all stories):** [ADR-0035](../../architecture/decisions/ADR-0035-git-as-first-class-integration.md)
+
 #### Feature E-07.F-01: GitHub Integration
+
+> **ADRs (feature-level):** [ADR-0057](../../architecture/decisions/ADR-0057-oauth-git-provider-connection.md)
 
 | Story ID | User Story | Acceptance Criteria |
 |----------|-----------|-------------------|
@@ -18,6 +22,8 @@
 | E-07.F-01.S-03 | As a developer, I want GitHub webhook events (push, PR merge) to trigger documentation re-sync so that docs are always up to date | Webhook registered on repo; push events trigger doc sync; sync completes within 60 seconds |
 
 #### Feature E-07.F-02: Azure DevOps Integration
+
+> **ADRs (feature-level):** [ADR-0057](../../architecture/decisions/ADR-0057-oauth-git-provider-connection.md)
 
 | Story ID | User Story | Acceptance Criteria |
 |----------|-----------|-------------------|
@@ -31,17 +37,19 @@
 
 #### Feature E-08.F-01: Single Repository Deep Scan
 
-| Story ID | User Story | Acceptance Criteria |
-|----------|-----------|-------------------|
-| E-08.F-01.S-01 | As a developer, I want to provide a repository URL and have Kartova scan it for code metadata (language, framework, dependencies) so that applications are registered automatically | Scan detects language from file extensions; framework from config files (package.json, .csproj, etc.); dependencies extracted |
-| E-08.F-01.S-02 | As a developer, I want the scan to detect infrastructure definitions (Dockerfiles, Helm charts, Terraform) so that deployment patterns are cataloged | Dockerfiles detected -> container-based flag; Helm charts -> K8s deployment; Terraform -> cloud resources listed |
-| E-08.F-01.S-03 | As a developer, I want the scan to detect sync API specs (OpenAPI, gRPC proto, GraphQL schemas) so that APIs are automatically registered | Spec files detected by convention and content; API entities created; linked to parent application |
-| E-08.F-01.S-04 | As a developer, I want the scan to detect async API specs (AsyncAPI), CloudEvents definitions, and schema registry references so that event-driven interfaces are cataloged | AsyncAPI specs detected; channels/schemas extracted; CloudEvents metadata parsed; registry references stored |
-| E-08.F-01.S-05 | As a developer, I want the scan to detect messaging configuration (queue/topic names, broker connections) so that async dependencies are mapped | Config files scanned for broker URLs, queue/topic names; message broker and queue/topic entities created |
-| E-08.F-01.S-06 | As a developer, I want the scan to detect database connection strings and migration files so that data dependencies are tracked | Connection strings found (not values, just presence/type); migration files listed; database infra entities created |
-| E-08.F-01.S-07 | As a developer, I want the scan to detect environment variable names (not values) so that configuration requirements are documented | Env var names extracted from code, docker-compose, Helm values; listed as configuration requirements |
-| E-08.F-01.S-08 | As a developer, I want the scan to import README and docs/ folder content so that documentation is available immediately | README rendered on entity detail page; docs/ structure imported as documentation pages |
-| E-08.F-01.S-09 | As a developer, I want to review all scan results before confirming the import so that I can correct any misdetections | Preview screen shows all detected entities and relationships; user can edit, remove, or add before confirming |
+> **ADRs (feature-level):** [ADR-0054](../../architecture/decisions/ADR-0054-deep-repository-scan-at-import.md)
+
+| Story ID | User Story | Acceptance Criteria | ADRs |
+|----------|-----------|-------------------|------|
+| E-08.F-01.S-01 | As a developer, I want to provide a repository URL and have Kartova scan it for code metadata (language, framework, dependencies) so that applications are registered automatically | Scan detects language from file extensions; framework from config files (package.json, .csproj, etc.); dependencies extracted | |
+| E-08.F-01.S-02 | As a developer, I want the scan to detect infrastructure definitions (Dockerfiles, Helm charts, Terraform) so that deployment patterns are cataloged | Dockerfiles detected -> container-based flag; Helm charts -> K8s deployment; Terraform -> cloud resources listed | |
+| E-08.F-01.S-03 | As a developer, I want the scan to detect sync API specs (OpenAPI, gRPC proto, GraphQL schemas) so that APIs are automatically registered | Spec files detected by convention and content; API entities created; linked to parent application | |
+| E-08.F-01.S-04 | As a developer, I want the scan to detect async API specs (AsyncAPI), CloudEvents definitions, and schema registry references so that event-driven interfaces are cataloged | AsyncAPI specs detected; channels/schemas extracted; CloudEvents metadata parsed; registry references stored | |
+| E-08.F-01.S-05 | As a developer, I want the scan to detect messaging configuration (queue/topic names, broker connections) so that async dependencies are mapped | Config files scanned for broker URLs, queue/topic names; message broker and queue/topic entities created | |
+| E-08.F-01.S-06 | As a developer, I want the scan to detect database connection strings and migration files so that data dependencies are tracked | Connection strings found (not values, just presence/type); migration files listed; database infra entities created | [0078](../../architecture/decisions/ADR-0078-no-secrets-stored-references-only.md) |
+| E-08.F-01.S-07 | As a developer, I want the scan to detect environment variable names (not values) so that configuration requirements are documented | Env var names extracted from code, docker-compose, Helm values; listed as configuration requirements | [0078](../../architecture/decisions/ADR-0078-no-secrets-stored-references-only.md) |
+| E-08.F-01.S-08 | As a developer, I want the scan to import README and docs/ folder content so that documentation is available immediately | README rendered on entity detail page; docs/ structure imported as documentation pages | |
+| E-08.F-01.S-09 | As a developer, I want to review all scan results before confirming the import so that I can correct any misdetections | Preview screen shows all detected entities and relationships; user can edit, remove, or add before confirming | |
 
 #### Feature E-08.F-02: Bulk Organization Scan
 
@@ -53,6 +61,8 @@
 
 #### Feature E-08.F-03: Scheduled Re-scan
 
+> **ADRs (feature-level):** [ADR-0056](../../architecture/decisions/ADR-0056-manual-relationship-precedence.md) (S-03, S-04)
+
 | Story ID | User Story | Acceptance Criteria |
 |----------|-----------|-------------------|
 | E-08.F-03.S-01 | As an org admin, I want to configure periodic re-scanning (daily/weekly) so that the catalog stays current without manual effort | Schedule configurable per org; options: daily, weekly, custom cron; next scan time visible |
@@ -61,6 +71,8 @@
 | E-08.F-03.S-04 | As a developer, I want a conflict review queue where I can see all re-scan conflicts with manual relationships and resolve them so that conflicts don't pile up silently | Conflict list UI: shows conflicting relationship, manual vs auto-discovered data, resolution options (keep manual / accept auto / merge); notification sent when new conflicts detected |
 
 #### Feature E-08.F-04: Scan Resilience & Error Handling
+
+> **ADRs (feature-level):** [ADR-0055](../../architecture/decisions/ADR-0055-scan-timeout-retry-rate-limit-aware.md)
 
 | Story ID | User Story | Acceptance Criteria |
 |----------|-----------|-------------------|
@@ -88,6 +100,8 @@
 > Implement completeness scoring and nudge system to maintain catalog quality.
 
 #### Feature E-10.F-01: Scorecard System
+
+> **ADRs (feature-level):** [ADR-0070](../../architecture/decisions/ADR-0070-per-organization-scorecard-configurability.md)
 
 | Story ID | User Story | Acceptance Criteria |
 |----------|-----------|-------------------|

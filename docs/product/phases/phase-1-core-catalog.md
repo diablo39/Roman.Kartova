@@ -1,6 +1,6 @@
 # Phase 1: Core Catalog
 
-**Version:** v1.0 | **Epics:** 6 | **Features:** 22 | **Stories:** 52
+**Version:** v1.1 | **Epics:** 6 | **Features:** 22 | **Stories:** 55
 **Dependencies:** Phase 0 (foundation infrastructure)
 
 ---
@@ -10,6 +10,8 @@
 > Enable CRUD operations for all catalog entity types with proper lifecycle management.
 
 #### Feature E-02.F-01: Application Entity Management
+
+> **ADRs (feature-level):** [ADR-0069](../../architecture/decisions/ADR-0069-required-minimum-fields-enforcement.md) (required fields, S-05), [ADR-0073](../../architecture/decisions/ADR-0073-enforced-entity-lifecycle-states.md) (lifecycle states, S-04)
 
 | Story ID | User Story | Acceptance Criteria |
 |----------|-----------|-------------------|
@@ -77,6 +79,8 @@
 
 #### Feature E-03.F-04: Tag System
 
+> **ADRs (feature-level):** [ADR-0072](../../architecture/decisions/ADR-0072-tag-taxonomy-predefined-plus-custom.md)
+
 | Story ID | User Story | Acceptance Criteria |
 |----------|-----------|-------------------|
 | E-03.F-04.S-01 | As an org admin, I want to define tag taxonomies (domain, criticality, compliance, tech stack) so that entities can be classified consistently | Tag categories created; predefined values per category; custom values allowed where configured |
@@ -84,6 +88,8 @@
 | E-03.F-04.S-03 | As a developer, I want to filter the catalog by any combination of tags so that I can find entities matching specific criteria | Multi-tag filter in UI; AND/OR logic; results update in real-time; filter state shareable via URL |
 
 #### Feature E-03.F-05: Multi-Ownership
+
+> **ADRs (feature-level):** [ADR-0066](../../architecture/decisions/ADR-0066-multi-ownership-with-quorum-rules.md)
 
 | Story ID | User Story | Acceptance Criteria |
 |----------|-----------|-------------------|
@@ -98,6 +104,8 @@
 
 #### Feature E-04.F-01: Manual Relationship Management
 
+> **ADRs (feature-level):** [ADR-0056](../../architecture/decisions/ADR-0056-manual-relationship-precedence.md), [ADR-0067](../../architecture/decisions/ADR-0067-relationship-origin-tracking.md)
+
 | Story ID | User Story | Acceptance Criteria |
 |----------|-----------|-------------------|
 | E-04.F-01.S-01 | As a developer, I want to create a relationship between two entities (e.g., "Service A depends-on Service B") so that dependencies are documented | Relationship created with type; both entities updated; audit log entry created; origin set to `manual` |
@@ -107,11 +115,18 @@
 
 #### Feature E-04.F-02: Relationship Visualization
 
+> **Navigation model:** Dependency graph is accessible in two views — (1) embedded mini-graph on entity detail page "Dependencies" tab, and (2) standalone full graph explorer at `/graph`. Mini-graph shows 1 level deep with basic interactions; "Open full graph" links to standalone view with `?focus=entity-id`. Standalone is also accessible from sidebar navigation.
+
+> **ADRs (feature-level, all stories):** [ADR-0040](../../architecture/decisions/ADR-0040-two-view-dependency-graph-navigation.md)
+
 | Story ID | User Story | Acceptance Criteria |
 |----------|-----------|-------------------|
-| E-04.F-02.S-01 | As a developer, I want to see an interactive dependency graph for any entity so that I understand its upstream and downstream dependencies | Graph renders with nodes and edges; zoomable and pannable; clickable nodes navigate to entity detail |
-| E-04.F-02.S-02 | As a developer, I want to filter the dependency graph by team, system, domain, or criticality so that I can focus on relevant relationships | Filter controls on graph; graph updates in real-time; filtered-out nodes dimmed or hidden |
-| E-04.F-02.S-03 | As an engineering manager, I want to run impact analysis ("if Service X goes down, what is affected?") so that I understand blast radius | Impact analysis starting from any entity; shows all downstream dependents recursively; categorized by tier |
+| E-04.F-02.S-01 | As a developer, I want to see an embedded mini dependency graph on the entity detail "Dependencies" tab so that I get a quick visual overview of direct relationships | Mini-graph shows 1 level deep (direct dependencies/dependents only); entity-colored nodes with health dots; manual vs auto edge styling; clicking a node navigates to that entity; basic zoom/pan; summary stats above ("8 upstream, 12 downstream, 3 manual") |
+| E-04.F-02.S-02 | As a developer, I want a relationship table below the mini-graph listing all dependencies and dependents with origin badges so that I see the full list with details | Table with tabs: Dependencies / Dependents; columns: Name, Type, Relationship Type, Origin (Manual/Auto badge), Health; sortable; "Add Relationship" button; clickable rows navigate to entity |
+| E-04.F-02.S-03 | As a developer, I want an "Open full graph" button on the Dependencies tab that opens the standalone graph explorer focused on the current entity so that I can explore deeper | Button navigates to `/graph?focus={entity-id}`; standalone graph opens pre-focused on that entity |
+| E-04.F-02.S-04 | As a developer, I want a standalone Dependency Graph Explorer page (`/graph`) accessible from the sidebar navigation so that I can explore the entire service landscape visually | Full-page graph; entity search/selector at top; multi-level depth (1-3 levels + all); force-directed layout; side panel on node click showing entity details; "View Entity Detail" and "Focus Graph Here" actions |
+| E-04.F-02.S-05 | As a developer, I want to filter the standalone dependency graph by team, domain, criticality, entity type, and relationship origin (manual/auto) so that I can focus on relevant relationships | Filter dropdowns in top bar; toggle: Manual only / Auto only / All; "Reset filters" link; graph updates in real-time; filtered-out nodes dimmed or hidden; entity counter ("Showing 9 of 847") |
+| E-04.F-02.S-06 | As an engineering manager, I want to run impact analysis from the standalone graph so that I understand blast radius visually | "Impact Analysis" button on side panel; dims graph except affected downstream path; affected nodes glow by tier; banner: "12 downstream (3x tier-1, 5x tier-2, 4x tier-3)"; "Close Analysis" returns to normal |
 
 ### Epic E-05: Search
 
@@ -162,6 +177,8 @@
 ### Epic E-06a: Notification Infrastructure
 
 > Core notification system supporting in-app, email, webhooks, and native integrations. Required by multiple later features (scorecard nudges, risk alerts, drift alerts, breaking change alerts, status page subscribers).
+
+> **ADRs (epic-level):** [ADR-0047](../../architecture/decisions/ADR-0047-unified-multi-channel-notification-engine.md) (dispatch engine), [ADR-0048](../../architecture/decisions/ADR-0048-native-slack-and-teams-integrations.md) (Slack/Teams), [ADR-0049](../../architecture/decisions/ADR-0049-configurable-smtp-email-provider.md) (email), [ADR-0050](../../architecture/decisions/ADR-0050-notification-log-as-mifid-ii-record.md) (MiFID record)
 
 #### Feature E-06a.F-01: Notification Dispatch Engine
 

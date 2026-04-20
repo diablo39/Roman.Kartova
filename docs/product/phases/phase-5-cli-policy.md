@@ -11,11 +11,11 @@
 
 #### Feature E-13.F-01: CLI Core
 
-| Story ID | User Story | Acceptance Criteria |
-|----------|-----------|-------------------|
-| E-13.F-01.S-01 | As a DevOps engineer, I want to install the Kartova CLI as a .NET global tool or standalone binary so that I can use it in any CI/CD pipeline | `dotnet tool install kartova-cli` works; standalone binary available for Linux/macOS/Windows; `kartova --version` outputs version |
-| E-13.F-01.S-02 | As a DevOps engineer, I want to authenticate the CLI using a service account JWT token so that CI/CD pipelines can interact with Kartova securely | `kartova auth --token <jwt>` stores token; subsequent commands use stored token; expired token returns clear error |
-| E-13.F-01.S-03 | As a DevOps engineer, I want to register or update a component from the CLI so that catalog entries are managed from code | `kartova register --name X --type service --owner team-Y` creates/updates entity; `kartova update --name X --field value` modifies metadata |
+| Story ID | User Story | Acceptance Criteria | ADRs |
+|----------|-----------|-------------------|------|
+| E-13.F-01.S-01 | As a DevOps engineer, I want to install the Kartova CLI as a .NET global tool or standalone binary so that I can use it in any CI/CD pipeline | `dotnet tool install kartova-cli` works; standalone binary available for Linux/macOS/Windows; `kartova --version` outputs version | [0046](../../architecture/decisions/ADR-0046-dotnet-global-tool-cli-distribution.md) |
+| E-13.F-01.S-02 | As a DevOps engineer, I want to authenticate the CLI using a service account JWT token so that CI/CD pipelines can interact with Kartova securely | `kartova auth --token <jwt>` stores token; subsequent commands use stored token; expired token returns clear error | [0007](../../architecture/decisions/ADR-0007-jwt-oidc-for-api-and-cli-auth.md), [0009](../../architecture/decisions/ADR-0009-service-account-jwt-model-for-cicd.md) |
+| E-13.F-01.S-03 | As a DevOps engineer, I want to register or update a component from the CLI so that catalog entries are managed from code | `kartova register --name X --type service --owner team-Y` creates/updates entity; `kartova update --name X --field value` modifies metadata | |
 
 #### Feature E-13.F-02: Deployment Reporting
 
@@ -55,9 +55,9 @@
 
 #### Feature E-14a.F-01: Billing Integration
 
-| Story ID | User Story | Acceptance Criteria |
-|----------|-----------|-------------------|
-| E-14a.F-01.S-01 | As an operator, I need user count tracking per organization so that billing is based on actual usage | Active user count tracked per org per billing period; service accounts excluded; status page viewers excluded |
-| E-14a.F-01.S-02 | As an operator, I need integration with a billing provider (e.g., Stripe) for subscription management and payment processing so that revenue collection is automated | Subscription created on org onboarding; monthly invoicing based on user count; payment method management; invoice history |
+| Story ID | User Story | Acceptance Criteria | ADRs |
+|----------|-----------|-------------------|------|
+| E-14a.F-01.S-01 | As an operator, I need user count tracking per organization so that billing is based on actual usage | Active user count tracked per org per billing period; service accounts excluded; status page viewers excluded | [0063](../../architecture/decisions/ADR-0063-user-count-metering-per-billing-period.md) |
+| E-14a.F-01.S-02 | As an operator, I need integration with a billing provider (e.g., Stripe) for subscription management and payment processing so that revenue collection is automated | Subscription created on org onboarding; monthly invoicing based on user count; payment method management; invoice history | [0062](../../architecture/decisions/ADR-0062-external-billing-provider.md) |
 | E-14a.F-01.S-03 | As a tenant admin, I want a billing dashboard showing my current plan, user count, and invoice history so that I understand my costs | Dashboard: current user count, monthly cost, invoice list, payment method, plan details |
 | E-14a.F-01.S-04 | As a tenant admin, I want to manage my payment method and download invoices so that billing is self-service | Add/update payment method; download PDF invoices; email receipts; failed payment notifications |

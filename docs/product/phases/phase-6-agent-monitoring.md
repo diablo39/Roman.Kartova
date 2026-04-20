@@ -9,13 +9,15 @@
 
 > Deploy a lightweight .NET agent in customer infrastructure for health monitoring, metrics, and service discovery.
 
+> **ADRs (epic-level, all stories):** [ADR-0041](../../architecture/decisions/ADR-0041-dotnet-agent-with-aot-compilation.md)
+
 #### Feature E-15.F-01: Agent Deployment & Communication
 
-| Story ID | User Story | Acceptance Criteria |
-|----------|-----------|-------------------|
-| E-15.F-01.S-01 | As a DevOps engineer, I want to deploy the Kartova agent as a Docker container or K8s Deployment so that it runs in our infrastructure | Docker image published; Helm chart available; agent starts and connects to platform; no inbound ports required |
-| E-15.F-01.S-02 | As a DevOps engineer, I want the agent to communicate securely with the platform via outbound-only mTLS so that no inbound firewall rules are needed | Agent initiates connection; mTLS handshake; platform authenticates agent via certificate; data encrypted in transit |
-| E-15.F-01.S-03 | As a DevOps engineer, I want to configure the agent from the platform UI so that I don't need to redeploy for config changes | Config pushed from platform; agent polls for updates; config changes applied without restart |
+| Story ID | User Story | Acceptance Criteria | ADRs |
+|----------|-----------|-------------------|------|
+| E-15.F-01.S-01 | As a DevOps engineer, I want to deploy the Kartova agent as a Docker container or K8s Deployment so that it runs in our infrastructure | Docker image published; Helm chart available; agent starts and connects to platform; no inbound ports required | [0043](../../architecture/decisions/ADR-0043-agent-deployable-as-docker-and-helm.md) |
+| E-15.F-01.S-02 | As a DevOps engineer, I want the agent to communicate securely with the platform via outbound-only mTLS so that no inbound firewall rules are needed | Agent initiates connection; mTLS handshake; platform authenticates agent via certificate; data encrypted in transit | |
+| E-15.F-01.S-03 | As a DevOps engineer, I want to configure the agent from the platform UI so that I don't need to redeploy for config changes | Config pushed from platform; agent polls for updates; config changes applied without restart | [0044](../../architecture/decisions/ADR-0044-centrally-managed-agent-config-pull-based.md) |
 
 #### Feature E-15.F-02: Health Checks
 
@@ -32,6 +34,8 @@
 
 #### Feature E-15.F-04: Service Discovery
 
+> **ADRs (feature-level):** [ADR-0045](../../architecture/decisions/ADR-0045-agent-discovered-services-approval-workflow.md) (S-02)
+
 | Story ID | User Story | Acceptance Criteria |
 |----------|-----------|-------------------|
 | E-15.F-04.S-01 | As a DevOps engineer, I want the agent to discover services running in my K8s cluster so that new deployments are automatically detected | Agent scans K8s API; discovers Deployments/Services/Pods; maps to catalog entities |
@@ -40,6 +44,8 @@
 ### Epic E-16: Monitoring Integrations
 
 > Integrate with Prometheus and Grafana Cloud for metrics and uptime data.
+
+> **ADRs (epic-level, all stories):** [ADR-0036](../../architecture/decisions/ADR-0036-prometheus-grafana-cloud-integrations.md)
 
 #### Feature E-16.F-01: Prometheus Integration
 

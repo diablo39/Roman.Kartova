@@ -10,6 +10,8 @@
 
 ### Epic E-26: Plugin Architecture
 > Extensible plugin system for third-party integrations. *(Detailed stories deferred to v2.0 planning)*
+>
+> **ADRs:** [ADR-0038](../../architecture/decisions/ADR-0038-plugin-architecture-deferred-to-v2.md)
 
 ### Epic E-27: AI-Powered Search
 > Semantic search across all catalog entities and documentation. *(Detailed stories deferred to v2.0 planning)*

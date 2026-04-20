@@ -9,6 +9,8 @@
 
 > Auto-calculated maturity levels (L1-L5) with progression paths.
 
+> **ADRs (epic-level):** [ADR-0071](../../architecture/decisions/ADR-0071-five-level-maturity-model.md)
+
 #### Feature E-17.F-01: Maturity Calculation & Display
 
 | Story ID | User Story | Acceptance Criteria |

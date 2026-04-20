@@ -12,7 +12,7 @@
 | Phase | Status | Progress |
 |-------|--------|----------|
 | Phase 0: Foundation | Not Started | 0/33 |
-| Phase 1: Core Catalog & Notifications | Not Started | 0/52 |
+| Phase 1: Core Catalog & Notifications | Not Started | 0/55 |
 | Phase 2: Auto-Import | Not Started | 0/36 |
 | Phase 3: Documentation | Not Started | 0/15 |
 | Phase 4: Status Page | Not Started | 0/16 |
@@ -21,7 +21,7 @@
 | Phase 7: Intelligence | Not Started | 0/13 |
 | Phase 8: Analytics | Not Started | 0/14 |
 | Phase 9: Advanced | Not Started | 0/0 |
-| **Total** | | **0/206** |
+| **Total** | | **0/209** |
 
 ---
 
@@ -144,9 +144,12 @@
 - [ ] E-04.F-01.S-04 — Demote manual to auto-managed (unpin)
 
 **E-04.F-02: Relationship Visualization**
-- [ ] E-04.F-02.S-01 — Interactive dependency graph
-- [ ] E-04.F-02.S-02 — Filter dependency graph by team/domain
-- [ ] E-04.F-02.S-03 — Impact analysis (blast radius)
+- [ ] E-04.F-02.S-01 — Embedded mini dependency graph (entity Dependencies tab)
+- [ ] E-04.F-02.S-02 — Relationship table below mini-graph
+- [ ] E-04.F-02.S-03 — "Open full graph" button linking to standalone
+- [ ] E-04.F-02.S-04 — Standalone Dependency Graph Explorer (/graph)
+- [ ] E-04.F-02.S-05 — Graph filters (team, domain, criticality, origin)
+- [ ] E-04.F-02.S-06 — Visual impact analysis on standalone graph
 
 ### E-05: Search
 

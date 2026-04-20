@@ -16,7 +16,7 @@ Each phase has been extracted into its own file for focused work:
 | Phase | File | Epics | Features | Stories |
 |-------|------|-------|----------|---------|
 | Phase 0: Foundation | [phase-0-foundation.md](phases/phase-0-foundation.md) | 1 (E-01) | 8 | 33 |
-| Phase 1: Core Catalog & Notifications | [phase-1-core-catalog.md](phases/phase-1-core-catalog.md) | 6 (E-02 to E-06, E-06a) | 22 | 52 |
+| Phase 1: Core Catalog & Notifications | [phase-1-core-catalog.md](phases/phase-1-core-catalog.md) | 6 (E-02 to E-06, E-06a) | 22 | 55 |
 | Phase 2: Auto-Import | [phase-2-auto-import.md](phases/phase-2-auto-import.md) | 4 (E-07 to E-10) | 11 | 36 |
 | Phase 3: Documentation | [phase-3-documentation.md](phases/phase-3-documentation.md) | 1 (E-11) | 5 | 15 |
 | Phase 4: Status Page | [phase-4-status-page.md](phases/phase-4-status-page.md) | 1 (E-12) | 5 | 16 |
@@ -25,7 +25,7 @@ Each phase has been extracted into its own file for focused work:
 | Phase 7: Intelligence | [phase-7-intelligence.md](phases/phase-7-intelligence.md) | 4 (E-17 to E-20) | 5 | 13 |
 | Phase 8: Analytics | [phase-8-analytics.md](phases/phase-8-analytics.md) | 4 (E-21 to E-24) | 5 | 14 |
 | Phase 9: Advanced | [phase-9-advanced.md](phases/phase-9-advanced.md) | 4 (E-25 to E-28) | -- | -- |
-| **Total** | | **30** | **73** | **206** |
+| **Total** | | **30** | **73** | **209** |
 
 ## Progress Tracking
 

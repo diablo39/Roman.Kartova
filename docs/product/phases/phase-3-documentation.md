@@ -27,12 +27,12 @@
 
 #### Feature E-11.F-03: Async API Documentation (AsyncAPI/CloudEvents/Schema Registry)
 
-| Story ID | User Story | Acceptance Criteria |
-|----------|-----------|-------------------|
-| E-11.F-03.S-01 | As a developer, I want AsyncAPI specs (v2.x and v3.x) rendered as interactive documentation showing channels, operations, and schemas so that I can understand event-driven interfaces | Channels listed with pub/sub operations; message schemas rendered; protocol bindings shown |
-| E-11.F-03.S-02 | As a developer, I want CloudEvents metadata rendered alongside AsyncAPI docs so that I understand the event envelope format | CloudEvents attributes (type, source, subject, dataschema) displayed per event; linked to channel |
-| E-11.F-03.S-03 | As a developer, I want schema registry schemas (Confluent, Apicurio) pulled and displayed with version history so that I see live schema evolution | Registry connected; schemas fetched per topic; version list with diffs; compatibility mode shown |
-| E-11.F-03.S-04 | As a developer, I want a unified view showing both sync and async APIs for a service side by side so that I see the complete interface surface | Tabbed or split view: Sync APIs (REST/gRPC/GraphQL) | Async APIs (AsyncAPI/CloudEvents); consistent layout |
+| Story ID | User Story | Acceptance Criteria | ADRs |
+|----------|-----------|-------------------|------|
+| E-11.F-03.S-01 | As a developer, I want AsyncAPI specs (v2.x and v3.x) rendered as interactive documentation showing channels, operations, and schemas so that I can understand event-driven interfaces | Channels listed with pub/sub operations; message schemas rendered; protocol bindings shown | |
+| E-11.F-03.S-02 | As a developer, I want CloudEvents metadata rendered alongside AsyncAPI docs so that I understand the event envelope format | CloudEvents attributes (type, source, subject, dataschema) displayed per event; linked to channel | |
+| E-11.F-03.S-03 | As a developer, I want schema registry schemas (Confluent, Apicurio) pulled and displayed with version history so that I see live schema evolution | Registry connected; schemas fetched per topic; version list with diffs; compatibility mode shown | [0037](../../architecture/decisions/ADR-0037-schema-registry-integrations.md) |
+| E-11.F-03.S-04 | As a developer, I want a unified view showing both sync and async APIs for a service side by side so that I see the complete interface surface | Tabbed or split view: Sync APIs (REST/gRPC/GraphQL) \| Async APIs (AsyncAPI/CloudEvents); consistent layout | |
 
 #### Feature E-11.F-04: Documentation Hub per Service
 
@@ -43,8 +43,8 @@
 
 #### Feature E-11.F-05: Cross-Service Referencing & Documentation Search
 
-| Story ID | User Story | Acceptance Criteria |
-|----------|-----------|-------------------|
-| E-11.F-05.S-01 | As a developer, I want references to other services in my docs to become clickable links automatically so that navigation between related services is seamless | Pattern detection (service names, URLs); auto-linked to entity detail pages; link preview on hover |
-| E-11.F-05.S-02 | As a developer, I want to search across all documentation, API specs, and runbooks so that I can find information regardless of which service it belongs to | Full-text search via Elasticsearch; results show document title, service, snippet; filters by doc type |
-| E-11.F-05.S-03 | As a developer, I want "Related services" suggestions on each service page based on the dependency graph so that I discover relevant context | Related services section; based on direct and transitive dependencies; sorted by relevance |
+| Story ID | User Story | Acceptance Criteria | ADRs |
+|----------|-----------|-------------------|------|
+| E-11.F-05.S-01 | As a developer, I want references to other services in my docs to become clickable links automatically so that navigation between related services is seamless | Pattern detection (service names, URLs); auto-linked to entity detail pages; link preview on hover | |
+| E-11.F-05.S-02 | As a developer, I want to search across all documentation, API specs, and runbooks so that I can find information regardless of which service it belongs to | Full-text search via Elasticsearch; results show document title, service, snippet; filters by doc type | [0002](../../architecture/decisions/ADR-0002-elasticsearch-for-search.md) |
+| E-11.F-05.S-03 | As a developer, I want "Related services" suggestions on each service page based on the dependency graph so that I discover relevant context | Related services section; based on direct and transitive dependencies; sorted by relevance | |
