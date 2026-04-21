@@ -4,7 +4,7 @@
 **Date:** 2026-04-21
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** API & Integration Architecture
-**Related:** ADR-0003 (Kafka bus), ADR-0016 (MiFID II compliance), ADR-0050 (notification log as MiFID II record), ADR-0031 (per-tenant rate limiting), ADR-0051 (status page subscribers)
+**Related:** ADR-0003 (Kafka bus), ADR-0016 (MiFID II compliance), ADR-0050 (notification log as MiFID II record), ADR-0031 (per-tenant rate limiting), ADR-0051 (status page subscribers), ADR-0080 (transactional outbox via Wolverine), ADR-0081 (KafkaFlow inbound consumers)
 
 ## Context
 
@@ -21,9 +21,9 @@ Outbound webhook delivery uses HMAC-SHA256 payload signing with a tenant-scoped 
 
 **Delivery pipeline:**
 1. Event occurs in platform (e.g., scorecard threshold breach)
-2. Event persisted to `webhook_outbox` table within the same PostgreSQL transaction as the business change (transactional outbox pattern)
-3. Outbox publisher reads new rows and publishes to Kafka topic `webhook-delivery-queue`
-4. Delivery worker consumes, builds payload, sends HTTP POST
+2. Event persisted via **Wolverine's transactional outbox** (ADR-0080) within the same PostgreSQL transaction as the business change — Wolverine manages the outbox tables and publisher
+3. Wolverine publishes to Kafka topic `webhook-delivery-queue` after the transaction commits (at-least-once guarantee)
+4. Delivery worker (KafkaFlow consumer, ADR-0081) builds payload, sends HTTP POST
 5. Result logged to `webhook_deliveries` table (MiFID II retention per ADR-0050)
 
 **Required HTTP headers on every delivery:**
@@ -96,7 +96,7 @@ Outbound webhook delivery uses HMAC-SHA256 payload signing with a tenant-scoped 
 - Rate limiting and circuit-breaker state per subscriber adds operational storage (Redis or PostgreSQL-backed)
 
 **Neutral:**
-- Adds `webhook_outbox`, `webhook_deliveries`, `webhook_subscriptions` tables in PostgreSQL — standard CRUD
+- Adds Wolverine-managed outbox tables (ADR-0080) plus `webhook_deliveries` and `webhook_subscriptions` tables in PostgreSQL — standard CRUD
 - DLQ entries are subject to retention per ADR-0017 like any other delivery record
 - Inbound webhooks (GitHub, Azure DevOps) use provider-specific signature schemes — this ADR covers outbound only
 

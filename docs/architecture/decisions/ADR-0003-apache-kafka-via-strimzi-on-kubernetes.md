@@ -4,7 +4,7 @@
 **Date:** 2026-04-20
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** Data Platform / Messaging
-**Related:** ADR-0001 (PostgreSQL), ADR-0022 (Kubernetes cloud-agnostic deployment), ADR-0037 (Schema Registry integrations), ADR-0041 (.NET agent uses Kafka), ADR-0047 (notification dispatch)
+**Related:** ADR-0001 (PostgreSQL), ADR-0022 (Kubernetes cloud-agnostic deployment), ADR-0037 (Schema Registry integrations), ADR-0041 (.NET agent uses Kafka), ADR-0047 (notification dispatch), ADR-0080 (Wolverine outbound client), ADR-0081 (KafkaFlow inbound client)
 
 ## Context
 
@@ -19,7 +19,7 @@ Scale target is 1000+ tenants (ADR-0074). As a solo developer, the chosen platfo
 
 ## Decision
 
-Use **Apache Kafka** as the primary event streaming / message bus, deployed on Kubernetes via the **Strimzi Operator** in **KRaft mode** (no ZooKeeper). A 3-broker minimum is used in production for high availability. .NET services integrate via **MassTransit** over the **Confluent.Kafka** client. Schema Registry concerns are already covered by ADR-0037 (Confluent Schema Registry compatibility and Apicurio).
+Use **Apache Kafka** as the primary event streaming / message bus, deployed on Kubernetes via the **Strimzi Operator** in **KRaft mode** (no ZooKeeper). A 3-broker minimum is used in production for high availability. .NET services integrate via two complementary libraries over the **Confluent.Kafka** client: **Wolverine** for outbound publishing with transactional outbox (ADR-0080) and **KafkaFlow** for inbound consumers with per-key parallel-within-partition workers (ADR-0081). MassTransit is **not** used. Schema Registry concerns are already covered by ADR-0037 (Confluent Schema Registry compatibility and Apicurio).
 
 ## Rationale
 
@@ -54,7 +54,7 @@ Use **Apache Kafka** as the primary event streaming / message bus, deployed on K
 - 3-broker HA minimum means always-on baseline infrastructure cost.
 
 **Neutral:**
-- MassTransit provides a transport-abstraction layer that would allow a later transport swap (not currently planned).
+- Two Kafka client libraries (Wolverine outbound + KafkaFlow inbound) in one process — see ADR-0080 and ADR-0081 for trade-off discussion; both share the underlying Confluent.Kafka client and Schema Registry settings must be kept aligned.
 - KRaft mode is GA and stable since Kafka 3.3+, but is still newer in field-experience terms than ZooKeeper-based deployments.
 
 ## References

@@ -4,7 +4,7 @@
 **Date:** 2026-04-17
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** Notification Architecture
-**Related:** ADR-0048 (Slack/Teams), ADR-0049 (SMTP/email), ADR-0050 (notification record), ADR-0033 (webhooks, pending)
+**Related:** ADR-0048 (Slack/Teams), ADR-0049 (SMTP/email), ADR-0050 (notification record), ADR-0033 (webhooks), ADR-0080 (Wolverine outbox dispatches notifications), ADR-0081 (KafkaFlow channel consumers)
 
 ## Context
 

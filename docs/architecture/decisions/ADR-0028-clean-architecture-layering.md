@@ -4,7 +4,7 @@
 **Date:** 2026-04-17
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** API & Integration Architecture
-**Related:** ADR-0027 (.NET API)
+**Related:** ADR-0027 (.NET API), ADR-0080 (Wolverine CQRS mediator)
 
 ## Context
 
@@ -12,10 +12,10 @@ A solo developer building a platform intended to grow to 1000+ tenants needs a c
 
 ## Decision
 
-Organize the solution into Clean Architecture layers with enforced reference direction:
+Organize the solution into Clean Architecture layers with enforced reference direction. CQRS is a mandatory pattern realized via Wolverine (ADR-0080), not optional:
 
 - **Domain** — entities, value objects, domain events. No framework references.
-- **Application** — use cases, interfaces, commands/queries. References Domain only.
+- **Application** — use cases, interfaces, commands/queries (CQRS via Wolverine — ADR-0080, mandatory). References Domain only.
 - **Infrastructure** — EF Core, Elasticsearch client, KeyCloak client, messaging, file storage. References Application.
 - **API** — ASP.NET Core composition root, controllers/endpoints, HTTP concerns. References Application and Infrastructure.
 

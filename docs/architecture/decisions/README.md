@@ -1,7 +1,7 @@
 ---
 platform: Kartova
 description: SaaS service catalog and developer portal platform (Backstage + Compass + Statuspage)
-adr_count: 79
+adr_count: 81
 last_updated: 2026-04-21
 architecture:
   backend: .NET 10 (LTS) / ASP.NET Core + EF Core (ADR-0027)
@@ -12,7 +12,8 @@ architecture:
   api_docs: OpenAPI 3.x auto-generated, self-rendered inside Kartova docs engine (ADR-0034)
   database: PostgreSQL 16+ with Row-Level Security (ADR-0001, ADR-0012)
   search: Elasticsearch shared-index with per-tenant routing and filtered aliases (ADR-0002, ADR-0013)
-  messaging: Apache Kafka via Strimzi on K8s, KRaft mode, MassTransit over Confluent.Kafka (ADR-0003)
+  messaging: Apache Kafka via Strimzi on K8s, KRaft mode — Wolverine outbound + KafkaFlow inbound over Confluent.Kafka (ADR-0003, ADR-0080, ADR-0081)
+  mediator: Wolverine (CQRS mediation + transactional outbox), MediatR not used (ADR-0080)
   blob_storage: S3 abstraction with MinIO default, per-tenant prefixes (ADR-0004)
   identity: KeyCloak self-hosted on K8s, OIDC / JWT, single realm (ADR-0006, ADR-0007)
   deployment: Kubernetes, cloud-agnostic (no cloud-specific managed services) (ADR-0022)
@@ -117,7 +118,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 |----|-------|----------|--------|---------|---------|
 | [0001](ADR-0001-postgresql-as-primary-database.md) | PostgreSQL as Primary Database | Data Platform | Accepted | 0012, 0018 | Use PostgreSQL (v16+) as the primary transactional datastore for all tenant data, with RLS and `tenant_id` for isolation. |
 | [0002](ADR-0002-elasticsearch-for-search.md) | Elasticsearch for Search | Data Platform | Accepted | 0001, 0013 | Use Elasticsearch as the search engine for catalog, docs, and faceted filtering; PostgreSQL remains system of record. |
-| [0003](ADR-0003-apache-kafka-via-strimzi-on-kubernetes.md) | Apache Kafka via Strimzi on Kubernetes | Data Platform / Messaging | Accepted | 0001, 0022, 0037, 0041, 0047 | Use Apache Kafka via Strimzi Operator in KRaft mode (3-broker minimum) as the event bus, accessed via MassTransit over Confluent.Kafka. |
+| [0003](ADR-0003-apache-kafka-via-strimzi-on-kubernetes.md) | Apache Kafka via Strimzi on Kubernetes | Data Platform / Messaging | Accepted | 0001, 0022, 0037, 0041, 0047, 0080, 0081 | Use Apache Kafka via Strimzi Operator in KRaft mode (3-broker minimum) as the event bus, accessed via Wolverine (outbound, ADR-0080) + KafkaFlow (inbound, ADR-0081) over Confluent.Kafka. |
 | [0004](ADR-0004-s3-compatible-blob-storage-with-minio-default.md) | S3-Compatible Blob Storage with MinIO Default | Data Platform / Storage | Accepted | 0001, 0015, 0020, 0022, 0026 | Use S3-compatible blob storage via an `IBlobStorage` abstraction, default MinIO on K8s, shared bucket with per-tenant prefixes. |
 | [0005](ADR-0005-independent-data-replica-for-status-page.md) | Independent Data Replica for Status Page | Data Platform / HA | Accepted | 0023, 0076 | Status page reads from an independent, one-way asynchronously replicated data replica holding only status-page-relevant data. |
 | [0006](ADR-0006-keycloak-as-identity-provider.md) | KeyCloak as Identity Provider | Authentication & Authorization | Accepted | 0007, 0008, 0009, 0010 | Self-host KeyCloak on Kubernetes as the OIDC identity provider; one realm for all Kartova tenants, tenant assigned via JWT claim. |
@@ -141,7 +142,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0024](ADR-0024-docker-compose-for-local-dev.md) | Docker Compose for Local Dev | Platform Infrastructure | Accepted | 0022 | Provide a repo-root `docker-compose.yml` bringing up PostgreSQL, Elasticsearch, KeyCloak, and dependencies for local development. |
 | [0025](ADR-0025-ci-on-push-cd-to-staging-on-merge.md) | CI on Push; CD to Staging on Merge | Platform Infrastructure | Accepted | 0022 | CI runs on every push/PR; CD to staging is automatic on merge to main; production deploy is manual via tagged release. |
 | [0026](ADR-0026-fully-proprietary-no-open-source-core.md) | Fully Proprietary — No Open-Source Core | Platform Infrastructure | Accepted | — | Kartova source is fully proprietary with no open-source core or source-available license; individual libraries may be OSS opportunistically. |
-| [0027](ADR-0027-dotnet-aspnet-core-for-backend-api.md) | .NET / ASP.NET Core for Backend API | API & Integration Architecture | Accepted | 0028, 0041, 0046 | Use .NET LTS + ASP.NET Core with EF Core for the backend API; standard idioms (DI, FluentValidation, optional MediatR/CQRS). |
+| [0027](ADR-0027-dotnet-aspnet-core-for-backend-api.md) | .NET / ASP.NET Core for Backend API | API & Integration Architecture | Accepted | 0028, 0041, 0046, 0080 | Use .NET 10 LTS + ASP.NET Core with EF Core for the backend API; standard idioms (DI, FluentValidation). CQRS mediation via Wolverine is mandatory (ADR-0080). |
 | [0028](ADR-0028-clean-architecture-layering.md) | Clean Architecture Layering | API & Integration Architecture | Accepted | 0027 | Organize solution into Domain / Application / Infrastructure / API layers with enforced inward-only reference direction. |
 | [0029](ADR-0029-rest-as-primary-api-style.md) | REST as Primary API Style | API & Integration Architecture | Accepted | 0030, 0032, 0034 | Use REST (resource URLs, HTTP verbs, JSON, cursor pagination, consistent error envelope) with OpenAPI auto-generated. |
 | [0030](ADR-0030-url-or-header-based-api-versioning.md) | URL- or Header-Based API Versioning | API & Integration Architecture | Accepted | 0029 | Primary scheme is URL-based versioning (`/api/v1/...`); optional `Accept-Version` header; old versions supported ≥6 months after deprecation. |
@@ -194,6 +195,8 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0077](ADR-0077-encryption-storage-baseline-plus-oauth-column-and-tls-1-2-plus.md) | Encryption at Rest (Storage Baseline + OAuth Column Encryption) and TLS 1.2+ in Transit | Non-Functional / Cross-Cutting | Accepted | 0001, 0002, 0003, 0004, 0012, 0015, 0016, 0018, 0022, 0033, 0042, 0057, 0078 | Encryption at rest via storage-baseline AES-256 plus column-level encryption for OAuth tokens; TLS 1.2+ mandatory in transit. |
 | [0078](ADR-0078-no-secrets-stored-references-only.md) | No Secrets or Credentials Stored — References Only | Non-Functional / Security | Accepted | 0015, 0018, 0054, 0057, 0077 | Kartova never stores secret or credential values; the catalog stores only references, names, and structural metadata. |
 | [0079](ADR-0079-dogfooding-design-partners-gtm.md) | Dogfooding + Design Partners Go-to-Market Strategy | Non-Functional / Go-to-Market | Accepted | 0025, 0026, 0074 | Three-phase GTM: (1) dogfooding from Phase 0, (2) design partners, (3) public GA, with each phase gating feature scope. |
+| [0080](ADR-0080-wolverine-for-mediation-and-outbound-messaging.md) | Wolverine for In-Process Mediation and Outbound Messaging | Backend Architecture | Accepted | 0003, 0027, 0028, 0033, 0047, 0081 | Wolverine as single library for CQRS mediation, outbound Kafka publishing, transactional outbox, and future sagas. MediatR and MassTransit not used. |
+| [0081](ADR-0081-kafkaflow-for-inbound-kafka-consumers.md) | KafkaFlow for Inbound Kafka Consumers | Backend Architecture | Accepted | 0003, 0027, 0037, 0074, 0080 | KafkaFlow for all inbound consumers to get per-key parallel-within-partition workers; Wolverine (ADR-0080) handles outbound. |
 
 ## By category (quick navigation)
 
@@ -203,6 +206,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Compliance & Retention**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050
 - **Platform Infrastructure**: 0022, 0023, 0024, 0025, 0026
 - **API & Integration Architecture**: 0027, 0028, 0029, 0030, 0031, 0032, 0033, 0034, 0035, 0036, 0037, 0038
+- **Backend Architecture**: 0080, 0081
 - **Frontend Architecture**: 0039, 0040
 - **Agent Architecture**: 0041, 0042, 0043, 0044, 0045
 - **CLI & Distribution**: 0046
@@ -219,7 +223,8 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 
 - **Multi-tenancy isolation**: 0011, 0012, 0013, 0014, 0031
 - **Encryption / security**: 0018, 0042, 0057, 0077, 0078
-- **Notifications / webhooks**: 0033, 0047, 0048, 0049, 0050, 0051
+- **Notifications / webhooks**: 0033, 0047, 0048, 0049, 0050, 0051, 0080, 0081
+- **Messaging / mediation / CQRS**: 0003, 0028, 0037, 0080, 0081
 - **Agent architecture**: 0041, 0042, 0043, 0044, 0045, 0067
 - **API contract**: 0029, 0030, 0031, 0032, 0033, 0034
 - **Compliance (GDPR / MiFID II)**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050, 0078
@@ -267,7 +272,8 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Cold storage / Glacier / Archive** → 0020
 - **Column-level encryption** → 0077
 - **Confluent Schema Registry** → 0037
-- **Confluent.Kafka / MassTransit** → 0003
+- **Confluent.Kafka** → 0003, 0080, 0081
+- **CQRS** → 0028, 0080
 - **Consent records** → 0015
 - **Correlation ID** → 0058
 - **Cursor pagination** → 0029
@@ -313,16 +319,19 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **JSONB custom attributes** → 0064
 - **JWKS** → 0007, 0010
 - **JWT** → 0007, 0009, 0014, 0042
-- **Kafka** → 0003, 0033, 0047
+- **Kafka** → 0003, 0033, 0047, 0080, 0081
+- **KafkaFlow (inbound consumers)** → 0081
 - **KeyCloak** → 0006, 0007, 0008, 0009, 0010, 0014
 - **KRaft (Kafka)** → 0003
 - **Least-privilege OAuth scopes** → 0057
 - **Let's Encrypt / ACME / auto-SSL** → 0052
 - **Lifecycle states** → 0073
 - **Manual precedence (conflict queue)** → 0056
-- **MassTransit** → 0003
+- **MassTransit (NOT used)** → 0003, 0080, 0081
 - **Maturity model (5 levels)** → 0071
-- **MediatR / CQRS** → 0027
+- **MediatR (NOT used)** → 0027, 0080
+- **Mediator pattern** → 0028, 0080
+- **Per-key parallelism (Kafka consumers)** → 0081
 - **Metering (per-user)** → 0063
 - **Metrics (/metrics)** → 0036, 0059
 - **MiFID II** → 0016, 0017, 0018, 0050, 0062
@@ -389,7 +398,8 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **TLS 1.2+ / 1.3** → 0077
 - **Token-bucket rate limit** → 0031
 - **Tokens (service account)** → 0009, 0063
-- **Transactional outbox / Kafka retry** → 0033
+- **Transactional outbox** → 0033, 0047, 0080
+- **Wolverine (mediator + outbound + outbox)** → 0080
 - **TypeScript (strict)** → 0039
 - **URL-based versioning** → 0030
 - **User-count metering** → 0063
@@ -416,3 +426,4 @@ _No ADRs have been deprecated or superseded yet. When an ADR is superseded by a 
 | 2026-04-21 | ADR-0033, 0042, 0060, 0061, 0064, 0077 accepted (final DISCUSS resolved) |
 | 2026-04-21 | README restructured as LLM-friendly index with Summary/Related columns |
 | 2026-04-21 | Added YAML front-matter, Keyword Index, and Deprecated/Superseded section |
+| 2026-04-21 | ADR-0080 (Wolverine — mediation + outbound + outbox) and ADR-0081 (KafkaFlow — inbound consumers) accepted; MassTransit and MediatR removed from stack; ADR-0003, 0027, 0028, 0033, 0047 updated accordingly |
