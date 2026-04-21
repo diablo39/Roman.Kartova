@@ -18,6 +18,7 @@
 | Design system (tokens, nav specs) | [docs/design/DESIGN.md](docs/design/DESIGN.md) |
 | Google Stitch prompts | [docs/design/STITCH-PROMPTS.md](docs/design/STITCH-PROMPTS.md) |
 | UI mockups (Stitch output, canonical) | `docs/ui-screens/{screen-name}/{code.html, screen.png}` |
+| Per-slice implementation specs & plans | `docs/superpowers/specs/YYYY-MM-DD-*-design.md` + `docs/superpowers/plans/YYYY-MM-DD-*-plan.md` |
 
 ## Conventions
 
@@ -79,5 +80,6 @@ Post-MVP: 6 Agent · 7 Intelligence · 8 Analytics · 9 Advanced
 - **Cross-module interactions:** only via Wolverine `IMessageBus` (in-process) or Kafka events; never direct references to other modules' Domain/Application/Infrastructure
 - **When proposing new ADRs:** preview decision before saving (user reviews first)
 - **Dates in memory/docs:** absolute (convert "Thursday" → `2026-03-05`)
-- **Implementation work:** use superpowers skills; `/gsd:*` commands for phase planning
+- **Implementation work:** Superpowers workflow — `superpowers:brainstorming` → `docs/superpowers/specs/YYYY-MM-DD-*-design.md`, then `superpowers:writing-plans` → `docs/superpowers/plans/YYYY-MM-DD-*-plan.md`, then `superpowers:executing-plans` (ticks checkboxes in-place). Roadmap/scope lives in `docs/product/` (EPICS-AND-STORIES.md, CHECKLIST.md, phases/). **GSD is not used** — existing product docs already cover milestone/phase-level tracking.
+- **Per slice:** scope one vertical slice end-to-end (walking skeleton → auth → first CRUD → CI/CD+helm → compliance). After executing a plan, update `docs/product/CHECKLIST.md` to reflect completed stories.
 - **Compliance:** GDPR + MiFID II from day one — not bolted on later (see E-01.F-05)
