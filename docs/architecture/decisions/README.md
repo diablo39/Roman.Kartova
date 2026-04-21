@@ -1,11 +1,12 @@
 ---
 platform: Kartova
 description: SaaS service catalog and developer portal platform (Backstage + Compass + Statuspage)
-adr_count: 81
+adr_count: 82
 last_updated: 2026-04-21
 architecture:
   backend: .NET 10 (LTS) / ASP.NET Core + EF Core (ADR-0027)
-  backend_pattern: Clean Architecture layers — Domain / Application / Infrastructure / API (ADR-0028)
+  backend_pattern: Modular monolith (ADR-0082) with Clean Architecture per module — Domain / Application / Infrastructure / Contracts (ADR-0028); inter-module via Wolverine mediator or Kafka events
+  module_boundaries: NetArchTest fitness functions enforce no cross-module internal references; only `{Module}.Contracts` is public (ADR-0082)
   frontend: React SPA + TypeScript strict, Vite, React Router, TanStack Query (ADR-0039)
   api_style: REST with cursor pagination and consistent error envelope (ADR-0029)
   api_versioning: URL-based primary (/api/v1/...), optional Accept-Version header (ADR-0030)
@@ -197,6 +198,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0079](ADR-0079-dogfooding-design-partners-gtm.md) | Dogfooding + Design Partners Go-to-Market Strategy | Non-Functional / Go-to-Market | Accepted | 0025, 0026, 0074 | Three-phase GTM: (1) dogfooding from Phase 0, (2) design partners, (3) public GA, with each phase gating feature scope. |
 | [0080](ADR-0080-wolverine-for-mediation-and-outbound-messaging.md) | Wolverine for In-Process Mediation and Outbound Messaging | Backend Architecture | Accepted | 0003, 0027, 0028, 0033, 0047, 0081 | Wolverine as single library for CQRS mediation, outbound Kafka publishing, transactional outbox, and future sagas. MediatR and MassTransit not used. |
 | [0081](ADR-0081-kafkaflow-for-inbound-kafka-consumers.md) | KafkaFlow for Inbound Kafka Consumers | Backend Architecture | Accepted | 0003, 0027, 0037, 0074, 0080 | KafkaFlow for all inbound consumers to get per-key parallel-within-partition workers; Wolverine (ADR-0080) handles outbound. |
+| [0082](ADR-0082-modular-monolith-architecture.md) | Modular Monolith Architecture | Backend Architecture | Accepted | 0003, 0012, 0027, 0028, 0080, 0081 | Modular monolith with one bounded-context module per domain area, Clean Architecture per module, enforced boundaries via NetArchTest; inter-module only via Wolverine or Kafka. |
 
 ## By category (quick navigation)
 
@@ -206,7 +208,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Compliance & Retention**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050
 - **Platform Infrastructure**: 0022, 0023, 0024, 0025, 0026
 - **API & Integration Architecture**: 0027, 0028, 0029, 0030, 0031, 0032, 0033, 0034, 0035, 0036, 0037, 0038
-- **Backend Architecture**: 0080, 0081
+- **Backend Architecture**: 0080, 0081, 0082
 - **Frontend Architecture**: 0039, 0040
 - **Agent Architecture**: 0041, 0042, 0043, 0044, 0045
 - **CLI & Distribution**: 0046
@@ -225,6 +227,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Encryption / security**: 0018, 0042, 0057, 0077, 0078
 - **Notifications / webhooks**: 0033, 0047, 0048, 0049, 0050, 0051, 0080, 0081
 - **Messaging / mediation / CQRS**: 0003, 0028, 0037, 0080, 0081
+- **Modular monolith / bounded contexts**: 0028, 0080, 0081, 0082
 - **Agent architecture**: 0041, 0042, 0043, 0044, 0045, 0067
 - **API contract**: 0029, 0030, 0031, 0032, 0033, 0034
 - **Compliance (GDPR / MiFID II)**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050, 0078
@@ -331,6 +334,9 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Maturity model (5 levels)** → 0071
 - **MediatR (NOT used)** → 0027, 0080
 - **Mediator pattern** → 0028, 0080
+- **Modular monolith** → 0082
+- **Module boundaries / bounded contexts** → 0082
+- **NetArchTest / fitness functions** → 0082
 - **Per-key parallelism (Kafka consumers)** → 0081
 - **Metering (per-user)** → 0063
 - **Metrics (/metrics)** → 0036, 0059
@@ -427,3 +433,4 @@ _No ADRs have been deprecated or superseded yet. When an ADR is superseded by a 
 | 2026-04-21 | README restructured as LLM-friendly index with Summary/Related columns |
 | 2026-04-21 | Added YAML front-matter, Keyword Index, and Deprecated/Superseded section |
 | 2026-04-21 | ADR-0080 (Wolverine — mediation + outbound + outbox) and ADR-0081 (KafkaFlow — inbound consumers) accepted; MassTransit and MediatR removed from stack; ADR-0003, 0027, 0028, 0033, 0047 updated accordingly |
+| 2026-04-21 | ADR-0082 (Modular monolith) accepted — bounded-context modules with NetArchTest-enforced boundaries, Wolverine/Kafka-only inter-module communication; ADR-0028 updated |

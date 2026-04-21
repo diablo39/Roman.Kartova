@@ -4,7 +4,7 @@
 **Date:** 2026-04-17
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** API & Integration Architecture
-**Related:** ADR-0027 (.NET API), ADR-0080 (Wolverine CQRS mediator)
+**Related:** ADR-0027 (.NET API), ADR-0080 (Wolverine CQRS mediator), ADR-0082 (Modular monolith — Clean Architecture applied per module)
 
 ## Context
 
@@ -31,7 +31,7 @@ Reference direction is enforced at build time (e.g., NetArchTest or project refe
 
 - **Vertical slice architecture** — excellent for small teams; may be adopted as a sub-pattern within modules.
 - **Feature folders** — simpler but less disciplined as the codebase grows.
-- **Modular monolith with bounded-context modules** — compatible with Clean Architecture; likely to evolve toward this as bounded contexts stabilize.
+- **Modular monolith with bounded-context modules** — adopted per ADR-0082. Clean Architecture is applied independently inside each module.
 - **Microservices** — premature for solo-dev MVP.
 
 ## Consequences

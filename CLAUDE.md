@@ -31,7 +31,8 @@ Quick lookup; full context in the ADR library keyword index.
 
 | Area | Decision | ADR |
 |------|----------|-----|
-| Backend | .NET 10 (LTS) + ASP.NET Core + EF Core, Clean Architecture | ADR-0027, ADR-0028 |
+| Backend | .NET 10 (LTS) + ASP.NET Core + EF Core, Clean Architecture per module | ADR-0027, ADR-0028 |
+| Solution style | Modular monolith — one csproj tree per bounded context, NetArchTest fitness functions enforce boundaries | ADR-0082 |
 | Frontend | React SPA + TypeScript strict, Vite, TanStack Query | ADR-0039 |
 | Database | PostgreSQL 16 with Row-Level Security (not schema-per-tenant) | ADR-0001, ADR-0012 |
 | Search | Elasticsearch shared index + per-tenant routing + filtered aliases | ADR-0002, ADR-0013 |
@@ -67,7 +68,8 @@ Post-MVP: 6 Agent · 7 Intelligence · 8 Analytics · 9 Advanced
 ## Working agreements
 
 - **Before architectural suggestions:** check ADR keyword index in `docs/architecture/decisions/README.md` — 79 decisions already made
-- **Before adding features:** verify they're not already scoped in `EPICS-AND-STORIES.md`
+- **Before adding features:** verify they're not already scoped in `EPICS-AND-STORIES.md`; map each feature to its owning module (ADR-0082)
+- **Cross-module interactions:** only via Wolverine `IMessageBus` (in-process) or Kafka events; never direct references to other modules' Domain/Application/Infrastructure
 - **When proposing new ADRs:** preview decision before saving (user reviews first)
 - **Dates in memory/docs:** absolute (convert "Thursday" → `2026-03-05`)
 - **Implementation work:** use superpowers skills; `/gsd:*` commands for phase planning
