@@ -79,11 +79,12 @@ Use the **Playwright MCP server** as the mandatory browser-automation tool durin
 - During frontend work, expected commands: `browser_navigate`, `browser_click`, `browser_fill_form`, `browser_snapshot`, `browser_take_screenshot`, `browser_console_messages`, `browser_network_requests`
 - Dev server script (to be defined in Phase 0 scaffolding): `npm run dev` inside `src/web` starts Vite on `http://localhost:5173`
 - Verification checklist (per frontend change):
-  1. `browser_navigate` to affected page
-  2. Exercise the feature (click / fill / submit)
-  3. `browser_console_messages` — ensure no errors
-  4. `browser_snapshot` or `browser_take_screenshot` for visual evidence
-  5. Include screenshot in PR description (manual paste)
+  1. **Cold-start the dev server** — stop any running Vite instance, start fresh (`npm run dev`). Cached HMR state can mask build-time config errors (e.g., ESM alias resolution issues that only surface on a clean transform). This was learned the hard way in Slice 1: Task 17's initial verification passed because HMR had a working cached module graph, but the `__dirname`-in-ESM bug in `vite.config.ts` surfaced immediately on a cold start.
+  2. `browser_navigate` to affected page
+  3. Exercise the feature (click / fill / submit)
+  4. `browser_console_messages` — ensure no errors (watch for 500s on `/src/*` — those indicate import/alias resolution problems, not runtime bugs)
+  5. `browser_snapshot` or `browser_take_screenshot` for visual evidence
+  6. Include screenshot in PR description (manual paste)
 
 ## References
 
