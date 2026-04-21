@@ -1,0 +1,32 @@
+using Testcontainers.PostgreSql;
+using Xunit;
+
+namespace Kartova.Catalog.IntegrationTests.Fixtures;
+
+public sealed class PostgresFixture : IAsyncLifetime
+{
+    private PostgreSqlContainer? _container;
+
+    public string ConnectionString => _container?.GetConnectionString()
+        ?? throw new InvalidOperationException("Container not started");
+
+    public async Task InitializeAsync()
+    {
+        _container = new PostgreSqlBuilder()
+            .WithImage("postgres:16-alpine")
+            .WithDatabase("kartova")
+            .WithUsername("migrator")
+            .WithPassword("dev")
+            .Build();
+
+        await _container.StartAsync();
+    }
+
+    public async Task DisposeAsync()
+    {
+        if (_container is not null)
+        {
+            await _container.DisposeAsync();
+        }
+    }
+}
