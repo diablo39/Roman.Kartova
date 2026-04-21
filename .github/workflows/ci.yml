@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (arch + unit + integration)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore Kartova.slnx
+
+      - name: Build
+        run: dotnet build Kartova.slnx --configuration Release --no-restore
+
+      - name: Architecture tests (CI gate — ADR-0083)
+        run: dotnet test tests/Kartova.ArchitectureTests/Kartova.ArchitectureTests.csproj --configuration Release --no-build --verbosity normal
+
+      - name: Unit tests
+        run: dotnet test src/Modules/Catalog/Kartova.Catalog.Tests/Kartova.Catalog.Tests.csproj --configuration Release --no-build --verbosity normal
+
+      - name: Integration tests (Testcontainers)
+        run: dotnet test src/Modules/Catalog/Kartova.Catalog.IntegrationTests/Kartova.Catalog.IntegrationTests.csproj --configuration Release --no-build --verbosity normal
+
+  frontend:
+    name: Frontend (typecheck + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+  helm:
+    name: Helm (lint + template)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "v3.16.0"
+
+      - name: Lint
+        run: helm lint deploy/helm/kartova/ --set database.connectionString="Host=x;Database=x;Username=x;Password=x"
+
+      - name: Template
+        run: helm template deploy/helm/kartova/ --set database.connectionString="Host=x;Database=x;Username=x;Password=x" > /tmp/rendered.yaml
