@@ -418,3 +418,6 @@ FodyWeavers.xsd
 *.msp
 
 .claude/settings.local.json
+
+# MCP server config — contains API keys (project-scope registration)
+.mcp.json
