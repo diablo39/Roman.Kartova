@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Kartova.Api/Kartova.Api.csproj" />
+    <Project Path="src/Kartova.Migrator/Kartova.Migrator.csproj" />
     <Project Path="src/Kartova.SharedKernel/Kartova.SharedKernel.csproj" />
   </Folder>
   <Folder Name="/src/Modules/" />
