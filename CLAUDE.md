@@ -12,7 +12,7 @@
 | Backlog index (30 epics, 73 features, 209 stories) | [docs/product/EPICS-AND-STORIES.md](docs/product/EPICS-AND-STORIES.md) |
 | Progress checklist | [docs/product/CHECKLIST.md](docs/product/CHECKLIST.md) |
 | Phase files (0–9) | `docs/product/phases/phase-N-*.md` |
-| ADR library (88 accepted) + keyword index | [docs/architecture/decisions/README.md](docs/architecture/decisions/README.md) |
+| ADR library (89 accepted) + keyword index | [docs/architecture/decisions/README.md](docs/architecture/decisions/README.md) |
 | Individual ADRs | `docs/architecture/decisions/ADR-NNNN-*.md` |
 | ADR candidates (historical) | [docs/architecture/ADR-CANDIDATES.md](docs/architecture/ADR-CANDIDATES.md) |
 | Design system (tokens, nav specs) | [docs/design/DESIGN.md](docs/design/DESIGN.md) |
@@ -75,7 +75,7 @@ Post-MVP: 6 Agent · 7 Intelligence · 8 Analytics · 9 Advanced
 
 ## Working agreements
 
-- **Before architectural suggestions:** check ADR keyword index in `docs/architecture/decisions/README.md` — 88 decisions already made
+- **Before architectural suggestions:** check ADR keyword index in `docs/architecture/decisions/README.md` — 89 decisions already made
 - **Frontend / UI work:** read local mockup first from `docs/ui-screens/{screen}/code.html` + `screen.png` (canonical snapshot, per ADR-0087); escalate to Stitch MCP only when screen is missing locally or user asks for sync. Map Stitch HTML → shadcn/ui components (ADR-0088). Verify with Playwright MCP (navigate → interact → snapshot → check console) before claiming done (ADR-0084).
 - **Before adding features:** verify they're not already scoped in `EPICS-AND-STORIES.md`; map each feature to its owning module (ADR-0082)
 - **Cross-module interactions:** only via Wolverine `IMessageBus` (in-process) or Kafka events; never direct references to other modules' Domain/Application/Infrastructure

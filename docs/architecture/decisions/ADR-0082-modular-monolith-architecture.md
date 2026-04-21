@@ -4,7 +4,7 @@
 **Date:** 2026-04-21
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** Backend Architecture
-**Related:** ADR-0027 (.NET API), ADR-0028 (Clean Architecture layering), ADR-0080 (Wolverine mediator), ADR-0081 (KafkaFlow inbound), ADR-0003 (Kafka event bus), ADR-0012 (RLS multi-tenancy)
+**Related:** ADR-0027 (.NET API), ADR-0028 (Clean Architecture layering), ADR-0080 (Wolverine mediator), ADR-0081 (KafkaFlow inbound), ADR-0003 (Kafka event bus), ADR-0012 (RLS multi-tenancy), ADR-0089 (`.slnx` solution format)
 
 ## Context
 
@@ -89,7 +89,7 @@ Organize the backend as a **modular monolith**: a single deployable artifact com
 
 ## Implementation Notes
 
-**Solution file format:** Use `.slnx` (XML-based, default in .NET 10 SDK), not the classic `.sln` MSBuild format. Rationale: (1) human-readable XML with clean git diffs — important when a modular monolith grows to 40+ projects, (2) `.slnx` is the forward direction for .NET tooling, (3) full parity with `.sln` for `dotnet` CLI operations. Generate via `dotnet new sln --name Kartova --output .`; add projects via `dotnet sln Kartova.slnx add <csproj>`.
+**Solution file format:** `Kartova.slnx` — see ADR-0089 for rationale.
 
 **Solution layout:**
 

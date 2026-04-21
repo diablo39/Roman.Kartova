@@ -99,23 +99,37 @@ Architecture tests are **mandatory, non-optional**, and co-located in `tests/Kar
 
 ## Implementation Notes
 
-**Test project structure:**
+**Test project layout — co-located per module:**
+
+Module tests (Tier 2 unit, Tier 3 integration) are **co-located** inside each module folder so a module is a physically self-contained vertical slice (aligned with ADR-0082 modular monolith). Only cross-cutting tests live in the top-level `tests/` directory.
 
 ```
-tests/
-  Kartova.ArchitectureTests/              # Tier 1 — NetArchTest
-    ModuleBoundaryTests.cs
-    CleanArchitectureLayerTests.cs
-    NamingConventionTests.cs
-    ForbiddenDependencyTests.cs
-  Kartova.SharedKernel.Tests/             # Tier 2 — unit
+src/
   Modules/
-    Catalog.Tests/                        # Tier 2 — unit (module-internal)
-    Catalog.IntegrationTests/             # Tier 3 — Testcontainers
+    Catalog/
+      Kartova.Catalog.Domain/
+      Kartova.Catalog.Application/
+      Kartova.Catalog.Infrastructure/
+      Kartova.Catalog.Contracts/
+      Kartova.Catalog.Tests/              # Tier 2 — unit, co-located
+      Kartova.Catalog.IntegrationTests/   # Tier 3 — Testcontainers, co-located
+    Organization/
+      Kartova.Organization.{Domain, Application, Infrastructure, Contracts}/
+      Kartova.Organization.Tests/
+      Kartova.Organization.IntegrationTests/
     ...
-  Kartova.ContractTests/                  # Tier 4 — Kafka + REST contracts
-  Kartova.E2E/                            # Tier 5 — Playwright
+
+tests/                                     # cross-cutting only
+  Kartova.ArchitectureTests/              # Tier 1 — NetArchTest (spans all modules)
+    CleanArchitectureLayerTests.cs
+    ModuleBoundaryTests.cs
+    ForbiddenDependencyTests.cs
+    AssemblyRegistry.cs
+  Kartova.E2E/                            # Tier 5 — Playwright (cross-module flows)
+  Kartova.ContractTests/                  # Tier 4 — Pact (cross-module contracts)
 ```
+
+**Rationale for co-location:** "Delete a module" becomes `rm -rf src/Modules/{Module}/` — no test dir orphans. Test project names mirror production: `Kartova.Catalog.Tests` references `Kartova.Catalog.Domain` via `..\Kartova.Catalog.Domain\Kartova.Catalog.Domain.csproj`. NetArchTest boundary rule is trivially enforceable by namespace prefix (module A's test project may see its own internals, never another module's).
 
 **Example architecture test (forbidden dependency):**
 

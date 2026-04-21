@@ -1,7 +1,7 @@
 ---
 platform: Kartova
 description: SaaS service catalog and developer portal platform (Backstage + Compass + Statuspage)
-adr_count: 88
+adr_count: 89
 last_updated: 2026-04-21
 architecture:
   backend: .NET 10 (LTS) / ASP.NET Core + EF Core (ADR-0027)
@@ -215,6 +215,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0086](ADR-0086-helm-chart-co-located-in-application-repository.md) | Helm Chart Co-located in Application Repository | Deployment & Operations | Accepted | 0022, 0024, 0025, 0043, 0082, 0085 | Helm chart lives at `deploy/helm/kartova/` in-repo, versioned with the app, published as OCI artifact to GHCR on release. Agent chart remains separate (ADR-0043). |
 | [0087](ADR-0087-google-stitch-mcp-as-design-source.md) | Google Stitch MCP as Design Source for Frontend Implementation | Development Workflow | Accepted | 0039, 0083, 0084, 0088 | Google Stitch MCP mandatory as canonical design source — query mockup before implementing any screen; pairs with ADR-0084 Playwright MCP to form full Stitch → code → verify loop. |
 | [0088](ADR-0088-shadcn-ui-component-library-stack.md) | React Component Library — shadcn/ui + Tailwind Stack for Frontend Primitives | Frontend Architecture | Accepted | 0039, 0040, 0084, 0087 | shadcn/ui + Tailwind CSS v4 + Radix primitives; supporting libs: TanStack Table, react-hook-form + zod, cmdk, sonner, Recharts, React Flow, lucide-react. Navigation canonical in DESIGN.md, not Stitch. |
+| [0089](ADR-0089-slnx-solution-file-format.md) | Use `.slnx` Solution File Format (Not Classic `.sln`) | Backend Architecture | Accepted | 0027, 0028, 0082 | Adopt `.slnx` (XML, .NET 10 SDK default) over classic `.sln` for cleaner git diffs at scale (40+ csprojs), forward toolchain direction. `dotnet sln migrate` available if reversal ever needed. |
 
 ## By category (quick navigation)
 
@@ -224,7 +225,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Compliance & Retention**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050
 - **Platform Infrastructure**: 0022, 0023, 0024, 0025, 0026
 - **API & Integration Architecture**: 0027, 0028, 0029, 0030, 0031, 0032, 0033, 0034, 0035, 0036, 0037, 0038
-- **Backend Architecture**: 0080, 0081, 0082
+- **Backend Architecture**: 0080, 0081, 0082, 0089
 - **Frontend Architecture**: 0039, 0040, 0088
 - **Agent Architecture**: 0041, 0042, 0043, 0044, 0045
 - **CLI & Distribution**: 0046
@@ -246,7 +247,8 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Encryption / security**: 0018, 0042, 0057, 0077, 0078
 - **Notifications / webhooks**: 0033, 0047, 0048, 0049, 0050, 0051, 0080, 0081
 - **Messaging / mediation / CQRS**: 0003, 0028, 0037, 0080, 0081
-- **Modular monolith / bounded contexts**: 0028, 0080, 0081, 0082
+- **Modular monolith / bounded contexts**: 0028, 0080, 0081, 0082, 0089
+- **Solution file format / tooling**: 0082, 0089
 - **Testing / quality gates**: 0025, 0083
 - **Frontend workflow / dev-time verification**: 0039, 0083, 0084, 0087
 - **AI-assisted development**: 0079, 0084, 0087
@@ -369,6 +371,8 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **MediatR (NOT used)** → 0027, 0080
 - **Mediator pattern** → 0028, 0080
 - **Modular monolith** → 0082
+- **Solution file format / .slnx / .sln** → 0089
+- **.NET 10 SDK defaults** → 0027, 0089
 - **Module boundaries / bounded contexts** → 0082
 - **NetArchTest / fitness functions** → 0082, 0083
 - **Pact.NET / contract tests** → 0083
@@ -496,3 +500,4 @@ _No ADRs have been deprecated or superseded yet. When an ADR is superseded by a 
 | 2026-04-21 | ADR-0087 (Google Stitch MCP as design source) accepted — full frontend loop formalized: Stitch (design) → code → Playwright (verify); ADR-0084 updated |
 | 2026-04-21 | ADR-0088 (shadcn/ui + Tailwind stack) accepted — frontend primitives decided based on Stitch output visual analysis; ADR-0039, 0040, 0087 updated |
 | 2026-04-21 | ADR-0087 refined — local-first workflow: `docs/ui-screens/{screen}/code.html` + `screen.png` are default canonical source; Stitch MCP is escalation for missing or stale screens |
+| 2026-04-21 | ADR-0089 (`.slnx` solution format) accepted — adopted during Slice 1; ADR-0082 Implementation Notes simplified to cross-reference; ADR-0083 Implementation Notes updated to document co-located module test layout |
