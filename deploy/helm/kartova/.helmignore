@@ -1,0 +1,7 @@
+.DS_Store
+.git/
+.vscode/
+*.swp
+*.tmp
+*.orig
+README.md

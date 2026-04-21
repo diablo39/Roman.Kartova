@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "kartova.fullname" . }}-migrator-{{ .Release.Revision }}
+  labels:
+    {{- include "kartova.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrator
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        {{- include "kartova.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migrator
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrator
+          image: "{{ .Values.image.repository }}-{{ .Values.migrator.image.name }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: ConnectionStrings__Kartova
+              value: {{ .Values.database.connectionString | quote }}
+          resources:
+            {{- toYaml .Values.migrator.resources | nindent 12 }}

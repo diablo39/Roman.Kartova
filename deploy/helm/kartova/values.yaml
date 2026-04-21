@@ -1,0 +1,37 @@
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: ghcr.io/romanglogowski/kartova
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+api:
+  replicaCount: 1
+  image:
+    name: api
+  port: 8080
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+migrator:
+  image:
+    name: migrator
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+database:
+  connectionString: ""   # set via values override or external secret
+
+env:
+  ASPNETCORE_ENVIRONMENT: Production

@@ -1,0 +1,13 @@
+apiVersion: v2
+name: kartova
+description: Kartova service catalog and developer portal
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - service-catalog
+  - developer-portal
+  - backstage-alternative
+maintainers:
+  - name: Roman Głogowski
+    email: 18666546+diablo39@users.noreply.github.com
