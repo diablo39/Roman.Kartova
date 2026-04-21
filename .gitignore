@@ -421,3 +421,14 @@ FodyWeavers.xsd
 
 # MCP server config — contains API keys (project-scope registration)
 .mcp.json
+# Kartova project additions (Slice 1)
+node_modules/
+web/dist/
+web/.vite/
+TestResults/
+coverage/
+.vs/
+.idea/
+*.DotSettings.user
+.env.local
+.env.*.local
