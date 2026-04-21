@@ -31,7 +31,7 @@
 
 #### Feature E-12.F-03: Subscriber Notifications
 
-> **ADRs (feature-level):** [ADR-0051](../../architecture/decisions/ADR-0051-multi-channel-status-page-subscribers.md)
+> **ADRs (feature-level):** [ADR-0051](../../architecture/decisions/ADR-0051-multi-channel-status-page-subscribers.md), [ADR-0033](../../architecture/decisions/ADR-0033-hmac-signed-webhooks-with-retry-dlq-idempotency-rate-limiting.md) (webhook delivery — S-01)
 
 | Story ID | User Story | Acceptance Criteria |
 |----------|-----------|-------------------|

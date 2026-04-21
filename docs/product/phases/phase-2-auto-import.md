@@ -15,21 +15,21 @@
 
 > **ADRs (feature-level):** [ADR-0057](../../architecture/decisions/ADR-0057-oauth-git-provider-connection.md)
 
-| Story ID | User Story | Acceptance Criteria |
-|----------|-----------|-------------------|
-| E-07.F-01.S-01 | As an org admin, I want to connect my GitHub organization via OAuth so that Kartova can access our repositories | OAuth flow completes; GitHub org connected; org/repos accessible via API |
-| E-07.F-01.S-02 | As an org admin, I want to see a list of all repositories in my connected GitHub org so that I can select which ones to import | Repository list fetched; shows name, language, last activity, description; filterable |
-| E-07.F-01.S-03 | As a developer, I want GitHub webhook events (push, PR merge) to trigger documentation re-sync so that docs are always up to date | Webhook registered on repo; push events trigger doc sync; sync completes within 60 seconds |
+| Story ID | User Story | Acceptance Criteria | ADRs |
+|----------|-----------|-------------------|------|
+| E-07.F-01.S-01 | As an org admin, I want to connect my GitHub organization via OAuth so that Kartova can access our repositories | OAuth flow completes; GitHub org connected; org/repos accessible via API | [0077](../../architecture/decisions/ADR-0077-encryption-storage-baseline-plus-oauth-column-and-tls-1-2-plus.md) |
+| E-07.F-01.S-02 | As an org admin, I want to see a list of all repositories in my connected GitHub org so that I can select which ones to import | Repository list fetched; shows name, language, last activity, description; filterable | |
+| E-07.F-01.S-03 | As a developer, I want GitHub webhook events (push, PR merge) to trigger documentation re-sync so that docs are always up to date | Webhook registered on repo; push events trigger doc sync; sync completes within 60 seconds | |
 
 #### Feature E-07.F-02: Azure DevOps Integration
 
 > **ADRs (feature-level):** [ADR-0057](../../architecture/decisions/ADR-0057-oauth-git-provider-connection.md)
 
-| Story ID | User Story | Acceptance Criteria |
-|----------|-----------|-------------------|
-| E-07.F-02.S-01 | As an org admin, I want to connect my Azure DevOps organization via OAuth so that Kartova can access our repositories | OAuth flow completes; Azure DevOps org connected; projects/repos accessible |
-| E-07.F-02.S-02 | As an org admin, I want to see all repositories across Azure DevOps projects so that I can select which ones to import | Repository list fetched from all projects; same filtering as GitHub |
-| E-07.F-02.S-03 | As a developer, I want Azure DevOps service hooks to trigger documentation re-sync so that docs stay current | Service hook configured; push events trigger sync; sync completes within 60 seconds |
+| Story ID | User Story | Acceptance Criteria | ADRs |
+|----------|-----------|-------------------|------|
+| E-07.F-02.S-01 | As an org admin, I want to connect my Azure DevOps organization via OAuth so that Kartova can access our repositories | OAuth flow completes; Azure DevOps org connected; projects/repos accessible | [0077](../../architecture/decisions/ADR-0077-encryption-storage-baseline-plus-oauth-column-and-tls-1-2-plus.md) |
+| E-07.F-02.S-02 | As an org admin, I want to see all repositories across Azure DevOps projects so that I can select which ones to import | Repository list fetched from all projects; same filtering as GitHub | |
+| E-07.F-02.S-03 | As a developer, I want Azure DevOps service hooks to trigger documentation re-sync so that docs stay current | Service hook configured; push events trigger sync; sync completes within 60 seconds | |
 
 ### Epic E-08: Auto-Import Engine
 

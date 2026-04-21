@@ -9,6 +9,8 @@
 
 > Enable CRUD operations for all catalog entity types with proper lifecycle management.
 
+> **ADRs (epic-level):** [ADR-0064](../../architecture/decisions/ADR-0064-entity-taxonomy-nine-fixed-plus-jsonb-custom-entity-phased.md) — nine fixed types + JSONB custom_attributes (MVP), Custom Entity type planned for Phase 2
+
 #### Feature E-02.F-01: Application Entity Management
 
 > **ADRs (feature-level):** [ADR-0069](../../architecture/decisions/ADR-0069-required-minimum-fields-enforcement.md) (required fields, S-05), [ADR-0073](../../architecture/decisions/ADR-0073-enforced-entity-lifecycle-states.md) (lifecycle states, S-04)
@@ -178,7 +180,7 @@
 
 > Core notification system supporting in-app, email, webhooks, and native integrations. Required by multiple later features (scorecard nudges, risk alerts, drift alerts, breaking change alerts, status page subscribers).
 
-> **ADRs (epic-level):** [ADR-0047](../../architecture/decisions/ADR-0047-unified-multi-channel-notification-engine.md) (dispatch engine), [ADR-0048](../../architecture/decisions/ADR-0048-native-slack-and-teams-integrations.md) (Slack/Teams), [ADR-0049](../../architecture/decisions/ADR-0049-configurable-smtp-email-provider.md) (email), [ADR-0050](../../architecture/decisions/ADR-0050-notification-log-as-mifid-ii-record.md) (MiFID record)
+> **ADRs (epic-level):** [ADR-0047](../../architecture/decisions/ADR-0047-unified-multi-channel-notification-engine.md) (dispatch engine), [ADR-0048](../../architecture/decisions/ADR-0048-native-slack-and-teams-integrations.md) (Slack/Teams), [ADR-0049](../../architecture/decisions/ADR-0049-configurable-smtp-email-provider.md) (email), [ADR-0050](../../architecture/decisions/ADR-0050-notification-log-as-mifid-ii-record.md) (MiFID record), [ADR-0033](../../architecture/decisions/ADR-0033-hmac-signed-webhooks-with-retry-dlq-idempotency-rate-limiting.md) (webhook delivery — S-04), [0003](../../architecture/decisions/ADR-0003-apache-kafka-via-strimzi-on-kubernetes.md) (message bus)
 
 #### Feature E-06a.F-01: Notification Dispatch Engine
 

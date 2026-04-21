@@ -9,15 +9,15 @@
 
 > Deploy a lightweight .NET agent in customer infrastructure for health monitoring, metrics, and service discovery.
 
-> **ADRs (epic-level, all stories):** [ADR-0041](../../architecture/decisions/ADR-0041-dotnet-agent-with-aot-compilation.md)
+> **ADRs (epic-level, all stories):** [ADR-0041](../../architecture/decisions/ADR-0041-dotnet-agent-with-aot-compilation.md), [0003](../../architecture/decisions/ADR-0003-apache-kafka-via-strimzi-on-kubernetes.md) (telemetry ingestion bus)
 
 #### Feature E-15.F-01: Agent Deployment & Communication
 
 | Story ID | User Story | Acceptance Criteria | ADRs |
 |----------|-----------|-------------------|------|
-| E-15.F-01.S-01 | As a DevOps engineer, I want to deploy the Kartova agent as a Docker container or K8s Deployment so that it runs in our infrastructure | Docker image published; Helm chart available; agent starts and connects to platform; no inbound ports required | [0043](../../architecture/decisions/ADR-0043-agent-deployable-as-docker-and-helm.md) |
-| E-15.F-01.S-02 | As a DevOps engineer, I want the agent to communicate securely with the platform via outbound-only mTLS so that no inbound firewall rules are needed | Agent initiates connection; mTLS handshake; platform authenticates agent via certificate; data encrypted in transit | |
-| E-15.F-01.S-03 | As a DevOps engineer, I want to configure the agent from the platform UI so that I don't need to redeploy for config changes | Config pushed from platform; agent polls for updates; config changes applied without restart | [0044](../../architecture/decisions/ADR-0044-centrally-managed-agent-config-pull-based.md) |
+| E-15.F-01.S-01 | As a DevOps engineer, I want to deploy the Kartova agent as a Docker container or K8s Deployment so that it runs in our infrastructure | Docker image published; Helm chart available; agent starts and connects to platform; no inbound ports required | [0042](../../architecture/decisions/ADR-0042-agent-communication-via-https-polling-with-long-lived-tokens.md), [0043](../../architecture/decisions/ADR-0043-agent-deployable-as-docker-and-helm.md) |
+| E-15.F-01.S-02 | As a DevOps engineer, I want the agent to communicate securely with the platform via outbound-only HTTPS so that no inbound firewall rules are needed | Agent initiates HTTPS polling; TLS with bearer-token auth (per-agent long-lived token); platform validates token on every request; data encrypted in transit | [0042](../../architecture/decisions/ADR-0042-agent-communication-via-https-polling-with-long-lived-tokens.md) |
+| E-15.F-01.S-03 | As a DevOps engineer, I want to configure the agent from the platform UI so that I don't need to redeploy for config changes | Config pushed from platform; agent polls for updates; config changes applied without restart | [0042](../../architecture/decisions/ADR-0042-agent-communication-via-https-polling-with-long-lived-tokens.md), [0044](../../architecture/decisions/ADR-0044-centrally-managed-agent-config-pull-based.md) |
 
 #### Feature E-15.F-02: Health Checks
 

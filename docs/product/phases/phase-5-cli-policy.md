@@ -51,7 +51,7 @@
 
 ### Epic E-14a: Billing & Subscription Management
 
-> Per-user billing integration, usage metering, and subscription management.
+> Four-tier pricing (Free / Starter / Pro / Enterprise) billing integration, usage metering, and subscription management. See [ADR-0061](../../architecture/decisions/ADR-0061-four-tier-pricing-model.md) for the tier structure and feature gating, [ADR-0062](../../architecture/decisions/ADR-0062-external-billing-provider.md) for the billing provider, and [ADR-0063](../../architecture/decisions/ADR-0063-user-count-metering-per-billing-period.md) for user-count metering.
 
 #### Feature E-14a.F-01: Billing Integration
 
@@ -59,5 +59,5 @@
 |----------|-----------|-------------------|------|
 | E-14a.F-01.S-01 | As an operator, I need user count tracking per organization so that billing is based on actual usage | Active user count tracked per org per billing period; service accounts excluded; status page viewers excluded | [0063](../../architecture/decisions/ADR-0063-user-count-metering-per-billing-period.md) |
 | E-14a.F-01.S-02 | As an operator, I need integration with a billing provider (e.g., Stripe) for subscription management and payment processing so that revenue collection is automated | Subscription created on org onboarding; monthly invoicing based on user count; payment method management; invoice history | [0062](../../architecture/decisions/ADR-0062-external-billing-provider.md) |
-| E-14a.F-01.S-03 | As a tenant admin, I want a billing dashboard showing my current plan, user count, and invoice history so that I understand my costs | Dashboard: current user count, monthly cost, invoice list, payment method, plan details |
-| E-14a.F-01.S-04 | As a tenant admin, I want to manage my payment method and download invoices so that billing is self-service | Add/update payment method; download PDF invoices; email receipts; failed payment notifications |
+| E-14a.F-01.S-03 | As a tenant admin, I want a billing dashboard showing my current plan, user count, and invoice history so that I understand my costs | Dashboard: current plan tier (Free/Starter/Pro/Enterprise), current user count vs minimum seats, monthly cost, invoice list, payment method, plan details, upgrade/downgrade CTAs | [0061](../../architecture/decisions/ADR-0061-four-tier-pricing-model.md), [0062](../../architecture/decisions/ADR-0062-external-billing-provider.md), [0063](../../architecture/decisions/ADR-0063-user-count-metering-per-billing-period.md) |
+| E-14a.F-01.S-04 | As a tenant admin, I want to manage my payment method and download invoices so that billing is self-service | Add/update payment method; download PDF invoices; email receipts; failed payment notifications | [0061](../../architecture/decisions/ADR-0061-four-tier-pricing-model.md), [0062](../../architecture/decisions/ADR-0062-external-billing-provider.md) |

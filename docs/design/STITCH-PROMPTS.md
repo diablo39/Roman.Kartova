@@ -191,7 +191,7 @@ Left column (2/3 width):
   - Metadata card: two-column key-value layout
     Description: "Processes all payment transactions and manages payment 
     provider integrations"
-    Language: "C#" (monospace) | Framework: ".NET 8" | Repo: link icon + 
+    Language: "C#" (monospace) | Framework: ".NET 10" | Repo: link icon + 
     "github.com/acme/payment-gateway" (blue, clickable)
     Created: "Jan 15, 2025" | Last deployed: "2 hours ago"
     Card: Slate 800 bg, 1px Slate 700 border, 8px radius
@@ -395,7 +395,7 @@ Repository section 1 — EXPANDED:
   "5 entities" badge (Slate 600 bg) + chevron-up icon to collapse
 - Entity rows (indented 24px, 4px gap between):
   Row: [checkbox checked] + cyan circle icon + "payment-gateway" 
-    (bold) + "Application — C#, .NET 8" (Slate 400) + pencil edit icon
+    (bold) + "Application — C#, .NET 10" (Slate 400) + pencil edit icon
   Row: [checkbox checked] + green circle icon + "Payment API" 
     (bold) + "API (Sync) — OpenAPI 3.0 detected" + pencil icon
   Row: [checkbox checked] + violet circle icon + "Payment Events" 

@@ -41,6 +41,12 @@ A managed SaaS platform for tracking applications, components, dependencies, hea
 | **Environment** | A deployment target (dev, staging, prod, etc.) | Name, type, region, cluster, infrastructure details |
 | **Deployment** | A specific version deployed to an environment | Application, environment, version, config, timestamp, deployer, replicas, resource allocation |
 
+> **Custom attributes (MVP):** All nine entity types support a free-form `custom_attributes` JSONB field for tenant-specific metadata (cost center, compliance framework, data classification, backup tier, etc.). Editable at Pro tier and above (per ADR-0061). Indexed in Elasticsearch for search and filtering.
+>
+> **Custom Entity type (planned for Phase 2):** A tenth generic "Custom Entity" type will be added later to accommodate edge-case components that don't fit the nine fixed types (batch jobs, ML pipelines, workflow definitions, etc.). It will have a flexible `subtype_label` + `custom_attributes` schema, opt out of rich type-specific analytics, and support manual registration only (no auto-import).
+>
+> **ADRs:** [ADR-0064](../architecture/decisions/ADR-0064-entity-taxonomy-nine-fixed-plus-jsonb-custom-entity-phased.md)
+
 ### 3.2 Organization Structure (Hybrid: Hierarchy + Tags)
 
 **Hierarchy** (for ownership and navigation):
@@ -268,9 +274,9 @@ Each service gets a documentation hub:
 **FR-4.6.1 Lightweight Agent for Customer Infrastructure**
 - Deployable as a Docker container or Kubernetes DaemonSet/Deployment
 - Minimal resource footprint
-- Secure outbound-only communication to platform (no inbound ports needed)
+- Secure outbound-only communication to platform via HTTPS polling (no inbound ports needed)
 
-> **ADRs:** [ADR-0041](../architecture/decisions/ADR-0041-dotnet-agent-with-aot-compilation.md), [ADR-0043](../architecture/decisions/ADR-0043-agent-deployable-as-docker-and-helm.md)
+> **ADRs:** [ADR-0041](../architecture/decisions/ADR-0041-dotnet-agent-with-aot-compilation.md), [ADR-0042](../architecture/decisions/ADR-0042-agent-communication-via-https-polling-with-long-lived-tokens.md), [ADR-0043](../architecture/decisions/ADR-0043-agent-deployable-as-docker-and-helm.md)
 
 **FR-4.6.2 Agent Capabilities**
 - **Health checks:** HTTP, TCP, gRPC health probes on configured endpoints
@@ -291,7 +297,7 @@ Each service gets a documentation hub:
 - Notification preferences per user (channel, frequency, event types)
 - Organization-level notification policies
 
-> **ADRs:** [ADR-0047](../architecture/decisions/ADR-0047-unified-multi-channel-notification-engine.md) (dispatch engine), [ADR-0048](../architecture/decisions/ADR-0048-native-slack-and-teams-integrations.md) (Slack/Teams), [ADR-0049](../architecture/decisions/ADR-0049-configurable-smtp-email-provider.md) (SMTP/email)
+> **ADRs:** [ADR-0047](../architecture/decisions/ADR-0047-unified-multi-channel-notification-engine.md) (dispatch engine), [ADR-0048](../architecture/decisions/ADR-0048-native-slack-and-teams-integrations.md) (Slack/Teams), [ADR-0049](../architecture/decisions/ADR-0049-configurable-smtp-email-provider.md) (SMTP/email), [ADR-0033](../architecture/decisions/ADR-0033-hmac-signed-webhooks-with-retry-dlq-idempotency-rate-limiting.md) (webhook delivery)
 
 **FR-4.7.2 Notification Events**
 - Status changes (service health transitions)
@@ -486,13 +492,37 @@ Predefined maturity model with 5 levels:
 
 > **ADRs:** [ADR-0011](../architecture/decisions/ADR-0011-one-organization-equals-one-tenant.md)
 
-### 6.2 Billing Model
-- **Simple per-user pricing** per month
-- User = any authenticated member of the organization
-- Service accounts (CLI/API) do not count toward user limit
-- Status page viewers (public) do not count toward user limit
+### 6.2 Billing Model — Four-Tier Pricing
 
-> **ADRs:** [ADR-0062](../architecture/decisions/ADR-0062-external-billing-provider.md) (external billing provider), [ADR-0063](../architecture/decisions/ADR-0063-user-count-metering-per-billing-period.md) (user-count metering)
+Kartova offers four subscription tiers. Pricing is per-user per-month with minimum seat counts on paid tiers. Feature availability and data retention vary by tier.
+
+| Plan | Price | Min seats | Max users | Retention | SLA |
+|------|-------|-----------|-----------|-----------|-----|
+| **Free** | $0 | — | 5 | 30 days | Best effort |
+| **Starter** | $10 / user / month | 5 | Unlimited | 180 days | 99.5% |
+| **Pro** | $25 / user / month | 10 | Unlimited | 180 days | 99.9% |
+| **Enterprise** | Custom (contact sales) | Negotiated | Unlimited | 5 years (MiFID II) | 99.99% |
+
+**Feature highlights by tier:**
+- **Free / Starter / Pro / Enterprise:** Core catalog, auto-import, documentation sync, embedded dependency graph
+- **Starter+:** Bulk import, scheduled re-scan, standalone graph + impact analysis, Slack/Teams notifications
+- **Pro+:** Public Status Page, CLI + Policy enforcement, DX Score, Risk Score, Tech Radar, Cost Attribution, hybrid agent
+- **Enterprise only:** MiFID II retention flag (5 years), 99.99% SLA, premium SSO, dedicated Customer Success Manager
+
+**Billable user definition:**
+- Active user = any human who authenticated during the billing period
+- Service accounts (CLI/API) do NOT count toward user limit
+- Public status page viewers do NOT count toward user limit
+- Free tier Viewers do NOT count toward the 5-user limit
+
+**Grace and overage:**
+- Free tier exceeding 5 users: 7-day grace, then read-only until upgrade or user removal
+- Paid tiers exceeding minimum seats: billed for actual count
+- Free tier exceeding 25 entities: new entity creation blocked
+
+**Design partner pricing:** Design partners (per §12) receive complimentary Pro tier access during the design-partner stage. At GA they transition to published pricing or negotiated Enterprise terms.
+
+> **ADRs:** [ADR-0061](../architecture/decisions/ADR-0061-four-tier-pricing-model.md), [ADR-0062](../architecture/decisions/ADR-0062-external-billing-provider.md), [ADR-0063](../architecture/decisions/ADR-0063-user-count-metering-per-billing-period.md)
 
 ---
 
@@ -513,13 +543,13 @@ Predefined maturity model with 5 levels:
 - Search response time: < 500ms p95
 - Auto-import scan: < 5 minutes per repository (depending on size)
 
-> **ADRs:** [ADR-0053](../architecture/decisions/ADR-0053-status-page-99-99-sla-target.md) (status page 99.99% SLA), [ADR-0055](../architecture/decisions/ADR-0055-scan-timeout-retry-rate-limit-aware.md) (scan resilience), [ADR-0075](../architecture/decisions/ADR-0075-performance-slos-p95-latency.md) (performance SLOs), [ADR-0076](../architecture/decisions/ADR-0076-two-tier-sla-platform-99-9-status-99-99.md) (two-tier SLA)
+> **ADRs:** [ADR-0053](../architecture/decisions/ADR-0053-status-page-99-99-sla-target.md) (status page 99.99% SLA), [ADR-0055](../architecture/decisions/ADR-0055-scan-timeout-retry-rate-limit-aware.md) (scan resilience), [ADR-0060](../architecture/decisions/ADR-0060-three-probe-health-checks-aspnet-core-framework.md) (three-probe health checks), [ADR-0075](../architecture/decisions/ADR-0075-performance-slos-p95-latency.md) (performance SLOs), [ADR-0076](../architecture/decisions/ADR-0076-two-tier-sla-platform-99-9-status-99-99.md) (two-tier SLA)
 
 ### 7.3 Security & Compliance
-- Data encryption at rest and in transit
+- All data encrypted at rest via storage-level encryption (PostgreSQL, Elasticsearch, MinIO, Kafka volumes) provided by the Kubernetes storage layer. Git provider OAuth tokens additionally encrypted at application level with AES-256-GCM and per-tenant Data Encryption Keys wrapped by a platform master key. All communication encrypted in transit via TLS 1.2+ (1.3 preferred). mTLS not used — deemed unnecessary complexity for in-cluster traffic; replaced with TLS + bearer tokens for agents (ADR-0042) and HMAC signing for webhooks (ADR-0033).
 - Tenant data isolation (database-level or schema-level)
 - Audit logging for all write operations
-- Agent communication encrypted (mTLS)
+- Agent communication encrypted (TLS with bearer-token authentication)
 - No storage of secrets/credentials (only references)
 
 **GDPR Compliance (Day One):**
@@ -539,7 +569,7 @@ Predefined maturity model with 5 levels:
 - Data integrity: Tamper-evident logging (append-only audit store)
 - Tenant-level compliance flag: Mark tenants as "MiFID II regulated" to apply stricter retention and audit rules automatically
 
-> **ADRs:** [ADR-0015](../architecture/decisions/ADR-0015-gdpr-compliance-from-day-one.md), [ADR-0016](../architecture/decisions/ADR-0016-mifid-ii-compliance-from-day-one.md), [ADR-0018](../architecture/decisions/ADR-0018-append-only-tamper-evident-audit-log.md), [ADR-0021](../architecture/decisions/ADR-0021-data-residency-tracking-per-tenant.md), [ADR-0050](../architecture/decisions/ADR-0050-notification-log-as-mifid-ii-record.md), [ADR-0078](../architecture/decisions/ADR-0078-no-secrets-stored-references-only.md) (no secrets stored — references only)
+> **ADRs:** [ADR-0004](../architecture/decisions/ADR-0004-s3-compatible-blob-storage-with-minio-default.md), [ADR-0012](../architecture/decisions/ADR-0012-postgresql-row-level-security-for-tenant-isolation.md), [ADR-0013](../architecture/decisions/ADR-0013-elasticsearch-shared-index-with-tenant-routing.md), [ADR-0015](../architecture/decisions/ADR-0015-gdpr-compliance-from-day-one.md), [ADR-0016](../architecture/decisions/ADR-0016-mifid-ii-compliance-from-day-one.md), [ADR-0018](../architecture/decisions/ADR-0018-append-only-tamper-evident-audit-log.md), [ADR-0021](../architecture/decisions/ADR-0021-data-residency-tracking-per-tenant.md), [ADR-0042](../architecture/decisions/ADR-0042-agent-communication-via-https-polling-with-long-lived-tokens.md) (agent communication — TLS + bearer token), [ADR-0050](../architecture/decisions/ADR-0050-notification-log-as-mifid-ii-record.md), [ADR-0077](../architecture/decisions/ADR-0077-encryption-storage-baseline-plus-oauth-column-and-tls-1-2-plus.md) (encryption at rest + TLS 1.2+ in transit), [ADR-0078](../architecture/decisions/ADR-0078-no-secrets-stored-references-only.md) (no secrets stored — references only)
 
 ### 7.4 Data Retention Policies
 | Data Type | Default Retention | MiFID II Tenants |
@@ -576,13 +606,14 @@ Predefined maturity model with 5 levels:
 | Identity | **KeyCloak** | OIDC, JWT, SSO federation |
 | Database | **PostgreSQL** | Multi-tenant, scalable, strong JSON support |
 | Search | **Elasticsearch** | Full-text documentation search, entity search |
-| Message Bus | TBD (RabbitMQ/Kafka recommended) | Event-driven architecture for notifications, agent data |
+| Message Bus | **Apache Kafka** (via Strimzi Operator, KRaft mode) | Event-driven architecture for notifications, agent data ingestion, scan orchestration, webhook retry ([ADR-0003](../architecture/decisions/ADR-0003-apache-kafka-via-strimzi-on-kubernetes.md)) |
+| Blob Storage | **MinIO (default) via S3 API abstraction** | Logos, documentation assets, GDPR export artifacts; swappable to AWS S3 / Azure Blob / GCS via config — see [ADR-0004](../architecture/decisions/ADR-0004-s3-compatible-blob-storage-with-minio-default.md) |
 | Agent | **.NET** | Consistent stack, cross-platform via .NET AOT compilation |
 | CLI | **.NET global tool / standalone binary** | Cross-platform distribution, consistent with agent |
 | Infrastructure | **Kubernetes** | Cloud-agnostic, container-based deployment |
 | Status Page | **Separate K8s deployment** | Independent from main platform for higher availability |
 
-> **ADRs:** [ADR-0001](../architecture/decisions/ADR-0001-postgresql-as-primary-database.md), [ADR-0002](../architecture/decisions/ADR-0002-elasticsearch-for-search.md), [ADR-0006](../architecture/decisions/ADR-0006-keycloak-as-identity-provider.md), [ADR-0022](../architecture/decisions/ADR-0022-kubernetes-cloud-agnostic-deployment.md), [ADR-0027](../architecture/decisions/ADR-0027-dotnet-aspnet-core-for-backend-api.md), [ADR-0039](../architecture/decisions/ADR-0039-react-spa-with-typescript.md), [ADR-0041](../architecture/decisions/ADR-0041-dotnet-agent-with-aot-compilation.md), [ADR-0046](../architecture/decisions/ADR-0046-dotnet-global-tool-cli-distribution.md)
+> **ADRs:** [ADR-0001](../architecture/decisions/ADR-0001-postgresql-as-primary-database.md), [ADR-0002](../architecture/decisions/ADR-0002-elasticsearch-for-search.md), [ADR-0003](../architecture/decisions/ADR-0003-apache-kafka-via-strimzi-on-kubernetes.md), [ADR-0004](../architecture/decisions/ADR-0004-s3-compatible-blob-storage-with-minio-default.md), [ADR-0006](../architecture/decisions/ADR-0006-keycloak-as-identity-provider.md), [ADR-0022](../architecture/decisions/ADR-0022-kubernetes-cloud-agnostic-deployment.md), [ADR-0027](../architecture/decisions/ADR-0027-dotnet-aspnet-core-for-backend-api.md), [ADR-0039](../architecture/decisions/ADR-0039-react-spa-with-typescript.md), [ADR-0041](../architecture/decisions/ADR-0041-dotnet-agent-with-aot-compilation.md), [ADR-0046](../architecture/decisions/ADR-0046-dotnet-global-tool-cli-distribution.md)
 
 ---
 

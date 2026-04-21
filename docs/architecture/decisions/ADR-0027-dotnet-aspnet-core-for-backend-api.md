@@ -12,7 +12,7 @@ The backend framework choice has outsize impact on a solo-dev project: productiv
 
 ## Decision
 
-Use .NET (current LTS) and ASP.NET Core for the backend API. EF Core is the default ORM; the code follows standard idioms (minimal APIs or controllers per module, dependency injection, FluentValidation, MediatR/CQRS optional).
+Use .NET (current LTS — **.NET 10**, released November 2025) and ASP.NET Core for the backend API. EF Core is the default ORM; the code follows standard idioms (minimal APIs or controllers per module, dependency injection, FluentValidation, MediatR/CQRS optional). Upgrade cadence: track LTS releases (every even-numbered major, supported 3 years).
 
 ## Rationale
 

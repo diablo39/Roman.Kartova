@@ -1,130 +1,418 @@
-# Architecture Decision Records
+---
+platform: Kartova
+description: SaaS service catalog and developer portal platform (Backstage + Compass + Statuspage)
+adr_count: 79
+last_updated: 2026-04-21
+architecture:
+  backend: .NET 10 (LTS) / ASP.NET Core + EF Core (ADR-0027)
+  backend_pattern: Clean Architecture layers — Domain / Application / Infrastructure / API (ADR-0028)
+  frontend: React SPA + TypeScript strict, Vite, React Router, TanStack Query (ADR-0039)
+  api_style: REST with cursor pagination and consistent error envelope (ADR-0029)
+  api_versioning: URL-based primary (/api/v1/...), optional Accept-Version header (ADR-0030)
+  api_docs: OpenAPI 3.x auto-generated, self-rendered inside Kartova docs engine (ADR-0034)
+  database: PostgreSQL 16+ with Row-Level Security (ADR-0001, ADR-0012)
+  search: Elasticsearch shared-index with per-tenant routing and filtered aliases (ADR-0002, ADR-0013)
+  messaging: Apache Kafka via Strimzi on K8s, KRaft mode, MassTransit over Confluent.Kafka (ADR-0003)
+  blob_storage: S3 abstraction with MinIO default, per-tenant prefixes (ADR-0004)
+  identity: KeyCloak self-hosted on K8s, OIDC / JWT, single realm (ADR-0006, ADR-0007)
+  deployment: Kubernetes, cloud-agnostic (no cloud-specific managed services) (ADR-0022)
+  local_dev: Docker Compose with PG / ES / KeyCloak (ADR-0024)
+  ci_cd: CI on push, CD to staging on merge, prod manual via tagged release (ADR-0025)
+  status_page: Separate K8s cluster, independent async replica, own ingress (ADR-0005, ADR-0023)
+multi_tenancy:
+  model: one-organization-one-tenant (ADR-0011)
+  isolation: PostgreSQL RLS + EF Core global filters + Elasticsearch tenant routing (ADR-0012, ADR-0013)
+  tenant_context: tenant_id JWT claim propagated to SET app.current_tenant (ADR-0014)
+  rbac: five fixed roles — Org Admin, Editor, Contributor, Viewer, Service Account (ADR-0008)
+compliance:
+  - GDPR from day one — right to erasure, export, consent, residency, DPA (ADR-0015)
+  - MiFID II per-tenant opt-in (mifid_ii_enabled flag) triggering 5-year retention (ADR-0016)
+  - Default 180-day retention, 5 years for MiFID tenants (ADR-0017)
+  - Append-only tamper-evident audit log with hash chaining, no UPDATE/DELETE grants (ADR-0018)
+  - Soft delete with 30-day purge window (ADR-0019)
+  - Cold-storage archival after active retention (Glacier / Azure Archive / GCS Archive) (ADR-0020)
+  - Per-tenant residency_region field, EU for MVP (ADR-0021)
+  - Notification log qualifies as MiFID II communication record (ADR-0050)
+  - No secrets stored, references only (ADR-0078)
+security:
+  encryption_at_rest: storage-level AES-256 baseline + column-level encryption for OAuth tokens (ADR-0077)
+  encryption_in_transit: TLS 1.2+ mandatory, TLS 1.3 preferred (ADR-0077)
+  mtls: not used anywhere (agent, webhooks, service-to-service) (ADR-0042, ADR-0033, ADR-0077)
+  secrets_policy: references only, never stored values (ADR-0078)
+agent:
+  language: .NET with AOT compilation, linux-x64 / linux-arm64 / windows-x64 (ADR-0041)
+  protocol: HTTPS polling of heartbeat endpoint, no gRPC / WebSockets (ADR-0042)
+  auth: long-lived bearer tokens with manual dual-token rotation (ADR-0042)
+  config: centrally managed, agent polls ~60s, hot-reload (ADR-0044)
+  deployment: Docker image + official Helm chart + standalone binary (ADR-0043)
+  discovery: agent-discovered services require admin approval (ADR-0045)
+api_contract:
+  rate_limiting: per-tenant token-bucket, HTTP 429 with Retry-After / X-RateLimit-* (ADR-0031)
+  bulk_ops: partial success with max batch size ~500 (ADR-0032)
+  webhooks: HMAC-SHA256 signing, Kafka retry + DLQ, idempotency, per-subscriber rate limit (ADR-0033)
+  git: GitHub / GitLab / Bitbucket via OAuth, three-layer integration (ADR-0035, ADR-0057)
+  schema_registry: Confluent Schema Registry + Apicurio integrations (ADR-0037)
+  plugins: deferred to v2.0+, MVP extensibility via webhooks + REST (ADR-0038)
+notifications:
+  engine: unified multi-channel dispatch (ADR-0047)
+  channels: in-app, email, webhook, Slack (Block Kit), Teams (Adaptive Cards), RSS, SMS (ADR-0047, ADR-0048)
+  email: configurable SMTP / SendGrid / SES adapters (ADR-0049)
+  status_page_subscribers: email (double opt-in), SMS, webhook, RSS (ADR-0051)
+scan_import:
+  depth: deep scan at import + scheduled rescan — language, frameworks, deps, APIs, infra (ADR-0054)
+  resilience: 5-min per-repo timeout, exponential retry, rate-limit aware (ADR-0055)
+  conflict_policy: manual always wins over auto-discovered, conflicts queued (ADR-0056)
+observability:
+  logs: structured JSON with timestamp / level / service / tenant_id / correlation_id / event (ADR-0058)
+  metrics: Prometheus /metrics endpoint with HTTP / dependency / business / runtime (ADR-0059)
+  integrations: Prometheus + Grafana Cloud mandatory MVP (ADR-0036)
+  health_checks: /health/live, /health/ready, /health/startup via ASP.NET Core HealthChecks (ADR-0060)
+scale_targets:
+  tenants: 1000+ (ADR-0074)
+  services_per_tenant: 10000 (ADR-0074)
+  users_per_tenant: 5000 (ADR-0074)
+  slo_p95_api_read: <200ms (ADR-0075)
+  slo_p95_api_write: <500ms (ADR-0075)
+  slo_p95_search: <1s (ADR-0075)
+  slo_p95_graph: <2s (ADR-0075)
+slas:
+  platform: 99.9% (~8.7h/yr) (ADR-0076)
+  status_page: 99.99% (~52min/yr) (ADR-0076)
+pricing:
+  model: 4-tier — Free / Starter / Pro / Enterprise, per user/month, minimum seats on paid (ADR-0061)
+  metering: per-user active count per billing period (ADR-0063)
+  provider: external Stripe-style; Kartova owns metering + entitlements (ADR-0062)
+domain_model:
+  entity_types: 9 fixed + JSONB custom_attributes (MVP); 10th Custom Entity in Phase 2 (ADR-0064)
+  org_structure: hybrid hierarchy (Org → Team → System → Component) + cross-cutting tags (ADR-0065)
+  ownership: multi-team with platform flag + quorum approval (ADR-0066)
+  relationships: fixed 7-type vocabulary (depends-on / owns / consumes / produces / exposes / implements / part-of) (ADR-0068)
+  relationship_origin: manual | scan | agent, immutable (ADR-0067)
+  required_fields: owner, lifecycle, etc. enforced on all creation paths (ADR-0069)
+  scorecards: per-org configurable rule sets, weighted (ADR-0070)
+  maturity_model: L1 Registered → L2 Documented → L3 Monitored → L4 Resilient → L5 Optimized (ADR-0071)
+  tags: system-defined categories + tenant-extensible custom (ADR-0072)
+  lifecycle: Active → Deprecated → Retired, mandatory (ADR-0073)
+cli:
+  distribution: dotnet tool install -g kartova + standalone AOT binary (ADR-0046)
+  auth: kartova auth --token exchanges service-account token for JWT (ADR-0009)
+gtm: dogfooding → design partners → public GA (ADR-0079)
+open_source_strategy: fully proprietary, no OSS core / source-available (ADR-0026)
+---
+
+# Architecture Decision Records — Kartova
 
 **Status:** Living document
-**Last updated:** 2026-04-20
+**Last updated:** 2026-04-21
+**Total accepted:** 79
+**Convention:** Michael Nygard template (Status / Context / Decision / Rationale / Alternatives / Consequences / References)
 
-This directory holds the formal Architecture Decision Records (ADRs) for Kartova. Each file follows the Michael Nygard template (Context / Decision / Rationale / Alternatives / Consequences). See [ADR-CANDIDATES.md](../ADR-CANDIDATES.md) for the full list of candidates and their review state.
+## How to use this index
 
-## Accepted ADRs (69)
+LLM agents and humans can scan the table below to identify ADRs relevant to a topic. Each row links to the full ADR file. For candidate/pending state, see [ADR-CANDIDATES.md](../ADR-CANDIDATES.md) (all resolved as of 2026-04-21).
 
-### Data Platform
-- [ADR-0001: PostgreSQL as Primary Database](ADR-0001-postgresql-as-primary-database.md)
-- [ADR-0002: Elasticsearch for Search](ADR-0002-elasticsearch-for-search.md)
-- [ADR-0005: Independent Data Replica for Status Page](ADR-0005-independent-data-replica-for-status-page.md)
+## Index
 
-### Authentication & Authorization
-- [ADR-0006: KeyCloak as Identity Provider](ADR-0006-keycloak-as-identity-provider.md)
-- [ADR-0007: JWT (OIDC) for API and CLI Auth](ADR-0007-jwt-oidc-for-api-and-cli-auth.md)
-- [ADR-0008: Five Fixed RBAC Roles](ADR-0008-five-fixed-rbac-roles.md)
-- [ADR-0009: Service Account JWT Model for CI/CD](ADR-0009-service-account-jwt-model-for-cicd.md)
-- [ADR-0010: Internal Status Page Auth via KeyCloak](ADR-0010-internal-status-page-auth-via-keycloak.md)
+| ID | Title | Category | Status | Related | Summary |
+|----|-------|----------|--------|---------|---------|
+| [0001](ADR-0001-postgresql-as-primary-database.md) | PostgreSQL as Primary Database | Data Platform | Accepted | 0012, 0018 | Use PostgreSQL (v16+) as the primary transactional datastore for all tenant data, with RLS and `tenant_id` for isolation. |
+| [0002](ADR-0002-elasticsearch-for-search.md) | Elasticsearch for Search | Data Platform | Accepted | 0001, 0013 | Use Elasticsearch as the search engine for catalog, docs, and faceted filtering; PostgreSQL remains system of record. |
+| [0003](ADR-0003-apache-kafka-via-strimzi-on-kubernetes.md) | Apache Kafka via Strimzi on Kubernetes | Data Platform / Messaging | Accepted | 0001, 0022, 0037, 0041, 0047 | Use Apache Kafka via Strimzi Operator in KRaft mode (3-broker minimum) as the event bus, accessed via MassTransit over Confluent.Kafka. |
+| [0004](ADR-0004-s3-compatible-blob-storage-with-minio-default.md) | S3-Compatible Blob Storage with MinIO Default | Data Platform / Storage | Accepted | 0001, 0015, 0020, 0022, 0026 | Use S3-compatible blob storage via an `IBlobStorage` abstraction, default MinIO on K8s, shared bucket with per-tenant prefixes. |
+| [0005](ADR-0005-independent-data-replica-for-status-page.md) | Independent Data Replica for Status Page | Data Platform / HA | Accepted | 0023, 0076 | Status page reads from an independent, one-way asynchronously replicated data replica holding only status-page-relevant data. |
+| [0006](ADR-0006-keycloak-as-identity-provider.md) | KeyCloak as Identity Provider | Authentication & Authorization | Accepted | 0007, 0008, 0009, 0010 | Self-host KeyCloak on Kubernetes as the OIDC identity provider; one realm for all Kartova tenants, tenant assigned via JWT claim. |
+| [0007](ADR-0007-jwt-oidc-for-api-and-cli-auth.md) | JWT (OIDC) for API and CLI Auth | Authentication & Authorization | Accepted | 0006, 0009, 0014 | Use short-lived (~15 min) OIDC JWT access tokens from KeyCloak for all clients; ASP.NET Core validates locally via JWKS. |
+| [0008](ADR-0008-five-fixed-rbac-roles.md) | Five Fixed RBAC Roles | Authentication & Authorization | Accepted | 0006, 0007 | Define five fixed per-organization roles: Org Admin, Editor, Contributor, Viewer, and Service Account. |
+| [0009](ADR-0009-service-account-jwt-model-for-cicd.md) | Service Account JWT Model for CI/CD | Authentication & Authorization | Accepted | 0007, 0008 | Service accounts are first-class KeyCloak principals authenticating via `kartova auth --token`, exchanging for JWTs with a `service_account` role. |
+| [0010](ADR-0010-internal-status-page-auth-via-keycloak.md) | Internal Status Page Auth via KeyCloak | Authentication & Authorization | Accepted | 0005, 0006, 0023 | Internal status pages authenticate via KeyCloak OIDC with cached JWKS; public status pages remain unauthenticated. |
+| [0011](ADR-0011-one-organization-equals-one-tenant.md) | One Organization Equals One Tenant | Multi-Tenancy | Accepted | 0012, 0061 | Each organization is a single tenant — one billing entity, one RBAC scope, one residency record, one GDPR boundary. |
+| [0012](ADR-0012-postgresql-row-level-security-for-tenant-isolation.md) | PostgreSQL Row-Level Security for Tenant Isolation | Multi-Tenancy | Accepted | 0001, 0011, 0014, 0074, 0075 | Enforce tenant isolation via PostgreSQL RLS with `tenant_id` column and `SET LOCAL app.current_tenant_id`, plus EF Core global filters as defense-in-depth. |
+| [0013](ADR-0013-elasticsearch-shared-index-with-tenant-routing.md) | Elasticsearch Shared Index with Tenant Routing | Multi-Tenancy / Search | Accepted | 0002, 0012, 0015, 0017, 0074, 0075 | Use shared ES indexes per type with `tenant_id` field, routing by tenant, per-tenant filtered aliases, and ILM retention tiers. |
+| [0014](ADR-0014-tenant-claim-extracted-from-jwt.md) | Tenant Claim Extracted from JWT | Multi-Tenancy | Accepted | 0007, 0012 | Read the tenant ID exclusively from the validated JWT `tenant_id` claim and propagate it to `SET app.current_tenant` for RLS enforcement. |
+| [0015](ADR-0015-gdpr-compliance-from-day-one.md) | GDPR Compliance From Day One | Compliance & Retention | Accepted | 0016, 0019, 0021, 0078 | Implement right-to-erasure across Postgres/ES/blob, data export, consent records, residency disclosure, and DPA from MVP. |
+| [0016](ADR-0016-mifid-ii-compliance-from-day-one.md) | MiFID II Compliance From Day One | Compliance & Retention | Accepted | 0015, 0017, 0018, 0050 | Every tenant carries a `mifid_ii_enabled` flag triggering 5-year retention of audit log, notifications, and communications. |
+| [0017](ADR-0017-default-180-day-retention-5-year-mifid.md) | Default 180-Day Retention, 5-Year for MiFID | Compliance & Retention | Accepted | 0016, 0019, 0020 | Default 180-day retention for uptime/audit/scan/incident history; 5 years for tenants with MiFID II enabled. |
+| [0018](ADR-0018-append-only-tamper-evident-audit-log.md) | Append-Only Tamper-Evident Audit Log | Compliance & Retention | Accepted | 0016, 0017 | Maintain an insert-only PostgreSQL audit table with no UPDATE/DELETE grants and tamper-evident hash chaining. |
+| [0019](ADR-0019-soft-delete-with-30-day-purge.md) | Soft Delete with 30-Day Purge | Compliance & Retention | Accepted | 0015, 0016, 0017 | Two-phase deletion: soft-delete marks `deleted_at` and hides from UI/API; hard purge runs after a 30-day window. |
+| [0020](ADR-0020-cold-storage-archival-after-active-retention.md) | Cold-Storage Archival After Active Retention | Compliance & Retention | Accepted | 0017, 0018 | After active retention expires, automatically move data to cold object storage (S3 Glacier / Azure Archive / GCS Archive) with hours-SLA retrieval. |
+| [0021](ADR-0021-data-residency-tracking-per-tenant.md) | Data Residency Tracking Per Tenant | Compliance & Retention | Accepted | 0015, 0022 | Store a `residency_region` field on each tenant (EU for MVP); actual multi-region routing deferred to v2.0+. |
+| [0022](ADR-0022-kubernetes-cloud-agnostic-deployment.md) | Kubernetes, Cloud-Agnostic Deployment | Platform Infrastructure | Accepted | 0023, 0043 | Deploy on Kubernetes using cloud-agnostic building blocks (standard APIs, Helm, Ingress, cert-manager); avoid cloud-specific managed services. |
+| [0023](ADR-0023-status-page-as-separate-k8s-cluster.md) | Status Page as Separate K8s Cluster | Platform Infrastructure | Accepted | 0005, 0022, 0076 | Deploy the status page to a separate K8s cluster (or isolated namespace/AZ) with its own ingress, replica, and scaling. |
+| [0024](ADR-0024-docker-compose-for-local-dev.md) | Docker Compose for Local Dev | Platform Infrastructure | Accepted | 0022 | Provide a repo-root `docker-compose.yml` bringing up PostgreSQL, Elasticsearch, KeyCloak, and dependencies for local development. |
+| [0025](ADR-0025-ci-on-push-cd-to-staging-on-merge.md) | CI on Push; CD to Staging on Merge | Platform Infrastructure | Accepted | 0022 | CI runs on every push/PR; CD to staging is automatic on merge to main; production deploy is manual via tagged release. |
+| [0026](ADR-0026-fully-proprietary-no-open-source-core.md) | Fully Proprietary — No Open-Source Core | Platform Infrastructure | Accepted | — | Kartova source is fully proprietary with no open-source core or source-available license; individual libraries may be OSS opportunistically. |
+| [0027](ADR-0027-dotnet-aspnet-core-for-backend-api.md) | .NET / ASP.NET Core for Backend API | API & Integration Architecture | Accepted | 0028, 0041, 0046 | Use .NET LTS + ASP.NET Core with EF Core for the backend API; standard idioms (DI, FluentValidation, optional MediatR/CQRS). |
+| [0028](ADR-0028-clean-architecture-layering.md) | Clean Architecture Layering | API & Integration Architecture | Accepted | 0027 | Organize solution into Domain / Application / Infrastructure / API layers with enforced inward-only reference direction. |
+| [0029](ADR-0029-rest-as-primary-api-style.md) | REST as Primary API Style | API & Integration Architecture | Accepted | 0030, 0032, 0034 | Use REST (resource URLs, HTTP verbs, JSON, cursor pagination, consistent error envelope) with OpenAPI auto-generated. |
+| [0030](ADR-0030-url-or-header-based-api-versioning.md) | URL- or Header-Based API Versioning | API & Integration Architecture | Accepted | 0029 | Primary scheme is URL-based versioning (`/api/v1/...`); optional `Accept-Version` header; old versions supported ≥6 months after deprecation. |
+| [0031](ADR-0031-per-tenant-rate-limiting.md) | Per-Tenant Rate Limiting | API & Integration Architecture | Accepted | 0029, 0032 | Apply per-tenant token-bucket rate limits returning HTTP 429 with `Retry-After`/`X-RateLimit-*` headers; limits overridable per tenant. |
+| [0032](ADR-0032-bulk-api-endpoints-with-partial-success.md) | Bulk API Endpoints with Partial Success | API & Integration Architecture | Accepted | 0029, 0031, 0054 | Provide batch CRUD endpoints per entity type with per-item status (partial success) and an enforced max batch size (~500). |
+| [0033](ADR-0033-hmac-signed-webhooks-with-retry-dlq-idempotency-rate-limiting.md) | HMAC-Signed Webhooks with Retry, DLQ, Idempotency, Rate Limiting | API & Integration Architecture | Accepted | 0003, 0016, 0031, 0050, 0051 | Outbound webhooks use HMAC-SHA256 signing with tenant secret, Kafka-backed retry pipeline, DLQ with replay, idempotency keys, and per-subscriber rate limiting. |
+| [0034](ADR-0034-openapi-auto-generated-and-self-rendered.md) | OpenAPI Auto-Generated & Self-Rendered | API & Integration Architecture | Accepted | 0029, 0079 | Auto-generate OpenAPI 3.x from ASP.NET Core endpoints/DTOs; render it inside Kartova's own docs engine (Swagger UI only in dev/staging). |
+| [0035](ADR-0035-git-as-first-class-integration.md) | Git as First-Class Integration | API & Integration Architecture | Accepted | 0054, 0057 | Ship Git integration in three layers: provider-generic clone/scan, native GitHub/GitLab/Bitbucket connectors, and OAuth-based auth. |
+| [0036](ADR-0036-prometheus-grafana-cloud-integrations.md) | Prometheus + Grafana Cloud Integrations | API & Integration Architecture | Accepted | 0059 | Ship Prometheus (pull metrics, PromQL uptime rules) and Grafana Cloud integrations as mandatory MVP monitoring connectors. |
+| [0037](ADR-0037-schema-registry-integrations.md) | Schema Registry Integrations | API & Integration Architecture | Accepted | 0054 | Integrate Confluent Schema Registry and Apicurio to pull live Avro/JSON/Protobuf schemas into the catalog as API-Async entities. |
+| [0038](ADR-0038-plugin-architecture-deferred-to-v2.md) | Plugin Architecture Deferred to v2.0+ | API & Integration Architecture | Accepted | 0033 | No plugin SDK in MVP; extensibility is via webhooks (outbound) and REST API (inbound); plugin framework deferred to v2.0+. |
+| [0039](ADR-0039-react-spa-with-typescript.md) | React SPA with TypeScript | Frontend Architecture | Accepted | 0027, 0040 | Build the web UI as a React SPA with TypeScript strict mode, using Vite, React Router, and TanStack Query for server state. |
+| [0040](ADR-0040-two-view-dependency-graph-navigation.md) | Two-View Dependency Graph Navigation | Frontend Architecture | Accepted | 0039 | Provide an embedded 1-level mini-graph on every entity page plus a full-screen interactive explorer with filters and path-finding. |
+| [0041](ADR-0041-dotnet-agent-with-aot-compilation.md) | .NET Agent with AOT Compilation | Agent Architecture | Accepted | 0027, 0042, 0043, 0046 | Build the agent in .NET with AOT compilation for small, self-contained native binaries targeting linux-x64, linux-arm64, windows-x64. |
+| [0042](ADR-0042-agent-communication-via-https-polling-with-long-lived-tokens.md) | Agent Communication via HTTPS Polling with Long-Lived Tokens | Agent Architecture | Accepted | 0006, 0007, 0018, 0022, 0029, 0033, 0041, 0043, 0044 | Agent communicates via HTTPS/JSON polling of a heartbeat endpoint using long-lived bearer tokens with manual rotation (no gRPC/WebSockets). |
+| [0043](ADR-0043-agent-deployable-as-docker-and-helm.md) | Agent Deployable as Docker / Helm | Agent Architecture | Accepted | 0022, 0041 | Primary agent shapes are a published Docker image and an official Helm chart; also distributed as a standalone binary. |
+| [0044](ADR-0044-centrally-managed-agent-config-pull-based.md) | Centrally Managed Agent Config (Pull-Based) | Agent Architecture | Accepted | 0041, 0042 | Agent polls the platform (~60s) for its config document; changes hot-reload where possible; config is authored in the UI/API and versioned. |
+| [0045](ADR-0045-agent-discovered-services-approval-workflow.md) | Agent-Discovered Services Require Approval Workflow | Agent Architecture | Accepted | 0041, 0042, 0044, 0067 | Agent-discovered services land in a pending-approval discovery inbox; admins explicitly promote, merge, or reject each candidate. |
+| [0046](ADR-0046-dotnet-global-tool-cli-distribution.md) | .NET Global Tool & Standalone Binary CLI Distribution | CLI & Distribution | Accepted | 0007, 0027, 0041 | Distribute the CLI as both a `dotnet tool install -g kartova` global tool and a standalone AOT binary for non-.NET users. |
+| [0047](ADR-0047-unified-multi-channel-notification-engine.md) | Unified Multi-Channel Notification Engine | Notification Architecture | Accepted | 0033, 0048, 0049, 0050 | A single dispatch engine handles all outbound notifications across in-app, email, webhook, Slack, Teams, RSS, and SMS channels. |
+| [0048](ADR-0048-native-slack-and-teams-integrations.md) | Native Slack & Microsoft Teams Integrations | Notification Architecture | Accepted | 0047, 0057 | Ship native OAuth-installed Slack (Block Kit) and Microsoft Teams (Adaptive Cards) bot integrations with per-channel routing. |
+| [0049](ADR-0049-configurable-smtp-email-provider.md) | Configurable SMTP / Email Provider | Notification Architecture | Accepted | 0047, 0050 | Email channel targets a configurable provider interface — generic SMTP default plus pluggable adapters for SendGrid/SES/etc. |
+| [0050](ADR-0050-notification-log-as-mifid-ii-record.md) | Notification Log as MiFID II Communication Record | Notification Architecture / Compliance | Accepted | 0016, 0017, 0018, 0047 | Persist every outbound notification with full rendered payload in a `notification_log` table qualifying as a MiFID II communication record. |
+| [0051](ADR-0051-multi-channel-status-page-subscribers.md) | Multi-Channel Status Page Subscribers | Status Page Architecture | Accepted | 0023, 0047, 0053 | Status page visitors subscribe via four channels: email (double opt-in), SMS, webhook, and RSS. |
+| [0052](ADR-0052-custom-domains-with-auto-ssl.md) | Custom Domains with Auto-Provisioned SSL | Status Page Architecture | Accepted | 0023, 0053 | Tenants configure custom status-page domains; platform validates via DNS challenge and auto-provisions SSL certificates (Let's Encrypt/ACME). |
+| [0053](ADR-0053-status-page-99-99-sla-target.md) | 99.99% SLA Target for Status Page | Status Page Architecture / Availability | Accepted | 0005, 0023, 0051, 0052, 0076 | Status page carries a 99.99% availability SLA (≤ ~52 min/year), one nine higher than the 99.9% platform SLA. |
+| [0054](ADR-0054-deep-repository-scan-at-import.md) | Deep Repository Scan at Import-Time | Scan / Import Architecture | Accepted | 0035, 0055, 0056, 0057 | Perform a deep scan at import and on schedule that extracts language, framework, dependencies, APIs, and infrastructure files. |
+| [0055](ADR-0055-scan-timeout-retry-rate-limit-aware.md) | Scan Timeout, Retry, Rate-Limit Aware | Scan / Import Architecture | Accepted | 0054, 0056, 0057 | Scans operate under explicit resilience parameters: 5-min per-repo timeout, exponential retry, and Git provider rate-limit awareness. |
+| [0056](ADR-0056-manual-relationship-precedence.md) | Manual Relationship Precedence (Conflict Queue) | Scan / Import Architecture / Data Model | Accepted | 0045, 0054, 0067 | Manual data always wins over auto-discovered data; manual relationships are never overwritten by rescans, conflicts go to a queue. |
+| [0057](ADR-0057-oauth-git-provider-connection.md) | OAuth-Based Git Provider Connection | Scan / Import Architecture / Integrations | Accepted | 0035, 0054, 0055, 0078 | Connect to GitHub/GitLab/Bitbucket via OAuth flows with least-privilege scopes (`repo:read`, `read:org`, webhook admin). |
+| [0058](ADR-0058-structured-json-logs-with-tenant-context.md) | Structured JSON Logs with Tenant Context | Observability & Monitoring | Accepted | 0014, 0036, 0059 | All services emit structured JSON logs with mandatory fields: timestamp, level, service, tenant_id, correlation_id, and event. |
+| [0059](ADR-0059-prometheus-compatible-metrics-exposition.md) | Prometheus-Compatible Metrics Exposition | Observability & Monitoring | Accepted | 0036, 0058 | Every service exposes a Prometheus-format `/metrics` endpoint with HTTP, dependency, business, and runtime instrumentation. |
+| [0060](ADR-0060-three-probe-health-checks-aspnet-core-framework.md) | Three-Probe Health Check Endpoints Using ASP.NET Core Framework | Observability & Monitoring | Accepted | 0001, 0002, 0003, 0004, 0006, 0008, 0022, 0027, 0036, 0053, 0058, 0059, 0076 | Expose three K8s-semantic endpoints — `/health/live`, `/health/ready`, `/health/startup` — via ASP.NET Core HealthChecks framework. |
+| [0061](ADR-0061-four-tier-pricing-model.md) | Four-Tier Pricing Model | Billing | Accepted | 0016, 0017, 0062, 0063, 0076, 0079 | Launch with four tiers — Free, Starter, Pro, Enterprise — priced per user/month with minimum seat counts on paid tiers. |
+| [0062](ADR-0062-external-billing-provider.md) | External Billing Provider for Payment Processing | Billing | Accepted | 0015, 0016, 0021, 0063 | Integrate a third-party Stripe-style billing provider for payments, subscriptions, and invoicing; Kartova owns metering and entitlement. |
+| [0063](ADR-0063-user-count-metering-per-billing-period.md) | User-Count Metering Per Billing Period | Billing | Accepted | 0008, 0009, 0010, 0062 | Meter each org's active user count per billing period (typically monthly) and report the count to the billing provider at close. |
+| [0064](ADR-0064-entity-taxonomy-nine-fixed-plus-jsonb-custom-entity-phased.md) | Entity Taxonomy — Nine Fixed Types with JSONB Custom Attributes, Custom Entity Type Phased | Domain Model | Accepted | 0012, 0013, 0054, 0061, 0065, 0067, 0068, 0069, 0070, 0071, 0072, 0073 | Phase 1 ships nine fixed entity types with JSONB custom attributes; Phase 2 adds a tenant-defined custom entity type. |
+| [0065](ADR-0065-hybrid-org-structure-hierarchy-plus-tags.md) | Hybrid Org Structure — Hierarchy + Tags | Domain Model | Accepted | 0064, 0066, 0072 | Combine a strict ownership hierarchy (Org → Team → System → Component) with cross-cutting tags for flexible grouping. |
+| [0066](ADR-0066-multi-ownership-with-quorum-rules.md) | Multi-Ownership with Quorum Rules | Domain Model | Accepted | 0008, 0065, 0073 | Components support multiple owning teams with a platform flag and quorum approval rules for shared/foundational changes. |
+| [0067](ADR-0067-relationship-origin-tracking.md) | Relationship Origin Tracking | Domain Model | Accepted | 0045, 0054, 0056, 0068 | Every relationship carries a required `origin` field with values `manual`, `scan`, or `agent`, immutable after creation. |
+| [0068](ADR-0068-fixed-relationship-type-vocabulary.md) | Fixed Relationship Type Vocabulary | Domain Model | Accepted | 0064, 0065, 0067 | Support a fixed vocabulary of seven relationship types (depends-on, owns, consumes, produces, exposes, implements, part-of). |
+| [0069](ADR-0069-required-minimum-fields-enforcement.md) | Required Minimum Fields Enforcement | Domain Model / Data Quality | Accepted | 0054, 0070, 0071 | All entity creation paths (UI, API, CLI, scan import) reject entities missing required minimum fields (owner, lifecycle, etc.). |
+| [0070](ADR-0070-per-organization-scorecard-configurability.md) | Per-Organization Scorecard Configurability | Domain Model / Quality | Accepted | 0038, 0069, 0071 | Scorecards are configurable per organization as named rule sets grouped into categories with weighted scoring. |
+| [0071](ADR-0071-five-level-maturity-model.md) | Five-Level Maturity Model | Domain Model / Quality | Accepted | 0069, 0070 | Define a five-level monotonic maturity model: L1 Registered, L2 Documented, L3 Monitored, L4 Resilient, L5 Optimized. |
+| [0072](ADR-0072-tag-taxonomy-predefined-plus-custom.md) | Tag Taxonomy — Predefined Plus Custom | Domain Model | Accepted | 0065, 0067, 0070 | Tags are organized into system-defined categories with predefined values plus tenant-extensible custom categories and values. |
+| [0073](ADR-0073-enforced-entity-lifecycle-states.md) | Enforced Entity Lifecycle States | Domain Model | Accepted | 0018, 0019, 0066 | Entities carry a mandatory `lifecycle` field progressing linearly through three states: Active, Deprecated, Retired. |
+| [0074](ADR-0074-scale-targets-1000-tenants.md) | Scale Targets — 1000+ Tenants, 10k Services/Tenant | Scale & Performance | Accepted | 0001, 0002, 0012, 0075, 0076 | Design envelope is 1000+ tenants, 10k services per tenant, 5k users per tenant, millions of entities on a single deployment. |
+| [0075](ADR-0075-performance-slos-p95-latency.md) | Performance SLOs — p95 Latency Targets | Scale & Performance | Accepted | 0001, 0002, 0055, 0074, 0076 | Platform p95 latency SLOs: <200ms API reads, <500ms writes, <1s search, <2s graph queries within the scale envelope. |
+| [0076](ADR-0076-two-tier-sla-platform-99-9-status-99-99.md) | Two-Tier SLA — Platform 99.9% / Status Page 99.99% | Scale & Performance / Availability | Accepted | 0005, 0023, 0053, 0074, 0075 | Two-tier availability SLA: 99.9% for the main platform (~8.7h/yr budget) and 99.99% for the status page (~52min/yr). |
+| [0077](ADR-0077-encryption-storage-baseline-plus-oauth-column-and-tls-1-2-plus.md) | Encryption at Rest (Storage Baseline + OAuth Column Encryption) and TLS 1.2+ in Transit | Non-Functional / Cross-Cutting | Accepted | 0001, 0002, 0003, 0004, 0012, 0015, 0016, 0018, 0022, 0033, 0042, 0057, 0078 | Encryption at rest via storage-baseline AES-256 plus column-level encryption for OAuth tokens; TLS 1.2+ mandatory in transit. |
+| [0078](ADR-0078-no-secrets-stored-references-only.md) | No Secrets or Credentials Stored — References Only | Non-Functional / Security | Accepted | 0015, 0018, 0054, 0057, 0077 | Kartova never stores secret or credential values; the catalog stores only references, names, and structural metadata. |
+| [0079](ADR-0079-dogfooding-design-partners-gtm.md) | Dogfooding + Design Partners Go-to-Market Strategy | Non-Functional / Go-to-Market | Accepted | 0025, 0026, 0074 | Three-phase GTM: (1) dogfooding from Phase 0, (2) design partners, (3) public GA, with each phase gating feature scope. |
 
-### Multi-Tenancy
-- [ADR-0011: One Organization Equals One Tenant](ADR-0011-one-organization-equals-one-tenant.md)
-- [ADR-0014: Tenant Claim Extracted from JWT](ADR-0014-tenant-claim-extracted-from-jwt.md)
+## By category (quick navigation)
 
-### Compliance & Retention
-- [ADR-0015: GDPR Compliance From Day One](ADR-0015-gdpr-compliance-from-day-one.md)
-- [ADR-0016: MiFID II Compliance From Day One](ADR-0016-mifid-ii-compliance-from-day-one.md)
-- [ADR-0017: Default 180-Day Retention, 5-Year for MiFID II](ADR-0017-default-180-day-retention-5-year-mifid.md)
-- [ADR-0018: Append-Only Tamper-Evident Audit Log](ADR-0018-append-only-tamper-evident-audit-log.md)
-- [ADR-0019: Soft Delete With 30-Day Purge](ADR-0019-soft-delete-with-30-day-purge.md)
-- [ADR-0020: Cold-Storage Archival After Active Retention](ADR-0020-cold-storage-archival-after-active-retention.md)
-- [ADR-0021: Data Residency Tracking Per Tenant](ADR-0021-data-residency-tracking-per-tenant.md)
-- [ADR-0050: Notification Log as MiFID II Communication Record](ADR-0050-notification-log-as-mifid-ii-record.md)
+- **Data Platform**: 0001, 0002, 0003, 0004, 0005
+- **Authentication & Authorization**: 0006, 0007, 0008, 0009, 0010
+- **Multi-Tenancy**: 0011, 0012, 0013, 0014
+- **Compliance & Retention**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050
+- **Platform Infrastructure**: 0022, 0023, 0024, 0025, 0026
+- **API & Integration Architecture**: 0027, 0028, 0029, 0030, 0031, 0032, 0033, 0034, 0035, 0036, 0037, 0038
+- **Frontend Architecture**: 0039, 0040
+- **Agent Architecture**: 0041, 0042, 0043, 0044, 0045
+- **CLI & Distribution**: 0046
+- **Notification Architecture**: 0047, 0048, 0049, 0050
+- **Status Page Architecture**: 0051, 0052, 0053
+- **Scan / Import Architecture**: 0054, 0055, 0056, 0057
+- **Observability & Monitoring**: 0058, 0059, 0060
+- **Billing**: 0061, 0062, 0063
+- **Domain Model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073
+- **Scale & Performance**: 0074, 0075, 0076
+- **Non-Functional / Cross-Cutting**: 0077, 0078, 0079
 
-### Platform Infrastructure
-- [ADR-0022: Kubernetes, Cloud-Agnostic Deployment](ADR-0022-kubernetes-cloud-agnostic-deployment.md)
-- [ADR-0023: Status Page as Separate K8s Cluster](ADR-0023-status-page-as-separate-k8s-cluster.md)
-- [ADR-0024: Docker Compose for Local Dev](ADR-0024-docker-compose-for-local-dev.md)
-- [ADR-0025: CI on Push; CD to Staging on Merge](ADR-0025-ci-on-push-cd-to-staging-on-merge.md)
-- [ADR-0026: Fully Proprietary — No Open-Source Core](ADR-0026-fully-proprietary-no-open-source-core.md)
+## By common topic (LLM helper tags)
 
-### API & Integration Architecture
-- [ADR-0027: .NET / ASP.NET Core for Backend API](ADR-0027-dotnet-aspnet-core-for-backend-api.md)
-- [ADR-0028: Clean Architecture Layering](ADR-0028-clean-architecture-layering.md)
-- [ADR-0029: REST as Primary API Style](ADR-0029-rest-as-primary-api-style.md)
-- [ADR-0030: URL- or Header-Based API Versioning](ADR-0030-url-or-header-based-api-versioning.md)
-- [ADR-0031: Per-Tenant Rate Limiting](ADR-0031-per-tenant-rate-limiting.md)
-- [ADR-0032: Bulk API Endpoints With Partial Success](ADR-0032-bulk-api-endpoints-with-partial-success.md)
-- [ADR-0034: OpenAPI Auto-Generated & Self-Rendered](ADR-0034-openapi-auto-generated-and-self-rendered.md)
-- [ADR-0035: Git as First-Class Integration](ADR-0035-git-as-first-class-integration.md)
-- [ADR-0036: Prometheus + Grafana Cloud Integrations](ADR-0036-prometheus-grafana-cloud-integrations.md)
-- [ADR-0037: Schema Registry Integrations (Confluent + Apicurio)](ADR-0037-schema-registry-integrations.md)
-- [ADR-0038: Plugin Architecture Deferred to v2.0+](ADR-0038-plugin-architecture-deferred-to-v2.md)
+- **Multi-tenancy isolation**: 0011, 0012, 0013, 0014, 0031
+- **Encryption / security**: 0018, 0042, 0057, 0077, 0078
+- **Notifications / webhooks**: 0033, 0047, 0048, 0049, 0050, 0051
+- **Agent architecture**: 0041, 0042, 0043, 0044, 0045, 0067
+- **API contract**: 0029, 0030, 0031, 0032, 0033, 0034
+- **Compliance (GDPR / MiFID II)**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050, 0078
+- **Retention / archival / deletion**: 0017, 0019, 0020, 0073
+- **Audit & logging**: 0018, 0050, 0058
+- **Domain model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073
+- **Scale & performance**: 0013, 0031, 0074, 0075, 0076
+- **Availability & SLA**: 0005, 0023, 0053, 0076
+- **Billing & pricing**: 0061, 0062, 0063
+- **Observability**: 0036, 0058, 0059, 0060
+- **Frontend**: 0039, 0040
+- **Git integration**: 0035, 0054, 0055, 0057
+- **Scan / import**: 0045, 0054, 0055, 0056, 0067
+- **Status page**: 0005, 0010, 0023, 0051, 0052, 0053, 0076
+- **Identity & auth**: 0006, 0007, 0008, 0009, 0010, 0014, 0042
+- **Infrastructure & deployment**: 0022, 0023, 0024, 0025, 0043
+- **Data storage**: 0001, 0002, 0003, 0004, 0005, 0013, 0020
+- **Data quality**: 0069, 0070, 0071
+- **Extensibility / plugins**: 0033, 0038
+- **CLI**: 0009, 0046
 
-### Frontend Architecture
-- [ADR-0039: React SPA with TypeScript](ADR-0039-react-spa-with-typescript.md)
-- [ADR-0040: Two-View Dependency Graph Navigation](ADR-0040-two-view-dependency-graph-navigation.md)
+## Keyword Index
 
-### Agent Architecture
-- [ADR-0041: .NET Agent with AOT Compilation](ADR-0041-dotnet-agent-with-aot-compilation.md)
-- [ADR-0043: Agent Deployable as Docker / Helm](ADR-0043-agent-deployable-as-docker-and-helm.md)
-- [ADR-0044: Centrally Managed Agent Config (Pull-Based)](ADR-0044-centrally-managed-agent-config-pull-based.md)
-- [ADR-0045: Agent-Discovered Services Require Approval Workflow](ADR-0045-agent-discovered-services-approval-workflow.md)
+Alphabetical keyword index for concept-based lookup. Each entry maps a keyword to the ADR(s) that discuss it.
 
-### CLI & Distribution
-- [ADR-0046: .NET Global Tool & Standalone Binary CLI Distribution](ADR-0046-dotnet-global-tool-cli-distribution.md)
+- **AES-256** → 0077
+- **Agent (hybrid)** → 0041, 0042, 0043, 0044, 0045
+- **AOT compilation** → 0041, 0046
+- **API versioning** → 0030
+- **Apicurio** → 0037
+- **Approval workflow (discovery inbox)** → 0045
+- **ASP.NET Core** → 0027, 0028, 0034, 0060
+- **Audit log** → 0016, 0017, 0018, 0050, 0058, 0073
+- **Avro / JSON / Protobuf schemas** → 0037
+- **Bearer tokens (long-lived)** → 0042, 0077
+- **Billing** → 0061, 0062, 0063
+- **Blast radius / Impact analysis** → 0040, 0067, 0068
+- **Blob storage** → 0004, 0020
+- **Block Kit (Slack)** → 0048
+- **Bulk endpoints / partial success** → 0032
+- **CI/CD** → 0025, 0046
+- **CLI** → 0007, 0009, 0046
+- **Clean Architecture** → 0028
+- **Cloud-agnostic** → 0022, 0026
+- **Cold storage / Glacier / Archive** → 0020
+- **Column-level encryption** → 0077
+- **Confluent Schema Registry** → 0037
+- **Confluent.Kafka / MassTransit** → 0003
+- **Consent records** → 0015
+- **Correlation ID** → 0058
+- **Cursor pagination** → 0029
+- **Custom attributes (JSONB)** → 0064
+- **Custom Entity type** → 0064
+- **Data residency** → 0015, 0021
+- **Dead Letter Queue (DLQ)** → 0033
+- **Deep scan** → 0054, 0055
+- **Dependency graph** → 0040, 0067, 0068
+- **DNS challenge / ACME** → 0052
+- **Docker Compose (local dev)** → 0024
+- **Docker image / Helm chart (agent)** → 0043
+- **Dogfooding** → 0079
+- **DPA (Data Processing Agreement)** → 0015
+- **EF Core** → 0012, 0027, 0077
+- **Elasticsearch** → 0002, 0013
+- **Email / SMTP** → 0049, 0051
+- **Entity lifecycle (Active/Deprecated/Retired)** → 0073
+- **Entity types (9 fixed)** → 0064
+- **Entitlements** → 0061, 0062
+- **Error envelope** → 0029
+- **Exponential backoff / retry** → 0033, 0055
+- **Federation / SSO** → 0006
+- **FluentValidation** → 0027
+- **Four-tier pricing (Free/Starter/Pro/Enterprise)** → 0061
+- **GDPR** → 0015, 0019, 0021, 0062, 0077, 0078
+- **Git integration** → 0035, 0054, 0055, 0057
+- **GitHub / GitLab / Bitbucket** → 0035, 0057
+- **Grafana Cloud** → 0036
+- **Graph explorer (dependency)** → 0040
+- **Hash chaining (audit)** → 0018
+- **Health checks (live / ready / startup)** → 0060
+- **Heartbeat endpoint** → 0042
+- **Helm** → 0022, 0043
+- **Hierarchy (Org → Team → System → Component)** → 0065
+- **HMAC-SHA256** → 0033
+- **Hot-reload (agent config)** → 0044
+- **HTTPS polling** → 0042
+- **IBlobStorage abstraction** → 0004
+- **Idempotency** → 0033
+- **ILM (Index Lifecycle Management)** → 0013, 0017
+- **Ingress / cert-manager** → 0022, 0052
+- **JSONB custom attributes** → 0064
+- **JWKS** → 0007, 0010
+- **JWT** → 0007, 0009, 0014, 0042
+- **Kafka** → 0003, 0033, 0047
+- **KeyCloak** → 0006, 0007, 0008, 0009, 0010, 0014
+- **KRaft (Kafka)** → 0003
+- **Least-privilege OAuth scopes** → 0057
+- **Let's Encrypt / ACME / auto-SSL** → 0052
+- **Lifecycle states** → 0073
+- **Manual precedence (conflict queue)** → 0056
+- **MassTransit** → 0003
+- **Maturity model (5 levels)** → 0071
+- **MediatR / CQRS** → 0027
+- **Metering (per-user)** → 0063
+- **Metrics (/metrics)** → 0036, 0059
+- **MiFID II** → 0016, 0017, 0018, 0050, 0062
+- **MinIO** → 0004
+- **mTLS (NOT used)** → 0033, 0042, 0077
+- **Multi-ownership / quorum** → 0066
+- **Multi-tenancy** → 0011, 0012, 0013, 0014
+- **Notifications engine** → 0047, 0048, 0049, 0050, 0051
+- **Notification log (MiFID)** → 0050
+- **OAuth** → 0035, 0048, 0057
+- **OIDC** → 0006, 0007, 0010
+- **One-org-one-tenant** → 0011
+- **OpenAPI** → 0029, 0034
+- **Origin tracking (relationship)** → 0067
+- **Partial success (bulk API)** → 0032
+- **Per-tenant prefix (blob)** → 0004
+- **Plugins (deferred v2)** → 0038
+- **Policy engine** → (not a dedicated ADR; see PRD)
+- **PostgreSQL** → 0001, 0012, 0018
+- **Prometheus** → 0036, 0059, 0060
+- **Proprietary (no OSS core)** → 0026
+- **Quorum approval** → 0066
+- **Rate limiting** → 0031, 0033, 0055
+- **RBAC (5 roles)** → 0008
+- **React SPA** → 0039, 0040
+- **Relationship vocabulary (7 types)** → 0068
+- **Relationship origin** → 0067
+- **Required minimum fields** → 0069
+- **Residency region** → 0021
+- **REST API** → 0029, 0030, 0031, 0032, 0034
+- **Retention (180 days / 5 years)** → 0017, 0019, 0020
+- **Right to erasure (GDPR)** → 0015, 0019
+- **RLS (Row-Level Security)** → 0012, 0014
+- **Roles (Org Admin / Editor / Contributor / Viewer / Service Account)** → 0008
+- **RSS (status page)** → 0047, 0051
+- **Scale envelope** → 0074
+- **Scan engine** → 0054, 0055, 0056
+- **Schema Registry** → 0037
+- **Scorecards** → 0070, 0071
+- **Secrets policy (references only)** → 0078
+- **SendGrid / SES adapters** → 0049
+- **Service account** → 0008, 0009, 0063
+- **SLA (99.9% / 99.99%)** → 0053, 0076
+- **SLO (p95 latency)** → 0075
+- **SMS** → 0047, 0051
+- **SMTP** → 0049
+- **Slack** → 0048
+- **Soft delete / 30-day purge** → 0019
+- **SPA (React)** → 0039
+- **SSL / Let's Encrypt / ACME** → 0052
+- **Staging (CD)** → 0025
+- **Status page (architecture)** → 0005, 0010, 0023, 0051, 0052, 0053
+- **Strimzi** → 0003
+- **Stripe-style provider** → 0062
+- **Structured JSON logs** → 0058
+- **Swagger UI (dev/staging only)** → 0034
+- **Tags (taxonomy)** → 0065, 0072
+- **TanStack Query** → 0039
+- **Teams (Microsoft)** → 0048
+- **Tenant claim (JWT)** → 0014
+- **Tenant ID / tenant_id** → 0001, 0012, 0013, 0014, 0058
+- **Tenant isolation** → 0012, 0013, 0014
+- **Tiered pricing** → 0061
+- **TLS 1.2+ / 1.3** → 0077
+- **Token-bucket rate limit** → 0031
+- **Tokens (service account)** → 0009, 0063
+- **Transactional outbox / Kafka retry** → 0033
+- **TypeScript (strict)** → 0039
+- **URL-based versioning** → 0030
+- **User-count metering** → 0063
+- **Versioned config (agent)** → 0044
+- **Vite** → 0039
+- **Webhooks (outbound)** → 0033, 0038, 0047, 0051
+- **WebSockets (rejected)** → 0042
 
-### Notification Architecture
-- [ADR-0047: Unified Multi-Channel Notification Dispatch Engine](ADR-0047-unified-multi-channel-notification-engine.md)
-- [ADR-0048: Native Slack & Microsoft Teams Integrations](ADR-0048-native-slack-and-teams-integrations.md)
-- [ADR-0049: Configurable SMTP / Email Provider](ADR-0049-configurable-smtp-email-provider.md)
+## Deprecated / Superseded
 
-### Status Page Architecture
-- [ADR-0051: Multi-Channel Status Page Subscribers](ADR-0051-multi-channel-status-page-subscribers.md)
-- [ADR-0052: Custom Domains with Auto-Provisioned SSL](ADR-0052-custom-domains-with-auto-ssl.md)
-- [ADR-0053: 99.99% SLA Target for Status Page](ADR-0053-status-page-99-99-sla-target.md)
+_No ADRs have been deprecated or superseded yet. When an ADR is superseded by a new decision, it will be listed here with a link to the successor ADR and an explanation of why the change was made._
 
-### Scan / Import Architecture
-- [ADR-0054: Deep Repository Scan at Import-Time](ADR-0054-deep-repository-scan-at-import.md)
-- [ADR-0055: Scan Timeout, Retry, Rate-Limit Aware](ADR-0055-scan-timeout-retry-rate-limit-aware.md)
-- [ADR-0056: Manual Relationship Precedence (Conflict Queue)](ADR-0056-manual-relationship-precedence.md)
-- [ADR-0057: OAuth-Based Git Provider Connection](ADR-0057-oauth-git-provider-connection.md)
+| ADR | Superseded By | Reason | Date |
+|-----|---------------|--------|------|
+| _(none)_ | — | — | — |
 
-### Observability & Monitoring
-- [ADR-0058: Structured JSON Logs with Tenant Context](ADR-0058-structured-json-logs-with-tenant-context.md)
-- [ADR-0059: Prometheus-Compatible Metrics Exposition](ADR-0059-prometheus-compatible-metrics-exposition.md)
+## History
 
-### Billing
-- [ADR-0062: External Billing Provider for Payment Processing](ADR-0062-external-billing-provider.md)
-- [ADR-0063: User-Count Metering Per Billing Period](ADR-0063-user-count-metering-per-billing-period.md)
-
-### Domain Model
-- [ADR-0065: Hybrid Org Structure — Hierarchy + Tags](ADR-0065-hybrid-org-structure-hierarchy-plus-tags.md)
-- [ADR-0066: Multi-Ownership with Quorum Rules](ADR-0066-multi-ownership-with-quorum-rules.md)
-- [ADR-0067: Relationship Origin Tracking](ADR-0067-relationship-origin-tracking.md)
-- [ADR-0068: Fixed Relationship Type Vocabulary](ADR-0068-fixed-relationship-type-vocabulary.md)
-- [ADR-0069: Required Minimum Fields Enforcement](ADR-0069-required-minimum-fields-enforcement.md)
-- [ADR-0070: Per-Organization Scorecard Configurability](ADR-0070-per-organization-scorecard-configurability.md)
-- [ADR-0071: Five-Level Maturity Model](ADR-0071-five-level-maturity-model.md)
-- [ADR-0072: Tag Taxonomy — Predefined Plus Custom](ADR-0072-tag-taxonomy-predefined-plus-custom.md)
-- [ADR-0073: Enforced Entity Lifecycle States](ADR-0073-enforced-entity-lifecycle-states.md)
-
-### Scale & Performance
-- [ADR-0074: Scale Targets — 1000+ Tenants, 10k Services/Tenant](ADR-0074-scale-targets-1000-tenants.md)
-- [ADR-0075: Performance SLOs — p95 Latency Targets](ADR-0075-performance-slos-p95-latency.md)
-- [ADR-0076: Two-Tier SLA — Platform 99.9% / Status Page 99.99%](ADR-0076-two-tier-sla-platform-99-9-status-99-99.md)
-
-### Non-Functional / Cross-Cutting
-- [ADR-0078: No Secrets or Credentials Stored — References Only](ADR-0078-no-secrets-stored-references-only.md)
-- [ADR-0079: Dogfooding + Design Partners Go-to-Market Strategy](ADR-0079-dogfooding-design-partners-gtm.md)
-
-## Pending Review
-
-The following candidates are marked DISCUSS. See [ADR-CANDIDATES.md](../ADR-CANDIDATES.md).
-
-### DISCUSS (10) — need resolution before affected phase implementation
-- ADR-003 Message bus (RabbitMQ / Kafka / alternatives)
-- ADR-004 Blob storage for large artifacts
-- ADR-012 Tenant isolation strategy (RLS vs schema-per-tenant)
-- ADR-013 Elasticsearch index strategy (shared vs per-tenant)
-- ADR-033 Webhook delivery mechanism (HMAC signing, retry, DLQ)
-- ADR-042 Agent communication protocol (outbound-only mTLS)
-- ADR-060 `/health/live` + `/health/ready` endpoints
-- ADR-061 Simple per-user monthly pricing
-- ADR-064 Fixed entity taxonomy (9 entity types)
-- ADR-077 Encryption in transit + at rest
-
-### Unreviewed (0)
-_All candidates have been reviewed._
+| Date | Event |
+|------|-------|
+| 2026-04-17 | Initial ADR library created (38 accepted, 41 pending) |
+| 2026-04-17 | Batches 2 and 3 transformed 31 more candidates (69 total) |
+| 2026-04-20 | ADR-0003, 0004, 0012, 0013 accepted (DISCUSS resolved) |
+| 2026-04-21 | ADR-0033, 0042, 0060, 0061, 0064, 0077 accepted (final DISCUSS resolved) |
+| 2026-04-21 | README restructured as LLM-friendly index with Summary/Related columns |
+| 2026-04-21 | Added YAML front-matter, Keyword Index, and Deprecated/Superseded section |
