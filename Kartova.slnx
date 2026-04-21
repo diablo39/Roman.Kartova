@@ -10,6 +10,7 @@
     <Project Path="src/Modules/Catalog/Kartova.Catalog.Contracts/Kartova.Catalog.Contracts.csproj" />
     <Project Path="src/Modules/Catalog/Kartova.Catalog.Domain/Kartova.Catalog.Domain.csproj" />
     <Project Path="src/Modules/Catalog/Kartova.Catalog.Infrastructure/Kartova.Catalog.Infrastructure.csproj" />
+    <Project Path="src/Modules/Catalog/Kartova.Catalog.Tests/Kartova.Catalog.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Kartova.ArchitectureTests/Kartova.ArchitectureTests.csproj" />
