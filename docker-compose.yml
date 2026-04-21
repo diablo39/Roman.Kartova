@@ -1,0 +1,57 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: kartova
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d kartova"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  migrator:
+    build:
+      context: .
+      dockerfile: src/Kartova.Migrator/Dockerfile
+    image: kartova/migrator:dev
+    environment:
+      ConnectionStrings__Kartova: "Host=postgres;Port=5432;Database=kartova;Username=migrator;Password=dev"
+      DOTNET_ENVIRONMENT: Development
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: src/Kartova.Api/Dockerfile
+      args:
+        GIT_COMMIT: "${GIT_COMMIT:-dev}"
+        BUILD_TIME: "${BUILD_TIME:-unknown}"
+    image: kartova/api:dev
+    environment:
+      ConnectionStrings__Kartova: "Host=postgres;Port=5432;Database=kartova;Username=kartova_app;Password=dev"
+      ASPNETCORE_ENVIRONMENT: Development
+      GIT_COMMIT: "${GIT_COMMIT:-dev}"
+      BUILD_TIME: "${BUILD_TIME:-unknown}"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
