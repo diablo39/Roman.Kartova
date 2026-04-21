@@ -21,4 +21,8 @@
     <ProjectReference Include="..\Modules\Catalog\Kartova.Catalog.Infrastructure\Kartova.Catalog.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Kartova.ArchitectureTests" />
+  </ItemGroup>
+
 </Project>

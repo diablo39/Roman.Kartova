@@ -11,4 +11,7 @@
     <Project Path="src/Modules/Catalog/Kartova.Catalog.Domain/Kartova.Catalog.Domain.csproj" />
     <Project Path="src/Modules/Catalog/Kartova.Catalog.Infrastructure/Kartova.Catalog.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Kartova.ArchitectureTests/Kartova.ArchitectureTests.csproj" />
+  </Folder>
 </Solution>
