@@ -30,9 +30,9 @@
 ### E-01: Project Foundation & Infrastructure
 
 **E-01.F-01: Project Scaffolding**
-- [ ] E-01.F-01.S-01 — .NET solution structure with clean architecture
-- [ ] E-01.F-01.S-02 — React frontend project with TypeScript
-- [ ] E-01.F-01.S-03 — Docker Compose for local development
+- [x] E-01.F-01.S-01 — .NET solution structure with clean architecture
+- [x] E-01.F-01.S-02 — React frontend project with TypeScript
+- [x] E-01.F-01.S-03 — Docker Compose for local development
 
 **E-01.F-02: CI/CD Pipeline**
 - [ ] E-01.F-02.S-01 — CI pipeline (build, test, lint)
