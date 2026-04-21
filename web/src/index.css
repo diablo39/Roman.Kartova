@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+@theme {
+  /* Slate palette — mirrors docs/design/DESIGN.md */
+  --color-background: hsl(222 47% 8%);   /* Slate 900 */
+  --color-card: hsl(222 47% 11%);         /* Slate 800 */
+  --color-card-elevated: hsl(222 47% 14%);/* Slate 750 */
+  --color-border: hsl(222 47% 18%);       /* Slate 700 */
+  --color-foreground: hsl(210 40% 96%);   /* Slate 100 */
+  --color-muted: hsl(215 16% 57%);        /* Slate 400 */
+  --color-primary: hsl(217 91% 60%);      /* Blue 500 */
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-success: hsl(142 71% 45%);
+  --color-warning: hsl(38 92% 50%);
+  --color-danger: hsl(0 84% 60%);
+
+  /* Typography */
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Radii */
+  --radius: 0.5rem;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+}
