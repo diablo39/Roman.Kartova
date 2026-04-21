@@ -1,12 +1,20 @@
 ---
 platform: Kartova
 description: SaaS service catalog and developer portal platform (Backstage + Compass + Statuspage)
-adr_count: 82
+adr_count: 86
 last_updated: 2026-04-21
 architecture:
   backend: .NET 10 (LTS) / ASP.NET Core + EF Core (ADR-0027)
   backend_pattern: Modular monolith (ADR-0082) with Clean Architecture per module — Domain / Application / Infrastructure / Contracts (ADR-0028); inter-module via Wolverine mediator or Kafka events
   module_boundaries: NetArchTest fitness functions enforce no cross-module internal references; only `{Module}.Contracts` is public (ADR-0082)
+testing:
+  strategy: five-tier pyramid — architecture (NetArchTest) + unit (xUnit) + integration (Testcontainers) + contract (Pact) + E2E (Playwright) (ADR-0083)
+  architecture_tests: mandatory CI gate, fail-fast, enforce layers + module boundaries + forbidden deps (ADR-0083)
+dev_workflow:
+  frontend_verification: Playwright MCP mandatory for AI-assisted frontend changes — navigate, click, snapshot, check console errors before claiming done (ADR-0084)
+operations:
+  migrations: EF Core migrations run via dedicated `Kartova.Migrator` container — K8s pre-install/pre-upgrade Helm Job or Docker init container; never at app startup (ADR-0085)
+  helm_chart: Co-located in application repo at `deploy/helm/kartova/`; published to OCI registry on release (ADR-0086)
   frontend: React SPA + TypeScript strict, Vite, React Router, TanStack Query (ADR-0039)
   api_style: REST with cursor pagination and consistent error envelope (ADR-0029)
   api_versioning: URL-based primary (/api/v1/...), optional Accept-Version header (ADR-0030)
@@ -199,6 +207,10 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0080](ADR-0080-wolverine-for-mediation-and-outbound-messaging.md) | Wolverine for In-Process Mediation and Outbound Messaging | Backend Architecture | Accepted | 0003, 0027, 0028, 0033, 0047, 0081 | Wolverine as single library for CQRS mediation, outbound Kafka publishing, transactional outbox, and future sagas. MediatR and MassTransit not used. |
 | [0081](ADR-0081-kafkaflow-for-inbound-kafka-consumers.md) | KafkaFlow for Inbound Kafka Consumers | Backend Architecture | Accepted | 0003, 0027, 0037, 0074, 0080 | KafkaFlow for all inbound consumers to get per-key parallel-within-partition workers; Wolverine (ADR-0080) handles outbound. |
 | [0082](ADR-0082-modular-monolith-architecture.md) | Modular Monolith Architecture | Backend Architecture | Accepted | 0003, 0012, 0027, 0028, 0080, 0081 | Modular monolith with one bounded-context module per domain area, Clean Architecture per module, enforced boundaries via NetArchTest; inter-module only via Wolverine or Kafka. |
+| [0083](ADR-0083-testing-strategy-with-architecture-tests.md) | Testing Strategy — Test Pyramid with Architecture Tests as CI Gate | Testing & Quality | Accepted | 0025, 0028, 0080, 0082, 0084 | Five-tier pyramid: architecture (NetArchTest, mandatory), unit (xUnit), integration (Testcontainers), contract (Pact), E2E (Playwright). Architecture tests enforce module boundaries + layering + forbidden deps. |
+| [0084](ADR-0084-playwright-mcp-for-frontend-development.md) | Playwright MCP for Frontend Development and Verification Workflow | Development Workflow | Accepted | 0039, 0079, 0083 | Playwright MCP mandatory for AI-assisted frontend verification — navigate, interact, snapshot, check console errors before declaring work done. Complementary to ADR-0083 E2E tier. |
+| [0085](ADR-0085-database-migrations-as-k8s-jobs-docker-init-containers.md) | Database Migrations as K8s Jobs and Docker Init Containers | Deployment & Operations | Accepted | 0001, 0022, 0024, 0025, 0074, 0082, 0086 | EF Core migrations run in dedicated `Kartova.Migrator` container via Helm pre-install/pre-upgrade Job (K8s) or init container (Docker); never at app startup. Per-module orchestration. |
+| [0086](ADR-0086-helm-chart-co-located-in-application-repository.md) | Helm Chart Co-located in Application Repository | Deployment & Operations | Accepted | 0022, 0024, 0025, 0043, 0082, 0085 | Helm chart lives at `deploy/helm/kartova/` in-repo, versioned with the app, published as OCI artifact to GHCR on release. Agent chart remains separate (ADR-0043). |
 
 ## By category (quick navigation)
 
@@ -220,6 +232,9 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Domain Model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073
 - **Scale & Performance**: 0074, 0075, 0076
 - **Non-Functional / Cross-Cutting**: 0077, 0078, 0079
+- **Testing & Quality**: 0083
+- **Development Workflow**: 0084
+- **Deployment & Operations**: 0085, 0086
 
 ## By common topic (LLM helper tags)
 
@@ -228,6 +243,9 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Notifications / webhooks**: 0033, 0047, 0048, 0049, 0050, 0051, 0080, 0081
 - **Messaging / mediation / CQRS**: 0003, 0028, 0037, 0080, 0081
 - **Modular monolith / bounded contexts**: 0028, 0080, 0081, 0082
+- **Testing / quality gates**: 0025, 0083
+- **Frontend workflow / dev-time verification**: 0039, 0083, 0084
+- **AI-assisted development**: 0079, 0084
 - **Agent architecture**: 0041, 0042, 0043, 0044, 0045, 0067
 - **API contract**: 0029, 0030, 0031, 0032, 0033, 0034
 - **Compliance (GDPR / MiFID II)**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050, 0078
@@ -243,7 +261,9 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Scan / import**: 0045, 0054, 0055, 0056, 0067
 - **Status page**: 0005, 0010, 0023, 0051, 0052, 0053, 0076
 - **Identity & auth**: 0006, 0007, 0008, 0009, 0010, 0014, 0042
-- **Infrastructure & deployment**: 0022, 0023, 0024, 0025, 0043
+- **Infrastructure & deployment**: 0022, 0023, 0024, 0025, 0043, 0085, 0086
+- **Database migrations**: 0001, 0012, 0082, 0085
+- **Helm / packaging / GitOps**: 0043, 0085, 0086
 - **Data storage**: 0001, 0002, 0003, 0004, 0005, 0013, 0020
 - **Data quality**: 0069, 0070, 0071
 - **Extensibility / plugins**: 0033, 0038
@@ -310,7 +330,15 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Hash chaining (audit)** → 0018
 - **Health checks (live / ready / startup)** → 0060
 - **Heartbeat endpoint** → 0042
-- **Helm** → 0022, 0043
+- **Helm** → 0022, 0043, 0085, 0086
+- **Helm hooks (pre-install/pre-upgrade)** → 0085
+- **Helm chart location (in-repo)** → 0086
+- **Init container (Docker Compose)** → 0085
+- **K8s Job / CronJob** → 0085
+- **Migration container (Kartova.Migrator)** → 0085
+- **EF Core migrations** → 0001, 0085
+- **GitOps / ArgoCD / Flux** → 0086
+- **OCI registry / GHCR chart publishing** → 0086
 - **Hierarchy (Org → Team → System → Component)** → 0065
 - **HMAC-SHA256** → 0033
 - **Hot-reload (agent config)** → 0044
@@ -336,7 +364,15 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Mediator pattern** → 0028, 0080
 - **Modular monolith** → 0082
 - **Module boundaries / bounded contexts** → 0082
-- **NetArchTest / fitness functions** → 0082
+- **NetArchTest / fitness functions** → 0082, 0083
+- **Pact.NET / contract tests** → 0083
+- **Playwright / E2E tests** → 0083
+- **Playwright MCP (dev-time browser automation)** → 0084
+- **MCP servers (general)** → 0084
+- **Browser automation (development)** → 0084
+- **Testcontainers** → 0083
+- **Testing pyramid / test strategy** → 0083
+- **xUnit / FluentAssertions** → 0083
 - **Per-key parallelism (Kafka consumers)** → 0081
 - **Metering (per-user)** → 0063
 - **Metrics (/metrics)** → 0036, 0059
@@ -434,3 +470,6 @@ _No ADRs have been deprecated or superseded yet. When an ADR is superseded by a 
 | 2026-04-21 | Added YAML front-matter, Keyword Index, and Deprecated/Superseded section |
 | 2026-04-21 | ADR-0080 (Wolverine — mediation + outbound + outbox) and ADR-0081 (KafkaFlow — inbound consumers) accepted; MassTransit and MediatR removed from stack; ADR-0003, 0027, 0028, 0033, 0047 updated accordingly |
 | 2026-04-21 | ADR-0082 (Modular monolith) accepted — bounded-context modules with NetArchTest-enforced boundaries, Wolverine/Kafka-only inter-module communication; ADR-0028 updated |
+| 2026-04-21 | ADR-0083 (Testing strategy) accepted — five-tier pyramid with NetArchTest architecture tests as mandatory CI gate |
+| 2026-04-21 | ADR-0084 (Playwright MCP for frontend dev) accepted — mandatory browser verification during AI-assisted frontend work; complementary to ADR-0083 E2E tier |
+| 2026-04-21 | ADR-0085 (DB migrations as K8s Jobs / Docker init containers) and ADR-0086 (Helm chart in-repo at `deploy/helm/kartova/`) accepted; ADR-0022 and ADR-0024 updated |

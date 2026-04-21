@@ -4,7 +4,7 @@
 **Date:** 2026-04-17
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** Platform Infrastructure
-**Related:** ADR-0022 (K8s)
+**Related:** ADR-0022 (K8s), ADR-0085 (migration init container)
 
 ## Context
 

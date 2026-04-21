@@ -12,7 +12,7 @@
 | Backlog index (30 epics, 73 features, 209 stories) | [docs/product/EPICS-AND-STORIES.md](docs/product/EPICS-AND-STORIES.md) |
 | Progress checklist | [docs/product/CHECKLIST.md](docs/product/CHECKLIST.md) |
 | Phase files (0–9) | `docs/product/phases/phase-N-*.md` |
-| ADR library (79 accepted) + keyword index | [docs/architecture/decisions/README.md](docs/architecture/decisions/README.md) |
+| ADR library (86 accepted) + keyword index | [docs/architecture/decisions/README.md](docs/architecture/decisions/README.md) |
 | Individual ADRs | `docs/architecture/decisions/ADR-NNNN-*.md` |
 | ADR candidates (historical) | [docs/architecture/ADR-CANDIDATES.md](docs/architecture/ADR-CANDIDATES.md) |
 | Design system (tokens, nav specs) | [docs/design/DESIGN.md](docs/design/DESIGN.md) |
@@ -33,6 +33,8 @@ Quick lookup; full context in the ADR library keyword index.
 |------|----------|-----|
 | Backend | .NET 10 (LTS) + ASP.NET Core + EF Core, Clean Architecture per module | ADR-0027, ADR-0028 |
 | Solution style | Modular monolith — one csproj tree per bounded context, NetArchTest fitness functions enforce boundaries | ADR-0082 |
+| Testing | Five-tier pyramid: architecture (NetArchTest, mandatory CI gate) + unit (xUnit) + integration (Testcontainers) + contract (Pact) + E2E (Playwright) | ADR-0083 |
+| Frontend dev workflow | Playwright MCP mandatory for AI-assisted UI changes — navigate/interact/snapshot/check console before declaring done | ADR-0084 |
 | Frontend | React SPA + TypeScript strict, Vite, TanStack Query | ADR-0039 |
 | Database | PostgreSQL 16 with Row-Level Security (not schema-per-tenant) | ADR-0001, ADR-0012 |
 | Search | Elasticsearch shared index + per-tenant routing + filtered aliases | ADR-0002, ADR-0013 |
@@ -52,6 +54,8 @@ Quick lookup; full context in the ADR library keyword index.
 | Pricing | Four tiers: Free / Starter / Pro / Enterprise | ADR-0061 |
 | Encryption | Narrow scope — OAuth tokens (column-level) + TLS 1.2+; **mTLS not used** | ADR-0077 |
 | Deployment | Kubernetes, cloud-agnostic (no managed-service lock-in) | ADR-0022 |
+| Helm chart | Co-located at `deploy/helm/kartova/`, versioned with app, published as OCI to GHCR on release | ADR-0086 |
+| DB migrations | Dedicated `Kartova.Migrator` container — K8s Helm pre-upgrade Job or Docker init container; never at app startup | ADR-0085 |
 | Local dev | Docker Compose | ADR-0024 |
 
 ## Phases (MVP = 0–5)
@@ -67,7 +71,8 @@ Post-MVP: 6 Agent · 7 Intelligence · 8 Analytics · 9 Advanced
 
 ## Working agreements
 
-- **Before architectural suggestions:** check ADR keyword index in `docs/architecture/decisions/README.md` — 79 decisions already made
+- **Before architectural suggestions:** check ADR keyword index in `docs/architecture/decisions/README.md` — 86 decisions already made
+- **Frontend / UI work:** use Playwright MCP to verify changes in a real browser (navigate → interact → snapshot → check console) before claiming done (ADR-0084)
 - **Before adding features:** verify they're not already scoped in `EPICS-AND-STORIES.md`; map each feature to its owning module (ADR-0082)
 - **Cross-module interactions:** only via Wolverine `IMessageBus` (in-process) or Kafka events; never direct references to other modules' Domain/Application/Infrastructure
 - **When proposing new ADRs:** preview decision before saving (user reviews first)

@@ -4,7 +4,7 @@
 **Date:** 2026-04-17
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** Platform Infrastructure
-**Related:** ADR-0023 (status page topology), ADR-0043 (agent deployment)
+**Related:** ADR-0023 (status page topology), ADR-0043 (agent deployment), ADR-0085 (migration Jobs), ADR-0086 (Helm chart location)
 
 ## Context
 
