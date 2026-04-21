@@ -22,7 +22,7 @@ rebuild:
 
 # Run full test suite (arch + unit + integration)
 test:
-	cmd /c dotnet test Kartova.sln --configuration Release
+	cmd /c dotnet test Kartova.slnx --configuration Release
 
 # Run only architecture tests (fast fail-early gate)
 archtest:
@@ -38,5 +38,5 @@ logs:
 
 # Full cleanup: down + remove build artifacts
 clean: down
-	cmd /c dotnet clean Kartova.sln
+	cmd /c dotnet clean Kartova.slnx
 	rm -rf web/node_modules web/dist

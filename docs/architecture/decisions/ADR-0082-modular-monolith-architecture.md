@@ -89,6 +89,8 @@ Organize the backend as a **modular monolith**: a single deployable artifact com
 
 ## Implementation Notes
 
+**Solution file format:** Use `.slnx` (XML-based, default in .NET 10 SDK), not the classic `.sln` MSBuild format. Rationale: (1) human-readable XML with clean git diffs — important when a modular monolith grows to 40+ projects, (2) `.slnx` is the forward direction for .NET tooling, (3) full parity with `.sln` for `dotnet` CLI operations. Generate via `dotnet new sln --name Kartova --output .`; add projects via `dotnet sln Kartova.slnx add <csproj>`.
+
 **Solution layout:**
 
 ```

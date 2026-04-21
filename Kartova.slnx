@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Kartova.SharedKernel/Kartova.SharedKernel.csproj" />
+  </Folder>
+</Solution>

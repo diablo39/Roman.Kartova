@@ -35,7 +35,7 @@ Specifically, Slice 1 must prove:
 | Container base image | `mcr.microsoft.com/dotnet/aspnet:10.0-alpine` for API and migrator |
 | .NET version pin | `global.json` with `"version": "10.0.100", "rollForward": "latestFeature"` |
 | Local dev commands | `Makefile` in root with targets `up`, `down`, `rebuild`, `test`, `archtest`, `web`, `logs` |
-| Solution file | Single `Kartova.sln` in repo root |
+| Solution file | Single `Kartova.slnx` in repo root |
 | .gitignore additions | `node_modules/`, `web/dist/`, `TestResults/`, `.vs/`, `*.DotSettings.user`, `.idea/`, `.env.local`, `coverage/` |
 | docker-compose services (Slice 1) | `postgres` + `migrator` + `api` only; KeyCloak → Slice 2, Kafka → Slice 3, Elasticsearch → later |
 | Wolverine scope | Registered with PostgreSQL message persistence; zero handlers, zero Kafka routing (Slice 3) |
@@ -48,7 +48,7 @@ Specifically, Slice 1 must prove:
 Roman.Gig2/
 ├── CLAUDE.md                              # existing
 ├── global.json                            # .NET 10.0.100 pin, rollForward latestFeature
-├── Kartova.sln
+├── Kartova.slnx
 ├── Makefile                               # up/down/rebuild/test/archtest/web/logs
 ├── .gitignore                             # existing + additions above
 ├── .editorconfig
@@ -189,7 +189,7 @@ Two jobs, parallel:
 
 - **backend**:
   1. `actions/setup-dotnet@v4` pinned by `global.json`
-  2. `dotnet restore Kartova.sln`
+  2. `dotnet restore Kartova.slnx`
   3. `dotnet build --configuration Release --no-restore`
   4. `dotnet test tests/Kartova.ArchitectureTests/ --no-build` (tier 1, fast-fail)
   5. `dotnet test src/Modules/Catalog/Kartova.Catalog.Tests/ --no-build` (tier 2)

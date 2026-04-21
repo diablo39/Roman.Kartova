@@ -25,7 +25,8 @@
 - Epic = `E-XX` · Feature = `E-XX.F-YY` · Story = `E-XX.F-YY.S-ZZ`
 - ADR = `ADR-NNNN` (Michael Nygard template)
 - Dates: always absolute (`2026-04-21`), never relative
-- Windows shell: `cmd /c` or PowerShell wrappers for `dotnet` commands; Git Bash lacks `grep -P` (use `-E` or `Select-String`)
+- Windows shell: `cmd //c` (double slash — MSYS path-translation workaround) or PowerShell wrappers for `dotnet` commands in Git Bash. Git Bash lacks `grep -P` (use `-E` or `Select-String`)
+- Solution file: `Kartova.slnx` (XML format, .NET 10 default — see ADR-0082). Classic `.sln` not used
 
 ## Key architectural decisions
 

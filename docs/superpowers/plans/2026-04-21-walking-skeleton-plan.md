@@ -4,7 +4,7 @@
 
 **Goal:** Build an end-to-end vertical slice of the Kartova stack (modular monolith + Wolverine + migrator + docker-compose + frontend shell + CI + minimal Helm) that proves every load-bearing ADR is correctly wired, without implementing any domain feature.
 
-**Architecture:** Scaffold a single `Kartova.sln` with `SharedKernel`, composition-root `Api`, a migrator console, and one canary `Catalog` module using per-module Clean Architecture (`Domain` / `Application` / `Infrastructure` / `Contracts`). Tests are co-located per module in `src/Modules/{Module}/` with cross-cutting `ArchitectureTests` in `tests/`. The frontend (`web/`) uses Vite + React 19 + TypeScript strict + Tailwind v4 + shadcn/ui to render a static shell with a placeholder route. Infrastructure is wired via Docker Compose (`postgres` + `migrator` + `api`) and a minimal Helm chart skeleton (`deploy/helm/kartova/`). GitHub Actions runs architecture + unit + integration tests on every push.
+**Architecture:** Scaffold a single `Kartova.slnx` with `SharedKernel`, composition-root `Api`, a migrator console, and one canary `Catalog` module using per-module Clean Architecture (`Domain` / `Application` / `Infrastructure` / `Contracts`). Tests are co-located per module in `src/Modules/{Module}/` with cross-cutting `ArchitectureTests` in `tests/`. The frontend (`web/`) uses Vite + React 19 + TypeScript strict + Tailwind v4 + shadcn/ui to render a static shell with a placeholder route. Infrastructure is wired via Docker Compose (`postgres` + `migrator` + `api`) and a minimal Helm chart skeleton (`deploy/helm/kartova/`). GitHub Actions runs architecture + unit + integration tests on every push.
 
 **Tech Stack:** .NET 10 LTS (ASP.NET Core + EF Core 10 + Wolverine 3.x) · PostgreSQL 16 · React 19 + TypeScript 5 strict + Vite 6 + Tailwind CSS v4 + shadcn/ui + Radix · Docker Compose · Helm 3 · GitHub Actions · xUnit + FluentAssertions + Testcontainers.PostgreSql · NetArchTest.Rules
 
@@ -120,7 +120,7 @@ rebuild:
 
 # Run full test suite (arch + unit + integration)
 test:
-	cmd /c dotnet test Kartova.sln --configuration Release
+	cmd /c dotnet test Kartova.slnx --configuration Release
 
 # Run only architecture tests (fast fail-early gate)
 archtest:
@@ -136,7 +136,7 @@ logs:
 
 # Full cleanup: down + remove build artifacts
 clean: down
-	cmd /c dotnet clean Kartova.sln
+	cmd /c dotnet clean Kartova.slnx
 	rm -rf web/node_modules web/dist
 ```
 
@@ -199,12 +199,12 @@ git commit -m "chore: Add repository root scaffolding (global.json, Makefile, RE
 
 ---
 
-## Task 2: Create empty `Kartova.sln`
+## Task 2: Create empty `Kartova.slnx`
 
 **Goal:** Empty solution file so all subsequent `dotnet new` commands can add projects to it.
 
 **Files:**
-- Create: `Kartova.sln`
+- Create: `Kartova.slnx`
 
 - [ ] **Step 1: Create empty solution**
 
@@ -222,17 +222,17 @@ The template "Solution File" was created successfully.
 
 Run:
 ```bash
-ls Kartova.sln
-cat Kartova.sln | head -5
+ls Kartova.slnx
+cat Kartova.slnx | head -5
 ```
 
-Expected: file exists, first line is `Microsoft Visual Studio Solution File, Format Version 12.00`.
+Expected: file exists and contains XML (`.slnx` format, default in .NET 10). First line should be the XML root: `<Solution>` or similar. The classic `Microsoft Visual Studio Solution File, Format Version 12.00` header is **not** expected — that's the old `.sln` format, which Kartova does not use (see ADR-0082 Implementation Notes).
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add Kartova.sln
-git commit -m "chore: Add empty Kartova.sln"
+git add Kartova.slnx
+git commit -m "chore: Add empty Kartova.slnx"
 ```
 
 ---
@@ -251,7 +251,7 @@ git commit -m "chore: Add empty Kartova.sln"
 Run:
 ```bash
 cmd /c dotnet new classlib --name Kartova.SharedKernel --output src/Kartova.SharedKernel --framework net10.0
-cmd /c dotnet sln Kartova.sln add src/Kartova.SharedKernel/Kartova.SharedKernel.csproj
+cmd /c dotnet sln Kartova.slnx add src/Kartova.SharedKernel/Kartova.SharedKernel.csproj
 ```
 
 - [ ] **Step 2: Remove default `Class1.cs`**
@@ -336,7 +336,7 @@ Expected: `Build succeeded. 0 Warning(s). 0 Error(s).`
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/Kartova.SharedKernel/ Kartova.sln
+git add src/Kartova.SharedKernel/ Kartova.slnx
 git commit -m "feat(sharedkernel): Add TenantId value object and DomainEvent base type"
 ```
 
@@ -358,7 +358,7 @@ git commit -m "feat(sharedkernel): Add TenantId value object and DomainEvent bas
 
 ```bash
 cmd /c dotnet new classlib --name Kartova.Catalog.Domain --output src/Modules/Catalog/Kartova.Catalog.Domain --framework net10.0
-cmd /c dotnet sln Kartova.sln add src/Modules/Catalog/Kartova.Catalog.Domain/Kartova.Catalog.Domain.csproj
+cmd /c dotnet sln Kartova.slnx add src/Modules/Catalog/Kartova.Catalog.Domain/Kartova.Catalog.Domain.csproj
 rm src/Modules/Catalog/Kartova.Catalog.Domain/Class1.cs
 ```
 
@@ -402,7 +402,7 @@ public static class CatalogDomainMarker { }
 
 ```bash
 cmd /c dotnet new classlib --name Kartova.Catalog.Application --output src/Modules/Catalog/Kartova.Catalog.Application --framework net10.0
-cmd /c dotnet sln Kartova.sln add src/Modules/Catalog/Kartova.Catalog.Application/Kartova.Catalog.Application.csproj
+cmd /c dotnet sln Kartova.slnx add src/Modules/Catalog/Kartova.Catalog.Application/Kartova.Catalog.Application.csproj
 rm src/Modules/Catalog/Kartova.Catalog.Application/Class1.cs
 ```
 
@@ -446,7 +446,7 @@ public static class CatalogApplicationMarker { }
 
 ```bash
 cmd /c dotnet new classlib --name Kartova.Catalog.Contracts --output src/Modules/Catalog/Kartova.Catalog.Contracts --framework net10.0
-cmd /c dotnet sln Kartova.sln add src/Modules/Catalog/Kartova.Catalog.Contracts/Kartova.Catalog.Contracts.csproj
+cmd /c dotnet sln Kartova.slnx add src/Modules/Catalog/Kartova.Catalog.Contracts/Kartova.Catalog.Contracts.csproj
 rm src/Modules/Catalog/Kartova.Catalog.Contracts/Class1.cs
 ```
 
@@ -499,7 +499,7 @@ Expected: three `Build succeeded` messages.
 - [ ] **Step 11: Commit**
 
 ```bash
-git add src/Modules/Catalog/Kartova.Catalog.Domain/ src/Modules/Catalog/Kartova.Catalog.Application/ src/Modules/Catalog/Kartova.Catalog.Contracts/ Kartova.sln
+git add src/Modules/Catalog/Kartova.Catalog.Domain/ src/Modules/Catalog/Kartova.Catalog.Application/ src/Modules/Catalog/Kartova.Catalog.Contracts/ Kartova.slnx
 git commit -m "feat(catalog): Add Domain, Application, Contracts csproj skeletons with marker types"
 ```
 
@@ -519,7 +519,7 @@ git commit -m "feat(catalog): Add Domain, Application, Contracts csproj skeleton
 
 ```bash
 cmd /c dotnet new classlib --name Kartova.Catalog.Infrastructure --output src/Modules/Catalog/Kartova.Catalog.Infrastructure --framework net10.0
-cmd /c dotnet sln Kartova.sln add src/Modules/Catalog/Kartova.Catalog.Infrastructure/Kartova.Catalog.Infrastructure.csproj
+cmd /c dotnet sln Kartova.slnx add src/Modules/Catalog/Kartova.Catalog.Infrastructure/Kartova.Catalog.Infrastructure.csproj
 rm src/Modules/Catalog/Kartova.Catalog.Infrastructure/Class1.cs
 ```
 
@@ -671,7 +671,7 @@ Expected: `Build succeeded`, 0 warnings.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/Modules/Catalog/Kartova.Catalog.Infrastructure/ Kartova.sln
+git add src/Modules/Catalog/Kartova.Catalog.Infrastructure/ Kartova.slnx
 git commit -m "feat(catalog): Add Infrastructure csproj with CatalogDbContext and __kartova_metadata entity"
 ```
 
@@ -690,7 +690,7 @@ git commit -m "feat(catalog): Add Infrastructure csproj with CatalogDbContext an
 
 ```bash
 cmd /c dotnet new web --name Kartova.Api --output src/Kartova.Api --framework net10.0
-cmd /c dotnet sln Kartova.sln add src/Kartova.Api/Kartova.Api.csproj
+cmd /c dotnet sln Kartova.slnx add src/Kartova.Api/Kartova.Api.csproj
 ```
 
 This creates a default `Program.cs` we'll overwrite in Task 8 — ignore its content for now.
@@ -862,7 +862,7 @@ The SharedKernel already has Wolverine as a transitive dependency, so no additio
 - [ ] **Step 8: Build solution**
 
 ```bash
-cmd /c dotnet build Kartova.sln
+cmd /c dotnet build Kartova.slnx
 ```
 
 Expected: all projects build, 0 warnings, 0 errors.
@@ -870,7 +870,7 @@ Expected: all projects build, 0 warnings, 0 errors.
 - [ ] **Step 9: Commit**
 
 ```bash
-git add src/ Kartova.sln
+git add src/ Kartova.slnx
 git commit -m "feat(modules): Add IModule interface in SharedKernel and CatalogModule implementation"
 ```
 
@@ -1167,7 +1167,7 @@ git commit -m "feat(api): Wire Program.cs with Wolverine persistence, three heal
 
 ```bash
 cmd /c dotnet new console --name Kartova.Migrator --output src/Kartova.Migrator --framework net10.0
-cmd /c dotnet sln Kartova.sln add src/Kartova.Migrator/Kartova.Migrator.csproj
+cmd /c dotnet sln Kartova.slnx add src/Kartova.Migrator/Kartova.Migrator.csproj
 ```
 
 - [ ] **Step 2: Add references**
@@ -1298,7 +1298,7 @@ Expected: build succeeds.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/Kartova.Migrator/ Kartova.sln
+git add src/Kartova.Migrator/ Kartova.slnx
 git commit -m "feat(migrator): Add Kartova.Migrator console that applies migrations for each registered module"
 ```
 
@@ -1319,7 +1319,7 @@ git commit -m "feat(migrator): Add Kartova.Migrator console that applies migrati
 
 ```bash
 cmd /c dotnet new xunit --name Kartova.ArchitectureTests --output tests/Kartova.ArchitectureTests --framework net10.0
-cmd /c dotnet sln Kartova.sln add tests/Kartova.ArchitectureTests/Kartova.ArchitectureTests.csproj
+cmd /c dotnet sln Kartova.slnx add tests/Kartova.ArchitectureTests/Kartova.ArchitectureTests.csproj
 rm tests/Kartova.ArchitectureTests/UnitTest1.cs
 ```
 
@@ -1555,7 +1555,7 @@ Expected: 5 tests passed (2 layer + 2 boundary + 2 forbidden = 5... actually: 2 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add tests/Kartova.ArchitectureTests/ Kartova.sln
+git add tests/Kartova.ArchitectureTests/ Kartova.slnx
 git commit -m "test(arch): Add NetArchTest rules for Clean Architecture layers, module boundaries, forbidden deps"
 ```
 
@@ -1573,7 +1573,7 @@ git commit -m "test(arch): Add NetArchTest rules for Clean Architecture layers, 
 
 ```bash
 cmd /c dotnet new xunit --name Kartova.Catalog.Tests --output src/Modules/Catalog/Kartova.Catalog.Tests --framework net10.0
-cmd /c dotnet sln Kartova.sln add src/Modules/Catalog/Kartova.Catalog.Tests/Kartova.Catalog.Tests.csproj
+cmd /c dotnet sln Kartova.slnx add src/Modules/Catalog/Kartova.Catalog.Tests/Kartova.Catalog.Tests.csproj
 rm src/Modules/Catalog/Kartova.Catalog.Tests/UnitTest1.cs
 ```
 
@@ -1650,7 +1650,7 @@ Expected: 2 tests pass.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/Modules/Catalog/Kartova.Catalog.Tests/ src/Modules/Catalog/Kartova.Catalog.Infrastructure/CatalogInfrastructureAnchor.cs Kartova.sln
+git add src/Modules/Catalog/Kartova.Catalog.Tests/ src/Modules/Catalog/Kartova.Catalog.Infrastructure/CatalogInfrastructureAnchor.cs Kartova.slnx
 git commit -m "test(catalog): Add Catalog.Tests smoke project with assembly-load and module-name assertions"
 ```
 
@@ -1669,7 +1669,7 @@ git commit -m "test(catalog): Add Catalog.Tests smoke project with assembly-load
 
 ```bash
 cmd /c dotnet new xunit --name Kartova.Catalog.IntegrationTests --output src/Modules/Catalog/Kartova.Catalog.IntegrationTests --framework net10.0
-cmd /c dotnet sln Kartova.sln add src/Modules/Catalog/Kartova.Catalog.IntegrationTests/Kartova.Catalog.IntegrationTests.csproj
+cmd /c dotnet sln Kartova.slnx add src/Modules/Catalog/Kartova.Catalog.IntegrationTests/Kartova.Catalog.IntegrationTests.csproj
 rm src/Modules/Catalog/Kartova.Catalog.IntegrationTests/UnitTest1.cs
 ```
 
@@ -1820,7 +1820,7 @@ Expected: 2 tests pass. First run may take 10-30s while the postgres image is pu
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/Modules/Catalog/Kartova.Catalog.IntegrationTests/ Kartova.sln
+git add src/Modules/Catalog/Kartova.Catalog.IntegrationTests/ Kartova.slnx
 git commit -m "test(catalog): Add MigrationIntegrationTests with Testcontainers PostgreSQL (table creation + idempotency)"
 ```
 
@@ -1870,7 +1870,7 @@ ARG BUILD_TIME
 WORKDIR /src
 
 COPY global.json ./
-COPY Kartova.sln ./
+COPY Kartova.slnx ./
 COPY src/Kartova.SharedKernel/*.csproj src/Kartova.SharedKernel/
 COPY src/Kartova.Api/*.csproj src/Kartova.Api/
 COPY src/Kartova.Migrator/*.csproj src/Kartova.Migrator/
@@ -1919,7 +1919,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
 WORKDIR /src
 
 COPY global.json ./
-COPY Kartova.sln ./
+COPY Kartova.slnx ./
 COPY src/Kartova.SharedKernel/*.csproj src/Kartova.SharedKernel/
 COPY src/Kartova.Migrator/*.csproj src/Kartova.Migrator/
 COPY src/Modules/Catalog/Kartova.Catalog.Domain/*.csproj src/Modules/Catalog/Kartova.Catalog.Domain/
@@ -3018,10 +3018,10 @@ jobs:
           global-json-file: global.json
 
       - name: Restore
-        run: dotnet restore Kartova.sln
+        run: dotnet restore Kartova.slnx
 
       - name: Build
-        run: dotnet build Kartova.sln --configuration Release --no-restore
+        run: dotnet build Kartova.slnx --configuration Release --no-restore
 
       - name: Architecture tests (CI gate — ADR-0083)
         run: dotnet test tests/Kartova.ArchitectureTests/Kartova.ArchitectureTests.csproj --configuration Release --no-build --verbosity normal
