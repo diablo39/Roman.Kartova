@@ -7,5 +7,6 @@
     <Project Path="src/Modules/Catalog/Kartova.Catalog.Application/Kartova.Catalog.Application.csproj" />
     <Project Path="src/Modules/Catalog/Kartova.Catalog.Contracts/Kartova.Catalog.Contracts.csproj" />
     <Project Path="src/Modules/Catalog/Kartova.Catalog.Domain/Kartova.Catalog.Domain.csproj" />
+    <Project Path="src/Modules/Catalog/Kartova.Catalog.Infrastructure/Kartova.Catalog.Infrastructure.csproj" />
   </Folder>
 </Solution>
