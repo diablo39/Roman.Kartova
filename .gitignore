@@ -421,6 +421,10 @@ FodyWeavers.xsd
 
 # MCP server config — contains API keys (project-scope registration)
 .mcp.json
+
+# Playwright MCP artifacts (ad-hoc dev/verification screenshots)
+.playwright-mcp/
+task-*-*.png
 # Kartova project additions (Slice 1)
 node_modules/
 web/dist/
