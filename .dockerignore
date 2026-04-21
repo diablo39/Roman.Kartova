@@ -1,0 +1,14 @@
+**/bin
+**/obj
+**/.vs
+**/.idea
+**/TestResults
+**/node_modules
+**/dist
+**/.env*
+**/.git
+**/.github
+**/docs
+**/*.md
+!README.md
+!CLAUDE.md
