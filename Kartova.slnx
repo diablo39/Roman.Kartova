@@ -2,4 +2,10 @@
   <Folder Name="/src/">
     <Project Path="src/Kartova.SharedKernel/Kartova.SharedKernel.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Catalog/">
+    <Project Path="src/Modules/Catalog/Kartova.Catalog.Application/Kartova.Catalog.Application.csproj" />
+    <Project Path="src/Modules/Catalog/Kartova.Catalog.Contracts/Kartova.Catalog.Contracts.csproj" />
+    <Project Path="src/Modules/Catalog/Kartova.Catalog.Domain/Kartova.Catalog.Domain.csproj" />
+  </Folder>
 </Solution>
