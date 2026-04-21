@@ -12,11 +12,12 @@
 | Backlog index (30 epics, 73 features, 209 stories) | [docs/product/EPICS-AND-STORIES.md](docs/product/EPICS-AND-STORIES.md) |
 | Progress checklist | [docs/product/CHECKLIST.md](docs/product/CHECKLIST.md) |
 | Phase files (0–9) | `docs/product/phases/phase-N-*.md` |
-| ADR library (86 accepted) + keyword index | [docs/architecture/decisions/README.md](docs/architecture/decisions/README.md) |
+| ADR library (88 accepted) + keyword index | [docs/architecture/decisions/README.md](docs/architecture/decisions/README.md) |
 | Individual ADRs | `docs/architecture/decisions/ADR-NNNN-*.md` |
 | ADR candidates (historical) | [docs/architecture/ADR-CANDIDATES.md](docs/architecture/ADR-CANDIDATES.md) |
 | Design system (tokens, nav specs) | [docs/design/DESIGN.md](docs/design/DESIGN.md) |
 | Google Stitch prompts | [docs/design/STITCH-PROMPTS.md](docs/design/STITCH-PROMPTS.md) |
+| UI mockups (Stitch output, canonical) | `docs/ui-screens/{screen-name}/{code.html, screen.png}` |
 
 ## Conventions
 
@@ -34,8 +35,9 @@ Quick lookup; full context in the ADR library keyword index.
 | Backend | .NET 10 (LTS) + ASP.NET Core + EF Core, Clean Architecture per module | ADR-0027, ADR-0028 |
 | Solution style | Modular monolith — one csproj tree per bounded context, NetArchTest fitness functions enforce boundaries | ADR-0082 |
 | Testing | Five-tier pyramid: architecture (NetArchTest, mandatory CI gate) + unit (xUnit) + integration (Testcontainers) + contract (Pact) + E2E (Playwright) | ADR-0083 |
-| Frontend dev workflow | Playwright MCP mandatory for AI-assisted UI changes — navigate/interact/snapshot/check console before declaring done | ADR-0084 |
+| Frontend dev workflow | Full loop: Google Stitch MCP (design source) → implementation → Playwright MCP (verify) → commit | ADR-0084, ADR-0087 |
 | Frontend | React SPA + TypeScript strict, Vite, TanStack Query | ADR-0039 |
+| Frontend UI stack | shadcn/ui + Tailwind CSS v4 + Radix; TanStack Table, react-hook-form + zod, cmdk, sonner, Recharts, React Flow, lucide-react; nav canonical in DESIGN.md (not Stitch) | ADR-0088 |
 | Database | PostgreSQL 16 with Row-Level Security (not schema-per-tenant) | ADR-0001, ADR-0012 |
 | Search | Elasticsearch shared index + per-tenant routing + filtered aliases | ADR-0002, ADR-0013 |
 | Messaging | Apache Kafka via Strimzi on K8s, KRaft mode (not RabbitMQ/Redpanda) | ADR-0003 |
@@ -71,8 +73,8 @@ Post-MVP: 6 Agent · 7 Intelligence · 8 Analytics · 9 Advanced
 
 ## Working agreements
 
-- **Before architectural suggestions:** check ADR keyword index in `docs/architecture/decisions/README.md` — 86 decisions already made
-- **Frontend / UI work:** use Playwright MCP to verify changes in a real browser (navigate → interact → snapshot → check console) before claiming done (ADR-0084)
+- **Before architectural suggestions:** check ADR keyword index in `docs/architecture/decisions/README.md` — 88 decisions already made
+- **Frontend / UI work:** read local mockup first from `docs/ui-screens/{screen}/code.html` + `screen.png` (canonical snapshot, per ADR-0087); escalate to Stitch MCP only when screen is missing locally or user asks for sync. Map Stitch HTML → shadcn/ui components (ADR-0088). Verify with Playwright MCP (navigate → interact → snapshot → check console) before claiming done (ADR-0084).
 - **Before adding features:** verify they're not already scoped in `EPICS-AND-STORIES.md`; map each feature to its owning module (ADR-0082)
 - **Cross-module interactions:** only via Wolverine `IMessageBus` (in-process) or Kafka events; never direct references to other modules' Domain/Application/Infrastructure
 - **When proposing new ADRs:** preview decision before saving (user reviews first)

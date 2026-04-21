@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sovereign Radar | Technology Radar</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface": "#dae2fd",
+                        "on-surface-variant": "#c3c6d7",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "on-primary-fixed": "#00174b",
+                        "primary-fixed": "#dbe1ff",
+                        "surface": "#0b1326",
+                        "surface-variant": "#2d3449",
+                        "primary": "#b4c5ff",
+                        "on-error-container": "#ffdad6",
+                        "on-tertiary-fixed": "#360f00",
+                        "on-secondary-container": "#a4b6f5",
+                        "outline-variant": "#434655",
+                        "inverse-on-surface": "#283044",
+                        "surface-bright": "#31394d",
+                        "on-background": "#dae2fd",
+                        "inverse-surface": "#dae2fd",
+                        "on-tertiary-fixed-variant": "#7d2d00",
+                        "on-secondary-fixed-variant": "#31447b",
+                        "background": "#0b1326",
+                        "surface-container-highest": "#2d3449",
+                        "surface-tint": "#b4c5ff",
+                        "secondary-fixed-dim": "#b4c5ff",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "on-secondary-fixed": "#00174b",
+                        "outline": "#8d90a0",
+                        "on-primary": "#002a78",
+                        "tertiary-fixed-dim": "#ffb596",
+                        "error": "#ffb4ab",
+                        "on-secondary": "#182d63",
+                        "tertiary": "#ffb596",
+                        "on-error": "#690005",
+                        "primary-container": "#2563eb",
+                        "tertiary-fixed": "#ffdbcd",
+                        "secondary-container": "#33467e",
+                        "on-tertiary": "#581e00",
+                        "error-container": "#93000a",
+                        "tertiary-container": "#bc4800",
+                        "surface-container-low": "#131b2e",
+                        "surface-dim": "#0b1326",
+                        "secondary-fixed": "#dbe1ff",
+                        "secondary": "#b4c5ff",
+                        "on-tertiary-container": "#ffede6",
+                        "inverse-primary": "#0053db",
+                        "on-primary-container": "#eeefff",
+                        "surface-container-high": "#222a3d",
+                        "surface-container": "#171f33",
+                        "surface-container-lowest": "#060e20"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"],
+                        "mono": ["JetBrains Mono"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .radar-grid {
+            background-image: radial-gradient(circle, #43465526 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body overflow-hidden">
+<!-- TopNavBar: Slate 900 #0F172A, 56px height -->
+<header class="fixed top-0 w-full h-14 z-50 bg-[#0F172A] border-b border-[#334155] flex items-center justify-between px-6 font-['Inter']">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#2563EB]" style="font-variation-settings: 'FILL' 1;">location_on</span>
+<span class="text-[18px] font-semibold text-white tracking-tight">Kartova</span>
+</div>
+<div class="flex-1 max-w-[480px] mx-8">
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#64748B] text-lg">search</span>
+<input class="w-full h-9 bg-[#1E293B] border border-[#334155] rounded-[6px] pl-10 pr-4 text-sm text-white focus:outline-none focus:border-[#2563EB] transition-all placeholder:text-[#64748B]" placeholder="Search entities..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="relative p-2">
+<span class="material-symbols-outlined text-[#94A3B8] text-[20px]">notifications</span>
+<span class="absolute top-1 right-1 w-4 h-4 bg-red-600 rounded-full border-2 border-[#0F172A] text-[10px] flex items-center justify-center font-bold text-white">3</span>
+</button>
+<div class="flex items-center gap-2 cursor-pointer ml-4">
+<img alt="User" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA9RmcJ4Li1rdZX_s8XmMqUWUSyk1bh2eVFT0MOj7TGUCjhwF_i8g4gomB41VMAjHrSqMrMhDOpttu3AOSwvAe-Al43brlguZplljfUkJebORIWwWwx1RlvwpIXec6qVci2FCaV5GZGkafngMrPukf8d3Q3c2ssPa_hrFvtzkmYN4QdgkGFWQZH2jYwu8OeYyjjf8iTJzToAcmN51Fo3kEWpxq2_9SM68ed6apSNYrlKzoaIIsnMtUhqiKIYqRog9mfy6NEOh4IICI"/>
+<span class="material-symbols-outlined text-[#94A3B8] text-lg">expand_more</span>
+</div>
+</div>
+</header>
+<div class="flex h-screen pt-14">
+<!-- SideNavBar: Slate 800 #1E293B, 260px wide -->
+<aside class="fixed left-0 top-14 h-[calc(100vh-56px)] w-[260px] bg-[#1E293B] border-r border-[#334155] flex flex-col py-4 overflow-y-auto">
+<nav class="flex-1 space-y-1">
+<!-- Group 1 -->
+<div class="px-2 space-y-1">
+<a class="text-[#94A3B8] px-4 py-2.5 flex items-center gap-3 hover:bg-[#334155]/30 rounded-md transition-all group" href="#">
+<span class="material-symbols-outlined text-[20px]">grid_view</span>
+<span class="text-sm font-medium">Catalog</span>
+</a>
+<a class="text-[#94A3B8] px-4 py-2.5 flex items-center gap-3 hover:bg-[#334155]/30 rounded-md transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">account_tree</span>
+<span class="text-sm font-medium">Dependencies</span>
+</a>
+<a class="text-[#94A3B8] px-4 py-2.5 flex items-center gap-3 hover:bg-[#334155]/30 rounded-md transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">groups</span>
+<span class="text-sm font-medium">Teams</span>
+</a>
+</div>
+<!-- Divider -->
+<div class="my-2 border-t border-[#334155]"></div>
+<!-- Group 2: Dashboards (Expanded) -->
+<div class="px-2">
+<div class="text-[#b4c5ff] bg-[#334155]/50 px-4 py-2.5 flex items-center gap-3 rounded-md cursor-pointer mb-1">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span class="text-sm font-medium">Dashboards</span>
+<span class="material-symbols-outlined ml-auto text-lg">expand_more</span>
+</div>
+<div class="pl-12 space-y-1">
+<a class="block py-2 text-sm text-[#94A3B8] hover:text-[#dae2fd] transition-colors" href="#">Overview</a>
+<a class="block py-2 text-sm text-[#94A3B8] hover:text-[#dae2fd] transition-colors" href="#">Environment Map</a>
+<a class="block py-2 text-sm text-[#94A3B8] hover:text-[#dae2fd] transition-colors" href="#">Status Board</a>
+</div>
+</div>
+<!-- Divider -->
+<div class="my-2 border-t border-[#334155]"></div>
+<!-- Group 3 -->
+<div class="px-2 space-y-1">
+<a class="text-[#94A3B8] px-4 py-2.5 flex items-center gap-3 hover:bg-[#334155]/30 rounded-md transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">language</span>
+<span class="text-sm font-medium">Status Page</span>
+</a>
+<a class="text-[#94A3B8] px-4 py-2.5 flex items-center gap-3 hover:bg-[#334155]/30 rounded-md transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+</div>
+</nav>
+<!-- Bottom: Collapse Toggle -->
+<div class="mt-auto px-4 py-4">
+<button class="w-full flex items-center gap-3 text-[#94A3B8] hover:text-white transition-colors">
+<span class="material-symbols-outlined text-lg">chevron_left</span>
+<span class="text-xs uppercase tracking-widest font-semibold">Collapse</span>
+</button>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="ml-[260px] flex-1 overflow-y-auto bg-surface-dim relative">
+<div class="p-8 pb-32">
+<!-- Header -->
+<header class="mb-10">
+<div class="flex items-center gap-3 mb-2">
+<span class="text-[10px] font-bold tracking-[0.3em] text-primary uppercase">Strategy &amp; Vision</span>
+<div class="h-[1px] w-12 bg-primary/30"></div>
+</div>
+<h1 class="text-[30px] font-extrabold text-on-surface tracking-tight leading-none mb-2">Technology Radar</h1>
+<p class="text-on-surface-variant max-w-2xl font-light">Ecosystem assessment of software engineering standards, frameworks, and tools currently in use or under evaluation.</p>
+</header>
+<div class="flex gap-8">
+<!-- Radar Visualization -->
+<div class="relative w-[650px] h-[650px] flex items-center justify-center bg-surface-container-lowest rounded-xl border border-outline-variant/5 radar-grid overflow-hidden">
+<!-- Concentric Rings -->
+<div class="absolute w-[600px] h-[600px] rounded-full border border-outline-variant/20 flex items-center justify-center">
+<span class="absolute top-4 text-[10px] font-mono uppercase tracking-widest text-on-surface-variant/40">Hold</span>
+<div class="w-[450px] h-[450px] rounded-full border border-outline-variant/20 flex items-center justify-center">
+<span class="absolute top-4 text-[10px] font-mono uppercase tracking-widest text-on-surface-variant/40">Assess</span>
+<div class="w-[300px] h-[300px] rounded-full border border-outline-variant/20 flex items-center justify-center">
+<span class="absolute top-4 text-[10px] font-mono uppercase tracking-widest text-on-surface-variant/40">Trial</span>
+<div class="w-[150px] h-[150px] rounded-full border border-outline-variant/40 bg-primary-container/5 flex items-center justify-center">
+<span class="text-[10px] font-mono uppercase tracking-widest text-primary font-bold">Adopt</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Quadrant Lines -->
+<div class="absolute h-full w-[1px] bg-outline-variant/20"></div>
+<div class="absolute w-full h-[1px] bg-outline-variant/20"></div>
+<!-- Quadrant Labels -->
+<span class="absolute top-8 left-8 text-[11px] font-bold text-on-surface/60 uppercase tracking-widest">Languages &amp; Frameworks</span>
+<span class="absolute top-8 right-8 text-[11px] font-bold text-on-surface/60 uppercase tracking-widest">Infrastructure</span>
+<span class="absolute bottom-8 left-8 text-[11px] font-bold text-on-surface/60 uppercase tracking-widest">Data Management</span>
+<span class="absolute bottom-8 right-8 text-[11px] font-bold text-on-surface/60 uppercase tracking-widest">Tools</span>
+<!-- Interactive Dots -->
+<div class="absolute top-[310px] left-[305px] group">
+<div class="w-5 h-5 bg-primary rounded-full shadow-[0_0_15px_rgba(37,99,235,0.5)] cursor-pointer ring-4 ring-primary/20"></div>
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-container-highest px-2 py-1 rounded text-[10px] font-mono whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">.NET</div>
+</div>
+<div class="absolute top-[280px] left-[340px] group">
+<div class="w-4 h-4 bg-primary rounded-full cursor-pointer hover:scale-125 transition-transform"></div>
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-container-highest px-2 py-1 rounded text-[10px] font-mono whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">React</div>
+</div>
+<div class="absolute top-[360px] left-[310px] group">
+<div class="w-4 h-4 bg-primary rounded-full cursor-pointer hover:scale-125 transition-transform"></div>
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-container-highest px-2 py-1 rounded text-[10px] font-mono whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">PostgreSQL</div>
+</div>
+<div class="absolute top-[300px] right-[260px] group">
+<div class="w-4 h-4 bg-primary rounded-full cursor-pointer hover:scale-125 transition-transform"></div>
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-container-highest px-2 py-1 rounded text-[10px] font-mono whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">Kubernetes</div>
+</div>
+<div class="absolute bottom-[300px] left-[340px] group">
+<div class="w-4 h-4 bg-primary rounded-full cursor-pointer hover:scale-125 transition-transform"></div>
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-container-highest px-2 py-1 rounded text-[10px] font-mono whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">RabbitMQ</div>
+</div>
+<!-- Trial -->
+<div class="absolute top-[220px] left-[260px] group">
+<div class="w-4 h-4 border-2 border-primary rounded-full cursor-pointer hover:bg-primary/20 transition-all"></div>
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-container-highest px-2 py-1 rounded text-[10px] font-mono whitespace-nowrap">Go</div>
+</div>
+<div class="absolute bottom-[240px] left-[220px] group">
+<div class="w-4 h-4 border-2 border-primary rounded-full cursor-pointer hover:bg-primary/20 transition-all"></div>
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-container-highest px-2 py-1 rounded text-[10px] font-mono whitespace-nowrap">Kafka</div>
+</div>
+<div class="absolute bottom-[260px] right-[240px] group">
+<div class="w-4 h-4 border-2 border-primary rounded-full cursor-pointer hover:bg-primary/20 transition-all"></div>
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-container-highest px-2 py-1 rounded text-[10px] font-mono whitespace-nowrap">Redis</div>
+</div>
+<!-- Assess -->
+<div class="absolute top-[180px] left-[150px] group">
+<div class="w-4 h-4 border border-on-surface-variant rounded-sm cursor-pointer hover:bg-surface-variant transition-all rotate-45"></div>
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-container-highest px-2 py-1 rounded text-[10px] font-mono whitespace-nowrap">Rust</div>
+</div>
+<div class="absolute bottom-[160px] right-[180px] group">
+<div class="w-4 h-4 border border-on-surface-variant rounded-sm cursor-pointer hover:bg-surface-variant transition-all rotate-45"></div>
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-container-highest px-2 py-1 rounded text-[10px] font-mono whitespace-nowrap">gRPC</div>
+</div>
+<!-- Hold -->
+<div class="absolute top-[100px] left-[100px] group">
+<div class="w-4 h-4 bg-error-container rounded-full cursor-pointer shadow-[0_0_10px_#93000a] animate-pulse"></div>
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-error-container text-on-error-container px-2 py-1 rounded text-[10px] font-mono whitespace-nowrap">jQuery</div>
+</div>
+<div class="absolute top-[140px] left-[60px] group">
+<div class="w-4 h-4 bg-error-container rounded-full cursor-pointer shadow-[0_0_10px_#93000a] animate-pulse"></div>
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-error-container text-on-error-container px-2 py-1 rounded text-[10px] font-mono whitespace-nowrap">.NET Framework 4.x</div>
+</div>
+</div>
+<!-- Side Panel Details -->
+<aside class="w-[320px] flex flex-col gap-6">
+<div class="bg-surface-container p-6 rounded-lg border-l-4 border-primary">
+<div class="flex justify-between items-start mb-4">
+<h3 class="text-xl font-bold font-mono">.NET</h3>
+<span class="px-2 py-1 bg-secondary-container text-on-secondary-container text-[10px] font-bold uppercase rounded-full tracking-tighter">Adopt</span>
+</div>
+<p class="text-sm text-on-surface-variant mb-6 leading-relaxed">The primary enterprise backend framework. Highly recommended for all high-performance distributed systems.</p>
+<div class="grid grid-cols-2 gap-4 mb-6">
+<div class="bg-surface-container-low p-3 rounded">
+<span class="block text-[10px] uppercase tracking-widest text-on-surface-variant/60 mb-1">Services</span>
+<span class="text-2xl font-bold font-mono">120</span>
+</div>
+<div class="bg-surface-container-low p-3 rounded">
+<span class="block text-[10px] uppercase tracking-widest text-on-surface-variant/60 mb-1">Teams</span>
+<span class="text-2xl font-bold font-mono">8</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-4 rounded h-24 relative overflow-hidden">
+<span class="block text-[10px] uppercase tracking-widest text-on-surface-variant/60 mb-2">Usage Velocity</span>
+<div class="absolute bottom-0 left-0 w-full h-12 flex items-end gap-[2px] px-2">
+<div class="flex-1 bg-primary/20 h-[30%]"></div>
+<div class="flex-1 bg-primary/20 h-[35%]"></div>
+<div class="flex-1 bg-primary/20 h-[45%]"></div>
+<div class="flex-1 bg-primary/20 h-[40%]"></div>
+<div class="flex-1 bg-primary/20 h-[60%]"></div>
+<div class="flex-1 bg-primary/20 h-[80%]"></div>
+<div class="flex-1 bg-primary/20 h-[70%]"></div>
+<div class="flex-1 bg-primary/20 h-[90%]"></div>
+<div class="flex-1 bg-primary/20 h-[100%]"></div>
+<div class="flex-1 bg-primary h-[95%]"></div>
+</div>
+</div>
+</div>
+<div class="bg-surface-container p-6 rounded-lg">
+<h4 class="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-4">Ring Definitions</h4>
+<ul class="space-y-4">
+<li class="flex gap-3">
+<div class="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0"></div>
+<div>
+<span class="block text-xs font-bold uppercase tracking-tight">Adopt</span>
+<span class="text-[11px] text-on-surface-variant">Clear choice for new projects.</span>
+</div>
+</li>
+<li class="flex gap-3">
+<div class="w-1.5 h-1.5 border border-primary rounded-full mt-1.5 shrink-0"></div>
+<div>
+<span class="block text-xs font-bold uppercase tracking-tight">Trial</span>
+<span class="text-[11px] text-on-surface-variant">Ready for low-risk use.</span>
+</div>
+</li>
+<li class="flex gap-3">
+<div class="w-1.5 h-1.5 rotate-45 border border-on-surface-variant mt-1.5 shrink-0"></div>
+<div>
+<span class="block text-xs font-bold uppercase tracking-tight">Assess</span>
+<span class="text-[11px] text-on-surface-variant">Exploring potential value.</span>
+</div>
+</li>
+<li class="flex gap-3">
+<div class="w-1.5 h-1.5 rounded-full bg-error-container mt-1.5 shrink-0"></div>
+<div>
+<span class="block text-xs font-bold uppercase tracking-tight">Hold</span>
+<span class="text-[11px] text-on-surface-variant">Phase out or avoid for new work.</span>
+</div>
+</li>
+</ul>
+</div>
+</aside>
+</div>
+</div>
+<!-- Bottom Banner -->
+<footer class="fixed bottom-0 left-[260px] right-0 bg-surface-container-highest/80 backdrop-blur-md p-4 border-t border-tertiary-container/30">
+<div class="flex items-center justify-between max-w-5xl mx-auto border border-tertiary-container/40 rounded-lg p-3 bg-tertiary-container/5">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary-fixed-dim">warning</span>
+<p class="text-sm font-medium text-on-surface">2 technologies in <span class="font-bold text-tertiary">Hold</span> require migration plans</p>
+</div>
+<button class="px-4 py-1.5 bg-tertiary-container text-on-tertiary-container text-xs font-bold uppercase tracking-widest rounded hover:opacity-90 transition-opacity">
+                        View Remediation Plan
+                    </button>
+</div>
+</footer>
+</main>
+</div>
+</body></html>

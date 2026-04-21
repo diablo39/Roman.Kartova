@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Kartova Catalog Home Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-error-container": "#ffdad6",
+                        "secondary-fixed-dim": "#b4c5ff",
+                        "secondary": "#b4c5ff",
+                        "primary": "#b4c5ff",
+                        "on-tertiary-fixed": "#360f00",
+                        "surface": "#0b1326",
+                        "on-secondary-container": "#a4b6f5",
+                        "inverse-surface": "#dae2fd",
+                        "on-tertiary-container": "#ffede6",
+                        "on-background": "#dae2fd",
+                        "outline": "#8d90a0",
+                        "on-primary": "#002a78",
+                        "error": "#ffb4ab",
+                        "tertiary": "#ffb596",
+                        "surface-container-lowest": "#060e20",
+                        "surface-dim": "#0b1326",
+                        "on-error": "#690005",
+                        "primary-fixed": "#dbe1ff",
+                        "on-secondary": "#182d63",
+                        "inverse-on-surface": "#283044",
+                        "surface-tint": "#b4c5ff",
+                        "on-secondary-fixed-variant": "#31447b",
+                        "surface-variant": "#2d3449",
+                        "secondary-fixed": "#dbe1ff",
+                        "surface-bright": "#31394d",
+                        "tertiary-fixed-dim": "#ffb596",
+                        "on-primary-fixed": "#00174b",
+                        "error-container": "#93000a",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "background": "#0b1326",
+                        "on-tertiary-fixed-variant": "#7d2d00",
+                        "tertiary-fixed": "#ffdbcd",
+                        "tertiary-container": "#bc4800",
+                        "on-surface-variant": "#c3c6d7",
+                        "secondary-container": "#33467e",
+                        "on-secondary-fixed": "#00174b",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "primary-container": "#2563eb",
+                        "surface-container-high": "#222a3d",
+                        "on-surface": "#dae2fd",
+                        "outline-variant": "#434655",
+                        "on-primary-container": "#eeefff",
+                        "surface-container-low": "#131b2e",
+                        "surface-container": "#171f33",
+                        "surface-container-highest": "#2d3449",
+                        "on-tertiary": "#581e00",
+                        "inverse-primary": "#0053db"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"],
+                        "mono": ["JetBrains Mono"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .ghost-border {
+            outline: 1px solid rgba(67, 70, 85, 0.15);
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b1326;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2d3449;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface antialiased selection:bg-primary/30">
+<!-- TopNavBar Shell (Updated per SCREEN_7) -->
+<header class="bg-[#0F172A] border-b border-[#334155] fixed top-0 w-full h-14 z-50 flex items-center justify-between px-6">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#2563EB]" style="font-variation-settings: 'FILL' 1;">push_pin</span>
+<span class="text-[18px] font-semibold tracking-tight font-headline" style="color: #FFFFFF;">Kartova</span>
+</div>
+<div class="hidden md:flex flex-1 max-w-[480px] mx-8">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">search</span>
+<input class="w-full bg-[#1E293B] border border-[#475569] focus:ring-1 focus:ring-primary rounded-[6px] pl-10 pr-4 h-9 text-sm text-slate-200 outline-none placeholder:text-[#64748B]" placeholder="Search catalog entities..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative cursor-pointer p-2 hover:bg-slate-800 rounded-lg transition-colors">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+<span class="absolute top-1 right-1 w-4 h-4 bg-red-600 text-[10px] flex items-center justify-center rounded-full text-white font-bold">3</span>
+</div>
+<div class="flex items-center gap-2 cursor-pointer p-1 hover:bg-slate-800 rounded-lg transition-colors group">
+<img alt="User Profile Avatar" class="w-8 h-8 rounded-full object-cover border border-slate-700" data-alt="Close-up professional portrait of a software engineer in a modern office with soft cinematic lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBoFc3YzwpBpz5i8ktk-H9KWwgJV6Jck4LrHXUeL6wgN8shqmnQ9OEMJaFnAyFi8j7DKORpbNvhJOYJkkYt4DPZQkhG6JqRL6QF9bKE6QNFlHLLZ8H2FzfEacnaBVh15o6nMjgKekwkfiseX3v_pmihEOra0ybAkBmDhR9vBk2g5t7O3-bzxtJ6ulRqyzpS06X7qqntIz9SS0Msu0s7Q2eZ6X903qdIjK5EYWlm1_Ekv6dAixJx1GlWx9FXlnATzEuq3glj3feC-vM"/>
+<span class="material-symbols-outlined group-hover:text-slate-200 transition-colors text-lg">expand_more</span>
+</div>
+</div>
+</header>
+<!-- SideNavBar Shell (Updated per SCREEN_7) -->
+<aside class="fixed left-0 top-14 h-[calc(100vh-56px)] w-[260px] bg-[#1E293B] border-r border-[#334155] flex flex-col py-6 px-4 gap-6 z-40">
+<div>
+<div class="text-[10px] font-mono font-bold text-slate-500 tracking-widest uppercase mb-3 px-3">Developer Portal</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 py-2 px-3 rounded-[6px] bg-[#2563EB] font-medium text-sm transition-all" href="#" style="color: #FFFFFF;">
+<span class="material-symbols-outlined text-[20px]">inventory_2</span>
+<span>Catalog</span>
+</a>
+<a class="flex items-center gap-3 py-2 px-3 rounded-[6px] hover:bg-slate-700 hover:text-white text-sm transition-all text-[#94A3B8]" href="#">
+<span class="material-symbols-outlined text-[20px]">layers</span>
+<span>Services</span>
+</a>
+<a class="flex items-center gap-3 py-2 px-3 rounded-[6px] hover:bg-slate-700 hover:text-white text-sm transition-all text-[#94A3B8]" href="#">
+<span class="material-symbols-outlined text-[20px]">cloud_queue</span>
+<span>Infrastructure</span>
+</a>
+<a class="flex items-center gap-3 py-2 px-3 rounded-[6px] hover:bg-slate-700 hover:text-white text-sm transition-all text-[#94A3B8]" href="#">
+<span class="material-symbols-outlined text-[20px]">description</span>
+<span>Docs</span>
+</a>
+<a class="flex items-center gap-3 py-2 px-3 rounded-[6px] hover:bg-slate-700 hover:text-white text-sm transition-all text-[#94A3B8]" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span>Settings</span>
+</a>
+</nav>
+</div>
+<div class="mt-auto flex flex-col gap-1">
+<a class="flex items-center gap-3 py-2 px-3 rounded-[6px] hover:bg-slate-700 hover:text-white text-sm transition-all text-[#94A3B8]" href="#">
+<span class="material-symbols-outlined text-[20px]">contact_support</span>
+<span>Support</span>
+</a>
+<a class="flex items-center gap-3 py-2 px-3 rounded-[6px] hover:bg-slate-700 hover:text-white text-sm transition-all text-[#94A3B8]" href="#">
+<span class="material-symbols-outlined text-[20px]">chat_bubble_outline</span>
+<span>Feedback</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area (Preserved from Source) -->
+<main class="ml-[260px] mt-14 p-8 min-h-screen">
+<!-- Header Section -->
+<div class="flex items-center justify-between mb-8">
+<div>
+<h1 class="text-2xl font-semibold font-headline" style="color: #FFFFFF;">Catalog</h1>
+<p class="text-on-surface-variant text-sm mt-1">Manage and discover entities across the Kartova ecosystem.</p>
+</div>
+<button class="bg-primary-container text-on-primary-container hover:brightness-110 active:scale-95 transition-all px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">add</span>
+            Register Entity
+        </button>
+</div>
+<!-- Stats Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+<div class="bg-surface-container border border-slate-800 p-5 rounded-xl">
+<div class="text-on-surface-variant text-xs font-bold uppercase tracking-widest mb-3">Applications</div>
+<div class="flex items-end justify-between">
+<span class="text-3xl font-bold font-headline">124</span>
+<span class="flex items-center text-secondary font-medium text-sm gap-0.5">
+<span class="material-symbols-outlined text-sm">arrow_upward</span>
+                    3
+                </span>
+</div>
+</div>
+<div class="bg-surface-container border border-slate-800 p-5 rounded-xl">
+<div class="text-on-surface-variant text-xs font-bold uppercase tracking-widest mb-3">Services</div>
+<div class="flex items-end justify-between">
+<span class="text-3xl font-bold font-headline">89</span>
+<span class="flex items-center text-secondary font-medium text-sm gap-0.5">
+<span class="material-symbols-outlined text-sm">arrow_upward</span>
+                    1
+                </span>
+</div>
+</div>
+<div class="bg-surface-container border border-slate-800 p-5 rounded-xl">
+<div class="text-on-surface-variant text-xs font-bold uppercase tracking-widest mb-3">APIs</div>
+<div class="flex items-end justify-between">
+<span class="text-3xl font-bold font-headline">203</span>
+<span class="text-slate-400 font-medium text-sm">--</span>
+</div>
+</div>
+<div class="bg-surface-container border border-slate-800 p-5 rounded-xl">
+<div class="text-on-surface-variant text-xs font-bold uppercase tracking-widest mb-3">Infrastructure</div>
+<div class="flex items-end justify-between">
+<span class="text-3xl font-bold font-headline">47</span>
+<span class="flex items-center text-error font-medium text-sm gap-0.5">
+<span class="material-symbols-outlined text-sm">arrow_downward</span>
+                    2
+                </span>
+</div>
+</div>
+</div>
+<!-- My Team's Components Section -->
+<section class="mb-12">
+<h3 class="text-lg font-semibold mb-6 font-headline flex items-center gap-2" style="color: #FFFFFF;">
+<span class="material-symbols-outlined text-primary">groups</span>
+            My Team's Components
+        </h3>
+<div class="flex flex-col gap-4">
+<!-- Card 1 -->
+<div class="bg-surface-container hover:bg-surface-container-highest transition-colors p-4 flex items-center gap-6 rounded-lg group">
+<div class="w-12 h-12 bg-surface-container-low rounded-lg flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">hub</span>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-3 mb-1">
+<span class="font-bold text-on-surface tracking-tight">Identity-Microservice</span>
+<span class="px-2 py-0.5 bg-slate-800 text-slate-400 text-[10px] font-bold uppercase tracking-tighter rounded">Platform-Core</span>
+</div>
+<div class="flex items-center gap-4 text-sm">
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="text-on-surface-variant text-xs">Healthy</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 bg-surface-container-low text-on-surface-variant text-[10px] rounded border border-outline-variant/10">Golang</span>
+<span class="px-2 py-0.5 bg-surface-container-low text-on-surface-variant text-[10px] rounded border border-outline-variant/10">AuthN</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="text-right">
+<div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest">Scorecard</div>
+<div class="text-lg font-bold font-mono text-secondary">92%</div>
+</div>
+<div class="w-12 h-12 rounded-full border-4 border-slate-800 border-t-secondary rotate-45"></div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container hover:bg-surface-container-highest transition-colors p-4 flex items-center gap-6 rounded-lg group">
+<div class="w-12 h-12 bg-surface-container-low rounded-lg flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">database</span>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-3 mb-1">
+<span class="font-bold text-on-surface tracking-tight">User-Store-DB</span>
+<span class="px-2 py-0.5 bg-slate-800 text-slate-400 text-[10px] font-bold uppercase tracking-tighter rounded">Platform-Core</span>
+</div>
+<div class="flex items-center gap-4 text-sm">
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="text-on-surface-variant text-xs">Healthy</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 bg-surface-container-low text-on-surface-variant text-[10px] rounded border border-outline-variant/10">Postgres</span>
+<span class="px-2 py-0.5 bg-surface-container-low text-on-surface-variant text-[10px] rounded border border-outline-variant/10">Tier-0</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="text-right">
+<div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest">Scorecard</div>
+<div class="text-lg font-bold font-mono text-secondary">88%</div>
+</div>
+<div class="w-12 h-12 rounded-full border-4 border-slate-800 border-t-secondary rotate-12"></div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-container hover:bg-surface-container-highest transition-colors p-4 flex items-center gap-6 rounded-lg group">
+<div class="w-12 h-12 bg-surface-container-low rounded-lg flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">api</span>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-3 mb-1">
+<span class="font-bold text-on-surface tracking-tight">Public-Gateway-API</span>
+<span class="px-2 py-0.5 bg-slate-800 text-slate-400 text-[10px] font-bold uppercase tracking-tighter rounded">Platform-Core</span>
+</div>
+<div class="flex items-center gap-4 text-sm">
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+<span class="text-on-surface-variant text-xs">Warning</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 bg-surface-container-low text-on-surface-variant text-[10px] rounded border border-outline-variant/10">GraphQL</span>
+<span class="px-2 py-0.5 bg-surface-container-low text-on-surface-variant text-[10px] rounded border border-outline-variant/10">Legacy</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="text-right">
+<div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest">Scorecard</div>
+<div class="text-lg font-bold font-mono text-tertiary">74%</div>
+</div>
+<div class="w-12 h-12 rounded-full border-4 border-slate-800 border-t-tertiary -rotate-45"></div>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="bg-surface-container hover:bg-surface-container-highest transition-colors p-4 flex items-center gap-6 rounded-lg group">
+<div class="w-12 h-12 bg-surface-container-low rounded-lg flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">cloud_sync</span>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-3 mb-1">
+<span class="font-bold text-on-surface tracking-tight">Stream-Processor-V2</span>
+<span class="px-2 py-0.5 bg-slate-800 text-slate-400 text-[10px] font-bold uppercase tracking-tighter rounded">Platform-Core</span>
+</div>
+<div class="flex items-center gap-4 text-sm">
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="text-on-surface-variant text-xs">Healthy</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 bg-surface-container-low text-on-surface-variant text-[10px] rounded border border-outline-variant/10">Kafka</span>
+<span class="px-2 py-0.5 bg-surface-container-low text-on-surface-variant text-[10px] rounded border border-outline-variant/10">Scale</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="text-right">
+<div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest">Scorecard</div>
+<div class="text-lg font-bold font-mono text-secondary">95%</div>
+</div>
+<div class="w-12 h-12 rounded-full border-4 border-slate-800 border-t-secondary rotate-90"></div>
+</div>
+</div>
+<!-- Card 5 -->
+<div class="bg-surface-container hover:bg-surface-container-highest transition-colors p-4 flex items-center gap-6 rounded-lg group">
+<div class="w-12 h-12 bg-surface-container-low rounded-lg flex items-center justify-center text-error">
+<span class="material-symbols-outlined text-3xl">warning</span>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-3 mb-1">
+<span class="font-bold text-on-surface tracking-tight">Payment-Vault-Legacy</span>
+<span class="px-2 py-0.5 bg-slate-800 text-slate-400 text-[10px] font-bold uppercase tracking-tighter rounded">Platform-Core</span>
+</div>
+<div class="flex items-center gap-4 text-sm">
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-error"></span>
+<span class="text-on-surface-variant text-xs">Critical</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 bg-surface-container-low text-on-surface-variant text-[10px] rounded border border-outline-variant/10">Cobol</span>
+<span class="px-2 py-0.5 bg-surface-container-low text-on-surface-variant text-[10px] rounded border border-outline-variant/10">PCI-DSS</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="text-right">
+<div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest">Scorecard</div>
+<div class="text-lg font-bold font-mono text-error">42%</div>
+</div>
+<div class="w-12 h-12 rounded-full border-4 border-slate-800 border-t-error -rotate-12"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Bottom Two-Column Section -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
+<!-- Recent Activity Column -->
+<section>
+<h3 class="text-lg font-semibold mb-6 font-headline" style="color: #FFFFFF;">Recent Activity</h3>
+<div class="space-y-6 relative before:absolute before:left-[19px] before:top-2 before:bottom-2 before:w-px before:bg-slate-800">
+<!-- Item 1 -->
+<div class="relative pl-12">
+<div class="absolute left-0 top-0 w-10 h-10 bg-surface-container-high rounded-full flex items-center justify-center border border-slate-800 z-10">
+<span class="material-symbols-outlined text-sm text-primary">rocket_launch</span>
+</div>
+<div>
+<div class="text-sm font-medium text-on-surface">Production Deployment Successful</div>
+<div class="text-xs text-on-surface-variant mt-1">Identity-Microservice <code class="font-mono bg-surface-container px-1 text-secondary">v4.2.1-stable</code></div>
+<div class="text-[10px] text-slate-500 mt-2 flex items-center gap-2">
+<span class="material-symbols-outlined text-xs">schedule</span>
+                            22m ago • by <span class="text-primary cursor-pointer hover:underline">Alex Rivera</span>
+</div>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="relative pl-12">
+<div class="absolute left-0 top-0 w-10 h-10 bg-surface-container-high rounded-full flex items-center justify-center border border-slate-800 z-10">
+<span class="material-symbols-outlined text-sm text-secondary">add_circle</span>
+</div>
+<div>
+<div class="text-sm font-medium text-on-surface">New Entity Registered</div>
+<div class="text-xs text-on-surface-variant mt-1">Log-Aggregator-Svc (Application)</div>
+<div class="text-[10px] text-slate-500 mt-2 flex items-center gap-2">
+<span class="material-symbols-outlined text-xs">schedule</span>
+                            2h ago • by <span class="text-primary cursor-pointer hover:underline">Sarah Chen</span>
+</div>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="relative pl-12">
+<div class="absolute left-0 top-0 w-10 h-10 bg-surface-container-high rounded-full flex items-center justify-center border border-slate-800 z-10">
+<span class="material-symbols-outlined text-sm text-tertiary">edit</span>
+</div>
+<div>
+<div class="text-sm font-medium text-on-surface">Documentation Updated</div>
+<div class="text-xs text-on-surface-variant mt-1">Public-Gateway-API documentation revision</div>
+<div class="text-[10px] text-slate-500 mt-2 flex items-center gap-2">
+<span class="material-symbols-outlined text-xs">schedule</span>
+                            5h ago • by <span class="text-primary cursor-pointer hover:underline">Mike Oh</span>
+</div>
+</div>
+</div>
+<!-- Item 4 -->
+<div class="relative pl-12">
+<div class="absolute left-0 top-0 w-10 h-10 bg-surface-container-high rounded-full flex items-center justify-center border border-slate-800 z-10">
+<span class="material-symbols-outlined text-sm text-error">security</span>
+</div>
+<div>
+<div class="text-sm font-medium text-on-surface">Security Vulnerability Patch</div>
+<div class="text-xs text-on-surface-variant mt-1">User-Store-DB firewall policy update</div>
+<div class="text-[10px] text-slate-500 mt-2 flex items-center gap-2">
+<span class="material-symbols-outlined text-xs">schedule</span>
+                            1d ago • by <span class="text-primary cursor-pointer hover:underline">System Admin</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Needs Attention Column -->
+<section>
+<h3 class="text-lg font-semibold mb-6 font-headline" style="color: #FFFFFF;">Needs Attention</h3>
+<div class="space-y-4">
+<!-- Warning 1: Low Scorecard -->
+<div class="bg-surface-container border-l-4 border-tertiary p-5 rounded-lg">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h4 class="font-bold text-on-surface">Legacy-Reporting-Tool</h4>
+<p class="text-xs text-on-surface-variant mt-1">Scorecard dropped below 60% threshold due to outdated dependencies.</p>
+</div>
+<span class="material-symbols-outlined text-tertiary">trending_down</span>
+</div>
+<button class="text-xs font-bold text-tertiary uppercase tracking-widest hover:underline">Run Audit</button>
+</div>
+<!-- Warning 2: High Risk -->
+<div class="bg-surface-container border-l-4 border-error p-5 rounded-lg">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h4 class="font-bold text-on-surface">Auth-Proxy-Node</h4>
+<p class="text-xs text-on-surface-variant mt-1">Critical security patch available. Entity at high risk of exploit.</p>
+</div>
+<span class="material-symbols-outlined text-error" style="font-variation-settings: 'FILL' 1;">gpp_maybe</span>
+</div>
+<button class="text-xs font-bold text-error uppercase tracking-widest hover:underline">Update Now</button>
+</div>
+<!-- Warning 3: Pending Approval -->
+<div class="bg-surface-container border-l-4 border-primary p-5 rounded-lg">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h4 class="font-bold text-on-surface">S3-Storage-Bucket-Temp</h4>
+<p class="text-xs text-on-surface-variant mt-1">Awaiting architectural review approval for production promotion.</p>
+</div>
+<span class="material-symbols-outlined text-primary">history_edu</span>
+</div>
+<button class="text-xs font-bold text-primary uppercase tracking-widest hover:underline">Review Entity</button>
+</div>
+</div>
+</section>
+</div>
+</main>
+</body></html>

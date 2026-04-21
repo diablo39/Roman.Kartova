@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Kartova - Service Quality Detail</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-fixed": "#dbe1ff",
+                        "surface-container": "#171f33",
+                        "on-primary": "#002a78",
+                        "inverse-primary": "#0053db",
+                        "surface-container-high": "#222a3d",
+                        "surface-bright": "#31394d",
+                        "surface": "#0b1326",
+                        "on-surface": "#dae2fd",
+                        "on-primary-container": "#eeefff",
+                        "surface-dim": "#0b1326",
+                        "secondary-fixed-dim": "#b4c5ff",
+                        "error": "#ffb4ab",
+                        "on-secondary-fixed-variant": "#31447b",
+                        "surface-variant": "#2d3449",
+                        "surface-container-low": "#131b2e",
+                        "tertiary": "#ffb596",
+                        "tertiary-fixed": "#ffdbcd",
+                        "primary-container": "#2563eb",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "on-secondary-container": "#a4b6f5",
+                        "on-secondary": "#182d63",
+                        "surface-container-lowest": "#060e20",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "surface-container-highest": "#2d3449",
+                        "background": "#0b1326",
+                        "on-tertiary-container": "#ffede6",
+                        "inverse-surface": "#dae2fd",
+                        "inverse-on-surface": "#283044",
+                        "on-tertiary-fixed": "#360f00",
+                        "error-container": "#93000a",
+                        "secondary-container": "#33467e",
+                        "outline": "#8d90a0",
+                        "secondary-fixed": "#dbe1ff",
+                        "primary": "#b4c5ff",
+                        "on-surface-variant": "#c3c6d7",
+                        "tertiary-fixed-dim": "#ffb596",
+                        "on-tertiary-fixed-variant": "#7d2d00",
+                        "outline-variant": "#434655",
+                        "tertiary-container": "#bc4800",
+                        "on-secondary-fixed": "#00174b",
+                        "on-error": "#690005",
+                        "surface-tint": "#b4c5ff",
+                        "on-tertiary": "#581e00",
+                        "on-primary-fixed": "#00174b",
+                        "on-background": "#dae2fd",
+                        "secondary": "#b4c5ff",
+                        "on-error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"],
+                        "mono": ["JetBrains Mono"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #0b1326;
+            color: #dae2fd;
+            font-family: 'Inter', sans-serif;
+        }
+        .progress-ring-circle {
+            transition: stroke-dashoffset 0.35s;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+    </style>
+</head>
+<body class="antialiased">
+<!-- TopNavBar -->
+<header class="h-[56px] w-full fixed top-0 z-[60] bg-[#0F172A] border-b border-[#334155] flex items-center justify-between px-4">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-white text-2xl" data-icon="explore" style="font-variation-settings: 'FILL' 1;">explore</span>
+<div class="text-[22px] font-bold tracking-tight text-white">Kartova</div>
+</div>
+<div class="relative w-[480px] h-9 bg-slate-800/40 rounded flex items-center px-3 gap-2 border border-slate-700/50">
+<span class="material-symbols-outlined text-slate-400 text-[18px]">search</span>
+<input class="bg-transparent border-none text-sm focus:ring-0 text-slate-200 w-full placeholder:text-slate-500" placeholder="Search services..." type="text"/>
+</div>
+<div class="flex items-center gap-2">
+<button class="relative p-2 cursor-pointer hover:bg-slate-800/80 rounded-full transition-colors">
+<span class="material-symbols-outlined text-slate-300 text-[22px]" data-icon="notifications">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-[14px] h-[14px] bg-[#EF4444] text-[9px] font-bold text-white flex items-center justify-center rounded-full border-2 border-[#0F172A]">3</span>
+</button>
+<button class="p-2 cursor-pointer hover:bg-slate-800/80 rounded-full transition-colors">
+<span class="material-symbols-outlined text-slate-300 text-[22px]" data-icon="help_outline">help_outline</span>
+</button>
+<button class="p-2 cursor-pointer hover:bg-slate-800/80 rounded-full transition-colors">
+<span class="material-symbols-outlined text-slate-300 text-[22px]" data-icon="settings">settings</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden ml-1 border border-slate-600/50 cursor-pointer">
+<img alt="User Avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDEz9wmIFQ8NdVMrg4Eh7s8zEV6OvNUEPkllrtyllG4qc1UhugAVdyvQdk8DhUz3rCgsV46yYXNGuW4mMEdD61WxEbNE_MF3cYaQ5zhhliJaRcZMoAXZ0kpvWACsxN2ns3y350EaeTcCQOWHE4CfhFEqWiKzVGoGYbNJE6WJiGFkuR2xURKaDdry3oDaOe0YdHJwYFG9bNza5BqT8aq2GLbMGv6ghe7CeBhylmN3URqqOJeyzQFPqvAOWIs5URuLzzYGF0uLYgTByE"/>
+</div>
+</div>
+</header>
+<!-- SideNavBar -->
+<nav class="w-[260px] h-[calc(100vh-56px)] fixed left-0 top-[56px] z-50 bg-[#1E293B] border-r border-[#334155] flex flex-col pt-8 pb-4">
+<div class="px-6 mb-8">
+<!-- Space for logo/title if needed, but per screen 36 it's just the top portion of sidebar -->
+</div>
+<div class="flex flex-col gap-1 px-3">
+<a class="px-4 py-2.5 flex items-center gap-3.5 text-white bg-[#2563EB] rounded-lg shadow-sm text-[14px] font-semibold" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="grid_view" style="font-variation-settings: 'FILL' 1;">grid_view</span>
+                Catalog
+            </a>
+<a class="px-4 py-2.5 flex items-center gap-3.5 text-[#94A3B8] hover:text-white hover:bg-slate-700/40 rounded-lg transition-all text-[14px] font-medium" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="account_tree">account_tree</span>
+                Dependencies
+            </a>
+<a class="px-4 py-2.5 flex items-center gap-3.5 text-[#94A3B8] hover:text-white hover:bg-slate-700/40 rounded-lg transition-all text-[14px] font-medium" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="group">group</span>
+                Teams
+            </a>
+</div>
+<div class="mt-6 mb-6">
+<div class="h-[1px] bg-slate-700 mx-3"></div>
+</div>
+<div class="flex flex-col px-3">
+<div class="px-4 py-2 flex items-center justify-between text-[#94A3B8]">
+<span class="text-[11px] font-bold uppercase tracking-wider">Dashboards</span>
+<span class="material-symbols-outlined text-[18px]">expand_more</span>
+</div>
+<div class="flex flex-col mt-1">
+<a class="px-4 py-2 ml-4 flex items-center text-[#94A3B8] hover:text-white text-[14px] font-medium rounded-lg transition-all" href="#">
+                    Overview
+                </a>
+<a class="px-4 py-2 ml-4 flex items-center text-[#94A3B8] hover:text-white text-[14px] font-medium rounded-lg transition-all" href="#">
+                    Environment Map
+                </a>
+<a class="px-4 py-2 ml-4 flex items-center text-[#94A3B8] hover:text-white text-[14px] font-medium rounded-lg transition-all" href="#">
+                    Status Board
+                </a>
+</div>
+</div>
+<div class="mt-6 mb-6">
+<div class="h-[1px] bg-slate-700 mx-3"></div>
+</div>
+<div class="flex flex-col gap-1 px-3">
+<a class="px-4 py-2.5 flex items-center gap-3.5 text-[#94A3B8] hover:text-white hover:bg-slate-700/40 rounded-lg transition-all text-[14px] font-medium" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="public">public</span>
+                Status Page
+            </a>
+<a class="px-4 py-2.5 flex items-center gap-3.5 text-[#94A3B8] hover:text-white hover:bg-slate-700/40 rounded-lg transition-all text-[14px] font-medium" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="settings">settings</span>
+                Settings
+            </a>
+</div>
+<div class="mt-auto px-6 pb-4">
+<button class="flex items-center gap-2 text-[#94A3B8] hover:text-slate-300 transition-colors">
+<span class="material-symbols-outlined text-[20px]" data-icon="chevron_left">chevron_left</span>
+<span class="text-[13px] font-medium">Collapse sidebar</span>
+</button>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="ml-[260px] p-8 pt-[80px] min-h-screen bg-surface-dim">
+<!-- Breadcrumb & Header Section -->
+<div class="mb-8">
+<nav class="flex items-center gap-2 text-[11px] font-mono tracking-wider text-on-surface-variant uppercase mb-4">
+<span>MyOrg</span>
+<span class="material-symbols-outlined text-[12px]">chevron_right</span>
+<span>Platform Team</span>
+<span class="material-symbols-outlined text-[12px]">chevron_right</span>
+<span>Payments System</span>
+<span class="material-symbols-outlined text-[12px]">chevron_right</span>
+<span class="text-on-surface">payment-gateway</span>
+</nav>
+<div class="flex flex-wrap items-center justify-between gap-6">
+<div class="flex items-center gap-5">
+<div class="w-14 h-14 bg-cyan-900/30 rounded-xl flex items-center justify-center border border-cyan-500/20">
+<span class="material-symbols-outlined text-3xl text-cyan-400" data-icon="payments">payments</span>
+</div>
+<div>
+<div class="flex items-center gap-3">
+<h1 class="text-3xl font-bold tracking-tight text-on-surface">payment-gateway</h1>
+<span class="px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary text-[10px] font-bold uppercase tracking-widest">Healthy</span>
+</div>
+<div class="flex items-center gap-4 mt-2 text-sm text-on-surface-variant">
+<span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-blue-500"></span> Maturity: L4</span>
+<span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-green-500"></span> Risk: Low</span>
+<span class="flex items-center gap-1.5"><span class="font-mono text-primary font-bold">DX Score: 82</span></span>
+</div>
+</div>
+</div>
+<div class="flex gap-3">
+<button class="px-4 py-2 bg-surface-container hover:bg-surface-container-high transition-colors text-sm font-medium rounded-lg flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">edit</span> Edit Service
+                    </button>
+<button class="px-4 py-2 bg-primary-container text-on-primary-container hover:brightness-110 transition-all text-sm font-semibold rounded-lg shadow-lg">
+                        Deploy Now
+                    </button>
+</div>
+</div>
+</div>
+<!-- Tab Bar -->
+<div class="border-b border-outline-variant/15 mb-8 overflow-x-auto">
+<div class="flex items-center gap-8 min-w-max">
+<a class="pb-3 text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors" href="#">Overview</a>
+<a class="pb-3 text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors flex items-center gap-1.5" href="#">APIs <span class="bg-surface-container-high px-1.5 rounded text-[10px]">3</span></a>
+<a class="pb-3 text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors" href="#">Documentation</a>
+<a class="pb-3 text-sm font-semibold text-primary border-b-2 border-primary-container relative" href="#">
+                    Quality
+                    <span class="absolute bottom-0 left-0 right-0 h-[2px] bg-primary"></span>
+</a>
+<a class="pb-3 text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors" href="#">Dependencies</a>
+<a class="pb-3 text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors" href="#">Deployments</a>
+<a class="pb-3 text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors" href="#">Settings</a>
+</div>
+</div>
+<!-- Quality Tab Content -->
+<div class="space-y-8">
+<!-- DX Score Hero -->
+<div class="bg-surface-container-low rounded-xl p-8 relative overflow-hidden flex items-center justify-between shadow-sm">
+<div class="z-10 max-w-xl">
+<h2 class="text-2xl font-bold mb-2">Developer Experience Score</h2>
+<p class="text-on-surface-variant leading-relaxed mb-6">
+                        Calculated based on documentation freshness, API stability, and deployment frequency. 
+                        Improving your score unlocks higher Tier badges and resource priority.
+                    </p>
+<div class="flex items-center gap-2 text-amber-400 font-medium">
+<span class="material-symbols-outlined">trending_up</span>
+<span>+5.2 points since last sprint</span>
+</div>
+</div>
+<div class="relative flex items-center justify-center z-10">
+<svg class="w-32 h-32">
+<circle class="text-surface-container-highest" cx="64" cy="64" fill="transparent" r="56" stroke="currentColor" stroke-width="10"></circle>
+<circle class="text-amber-500 progress-ring-circle" cx="64" cy="64" fill="transparent" r="56" stroke="currentColor" stroke-dasharray="351.85" stroke-dashoffset="98.5" stroke-linecap="round" stroke-width="10"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="text-3xl font-black text-on-surface">72</span>
+<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter">B+ Rating</span>
+</div>
+</div>
+<div class="absolute -right-20 -bottom-20 w-80 h-80 bg-amber-500/5 blur-[100px] rounded-full"></div>
+</div>
+<!-- Category Cards Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+<div class="bg-surface-container p-5 rounded-xl flex flex-col gap-4 border border-outline-variant/5">
+<div class="flex items-center justify-between">
+<span class="material-symbols-outlined text-green-400 bg-green-500/10 p-2 rounded-lg" data-icon="library_books">library_books</span>
+<span class="text-xs font-mono font-bold text-green-400">85%</span>
+</div>
+<div>
+<div class="text-xs font-mono text-on-surface-variant uppercase tracking-widest mb-1">Documentation</div>
+<div class="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-green-500 w-[85%] rounded-full"></div>
+</div>
+</div>
+</div>
+<div class="bg-surface-container p-5 rounded-xl flex flex-col gap-4 border border-outline-variant/5">
+<div class="flex items-center justify-between">
+<span class="material-symbols-outlined text-amber-400 bg-amber-500/10 p-2 rounded-lg" data-icon="settings_input_component">settings_input_component</span>
+<span class="text-xs font-mono font-bold text-amber-400">60%</span>
+</div>
+<div>
+<div class="text-xs font-mono text-on-surface-variant uppercase tracking-widest mb-1">Operations</div>
+<div class="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-amber-500 w-[60%] rounded-full"></div>
+</div>
+</div>
+</div>
+<div class="bg-surface-container p-5 rounded-xl flex flex-col gap-4 border border-outline-variant/5">
+<div class="flex items-center justify-between">
+<span class="material-symbols-outlined text-green-400 bg-green-500/10 p-2 rounded-lg" data-icon="security">security</span>
+<span class="text-xs font-mono font-bold text-green-400">75%</span>
+</div>
+<div>
+<div class="text-xs font-mono text-on-surface-variant uppercase tracking-widest mb-1">Security</div>
+<div class="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-green-500 w-[75%] rounded-full"></div>
+</div>
+</div>
+</div>
+<div class="bg-surface-container p-5 rounded-xl flex flex-col gap-4 border border-outline-variant/5">
+<div class="flex items-center justify-between">
+<span class="material-symbols-outlined text-amber-400 bg-amber-500/10 p-2 rounded-lg" data-icon="verified">verified</span>
+<span class="text-xs font-mono font-bold text-amber-400">65%</span>
+</div>
+<div>
+<div class="text-xs font-mono text-on-surface-variant uppercase tracking-widest mb-1">Service Quality</div>
+<div class="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-amber-500 w-[65%] rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Two-Column Body -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<div class="lg:col-span-2 space-y-6">
+<div class="flex items-center justify-between mb-2">
+<h3 class="text-lg font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="task_alt">task_alt</span>
+                            Recommended Actions
+                        </h3>
+<span class="text-xs text-on-surface-variant">3 prioritized tasks</span>
+</div>
+<div class="space-y-3">
+<div class="bg-surface-container p-4 rounded-xl flex items-start gap-4 hover:bg-surface-bright transition-colors cursor-pointer group">
+<input class="mt-1 bg-surface-container-lowest border-outline-variant/30 rounded text-primary focus:ring-primary" type="checkbox"/>
+<div class="flex-grow">
+<div class="flex items-center justify-between mb-1">
+<span class="font-semibold text-on-surface">Enable Distributed Tracing (Honeycomb)</span>
+<span class="px-2 py-0.5 bg-green-500/10 text-green-400 text-[10px] font-bold rounded-lg">+12pts</span>
+</div>
+<p class="text-xs text-on-surface-variant mb-3">Service missing span propagation in 4/12 endpoints. High impact on observability.</p>
+<div class="flex gap-2">
+<span class="px-2 py-0.5 bg-surface-container-highest text-on-surface-variant text-[10px] rounded uppercase font-mono">Operations</span>
+<span class="px-2 py-0.5 bg-surface-container-highest text-on-surface-variant text-[10px] rounded uppercase font-mono">Observability</span>
+</div>
+</div>
+</div>
+<div class="bg-surface-container p-4 rounded-xl flex items-start gap-4 hover:bg-surface-bright transition-colors cursor-pointer group">
+<input class="mt-1 bg-surface-container-lowest border-outline-variant/30 rounded text-primary focus:ring-primary" type="checkbox"/>
+<div class="flex-grow">
+<div class="flex items-center justify-between mb-1">
+<span class="font-semibold text-on-surface">Update Swagger/OpenAPI Specs</span>
+<span class="px-2 py-0.5 bg-green-500/10 text-green-400 text-[10px] font-bold rounded-lg">+8pts</span>
+</div>
+<p class="text-xs text-on-surface-variant mb-3">Generated documentation is 14 days out of sync with production deployments.</p>
+<div class="flex gap-2">
+<span class="px-2 py-0.5 bg-surface-container-highest text-on-surface-variant text-[10px] rounded uppercase font-mono">Documentation</span>
+</div>
+</div>
+</div>
+<div class="bg-surface-container p-4 rounded-xl flex items-start gap-4 hover:bg-surface-bright transition-colors cursor-pointer group">
+<input class="mt-1 bg-surface-container-lowest border-outline-variant/30 rounded text-primary focus:ring-primary" type="checkbox"/>
+<div class="flex-grow">
+<div class="flex items-center justify-between mb-1">
+<span class="font-semibold text-on-surface">Fix CVE-2024-3321 in Base Image</span>
+<span class="px-2 py-0.5 bg-green-500/10 text-green-400 text-[10px] font-bold rounded-lg">+5pts</span>
+</div>
+<p class="text-xs text-on-surface-variant mb-3">Upgrade node:20-alpine to 20.14.0+ to resolve high-severity vulnerability.</p>
+<div class="flex gap-2">
+<span class="px-2 py-0.5 bg-surface-container-highest text-on-surface-variant text-[10px] rounded uppercase font-mono">Security</span>
+<span class="px-2 py-0.5 bg-surface-container-highest text-on-surface-variant text-[10px] rounded uppercase font-mono">Critical</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="space-y-6">
+<h3 class="text-lg font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="auto_awesome">auto_awesome</span>
+                        Maturity Level
+                    </h3>
+<div class="bg-surface-container p-6 rounded-xl border border-outline-variant/10">
+<div class="flex items-center gap-4 mb-6">
+<div class="w-12 h-12 rounded-lg bg-primary-container/20 flex items-center justify-center">
+<span class="text-xl font-bold text-primary">L3</span>
+</div>
+<div>
+<div class="font-bold text-on-surface">Observable</div>
+<div class="text-xs text-on-surface-variant">Current Tier</div>
+</div>
+</div>
+<div class="space-y-4">
+<div class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest border-b border-outline-variant/10 pb-2">Path to L4 Resilient</div>
+<ul class="space-y-4">
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-green-400 text-sm mt-0.5" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-xs text-on-surface-variant leading-tight">Global Dashboards &amp; SLIs configured</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-green-400 text-sm mt-0.5" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-xs text-on-surface-variant leading-tight">P99 Latency &lt; 200ms in Prod</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-error text-sm mt-0.5" style="font-variation-settings: 'FILL' 1;">cancel</span>
+<span class="text-xs text-on-surface leading-tight font-medium">Automatic Canary Analysis required</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-error text-sm mt-0.5" style="font-variation-settings: 'FILL' 1;">cancel</span>
+<span class="text-xs text-on-surface leading-tight font-medium">Chaos Engineering Test (monthly)</span>
+</li>
+<li class="flex items-start gap-3 opacity-40">
+<span class="material-symbols-outlined text-on-surface-variant text-sm mt-0.5">radio_button_unchecked</span>
+<span class="text-xs text-on-surface-variant leading-tight">Multi-Region Active-Active failover</span>
+</li>
+</ul>
+<button class="w-full mt-4 py-2.5 bg-surface-container-highest hover:bg-surface-bright transition-colors rounded-lg text-xs font-bold text-on-surface uppercase tracking-wide">
+                                View Maturity Roadmap
+                            </button>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-5 rounded-xl border-l-4 border-primary">
+<div class="flex items-center gap-3 mb-2">
+<span class="material-symbols-outlined text-primary text-sm">lightbulb</span>
+<span class="text-xs font-bold text-on-surface">Pro-Tip</span>
+</div>
+<p class="text-[11px] text-on-surface-variant leading-relaxed italic">
+                            Services in Tier L4 receive 20% more cluster priority during peak hours. Completing your Actions list could promote you by next week!
+                        </p>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

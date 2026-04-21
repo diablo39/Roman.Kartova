@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Kartova Developer Portal</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-container": "#eeefff",
+                        "on-surface-variant": "#c3c6d7",
+                        "on-tertiary-container": "#ffede6",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "tertiary-fixed-dim": "#ffb596",
+                        "on-secondary-fixed": "#00174b",
+                        "surface-dim": "#0b1326",
+                        "on-surface": "#dae2fd",
+                        "outline": "#8d90a0",
+                        "surface-bright": "#31394d",
+                        "surface-tint": "#b4c5ff",
+                        "primary-container": "#2563eb",
+                        "on-tertiary": "#581e00",
+                        "on-secondary": "#182d63",
+                        "on-primary": "#002a78",
+                        "tertiary-fixed": "#ffdbcd",
+                        "primary": "#b4c5ff",
+                        "surface": "#0b1326",
+                        "on-error-container": "#ffdad6",
+                        "inverse-surface": "#dae2fd",
+                        "inverse-primary": "#0053db",
+                        "on-primary-fixed": "#00174b",
+                        "tertiary": "#ffb596",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "surface-container-low": "#131b2e",
+                        "secondary": "#b4c5ff",
+                        "inverse-on-surface": "#283044",
+                        "surface-container": "#171f33",
+                        "secondary-fixed-dim": "#b4c5ff",
+                        "error-container": "#93000a",
+                        "background": "#0b1326",
+                        "tertiary-container": "#bc4800",
+                        "surface-container-high": "#222a3d",
+                        "secondary-container": "#33467e",
+                        "on-tertiary-fixed-variant": "#7d2d00",
+                        "surface-container-lowest": "#060e20",
+                        "surface-container-highest": "#2d3449",
+                        "on-background": "#dae2fd",
+                        "outline-variant": "#434655",
+                        "on-secondary-fixed-variant": "#31447b",
+                        "on-tertiary-fixed": "#360f00",
+                        "secondary-fixed": "#dbe1ff",
+                        "error": "#ffb4ab",
+                        "primary-fixed": "#dbe1ff",
+                        "on-error": "#690005",
+                        "surface-variant": "#2d3449",
+                        "on-secondary-container": "#a4b6f5"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"],
+                        "mono": ["JetBrains Mono"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface selection:bg-primary-container selection:text-white antialiased overflow-hidden">
+<!-- TopNavBar -->
+<!-- JSON Execution: style_bg_color: bg-slate-900, style_separation_logic: border-b border-slate-700, style_component_shape: h-14 w-full fixed top-0 z-50 -->
+<header class="bg-slate-900 border-b border-slate-700 h-14 w-full fixed top-0 z-50 flex items-center justify-between px-6">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary-container" style="font-variation-settings: 'FILL' 1;">map</span>
+<span class="text-xl font-bold text-slate-100 tracking-tight font-headline">Kartova</span>
+</div>
+<div class="hidden md:flex items-center">
+<div class="relative w-[480px]">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-slate-500 text-sm">search</span>
+</div>
+<input class="bg-slate-800 border border-slate-600 text-slate-200 text-sm rounded-[6px] focus:ring-primary-container focus:border-primary-container block w-full pl-10 p-2 h-9 placeholder-slate-500 outline-none transition-all" placeholder="Search entities..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="relative p-2 text-slate-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+<span class="absolute top-1 right-1 flex h-4 w-4">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-error opacity-75"></span>
+<span class="relative inline-flex rounded-full h-4 w-4 bg-error text-[10px] items-center justify-center text-white font-bold">3</span>
+</span>
+</button>
+<div class="flex items-center gap-2 cursor-pointer p-1 pr-2 hover:bg-slate-800 rounded-lg transition-colors active:opacity-80">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest overflow-hidden border border-slate-700">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="portrait of a male systems architect in a dark studio setting with professional studio lighting and clean background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBEOHUiNA-YsDuC-v9726irfnWxRcvF-GE2taJ1cDR8exIBxufbv8YKZlyHWxIEiqM5vQeTvJt3HZFyMcZKjBH6Eg3UFSvzk64tjQlFIlbMudNnq_-cYFI2-0SP0Pe9VGK5hZjUq87lqY-Ui2BrAEpBlotkm_XyElXqzQ2Msm9wb54zIUdzZwnb7pslSJZ3Jih7J0tRMySho_PYkiEksMfI_wDthj6VBtan8Fl2rDnAL_zxrVpN95wdOAouPYg64ItrGX3GzQCkMNM"/>
+</div>
+<span class="material-symbols-outlined text-slate-400 text-lg">expand_more</span>
+</div>
+</div>
+</header>
+<div class="flex h-screen pt-14">
+<!-- SideNavBar -->
+<!-- JSON Execution: style_bg_color: bg-slate-800, style_separation_logic: border-r border-slate-700, style_component_shape: w-[260px] h-screen pt-14 fixed left-0 top-0 -->
+<aside class="w-[260px] h-full bg-slate-800 border-r border-slate-700 flex flex-col shrink-0">
+<div class="flex-1 flex flex-col p-4 space-y-6 overflow-y-auto">
+<!-- Group 1: Catalog -->
+<nav class="space-y-1">
+<div class="text-[10px] font-mono uppercase tracking-widest text-slate-500 mb-2 px-3">Catalog</div>
+<a class="flex items-center gap-3 px-3 py-2 bg-primary-container text-white rounded-[6px] font-medium text-sm transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-[20px]">grid_view</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 hover:bg-slate-700 hover:text-white rounded-[6px] text-sm transition-all duration-200 ease-in-out text-slate-400" href="#">
+<span class="material-symbols-outlined text-[20px]">account_tree</span>
+<span>API Keys</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 hover:bg-slate-700 hover:text-white rounded-[6px] text-sm transition-all duration-200 ease-in-out text-slate-400" href="#">
+<span class="material-symbols-outlined text-[20px]">group</span>
+<span>Team</span>
+</a>
+</nav>
+<div class="border-t border-slate-700/50"></div>
+<!-- Group 2: Dashboards -->
+<nav class="space-y-1">
+<div class="text-[10px] font-mono uppercase tracking-widest text-slate-500 mb-2 px-3 flex items-center justify-between">
+                        Dashboards
+                        <span class="material-symbols-outlined text-[14px]">expand_more</span>
+</div>
+<div class="pl-3 space-y-1">
+<a class="flex items-center gap-3 px-3 py-1.5 text-slate-400 hover:text-white text-sm" href="#">
+<span class="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+<span class="text-slate-400">Overview</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-1.5 text-slate-400 hover:text-white text-sm" href="#">
+<span class="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+<span class="text-slate-400">Environment Map</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-1.5 text-slate-400 hover:text-white text-sm" href="#">
+<span class="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+<span class="text-slate-400">Status Board</span>
+</a>
+</div>
+</nav>
+<div class="border-t border-slate-700/50"></div>
+<!-- Group 3: Infrastructure -->
+<nav class="space-y-1">
+<div class="text-[10px] font-mono uppercase tracking-widest text-slate-500 mb-2 px-3">Infrastructure</div>
+<a class="flex items-center gap-3 px-3 py-2 hover:bg-slate-700 hover:text-white rounded-[6px] text-sm transition-all duration-200 ease-in-out text-slate-400" href="#">
+<span class="material-symbols-outlined text-[20px]">public</span>
+<span>Webhooks</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 hover:bg-slate-700 hover:text-white rounded-[6px] text-sm transition-all duration-200 ease-in-out text-slate-400" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span>Settings</span>
+</a>
+</nav>
+</div>
+<!-- Bottom: Collapse toggle -->
+<div class="p-4 border-t border-slate-700">
+<button class="flex items-center justify-between w-full px-3 py-2 text-slate-400 hover:bg-slate-700 hover:text-white rounded-[6px] transition-all text-[11px] font-mono uppercase tracking-widest">
+<span>Collapse Sidebar</span>
+<span class="material-symbols-outlined text-[18px]">chevron_left</span>
+</button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 bg-slate-900 overflow-y-auto relative flex flex-col items-center justify-center p-8">
+<div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#334155 1px, transparent 1px); background-size: 24px 24px;"></div>
+<div class="z-10 flex flex-col items-center space-y-4">
+<div class="w-16 h-16 rounded-2xl bg-surface-container flex items-center justify-center shadow-xl mb-4 border border-outline-variant/10">
+<span class="material-symbols-outlined text-4xl text-primary" style="font-variation-settings: 'FILL' 1;">terminal</span>
+</div>
+<h1 class="text-3xl font-headline font-bold text-slate-100 tracking-tight">Main content area</h1>
+<p class="text-slate-500 font-mono text-sm max-w-md text-center leading-relaxed">
+                    Select a service from the sidebar catalog or use the global search to navigate your infrastructure graph.
+                </p>
+<div class="mt-8 flex gap-3">
+<div class="px-4 py-2 bg-surface-container rounded-lg border border-outline-variant/10 flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="text-xs font-mono text-on-surface-variant">API_STATUS: OK</span>
+</div>
+<div class="px-4 py-2 bg-surface-container rounded-lg border border-outline-variant/10 flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="text-xs font-mono text-on-surface-variant">REGION: US-EAST-1</span>
+</div>
+</div>
+</div>
+<!-- Bento Preview Overlay (Decorative) -->
+<div class="grid grid-cols-3 gap-4 w-full max-w-5xl mt-12 opacity-40 select-none">
+<div class="h-32 bg-surface-container rounded-xl"></div>
+<div class="h-32 bg-surface-container rounded-xl"></div>
+<div class="h-32 bg-surface-container rounded-xl"></div>
+</div>
+</main>
+</div>
+</body></html>

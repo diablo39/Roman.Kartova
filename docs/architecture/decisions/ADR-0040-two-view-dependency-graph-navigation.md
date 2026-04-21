@@ -4,7 +4,7 @@
 **Date:** 2026-04-17
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** Frontend Architecture
-**Related:** ADR-0039 (React SPA)
+**Related:** ADR-0039 (React SPA), ADR-0088 (React Flow chosen as the rendering library)
 
 ## Context
 

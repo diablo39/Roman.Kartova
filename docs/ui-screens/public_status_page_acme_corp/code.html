@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Acme Corp Status</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&amp;family=JetBrains+Mono:wght@400;700&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-error": "#690005",
+                        "primary": "#2563eb", /* Overridden for light mode intent as per prompt */
+                        "on-secondary": "#182d63",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "on-tertiary-fixed-variant": "#7d2d00",
+                        "on-primary": "#ffffff",
+                        "on-surface": "#0F172A",
+                        "error": "#ef4444",
+                        "background": "#FFFFFF",
+                        "secondary-fixed-dim": "#b4c5ff",
+                        "on-primary-fixed": "#00174b",
+                        "secondary": "#b4c5ff",
+                        "primary-fixed": "#dbe1ff",
+                        "on-secondary-container": "#a4b6f5",
+                        "inverse-primary": "#0053db",
+                        "outline-variant": "#e2e8f0",
+                        "on-tertiary": "#581e00",
+                        "secondary-fixed": "#dbe1ff",
+                        "tertiary-container": "#fef3c7",
+                        "surface-container-highest": "#f8fafc",
+                        "surface-variant": "#f1f5f9",
+                        "surface-container-low": "#ffffff",
+                        "on-background": "#0F172A",
+                        "on-tertiary-fixed": "#360f00",
+                        "tertiary-fixed": "#ffdbcd",
+                        "inverse-surface": "#0f172a",
+                        "on-secondary-fixed": "#00174b",
+                        "secondary-container": "#dcfce7",
+                        "error-container": "#fee2e2",
+                        "on-surface-variant": "#64748b",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container": "#ffffff",
+                        "on-tertiary-container": "#92400e",
+                        "tertiary-fixed-dim": "#ffb596",
+                        "outline": "#cbd5e1",
+                        "on-error-container": "#991b1b",
+                        "surface-dim": "#f8fafc",
+                        "surface-container-high": "#f1f5f9",
+                        "surface": "#ffffff",
+                        "on-secondary-fixed-variant": "#31447b",
+                        "inverse-on-surface": "#f8fafc",
+                        "tertiary": "#f59e0b",
+                        "on-primary-container": "#ffffff",
+                        "surface-bright": "#ffffff",
+                        "primary-container": "#2563eb",
+                        "surface-tint": "#2563eb",
+                        "primary-fixed-dim": "#b4c5ff"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #FFFFFF;
+            color: #0F172A;
+            font-family: 'Inter', sans-serif;
+        }
+        .status-grid-bar {
+            display: grid;
+            grid-template-columns: repeat(90, 1fr);
+            gap: 2px;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+<!-- TopNavBar Mapping -->
+<header class="fixed top-0 w-full h-20 bg-white z-50 border-b border-slate-100">
+<div class="flex justify-between items-center px-6 w-full max-w-[800px] mx-auto h-full">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-sm" style="font-variation-settings: 'FILL' 1;">dataset</span>
+</div>
+<h1 class="text-[24px] font-bold tracking-tight text-[#0F172A]">System Status</h1>
+</div>
+<button class="px-4 py-2 border-2 border-primary text-primary font-semibold rounded-lg hover:bg-primary hover:text-white transition-all duration-200 text-sm">
+                Subscribe to Updates
+            </button>
+</div>
+</header>
+<main class="flex-grow pt-32 pb-20 px-6 w-full max-w-[800px] mx-auto">
+<!-- Status Banner: All Operational -->
+<div class="mb-8 p-6 rounded-xl bg-[#10B981] flex items-center gap-4 text-white shadow-sm">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-[18px] font-semibold">All Systems Operational</span>
+</div>
+<!-- System Groups -->
+<section class="space-y-6">
+<!-- Group: Core Services -->
+<div class="bg-surface rounded-xl overflow-hidden border border-slate-100">
+<div class="flex justify-between items-center p-4 bg-slate-50/50 cursor-pointer">
+<h2 class="text-sm font-bold uppercase tracking-wider text-on-surface-variant">Core Services</h2>
+<span class="material-symbols-outlined text-on-surface-variant">expand_less</span>
+</div>
+<div class="divide-y divide-slate-50">
+<div class="flex justify-between items-center p-4">
+<span class="text-sm font-medium">Payment Processing</span>
+<div class="flex items-center gap-2 text-[#10B981]">
+<span class="text-xs font-semibold">Operational</span>
+<div class="w-2 h-2 rounded-full bg-[#10B981]"></div>
+</div>
+</div>
+<div class="flex justify-between items-center p-4">
+<span class="text-sm font-medium">User Authentication</span>
+<div class="flex items-center gap-2 text-[#10B981]">
+<span class="text-xs font-semibold">Operational</span>
+<div class="w-2 h-2 rounded-full bg-[#10B981]"></div>
+</div>
+</div>
+<div class="flex justify-between items-center p-4">
+<span class="text-sm font-medium">Order Management</span>
+<div class="flex items-center gap-2 text-[#f59e0b]">
+<span class="text-xs font-semibold">Degraded Performance</span>
+<div class="w-2 h-2 rounded-full bg-[#f59e0b]"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Group: Infrastructure -->
+<div class="bg-surface rounded-xl overflow-hidden border border-slate-100">
+<div class="flex justify-between items-center p-4 bg-slate-50/50">
+<h2 class="text-sm font-bold uppercase tracking-wider text-on-surface-variant">Infrastructure</h2>
+<span class="material-symbols-outlined text-on-surface-variant">expand_less</span>
+</div>
+<div class="divide-y divide-slate-50">
+<div class="flex justify-between items-center p-4">
+<span class="text-sm font-medium">API Gateway</span>
+<div class="flex items-center gap-2 text-[#10B981]">
+<span class="text-xs font-semibold">Operational</span>
+<div class="w-2 h-2 rounded-full bg-[#10B981]"></div>
+</div>
+</div>
+<div class="flex justify-between items-center p-4">
+<span class="text-sm font-medium">CDN</span>
+<div class="flex items-center gap-2 text-[#10B981]">
+<span class="text-xs font-semibold">Operational</span>
+<div class="w-2 h-2 rounded-full bg-[#10B981]"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Group: Integrations (Collapsed) -->
+<div class="bg-surface rounded-xl overflow-hidden border border-slate-100 opacity-80 hover:opacity-100 transition-opacity">
+<div class="flex justify-between items-center p-4 cursor-pointer">
+<div class="flex items-center gap-3">
+<h2 class="text-sm font-bold uppercase tracking-wider text-on-surface-variant">Integrations</h2>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-[#10B981] text-[10px] font-bold">3 OF 3 OPERATIONAL</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">expand_more</span>
+</div>
+</div>
+</section>
+<!-- Uptime Section -->
+<section class="mt-16">
+<h3 class="text-xl font-bold mb-6 flex items-center gap-2">
+                Uptime — Last 90 Days
+            </h3>
+<div class="space-y-8">
+<div>
+<div class="flex justify-between items-end mb-2">
+<span class="text-sm font-semibold text-on-surface">Payment Processing</span>
+<span class="text-xs font-mono text-on-surface-variant">99.98%</span>
+</div>
+<div class="status-grid-bar h-8">
+<!-- Simplified representation of 90 bars -->
+<div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between items-end mb-2">
+<span class="text-sm font-semibold text-on-surface">Order Management</span>
+<span class="text-xs font-mono text-on-surface-variant">97.42%</span>
+</div>
+<div class="status-grid-bar h-8">
+<!-- Example with yellow/red dots -->
+<div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#f59e0b] rounded-sm"></div><div class="bg-[#ef4444] rounded-sm"></div><div class="bg-[#ef4444] rounded-sm"></div><div class="bg-[#f59e0b] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div><div class="bg-[#10B981] rounded-sm"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Past Incidents -->
+<section class="mt-20">
+<h3 class="text-xl font-bold mb-8">Past Incidents</h3>
+<div class="space-y-12">
+<!-- Incident 1 -->
+<div class="relative pl-8 border-l-2 border-slate-100 pb-2">
+<div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-error ring-4 ring-white"></div>
+<div class="mb-4">
+<span class="text-xs font-bold text-on-surface-variant uppercase tracking-widest">April 15, 2026</span>
+<h4 class="text-lg font-bold text-on-surface mt-1">Order Processing Delay</h4>
+</div>
+<div class="space-y-6">
+<div class="flex gap-4">
+<span class="text-xs font-bold text-on-surface w-24 shrink-0">Resolved</span>
+<p class="text-sm text-on-surface-variant leading-relaxed">System performance has returned to normal levels. We will continue to monitor for any regressions.</p>
+</div>
+<div class="flex gap-4 opacity-70">
+<span class="text-xs font-bold text-on-surface w-24 shrink-0">Monitoring</span>
+<p class="text-sm text-on-surface-variant leading-relaxed">A fix has been implemented and we are monitoring the recovery of the order queue.</p>
+</div>
+<div class="flex gap-4 opacity-50">
+<span class="text-xs font-bold text-on-surface w-24 shrink-0">Identified</span>
+<p class="text-sm text-on-surface-variant leading-relaxed">We have identified a bottleneck in the database layer affecting order synchronization.</p>
+</div>
+</div>
+</div>
+<!-- Incident 2 -->
+<div class="relative pl-8 border-l-2 border-slate-100">
+<div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-200 ring-4 ring-white flex items-center justify-center">
+<span class="material-symbols-outlined text-[10px] text-slate-500" style="font-variation-settings: 'wght' 700;">build</span>
+</div>
+<div class="mb-2">
+<span class="text-xs font-bold text-on-surface-variant uppercase tracking-widest">April 10, 2026</span>
+<div class="flex items-center gap-3 mt-1">
+<h4 class="text-lg font-bold text-on-surface">Scheduled Maintenance</h4>
+<span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-tight">Completed</span>
+</div>
+</div>
+<p class="text-sm text-on-surface-variant">Database cluster upgrades were performed successfully during the maintenance window.</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-slate-50 border-t border-slate-200 py-12">
+<div class="max-w-[800px] mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
+<div class="flex items-center gap-2">
+<span class="text-xs text-slate-400 font-medium">Powered by</span>
+<span class="text-xs font-bold text-slate-600 tracking-tighter uppercase">Kartova</span>
+</div>
+<div class="flex items-center gap-2 text-slate-400">
+<span class="material-symbols-outlined text-sm">schedule</span>
+<span class="text-xs font-medium">Last updated: 3 minutes ago</span>
+</div>
+</div>
+<div class="max-w-[800px] mx-auto px-6 mt-8 flex flex-wrap justify-center md:justify-start gap-x-8 gap-y-2">
+<a class="text-[10px] uppercase tracking-widest font-bold text-slate-400 hover:text-primary transition-colors" href="#">Legal</a>
+<a class="text-[10px] uppercase tracking-widest font-bold text-slate-400 hover:text-primary transition-colors" href="#">Privacy</a>
+<a class="text-[10px] uppercase tracking-widest font-bold text-slate-400 hover:text-primary transition-colors" href="#">Security</a>
+<a class="text-[10px] uppercase tracking-widest font-bold text-slate-400 hover:text-primary transition-colors" href="#">Documentation</a>
+</div>
+</footer>
+</body></html>

@@ -4,7 +4,7 @@
 **Date:** 2026-04-21
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** Development Workflow
-**Related:** ADR-0039 (React SPA + TypeScript), ADR-0083 (testing strategy — Playwright as E2E framework), ADR-0079 (dogfooding GTM)
+**Related:** ADR-0039 (React SPA + TypeScript), ADR-0083 (testing strategy — Playwright as E2E framework), ADR-0079 (dogfooding GTM), ADR-0087 (Google Stitch MCP as design source — full loop: Stitch → code → Playwright)
 
 ## Context
 

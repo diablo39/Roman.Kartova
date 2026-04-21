@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Kartova Developer Portal</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-container": "#eeefff",
+                        "on-surface-variant": "#c3c6d7",
+                        "on-tertiary-container": "#ffede6",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "tertiary-fixed-dim": "#ffb596",
+                        "on-secondary-fixed": "#00174b",
+                        "surface-dim": "#0b1326",
+                        "on-surface": "#dae2fd",
+                        "outline": "#8d90a0",
+                        "surface-bright": "#31394d",
+                        "surface-tint": "#b4c5ff",
+                        "primary-container": "#2563eb",
+                        "on-tertiary": "#581e00",
+                        "on-secondary": "#182d63",
+                        "on-primary": "#002a78",
+                        "tertiary-fixed": "#ffdbcd",
+                        "primary": "#b4c5ff",
+                        "surface": "#0b1326",
+                        "on-error-container": "#ffdad6",
+                        "inverse-surface": "#dae2fd",
+                        "inverse-primary": "#0053db",
+                        "on-primary-fixed": "#00174b",
+                        "tertiary": "#ffb596",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "surface-container-low": "#131b2e",
+                        "secondary": "#b4c5ff",
+                        "inverse-on-surface": "#283044",
+                        "surface-container": "#171f33",
+                        "secondary-fixed-dim": "#b4c5ff",
+                        "error-container": "#93000a",
+                        "background": "#0b1326",
+                        "tertiary-container": "#bc4800",
+                        "surface-container-high": "#222a3d",
+                        "secondary-container": "#33467e",
+                        "on-tertiary-fixed-variant": "#7d2d00",
+                        "surface-container-lowest": "#060e20",
+                        "surface-container-highest": "#2d3449",
+                        "on-background": "#dae2fd",
+                        "outline-variant": "#434655",
+                        "on-secondary-fixed-variant": "#31447b",
+                        "on-tertiary-fixed": "#360f00",
+                        "secondary-fixed": "#dbe1ff",
+                        "error": "#ffb4ab",
+                        "primary-fixed": "#dbe1ff",
+                        "on-error": "#690005",
+                        "surface-variant": "#2d3449",
+                        "on-secondary-container": "#a4b6f5"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .active-icon {
+            font-variation-settings: 'FILL' 1;
+        }
+        body {
+            background-color: #0b1326;
+            color: #dae2fd;
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="overflow-hidden">
+<!-- TopNavBar Implementation -->
+<header class="bg-slate-900 h-14 w-full fixed top-0 z-50 border-b border-slate-700 flex items-center justify-between px-6 font-inter tracking-tight">
+<!-- Brand Identity -->
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-blue-600 text-2xl" data-icon="location_on" style="font-variation-settings: 'FILL' 1;">location_on</span>
+<h1 class="text-xl font-bold text-slate-100 tracking-tight">Kartova</h1>
+</div>
+<!-- Search Bar -->
+<div class="hidden md:flex flex-1 justify-center px-8">
+<div class="relative w-full max-w-[480px]">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-slate-500 text-lg" data-icon="search">search</span>
+</div>
+<input class="block w-full h-9 bg-slate-800 border border-slate-600 rounded-[6px] pl-10 pr-3 text-sm placeholder-slate-500 text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all" placeholder="Search entities..." type="text"/>
+</div>
+</div>
+<!-- Trailing Actions -->
+<div class="flex items-center gap-4">
+<button class="relative p-1.5 text-slate-400 hover:bg-slate-800 transition-colors cursor-pointer rounded-full active:opacity-80">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-1 right-1 flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
+</span>
+</button>
+<div class="flex items-center gap-2 pl-2 border-l border-slate-700 cursor-pointer hover:opacity-90 transition-opacity">
+<img alt="User profile" class="h-8 w-8 rounded-full object-cover border border-slate-600" data-alt="Close-up portrait of a professional engineer in a dark studio setting with subtle blue rim lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCv55T-cUZq1BuZ5ioefOf7OlZkMPhLlX9Hfjdb2lQI7kJaLkCwtXOa9u2YOuVA-9moWFdwzA9uWS3uqDaUbX8xQaXx59eZJMOCKI4H0XtHTF0dB1pjqmQWPXtBpFzwJY19lpXcALyq599Q9l6HDJHpGPl1gNXyKohaKQISa9pLSt5tRCwZ68Aq35t1rVKIxXG-1gkv4Slr1J-tX5y8qL-Kozs0dqmdXBSpuCwF4ttwEgpu1iu2ncz8d4au5it40qC8JWZmePn2v6w"/>
+<span class="material-symbols-outlined text-slate-400 text-lg" data-icon="keyboard_arrow_down">keyboard_arrow_down</span>
+</div>
+</div>
+</header>
+<!-- Shell Container -->
+<div class="flex h-screen pt-14">
+<!-- SideNavBar Implementation (Collapsed) -->
+<aside class="w-[64px] h-full fixed left-0 bg-slate-800 border-r border-slate-700 flex flex-col items-center py-4 space-y-6 z-40">
+<!-- Group 1: Core Catalog -->
+<div class="flex flex-col items-center w-full px-2 space-y-2">
+<!-- Dashboard/Catalog (ACTIVE) -->
+<button class="w-10 h-10 flex items-center justify-center bg-[#2563EB] text-white rounded-[6px] transition-all cursor-pointer active:opacity-80" title="Dashboard">
+<span class="material-symbols-outlined active-icon" data-icon="dashboard">dashboard</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center text-slate-300 hover:bg-slate-700 transition-all cursor-pointer rounded-[6px]" title="API Keys">
+<span class="material-symbols-outlined" data-icon="vpn_key">vpn_key</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center text-slate-300 hover:bg-slate-700 transition-all cursor-pointer rounded-[6px]" title="Webhooks">
+<span class="material-symbols-outlined" data-icon="webhook">webhook</span>
+</button>
+</div>
+<div class="w-8 h-px bg-slate-700"></div>
+<!-- Group 2: Monitoring -->
+<div class="flex flex-col items-center w-full px-2 space-y-2">
+<button class="w-10 h-10 flex items-center justify-center text-slate-300 hover:bg-slate-700 transition-all cursor-pointer rounded-[6px]" title="Metrics">
+<span class="material-symbols-outlined" data-icon="monitoring">monitoring</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center text-slate-300 hover:bg-slate-700 transition-all cursor-pointer rounded-[6px]" title="Logs">
+<span class="material-symbols-outlined" data-icon="terminal">terminal</span>
+</button>
+</div>
+<div class="w-8 h-px bg-slate-700"></div>
+<!-- Group 3: Project & Settings -->
+<div class="flex flex-col items-center w-full px-2 space-y-2">
+<button class="w-10 h-10 flex items-center justify-center text-slate-300 hover:bg-slate-700 transition-all cursor-pointer rounded-[6px]" title="Team">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center text-slate-300 hover:bg-slate-700 transition-all cursor-pointer rounded-[6px]" title="Settings">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</div>
+<!-- Footer / Toggle -->
+<div class="mt-auto flex flex-col items-center w-full px-2 pb-2">
+<button class="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-all cursor-pointer rounded-[6px]" title="Collapse Sidebar">
+<span class="material-symbols-outlined" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 ml-[64px] bg-slate-900 flex items-center justify-center p-8">
+<div class="flex flex-col items-center space-y-6 max-w-4xl w-full">
+<!-- Content Placeholder -->
+<div class="text-slate-600 font-medium tracking-widest text-sm uppercase">Main content area</div>
+<!-- Bento Grid Example to demonstrate UI quality within the frame -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+<!-- Stat Card 1 -->
+<div class="md:col-span-2 bg-surface-container rounded-lg p-6 flex flex-col justify-between h-48 relative overflow-hidden group">
+<div class="z-10">
+<div class="text-label-sm text-on-surface-variant font-mono uppercase tracking-widest text-[10px] mb-2">Service Connectivity</div>
+<div class="text-3xl font-bold text-on-surface tracking-tight">99.98%</div>
+</div>
+<div class="flex items-center gap-2 z-10">
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-[10px] font-semibold">OPTIMAL</span>
+<span class="text-on-surface-variant text-[11px] font-mono">+0.02% from last epoch</span>
+</div>
+<div class="absolute right-0 bottom-0 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-[120px]" data-icon="hub">hub</span>
+</div>
+</div>
+<!-- Stat Card 2 -->
+<div class="bg-surface-container-high rounded-lg p-6 flex flex-col h-48 border border-outline-variant/10">
+<div class="text-label-sm text-primary font-mono uppercase tracking-widest text-[10px] mb-2">API Response</div>
+<div class="text-3xl font-bold text-on-surface tracking-tight">42ms</div>
+<div class="mt-auto h-12 flex items-end gap-1">
+<div class="flex-1 bg-primary/20 h-[40%] rounded-t-sm"></div>
+<div class="flex-1 bg-primary/20 h-[60%] rounded-t-sm"></div>
+<div class="flex-1 bg-primary/20 h-[50%] rounded-t-sm"></div>
+<div class="flex-1 bg-primary h-[90%] rounded-t-sm"></div>
+<div class="flex-1 bg-primary/20 h-[70%] rounded-t-sm"></div>
+</div>
+</div>
+<!-- Complex Detail Card -->
+<div class="md:col-span-3 bg-surface-container rounded-lg p-1 overflow-hidden">
+<div class="bg-surface-container-lowest p-5 rounded-md">
+<div class="flex justify-between items-start mb-6">
+<div>
+<h3 class="text-lg font-semibold text-on-surface mb-1">Active Clusters</h3>
+<p class="text-on-surface-variant text-sm">Managing 14 micro-services across global regions.</p>
+</div>
+<button class="px-3 py-1.5 bg-primary-container text-on-primary-container rounded-md text-xs font-semibold flex items-center gap-2 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-sm" data-icon="add">add</span>
+                                    PROVISION NEW
+                                </button>
+</div>
+<div class="space-y-4">
+<!-- Service Row -->
+<div class="flex items-center justify-between p-3 rounded-lg hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-md bg-slate-800 flex items-center justify-center">
+<span class="material-symbols-outlined text-blue-400" data-icon="layers">layers</span>
+</div>
+<div>
+<div class="font-mono text-sm text-on-surface">auth-edge-v2</div>
+<div class="text-[11px] text-on-surface-variant">us-east-1 • k8s-cluster-alpha</div>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="text-right hidden sm:block">
+<div class="text-[11px] font-mono text-on-surface-variant">CPU UTIL</div>
+<div class="text-xs text-on-surface font-semibold">14.2%</div>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container/30 text-secondary text-[10px] font-bold border border-secondary/20">STABLE</span>
+</div>
+</div>
+<!-- Service Row -->
+<div class="flex items-center justify-between p-3 rounded-lg hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-md bg-slate-800 flex items-center justify-center">
+<span class="material-symbols-outlined text-blue-400" data-icon="database">database</span>
+</div>
+<div>
+<div class="font-mono text-sm text-on-surface">redis-cache-main</div>
+<div class="text-[11px] text-on-surface-variant">eu-west-3 • managed-redis</div>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="text-right hidden sm:block">
+<div class="text-[11px] font-mono text-on-surface-variant">MEMORY</div>
+<div class="text-xs text-on-surface font-semibold">82.1%</div>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-tertiary-container/30 text-tertiary text-[10px] font-bold border border-tertiary/20">WARNING</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

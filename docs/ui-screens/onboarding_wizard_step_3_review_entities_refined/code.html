@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sovereign Architect - Onboarding Step 3</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-container": "#33467e",
+                    "tertiary-fixed-dim": "#ffb596",
+                    "inverse-surface": "#dae2fd",
+                    "tertiary-fixed": "#ffdbcd",
+                    "on-tertiary-fixed": "#360f00",
+                    "inverse-primary": "#0053db",
+                    "on-tertiary-fixed-variant": "#7d2d00",
+                    "on-surface": "#dae2fd",
+                    "on-primary-fixed": "#00174b",
+                    "secondary-fixed-dim": "#b4c5ff",
+                    "surface-dim": "#0b1326",
+                    "on-secondary": "#182d63",
+                    "surface-container-lowest": "#060e20",
+                    "surface-container-low": "#131b2e",
+                    "primary": "#b4c5ff",
+                    "outline": "#8d90a0",
+                    "surface-bright": "#31394d",
+                    "on-surface-variant": "#c3c6d7",
+                    "surface-container-high": "#222a3d",
+                    "error-container": "#93000a",
+                    "outline-variant": "#434655",
+                    "primary-fixed-dim": "#b4c5ff",
+                    "primary-container": "#2563eb",
+                    "on-secondary-fixed": "#00174b",
+                    "background": "#0b1326",
+                    "error": "#ffb4ab",
+                    "on-background": "#dae2fd",
+                    "on-tertiary": "#581e00",
+                    "secondary-fixed": "#dbe1ff",
+                    "primary-fixed": "#dbe1ff",
+                    "surface-container-highest": "#2d3449",
+                    "on-tertiary-container": "#ffede6",
+                    "on-error": "#690005",
+                    "surface": "#0b1326",
+                    "on-secondary-fixed-variant": "#31447b",
+                    "on-primary": "#002a78",
+                    "secondary": "#b4c5ff",
+                    "on-secondary-container": "#a4b6f5",
+                    "inverse-on-surface": "#283044",
+                    "on-error-container": "#ffdad6",
+                    "tertiary": "#ffb596",
+                    "tertiary-container": "#bc4800",
+                    "on-primary-fixed-variant": "#003ea8",
+                    "on-primary-container": "#eeefff",
+                    "surface-container": "#171f33",
+                    "surface-variant": "#2d3449",
+                    "surface-tint": "#b4c5ff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"],
+                    "mono": ["JetBrains Mono"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { background-color: #0b1326; color: #dae2fd; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-header { backdrop-filter: blur(12px); background-color: rgba(11, 19, 38, 0.8); }
+    </style>
+</head>
+<body class="font-body antialiased">
+<!-- TopNavBar Execution from JSON -->
+<header class="fixed top-0 w-full h-14 bg-[#0b1326] flex justify-between items-center px-6 z-50 border-b border-[#434655]/15 font-sans antialiased tracking-tight">
+<div class="flex items-center gap-4">
+<span class="text-lg font-bold tracking-tighter text-[#dae2fd]">Sovereign Architect</span>
+</div>
+<div class="hidden md:flex flex-1 max-w-xl mx-8">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#c3c6d7] text-sm">search</span>
+<input class="w-full bg-surface-container-lowest border-none rounded-sm pl-10 pr-4 py-1.5 text-sm focus:ring-1 focus:ring-primary placeholder-[#c3c6d7]/50" placeholder="Search resources..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#c3c6d7] cursor-pointer hover:bg-[#171f33] p-1.5 rounded-sm transition-all">help_outline</span>
+<span class="material-symbols-outlined text-[#c3c6d7] cursor-pointer hover:bg-[#171f33] p-1.5 rounded-sm transition-all">settings</span>
+</div>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-[#434655]/30">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="minimalist professional portrait of a software engineer with glasses in a dark tech environment soft blue lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_ovZGXkVrs9B3RfbJhA_UVYdrtYA2CdqpicTRy8tSk3p342ht8dvjE1BYw39QVeuoJC8Fqsi2tvboBfqW3BWHunr8fhqdcWSi5tVFb6jr_Q3B49qcBakjYBxh5dKMEPCD2woljNH8p44-8oasHJ2llikXVgmLM17KSXWzkLwUxrzBatcckYc5M1VkRlVfFLwaHI5hdZXpzkjMsYLSKrj7TdnRgJvaX3OluP1wOGYuCaEKSDsms2b2zQg_p4YelD5Vvxleb84Z19Q"/>
+</div>
+</div>
+</header>
+<main class="pt-24 pb-32 px-6">
+<div class="max-w-[960px] mx-auto">
+<!-- Progress Stepper -->
+<div class="flex items-center justify-between mb-16 relative">
+<div class="absolute top-1/2 left-0 w-full h-0.5 bg-surface-container-highest -translate-y-1/2 z-0"></div>
+<!-- Step 1 -->
+<div class="relative z-10 flex flex-col items-center gap-2 bg-background px-4">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<span class="text-[10px] font-mono uppercase tracking-widest text-on-surface-variant">Create Org</span>
+</div>
+<!-- Step 2 -->
+<div class="relative z-10 flex flex-col items-center gap-2 bg-background px-4">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<span class="text-[10px] font-mono uppercase tracking-widest text-on-surface-variant">Connect Git</span>
+</div>
+<!-- Step 3 (Active) -->
+<div class="relative z-10 flex flex-col items-center gap-2 bg-background px-4">
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container ring-4 ring-primary-container/20">
+<span class="font-bold text-sm">3</span>
+</div>
+<span class="text-[10px] font-mono uppercase tracking-widest text-primary">Review Entities</span>
+</div>
+<!-- Step 4 -->
+<div class="relative z-10 flex flex-col items-center gap-2 bg-background px-4">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-on-surface-variant">
+<span class="font-bold text-sm">4</span>
+</div>
+<span class="text-[10px] font-mono uppercase tracking-widest text-on-surface-variant">Confirm</span>
+</div>
+</div>
+<!-- Header Section -->
+<div class="mb-10">
+<h1 class="text-3xl font-bold tracking-tight text-on-surface mb-2">We found 47 entities across 12 repositories</h1>
+<p class="text-on-surface-variant">Review what we discovered. Edit, remove, or add before importing.</p>
+</div>
+<!-- Warning Banner -->
+<div class="bg-surface-container-low border-l-4 border-tertiary p-4 rounded-sm mb-8 flex items-center gap-4">
+<span class="material-symbols-outlined text-tertiary">warning</span>
+<span class="text-sm font-medium text-on-surface">3 entities have low confidence detections. We recommend manual review for these items.</span>
+</div>
+<!-- Entities Content -->
+<div class="space-y-4">
+<!-- Expanded Repository -->
+<div class="bg-surface-container rounded-lg overflow-hidden transition-all">
+<div class="p-4 flex items-center justify-between cursor-pointer hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant">expand_more</span>
+<span class="material-symbols-outlined text-primary">folder</span>
+<span class="font-mono text-sm font-semibold">payment-gateway</span>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-primary text-[10px] font-bold">5 ENTITIES</span>
+</div>
+</div>
+<div class="border-t border-outline-variant/15">
+<table class="w-full text-left border-collapse">
+<tbody>
+<!-- Row 1: Application -->
+<tr class="hover:bg-surface-container-high transition-colors group">
+<td class="pl-12 pr-4 py-3 w-10">
+<input checked="" class="rounded-sm bg-surface-container-lowest border-outline-variant text-primary focus:ring-0 focus:ring-offset-0" type="checkbox"/>
+</td>
+<td class="px-4 py-3 w-8">
+<span class="material-symbols-outlined text-cyan-400" style="font-variation-settings: 'FILL' 1;">web_asset</span>
+</td>
+<td class="px-4 py-3">
+<div class="font-bold text-on-surface text-sm">Application</div>
+<div class="font-mono text-[10px] text-on-surface-variant">payment-gateway-ui</div>
+</td>
+<td class="px-4 py-3 text-xs text-on-surface-variant font-mono">
+                                        Main storefront and customer checkout interface.
+                                    </td>
+<td class="px-6 py-3 text-right">
+<span class="material-symbols-outlined text-on-surface-variant opacity-0 group-hover:opacity-100 cursor-pointer hover:text-primary transition-all text-sm">edit</span>
+</td>
+</tr>
+<!-- Row 2: API -->
+<tr class="hover:bg-surface-container-high transition-colors group">
+<td class="pl-12 pr-4 py-3 w-10">
+<input checked="" class="rounded-sm bg-surface-container-lowest border-outline-variant text-primary focus:ring-0 focus:ring-offset-0" type="checkbox"/>
+</td>
+<td class="px-4 py-3 w-8">
+<span class="material-symbols-outlined text-emerald-400" style="font-variation-settings: 'FILL' 1;">api</span>
+</td>
+<td class="px-4 py-3">
+<div class="font-bold text-on-surface text-sm">Payment API</div>
+<div class="font-mono text-[10px] text-on-surface-variant">v1/payments</div>
+</td>
+<td class="px-4 py-3 text-xs text-on-surface-variant font-mono">
+                                        REST interface for payment processing and validation.
+                                    </td>
+<td class="px-6 py-3 text-right">
+<span class="material-symbols-outlined text-on-surface-variant opacity-0 group-hover:opacity-100 cursor-pointer hover:text-primary transition-all text-sm">edit</span>
+</td>
+</tr>
+<!-- Row 3: Events -->
+<tr class="hover:bg-surface-container-high transition-colors group">
+<td class="pl-12 pr-4 py-3 w-10">
+<input checked="" class="rounded-sm bg-surface-container-lowest border-outline-variant text-primary focus:ring-0 focus:ring-offset-0" type="checkbox"/>
+</td>
+<td class="px-4 py-3 w-8">
+<span class="material-symbols-outlined text-violet-400" style="font-variation-settings: 'FILL' 1;">hub</span>
+</td>
+<td class="px-4 py-3">
+<div class="font-bold text-on-surface text-sm">Payment Events</div>
+<div class="font-mono text-[10px] text-on-surface-variant">kafka/tx-stream</div>
+</td>
+<td class="px-4 py-3 text-xs text-on-surface-variant font-mono">
+                                        Event-driven transaction log for downstream analytics.
+                                    </td>
+<td class="px-6 py-3 text-right">
+<span class="material-symbols-outlined text-on-surface-variant opacity-0 group-hover:opacity-100 cursor-pointer hover:text-primary transition-all text-sm">edit</span>
+</td>
+</tr>
+<!-- Row 4: Database -->
+<tr class="hover:bg-surface-container-high transition-colors group">
+<td class="pl-12 pr-4 py-3 w-10">
+<input checked="" class="rounded-sm bg-surface-container-lowest border-outline-variant text-primary focus:ring-0 focus:ring-offset-0" type="checkbox"/>
+</td>
+<td class="px-4 py-3 w-8">
+<span class="material-symbols-outlined text-amber-400" style="font-variation-settings: 'FILL' 1;">database</span>
+</td>
+<td class="px-4 py-3">
+<div class="font-bold text-on-surface text-sm">PostgreSQL</div>
+<div class="font-mono text-[10px] text-on-surface-variant">prod-db-cluster-01</div>
+</td>
+<td class="px-4 py-3 text-xs text-on-surface-variant font-mono">
+                                        Relational data store for transaction records.
+                                    </td>
+<td class="px-6 py-3 text-right">
+<span class="material-symbols-outlined text-on-surface-variant opacity-0 group-hover:opacity-100 cursor-pointer hover:text-primary transition-all text-sm">edit</span>
+</td>
+</tr>
+<!-- Row 5: Queue -->
+<tr class="hover:bg-surface-container-high transition-colors group">
+<td class="pl-12 pr-4 py-3 w-10">
+<input checked="" class="rounded-sm bg-surface-container-lowest border-outline-variant text-primary focus:ring-0 focus:ring-offset-0" type="checkbox"/>
+</td>
+<td class="px-4 py-3 w-8">
+<span class="material-symbols-outlined text-rose-400" style="font-variation-settings: 'FILL' 1;">dynamic_feed</span>
+</td>
+<td class="px-4 py-3">
+<div class="font-bold text-on-surface text-sm">Queue</div>
+<div class="font-mono text-[10px] text-on-surface-variant">sqs/payment-processing</div>
+</td>
+<td class="px-4 py-3 text-xs text-on-surface-variant font-mono">
+                                        Asynchronous processing queue for high-volume transactions.
+                                    </td>
+<td class="px-6 py-3 text-right">
+<span class="material-symbols-outlined text-on-surface-variant opacity-0 group-hover:opacity-100 cursor-pointer hover:text-primary transition-all text-sm">edit</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Collapsed Repository 2 -->
+<div class="bg-surface-container rounded-lg overflow-hidden">
+<div class="p-4 flex items-center justify-between cursor-pointer hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+<span class="material-symbols-outlined text-on-surface-variant">folder</span>
+<span class="font-mono text-sm font-semibold">order-service</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface-variant text-[10px] font-bold">8 ENTITIES</span>
+</div>
+</div>
+</div>
+<!-- Collapsed Repository 3 -->
+<div class="bg-surface-container rounded-lg overflow-hidden">
+<div class="p-4 flex items-center justify-between cursor-pointer hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+<span class="material-symbols-outlined text-on-surface-variant">folder</span>
+<span class="font-mono text-sm font-semibold">notification-service</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface-variant text-[10px] font-bold">12 ENTITIES</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Fixed Bottom Bar Execution -->
+<footer class="fixed bottom-0 left-0 w-full h-16 bg-surface-container-low border-t border-outline-variant/30 flex justify-between items-center px-8 z-50">
+<div class="flex items-center gap-4">
+<span class="text-sm font-medium text-on-surface">47 of 47 selected</span>
+<div class="h-4 w-[1px] bg-outline-variant/30"></div>
+<div class="flex gap-4">
+<button class="text-xs font-mono uppercase tracking-widest text-primary hover:underline transition-all">Select All</button>
+<button class="text-xs font-mono uppercase tracking-widest text-primary hover:underline transition-all">Deselect All</button>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="px-6 py-2 border border-outline-variant text-on-surface rounded-sm text-xs font-mono uppercase tracking-widest hover:bg-surface-container-highest transition-all active:scale-[0.98]">
+                Back
+            </button>
+<button class="px-6 py-2 bg-primary-container text-on-primary-container rounded-sm text-xs font-mono uppercase tracking-widest hover:brightness-110 transition-all active:scale-[0.98] shadow-lg shadow-primary-container/20">
+                Confirm &amp; Import
+            </button>
+</div>
+</footer>
+</body></html>

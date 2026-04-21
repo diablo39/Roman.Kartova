@@ -1,7 +1,7 @@
 ---
 platform: Kartova
 description: SaaS service catalog and developer portal platform (Backstage + Compass + Statuspage)
-adr_count: 86
+adr_count: 88
 last_updated: 2026-04-21
 architecture:
   backend: .NET 10 (LTS) / ASP.NET Core + EF Core (ADR-0027)
@@ -12,10 +12,12 @@ testing:
   architecture_tests: mandatory CI gate, fail-fast, enforce layers + module boundaries + forbidden deps (ADR-0083)
 dev_workflow:
   frontend_verification: Playwright MCP mandatory for AI-assisted frontend changes — navigate, click, snapshot, check console errors before claiming done (ADR-0084)
+  frontend_design_source: local files in `docs/ui-screens/{screen}/{code.html, screen.png}` are canonical (committed Stitch snapshot); Stitch MCP used as escalation for missing screens or live sync (ADR-0087)
+  frontend_loop: local mockup files (default) or Stitch MCP (escalation) → implementation (map HTML to shadcn/ui per ADR-0088) → Playwright MCP (verify) → commit
 operations:
   migrations: EF Core migrations run via dedicated `Kartova.Migrator` container — K8s pre-install/pre-upgrade Helm Job or Docker init container; never at app startup (ADR-0085)
   helm_chart: Co-located in application repo at `deploy/helm/kartova/`; published to OCI registry on release (ADR-0086)
-  frontend: React SPA + TypeScript strict, Vite, React Router, TanStack Query (ADR-0039)
+  frontend: React SPA + TypeScript strict, Vite, React Router, TanStack Query (ADR-0039); UI primitives via shadcn/ui + Tailwind CSS v4 (ADR-0088); TanStack Table, react-hook-form + zod, cmdk, sonner, Recharts, React Flow, lucide-react, motion
   api_style: REST with cursor pagination and consistent error envelope (ADR-0029)
   api_versioning: URL-based primary (/api/v1/...), optional Accept-Version header (ADR-0030)
   api_docs: OpenAPI 3.x auto-generated, self-rendered inside Kartova docs engine (ADR-0034)
@@ -211,6 +213,8 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0084](ADR-0084-playwright-mcp-for-frontend-development.md) | Playwright MCP for Frontend Development and Verification Workflow | Development Workflow | Accepted | 0039, 0079, 0083 | Playwright MCP mandatory for AI-assisted frontend verification — navigate, interact, snapshot, check console errors before declaring work done. Complementary to ADR-0083 E2E tier. |
 | [0085](ADR-0085-database-migrations-as-k8s-jobs-docker-init-containers.md) | Database Migrations as K8s Jobs and Docker Init Containers | Deployment & Operations | Accepted | 0001, 0022, 0024, 0025, 0074, 0082, 0086 | EF Core migrations run in dedicated `Kartova.Migrator` container via Helm pre-install/pre-upgrade Job (K8s) or init container (Docker); never at app startup. Per-module orchestration. |
 | [0086](ADR-0086-helm-chart-co-located-in-application-repository.md) | Helm Chart Co-located in Application Repository | Deployment & Operations | Accepted | 0022, 0024, 0025, 0043, 0082, 0085 | Helm chart lives at `deploy/helm/kartova/` in-repo, versioned with the app, published as OCI artifact to GHCR on release. Agent chart remains separate (ADR-0043). |
+| [0087](ADR-0087-google-stitch-mcp-as-design-source.md) | Google Stitch MCP as Design Source for Frontend Implementation | Development Workflow | Accepted | 0039, 0083, 0084, 0088 | Google Stitch MCP mandatory as canonical design source — query mockup before implementing any screen; pairs with ADR-0084 Playwright MCP to form full Stitch → code → verify loop. |
+| [0088](ADR-0088-shadcn-ui-component-library-stack.md) | React Component Library — shadcn/ui + Tailwind Stack for Frontend Primitives | Frontend Architecture | Accepted | 0039, 0040, 0084, 0087 | shadcn/ui + Tailwind CSS v4 + Radix primitives; supporting libs: TanStack Table, react-hook-form + zod, cmdk, sonner, Recharts, React Flow, lucide-react. Navigation canonical in DESIGN.md, not Stitch. |
 
 ## By category (quick navigation)
 
@@ -221,7 +225,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Platform Infrastructure**: 0022, 0023, 0024, 0025, 0026
 - **API & Integration Architecture**: 0027, 0028, 0029, 0030, 0031, 0032, 0033, 0034, 0035, 0036, 0037, 0038
 - **Backend Architecture**: 0080, 0081, 0082
-- **Frontend Architecture**: 0039, 0040
+- **Frontend Architecture**: 0039, 0040, 0088
 - **Agent Architecture**: 0041, 0042, 0043, 0044, 0045
 - **CLI & Distribution**: 0046
 - **Notification Architecture**: 0047, 0048, 0049, 0050
@@ -233,7 +237,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Scale & Performance**: 0074, 0075, 0076
 - **Non-Functional / Cross-Cutting**: 0077, 0078, 0079
 - **Testing & Quality**: 0083
-- **Development Workflow**: 0084
+- **Development Workflow**: 0084, 0087
 - **Deployment & Operations**: 0085, 0086
 
 ## By common topic (LLM helper tags)
@@ -244,8 +248,9 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Messaging / mediation / CQRS**: 0003, 0028, 0037, 0080, 0081
 - **Modular monolith / bounded contexts**: 0028, 0080, 0081, 0082
 - **Testing / quality gates**: 0025, 0083
-- **Frontend workflow / dev-time verification**: 0039, 0083, 0084
-- **AI-assisted development**: 0079, 0084
+- **Frontend workflow / dev-time verification**: 0039, 0083, 0084, 0087
+- **AI-assisted development**: 0079, 0084, 0087
+- **Design source / mockups**: 0039, 0087
 - **Agent architecture**: 0041, 0042, 0043, 0044, 0045, 0067
 - **API contract**: 0029, 0030, 0031, 0032, 0033, 0034
 - **Compliance (GDPR / MiFID II)**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050, 0078
@@ -256,7 +261,8 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Availability & SLA**: 0005, 0023, 0053, 0076
 - **Billing & pricing**: 0061, 0062, 0063
 - **Observability**: 0036, 0058, 0059, 0060
-- **Frontend**: 0039, 0040
+- **Frontend**: 0039, 0040, 0088
+- **Component library / UI primitives**: 0088
 - **Git integration**: 0035, 0054, 0055, 0057
 - **Scan / import**: 0045, 0054, 0055, 0056, 0067
 - **Status page**: 0005, 0010, 0023, 0051, 0052, 0053, 0076
@@ -368,6 +374,20 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Pact.NET / contract tests** → 0083
 - **Playwright / E2E tests** → 0083
 - **Playwright MCP (dev-time browser automation)** → 0084
+- **Google Stitch MCP (design source)** → 0087
+- **Mockup / design reference** → 0087
+- **Stitch (design tool)** → 0087
+- **shadcn/ui (UI primitives)** → 0088
+- **Tailwind CSS** → 0088
+- **Radix UI (accessibility primitives)** → 0088
+- **TanStack Table (data tables)** → 0088
+- **react-hook-form + zod (forms)** → 0088
+- **cmdk (command palette)** → 0088
+- **sonner (toasts)** → 0088
+- **Recharts (charts)** → 0088
+- **React Flow (@xyflow/react)** → 0040, 0088
+- **lucide-react (icons)** → 0088
+- **motion / framer-motion** → 0088
 - **MCP servers (general)** → 0084
 - **Browser automation (development)** → 0084
 - **Testcontainers** → 0083
@@ -473,3 +493,6 @@ _No ADRs have been deprecated or superseded yet. When an ADR is superseded by a 
 | 2026-04-21 | ADR-0083 (Testing strategy) accepted — five-tier pyramid with NetArchTest architecture tests as mandatory CI gate |
 | 2026-04-21 | ADR-0084 (Playwright MCP for frontend dev) accepted — mandatory browser verification during AI-assisted frontend work; complementary to ADR-0083 E2E tier |
 | 2026-04-21 | ADR-0085 (DB migrations as K8s Jobs / Docker init containers) and ADR-0086 (Helm chart in-repo at `deploy/helm/kartova/`) accepted; ADR-0022 and ADR-0024 updated |
+| 2026-04-21 | ADR-0087 (Google Stitch MCP as design source) accepted — full frontend loop formalized: Stitch (design) → code → Playwright (verify); ADR-0084 updated |
+| 2026-04-21 | ADR-0088 (shadcn/ui + Tailwind stack) accepted — frontend primitives decided based on Stitch output visual analysis; ADR-0039, 0040, 0087 updated |
+| 2026-04-21 | ADR-0087 refined — local-first workflow: `docs/ui-screens/{screen}/code.html` + `screen.png` are default canonical source; Stitch MCP is escalation for missing or stale screens |

@@ -4,7 +4,7 @@
 **Date:** 2026-04-17
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** Frontend Architecture
-**Related:** ADR-0027 (.NET API), ADR-0040 (dependency graph)
+**Related:** ADR-0027 (.NET API), ADR-0040 (dependency graph), ADR-0088 (shadcn/ui component library stack)
 
 ## Context
 
