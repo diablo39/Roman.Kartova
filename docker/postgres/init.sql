@@ -24,3 +24,15 @@ ALTER DEFAULT PRIVILEGES FOR ROLE migrator IN SCHEMA public
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO kartova_app;
 ALTER DEFAULT PRIVILEGES FOR ROLE migrator IN SCHEMA public
     GRANT USAGE, SELECT ON SEQUENCES TO kartova_app;
+
+-- ADR-0090 admin bypass path: BYPASSRLS role used exclusively by
+-- AdminOrganizationDbContext for POST /api/v1/admin/organizations.
+-- Enforced to that assembly by architecture tests.
+CREATE ROLE kartova_bypass_rls WITH LOGIN PASSWORD 'dev_only' BYPASSRLS;
+GRANT CONNECT ON DATABASE kartova TO kartova_bypass_rls;
+GRANT USAGE, CREATE ON SCHEMA public TO kartova_bypass_rls;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO kartova_bypass_rls;
+ALTER DEFAULT PRIVILEGES FOR ROLE migrator IN SCHEMA public
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO kartova_bypass_rls;
+ALTER DEFAULT PRIVILEGES FOR ROLE migrator IN SCHEMA public
+    GRANT USAGE, SELECT ON SEQUENCES TO kartova_bypass_rls;
