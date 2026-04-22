@@ -41,6 +41,7 @@ Quick lookup; full context in the ADR library keyword index.
 | Frontend | React SPA + TypeScript strict, Vite, TanStack Query | ADR-0039 |
 | Frontend UI stack | shadcn/ui + Tailwind CSS v4 + Radix; TanStack Table, react-hook-form + zod, cmdk, sonner, Recharts, React Flow, lucide-react; nav canonical in DESIGN.md (not Stitch) | ADR-0088 |
 | Database | PostgreSQL 16 with Row-Level Security (not schema-per-tenant) | ADR-0001, ADR-0012 |
+| Tenant scope | One connection + tx per request, `SET LOCAL` on begin, commit before response | ADR-0090 |
 | Search | Elasticsearch shared index + per-tenant routing + filtered aliases | ADR-0002, ADR-0013 |
 | Messaging | Apache Kafka via Strimzi on K8s, KRaft mode (not RabbitMQ/Redpanda) | ADR-0003 |
 | Kafka outbound | Wolverine with transactional outbox (EF Core + PostgreSQL) | ADR-0080 |
@@ -78,6 +79,7 @@ Post-MVP: 6 Agent · 7 Intelligence · 8 Analytics · 9 Advanced
 - **Before architectural suggestions:** check ADR keyword index in `docs/architecture/decisions/README.md` — 89 decisions already made
 - **Frontend / UI work:** read local mockup first from `docs/ui-screens/{screen}/code.html` + `screen.png` (canonical snapshot, per ADR-0087); escalate to Stitch MCP only when screen is missing locally or user asks for sync. Map Stitch HTML → shadcn/ui components (ADR-0088). Verify with Playwright MCP (**cold-start dev server first** — HMR cache can mask config errors — then navigate → interact → snapshot → check console) before claiming done (ADR-0084).
 - **Before adding features:** verify they're not already scoped in `EPICS-AND-STORIES.md`; map each feature to its owning module (ADR-0082)
+- **Tenant scope & DB access:** All tenant-scoped DB work runs inside `ITenantScope` (one open connection + transaction per request, `SET LOCAL app.current_tenant_id` on `Begin`). Register module DbContexts via `AddModuleDbContext<T>` — never raw `AddDbContext` for tenant-owned data. Transport adapters (ASP.NET endpoint filter, Wolverine/Kafka middleware) call `Begin`/`CommitAsync` — handlers never touch the scope. See ADR-0090.
 - **Cross-module interactions:** only via Wolverine `IMessageBus` (in-process) or Kafka events; never direct references to other modules' Domain/Application/Infrastructure
 - **When proposing new ADRs:** preview decision before saving (user reviews first)
 - **Dates in memory/docs:** absolute (convert "Thursday" → `2026-03-05`)
