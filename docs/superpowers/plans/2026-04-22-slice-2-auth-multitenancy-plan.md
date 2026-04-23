@@ -1099,11 +1099,11 @@ git commit -m "feat(sharedkernel.postgres): AddModuleDbContext helper + SaveChan
 - Create: `src/Kartova.SharedKernel.AspNetCore/JwtAuthenticationExtensions.cs`
 - Create: `src/Kartova.SharedKernel.AspNetCore/TenantClaimsTransformation.cs`
 
-- [ ] **Step 1: Delete placeholder**
+- [x] **Step 1: Delete placeholder**
 
 Run: `cmd //c del src\Kartova.SharedKernel.AspNetCore\Placeholder.cs`
 
-- [ ] **Step 2: Create `ProblemTypes`**
+- [x] **Step 2: Create `ProblemTypes`**
 
 File: `src/Kartova.SharedKernel.AspNetCore/ProblemTypes.cs`
 
@@ -1129,7 +1129,7 @@ public static class ProblemTypes
 }
 ```
 
-- [ ] **Step 3: Create `JwtAuthenticationExtensions`**
+- [x] **Step 3: Create `JwtAuthenticationExtensions`**
 
 File: `src/Kartova.SharedKernel.AspNetCore/JwtAuthenticationExtensions.cs`
 
@@ -1183,7 +1183,7 @@ public static class JwtAuthenticationExtensions
 }
 ```
 
-- [ ] **Step 4: Create `TenantClaimsTransformation`**
+- [x] **Step 4: Create `TenantClaimsTransformation`**
 
 File: `src/Kartova.SharedKernel.AspNetCore/TenantClaimsTransformation.cs`
 
@@ -1278,12 +1278,12 @@ public sealed class TenantClaimsTransformation : IClaimsTransformation
 }
 ```
 
-- [ ] **Step 5: Build**
+- [x] **Step 5: Build**
 
 Run: `cmd //c dotnet build src/Kartova.SharedKernel.AspNetCore/Kartova.SharedKernel.AspNetCore.csproj --nologo`
 Expected: Build succeeded. 0 Errors.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/Kartova.SharedKernel.AspNetCore/
