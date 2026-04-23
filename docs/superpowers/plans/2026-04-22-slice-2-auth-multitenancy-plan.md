@@ -130,7 +130,7 @@ Stable seeded UUIDs (must match `Kartova.Testing.Auth.SeededOrgs` in Task 12):
 - Org A: `11111111-1111-1111-1111-111111111111`
 - Org B: `22222222-2222-2222-2222-222222222222`
 
-- [ ] **Step 1: Create realm JSON**
+- [x] **Step 1: Create realm JSON**
 
 File: `deploy/keycloak/kartova-realm.json`
 
@@ -243,7 +243,7 @@ File: `deploy/keycloak/kartova-realm.json`
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add deploy/keycloak/kartova-realm.json

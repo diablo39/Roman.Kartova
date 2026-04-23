@@ -1,0 +1,106 @@
+{
+  "realm": "kartova",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "accessTokenLifespan": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "roles": {
+    "realm": [
+      { "name": "OrgAdmin" },
+      { "name": "Member" },
+      { "name": "platform-admin" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "kartova-api",
+      "enabled": true,
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": true,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://localhost:5173/*", "http://localhost:8080/*"],
+      "webOrigins": ["http://localhost:5173", "http://localhost:8080"],
+      "attributes": {
+        "access.token.lifespan": "900"
+      },
+      "protocolMappers": [
+        {
+          "name": "tenant_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "tenant_id",
+            "claim.name": "tenant_id",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin@orga.kartova.local",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "admin@orga.kartova.local",
+      "firstName": "Alice",
+      "lastName": "Admin",
+      "attributes": {
+        "tenant_id": ["11111111-1111-1111-1111-111111111111"]
+      },
+      "credentials": [
+        { "type": "password", "value": "dev_pass", "temporary": false }
+      ],
+      "realmRoles": ["OrgAdmin"]
+    },
+    {
+      "username": "member@orga.kartova.local",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "member@orga.kartova.local",
+      "firstName": "Mike",
+      "lastName": "Member",
+      "attributes": {
+        "tenant_id": ["11111111-1111-1111-1111-111111111111"]
+      },
+      "credentials": [
+        { "type": "password", "value": "dev_pass", "temporary": false }
+      ],
+      "realmRoles": ["Member"]
+    },
+    {
+      "username": "admin@orgb.kartova.local",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "admin@orgb.kartova.local",
+      "firstName": "Bob",
+      "lastName": "Admin",
+      "attributes": {
+        "tenant_id": ["22222222-2222-2222-2222-222222222222"]
+      },
+      "credentials": [
+        { "type": "password", "value": "dev_pass", "temporary": false }
+      ],
+      "realmRoles": ["OrgAdmin"]
+    },
+    {
+      "username": "platform-admin@kartova.local",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "platform-admin@kartova.local",
+      "firstName": "Platform",
+      "lastName": "Admin",
+      "credentials": [
+        { "type": "password", "value": "dev_pass", "temporary": false }
+      ],
+      "realmRoles": ["platform-admin"]
+    }
+  ]
+}
