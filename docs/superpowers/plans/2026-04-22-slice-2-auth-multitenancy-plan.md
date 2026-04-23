@@ -3239,7 +3239,7 @@ Add a project reference first:
 cmd //c dotnet add tests/Kartova.ArchitectureTests/Kartova.ArchitectureTests.csproj reference src/Kartova.SharedKernel.AspNetCore/Kartova.SharedKernel.AspNetCore.csproj src/Kartova.SharedKernel.Postgres/Kartova.SharedKernel.Postgres.csproj src/Kartova.SharedKernel.Wolverine/Kartova.SharedKernel.Wolverine.csproj src/Modules/Organization/Kartova.Organization.Infrastructure/Kartova.Organization.Infrastructure.csproj src/Modules/Organization/Kartova.Organization.Infrastructure.Admin/Kartova.Organization.Infrastructure.Admin.csproj
 ```
 
-- [ ] **Step 1: Create `TenantScopeRules`**
+- [x] **Step 1: Create `TenantScopeRules`**
 
 File: `tests/Kartova.ArchitectureTests/TenantScopeRules.cs`
 
@@ -3353,12 +3353,12 @@ public class TenantScopeRules
 }
 ```
 
-- [ ] **Step 2: Run**
+- [x] **Step 2: Run**
 
 Run: `cmd //c dotnet test tests/Kartova.ArchitectureTests/Kartova.ArchitectureTests.csproj --nologo`
 Expected: All tests pass (6 existing + 6 new).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add tests/Kartova.ArchitectureTests/
