@@ -1671,7 +1671,7 @@ git commit -m "feat(testing.auth): RSA test JWT signer + test-only JwtBearer ove
 - Create: `src/Modules/Organization/Kartova.Organization.Contracts/Kartova.Organization.Contracts.csproj`
 - Create: `src/Modules/Organization/Kartova.Organization.Contracts/OrganizationDto.cs`
 
-- [ ] **Step 1: Domain csproj**
+- [x] **Step 1: Domain csproj**
 
 File: `src/Modules/Organization/Kartova.Organization.Domain/Kartova.Organization.Domain.csproj`
 
@@ -1690,7 +1690,7 @@ File: `src/Modules/Organization/Kartova.Organization.Domain/Kartova.Organization
 </Project>
 ```
 
-- [ ] **Step 2: `OrganizationId`**
+- [x] **Step 2: `OrganizationId`**
 
 File: `src/Modules/Organization/Kartova.Organization.Domain/OrganizationId.cs`
 
@@ -1704,7 +1704,7 @@ public readonly record struct OrganizationId(Guid Value)
 }
 ```
 
-- [ ] **Step 3: `Organization` aggregate**
+- [x] **Step 3: `Organization` aggregate**
 
 File: `src/Modules/Organization/Kartova.Organization.Domain/Organization.cs`
 
@@ -1760,7 +1760,7 @@ public sealed class Organization : ITenantOwned
 }
 ```
 
-- [ ] **Step 4: Contracts csproj**
+- [x] **Step 4: Contracts csproj**
 
 File: `src/Modules/Organization/Kartova.Organization.Contracts/Kartova.Organization.Contracts.csproj`
 
@@ -1776,7 +1776,7 @@ File: `src/Modules/Organization/Kartova.Organization.Contracts/Kartova.Organizat
 </Project>
 ```
 
-- [ ] **Step 5: `OrganizationDto`**
+- [x] **Step 5: `OrganizationDto`**
 
 File: `src/Modules/Organization/Kartova.Organization.Contracts/OrganizationDto.cs`
 
@@ -1786,12 +1786,12 @@ namespace Kartova.Organization.Contracts;
 public sealed record OrganizationDto(Guid Id, Guid TenantId, string Name, DateTimeOffset CreatedAt);
 ```
 
-- [ ] **Step 6: Build**
+- [x] **Step 6: Build**
 
 Run: `cmd //c dotnet build src/Modules/Organization/Kartova.Organization.Domain/Kartova.Organization.Domain.csproj src/Modules/Organization/Kartova.Organization.Contracts/Kartova.Organization.Contracts.csproj --nologo`
 Expected: Build succeeded.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/Modules/Organization/Kartova.Organization.Domain/ src/Modules/Organization/Kartova.Organization.Contracts/
