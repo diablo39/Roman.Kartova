@@ -1300,7 +1300,7 @@ git commit -m "feat(sharedkernel.aspnetcore): ProblemTypes + AddKartovaJwtAuth +
 - Create: `src/Kartova.SharedKernel.AspNetCore/TenantScopeEndpointFilter.cs`
 - Create: `src/Kartova.SharedKernel.AspNetCore/TenantScopeRouteExtensions.cs`
 
-- [ ] **Step 1: Create `TenantScopeEndpointFilter`**
+- [x] **Step 1: Create `TenantScopeEndpointFilter`**
 
 File: `src/Kartova.SharedKernel.AspNetCore/TenantScopeEndpointFilter.cs`
 
@@ -1341,7 +1341,7 @@ public sealed class TenantScopeEndpointFilter : IEndpointFilter
 }
 ```
 
-- [ ] **Step 2: Create `TenantScopeRouteExtensions`**
+- [x] **Step 2: Create `TenantScopeRouteExtensions`**
 
 File: `src/Kartova.SharedKernel.AspNetCore/TenantScopeRouteExtensions.cs`
 
@@ -1367,12 +1367,12 @@ public static class TenantScopeRouteExtensions
 }
 ```
 
-- [ ] **Step 3: Build**
+- [x] **Step 3: Build**
 
 Run: `cmd //c dotnet build src/Kartova.SharedKernel.AspNetCore/Kartova.SharedKernel.AspNetCore.csproj --nologo`
 Expected: Build succeeded. 0 Errors.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/Kartova.SharedKernel.AspNetCore/
