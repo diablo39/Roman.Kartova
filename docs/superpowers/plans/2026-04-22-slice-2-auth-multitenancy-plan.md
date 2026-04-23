@@ -416,9 +416,9 @@ File: `src/Kartova.SharedKernel.Postgres/Kartova.SharedKernel.Postgres.csproj`
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.0" />
-    <PackageReference Include="Npgsql" Version="9.0.2" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.2" />
-    <PackageReference Include="Npgsql.DependencyInjection" Version="9.0.2" />
+    <PackageReference Include="Npgsql" Version="10.0.0" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+    <PackageReference Include="Npgsql.DependencyInjection" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
   </ItemGroup>
 
@@ -1893,7 +1893,7 @@ File: `src/Modules/Organization/Kartova.Organization.Infrastructure/Kartova.Orga
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.2" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
     <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.7" />
   </ItemGroup>
 
@@ -2092,7 +2092,7 @@ File: `src/Modules/Organization/Kartova.Organization.Infrastructure.Admin/Kartov
 
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.2" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -2332,7 +2332,7 @@ Replace the contents with:
 
   <ItemGroup>
     <PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
-    <PackageReference Include="Npgsql.DependencyInjection" Version="9.0.2" />
+    <PackageReference Include="Npgsql.DependencyInjection" Version="10.0.0" />
     <PackageReference Include="WolverineFx" Version="5.32.0" />
     <PackageReference Include="WolverineFx.EntityFrameworkCore" Version="5.32.0" />
     <PackageReference Include="WolverineFx.Postgresql" Version="5.32.0" />
@@ -2799,7 +2799,7 @@ File: `src/Modules/Organization/Kartova.Organization.IntegrationTests/Kartova.Or
     <PackageReference Include="FluentAssertions" Version="7.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.0" />
     <PackageReference Include="Testcontainers.PostgreSql" Version="4.0.0" />
-    <PackageReference Include="Npgsql" Version="9.0.2" />
+    <PackageReference Include="Npgsql" Version="10.0.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\..\src\Kartova.Api\Kartova.Api.csproj" />
