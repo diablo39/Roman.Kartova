@@ -2077,7 +2077,7 @@ git commit -m "feat(organization): Infrastructure — DbContext, EF config, quer
 - Create: `src/Modules/Organization/Kartova.Organization.Infrastructure.Admin/IAdminOrganizationCommands.cs`
 - Create: `src/Modules/Organization/Kartova.Organization.Infrastructure.Admin/AdminOrganizationCommands.cs`
 
-- [ ] **Step 1: Admin csproj**
+- [x] **Step 1: Admin csproj**
 
 File: `src/Modules/Organization/Kartova.Organization.Infrastructure.Admin/Kartova.Organization.Infrastructure.Admin.csproj`
 
@@ -2105,7 +2105,7 @@ File: `src/Modules/Organization/Kartova.Organization.Infrastructure.Admin/Kartov
 </Project>
 ```
 
-- [ ] **Step 2: `AdminOrganizationDbContext`**
+- [x] **Step 2: `AdminOrganizationDbContext`**
 
 File: `src/Modules/Organization/Kartova.Organization.Infrastructure.Admin/AdminOrganizationDbContext.cs`
 
@@ -2133,7 +2133,7 @@ public sealed class AdminOrganizationDbContext : DbContext
 }
 ```
 
-- [ ] **Step 3: `IAdminOrganizationCommands`**
+- [x] **Step 3: `IAdminOrganizationCommands`**
 
 File: `src/Modules/Organization/Kartova.Organization.Infrastructure.Admin/IAdminOrganizationCommands.cs`
 
@@ -2148,7 +2148,7 @@ public interface IAdminOrganizationCommands
 }
 ```
 
-- [ ] **Step 4: `AdminOrganizationCommands`**
+- [x] **Step 4: `AdminOrganizationCommands`**
 
 File: `src/Modules/Organization/Kartova.Organization.Infrastructure.Admin/AdminOrganizationCommands.cs`
 
@@ -2176,7 +2176,7 @@ internal sealed class AdminOrganizationCommands : IAdminOrganizationCommands
 }
 ```
 
-- [ ] **Step 5: Add project to slnx and build**
+- [x] **Step 5: Add project to slnx and build**
 
 Run:
 ```bash
@@ -2185,7 +2185,7 @@ cmd //c dotnet build src/Modules/Organization/Kartova.Organization.Infrastructur
 ```
 Expected: Build succeeded.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/Modules/Organization/Kartova.Organization.Infrastructure.Admin/ Kartova.slnx
