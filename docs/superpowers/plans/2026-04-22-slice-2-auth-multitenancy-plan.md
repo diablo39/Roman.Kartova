@@ -602,7 +602,7 @@ git commit -m "feat(scaffold): add SharedKernel.Postgres/AspNetCore/Wolverine + 
 - Create: `src/Kartova.SharedKernel/Multitenancy/IAsyncTenantScopeHandle.cs`
 - Create: `src/Kartova.SharedKernel/Multitenancy/ITenantOwned.cs`
 
-- [ ] **Step 1: Create `TenantId`**
+- [x] **Step 1: Create `TenantId`**
 
 File: `src/Kartova.SharedKernel/Multitenancy/TenantId.cs`
 
@@ -631,7 +631,7 @@ public readonly record struct TenantId(Guid Value)
 }
 ```
 
-- [ ] **Step 2: Create `ITenantContext`**
+- [x] **Step 2: Create `ITenantContext`**
 
 File: `src/Kartova.SharedKernel/Multitenancy/ITenantContext.cs`
 
@@ -649,7 +649,7 @@ public interface ITenantContext
 }
 ```
 
-- [ ] **Step 3: Create `TenantContextAccessor`**
+- [x] **Step 3: Create `TenantContextAccessor`**
 
 File: `src/Kartova.SharedKernel/Multitenancy/TenantContextAccessor.cs`
 
@@ -682,7 +682,7 @@ public sealed class TenantContextAccessor : ITenantContext
 }
 ```
 
-- [ ] **Step 4: Create `ITenantScope`**
+- [x] **Step 4: Create `ITenantScope`**
 
 File: `src/Kartova.SharedKernel/Multitenancy/ITenantScope.cs`
 
@@ -704,7 +704,7 @@ public interface ITenantScope
 }
 ```
 
-- [ ] **Step 5: Create `IAsyncTenantScopeHandle`**
+- [x] **Step 5: Create `IAsyncTenantScopeHandle`**
 
 File: `src/Kartova.SharedKernel/Multitenancy/IAsyncTenantScopeHandle.cs`
 
@@ -722,7 +722,7 @@ public interface IAsyncTenantScopeHandle : IAsyncDisposable
 }
 ```
 
-- [ ] **Step 6: Create `ITenantOwned` marker**
+- [x] **Step 6: Create `ITenantOwned` marker**
 
 File: `src/Kartova.SharedKernel/Multitenancy/ITenantOwned.cs`
 
@@ -739,12 +739,12 @@ public interface ITenantOwned
 }
 ```
 
-- [ ] **Step 7: Build**
+- [x] **Step 7: Build**
 
 Run: `cmd //c dotnet build src/Kartova.SharedKernel/Kartova.SharedKernel.csproj --nologo`
 Expected: Build succeeded. 0 Errors.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/Kartova.SharedKernel/Multitenancy/
