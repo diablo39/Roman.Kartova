@@ -890,7 +890,7 @@ git commit -m "feat(sharedkernel.postgres): TenantScope with transaction-bound S
 - Create: `src/Kartova.SharedKernel.Postgres/TenantScopeRequiredInterceptor.cs`
 - Create: `src/Kartova.SharedKernel.Postgres/AddModuleDbContextExtensions.cs`
 
-- [ ] **Step 1: Create `EnlistInTenantScopeInterceptor`**
+- [x] **Step 1: Create `EnlistInTenantScopeInterceptor`**
 
 File: `src/Kartova.SharedKernel.Postgres/EnlistInTenantScopeInterceptor.cs`
 
@@ -963,7 +963,7 @@ Actually — simplify: keep only the `TenantScopeRequiredInterceptor` for fail-f
 
 Run: `cmd //c del src\Kartova.SharedKernel.Postgres\EnlistInTenantScopeInterceptor.cs`
 
-- [ ] **Step 2: Create `TenantScopeRequiredInterceptor`**
+- [x] **Step 2: Create `TenantScopeRequiredInterceptor`**
 
 File: `src/Kartova.SharedKernel.Postgres/TenantScopeRequiredInterceptor.cs`
 
@@ -1013,7 +1013,7 @@ public sealed class TenantScopeRequiredInterceptor : SaveChangesInterceptor
 }
 ```
 
-- [ ] **Step 3: Create `AddModuleDbContextExtensions`**
+- [x] **Step 3: Create `AddModuleDbContextExtensions`**
 
 File: `src/Kartova.SharedKernel.Postgres/AddModuleDbContextExtensions.cs`
 
@@ -1056,7 +1056,7 @@ public static class AddModuleDbContextExtensions
 
 Note: resolving `scope.Connection` before `BeginAsync` has been called will throw. This is by design — the transport filter must call `Begin` before any DbContext is resolved in the handler. Integration tests verify both happy path and fail-fast path.
 
-- [ ] **Step 4: Register interceptor service registration helper**
+- [x] **Step 4: Register interceptor service registration helper**
 
 Append inside the same `AddModuleDbContextExtensions.cs` file (end of class):
 
@@ -1075,12 +1075,12 @@ Append inside the same `AddModuleDbContextExtensions.cs` file (end of class):
 
 (Place before the closing `}` of the class so it lives as another static extension method.)
 
-- [ ] **Step 5: Build**
+- [x] **Step 5: Build**
 
 Run: `cmd //c dotnet build src/Kartova.SharedKernel.Postgres/Kartova.SharedKernel.Postgres.csproj --nologo`
 Expected: Build succeeded. 0 Errors.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/Kartova.SharedKernel.Postgres/
