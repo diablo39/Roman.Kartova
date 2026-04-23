@@ -3098,7 +3098,7 @@ git commit -m "test(organization): tenant isolation + raw SQL BYPASSRLS proof"
 - Create: `src/Modules/Organization/Kartova.Organization.IntegrationTests/AuthErrorTests.cs`
 - Create: `src/Modules/Organization/Kartova.Organization.IntegrationTests/AdminBypassTests.cs`
 
-- [ ] **Step 1: `AuthErrorTests`**
+- [x] **Step 1: `AuthErrorTests`**
 
 File: `src/Modules/Organization/Kartova.Organization.IntegrationTests/AuthErrorTests.cs`
 
@@ -3162,7 +3162,7 @@ public class AuthErrorTests : IClassFixture<KartovaApiFixture>
 }
 ```
 
-- [ ] **Step 2: `AdminBypassTests`**
+- [x] **Step 2: `AdminBypassTests`**
 
 File: `src/Modules/Organization/Kartova.Organization.IntegrationTests/AdminBypassTests.cs`
 
@@ -3213,12 +3213,12 @@ public class AdminBypassTests : IClassFixture<KartovaApiFixture>
 }
 ```
 
-- [ ] **Step 3: Run**
+- [x] **Step 3: Run**
 
 Run: `cmd //c dotnet test src/Modules/Organization/Kartova.Organization.IntegrationTests/Kartova.Organization.IntegrationTests.csproj --nologo`
 Expected: All tests pass.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/Modules/Organization/Kartova.Organization.IntegrationTests/AuthErrorTests.cs src/Modules/Organization/Kartova.Organization.IntegrationTests/AdminBypassTests.cs
