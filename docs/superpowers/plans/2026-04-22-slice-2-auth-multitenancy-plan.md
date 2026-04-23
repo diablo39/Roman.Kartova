@@ -259,7 +259,7 @@ git commit -m "feat(keycloak): seed realm with 2 orgs + 3 users + platform-admin
 **Files:**
 - Modify: `docker-compose.yml`
 
-- [ ] **Step 1: Replace `docker-compose.yml` entirely**
+- [x] **Step 1: Replace `docker-compose.yml` entirely**
 
 File: `docker-compose.yml`
 
@@ -374,7 +374,7 @@ volumes:
   keycloak-db-data:
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add docker-compose.yml
