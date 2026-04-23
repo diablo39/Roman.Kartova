@@ -2201,7 +2201,7 @@ git commit -m "feat(organization.admin): AdminOrganizationDbContext for BYPASSRL
 **Files:**
 - Create: `src/Modules/Organization/Kartova.Organization.Infrastructure/OrganizationModule.cs`
 
-- [ ] **Step 1: Create `OrganizationModule`**
+- [x] **Step 1: Create `OrganizationModule`**
 
 File: `src/Modules/Organization/Kartova.Organization.Infrastructure/OrganizationModule.cs`
 
@@ -2245,12 +2245,12 @@ If `IModule` in `Kartova.SharedKernel` does not already declare `DbContextType`,
 Run: `cmd //c findstr /s /c:"interface IModule" src\Kartova.SharedKernel\*.cs`
 Expected: shows the interface definition; adjust `OrganizationModule` to match exactly.
 
-- [ ] **Step 2: Build**
+- [x] **Step 2: Build**
 
 Run: `cmd //c dotnet build src/Modules/Organization/Kartova.Organization.Infrastructure/Kartova.Organization.Infrastructure.csproj --nologo`
 Expected: Build succeeded.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/Modules/Organization/Kartova.Organization.Infrastructure/OrganizationModule.cs
