@@ -16,7 +16,7 @@ IModule[] modules =
 
 foreach (var module in modules)
 {
-    module.RegisterServices(builder.Services, builder.Configuration);
+    module.RegisterForMigrator(builder.Services, builder.Configuration);
 }
 
 // The migrator doesn't route Kafka messages, but Wolverine may want its own tables
@@ -34,9 +34,8 @@ foreach (var module in modules)
     using var scope = host.Services.CreateScope();
     logger.LogInformation("Applying migrations for module '{Module}'...", module.Name);
 
-    // Each module's DbContext is registered via IModule.RegisterServices.
-    // We locate it by naming convention: {Module}DbContext in the module's Infrastructure assembly.
-    var dbContext = scope.ServiceProvider.GetService<CatalogDbContext>()
+    // Each module declares its primary DbContext via IModule.DbContextType.
+    var dbContext = (DbContext?)scope.ServiceProvider.GetService(module.DbContextType)
         ?? throw new InvalidOperationException(
             $"DbContext for module '{module.Name}' not registered.");
 

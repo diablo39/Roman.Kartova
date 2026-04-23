@@ -25,6 +25,8 @@ public sealed class OrganizationModule : IModule
 {
     public string Name => "organization";
 
+    public Type DbContextType => typeof(OrganizationDbContext);
+
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
     {
         // Tenant-scoped DbContext — connection flows from ITenantScope per ADR-0090.
@@ -34,6 +36,23 @@ public sealed class OrganizationModule : IModule
                 typeof(OrganizationDbContext).Assembly.FullName)));
 
         services.AddScoped<IOrganizationQueries, OrganizationQueries>();
+    }
+
+    /// <summary>
+    /// Migrator-specific registration: plain <c>AddDbContext</c> (no tenant scope).
+    /// Migrations are DDL and run under the migrator role with RLS-bypass; they do
+    /// not need the per-request shared connection/transaction from <c>ITenantScope</c>
+    /// that <c>AddModuleDbContext</c> otherwise requires.
+    /// </summary>
+    public void RegisterForMigrator(IServiceCollection services, IConfiguration configuration)
+    {
+        var cs = configuration.GetConnectionString("Kartova")
+            ?? throw new InvalidOperationException(
+                "Connection string 'Kartova' is required. Set it via ConnectionStrings__Kartova env var.");
+
+        services.AddDbContext<OrganizationDbContext>(opts =>
+            opts.UseNpgsql(cs, npg => npg.MigrationsAssembly(
+                typeof(OrganizationDbContext).Assembly.FullName)));
     }
 
     public void ConfigureWolverine(WolverineOptions options)

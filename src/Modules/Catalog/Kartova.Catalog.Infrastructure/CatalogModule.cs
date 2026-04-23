@@ -10,6 +10,8 @@ public sealed class CatalogModule : IModule
 {
     public string Name => "catalog";
 
+    public Type DbContextType => typeof(CatalogDbContext);
+
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
     {
         var connectionString = configuration.GetConnectionString("Kartova")
