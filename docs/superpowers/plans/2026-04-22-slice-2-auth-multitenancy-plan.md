@@ -3013,7 +3013,7 @@ git commit -m "test(organization): integration fixture + happy-path GET /organiz
 **Files:**
 - Create: `src/Modules/Organization/Kartova.Organization.IntegrationTests/TenantIsolationTests.cs`
 
-- [ ] **Step 1: Create test**
+- [x] **Step 1: Create test**
 
 File: `src/Modules/Organization/Kartova.Organization.IntegrationTests/TenantIsolationTests.cs`
 
@@ -3076,12 +3076,12 @@ public class TenantIsolationTests : IClassFixture<KartovaApiFixture>
 }
 ```
 
-- [ ] **Step 2: Run tests**
+- [x] **Step 2: Run tests**
 
 Run: `cmd //c dotnet test src/Modules/Organization/Kartova.Organization.IntegrationTests/Kartova.Organization.IntegrationTests.csproj --filter FullyQualifiedName~TenantIsolationTests --nologo`
 Expected: Both tests pass.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/Modules/Organization/Kartova.Organization.IntegrationTests/TenantIsolationTests.cs
