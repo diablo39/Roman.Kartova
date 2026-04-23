@@ -2779,7 +2779,7 @@ git commit -m "test(organization): unit tests for aggregate + claims transformat
 - Create: `src/Modules/Organization/Kartova.Organization.IntegrationTests/KartovaApiFixture.cs`
 - Create: `src/Modules/Organization/Kartova.Organization.IntegrationTests/OrganizationEndpointHappyPathTests.cs`
 
-- [ ] **Step 1: Tests csproj**
+- [x] **Step 1: Tests csproj**
 
 File: `src/Modules/Organization/Kartova.Organization.IntegrationTests/Kartova.Organization.IntegrationTests.csproj`
 
@@ -2811,7 +2811,7 @@ File: `src/Modules/Organization/Kartova.Organization.IntegrationTests/Kartova.Or
 </Project>
 ```
 
-- [ ] **Step 2: `KartovaApiFixture`**
+- [x] **Step 2: `KartovaApiFixture`**
 
 File: `src/Modules/Organization/Kartova.Organization.IntegrationTests/KartovaApiFixture.cs`
 
@@ -2942,7 +2942,7 @@ public sealed class KartovaApiFixture : WebApplicationFactory<Program>, IAsyncLi
 }
 ```
 
-- [ ] **Step 3: `OrganizationEndpointHappyPathTests`**
+- [x] **Step 3: `OrganizationEndpointHappyPathTests`**
 
 File: `src/Modules/Organization/Kartova.Organization.IntegrationTests/OrganizationEndpointHappyPathTests.cs`
 
@@ -2988,7 +2988,7 @@ public class OrganizationEndpointHappyPathTests : IClassFixture<KartovaApiFixtur
 }
 ```
 
-- [ ] **Step 4: Add project to slnx and run the test**
+- [x] **Step 4: Add project to slnx and run the test**
 
 Run:
 ```bash
@@ -2997,7 +2997,7 @@ cmd //c dotnet test src/Modules/Organization/Kartova.Organization.IntegrationTes
 ```
 Expected: Test passes (requires Docker for Testcontainers).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/Modules/Organization/Kartova.Organization.IntegrationTests/ Kartova.slnx
