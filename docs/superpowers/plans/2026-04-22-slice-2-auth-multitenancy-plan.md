@@ -3648,7 +3648,7 @@ If no change was needed, skip.
 **Files:**
 - Modify: `docs/product/CHECKLIST.md`
 
-- [ ] **Step 1: Update checkbox statuses**
+- [x] **Step 1: Update checkbox statuses**
 
 Open `docs/product/CHECKLIST.md`. For each of these story ids, change the leading `- [ ]` to `- [x]`:
 - `E-01.F-03.S-01`
@@ -3658,7 +3658,7 @@ Open `docs/product/CHECKLIST.md`. For each of these story ids, change the leadin
 
 If the checklist uses a different format (e.g., a table with a "Done" column), set the appropriate column value to ✅ / Yes / x.
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add docs/product/CHECKLIST.md
