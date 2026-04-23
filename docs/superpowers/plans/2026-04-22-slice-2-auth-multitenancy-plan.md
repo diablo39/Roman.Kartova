@@ -761,11 +761,11 @@ git commit -m "feat(sharedkernel): add multitenancy abstractions (TenantId, ITen
 - Create: `src/Kartova.SharedKernel.Postgres/TenantScope.cs`
 - Delete: `src/Kartova.SharedKernel.Postgres/Placeholder.cs`
 
-- [ ] **Step 1: Delete placeholder**
+- [x] **Step 1: Delete placeholder**
 
 Run: `cmd //c del src\Kartova.SharedKernel.Postgres\Placeholder.cs`
 
-- [ ] **Step 2: Create `TenantScope`**
+- [x] **Step 2: Create `TenantScope`**
 
 File: `src/Kartova.SharedKernel.Postgres/TenantScope.cs`
 
@@ -867,12 +867,12 @@ public sealed class TenantScope : ITenantScope
 }
 ```
 
-- [ ] **Step 3: Build**
+- [x] **Step 3: Build**
 
 Run: `cmd //c dotnet build src/Kartova.SharedKernel.Postgres/Kartova.SharedKernel.Postgres.csproj --nologo`
 Expected: Build succeeded. 0 Errors.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/Kartova.SharedKernel.Postgres/
