@@ -1808,7 +1808,7 @@ git commit -m "feat(organization): Domain + Contracts (aggregate, DTO)"
 - Create: `src/Modules/Organization/Kartova.Organization.Application/Kartova.Organization.Application.csproj`
 - Create: `src/Modules/Organization/Kartova.Organization.Application/IOrganizationQueries.cs`
 
-- [ ] **Step 1: Application csproj**
+- [x] **Step 1: Application csproj**
 
 File: `src/Modules/Organization/Kartova.Organization.Application/Kartova.Organization.Application.csproj`
 
@@ -1829,7 +1829,7 @@ File: `src/Modules/Organization/Kartova.Organization.Application/Kartova.Organiz
 </Project>
 ```
 
-- [ ] **Step 2: `IOrganizationQueries`**
+- [x] **Step 2: `IOrganizationQueries`**
 
 File: `src/Modules/Organization/Kartova.Organization.Application/IOrganizationQueries.cs`
 
@@ -1844,12 +1844,12 @@ public interface IOrganizationQueries
 }
 ```
 
-- [ ] **Step 3: Build**
+- [x] **Step 3: Build**
 
 Run: `cmd //c dotnet build src/Modules/Organization/Kartova.Organization.Application/Kartova.Organization.Application.csproj --nologo`
 Expected: Build succeeded.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/Modules/Organization/Kartova.Organization.Application/
