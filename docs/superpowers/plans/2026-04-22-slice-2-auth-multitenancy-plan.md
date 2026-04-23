@@ -2267,12 +2267,12 @@ git commit -m "feat(organization): OrganizationModule — registers tenant-scope
 - Modify: `src/Kartova.Migrator/Program.cs`
 - Modify: `src/Kartova.Migrator/Kartova.Migrator.csproj` (project reference already added in Task 15)
 
-- [ ] **Step 1: Inspect current migrator**
+- [x] **Step 1: Inspect current migrator**
 
 Run: `type src\Kartova.Migrator\Program.cs`
 Expected: iterates over a `modules` array. Add `new OrganizationModule()` to the array.
 
-- [ ] **Step 2: Edit `Program.cs`**
+- [x] **Step 2: Edit `Program.cs`**
 
 Open `src/Kartova.Migrator/Program.cs`. Locate the line constructing the modules array (looks like `IModule[] modules = [ new CatalogModule(), ];`). Replace it with:
 
@@ -2289,12 +2289,12 @@ Add the using at the top:
 using Kartova.Organization.Infrastructure;
 ```
 
-- [ ] **Step 3: Build**
+- [x] **Step 3: Build**
 
 Run: `cmd //c dotnet build src/Kartova.Migrator/Kartova.Migrator.csproj --nologo`
 Expected: Build succeeded.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/Kartova.Migrator/Program.cs

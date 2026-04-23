@@ -1,4 +1,5 @@
 using Kartova.Catalog.Infrastructure;
+using Kartova.Organization.Infrastructure;
 using Kartova.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,6 +11,7 @@ var builder = Host.CreateApplicationBuilder(args);
 IModule[] modules =
 [
     new CatalogModule(),
+    new OrganizationModule(),
 ];
 
 foreach (var module in modules)
