@@ -3611,12 +3611,12 @@ git commit -m "test(api): KeyCloak container auth smoke test"
 **Files:**
 - Modify: `.github/workflows/ci.yml`
 
-- [ ] **Step 1: Inspect current CI**
+- [x] **Step 1: Inspect current CI**
 
 Run: `type .github\workflows\ci.yml`
 Expected: shows backend / frontend / helm jobs.
 
-- [ ] **Step 2: Ensure backend test step runs the full solution**
+- [x] **Step 2: Ensure backend test step runs the full solution**
 
 In the backend job, the test step should already be `dotnet test Kartova.slnx --no-build --configuration Release`. If it specifies individual projects, update to use `Kartova.slnx`. This automatically picks up the new tests.
 
@@ -3625,11 +3625,11 @@ If the file already runs `dotnet test Kartova.slnx`, no change is needed — jus
 Run: `cmd //c findstr /c:"dotnet test" .github\workflows\ci.yml`
 Expected: line includes `Kartova.slnx`.
 
-- [ ] **Step 3: Ensure Docker is available for Testcontainers**
+- [x] **Step 3: Ensure Docker is available for Testcontainers**
 
 Confirm the backend CI job's runner has Docker. GitHub's `ubuntu-latest` runners include Docker by default; the existing Slice 1 Catalog integration tests already rely on it. No change needed.
 
-- [ ] **Step 4: Commit if CI file changed**
+- [x] **Step 4: Commit if CI file changed**
 
 If any edit was needed:
 ```bash

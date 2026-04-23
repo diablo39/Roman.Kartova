@@ -28,14 +28,8 @@ jobs:
       - name: Build
         run: dotnet build Kartova.slnx --configuration Release --no-restore
 
-      - name: Architecture tests (CI gate — ADR-0083)
-        run: dotnet test tests/Kartova.ArchitectureTests/Kartova.ArchitectureTests.csproj --configuration Release --no-build --verbosity normal
-
-      - name: Unit tests
-        run: dotnet test src/Modules/Catalog/Kartova.Catalog.Tests/Kartova.Catalog.Tests.csproj --configuration Release --no-build --verbosity normal
-
-      - name: Integration tests (Testcontainers)
-        run: dotnet test src/Modules/Catalog/Kartova.Catalog.IntegrationTests/Kartova.Catalog.IntegrationTests.csproj --configuration Release --no-build --verbosity normal
+      - name: Test (architecture + unit + integration, all modules)
+        run: dotnet test Kartova.slnx --configuration Release --no-build --verbosity normal
 
   frontend:
     name: Frontend (typecheck + build)
