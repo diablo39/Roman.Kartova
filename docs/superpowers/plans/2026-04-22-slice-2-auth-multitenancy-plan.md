@@ -1472,11 +1472,11 @@ git commit -m "feat(sharedkernel.wolverine): TenantScopeWolverineMiddleware skel
 - Create: `tests/Kartova.Testing.Auth/TestJwtSigner.cs`
 - Create: `tests/Kartova.Testing.Auth/TestAuthenticationExtensions.cs`
 
-- [ ] **Step 1: Delete placeholder**
+- [x] **Step 1: Delete placeholder**
 
 Run: `cmd //c del tests\Kartova.Testing.Auth\Placeholder.cs`
 
-- [ ] **Step 2: Create `SeededOrgs` constants (must match realm JSON)**
+- [x] **Step 2: Create `SeededOrgs` constants (must match realm JSON)**
 
 File: `tests/Kartova.Testing.Auth/SeededOrgs.cs`
 
@@ -1492,7 +1492,7 @@ public static class SeededOrgs
 }
 ```
 
-- [ ] **Step 3: Create `TestJwtSigner`**
+- [x] **Step 3: Create `TestJwtSigner`**
 
 File: `tests/Kartova.Testing.Auth/TestJwtSigner.cs`
 
@@ -1604,7 +1604,7 @@ public sealed class TestJwtSigner
 }
 ```
 
-- [ ] **Step 4: Create `TestAuthenticationExtensions`**
+- [x] **Step 4: Create `TestAuthenticationExtensions`**
 
 File: `tests/Kartova.Testing.Auth/TestAuthenticationExtensions.cs`
 
@@ -1646,12 +1646,12 @@ public static class TestAuthenticationExtensions
 }
 ```
 
-- [ ] **Step 5: Build**
+- [x] **Step 5: Build**
 
 Run: `cmd //c dotnet build tests/Kartova.Testing.Auth/Kartova.Testing.Auth.csproj --nologo`
 Expected: Build succeeded. 0 Errors.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add tests/Kartova.Testing.Auth/
