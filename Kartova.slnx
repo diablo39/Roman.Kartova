@@ -26,6 +26,7 @@
     <Project Path="src/Modules/Organization/Kartova.Organization.Tests/Kartova.Organization.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Kartova.Api.IntegrationTests/Kartova.Api.IntegrationTests.csproj" />
     <Project Path="tests/Kartova.ArchitectureTests/Kartova.ArchitectureTests.csproj" />
     <Project Path="tests/Kartova.Testing.Auth/Kartova.Testing.Auth.csproj" />
   </Folder>

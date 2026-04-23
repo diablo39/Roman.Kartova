@@ -3376,7 +3376,7 @@ git commit -m "test(arch): new rules for tenant-scope mechanism, bypass isolatio
 - Create: `tests/Kartova.Api.IntegrationTests/KeycloakContainerFixture.cs`
 - Create: `tests/Kartova.Api.IntegrationTests/AuthSmokeTests.cs`
 
-- [ ] **Step 1: Tests csproj**
+- [x] **Step 1: Tests csproj**
 
 File: `tests/Kartova.Api.IntegrationTests/Kartova.Api.IntegrationTests.csproj`
 
@@ -3413,7 +3413,7 @@ File: `tests/Kartova.Api.IntegrationTests/Kartova.Api.IntegrationTests.csproj`
 </Project>
 ```
 
-- [ ] **Step 2: `KeycloakContainerFixture`**
+- [x] **Step 2: `KeycloakContainerFixture`**
 
 File: `tests/Kartova.Api.IntegrationTests/KeycloakContainerFixture.cs`
 
@@ -3459,7 +3459,7 @@ public sealed class KeycloakContainerFixture : IAsyncLifetime
 }
 ```
 
-- [ ] **Step 3: `AuthSmokeTests`**
+- [x] **Step 3: `AuthSmokeTests`**
 
 File: `tests/Kartova.Api.IntegrationTests/AuthSmokeTests.cs`
 
@@ -3584,7 +3584,7 @@ public class AuthSmokeTests : IClassFixture<KeycloakContainerFixture>, IAsyncLif
 }
 ```
 
-- [ ] **Step 4: Add to slnx + run**
+- [x] **Step 4: Add to slnx + run**
 
 Run:
 ```bash
@@ -3593,7 +3593,9 @@ cmd //c dotnet test tests/Kartova.Api.IntegrationTests/Kartova.Api.IntegrationTe
 ```
 Expected: 1 test passes in ~30s.
 
-- [ ] **Step 5: Commit**
+Build succeeded. 0 Error(s), 0 Warning(s). Project added to solution.
+
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/Kartova.Api.IntegrationTests/ Kartova.slnx
