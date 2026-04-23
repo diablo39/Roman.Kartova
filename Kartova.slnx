@@ -22,6 +22,7 @@
     <Project Path="src/Modules/Organization/Kartova.Organization.Domain/Kartova.Organization.Domain.csproj" />
     <Project Path="src/Modules/Organization/Kartova.Organization.Infrastructure/Kartova.Organization.Infrastructure.csproj" />
     <Project Path="src/Modules/Organization/Kartova.Organization.Infrastructure.Admin/Kartova.Organization.Infrastructure.Admin.csproj" />
+    <Project Path="src/Modules/Organization/Kartova.Organization.Tests/Kartova.Organization.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Kartova.ArchitectureTests/Kartova.ArchitectureTests.csproj" />

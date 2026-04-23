@@ -2581,7 +2581,7 @@ git commit -m "feat(api): wire JWT auth + tenant scope + problem details + organ
 - Create: `src/Modules/Organization/Kartova.Organization.Tests/OrganizationAggregateTests.cs`
 - Create: `src/Modules/Organization/Kartova.Organization.Tests/TenantClaimsTransformationTests.cs`
 
-- [ ] **Step 1: Tests csproj**
+- [x] **Step 1: Tests csproj**
 
 File: `src/Modules/Organization/Kartova.Organization.Tests/Kartova.Organization.Tests.csproj`
 
@@ -2609,7 +2609,7 @@ File: `src/Modules/Organization/Kartova.Organization.Tests/Kartova.Organization.
 </Project>
 ```
 
-- [ ] **Step 2: `OrganizationAggregateTests`**
+- [x] **Step 2: `OrganizationAggregateTests`**
 
 File: `src/Modules/Organization/Kartova.Organization.Tests/OrganizationAggregateTests.cs`
 
@@ -2660,7 +2660,7 @@ public class OrganizationAggregateTests
 }
 ```
 
-- [ ] **Step 3: `TenantClaimsTransformationTests`**
+- [x] **Step 3: `TenantClaimsTransformationTests`**
 
 File: `src/Modules/Organization/Kartova.Organization.Tests/TenantClaimsTransformationTests.cs`
 
@@ -2752,7 +2752,7 @@ public class TenantClaimsTransformationTests
 }
 ```
 
-- [ ] **Step 4: Add project to slnx and run tests**
+- [x] **Step 4: Add project to slnx and run tests**
 
 Run:
 ```bash
@@ -2761,10 +2761,10 @@ cmd //c dotnet test src/Modules/Organization/Kartova.Organization.Tests/Kartova.
 ```
 Expected: All tests pass (~7 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
-git add src/Modules/Organization/Kartova.Organization.Tests/ Kartova.slnx
+git add src/Modules/Organization/Kartova.Organization.Tests/ Kartova.slnx docs/superpowers/plans/2026-04-22-slice-2-auth-multitenancy-plan.md
 git commit -m "test(organization): unit tests for aggregate + claims transformation"
 ```
 
