@@ -18,4 +18,10 @@
     <ProjectReference Include="..\Kartova.Organization.Contracts\Kartova.Organization.Contracts.csproj" />
     <ProjectReference Include="..\..\..\Kartova.SharedKernel\Kartova.SharedKernel.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Kartova.Api" />
+    <InternalsVisibleTo Include="Kartova.Api.IntegrationTests" />
+    <InternalsVisibleTo Include="Kartova.Organization.IntegrationTests" />
+  </ItemGroup>
 </Project>

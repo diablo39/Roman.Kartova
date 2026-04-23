@@ -2313,7 +2313,7 @@ git commit -m "feat(migrator): register OrganizationModule for Slice 2 migration
 - Create: `src/Kartova.Api/Endpoints/OrganizationEndpoints.cs`
 - Create: `src/Kartova.Api/Endpoints/AdminOrganizationEndpoints.cs`
 
-- [ ] **Step 1: Update Api csproj**
+- [x] **Step 1: Update Api csproj**
 
 File: `src/Kartova.Api/Kartova.Api.csproj`
 
@@ -2358,7 +2358,7 @@ Replace the contents with:
 </Project>
 ```
 
-- [ ] **Step 2: Rewrite `Program.cs`**
+- [x] **Step 2: Rewrite `Program.cs`**
 
 File: `src/Kartova.Api/Program.cs`
 
@@ -2472,7 +2472,7 @@ Kartova.Api.Endpoints.AdminOrganizationEndpoints.Map(admin);
 return await app.RunJasperFxCommands(args);
 ```
 
-- [ ] **Step 3: Create `OrganizationEndpoints`**
+- [x] **Step 3: Create `OrganizationEndpoints`**
 
 File: `src/Kartova.Api/Endpoints/OrganizationEndpoints.cs`
 
@@ -2517,7 +2517,7 @@ internal static class OrganizationEndpoints
 }
 ```
 
-- [ ] **Step 4: Create `AdminOrganizationEndpoints`**
+- [x] **Step 4: Create `AdminOrganizationEndpoints`**
 
 File: `src/Kartova.Api/Endpoints/AdminOrganizationEndpoints.cs`
 
@@ -2558,12 +2558,12 @@ internal static class AdminOrganizationEndpoints
 }
 ```
 
-- [ ] **Step 5: Build**
+- [x] **Step 5: Build**
 
 Run: `cmd //c dotnet build src/Kartova.Api/Kartova.Api.csproj --nologo`
 Expected: Build succeeded.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/Kartova.Api/
