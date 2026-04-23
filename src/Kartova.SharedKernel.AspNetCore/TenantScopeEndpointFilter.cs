@@ -5,30 +5,59 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Kartova.SharedKernel.AspNetCore;
 
 /// <summary>
-/// Wraps tenant-scoped endpoints in an <see cref="ITenantScope"/> lifetime.
-/// Commits before ASP.NET writes the response body — commit failures surface as 500.
-/// Rolls back on any exception and on un-committed dispose.
-/// See ADR-0090.
+/// Endpoint metadata marker applied by <c>RequireTenantScope()</c>. The
+/// <see cref="TenantScopeMiddleware"/> inspects the active endpoint for this
+/// marker to decide whether to open an <see cref="ITenantScope"/> around the
+/// request. See ADR-0090.
 /// </summary>
-public sealed class TenantScopeEndpointFilter : IEndpointFilter
+public sealed class RequireTenantScopeMarker
 {
-    public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
-    {
-        var ct = context.HttpContext.RequestAborted;
-        var tenantContext = context.HttpContext.RequestServices.GetRequiredService<ITenantContext>();
-        var scope = context.HttpContext.RequestServices.GetRequiredService<ITenantScope>();
+    public static readonly RequireTenantScopeMarker Instance = new();
+}
 
+/// <summary>
+/// Middleware that wraps tenant-scoped endpoints in an <see cref="ITenantScope"/>
+/// lifetime. Runs after <c>UseRouting()</c> + <c>UseAuthorization()</c> so the
+/// endpoint's <see cref="RequireTenantScopeMarker"/> metadata is visible, and
+/// BEFORE endpoint dispatch so <see cref="ITenantScope.BeginAsync"/> completes
+/// before the handler's parameter binding resolves any tenant-scoped DbContext.
+/// Commits before the response body is flushed; rolls back on exception.
+/// </summary>
+public sealed class TenantScopeMiddleware
+{
+    private readonly RequestDelegate _next;
+
+    public TenantScopeMiddleware(RequestDelegate next)
+    {
+        _next = next;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        var endpoint = context.GetEndpoint();
+        var needsScope = endpoint?.Metadata.GetMetadata<RequireTenantScopeMarker>() is not null;
+
+        if (!needsScope)
+        {
+            await _next(context);
+            return;
+        }
+
+        var tenantContext = context.RequestServices.GetRequiredService<ITenantContext>();
         if (!tenantContext.IsTenantScoped)
         {
-            return Results.Problem(
+            var problem = Results.Problem(
                 type: ProblemTypes.MissingTenantClaim,
                 title: "JWT is missing the tenant_id claim",
                 statusCode: StatusCodes.Status401Unauthorized);
+            await problem.ExecuteAsync(context);
+            return;
         }
 
+        var scope = context.RequestServices.GetRequiredService<ITenantScope>();
+        var ct = context.RequestAborted;
         await using var handle = await scope.BeginAsync(tenantContext.Id, ct);
-        var result = await next(context);
+        await _next(context);
         await handle.CommitAsync(ct);
-        return result;
     }
 }

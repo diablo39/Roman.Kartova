@@ -41,7 +41,9 @@ public sealed class TenantScope : ITenantScope
 
         await using var cmd = _connection.CreateCommand();
         cmd.Transaction = _transaction;
-        cmd.CommandText = "SET LOCAL app.current_tenant_id = $1";
+        // set_config(name, value, is_local) is used instead of `SET LOCAL` because
+        // PostgreSQL's SET statement does not accept bound parameters.
+        cmd.CommandText = "SELECT set_config('app.current_tenant_id', $1, true)";
         cmd.Parameters.AddWithValue(id.Value.ToString());
         await cmd.ExecuteNonQueryAsync(ct);
 

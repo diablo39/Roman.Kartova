@@ -45,7 +45,9 @@ services:
       KC_DB_PASSWORD: keycloak_dev
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin_dev
+      KC_HOSTNAME: "http://localhost:8180"
       KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       KC_HTTP_ENABLED: "true"
     ports:
       - "8180:8080"
@@ -85,7 +87,7 @@ services:
     environment:
       ConnectionStrings__Kartova: "Host=postgres;Port=5432;Database=kartova;Username=kartova_app;Password=dev"
       ConnectionStrings__KartovaBypass: "Host=postgres;Port=5432;Database=kartova;Username=kartova_bypass_rls;Password=dev_only"
-      Authentication__Authority: "http://keycloak:8080/realms/kartova"
+      Authentication__Authority: "http://localhost:8180/realms/kartova"
       Authentication__MetadataAddress: "http://keycloak:8080/realms/kartova/.well-known/openid-configuration"
       Authentication__Audience: "kartova-api"
       Authentication__RequireHttpsMetadata: "false"

@@ -81,6 +81,7 @@ app.UseExceptionHandler();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<TenantScopeMiddleware>();
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = c => c.Tags.Contains("live") });
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready") });

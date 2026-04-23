@@ -8,7 +8,7 @@ namespace Kartova.ArchitectureTests;
 public class TenantScopeRules
 {
     private static readonly Assembly SharedKernel = typeof(Kartova.SharedKernel.Multitenancy.ITenantScope).Assembly;
-    private static readonly Assembly SharedKernelAspNetCore = typeof(Kartova.SharedKernel.AspNetCore.TenantScopeEndpointFilter).Assembly;
+    private static readonly Assembly SharedKernelAspNetCore = typeof(Kartova.SharedKernel.AspNetCore.TenantScopeMiddleware).Assembly;
     private static readonly Assembly SharedKernelPostgres = typeof(Kartova.SharedKernel.Postgres.TenantScope).Assembly;
     private static readonly Assembly SharedKernelWolverine = typeof(Kartova.SharedKernel.Wolverine.TenantScopeWolverineMiddleware).Assembly;
     private static readonly Assembly OrganizationInfrastructure = typeof(Kartova.Organization.Infrastructure.OrganizationDbContext).Assembly;

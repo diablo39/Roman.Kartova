@@ -40,6 +40,17 @@
             "access.token.claim": "true",
             "userinfo.token.claim": "true"
           }
+        },
+        {
+          "name": "audience-kartova-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "kartova-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
         }
       ]
     }

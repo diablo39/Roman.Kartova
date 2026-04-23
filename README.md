@@ -1,3 +1,7 @@
+  Before pushing:
+  1. Run docker compose down -v && docker compose up --build -d locally and exercise ROPC → GET /organizations/me + admin POST to confirm end-to-end
+  2. Push the branch and open the PR — CI will exercise the Testcontainers tests
+
 # Kartova
 
 SaaS service catalog and developer portal (Backstage + Compass + Statuspage hybrid).
