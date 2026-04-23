@@ -3,6 +3,9 @@
     <Project Path="src/Kartova.Api/Kartova.Api.csproj" />
     <Project Path="src/Kartova.Migrator/Kartova.Migrator.csproj" />
     <Project Path="src/Kartova.SharedKernel/Kartova.SharedKernel.csproj" />
+    <Project Path="src/Kartova.SharedKernel.AspNetCore/Kartova.SharedKernel.AspNetCore.csproj" />
+    <Project Path="src/Kartova.SharedKernel.Postgres/Kartova.SharedKernel.Postgres.csproj" />
+    <Project Path="src/Kartova.SharedKernel.Wolverine/Kartova.SharedKernel.Wolverine.csproj" />
   </Folder>
   <Folder Name="/src/Modules/" />
   <Folder Name="/src/Modules/Catalog/">
@@ -15,5 +18,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Kartova.ArchitectureTests/Kartova.ArchitectureTests.csproj" />
+    <Project Path="tests/Kartova.Testing.Auth/Kartova.Testing.Auth.csproj" />
   </Folder>
 </Solution>

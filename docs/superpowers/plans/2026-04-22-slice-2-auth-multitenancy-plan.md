@@ -398,7 +398,7 @@ git commit -m "feat(compose): add KeyCloak + keycloak-db services, wire API to O
 - Create: `tests/Kartova.Testing.Auth/Placeholder.cs`
 - Modify: `Kartova.slnx`
 
-- [ ] **Step 1: Create `Kartova.SharedKernel.Postgres.csproj`**
+- [x] **Step 1: Create `Kartova.SharedKernel.Postgres.csproj`**
 
 File: `src/Kartova.SharedKernel.Postgres/Kartova.SharedKernel.Postgres.csproj`
 
@@ -437,7 +437,7 @@ namespace Kartova.SharedKernel.Postgres;
 internal static class Placeholder { }
 ```
 
-- [ ] **Step 2: Create `Kartova.SharedKernel.AspNetCore.csproj`**
+- [x] **Step 2: Create `Kartova.SharedKernel.AspNetCore.csproj`**
 
 File: `src/Kartova.SharedKernel.AspNetCore/Kartova.SharedKernel.AspNetCore.csproj`
 
@@ -473,7 +473,7 @@ namespace Kartova.SharedKernel.AspNetCore;
 internal static class Placeholder { }
 ```
 
-- [ ] **Step 3: Create `Kartova.SharedKernel.Wolverine.csproj`**
+- [x] **Step 3: Create `Kartova.SharedKernel.Wolverine.csproj`**
 
 File: `src/Kartova.SharedKernel.Wolverine/Kartova.SharedKernel.Wolverine.csproj`
 
@@ -508,7 +508,7 @@ namespace Kartova.SharedKernel.Wolverine;
 internal static class Placeholder { }
 ```
 
-- [ ] **Step 4: Create `Kartova.Testing.Auth.csproj`**
+- [x] **Step 4: Create `Kartova.Testing.Auth.csproj`**
 
 File: `tests/Kartova.Testing.Auth/Kartova.Testing.Auth.csproj`
 
@@ -546,7 +546,7 @@ namespace Kartova.Testing.Auth;
 internal static class Placeholder { }
 ```
 
-- [ ] **Step 5: Add all four projects to `Kartova.slnx`**
+- [x] **Step 5: Add all four projects to `Kartova.slnx`**
 
 Replace the `Kartova.slnx` file contents with:
 
@@ -576,12 +576,12 @@ Replace the `Kartova.slnx` file contents with:
 </Solution>
 ```
 
-- [ ] **Step 6: Build to verify project references resolve**
+- [x] **Step 6: Build to verify project references resolve**
 
 Run: `cmd //c dotnet build Kartova.slnx --nologo`
 Expected: Build succeeded. 0 Errors.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/Kartova.SharedKernel.Postgres/ src/Kartova.SharedKernel.AspNetCore/ src/Kartova.SharedKernel.Wolverine/ tests/Kartova.Testing.Auth/ Kartova.slnx
