@@ -1389,11 +1389,11 @@ git commit -m "feat(sharedkernel.aspnetcore): TenantScopeEndpointFilter + Requir
 - Delete: `src/Kartova.SharedKernel.Wolverine/Placeholder.cs`
 - Create: `src/Kartova.SharedKernel.Wolverine/TenantScopeWolverineMiddleware.cs`
 
-- [ ] **Step 1: Delete placeholder**
+- [x] **Step 1: Delete placeholder**
 
 Run: `cmd //c del src\Kartova.SharedKernel.Wolverine\Placeholder.cs`
 
-- [ ] **Step 2: Create middleware**
+- [x] **Step 2: Create middleware**
 
 File: `src/Kartova.SharedKernel.Wolverine/TenantScopeWolverineMiddleware.cs`
 
@@ -1419,7 +1419,8 @@ public static class TenantScopeWolverineMiddleware
         CancellationToken ct)
     {
         if (!envelope.Headers.TryGetValue(TenantIdHeader, out var raw) ||
-            !TenantId.TryParse(raw, out var id))
+            raw is null ||
+            !Multitenancy.TenantId.TryParse(raw, out var id))
         {
             // No tenant header → treat as non-tenant-scoped (e.g. platform-admin messages).
             return null;
@@ -1447,12 +1448,12 @@ public static class TenantScopeWolverineMiddleware
 }
 ```
 
-- [ ] **Step 3: Build**
+- [x] **Step 3: Build**
 
 Run: `cmd //c dotnet build src/Kartova.SharedKernel.Wolverine/Kartova.SharedKernel.Wolverine.csproj --nologo`
 Expected: Build succeeded. 0 Errors.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/Kartova.SharedKernel.Wolverine/
