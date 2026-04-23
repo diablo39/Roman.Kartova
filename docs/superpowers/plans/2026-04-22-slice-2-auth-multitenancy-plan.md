@@ -3671,12 +3671,12 @@ git commit -m "docs(checklist): mark Slice 2 stories complete (E-01.F-03.S-01, F
 
 **Goal:** Final end-to-end verification + push/merge.
 
-- [ ] **Step 1: Full build**
+- [x] **Step 1: Full build**
 
 Run: `cmd //c dotnet build Kartova.slnx --configuration Release --nologo`
 Expected: Build succeeded. 0 Errors.
 
-- [ ] **Step 2: Full test**
+- [x] **Step 2: Full test**
 
 Run: `cmd //c dotnet test Kartova.slnx --configuration Release --no-build --nologo`
 Expected: all tests pass across all projects (architecture + unit + integration + auth smoke).
