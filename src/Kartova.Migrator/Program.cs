@@ -19,10 +19,11 @@ foreach (var module in modules)
     module.RegisterForMigrator(builder.Services, builder.Configuration);
 }
 
-// The migrator doesn't route Kafka messages, but Wolverine may want its own tables
-// (outbox persistence) — we still register schema so migrations include them in Slice 3.
-// For Slice 1 we skip Wolverine bootstrap in the migrator itself; wolverine tables are
-// created lazily by the API.
+// Kartova.Migrator is the sole DDL owner (ADR-0085). Slice 2 has no Wolverine
+// persistence — see docs/superpowers/specs/2026-04-24-defer-wolverine-persistence-design.md.
+// When a later slice enables Wolverine persistence (outbox), the `wolverine.*`
+// schema must be created here under the `migrator` role (Option A — host Wolverine
+// in this process and call JasperFx IStatefulResource / IMessageStore.Admin.MigrateAsync).
 
 using var host = builder.Build();
 var logger = host.Services.GetRequiredService<ILogger<Program>>();
