@@ -116,4 +116,10 @@ Kartova.Api.Endpoints.OrganizationEndpoints.Map(tenantScoped);
 var admin = app.MapGroup("/api/v1/admin").RequireAuthorization(policy => policy.RequireRole("platform-admin"));
 Kartova.Api.Endpoints.AdminOrganizationEndpoints.Map(admin);
 
+if (app.Environment.IsEnvironment("Testing"))
+{
+    await app.RunAsync();
+    return 0;
+}
+
 return await app.RunJasperFxCommands(args);
