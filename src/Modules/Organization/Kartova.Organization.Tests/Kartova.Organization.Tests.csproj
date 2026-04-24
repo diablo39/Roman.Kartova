@@ -8,6 +8,7 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
@@ -17,5 +18,6 @@
     <ProjectReference Include="..\Kartova.Organization.Domain\Kartova.Organization.Domain.csproj" />
     <ProjectReference Include="..\..\..\Kartova.SharedKernel\Kartova.SharedKernel.csproj" />
     <ProjectReference Include="..\..\..\Kartova.SharedKernel.AspNetCore\Kartova.SharedKernel.AspNetCore.csproj" />
+    <ProjectReference Include="..\..\..\..\tests\Kartova.Testing.Auth\Kartova.Testing.Auth.csproj" />
   </ItemGroup>
 </Project>

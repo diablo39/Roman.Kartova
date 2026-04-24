@@ -111,7 +111,14 @@ public sealed class KartovaApiFixture : WebApplicationFactory<Program>, IAsyncLi
         await using var conn = new NpgsqlConnection(BypassConnectionString);
         await conn.OpenAsync();
         await using var cmd = conn.CreateCommand();
-        cmd.CommandText = "INSERT INTO organizations (id, tenant_id, name, created_at) VALUES ($1, $2, $3, now()) RETURNING id";
+        cmd.CommandText = """
+            INSERT INTO organizations (id, tenant_id, name, created_at)
+            VALUES ($1, $2, $3, now())
+            ON CONFLICT (id) DO UPDATE
+                SET name = EXCLUDED.name,
+                    tenant_id = EXCLUDED.tenant_id
+            RETURNING id
+            """;
         cmd.Parameters.AddWithValue(tenantId);
         cmd.Parameters.AddWithValue(tenantId);
         cmd.Parameters.AddWithValue(name);
