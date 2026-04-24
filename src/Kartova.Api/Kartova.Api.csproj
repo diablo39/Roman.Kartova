@@ -14,7 +14,6 @@
     <PackageReference Include="Npgsql.DependencyInjection" Version="10.0.0" />
     <PackageReference Include="WolverineFx" Version="5.32.0" />
     <PackageReference Include="WolverineFx.EntityFrameworkCore" Version="5.32.0" />
-    <PackageReference Include="WolverineFx.Postgresql" Version="5.32.0" />
   </ItemGroup>
 
   <ItemGroup>

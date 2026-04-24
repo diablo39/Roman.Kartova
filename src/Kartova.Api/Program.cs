@@ -11,7 +11,6 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Wolverine;
-using Wolverine.Postgresql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -58,11 +57,14 @@ var bypassConnection = builder.Configuration.GetConnectionString("KartovaBypass"
 builder.Services.AddDbContext<AdminOrganizationDbContext>(opts => opts.UseNpgsql(bypassConnection));
 builder.Services.AddScoped<IAdminOrganizationCommands, AdminOrganizationCommands>();
 
-// Wolverine — persistence only; no message routing in Slice 2.
+// Wolverine — in-process CQRS mediator only.
+// Postgres persistence (outbox) is deferred until a slice publishes domain events.
+// See ADR-0080 and docs/superpowers/specs/2026-04-24-defer-wolverine-persistence-design.md.
+// When persistence is re-enabled, the `wolverine.*` schema must be created by
+// Kartova.Migrator (ADR-0085), and API-side auto-create must be disabled at the
+// same time.
 builder.Host.UseWolverine(opts =>
 {
-    opts.PersistMessagesWithPostgresql(kartovaConnection, schemaName: "wolverine");
-
     foreach (var module in modules)
     {
         module.ConfigureWolverine(opts);
