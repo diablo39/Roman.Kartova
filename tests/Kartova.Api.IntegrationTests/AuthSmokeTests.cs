@@ -23,21 +23,22 @@ public class AuthSmokeTests : IClassFixture<KeycloakContainerFixture>, IAsyncLif
     {
         await SeedPostgres();
 
+        // Env vars must be set BEFORE the WebApplicationFactory boots the host.
+        // Program.cs reads `ConnectionStrings:*` and `Authentication:*` at top-level
+        // (via builder.Configuration.GetConnectionString + AddKartovaJwtAuth) before
+        // builder.Build() runs — the point at which WithWebHostBuilder callbacks
+        // would apply. Env vars flow through EnvironmentVariablesConfigurationSource
+        // at top-level read time, so they are the only vehicle that reaches that code.
+        Environment.SetEnvironmentVariable("ConnectionStrings__Kartova", AppConnectionString("kartova_app"));
+        Environment.SetEnvironmentVariable("ConnectionStrings__KartovaBypass", AppConnectionString("kartova_bypass_rls"));
+        Environment.SetEnvironmentVariable("Authentication__Authority", _fx.KeycloakAuthority);
+        Environment.SetEnvironmentVariable("Authentication__MetadataAddress", $"{_fx.KeycloakAuthority}/.well-known/openid-configuration");
+        Environment.SetEnvironmentVariable("Authentication__Audience", "kartova-api");
+        Environment.SetEnvironmentVariable("Authentication__RequireHttpsMetadata", "false");
+
         _app = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
         {
             b.UseEnvironment("Testing");
-            b.ConfigureAppConfiguration((_, c) =>
-            {
-                c.AddInMemoryCollection(new Dictionary<string, string?>
-                {
-                    ["ConnectionStrings:Kartova"] = AppConnectionString("kartova_app"),
-                    ["ConnectionStrings:KartovaBypass"] = AppConnectionString("kartova_bypass_rls"),
-                    ["Authentication:Authority"] = _fx.KeycloakAuthority,
-                    ["Authentication:MetadataAddress"] = $"{_fx.KeycloakAuthority}/.well-known/openid-configuration",
-                    ["Authentication:Audience"] = "kartova-api",
-                    ["Authentication:RequireHttpsMetadata"] = "false",
-                });
-            });
         });
 
         await RunMigrationsAsync();
