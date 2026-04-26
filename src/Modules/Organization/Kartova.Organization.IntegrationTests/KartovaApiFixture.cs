@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Kartova.Api;
 using Kartova.Organization.Infrastructure;
 using Kartova.Testing.Auth;
 using Microsoft.AspNetCore.Hosting;

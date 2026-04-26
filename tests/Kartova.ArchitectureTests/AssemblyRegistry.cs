@@ -1,4 +1,5 @@
 using System.Reflection;
+using Kartova.Api;
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;

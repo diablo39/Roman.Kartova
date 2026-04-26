@@ -104,7 +104,7 @@ public class TenantScopeRules
     public void TestJwtSigner_is_not_referenced_outside_test_projects()
     {
         // Kartova.Api must NOT reference Kartova.Testing.Auth.
-        var apiRefs = typeof(Program).Assembly.GetReferencedAssemblies()
+        var apiRefs = typeof(Kartova.Api.Program).Assembly.GetReferencedAssemblies()
             .Select(a => a.Name);
         apiRefs.Should().NotContain("Kartova.Testing.Auth",
             because: "Production API must not reference test-only JWT signer");
