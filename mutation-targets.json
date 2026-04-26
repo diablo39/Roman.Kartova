@@ -1,0 +1,62 @@
+{
+  "_comment": "Group-level configFile is a kitchen-sink fallback for direct dotnet-stryker invocations. Per-project configFile overrides it for routed mutation runs. Explicit per-project name fields are required because ms-detect-and-run.sh's TSV reader collapses consecutive empty tab-delimited fields.",
+  "groups": [
+    {
+      "stack": ".NET",
+      "solution": "Kartova.slnx",
+      "configFile": "stryker-config.json",
+      "projects": [
+        {
+          "name": "Kartova.Api",
+          "path": "src/Kartova.Api/Kartova.Api.csproj",
+          "configFile": "src/Kartova.Api/stryker-config.json"
+        },
+        {
+          "name": "Kartova.SharedKernel",
+          "path": "src/Kartova.SharedKernel/Kartova.SharedKernel.csproj",
+          "configFile": "src/Kartova.SharedKernel/stryker-config.json"
+        },
+        {
+          "name": "Kartova.SharedKernel.AspNetCore",
+          "path": "src/Kartova.SharedKernel.AspNetCore/Kartova.SharedKernel.AspNetCore.csproj",
+          "configFile": "src/Kartova.SharedKernel.AspNetCore/stryker-config.json"
+        },
+        {
+          "name": "Kartova.SharedKernel.Postgres",
+          "path": "src/Kartova.SharedKernel.Postgres/Kartova.SharedKernel.Postgres.csproj",
+          "configFile": "src/Kartova.SharedKernel.Postgres/stryker-config.json"
+        },
+        {
+          "name": "Kartova.Catalog.Domain",
+          "path": "src/Modules/Catalog/Kartova.Catalog.Domain/Kartova.Catalog.Domain.csproj",
+          "configFile": "src/Modules/Catalog/stryker-config.json"
+        },
+        {
+          "name": "Kartova.Catalog.Application",
+          "path": "src/Modules/Catalog/Kartova.Catalog.Application/Kartova.Catalog.Application.csproj",
+          "configFile": "src/Modules/Catalog/stryker-config.json"
+        },
+        {
+          "name": "Kartova.Catalog.Infrastructure",
+          "path": "src/Modules/Catalog/Kartova.Catalog.Infrastructure/Kartova.Catalog.Infrastructure.csproj",
+          "configFile": "src/Modules/Catalog/stryker-config.json"
+        },
+        {
+          "name": "Kartova.Organization.Domain",
+          "path": "src/Modules/Organization/Kartova.Organization.Domain/Kartova.Organization.Domain.csproj",
+          "configFile": "src/Modules/Organization/stryker-config.json"
+        },
+        {
+          "name": "Kartova.Organization.Infrastructure",
+          "path": "src/Modules/Organization/Kartova.Organization.Infrastructure/Kartova.Organization.Infrastructure.csproj",
+          "configFile": "src/Modules/Organization/stryker-config.json"
+        },
+        {
+          "name": "Kartova.Organization.Infrastructure.Admin",
+          "path": "src/Modules/Organization/Kartova.Organization.Infrastructure.Admin/Kartova.Organization.Infrastructure.Admin.csproj",
+          "configFile": "src/Modules/Organization/stryker-config.json"
+        }
+      ]
+    }
+  ]
+}

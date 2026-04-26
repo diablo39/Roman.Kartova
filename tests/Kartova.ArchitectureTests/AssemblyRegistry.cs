@@ -1,8 +1,14 @@
 using System.Reflection;
+using Kartova.Api;
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
 using Kartova.Catalog.Infrastructure;
+using Kartova.Organization.Application;
+using Kartova.Organization.Contracts;
+using Kartova.Organization.Domain;
+using Kartova.Organization.Infrastructure;
+using Kartova.Organization.Infrastructure.Admin;
 using Kartova.SharedKernel;
 
 namespace Kartova.ArchitectureTests;
@@ -12,7 +18,7 @@ namespace Kartova.ArchitectureTests;
 /// </summary>
 internal static class AssemblyRegistry
 {
-    public static readonly Assembly SharedKernel = typeof(TenantId).Assembly;
+    public static readonly Assembly SharedKernel = typeof(IModule).Assembly;
     public static readonly Assembly Api = typeof(Program).Assembly;
 
     public static class Catalog
@@ -23,6 +29,15 @@ internal static class AssemblyRegistry
         public static readonly Assembly Contracts = typeof(CatalogContractsMarker).Assembly;
     }
 
+    public static class Organization
+    {
+        public static readonly Assembly Domain = typeof(Kartova.Organization.Domain.Organization).Assembly;
+        public static readonly Assembly Application = typeof(IOrganizationQueries).Assembly;
+        public static readonly Assembly Infrastructure = typeof(OrganizationDbContext).Assembly;
+        public static readonly Assembly InfrastructureAdmin = typeof(AdminOrganizationDbContext).Assembly;
+        public static readonly Assembly Contracts = typeof(OrganizationDto).Assembly;
+    }
+
     public static IEnumerable<Assembly> AllProduction()
     {
         yield return SharedKernel;
@@ -31,5 +46,16 @@ internal static class AssemblyRegistry
         yield return Catalog.Application;
         yield return Catalog.Infrastructure;
         yield return Catalog.Contracts;
+        yield return Organization.Domain;
+        yield return Organization.Application;
+        yield return Organization.Infrastructure;
+        yield return Organization.InfrastructureAdmin;
+        yield return Organization.Contracts;
+    }
+
+    public static IEnumerable<Assembly> AllContracts()
+    {
+        yield return Catalog.Contracts;
+        yield return Organization.Contracts;
     }
 }

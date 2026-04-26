@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
@@ -7,6 +8,7 @@ namespace Kartova.Catalog.Infrastructure;
 /// Enables `dotnet ef migrations add` without a running host.
 /// Production connection strings come from IModule.RegisterServices.
 /// </summary>
+[ExcludeFromCodeCoverage]
 internal sealed class CatalogDbContextFactory : IDesignTimeDbContextFactory<CatalogDbContext>
 {
     public CatalogDbContext CreateDbContext(string[] args)

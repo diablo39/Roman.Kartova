@@ -1,0 +1,31 @@
+{
+  "groups": [
+    {
+      "stack": ".NET",
+      "solution": "src/MySolution.sln",
+      "configFile": "stryker-config.json",
+      "projects": [
+        {
+          "path": "src/Domain/MyProject.Domain/MyProject.Domain.csproj"
+        },
+        {
+          "name": "Services",
+          "path": "src/Services/MyProject.Services/MyProject.Services.csproj",
+          "configFile": "src/Services/stryker-config.json"
+        },
+        {
+          "path": "src/Infrastructure/MyProject.Infrastructure/MyProject.Infrastructure.csproj"
+        }
+      ]
+    },
+    {
+      "stack": "JavaScript/TypeScript",
+      "configFile": "stryker.conf.js",
+      "projects": [
+        {
+          "path": "src/frontend"
+        }
+      ]
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 using Kartova.Catalog.Infrastructure;
+using Kartova.Organization.Infrastructure;
 using Kartova.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,17 +11,15 @@ var builder = Host.CreateApplicationBuilder(args);
 IModule[] modules =
 [
     new CatalogModule(),
+    new OrganizationModule(),
 ];
 
 foreach (var module in modules)
 {
-    module.RegisterServices(builder.Services, builder.Configuration);
+    module.RegisterForMigrator(builder.Services, builder.Configuration);
 }
 
-// The migrator doesn't route Kafka messages, but Wolverine may want its own tables
-// (outbox persistence) — we still register schema so migrations include them in Slice 3.
-// For Slice 1 we skip Wolverine bootstrap in the migrator itself; wolverine tables are
-// created lazily by the API.
+// Sole DDL owner (ADR-0085). Wolverine persistence schema is added here when re-enabled.
 
 using var host = builder.Build();
 var logger = host.Services.GetRequiredService<ILogger<Program>>();
@@ -32,9 +31,8 @@ foreach (var module in modules)
     using var scope = host.Services.CreateScope();
     logger.LogInformation("Applying migrations for module '{Module}'...", module.Name);
 
-    // Each module's DbContext is registered via IModule.RegisterServices.
-    // We locate it by naming convention: {Module}DbContext in the module's Infrastructure assembly.
-    var dbContext = scope.ServiceProvider.GetService<CatalogDbContext>()
+    // Each module declares its primary DbContext via IModule.DbContextType.
+    var dbContext = (DbContext?)scope.ServiceProvider.GetService(module.DbContextType)
         ?? throw new InvalidOperationException(
             $"DbContext for module '{module.Name}' not registered.");
 

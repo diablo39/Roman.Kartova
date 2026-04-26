@@ -436,3 +436,10 @@ coverage/
 *.DotSettings.user
 .env.local
 .env.*.local
+StrykerOutput/
+coverage-report/
+.test-gen-audit-completed.csv
+.test-gen-audit.csv
+generated-tests-summary.md
+mutation-report-surviving.md
+quality-analysis.md

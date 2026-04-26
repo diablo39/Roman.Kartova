@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+    <DataCollectionRunSettings>
+        <DataCollectors>
+            <DataCollector friendlyName="XPlat Code Coverage">
+                <Configuration>
+                    <Format>cobertura</Format>
+                    <IncludeTestAssembly>false</IncludeTestAssembly>
+                    <ExcludeByFile>
+                        **/Migrations/*.cs,
+                        **/*.g.cs,
+                        **/*.designer.cs,
+                        **/Program.cs
+                    </ExcludeByFile>
+                    <Exclude>
+                        [*.Tests?]*,
+                        [xunit.*]*,
+                        [nunit.*]*,
+                        [Moq]*
+                    </Exclude>
+                    <ExcludeByAttribute>
+                        Obsolete,
+                        GeneratedCodeAttribute,
+                        ExcludeFromCodeCoverageAttribute
+                    </ExcludeByAttribute>
+                    <SkipAutoProps>true</SkipAutoProps>
+                    <DeterministicReport>true</DeterministicReport>
+                    <UseSourceLink>false</UseSourceLink>
+                    <SingleHit>false</SingleHit>
+                </Configuration>
+            </DataCollector>
+        </DataCollectors>
+    </DataCollectionRunSettings>
+</RunSettings>

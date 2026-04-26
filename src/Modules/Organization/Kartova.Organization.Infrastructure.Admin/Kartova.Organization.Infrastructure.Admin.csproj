@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Kartova.Organization.Domain\Kartova.Organization.Domain.csproj" />
+    <ProjectReference Include="..\Kartova.Organization.Application\Kartova.Organization.Application.csproj" />
+    <ProjectReference Include="..\Kartova.Organization.Infrastructure\Kartova.Organization.Infrastructure.csproj" />
+    <ProjectReference Include="..\Kartova.Organization.Contracts\Kartova.Organization.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\Kartova.SharedKernel\Kartova.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Kartova.Api" />
+    <InternalsVisibleTo Include="Kartova.Api.IntegrationTests" />
+    <InternalsVisibleTo Include="Kartova.Organization.IntegrationTests" />
+  </ItemGroup>
+</Project>

@@ -39,13 +39,13 @@
 - [ ] E-01.F-02.S-02 — CD pipeline to staging
 
 **E-01.F-03: Database Foundation**
-- [ ] E-01.F-03.S-01 — Multi-tenant database schema with tenant isolation
+- [x] E-01.F-03.S-01 — Multi-tenant database schema with tenant isolation
 - [ ] E-01.F-03.S-02 — Database migration framework
 - [ ] E-01.F-03.S-03 — Append-only audit log table (MiFID II)
 
 **E-01.F-04: Authentication & Authorization**
-- [ ] E-01.F-04.S-01 — KeyCloak configured with OIDC
-- [ ] E-01.F-04.S-02 — JWT validation middleware in API
+- [x] E-01.F-04.S-01 — KeyCloak configured with OIDC
+- [x] E-01.F-04.S-02 — JWT validation middleware in API
 - [ ] E-01.F-04.S-03 — RBAC with five roles
 - [ ] E-01.F-04.S-04 — SSO login via web UI
 
@@ -76,7 +76,7 @@
 **E-01.F-08: Performance & Scalability Baseline**
 - [ ] E-01.F-08.S-01 — Database indexing strategy for multi-tenant scale
 - [ ] E-01.F-08.S-02 — Elasticsearch index strategy
-- [ ] E-01.F-08.S-03 — Row-level security for tenant isolation
+- [x] E-01.F-08.S-03 — Row-level security for tenant isolation
 
 ---
 

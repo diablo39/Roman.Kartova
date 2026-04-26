@@ -11,18 +11,25 @@
 
   <ItemGroup>
     <PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
+    <PackageReference Include="Npgsql.DependencyInjection" Version="10.0.0" />
     <PackageReference Include="WolverineFx" Version="5.32.0" />
     <PackageReference Include="WolverineFx.EntityFrameworkCore" Version="5.32.0" />
-    <PackageReference Include="WolverineFx.Postgresql" Version="5.32.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Kartova.SharedKernel\Kartova.SharedKernel.csproj" />
+    <ProjectReference Include="..\Kartova.SharedKernel.AspNetCore\Kartova.SharedKernel.AspNetCore.csproj" />
+    <ProjectReference Include="..\Kartova.SharedKernel.Postgres\Kartova.SharedKernel.Postgres.csproj" />
+    <ProjectReference Include="..\Kartova.SharedKernel.Wolverine\Kartova.SharedKernel.Wolverine.csproj" />
     <ProjectReference Include="..\Modules\Catalog\Kartova.Catalog.Infrastructure\Kartova.Catalog.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Organization\Kartova.Organization.Infrastructure\Kartova.Organization.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Organization\Kartova.Organization.Infrastructure.Admin\Kartova.Organization.Infrastructure.Admin.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="Kartova.ArchitectureTests" />
+    <InternalsVisibleTo Include="Kartova.Api.IntegrationTests" />
+    <InternalsVisibleTo Include="Kartova.Organization.IntegrationTests" />
   </ItemGroup>
 
 </Project>
