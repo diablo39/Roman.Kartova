@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Kartova.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -6,6 +7,7 @@ using Wolverine;
 
 namespace Kartova.Catalog.Infrastructure;
 
+[ExcludeFromCodeCoverage]
 public sealed class CatalogModule : IModule
 {
     public string Name => "catalog";

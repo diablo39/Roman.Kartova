@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Kartova.Organization.Application;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.Postgres;
@@ -21,6 +22,7 @@ namespace Kartova.Organization.Infrastructure;
 /// (<c>AddOrganizationAdmin</c>) because <c>Infrastructure</c> cannot reference
 /// <c>Infrastructure.Admin</c> without creating a circular project reference.
 /// </summary>
+[ExcludeFromCodeCoverage]
 public sealed class OrganizationModule : IModule
 {
     public string Name => "organization";

@@ -27,7 +27,7 @@
 - Dates: always absolute (`2026-04-21`), never relative
 - Windows shell: `cmd //c` (double slash — MSYS path-translation workaround) or PowerShell wrappers for `dotnet` commands in Git Bash. Git Bash lacks `grep -P` (use `-E` or `Select-String`)
 - Solution file: `Kartova.slnx` (XML format, .NET 10 default — see ADR-0082). Classic `.sln` not used
-- Coverage exclusion: every type in a `*.Contracts` assembly and every `*Dto`/`*Request`/`*Response` type in production code MUST carry `[ExcludeFromCodeCoverage]`. Pure data carriers, design-time `IDesignTimeDbContextFactory<>` factories, and test infrastructure are also excluded. Enforced by `tests/Kartova.ArchitectureTests/ContractsCoverageRules.cs` — adding a new DTO without the attribute fails the architecture suite.
+- Coverage exclusion: every type in a `*.Contracts` assembly and every `*Dto`/`*Request`/`*Response` type in production code MUST carry `[ExcludeFromCodeCoverage]`. Pure data carriers, design-time `IDesignTimeDbContextFactory<>` factories, `IModule` composition classes (`*Module.cs` — DI/Wolverine wiring is composition-root code, parallel to `Program.cs` which is excluded from mutation), and test infrastructure are also excluded. Enforced by `tests/Kartova.ArchitectureTests/ContractsCoverageRules.cs` — adding a new DTO without the attribute fails the architecture suite.
 
 ## Key architectural decisions
 
