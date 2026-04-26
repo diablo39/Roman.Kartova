@@ -38,21 +38,13 @@ public class TenantScopeRules
     [Fact]
     public void Admin_bypass_DbContext_is_isolated_to_admin_assembly()
     {
-        // Only Kartova.Organization.Infrastructure.Admin (and its consumers) may reference AdminOrganizationDbContext.
-        var admin = typeof(Kartova.Organization.Infrastructure.Admin.AdminOrganizationDbContext);
+        var result = Types.InAssembly(OrganizationInfrastructure)
+            .Should()
+            .NotHaveDependencyOn("Kartova.Organization.Infrastructure.Admin")
+            .GetResult();
 
-        // Modules/Organization/Infrastructure (non-admin) must NOT reference the admin DbContext.
-        var nonAdminInfraTypes = OrganizationInfrastructure.GetTypes()
-            .Where(t => !t.IsGenericType);
-
-        foreach (var t in nonAdminInfraTypes)
-        {
-            var refs = t.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
-                .Select(f => f.FieldType)
-                .Concat(t.GetProperties().Select(p => p.PropertyType));
-            refs.Should().NotContain(admin,
-                because: $"{t.FullName} in the tenant-scoped Infrastructure assembly must not depend on AdminOrganizationDbContext");
-        }
+        result.IsSuccessful.Should().BeTrue(
+            because: "Tenant-scoped Infrastructure must not depend on the BYPASSRLS Admin DbContext (ADR-0090)");
     }
 
     [Fact]

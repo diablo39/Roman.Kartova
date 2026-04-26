@@ -9,7 +9,8 @@ using Xunit;
 
 namespace Kartova.Organization.IntegrationTests;
 
-public class TenantIsolationTests : IClassFixture<KartovaApiFixture>
+[Collection(KartovaApiCollection.Name)]
+public class TenantIsolationTests
 {
     private readonly KartovaApiFixture _fx;
 
@@ -18,7 +19,6 @@ public class TenantIsolationTests : IClassFixture<KartovaApiFixture>
     [Fact]
     public async Task Each_tenant_only_sees_its_own_organization()
     {
-        await _fx.RunMigrationsAsync();
         await _fx.SeedOrganizationAsync(SeededOrgs.OrgA.Value, "Org A");
         await _fx.SeedOrganizationAsync(SeededOrgs.OrgB.Value, "Org B");
 
@@ -40,7 +40,6 @@ public class TenantIsolationTests : IClassFixture<KartovaApiFixture>
     [Fact]
     public async Task Raw_sql_as_bypass_role_sees_both_rows()
     {
-        await _fx.RunMigrationsAsync();
         await _fx.SeedOrganizationAsync(SeededOrgs.OrgA.Value, "Org A");
         await _fx.SeedOrganizationAsync(SeededOrgs.OrgB.Value, "Org B");
 

@@ -30,6 +30,7 @@ public sealed class KartovaApiFixture : WebApplicationFactory<Program>, IAsyncLi
     {
         await _pg.StartAsync();
         await InitRolesAndSchemaAsync();
+        await RunMigrationsAsync();
     }
 
     async Task IAsyncLifetime.DisposeAsync()
@@ -100,9 +101,9 @@ public sealed class KartovaApiFixture : WebApplicationFactory<Program>, IAsyncLi
         });
     }
 
-    public async Task RunMigrationsAsync()
+    private async Task RunMigrationsAsync()
     {
-        // Run migrations using a dedicated migrator-role DbContext (not the tenant-scoped one).
+        // Migrator role owns DDL (ADR-0085); kartova_app has DML-only privileges.
         var optsBuilder = new DbContextOptionsBuilder<OrganizationDbContext>();
         optsBuilder.UseNpgsql(MigratorConnectionString);
         await using var db = new OrganizationDbContext(optsBuilder.Options);

@@ -31,9 +31,6 @@ internal sealed class OrganizationEntityTypeConfiguration : IEntityTypeConfigura
 
         builder.HasIndex(x => x.TenantId).HasDatabaseName("idx_organizations_tenant");
 
-        // Defense-in-depth per ADR-0012: app-layer filter paired with DB-level RLS policy.
-        // The tenant id for the filter is the *connection-level* GUC; we can't read it from EF,
-        // so we instead rely on RLS + an explicit query where callers want strict id-matching.
-        // No global query filter here because RLS already enforces tenant isolation server-side.
+        // No global query filter: tenant isolation is enforced by Postgres RLS (ADR-0012/0090).
     }
 }

@@ -26,73 +26,32 @@ public sealed class TestJwtSigner
     public SecurityKey PublicKey => _key;
 
     public string IssueForTenant(TenantId tenantId, string[] roles, TimeSpan? lifetime = null, string subject = "test-user")
-    {
-        var now = DateTime.UtcNow;
-        var expires = now.Add(lifetime ?? TimeSpan.FromMinutes(15));
-
-        var realmAccess = JsonSerializer.Serialize(new { roles });
-
-        var claims = new List<Claim>
-        {
-            new(JwtRegisteredClaimNames.Sub, subject),
-            new(JwtRegisteredClaimNames.Iss, Issuer),
-            new(JwtRegisteredClaimNames.Aud, Audience),
-            new(JwtRegisteredClaimNames.Iat, new DateTimeOffset(now).ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64),
-            new("tenant_id", tenantId.Value.ToString()),
-            new("realm_access", realmAccess, JsonClaimValueTypes.Json),
-        };
-
-        var creds = new SigningCredentials(_key, SecurityAlgorithms.RsaSha256);
-        var token = new JwtSecurityToken(
-            issuer: Issuer,
-            audience: Audience,
-            claims: claims,
-            notBefore: now,
-            expires: expires,
-            signingCredentials: creds);
-
-        return new JwtSecurityTokenHandler().WriteToken(token);
-    }
+        => Build(subject, tenantId, roles, lifetime ?? TimeSpan.FromMinutes(15), expired: false);
 
     public string IssueForPlatformAdmin(string[]? extraRoles = null, string subject = "platform-admin-user")
     {
-        var roles = new[] { "platform-admin" }.Concat(extraRoles ?? Array.Empty<string>()).ToArray();
-        var now = DateTime.UtcNow;
-        var expires = now.AddMinutes(15);
-        var realmAccess = JsonSerializer.Serialize(new { roles });
-
-        var claims = new List<Claim>
-        {
-            new(JwtRegisteredClaimNames.Sub, subject),
-            new(JwtRegisteredClaimNames.Iss, Issuer),
-            new(JwtRegisteredClaimNames.Aud, Audience),
-            new("realm_access", realmAccess, JsonClaimValueTypes.Json),
-        };
-
-        var token = new JwtSecurityToken(
-            issuer: Issuer,
-            audience: Audience,
-            claims: claims,
-            notBefore: now,
-            expires: expires,
-            signingCredentials: new SigningCredentials(_key, SecurityAlgorithms.RsaSha256));
-
-        return new JwtSecurityTokenHandler().WriteToken(token);
+        var roles = new[] { "platform-admin" }.Concat(extraRoles ?? []).ToArray();
+        return Build(subject, tenantId: null, roles, TimeSpan.FromMinutes(15), expired: false);
     }
 
     public string IssueExpired(TenantId tenantId)
+        => Build("test-user", tenantId, ["OrgAdmin"], TimeSpan.FromMinutes(15), expired: true);
+
+    private string Build(string subject, TenantId? tenantId, string[] roles, TimeSpan lifetime, bool expired)
     {
-        var now = DateTime.UtcNow.AddMinutes(-30);
-        var expires = now.AddMinutes(15); // still in the past
+        var now = expired ? DateTime.UtcNow.AddMinutes(-30) : DateTime.UtcNow;
+        var expires = now.Add(lifetime);
 
-        var realmAccess = JsonSerializer.Serialize(new { roles = new[] { "OrgAdmin" } });
-
+        var realmAccess = JsonSerializer.Serialize(new { roles });
         var claims = new List<Claim>
         {
-            new(JwtRegisteredClaimNames.Sub, "test-user"),
-            new("tenant_id", tenantId.Value.ToString()),
+            new(JwtRegisteredClaimNames.Sub, subject),
             new("realm_access", realmAccess, JsonClaimValueTypes.Json),
         };
+        if (tenantId is { } tid)
+        {
+            claims.Add(new Claim("tenant_id", tid.Value.ToString()));
+        }
 
         var token = new JwtSecurityToken(
             issuer: Issuer,

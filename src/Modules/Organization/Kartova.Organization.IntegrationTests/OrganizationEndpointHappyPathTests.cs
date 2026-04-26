@@ -8,7 +8,8 @@ using Xunit;
 
 namespace Kartova.Organization.IntegrationTests;
 
-public class OrganizationEndpointHappyPathTests : IClassFixture<KartovaApiFixture>
+[Collection(KartovaApiCollection.Name)]
+public class OrganizationEndpointHappyPathTests
 {
     private readonly KartovaApiFixture _fx;
 
@@ -20,7 +21,6 @@ public class OrganizationEndpointHappyPathTests : IClassFixture<KartovaApiFixtur
     [Fact]
     public async Task Get_me_returns_current_tenant_row()
     {
-        await _fx.RunMigrationsAsync();
         await _fx.SeedOrganizationAsync(SeededOrgs.OrgA.Value, "Org A");
         await _fx.SeedOrganizationAsync(SeededOrgs.OrgB.Value, "Org B");
 

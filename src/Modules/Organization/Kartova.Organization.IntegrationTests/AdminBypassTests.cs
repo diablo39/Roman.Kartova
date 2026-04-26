@@ -8,7 +8,8 @@ using Xunit;
 
 namespace Kartova.Organization.IntegrationTests;
 
-public class AdminBypassTests : IClassFixture<KartovaApiFixture>
+[Collection(KartovaApiCollection.Name)]
+public class AdminBypassTests
 {
     private readonly KartovaApiFixture _fx;
 
@@ -17,7 +18,6 @@ public class AdminBypassTests : IClassFixture<KartovaApiFixture>
     [Fact]
     public async Task Platform_admin_can_create_organization_without_tenant_scope()
     {
-        await _fx.RunMigrationsAsync();
         var client = _fx.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer", _fx.Signer.IssueForPlatformAdmin());
@@ -33,7 +33,6 @@ public class AdminBypassTests : IClassFixture<KartovaApiFixture>
     [Fact]
     public async Task Non_platform_admin_cannot_post_admin_organizations()
     {
-        await _fx.RunMigrationsAsync();
         var client = _fx.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer", _fx.Signer.IssueForTenant(SeededOrgs.OrgA, new[] { "OrgAdmin" }));

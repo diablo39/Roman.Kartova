@@ -19,11 +19,7 @@ foreach (var module in modules)
     module.RegisterForMigrator(builder.Services, builder.Configuration);
 }
 
-// Kartova.Migrator is the sole DDL owner (ADR-0085). Slice 2 has no Wolverine
-// persistence — see docs/superpowers/specs/2026-04-24-defer-wolverine-persistence-design.md.
-// When a later slice enables Wolverine persistence (outbox), the `wolverine.*`
-// schema must be created here under the `migrator` role (Option A — host Wolverine
-// in this process and call JasperFx IStatefulResource / IMessageStore.Admin.MigrateAsync).
+// Sole DDL owner (ADR-0085). Wolverine persistence schema is added here when re-enabled.
 
 using var host = builder.Build();
 var logger = host.Services.GetRequiredService<ILogger<Program>>();
