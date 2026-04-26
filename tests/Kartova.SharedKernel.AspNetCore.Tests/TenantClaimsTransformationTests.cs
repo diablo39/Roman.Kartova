@@ -5,7 +5,7 @@ using Kartova.SharedKernel.Multitenancy;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
-namespace Kartova.Organization.Tests;
+namespace Kartova.SharedKernel.AspNetCore.Tests;
 
 public class TenantClaimsTransformationTests
 {

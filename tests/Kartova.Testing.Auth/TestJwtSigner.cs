@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -7,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace Kartova.Testing.Auth;
 
+[ExcludeFromCodeCoverage]
 public sealed class TestJwtSigner
 {
     public const string Issuer = "https://test-issuer.kartova.local";

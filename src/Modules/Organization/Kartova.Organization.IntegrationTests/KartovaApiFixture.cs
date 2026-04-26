@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Kartova.Organization.Infrastructure;
 using Kartova.Testing.Auth;
 using Microsoft.AspNetCore.Hosting;
@@ -12,6 +13,7 @@ using Xunit;
 
 namespace Kartova.Organization.IntegrationTests;
 
+[ExcludeFromCodeCoverage]
 public sealed class KartovaApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly PostgreSqlContainer _pg = new PostgreSqlBuilder()

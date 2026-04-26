@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using Testcontainers.Keycloak;
@@ -6,6 +7,7 @@ using Xunit;
 
 namespace Kartova.Api.IntegrationTests;
 
+[ExcludeFromCodeCoverage]
 public sealed class KeycloakContainerFixture : IAsyncLifetime
 {
     public PostgreSqlContainer Postgres { get; } = new PostgreSqlBuilder()

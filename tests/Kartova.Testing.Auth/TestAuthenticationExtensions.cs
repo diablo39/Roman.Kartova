@@ -1,9 +1,11 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Kartova.Testing.Auth;
 
+[ExcludeFromCodeCoverage]
 public static class TestAuthenticationExtensions
 {
     /// <summary>

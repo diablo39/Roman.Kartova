@@ -28,6 +28,8 @@
   <Folder Name="/tests/">
     <Project Path="tests/Kartova.Api.IntegrationTests/Kartova.Api.IntegrationTests.csproj" />
     <Project Path="tests/Kartova.ArchitectureTests/Kartova.ArchitectureTests.csproj" />
+    <Project Path="tests/Kartova.SharedKernel.AspNetCore.Tests/Kartova.SharedKernel.AspNetCore.Tests.csproj" />
+    <Project Path="tests/Kartova.SharedKernel.Tests/Kartova.SharedKernel.Tests.csproj" />
     <Project Path="tests/Kartova.Testing.Auth/Kartova.Testing.Auth.csproj" />
   </Folder>
 </Solution>

@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Xunit;
 
-namespace Kartova.Organization.Tests;
+namespace Kartova.SharedKernel.AspNetCore.Tests;
 
 public class JwtAuthenticationExtensionsTests
 {
@@ -109,7 +109,7 @@ public class JwtAuthenticationExtensionsTests
     }
 
     [Fact]
-    public void AddKartovaJwtAuth_WhenMetadataAddressAbsent_LeavesMetadataAddressNull()
+    public void AddKartovaJwtAuth_WhenMetadataAddressAbsent_DerivesFromAuthority()
     {
         // Arrange
         var config = MinimalValidConfig();
@@ -118,17 +118,19 @@ public class JwtAuthenticationExtensionsTests
         var options = BuildAndGetOptions(config);
 
         // Assert
-        // When MetadataAddress is not configured, the JwtBearer handler derives the discovery
-        // document URL from Authority (well-known/openid-configuration). The options property
-        // itself stays null — this is the contract we assert.
-        options.MetadataAddress.Should().BeNull();
+        // When MetadataAddress is not explicitly configured, AddKartovaJwtAuth leaves the
+        // option unset; JwtBearerPostConfigureOptions then derives the discovery document
+        // URL from Authority. Observable contract: resolved MetadataAddress points at
+        // Authority's well-known OIDC configuration endpoint.
+        options.MetadataAddress.Should().Be(
+            HttpAuthority.TrimEnd('/') + "/.well-known/openid-configuration");
     }
 
     [Fact]
     public void AddKartovaJwtAuth_WhenMetadataAddressProvided_PropagatesToOptions()
     {
         // Arrange
-        const string explicitMetadata = "http://keycloak:8080/realms/kartova/.well-known/openid-configuration";
+        const string explicitMetadata = "http://keycloak:8080/realms/kartova/some-other-discovery-path";
         var config = MinimalValidConfig();
         config["Authentication:MetadataAddress"] = explicitMetadata;
 
@@ -136,6 +138,8 @@ public class JwtAuthenticationExtensionsTests
         var options = BuildAndGetOptions(config);
 
         // Assert
+        // When provided explicitly, the configured value is propagated verbatim — it is
+        // NOT overwritten by PostConfigure's Authority-derived default.
         options.MetadataAddress.Should().Be(explicitMetadata);
     }
 
@@ -143,7 +147,7 @@ public class JwtAuthenticationExtensionsTests
     [InlineData("")]
     [InlineData("   ")]
     [InlineData("\t")]
-    public void AddKartovaJwtAuth_WhenMetadataAddressWhitespaceOrEmpty_DoesNotPropagate(string metadataValue)
+    public void AddKartovaJwtAuth_WhenMetadataAddressWhitespaceOrEmpty_FallsBackToAuthorityDerivedDefault(string metadataValue)
     {
         // Arrange
         var config = MinimalValidConfig();
@@ -153,7 +157,11 @@ public class JwtAuthenticationExtensionsTests
         var options = BuildAndGetOptions(config);
 
         // Assert
-        options.MetadataAddress.Should().BeNull();
+        // Guard `!string.IsNullOrWhiteSpace(metadataAddress)` prevents empty/whitespace values
+        // from being propagated. The MetadataAddress is then derived from Authority by
+        // PostConfigure — same result as when the key is absent entirely.
+        options.MetadataAddress.Should().Be(
+            HttpAuthority.TrimEnd('/') + "/.well-known/openid-configuration");
     }
 
     [Fact]

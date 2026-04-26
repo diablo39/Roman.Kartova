@@ -12,7 +12,7 @@ namespace Kartova.ArchitectureTests;
 /// </summary>
 internal static class AssemblyRegistry
 {
-    public static readonly Assembly SharedKernel = typeof(TenantId).Assembly;
+    public static readonly Assembly SharedKernel = typeof(IModule).Assembly;
     public static readonly Assembly Api = typeof(Program).Assembly;
 
     public static class Catalog
