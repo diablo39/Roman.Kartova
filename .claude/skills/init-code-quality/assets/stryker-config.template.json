@@ -1,0 +1,42 @@
+{
+  "stryker-config": {
+    "solution": "{{ put sln | slnx file here }}",
+    "test-projects": [],
+    "reporters": [
+      "html",
+      "json",
+      "cleartext"
+    ],
+    "thresholds": {
+      "high": 80,
+      "low": 60,
+      "break": 0
+    },
+    "ignore-mutations": [
+      "Regex",
+      "Update",
+      "String",
+      "Linq",
+      "Block"
+    ],
+    "mutate": [
+      "!**/obj/**",
+      "!**/bin/**",
+      "!**/*.g.cs",
+      "!**/*.designer.cs",
+      "!**/Program.cs",
+      "!**/*.Tests.cs",
+      "!**/*.migrations.cs",
+      "!**/*.generated.cs",
+      "!**/*Designer.cs",
+      "!**/Migrations/**",
+      "!**/Connected Services/**"
+    ],
+    "ignore-methods": [
+      "*ConfigureAwait*",
+      "*Log",
+      "Console.Write*",
+      "*Exception.ctor"
+    ]
+  }
+}

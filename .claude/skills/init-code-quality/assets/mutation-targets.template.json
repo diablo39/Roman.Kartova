@@ -1,0 +1,10 @@
+{
+  "groups": [
+    {
+      "stack": ".NET",
+      "solution": "",
+      "configFile": "stryker-config.json",
+      "projects": []
+    }
+  ]
+}
