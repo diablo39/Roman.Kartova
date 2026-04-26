@@ -1,6 +1,7 @@
 using System.Reflection;
 using JasperFx;
 using Kartova.Catalog.Infrastructure;
+using Kartova.Organization.Application;
 using Kartova.Organization.Infrastructure;
 using Kartova.Organization.Infrastructure.Admin;
 using Kartova.SharedKernel;

@@ -1,3 +1,4 @@
+using Kartova.Organization.Application;
 using Kartova.Organization.Contracts;
 
 namespace Kartova.Organization.Infrastructure.Admin;

@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Kartova.Organization.Domain\Kartova.Organization.Domain.csproj" />
+    <ProjectReference Include="..\Kartova.Organization.Application\Kartova.Organization.Application.csproj" />
     <ProjectReference Include="..\Kartova.Organization.Infrastructure\Kartova.Organization.Infrastructure.csproj" />
     <ProjectReference Include="..\Kartova.Organization.Contracts\Kartova.Organization.Contracts.csproj" />
     <ProjectReference Include="..\..\..\Kartova.SharedKernel\Kartova.SharedKernel.csproj" />

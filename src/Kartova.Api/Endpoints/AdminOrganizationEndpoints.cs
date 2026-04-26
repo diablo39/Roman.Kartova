@@ -1,4 +1,4 @@
-using Kartova.Organization.Infrastructure.Admin;
+using Kartova.Organization.Application;
 using Kartova.SharedKernel.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;

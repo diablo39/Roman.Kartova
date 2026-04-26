@@ -1,6 +1,6 @@
 using Kartova.Organization.Contracts;
 
-namespace Kartova.Organization.Infrastructure.Admin;
+namespace Kartova.Organization.Application;
 
 public interface IAdminOrganizationCommands
 {
