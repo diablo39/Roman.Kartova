@@ -25,7 +25,7 @@
                     </ExcludeByAttribute>
                     <SkipAutoProps>true</SkipAutoProps>
                     <DeterministicReport>true</DeterministicReport>
-                    <UseSourceLink>true</UseSourceLink>
+                    <UseSourceLink>false</UseSourceLink>
                     <SingleHit>false</SingleHit>
                 </Configuration>
             </DataCollector>
