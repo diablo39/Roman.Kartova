@@ -17,12 +17,18 @@ public static class JwtAuthenticationExtensions
     /// </summary>
     public static IServiceCollection AddKartovaJwtAuth(this IServiceCollection services, IConfiguration configuration)
     {
-        var authority = configuration["Authentication:Authority"]
-            ?? throw new InvalidOperationException("Authentication:Authority not configured");
-        var audience = configuration["Authentication:Audience"]
-            ?? throw new InvalidOperationException("Authentication:Audience not configured");
-        var metadataAddress = configuration["Authentication:MetadataAddress"];
-        var requireHttps = configuration.GetValue("Authentication:RequireHttpsMetadata", defaultValue: true);
+        var authority = configuration[AuthenticationConfigKeys.Authority];
+        if (string.IsNullOrWhiteSpace(authority))
+        {
+            throw new InvalidOperationException($"{AuthenticationConfigKeys.Authority} not configured");
+        }
+        var audience = configuration[AuthenticationConfigKeys.Audience];
+        if (string.IsNullOrWhiteSpace(audience))
+        {
+            throw new InvalidOperationException($"{AuthenticationConfigKeys.Audience} not configured");
+        }
+        var metadataAddress = configuration[AuthenticationConfigKeys.MetadataAddress];
+        var requireHttps = configuration.GetValue(AuthenticationConfigKeys.RequireHttpsMetadata, defaultValue: true);
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>

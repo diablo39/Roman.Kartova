@@ -84,28 +84,25 @@ public class JwtAuthenticationExtensionsTests
             .WithMessage("*Audience not configured*");
     }
 
-    [Fact]
-    public void AddKartovaJwtAuth_WhenAuthorityEmptyString_DoesNotThrow_DocumentsExistingGap()
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void AddKartovaJwtAuth_WhenAuthorityBlank_ThrowsInvalidOperationException(string blank)
     {
-        // Arrange
-        // Documents existing gap: empty-string Authority is silently accepted because
-        // the `?? throw` guard only fires on null, not on empty/whitespace. A follow-up
-        // production fix should upgrade the check to `IsNullOrWhiteSpace`.
         var cfg = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Authentication:Authority"] = string.Empty,
+                ["Authentication:Authority"] = blank,
                 ["Authentication:Audience"] = ValidAudience
             })
             .Build();
         var services = new ServiceCollection();
         services.AddLogging();
 
-        // Act
         var act = () => services.AddKartovaJwtAuth(cfg);
 
-        // Assert
-        act.Should().NotThrow();
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*Authority not configured*");
     }
 
     [Fact]

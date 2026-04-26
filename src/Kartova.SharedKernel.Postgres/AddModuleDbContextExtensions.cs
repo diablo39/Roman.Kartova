@@ -16,10 +16,9 @@ public static class AddModuleDbContextExtensions
     {
         services.AddDbContext<TContext>((sp, options) =>
         {
-            var scope = (TenantScope)sp.GetRequiredService<ITenantScope>();
-
             // Use the scope's already-open connection so all module DbContexts in this request
             // share the same connection + transaction per ADR-0090.
+            var scope = sp.GetRequiredService<INpgsqlTenantScope>();
             options.UseNpgsql(scope.Connection);
 
             // Fail-fast on SaveChanges if scope is not active.
@@ -37,7 +36,9 @@ public static class AddModuleDbContextExtensions
     public static IServiceCollection AddTenantScope(this IServiceCollection services)
     {
         services.AddScoped<ITenantContext, TenantContextAccessor>();
-        services.AddScoped<ITenantScope, TenantScope>();
+        services.AddScoped<TenantScope>();
+        services.AddScoped<ITenantScope>(sp => sp.GetRequiredService<TenantScope>());
+        services.AddScoped<INpgsqlTenantScope>(sp => sp.GetRequiredService<TenantScope>());
         services.AddScoped<TenantScopeRequiredInterceptor>();
         return services;
     }

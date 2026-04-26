@@ -2,11 +2,12 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
+using Kartova.Organization.Infrastructure;
+using Kartova.SharedKernel;
+using Kartova.SharedKernel.AspNetCore;
+using Kartova.Testing.Auth;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using Xunit;
 
@@ -21,27 +22,29 @@ public class AuthSmokeTests : IClassFixture<KeycloakContainerFixture>, IAsyncLif
 
     public async Task InitializeAsync()
     {
-        await SeedPostgres();
+        await PostgresTestBootstrap.SeedRolesAndSchemaAsync(_fx.Postgres.GetConnectionString());
 
         // Env vars must be set BEFORE the WebApplicationFactory boots the host.
-        // Program.cs reads `ConnectionStrings:*` and `Authentication:*` at top-level
-        // (via builder.Configuration.GetConnectionString + AddKartovaJwtAuth) before
-        // builder.Build() runs — the point at which WithWebHostBuilder callbacks
-        // would apply. Env vars flow through EnvironmentVariablesConfigurationSource
-        // at top-level read time, so they are the only vehicle that reaches that code.
-        Environment.SetEnvironmentVariable("ConnectionStrings__Kartova", AppConnectionString("kartova_app"));
-        Environment.SetEnvironmentVariable("ConnectionStrings__KartovaBypass", AppConnectionString("kartova_bypass_rls"));
-        Environment.SetEnvironmentVariable("Authentication__Authority", _fx.KeycloakAuthority);
-        Environment.SetEnvironmentVariable("Authentication__MetadataAddress", $"{_fx.KeycloakAuthority}/.well-known/openid-configuration");
-        Environment.SetEnvironmentVariable("Authentication__Audience", "kartova-api");
-        Environment.SetEnvironmentVariable("Authentication__RequireHttpsMetadata", "false");
+        // Program.Main reads ConnectionStrings:* and Authentication:* before the
+        // WithWebHostBuilder callback runs, so env vars are the only vehicle that reaches that code.
+        Environment.SetEnvironmentVariable($"ConnectionStrings__{KartovaConnectionStrings.Main}",
+            PostgresTestBootstrap.ConnectionStringFor(_fx.Postgres.GetConnectionString(), PostgresTestBootstrap.AppRole));
+        Environment.SetEnvironmentVariable($"ConnectionStrings__{KartovaConnectionStrings.Bypass}",
+            PostgresTestBootstrap.ConnectionStringFor(_fx.Postgres.GetConnectionString(), PostgresTestBootstrap.BypassRole));
+        Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Authority), _fx.KeycloakAuthority);
+        Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.MetadataAddress),
+            $"{_fx.KeycloakAuthority}/.well-known/openid-configuration");
+        Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Audience), "kartova-api");
+        Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.RequireHttpsMetadata), "false");
 
         _app = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
         {
             b.UseEnvironment("Testing");
         });
 
-        await RunMigrationsAsync();
+        await PostgresTestBootstrap.RunMigrationsAsync<OrganizationDbContext>(
+            PostgresTestBootstrap.ConnectionStringFor(_fx.Postgres.GetConnectionString(), PostgresTestBootstrap.MigratorRole),
+            opts => new OrganizationDbContext(opts));
         await SeedOrgA();
     }
 
@@ -74,48 +77,11 @@ public class AuthSmokeTests : IClassFixture<KeycloakContainerFixture>, IAsyncLif
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
-    private string AppConnectionString(string user) => new NpgsqlConnectionStringBuilder(_fx.Postgres.GetConnectionString())
-    {
-        Username = user,
-        Password = user == "kartova_bypass_rls" ? "dev_only" : "dev",
-    }.ToString();
-
-    private async Task SeedPostgres()
-    {
-        await using var conn = new NpgsqlConnection(_fx.Postgres.GetConnectionString());
-        await conn.OpenAsync();
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            CREATE ROLE migrator WITH LOGIN PASSWORD 'dev' CREATEDB;
-            CREATE ROLE kartova_app WITH LOGIN PASSWORD 'dev';
-            CREATE ROLE kartova_bypass_rls WITH LOGIN PASSWORD 'dev_only' BYPASSRLS;
-            GRANT CONNECT ON DATABASE kartova TO kartova_app, kartova_bypass_rls;
-            ALTER SCHEMA public OWNER TO migrator;
-            GRANT USAGE, CREATE ON SCHEMA public TO kartova_app, kartova_bypass_rls;
-            GRANT CREATE ON DATABASE kartova TO kartova_app;
-            ALTER DEFAULT PRIVILEGES FOR ROLE migrator IN SCHEMA public
-                GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO kartova_app, kartova_bypass_rls;
-            """;
-        await cmd.ExecuteNonQueryAsync();
-    }
-
-    private async Task RunMigrationsAsync()
-    {
-        // Use a dedicated migrator-role DbContext; the default DI registration in the API is tenant-scoped.
-        var optsBuilder = new DbContextOptionsBuilder<Kartova.Organization.Infrastructure.OrganizationDbContext>();
-        var migratorCs = new NpgsqlConnectionStringBuilder(_fx.Postgres.GetConnectionString())
-        {
-            Username = "migrator",
-            Password = "dev",
-        }.ToString();
-        optsBuilder.UseNpgsql(migratorCs);
-        await using var db = new Kartova.Organization.Infrastructure.OrganizationDbContext(optsBuilder.Options);
-        await db.Database.MigrateAsync();
-    }
-
     private async Task SeedOrgA()
     {
-        await using var conn = new NpgsqlConnection(AppConnectionString("kartova_bypass_rls"));
+        var bypassConnectionString = PostgresTestBootstrap.ConnectionStringFor(
+            _fx.Postgres.GetConnectionString(), PostgresTestBootstrap.BypassRole);
+        await using var conn = new NpgsqlConnection(bypassConnectionString);
         await conn.OpenAsync();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = "INSERT INTO organizations (id, tenant_id, name, created_at) VALUES ($1, $2, 'Org A', now())";
@@ -123,4 +89,6 @@ public class AuthSmokeTests : IClassFixture<KeycloakContainerFixture>, IAsyncLif
         cmd.Parameters.AddWithValue(Guid.Parse("11111111-1111-1111-1111-111111111111"));
         await cmd.ExecuteNonQueryAsync();
     }
+
+    private static string EnvKey(string configKey) => configKey.Replace(":", "__");
 }

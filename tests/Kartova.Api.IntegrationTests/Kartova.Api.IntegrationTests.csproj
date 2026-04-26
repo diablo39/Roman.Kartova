@@ -16,11 +16,13 @@
     <PackageReference Include="Testcontainers" Version="4.0.0" />
     <PackageReference Include="Testcontainers.PostgreSql" Version="4.0.0" />
     <PackageReference Include="Testcontainers.Keycloak" Version="4.0.0" />
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Kartova.Api\Kartova.Api.csproj" />
     <ProjectReference Include="..\..\src\Modules\Organization\Kartova.Organization.Infrastructure\Kartova.Organization.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Modules\Organization\Kartova.Organization.Infrastructure.Admin\Kartova.Organization.Infrastructure.Admin.csproj" />
+    <ProjectReference Include="..\Kartova.Testing.Auth\Kartova.Testing.Auth.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\deploy\keycloak\kartova-realm.json" Link="kartova-realm.json">

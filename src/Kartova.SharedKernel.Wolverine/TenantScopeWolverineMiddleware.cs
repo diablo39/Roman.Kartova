@@ -10,15 +10,13 @@ namespace Kartova.SharedKernel.Wolverine;
 /// </summary>
 public static class TenantScopeWolverineMiddleware
 {
-    public const string TenantIdHeader = "tenant_id";
-
     public static async Task<IAsyncTenantScopeHandle?> BeforeAsync(
         Envelope envelope,
         ITenantContext tenantContext,
         ITenantScope scope,
         CancellationToken ct)
     {
-        if (!envelope.Headers.TryGetValue(TenantIdHeader, out var raw) ||
+        if (!envelope.Headers.TryGetValue(KartovaClaims.TenantId, out var raw) ||
             raw is null ||
             !Multitenancy.TenantId.TryParse(raw, out var id))
         {

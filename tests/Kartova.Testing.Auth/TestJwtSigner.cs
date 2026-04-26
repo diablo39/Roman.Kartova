@@ -30,12 +30,12 @@ public sealed class TestJwtSigner
 
     public string IssueForPlatformAdmin(string[]? extraRoles = null, string subject = "platform-admin-user")
     {
-        var roles = new[] { "platform-admin" }.Concat(extraRoles ?? []).ToArray();
+        var roles = new[] { KartovaRoles.PlatformAdmin }.Concat(extraRoles ?? []).ToArray();
         return Build(subject, tenantId: null, roles, TimeSpan.FromMinutes(15), expired: false);
     }
 
     public string IssueExpired(TenantId tenantId)
-        => Build("test-user", tenantId, ["OrgAdmin"], TimeSpan.FromMinutes(15), expired: true);
+        => Build("test-user", tenantId, [KartovaRoles.OrgAdmin], TimeSpan.FromMinutes(15), expired: true);
 
     private string Build(string subject, TenantId? tenantId, string[] roles, TimeSpan lifetime, bool expired)
     {
@@ -46,11 +46,11 @@ public sealed class TestJwtSigner
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, subject),
-            new("realm_access", realmAccess, JsonClaimValueTypes.Json),
+            new(KartovaClaims.RealmAccess, realmAccess, JsonClaimValueTypes.Json),
         };
         if (tenantId is { } tid)
         {
-            claims.Add(new Claim("tenant_id", tid.Value.ToString()));
+            claims.Add(new Claim(KartovaClaims.TenantId, tid.Value.ToString()));
         }
 
         var token = new JwtSecurityToken(

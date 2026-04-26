@@ -30,7 +30,7 @@ public sealed class TenantClaimsTransformation : IClaimsTransformation
         var context = _services.GetRequiredService<ITenantContext>();
         context.Clear();
 
-        var tenantIdClaim = principal.FindFirst("tenant_id")?.Value;
+        var tenantIdClaim = principal.FindFirst(KartovaClaims.TenantId)?.Value;
         var tenantId = Multitenancy.TenantId.Empty;
         if (Multitenancy.TenantId.TryParse(tenantIdClaim, out var parsed))
         {
@@ -56,7 +56,7 @@ public sealed class TenantClaimsTransformation : IClaimsTransformation
 
     private static IReadOnlyCollection<string> ExtractRealmRoles(ClaimsPrincipal principal)
     {
-        var realmAccess = principal.FindFirst("realm_access")?.Value;
+        var realmAccess = principal.FindFirst(KartovaClaims.RealmAccess)?.Value;
         if (string.IsNullOrWhiteSpace(realmAccess))
         {
             return Array.Empty<string>();

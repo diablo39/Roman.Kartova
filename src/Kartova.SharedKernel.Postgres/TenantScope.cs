@@ -7,7 +7,7 @@ namespace Kartova.SharedKernel.Postgres;
 /// <summary>
 /// ADR-0090 implementation. Scoped DI; one per request.
 /// </summary>
-public sealed class TenantScope : ITenantScope
+public sealed class TenantScope : INpgsqlTenantScope
 {
     private readonly NpgsqlDataSource _dataSource;
     private NpgsqlConnection? _connection;
@@ -21,7 +21,7 @@ public sealed class TenantScope : ITenantScope
 
     public bool IsActive => _connection is not null && _transaction is not null;
 
-    internal NpgsqlConnection Connection =>
+    public NpgsqlConnection Connection =>
         _connection ?? throw new InvalidOperationException(
             "TenantScope is not active. BeginAsync must be called by the transport adapter before any DbContext is used.");
 

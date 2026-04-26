@@ -5,6 +5,7 @@ using Kartova.Organization.Infrastructure;
 using Kartova.Organization.Infrastructure.Admin;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Postgres;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -32,8 +33,8 @@ public class Program
             module.RegisterServices(builder.Services, builder.Configuration);
         }
 
-        var kartovaConnection = builder.Configuration.GetConnectionString("Kartova")
-            ?? throw new InvalidOperationException("ConnectionStrings__Kartova missing");
+        var kartovaConnection = builder.Configuration.GetConnectionString(KartovaConnectionStrings.Main)
+            ?? throw new InvalidOperationException($"ConnectionStrings__{KartovaConnectionStrings.Main} missing");
 
         // NpgsqlDataSource — used by TenantScope to open pooled connections.
         builder.Services.AddNpgsqlDataSource(kartovaConnection);
@@ -58,8 +59,8 @@ public class Program
         // Admin bypass DbContext — separate BYPASSRLS connection string (ADR-0090).
         // Registered here (not in OrganizationModule) because OrganizationModule.Infrastructure
         // cannot project-reference Infrastructure.Admin (would be circular).
-        var bypassConnection = builder.Configuration.GetConnectionString("KartovaBypass")
-            ?? throw new InvalidOperationException("ConnectionStrings__KartovaBypass missing");
+        var bypassConnection = builder.Configuration.GetConnectionString(KartovaConnectionStrings.Bypass)
+            ?? throw new InvalidOperationException($"ConnectionStrings__{KartovaConnectionStrings.Bypass} missing");
         builder.Services.AddDbContext<AdminOrganizationDbContext>(opts => opts.UseNpgsql(bypassConnection));
         builder.Services.AddScoped<IAdminOrganizationCommands, AdminOrganizationCommands>();
 
@@ -103,7 +104,7 @@ public class Program
         Endpoints.OrganizationEndpoints.Map(tenantScoped);
 
         // Admin (non-tenant) routes — platform-admin only.
-        var admin = app.MapGroup("/api/v1/admin").RequireAuthorization(policy => policy.RequireRole("platform-admin"));
+        var admin = app.MapGroup("/api/v1/admin").RequireAuthorization(policy => policy.RequireRole(KartovaRoles.PlatformAdmin));
         Endpoints.AdminOrganizationEndpoints.Map(admin);
 
         if (app.Environment.IsEnvironment("Testing"))

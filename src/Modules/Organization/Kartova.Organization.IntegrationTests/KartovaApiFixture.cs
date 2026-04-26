@@ -1,11 +1,12 @@
 using System.Diagnostics.CodeAnalysis;
 using Kartova.Api;
 using Kartova.Organization.Infrastructure;
+using Kartova.SharedKernel;
+using Kartova.SharedKernel.AspNetCore;
 using Kartova.Testing.Auth;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Npgsql;
@@ -29,8 +30,10 @@ public sealed class KartovaApiFixture : WebApplicationFactory<Program>, IAsyncLi
     public async Task InitializeAsync()
     {
         await _pg.StartAsync();
-        await InitRolesAndSchemaAsync();
-        await RunMigrationsAsync();
+        await PostgresTestBootstrap.SeedRolesAndSchemaAsync(_pg.GetConnectionString());
+        await PostgresTestBootstrap.RunMigrationsAsync<OrganizationDbContext>(
+            MigratorConnectionString,
+            opts => new OrganizationDbContext(opts));
     }
 
     async Task IAsyncLifetime.DisposeAsync()
@@ -39,56 +42,23 @@ public sealed class KartovaApiFixture : WebApplicationFactory<Program>, IAsyncLi
         await base.DisposeAsync();
     }
 
-    public string MainConnectionString => new NpgsqlConnectionStringBuilder(_pg.GetConnectionString())
-    {
-        Username = "kartova_app",
-        Password = "dev",
-    }.ToString();
+    public string MainConnectionString =>
+        PostgresTestBootstrap.ConnectionStringFor(_pg.GetConnectionString(), PostgresTestBootstrap.AppRole);
 
-    public string BypassConnectionString => new NpgsqlConnectionStringBuilder(_pg.GetConnectionString())
-    {
-        Username = "kartova_bypass_rls",
-        Password = "dev_only",
-    }.ToString();
+    public string BypassConnectionString =>
+        PostgresTestBootstrap.ConnectionStringFor(_pg.GetConnectionString(), PostgresTestBootstrap.BypassRole);
 
-    public string MigratorConnectionString => new NpgsqlConnectionStringBuilder(_pg.GetConnectionString())
-    {
-        Username = "migrator",
-        Password = "dev",
-    }.ToString();
-
-    private async Task InitRolesAndSchemaAsync()
-    {
-        var cs = _pg.GetConnectionString();
-        await using var conn = new NpgsqlConnection(cs);
-        await conn.OpenAsync();
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            CREATE ROLE migrator WITH LOGIN PASSWORD 'dev' CREATEDB;
-            CREATE ROLE kartova_app WITH LOGIN PASSWORD 'dev';
-            CREATE ROLE kartova_bypass_rls WITH LOGIN PASSWORD 'dev_only' BYPASSRLS;
-            GRANT CONNECT ON DATABASE kartova TO kartova_app, kartova_bypass_rls;
-            ALTER SCHEMA public OWNER TO migrator;
-            GRANT USAGE, CREATE ON SCHEMA public TO kartova_app;
-            GRANT USAGE, CREATE ON SCHEMA public TO kartova_bypass_rls;
-            GRANT CREATE ON DATABASE kartova TO kartova_app;
-            ALTER DEFAULT PRIVILEGES FOR ROLE migrator IN SCHEMA public
-                GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO kartova_app, kartova_bypass_rls;
-            ALTER DEFAULT PRIVILEGES FOR ROLE migrator IN SCHEMA public
-                GRANT USAGE, SELECT ON SEQUENCES TO kartova_app, kartova_bypass_rls;
-            """;
-        await cmd.ExecuteNonQueryAsync();
-    }
+    public string MigratorConnectionString =>
+        PostgresTestBootstrap.ConnectionStringFor(_pg.GetConnectionString(), PostgresTestBootstrap.MigratorRole);
 
     protected override IHost CreateHost(IHostBuilder builder)
     {
-        // Set env vars BEFORE host/app builder reads configuration in Program.cs top-level code.
-        // Double-underscore maps to ':' in ASP.NET config.
-        Environment.SetEnvironmentVariable("ConnectionStrings__Kartova", MainConnectionString);
-        Environment.SetEnvironmentVariable("ConnectionStrings__KartovaBypass", BypassConnectionString);
-        Environment.SetEnvironmentVariable("Authentication__Authority", TestJwtSigner.Issuer);
-        Environment.SetEnvironmentVariable("Authentication__Audience", TestJwtSigner.Audience);
-        Environment.SetEnvironmentVariable("Authentication__RequireHttpsMetadata", "false");
+        // Env vars must be set BEFORE Program.Main reads configuration; double-underscore maps to ':'.
+        Environment.SetEnvironmentVariable($"ConnectionStrings__{KartovaConnectionStrings.Main}", MainConnectionString);
+        Environment.SetEnvironmentVariable($"ConnectionStrings__{KartovaConnectionStrings.Bypass}", BypassConnectionString);
+        Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Authority), TestJwtSigner.Issuer);
+        Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Audience), TestJwtSigner.Audience);
+        Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.RequireHttpsMetadata), "false");
         return base.CreateHost(builder);
     }
 
@@ -99,15 +69,6 @@ public sealed class KartovaApiFixture : WebApplicationFactory<Program>, IAsyncLi
         {
             services.UseTestJwtSigner(Signer);
         });
-    }
-
-    private async Task RunMigrationsAsync()
-    {
-        // Migrator role owns DDL (ADR-0085); kartova_app has DML-only privileges.
-        var optsBuilder = new DbContextOptionsBuilder<OrganizationDbContext>();
-        optsBuilder.UseNpgsql(MigratorConnectionString);
-        await using var db = new OrganizationDbContext(optsBuilder.Options);
-        await db.Database.MigrateAsync();
     }
 
     public async Task<Guid> SeedOrganizationAsync(Guid tenantId, string name)
@@ -129,4 +90,6 @@ public sealed class KartovaApiFixture : WebApplicationFactory<Program>, IAsyncLi
         var id = (Guid)(await cmd.ExecuteScalarAsync())!;
         return id;
     }
+
+    private static string EnvKey(string configKey) => configKey.Replace(":", "__");
 }
