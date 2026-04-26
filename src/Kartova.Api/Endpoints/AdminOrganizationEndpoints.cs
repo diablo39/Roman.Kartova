@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Kartova.Organization.Application;
 using Kartova.SharedKernel.AspNetCore;
 using Microsoft.AspNetCore.Builder;
@@ -8,6 +9,7 @@ namespace Kartova.Api.Endpoints;
 
 internal static class AdminOrganizationEndpoints
 {
+    [ExcludeFromCodeCoverage]
     public sealed record CreateOrganizationRequest(string Name);
 
     public static void Map(RouteGroupBuilder group)

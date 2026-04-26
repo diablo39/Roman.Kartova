@@ -30,8 +30,11 @@
     <ProjectReference Include="..\..\src\Kartova.SharedKernel.AspNetCore\Kartova.SharedKernel.AspNetCore.csproj" />
     <ProjectReference Include="..\..\src\Kartova.SharedKernel.Postgres\Kartova.SharedKernel.Postgres.csproj" />
     <ProjectReference Include="..\..\src\Kartova.SharedKernel.Wolverine\Kartova.SharedKernel.Wolverine.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Organization\Kartova.Organization.Domain\Kartova.Organization.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Organization\Kartova.Organization.Application\Kartova.Organization.Application.csproj" />
     <ProjectReference Include="..\..\src\Modules\Organization\Kartova.Organization.Infrastructure\Kartova.Organization.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Modules\Organization\Kartova.Organization.Infrastructure.Admin\Kartova.Organization.Infrastructure.Admin.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Organization\Kartova.Organization.Contracts\Kartova.Organization.Contracts.csproj" />
   </ItemGroup>
 
 </Project>
