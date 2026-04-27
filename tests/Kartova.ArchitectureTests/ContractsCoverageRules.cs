@@ -1,5 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore.Design;
 using NetArchTest.Rules;
 using Xunit;
 
@@ -46,6 +48,29 @@ public class ContractsCoverageRules
 
         result.IsSuccessful.Should().BeTrue(
             because: BuildFailureMessage(result, "Types named *Dto / *Request / *Response are pure data carriers and must be decorated with [ExcludeFromCodeCoverage]"));
+    }
+
+    [Fact]
+    public void DesignTime_DbContext_factories_have_ExcludeFromCodeCoverage()
+    {
+        var production = AssemblyRegistry.AllProduction().ToArray();
+        var factoryInterface = typeof(IDesignTimeDbContextFactory<>);
+
+        var factories = production
+            .SelectMany(a => a.GetTypes())
+            .Where(t => !t.IsAbstract && t.IsClass &&
+                t.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == factoryInterface))
+            .ToArray();
+
+        var missing = factories
+            .Where(t => t.GetCustomAttributes(typeof(ExcludeFromCodeCoverageAttribute), inherit: false).Length == 0)
+            .Select(t => t.FullName)
+            .ToArray();
+
+        missing.Should().BeEmpty(
+            because: "Design-time IDesignTimeDbContextFactory<> implementations are run only by `dotnet ef`. " +
+                     "They must carry [ExcludeFromCodeCoverage] per CLAUDE.md §Coverage exclusion. " +
+                     "Offending types: " + string.Join(", ", missing));
     }
 
     private static string BuildFailureMessage(TestResult result, string lead)

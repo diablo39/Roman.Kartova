@@ -27,6 +27,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Kartova.Catalog.Application\Kartova.Catalog.Application.csproj" />
     <ProjectReference Include="..\..\..\Kartova.SharedKernel\Kartova.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\..\Kartova.SharedKernel.Postgres\Kartova.SharedKernel.Postgres.csproj" />
   </ItemGroup>
 
 </Project>

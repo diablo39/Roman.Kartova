@@ -43,6 +43,9 @@ public static class JwtAuthenticationExtensions
                 options.TokenValidationParameters.ValidateIssuer = true;
                 options.TokenValidationParameters.ValidateAudience = true;
                 options.TokenValidationParameters.ValidateLifetime = true;
+                // Tighten the default 5-minute ClockSkew. ADR-0007 short-lived tokens
+                // would otherwise be honored well past their nominal expiry.
+                options.TokenValidationParameters.ClockSkew = TimeSpan.FromSeconds(30);
                 options.MapInboundClaims = false;
             });
 

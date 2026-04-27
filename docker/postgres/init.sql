@@ -12,11 +12,10 @@ GRANT CONNECT ON DATABASE kartova TO kartova_app;
 ALTER SCHEMA public OWNER TO migrator;
 GRANT USAGE ON SCHEMA public TO kartova_app;
 
--- Wolverine envelope storage (schema "wolverine") is created lazily at API startup
--- (see src/Kartova.Migrator/Program.cs). The app role therefore needs CREATE on the DB
--- so Wolverine can create its own schema. Once Slice 3 moves Wolverine bootstrap into
--- the migrator, this grant can be tightened.
-GRANT CREATE ON DATABASE kartova TO kartova_app;
+-- Wolverine Postgres persistence is deferred until a slice publishes domain events
+-- (see docs/superpowers/specs/2026-04-24-defer-wolverine-persistence-design.md and ADR-0085).
+-- When persistence is reintroduced, the wolverine.* schema must be created by Kartova.Migrator,
+-- never at API startup, so the app role does not need CREATE on the database.
 
 -- Default privileges so objects created by migrator in schema public are DML-usable
 -- by kartova_app without an explicit re-grant after every migration.

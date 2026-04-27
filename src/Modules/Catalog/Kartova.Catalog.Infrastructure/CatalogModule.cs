@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Kartova.SharedKernel;
+using Kartova.SharedKernel.Postgres;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,13 +17,21 @@ public sealed class CatalogModule : IModule
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("Kartova")
+        // Tenant-scoped DbContext per ADR-0090. Connection flows from ITenantScope —
+        // raw AddDbContext would silently bypass RLS for any future Catalog entity.
+        services.AddModuleDbContext<CatalogDbContext>(npg =>
+            npg.MigrationsAssembly(typeof(CatalogDbContext).Assembly.FullName));
+    }
+
+    public void RegisterForMigrator(IServiceCollection services, IConfiguration configuration)
+    {
+        var cs = configuration.GetConnectionString(KartovaConnectionStrings.Main)
             ?? throw new InvalidOperationException(
-                "Connection string 'Kartova' is required. Set it via ConnectionStrings__Kartova env var.");
+                $"Connection string '{KartovaConnectionStrings.Main}' is required. Set it via ConnectionStrings__{KartovaConnectionStrings.Main} env var.");
 
         services.AddDbContext<CatalogDbContext>(opts =>
-            opts.UseNpgsql(connectionString, npg =>
-                npg.MigrationsAssembly(typeof(CatalogDbContext).Assembly.FullName)));
+            opts.UseNpgsql(cs, npg => npg.MigrationsAssembly(
+                typeof(CatalogDbContext).Assembly.FullName)));
     }
 
     public void ConfigureWolverine(WolverineOptions options)

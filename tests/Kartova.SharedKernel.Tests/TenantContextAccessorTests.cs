@@ -146,7 +146,7 @@ public class TenantContextAccessorTests
     // ---- Null-roles path ----
 
     [Fact]
-    public void Populate_with_null_roles_does_not_throw_and_sets_empty_collection()
+    public void Populate_with_null_roles_throws_ArgumentNullException()
     {
         // Arrange
         var sut = new TenantContextAccessor();
@@ -155,12 +155,8 @@ public class TenantContextAccessorTests
         // Act
         var act = () => sut.Populate(id, null!);
 
-        // Assert
-        act.Should().NotThrow();
-        sut.Roles.Should().NotBeNull();
-        sut.Roles.Should().BeEmpty();
-        sut.Id.Should().Be(id);
-        sut.IsTenantScoped.Should().BeTrue();
+        // Assert — non-nullable parameter contract; null is rejected consistently.
+        act.Should().Throw<ArgumentNullException>().WithParameterName("roles");
     }
 
     // ---- Double Populate ----

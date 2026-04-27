@@ -1,5 +1,6 @@
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 
 namespace Kartova.SharedKernel.Postgres;
@@ -10,13 +11,15 @@ namespace Kartova.SharedKernel.Postgres;
 public sealed class TenantScope : INpgsqlTenantScope
 {
     private readonly NpgsqlDataSource _dataSource;
+    private readonly ILogger<TenantScope> _logger;
     private NpgsqlConnection? _connection;
     private NpgsqlTransaction? _transaction;
     private bool _committed;
 
-    public TenantScope(NpgsqlDataSource dataSource)
+    public TenantScope(NpgsqlDataSource dataSource, ILogger<TenantScope> logger)
     {
         _dataSource = dataSource;
+        _logger = logger;
     }
 
     public bool IsActive => _connection is not null && _transaction is not null;
@@ -36,18 +39,37 @@ public sealed class TenantScope : INpgsqlTenantScope
             throw new InvalidOperationException("TenantScope already begun for this request.");
         }
 
-        _connection = await _dataSource.OpenConnectionAsync(ct);
-        _transaction = await _connection.BeginTransactionAsync(ct);
+        try
+        {
+            _connection = await _dataSource.OpenConnectionAsync(ct);
+            _transaction = await _connection.BeginTransactionAsync(ct);
 
-        await using var cmd = _connection.CreateCommand();
-        cmd.Transaction = _transaction;
-        // set_config(name, value, is_local) is used instead of `SET LOCAL` because
-        // PostgreSQL's SET statement does not accept bound parameters.
-        cmd.CommandText = "SELECT set_config('app.current_tenant_id', $1, true)";
-        cmd.Parameters.AddWithValue(id.Value.ToString());
-        await cmd.ExecuteNonQueryAsync(ct);
+            await using var cmd = _connection.CreateCommand();
+            cmd.Transaction = _transaction;
+            // set_config(name, value, is_local) is used instead of `SET LOCAL` because
+            // PostgreSQL's SET statement does not accept bound parameters.
+            cmd.CommandText = "SELECT set_config('app.current_tenant_id', $1, true)";
+            cmd.Parameters.AddWithValue(id.Value.ToString());
+            await cmd.ExecuteNonQueryAsync(ct);
 
-        return new Handle(this);
+            return new Handle(this);
+        }
+        catch
+        {
+            // Leave the scope in a clean uninitialized state so the caller can surface the
+            // underlying error instead of a confusing "already begun" on retry.
+            if (_transaction is not null)
+            {
+                try { await _transaction.DisposeAsync(); } catch { /* best-effort */ }
+                _transaction = null;
+            }
+            if (_connection is not null)
+            {
+                try { await _connection.DisposeAsync(); } catch { /* best-effort */ }
+                _connection = null;
+            }
+            throw;
+        }
     }
 
     private async Task CommitAsync(CancellationToken ct)
@@ -66,7 +88,18 @@ public sealed class TenantScope : INpgsqlTenantScope
         {
             if (!_committed)
             {
-                try { await _transaction.RollbackAsync(); } catch (Exception) { /* connection may be broken */ }
+                try
+                {
+                    await _transaction.RollbackAsync();
+                }
+                catch (NpgsqlException ex)
+                {
+                    _logger.LogWarning(ex, "TenantScope rollback failed; connection may be broken.");
+                }
+                catch (InvalidOperationException ex)
+                {
+                    _logger.LogWarning(ex, "TenantScope rollback observed an invalid transaction state.");
+                }
             }
             await _transaction.DisposeAsync();
             _transaction = null;

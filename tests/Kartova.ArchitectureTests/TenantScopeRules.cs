@@ -1,5 +1,8 @@
 using System.Reflection;
 using FluentAssertions;
+using Kartova.SharedKernel;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using NetArchTest.Rules;
 using Xunit;
 
@@ -17,13 +20,14 @@ public class TenantScopeRules
     [Fact]
     public void SharedKernel_has_no_framework_dependencies()
     {
+        // KafkaFlow is added when the inbound consumer adapter lands in a later slice;
+        // when added, append it here.
         var forbidden = new[]
         {
             "Npgsql",
             "Microsoft.EntityFrameworkCore",
             "Microsoft.AspNetCore",
             "WolverineFx",
-            "KafkaFlow",
         };
 
         var result = Types.InAssembly(SharedKernel)
@@ -58,9 +62,9 @@ public class TenantScopeRules
     [Fact]
     public void Every_tenant_owned_entity_has_RLS_policy_in_a_migration()
     {
-        // Find every class implementing ITenantOwned in any referenced assembly, then check
-        // migration files in the corresponding Infrastructure assemblies contain an ENABLE
-        // ROW LEVEL SECURITY for its table.
+        // Explicit allowlist of ITenantOwned aggregates this rule covers. Each entry must
+        // have a migration in its Infrastructure assembly that contains ENABLE ROW LEVEL
+        // SECURITY for its table. Add new tenant-owned aggregates here as they appear.
         var tenantOwnedTypes = new[] { typeof(Kartova.Organization.Domain.Organization) };
 
         foreach (var t in tenantOwnedTypes)
@@ -81,6 +85,45 @@ public class TenantScopeRules
                 File.ReadAllText(f).Contains("ENABLE ROW LEVEL SECURITY", StringComparison.OrdinalIgnoreCase));
             anyHasRls.Should().BeTrue(
                 because: $"migration for {tableName} must ENABLE ROW LEVEL SECURITY per ADR-0012/0090");
+        }
+    }
+
+    [Fact]
+    public void Module_DbContexts_register_via_AddModuleDbContext()
+    {
+        // Spec §6.1 / ADR-0090: every IModule's runtime DbContext registration must flow
+        // through AddModuleDbContext so the scope's connection + interceptors are wired.
+        // We verify this behaviorally: build a ServiceProvider WITHOUT INpgsqlTenantScope
+        // and assert that resolving the module's DbContext fails because the AddModuleDbContext
+        // factory requires it. Raw AddDbContext (which would silently bypass RLS) would not
+        // require INpgsqlTenantScope and thus would succeed here — failing the test.
+
+        var modules = new IModule[]
+        {
+            new Kartova.Catalog.Infrastructure.CatalogModule(),
+            new Kartova.Organization.Infrastructure.OrganizationModule(),
+        };
+
+        // ConfigurationManager is empty — neither module reads configuration in its
+        // tenant-scoped RegisterServices path; only RegisterForMigrator does (and that
+        // path is not exercised here).
+        var emptyConfig = new ConfigurationManager();
+
+        foreach (var module in modules)
+        {
+            var services = new ServiceCollection();
+            module.RegisterServices(services, emptyConfig);
+
+            // Deliberately do NOT call AddTenantScope() — that's what makes the test
+            // distinguish AddModuleDbContext (needs scope) from raw AddDbContext (doesn't).
+            using var sp = services.BuildServiceProvider();
+            using var scope = sp.CreateScope();
+
+            var act = () => scope.ServiceProvider.GetRequiredService(module.DbContextType);
+
+            act.Should().Throw<InvalidOperationException>(
+                because: $"module '{module.Name}' must register its DbContext via AddModuleDbContext (ADR-0090)")
+               .WithMessage("*INpgsqlTenantScope*");
         }
     }
 
