@@ -86,7 +86,6 @@ public class Program
 
         var app = builder.Build();
 
-        app.UseStatusCodePages();
         app.UseExceptionHandler();
 
         app.UseAuthentication();

@@ -58,9 +58,9 @@ public class TenantScopeRules
     [Fact]
     public void Every_tenant_owned_entity_has_RLS_policy_in_a_migration()
     {
-        // Find every class implementing ITenantOwned in any referenced assembly, then check
-        // migration files in the corresponding Infrastructure assemblies contain an ENABLE
-        // ROW LEVEL SECURITY for its table.
+        // Explicit allowlist of ITenantOwned aggregates this rule covers. Each entry must
+        // have a migration in its Infrastructure assembly that contains ENABLE ROW LEVEL
+        // SECURITY for its table. Add new tenant-owned aggregates here as they appear.
         var tenantOwnedTypes = new[] { typeof(Kartova.Organization.Domain.Organization) };
 
         foreach (var t in tenantOwnedTypes)

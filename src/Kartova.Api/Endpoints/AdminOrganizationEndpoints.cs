@@ -31,6 +31,7 @@ internal static class AdminOrganizationEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
         var org = await commands.CreateAsync(request.Name, ct);
-        return Results.Created($"/api/v1/organizations/{org.Id}", org);
+        // No Location header until a GET-by-id endpoint exists for this resource.
+        return Results.Json(org, statusCode: StatusCodes.Status201Created);
     }
 }

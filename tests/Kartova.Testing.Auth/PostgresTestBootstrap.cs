@@ -19,19 +19,19 @@ public static class PostgresTestBootstrap
     private const string MigratorPassword = "dev";
     private const string BypassPassword = "dev_only";
 
-    private const string SeedRolesSql = """
-        CREATE ROLE migrator WITH LOGIN PASSWORD 'dev' CREATEDB;
-        CREATE ROLE kartova_app WITH LOGIN PASSWORD 'dev';
-        CREATE ROLE kartova_bypass_rls WITH LOGIN PASSWORD 'dev_only' BYPASSRLS;
-        GRANT CONNECT ON DATABASE kartova TO kartova_app, kartova_bypass_rls;
-        ALTER SCHEMA public OWNER TO migrator;
-        GRANT USAGE, CREATE ON SCHEMA public TO kartova_app;
-        GRANT USAGE, CREATE ON SCHEMA public TO kartova_bypass_rls;
-        GRANT CREATE ON DATABASE kartova TO kartova_app;
-        ALTER DEFAULT PRIVILEGES FOR ROLE migrator IN SCHEMA public
-            GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO kartova_app, kartova_bypass_rls;
-        ALTER DEFAULT PRIVILEGES FOR ROLE migrator IN SCHEMA public
-            GRANT USAGE, SELECT ON SEQUENCES TO kartova_app, kartova_bypass_rls;
+    private static readonly string SeedRolesSql = $"""
+        CREATE ROLE {MigratorRole} WITH LOGIN PASSWORD '{MigratorPassword}' CREATEDB;
+        CREATE ROLE {AppRole} WITH LOGIN PASSWORD '{AppPassword}';
+        CREATE ROLE {BypassRole} WITH LOGIN PASSWORD '{BypassPassword}' BYPASSRLS;
+        GRANT CONNECT ON DATABASE kartova TO {AppRole}, {BypassRole};
+        ALTER SCHEMA public OWNER TO {MigratorRole};
+        GRANT USAGE, CREATE ON SCHEMA public TO {AppRole};
+        GRANT USAGE, CREATE ON SCHEMA public TO {BypassRole};
+        GRANT CREATE ON DATABASE kartova TO {AppRole};
+        ALTER DEFAULT PRIVILEGES FOR ROLE {MigratorRole} IN SCHEMA public
+            GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {AppRole}, {BypassRole};
+        ALTER DEFAULT PRIVILEGES FOR ROLE {MigratorRole} IN SCHEMA public
+            GRANT USAGE, SELECT ON SEQUENCES TO {AppRole}, {BypassRole};
         """;
 
     public static async Task SeedRolesAndSchemaAsync(string adminConnectionString, CancellationToken ct = default)
