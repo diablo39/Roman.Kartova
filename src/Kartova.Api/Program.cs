@@ -86,7 +86,9 @@ public class Program
 
         var app = builder.Build();
 
-        app.UseStatusCodePages();
+        // ADR-0091: rely on UseExceptionHandler + AddProblemDetails to emit application/problem+json
+        // for unhandled exceptions and bodyless status codes. UseStatusCodePages would emit
+        // text/plain bodies for 4xx/5xx without explicit bodies and shadow that contract.
         app.UseExceptionHandler();
 
         app.UseAuthentication();

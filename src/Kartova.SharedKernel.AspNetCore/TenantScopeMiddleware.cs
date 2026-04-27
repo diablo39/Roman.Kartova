@@ -1,6 +1,7 @@
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 
 namespace Kartova.SharedKernel.AspNetCore;
 
@@ -56,8 +57,27 @@ public sealed class TenantScopeMiddleware
 
         var scope = context.RequestServices.GetRequiredService<ITenantScope>();
         var ct = context.RequestAborted;
-        await using var handle = await scope.BeginAsync(tenantContext.Id, ct);
-        await _next(context);
-        await handle.CommitAsync(ct);
+
+        IAsyncTenantScopeHandle handle;
+        try
+        {
+            handle = await scope.BeginAsync(tenantContext.Id, ct);
+        }
+        catch (NpgsqlException)
+        {
+            // Spec §Error handling: Begin failure → 503 service-unavailable.
+            var problem = Results.Problem(
+                type: ProblemTypes.ServiceUnavailable,
+                title: "Database is currently unavailable",
+                statusCode: StatusCodes.Status503ServiceUnavailable);
+            await problem.ExecuteAsync(context);
+            return;
+        }
+
+        await using (handle)
+        {
+            await _next(context);
+            await handle.CommitAsync(ct);
+        }
     }
 }

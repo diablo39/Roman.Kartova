@@ -12,8 +12,9 @@ public sealed class TenantContextAccessor : ITenantContext
 
     public void Populate(TenantId id, IReadOnlyCollection<string> roles)
     {
+        ArgumentNullException.ThrowIfNull(roles);
         _id = id;
-        _roles = roles ?? Array.Empty<string>();
+        _roles = roles;
         _populated = true;
     }
 
