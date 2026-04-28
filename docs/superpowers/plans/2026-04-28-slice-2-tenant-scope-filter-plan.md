@@ -575,20 +575,45 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 
 ---
 
-## Task 7: Add `TenantScopeEndpointFilter`, rewrite `RequireTenantScope`, delete middleware
+## Task 7: Hybrid scope adapter — `TenantScopeBeginMiddleware` + `TenantScopeCommitEndpointFilter`
 
-**Goal:** Replace the middleware with an endpoint filter. This is the core architectural change. The filter wraps `IResult` so commit runs *before* `IResult.ExecuteAsync` — the durability guarantee from ADR-0090 §Decision.
+**Goal:** Replace the slice-2 single middleware with a two-piece adapter. The begin-middleware opens the scope BEFORE parameter binding (so DI-injected `OrganizationDbContext` resolves with an active scope). The commit-filter commits BETWEEN handler return and `IResult.ExecuteAsync` (durability promise from ADR-0090 §Decision). The begin-middleware owns the handle's `DisposeAsync` lifetime so rollback fires on any non-committed exit.
+
+**Why hybrid:** an earlier attempt at a pure endpoint filter blocked because ASP.NET Core 10 minimal-API parameter binding resolves DI-injected DbContexts BEFORE the filter chain runs. `OrganizationDbContext` resolution triggered `scope.Connection`, which threw because the scope was inactive. The hybrid moves `Begin` earlier (middleware, runs before the endpoint's request delegate) while keeping `Commit` inside the filter chain (so it runs before `IResult.ExecuteAsync`). Spec §Decisions and the ADR-0090 addendum document this.
 
 **Files:**
-- Create: `src/Kartova.SharedKernel.AspNetCore/TenantScopeEndpointFilter.cs`
+- Create: `src/Kartova.SharedKernel.AspNetCore/RequireTenantScopeMarker.cs`
+- Create: `src/Kartova.SharedKernel.AspNetCore/TenantScopeBeginMiddleware.cs`
+- Create: `src/Kartova.SharedKernel.AspNetCore/TenantScopeCommitEndpointFilter.cs`
 - Modify: `src/Kartova.SharedKernel.AspNetCore/TenantScopeRouteExtensions.cs`
 - Delete: `src/Kartova.SharedKernel.AspNetCore/TenantScopeMiddleware.cs`
 - Modify: `src/Kartova.Api/Program.cs`
+- Modify: `tests/Kartova.ArchitectureTests/TenantScopeRules.cs` (the `SharedKernelAspNetCore` field anchors on the deleted `TenantScopeMiddleware` type — re-anchor on a type that survives this task, e.g. `TenantScopeBeginMiddleware` or `TenantScopeCommitEndpointFilter`)
+- Possibly modify: `src/Kartova.SharedKernel.Postgres/TenantScopeRequiredInterceptor.cs` (its docstring or error message may name `TenantScopeMiddleware` — search and update)
 
-- [ ] **Step 1: Create the filter.**
+- [ ] **Step 1: Create `RequireTenantScopeMarker`.**
 
 ```csharp
-// src/Kartova.SharedKernel.AspNetCore/TenantScopeEndpointFilter.cs
+// src/Kartova.SharedKernel.AspNetCore/RequireTenantScopeMarker.cs
+namespace Kartova.SharedKernel.AspNetCore;
+
+/// <summary>
+/// Endpoint metadata marker applied by <see cref="TenantScopeRouteExtensions.RequireTenantScope"/>.
+/// <see cref="TenantScopeBeginMiddleware"/> inspects matched endpoints for this marker to
+/// decide whether to open an <c>ITenantScope</c> for the request. The commit-filter is
+/// attached directly via <c>AddEndpointFilter</c> on the same route group, so the marker
+/// is only consumed by the begin-middleware. See ADR-0090 §Addendum (2026-04-28).
+/// </summary>
+public sealed class RequireTenantScopeMarker
+{
+    public static readonly RequireTenantScopeMarker Instance = new();
+}
+```
+
+- [ ] **Step 2: Create `TenantScopeBeginMiddleware`.**
+
+```csharp
+// src/Kartova.SharedKernel.AspNetCore/TenantScopeBeginMiddleware.cs
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -596,34 +621,61 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Kartova.SharedKernel.AspNetCore;
 
 /// <summary>
-/// ASP.NET Core endpoint filter that wraps tenant-scoped endpoints in an
-/// <see cref="ITenantScope"/> lifetime. Runs after authentication and authorization,
-/// inside the endpoint pipeline. Critically: commits the scope's transaction BEFORE
-/// returning the IResult, so the result executes (writes the response body) only
-/// after a successful commit. Commit failures bubble to the exception handler and
-/// surface as 500 + RFC 7807 problem-details (ADR-0091) — the client never sees a
-/// partial body for a transaction that failed to commit. See ADR-0090 §Decision +
-/// §4.1.
+/// Opens an <see cref="ITenantScope"/> for endpoints carrying <see cref="RequireTenantScopeMarker"/>
+/// metadata. Runs AFTER <c>UseAuthentication</c>/<c>UseAuthorization</c> so the JWT-derived
+/// <see cref="ITenantContext"/> is populated, and BEFORE endpoint dispatch so DI-injected
+/// DbContexts (registered via <c>AddModuleDbContext</c>) resolve against an active scope.
+///
+/// Pairs with <see cref="TenantScopeCommitEndpointFilter"/> which commits between handler
+/// return and <c>IResult.ExecuteAsync</c>. This middleware owns the handle's
+/// <see cref="IAsyncDisposable.DisposeAsync"/> lifetime — the <c>finally</c> block runs after
+/// the filter chain unwinds, so rollback fires automatically on any non-committed exit
+/// (handler exception, commit failure, cancellation).
+///
+/// Pipeline order in <c>Program.cs</c>:
+///   UseAuthentication → UseAuthorization → UseMiddleware&lt;TenantScopeBeginMiddleware&gt;
+///   → endpoint dispatch (parameter binding, filter chain, handler, IResult.ExecuteAsync).
+///
+/// See ADR-0090 §Addendum (2026-04-28) for why this is split from the commit filter.
 /// </summary>
-public sealed class TenantScopeEndpointFilter : IEndpointFilter
+public sealed class TenantScopeBeginMiddleware
 {
-    public async ValueTask<object?> InvokeAsync(
-        EndpointFilterInvocationContext ctx,
-        EndpointFilterDelegate next)
-    {
-        var http = ctx.HttpContext;
-        var tenantContext = http.RequestServices.GetRequiredService<ITenantContext>();
+    /// <summary>
+    /// Key under which the active <see cref="IAsyncTenantScopeHandle"/> is stored in
+    /// <see cref="HttpContext.Items"/> for retrieval by <see cref="TenantScopeCommitEndpointFilter"/>.
+    /// Internal to this assembly; the only reader is the commit filter.
+    /// </summary>
+    internal const string HandleKey = "Kartova.TenantScope.Handle";
 
-        if (!tenantContext.IsTenantScoped)
+    private readonly RequestDelegate _next;
+
+    public TenantScopeBeginMiddleware(RequestDelegate next)
+    {
+        _next = next;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        var endpoint = context.GetEndpoint();
+        var needsScope = endpoint?.Metadata.GetMetadata<RequireTenantScopeMarker>() is not null;
+        if (!needsScope)
         {
-            return Results.Problem(
-                type: ProblemTypes.MissingTenantClaim,
-                title: "JWT is missing the tenant_id claim",
-                statusCode: StatusCodes.Status401Unauthorized);
+            await _next(context);
+            return;
         }
 
-        var scope = http.RequestServices.GetRequiredService<ITenantScope>();
-        var ct = http.RequestAborted;
+        var tenantContext = context.RequestServices.GetRequiredService<ITenantContext>();
+        if (!tenantContext.IsTenantScoped)
+        {
+            await Results.Problem(
+                type: ProblemTypes.MissingTenantClaim,
+                title: "JWT is missing the tenant_id claim",
+                statusCode: StatusCodes.Status401Unauthorized).ExecuteAsync(context);
+            return;
+        }
+
+        var scope = context.RequestServices.GetRequiredService<ITenantScope>();
+        var ct = context.RequestAborted;
 
         IAsyncTenantScopeHandle handle;
         try
@@ -632,23 +684,76 @@ public sealed class TenantScopeEndpointFilter : IEndpointFilter
         }
         catch (TenantScopeBeginException)
         {
-            return Results.Problem(
+            await Results.Problem(
                 type: ProblemTypes.ServiceUnavailable,
                 title: "Database is currently unavailable",
-                statusCode: StatusCodes.Status503ServiceUnavailable);
+                statusCode: StatusCodes.Status503ServiceUnavailable).ExecuteAsync(context);
+            return;
         }
 
-        await using (handle)
+        // Hand off to the commit filter via Items; middleware retains DisposeAsync ownership
+        // so rollback fires on any non-committed exit (handler exception, commit failure, cancel).
+        context.Items[HandleKey] = handle;
+        try
         {
-            var result = await next(ctx);   // IResult constructed but NOT executed yet
-            await handle.CommitAsync(ct);   // throws → bubbles → ExceptionHandler → 500
-            return result;                  // ASP.NET runs IResult.ExecuteAsync AFTER commit
+            await _next(context);   // parameter binding + filter chain + handler + IResult.ExecuteAsync
+        }
+        finally
+        {
+            await handle.DisposeAsync();
         }
     }
 }
 ```
 
-- [ ] **Step 2: Rewrite `TenantScopeRouteExtensions.RequireTenantScope`.**
+- [ ] **Step 3: Create `TenantScopeCommitEndpointFilter`.**
+
+```csharp
+// src/Kartova.SharedKernel.AspNetCore/TenantScopeCommitEndpointFilter.cs
+using Kartova.SharedKernel.Multitenancy;
+using Microsoft.AspNetCore.Http;
+
+namespace Kartova.SharedKernel.AspNetCore;
+
+/// <summary>
+/// Commits the active <see cref="ITenantScope"/> transaction BETWEEN handler return and
+/// <see cref="IResult.ExecuteAsync"/>, preserving ADR-0090's durability promise: if commit
+/// fails, the exception bubbles to <c>UseExceptionHandler</c> and surfaces as 500 +
+/// RFC 7807 problem-details — the client never sees a partial body for a transaction
+/// that failed to commit. Streaming responses (<c>Results.Stream</c>, SSE,
+/// <c>IAsyncEnumerable&lt;T&gt;</c>) are also durability-correct because the IResult is
+/// returned but not yet executed when commit runs.
+///
+/// Pairs with <see cref="TenantScopeBeginMiddleware"/> which opens the scope and stashes
+/// the handle in <c>HttpContext.Items[HandleKey]</c>. Missing key indicates a wiring bug
+/// (filter attached without the begin-middleware in the request pipeline) and surfaces
+/// immediately as <see cref="InvalidOperationException"/> rather than silently committing
+/// nothing.
+/// </summary>
+public sealed class TenantScopeCommitEndpointFilter : IEndpointFilter
+{
+    public async ValueTask<object?> InvokeAsync(
+        EndpointFilterInvocationContext ctx,
+        EndpointFilterDelegate next)
+    {
+        var result = await next(ctx);   // handler returns IResult — NOT yet executed
+
+        if (!ctx.HttpContext.Items.TryGetValue(TenantScopeBeginMiddleware.HandleKey, out var obj)
+            || obj is not IAsyncTenantScopeHandle handle)
+        {
+            throw new InvalidOperationException(
+                "TenantScopeCommitEndpointFilter ran without an active scope handle. " +
+                "TenantScopeBeginMiddleware must be wired in the request pipeline " +
+                "(app.UseMiddleware<TenantScopeBeginMiddleware>() before endpoint dispatch).");
+        }
+
+        await handle.CommitAsync(ctx.HttpContext.RequestAborted);
+        return result;   // ASP.NET runs IResult.ExecuteAsync AFTER commit succeeds
+    }
+}
+```
+
+- [ ] **Step 4: Rewrite `TenantScopeRouteExtensions.RequireTenantScope`.**
 
 Replace the entire file body:
 
@@ -663,83 +768,143 @@ namespace Kartova.SharedKernel.AspNetCore;
 public static class TenantScopeRouteExtensions
 {
     /// <summary>
-    /// Marks a route group as tenant-scoped: implicitly requires authentication
-    /// (every tenant-scoped request must carry a JWT to extract <c>tenant_id</c>)
-    /// AND attaches <see cref="TenantScopeEndpointFilter"/>. The filter opens an
-    /// <see cref="Kartova.SharedKernel.Multitenancy.ITenantScope"/> per request,
-    /// commits before <see cref="IResult.ExecuteAsync"/>, and rolls back on
-    /// exception. See ADR-0090 + design doc 2026-04-28.
+    /// Marks a route group as tenant-scoped. Wires three things:
+    /// <list type="bullet">
+    ///   <item><see cref="AuthorizationEndpointConventionBuilderExtensions.RequireAuthorization{TBuilder}(TBuilder, string[])"/>
+    ///         — tenant-scoped routes are authenticated by definition (need a JWT to
+    ///         extract <c>tenant_id</c>).</item>
+    ///   <item><see cref="RequireTenantScopeMarker"/> metadata — <see cref="TenantScopeBeginMiddleware"/>
+    ///         uses it to identify endpoints that should open a tenant scope before
+    ///         parameter binding.</item>
+    ///   <item><see cref="TenantScopeCommitEndpointFilter"/> — commits the scope's
+    ///         transaction between handler return and <see cref="IResult.ExecuteAsync"/>,
+    ///         preserving the durability promise from ADR-0090.</item>
+    /// </list>
+    /// See ADR-0090 §Addendum (2026-04-28) for why this is a two-piece adapter.
     /// </summary>
     public static RouteGroupBuilder RequireTenantScope(this RouteGroupBuilder builder)
     {
         builder.RequireAuthorization();
-        builder.AddEndpointFilter<TenantScopeEndpointFilter>();
+        builder.WithMetadata(RequireTenantScopeMarker.Instance);
+        builder.AddEndpointFilter<TenantScopeCommitEndpointFilter>();
         return builder;
     }
 }
 ```
 
-- [ ] **Step 3: Delete `TenantScopeMiddleware.cs`.**
+- [ ] **Step 5: Delete `TenantScopeMiddleware.cs`.**
 
 ```bash
-rm src/Kartova.SharedKernel.AspNetCore/TenantScopeMiddleware.cs
+git rm src/Kartova.SharedKernel.AspNetCore/TenantScopeMiddleware.cs
 ```
 
-The file also contained `RequireTenantScopeMarker` — that type is no longer needed (the filter is attached directly via `AddEndpointFilter`, not via metadata dispatch). Deletion of the file removes both.
+The deleted file also previously housed `RequireTenantScopeMarker`. Step 1 above re-introduces the marker as a standalone file — the marker's role survives the deletion, but the combined Begin+Commit middleware does not.
 
-- [ ] **Step 4: Remove the middleware registration from `Program.cs`.**
+- [ ] **Step 6: Update `Program.cs` middleware wiring.**
 
-Open `src/Kartova.Api/Program.cs`. Locate the line:
+Open `src/Kartova.Api/Program.cs`. Locate:
 
 ```csharp
 app.UseMiddleware<TenantScopeMiddleware>();
 ```
 
-Delete it. The `RequireTenantScope()` call on the `MapGroup("/api/v1")` already attaches the filter to all endpoints inside the group.
+Replace with:
 
-Also drop the `using Kartova.SharedKernel.AspNetCore;` if it becomes unused — but it likely still is (other types from that namespace are imported).
+```csharp
+app.UseMiddleware<TenantScopeBeginMiddleware>();
+```
 
-- [ ] **Step 5: Build.**
+The `RequireTenantScope()` call on `MapGroup("/api/v1")` already attaches the commit filter to every endpoint in the group; no further wiring needed.
+
+- [ ] **Step 7: Re-anchor the architecture-test assembly handle.**
+
+Open `tests/Kartova.ArchitectureTests/TenantScopeRules.cs`. Locate:
+
+```csharp
+private static readonly Assembly SharedKernelAspNetCore = typeof(Kartova.SharedKernel.AspNetCore.TenantScopeMiddleware).Assembly;
+```
+
+`TenantScopeMiddleware` is gone. Re-anchor on a type that survives this PR. Use `TenantScopeBeginMiddleware`:
+
+```csharp
+private static readonly Assembly SharedKernelAspNetCore = typeof(Kartova.SharedKernel.AspNetCore.TenantScopeBeginMiddleware).Assembly;
+```
+
+Search the rest of the file for any other reference to `TenantScopeMiddleware` or `RequireTenantScopeMarker` — if a fact existed asserting either type's existence (none expected), update or delete.
+
+- [ ] **Step 8: Update `TenantScopeRequiredInterceptor` error message if it names the old middleware.**
+
+Search `src/Kartova.SharedKernel.Postgres/TenantScopeRequiredInterceptor.cs` for the string `TenantScopeMiddleware`. The slice-2 commit had a fail-fast message like:
+
+```
+"Either the endpoint is missing RequireTenantScope() (TenantScopeMiddleware skipped it),
+or the handler is running outside a transport adapter."
+```
+
+Update the parenthetical to reference `TenantScopeBeginMiddleware` so the diagnostic accurately points future readers at the right type. Leave the rest of the message intact.
+
+- [ ] **Step 9: Build the full solution.**
 
 ```bash
 cmd //c "dotnet build Kartova.slnx -c Debug --nologo -v minimal"
 ```
 
-Expected: `Build succeeded. 0 Warning(s) 0 Error(s)`. If a build error mentions `TenantScopeMiddleware` or `RequireTenantScopeMarker`, grep for the symbol and remove the stale reference.
+Expected: `Build succeeded. 0 Warning(s) 0 Error(s)`. If a build error mentions `TenantScopeMiddleware` or claims `RequireTenantScopeMarker` cannot be found, grep for the symbol and fix the stale reference.
 
-- [ ] **Step 6: Run unit + arch tests.**
+- [ ] **Step 10: Run unit + arch tests (no Docker required).**
 
 ```bash
 cmd //c "dotnet test Kartova.slnx --no-build --filter \"FullyQualifiedName!~IntegrationTests\" --nologo -v minimal"
 ```
 
-Expected: all green. NetArchTest rules in `TenantScopeRules.cs` may reference the deleted `TenantScopeMiddleware`/`RequireTenantScopeMarker` — if any test fails, update it (e.g. delete the rule that asserted the marker exists).
+Expected: 70/70 (no count change vs. Task 6).
 
-- [ ] **Step 7: Run integration tests against the testcontainer.**
+- [ ] **Step 11: Run integration tests against the testcontainer (Docker required).**
 
 ```bash
 cmd //c "dotnet test src/Modules/Organization/Kartova.Organization.IntegrationTests/Kartova.Organization.IntegrationTests.csproj --no-build --nologo -v minimal"
 ```
 
-Expected: existing 12 + 2 probe tests = 14 pass (or 13 if probe expected to fail; record the actual outcome — see Task 1).
+Expected:
+- The four tests that failed in the BLOCKED Task 7 attempt (`Get_me_returns_current_tenant_row`, `Each_tenant_only_sees_its_own_organization`, `Platform_admin_without_tenant_hits_missing_tenant_on_tenant_scoped_route`, and any other 500 from DbContext resolution) now PASS — `TenantScopeBeginMiddleware` opens the scope before parameter binding, so DbContext DI resolves correctly.
+- `EfEnlistmentProbeTests.DbContext_writes_inside_scope_are_rolled_back_on_scope_dispose` PASSES (rollback at the SQL level still works).
+- `EfEnlistmentProbeTests.DbContext_CurrentTransaction_matches_scope_transaction` is **expected to FAIL** until Task 8 ships the enlistment interceptor. Record this explicitly in your report.
 
-- [ ] **Step 8: Commit.**
+Total expected: 13 pass / 1 fail (the probe).
+
+- [ ] **Step 12: Commit.**
 
 ```bash
-git add src/Kartova.SharedKernel.AspNetCore/TenantScopeEndpointFilter.cs src/Kartova.SharedKernel.AspNetCore/TenantScopeRouteExtensions.cs src/Kartova.Api/Program.cs tests/Kartova.ArchitectureTests/TenantScopeRules.cs
-git rm src/Kartova.SharedKernel.AspNetCore/TenantScopeMiddleware.cs
-git commit -m "refactor(tenant-scope): replace middleware with IEndpointFilter
+git add src/Kartova.SharedKernel.AspNetCore/RequireTenantScopeMarker.cs \
+        src/Kartova.SharedKernel.AspNetCore/TenantScopeBeginMiddleware.cs \
+        src/Kartova.SharedKernel.AspNetCore/TenantScopeCommitEndpointFilter.cs \
+        src/Kartova.SharedKernel.AspNetCore/TenantScopeRouteExtensions.cs \
+        src/Kartova.Api/Program.cs \
+        tests/Kartova.ArchitectureTests/TenantScopeRules.cs \
+        src/Kartova.SharedKernel.Postgres/TenantScopeRequiredInterceptor.cs
+# git rm of TenantScopeMiddleware.cs already staged from Step 5
+git commit -m "refactor(tenant-scope): hybrid two-piece adapter — begin-middleware + commit-filter
 
-Brings the implementation back to ADR-0090 §Decision: TenantScopeEndpointFilter
-wraps the IResult so handle.CommitAsync runs BEFORE IResult.ExecuteAsync.
-Streaming responses (Results.Stream) now honor the durability promise that
-slice 2's middleware-based implementation could not.
+Replaces TenantScopeMiddleware with two single-responsibility pieces:
 
-RequireTenantScope() now also implies RequireAuthorization() — tenant-scoped
-routes are authenticated by definition.
+  - TenantScopeBeginMiddleware: opens the ITenantScope on routes tagged with
+    RequireTenantScopeMarker, BEFORE parameter binding so DI-injected DbContexts
+    resolve against an active scope. Owns the handle's DisposeAsync lifetime in
+    a try/finally so rollback fires on any non-committed exit.
+  - TenantScopeCommitEndpointFilter: commits the scope BETWEEN handler return
+    and IResult.ExecuteAsync, preserving ADR-0090's durability promise. Streaming
+    responses now fail cleanly with 5xx + problem-details on commit failure.
 
-RequireTenantScopeMarker is deleted; the filter is attached directly via
-AddEndpointFilter rather than via metadata-based dispatch.
+Pure-filter design (originally drafted in spec §Decisions) was infeasible:
+ASP.NET Core 10 minimal-API parameter binding resolves DI-injected DbContexts
+BEFORE the filter chain runs, so a filter calling BeginAsync runs too late and
+DbContext resolution throws because scope.Connection is inactive. Hybrid moves
+Begin earlier (middleware) while keeping Commit in the filter chain. See spec
+§Decisions and the ADR-0090 addendum.
+
+RequireTenantScope() now chains RequireAuthorization() + RequireTenantScopeMarker
+metadata + TenantScopeCommitEndpointFilter — three behaviors documented at the
+method.
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ```

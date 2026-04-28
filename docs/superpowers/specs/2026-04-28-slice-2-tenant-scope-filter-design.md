@@ -19,15 +19,16 @@ Slice 3 (first Catalog CRUD) will introduce the first tenant-scoped write throug
 
 | Topic | Decision |
 |-------|----------|
-| Filter vs middleware | **Endpoint filter** (`TenantScopeEndpointFilter`) attached via `RouteGroupBuilder.AddEndpointFilter<>()`. Commits before `IResult.ExecuteAsync`. Honors ADR-0090 §Decision verbatim. |
+| Filter vs middleware | **Hybrid: middleware for `Begin`, endpoint filter for `Commit`.** Originally drafted as filter-only per ADR-0090 §Decision, but ASP.NET Core 10 minimal-API parameter binding resolves DI-injected `DbContext` instances *before* the endpoint filter chain runs — so a filter that calls `BeginAsync` runs too late and `OrganizationDbContext` resolution throws because `scope.Connection` is not active. Resolution: `TenantScopeBeginMiddleware` opens the scope before parameter binding (using a `RequireTenantScopeMarker` metadata check) and `TenantScopeCommitEndpointFilter` commits between handler return and `IResult.ExecuteAsync`. Both layers are tiny; durability and atomicity guarantees from ADR-0090 are preserved. The constraint is documented in the ADR-0090 addendum. |
 | `EnlistInTenantScopeInterceptor` necessity | **Probe-test-first.** A probe test (`EF_DbContext_enlists_in_scope_transaction_automatically`) decides. If EF Core 10 + Npgsql auto-enlists when a connection has an active transaction at `UseNpgsql(connection)` time, the interceptor is not shipped — the spec §3.1 component is then redundant and skipping it avoids dead code. If the probe fails, the interceptor ships with its own tests. The plan documents the implementation pattern only conditionally. |
 | `TenantScopeBeginException` placement | **`Kartova.SharedKernel.Multitenancy`** namespace (the abstract layer). Wrapping in `TenantScope.BeginAsync` lives in `SharedKernel.Postgres`. The filter (in `SharedKernel.AspNetCore`) catches the agnostic exception. |
 | `SharedKernel.AspNetCore → SharedKernel.Postgres` reference | **Removed.** The transport-agnostic exception means `AspNetCore` no longer needs to know `Npgsql` types. Verified by a new architecture rule. |
 | `INpgsqlTenantScope.Transaction` exposure | **Public on the interface** (return type `NpgsqlTransaction`). The interface is already Postgres-specific (it exposes `NpgsqlConnection`); exposing the transaction is the same level of abstraction. Replaces the reflection-based test access added in PR #4. |
-| `RequireTenantScope()` semantics | **Implicit `RequireAuthorization()`.** Tenant-scoped routes are by definition authenticated (they need a JWT to extract `tenant_id`). `RouteGroupBuilder.RequireTenantScope()` chains `.RequireAuthorization()` and `.AddEndpointFilter<TenantScopeEndpointFilter>()`. XML doc on the method states the implicit behavior. |
-| ADR-0090 update | **Dated addendum**, two paragraphs, in a new "Addenda" section. The decision section is unchanged; the addendum records that slice-2 originally shipped the middleware variant and slice-2-followup brought the implementation back to the spec'd filter pattern. |
-| `RequireTenantScopeMarker` metadata type | **Deleted.** The filter is attached directly to the route group via `AddEndpointFilter<>`; the metadata-based dispatch the middleware used is no longer needed. |
-| `TenantScopeMiddleware` | **Deleted** along with its app-pipeline registration in `Program.cs`. |
+| `RequireTenantScope()` semantics | **Implicit `RequireAuthorization()` + marker + commit-filter.** Tenant-scoped routes are by definition authenticated (they need a JWT to extract `tenant_id`). `RouteGroupBuilder.RequireTenantScope()` chains: (1) `.RequireAuthorization()`, (2) `.WithMetadata(RequireTenantScopeMarker.Instance)` so the begin-middleware finds tenant-scoped endpoints, (3) `.AddEndpointFilter<TenantScopeCommitEndpointFilter>()`. XML doc on the method describes all three behaviors. |
+| ADR-0090 update | **Dated addendum**, in a new "Addenda" section. The decision section is unchanged; the addendum records (1) that slice-2 originally shipped a single middleware that violated commit-before-flush, (2) the durability defect was identified post-merge, and (3) the corrected implementation is a hybrid (begin-middleware + commit-filter) because ASP.NET Core 10 parameter binding resolves DI-injected DbContexts before the endpoint filter chain runs, making a pure-filter design infeasible without sacrificing connection sharing or DbContext-by-injection ergonomics. |
+| `RequireTenantScopeMarker` metadata type | **Retained**, with redefined purpose. Originally tagged endpoints for the slice-2 middleware to dispatch on. After this PR, it tags endpoints for `TenantScopeBeginMiddleware` to know which routes need an early `BeginAsync` (before parameter binding). The commit filter is attached directly via `AddEndpointFilter<>`, so the marker is only consumed by the begin-middleware. |
+| `TenantScopeMiddleware` | **Deleted** and replaced by `TenantScopeBeginMiddleware` (single responsibility: open scope on marker; rollback on exit). The old combined Begin+Commit middleware is the implementation that violated commit-before-flush; splitting Commit into the filter restores the durability promise. |
+| Handle handoff between layers | `HttpContext.Items[TenantScopeBeginMiddleware.HandleKey]` carries the `IAsyncTenantScopeHandle` from middleware to filter. `HandleKey` is a single `internal const string` constant on the middleware. The filter throws `InvalidOperationException` if the key is missing — surfaces a wiring bug (filter attached without the middleware in the pipeline) immediately rather than silently committing nothing. |
 | Streaming-response durability test | **Option B** — `IStartupFilter` adds a tenant-scoped streaming endpoint (test-only) that uses `Results.Stream(...)` over a 2 KB chunked source. A `FailingCommitTenantScopeDecorator` (test-only) flips commit-failure on demand. The test asserts the client sees a clean 500 + `application/problem+json`, no streamed body. If TestServer cannot reliably distinguish "headers committed before exception" from "partial body then exception", the test downgrades to asserting the filter's call order (`CommitAsync` before `IResult.ExecuteAsync`) at the component level and the gap is documented. |
 | Existing §6.3 tests | **Refactored** to use the EF write path (`db.Add(...) + db.SaveChangesAsync()`) instead of raw SQL via reflection on the internal transaction. The reflection-based `TenantId` setter on the aggregate stays — production aggregates correctly don't allow arbitrary tenant assignment. |
 | New arch rule | **`AspNetCore_does_not_reference_Postgres`** — codifies the project-reference cut so it stays cut. |
@@ -45,8 +46,10 @@ Kartova.SharedKernel.Postgres      → Npgsql + EFCore.Npgsql
   - INpgsqlTenantScope exposes Transaction publicly
   - (conditional) EnlistInTenantScopeInterceptor
 Kartova.SharedKernel.AspNetCore    → ASP.NET Core only
-  - TenantScopeEndpointFilter (replaces TenantScopeMiddleware)
-  - RequireTenantScope() chains RequireAuthorization + AddEndpointFilter
+  - TenantScopeBeginMiddleware (replaces TenantScopeMiddleware; Begin only)
+  - TenantScopeCommitEndpointFilter (new; commit between handler return and IResult.ExecuteAsync)
+  - RequireTenantScopeMarker (retained, redefined: tags routes the begin-middleware should open a scope on)
+  - RequireTenantScope() chains RequireAuthorization + WithMetadata(marker) + AddEndpointFilter
   - NO project reference on SharedKernel.Postgres
 Kartova.SharedKernel.Wolverine     → Wolverine (unchanged)
   ↑
@@ -62,11 +65,13 @@ Kartova.Api                        composes all three
 | `src/Kartova.SharedKernel.Postgres/INpgsqlTenantScope.cs` | **Modify.** Add `NpgsqlTransaction Transaction { get; }`. |
 | `src/Kartova.SharedKernel.Postgres/EnlistInTenantScopeInterceptor.cs` | **Conditional add.** Implementation pattern decided in plan stage based on probe outcome. Most likely: `IDbCommandInterceptor.CommandCreatedAsync` calls `dbContext.Database.UseTransactionAsync(scope.Transaction)` lazily on first command if not already enlisted. |
 | `src/Kartova.SharedKernel.Postgres/AddModuleDbContextExtensions.cs` | **Modify.** Wire enlistment interceptor if shipped. |
-| `src/Kartova.SharedKernel.AspNetCore/TenantScopeEndpointFilter.cs` | **Add.** Replaces middleware. |
-| `src/Kartova.SharedKernel.AspNetCore/TenantScopeMiddleware.cs` | **Delete.** |
-| `src/Kartova.SharedKernel.AspNetCore/TenantScopeRouteExtensions.cs` | **Modify.** `RequireTenantScope()` rewritten to chain `RequireAuthorization` + `AddEndpointFilter<TenantScopeEndpointFilter>`. |
+| `src/Kartova.SharedKernel.AspNetCore/TenantScopeBeginMiddleware.cs` | **Add.** Replaces the deleted `TenantScopeMiddleware`. Reads `RequireTenantScopeMarker` metadata, calls `BeginAsync` before parameter binding, stores handle in `HttpContext.Items`, owns `DisposeAsync` lifetime in a `try/finally`. Rolls back on any non-committed exit. |
+| `src/Kartova.SharedKernel.AspNetCore/TenantScopeCommitEndpointFilter.cs` | **Add.** Endpoint filter attached via `AddEndpointFilter<>`. Calls `next(ctx)` to get the IResult, retrieves the handle from `HttpContext.Items`, calls `handle.CommitAsync` between handler return and `IResult.ExecuteAsync`. |
+| `src/Kartova.SharedKernel.AspNetCore/RequireTenantScopeMarker.cs` | **Add.** Sealed type with a single static `Instance`. Pure metadata — no behavior. Consumed only by `TenantScopeBeginMiddleware`. |
+| `src/Kartova.SharedKernel.AspNetCore/TenantScopeMiddleware.cs` | **Delete.** Replaced by `TenantScopeBeginMiddleware` + `TenantScopeCommitEndpointFilter`. |
+| `src/Kartova.SharedKernel.AspNetCore/TenantScopeRouteExtensions.cs` | **Modify.** `RequireTenantScope()` rewritten to chain `RequireAuthorization()` + `WithMetadata(RequireTenantScopeMarker.Instance)` + `AddEndpointFilter<TenantScopeCommitEndpointFilter>()`. |
 | `src/Kartova.SharedKernel.AspNetCore/Kartova.SharedKernel.AspNetCore.csproj` | **Modify.** Remove `<ProjectReference>` to `SharedKernel.Postgres`. |
-| `src/Kartova.Api/Program.cs` | **Modify.** Remove `app.UseMiddleware<TenantScopeMiddleware>()`. The route-group `RequireTenantScope()` call already attaches the filter. |
+| `src/Kartova.Api/Program.cs` | **Modify.** Replace `app.UseMiddleware<TenantScopeMiddleware>()` with `app.UseMiddleware<TenantScopeBeginMiddleware>()`. The route-group `RequireTenantScope()` call also attaches the commit filter automatically. Pipeline order: `UseAuthentication` → `UseAuthorization` → `UseMiddleware<TenantScopeBeginMiddleware>` → endpoint dispatch. |
 | `tests/Kartova.ArchitectureTests/TenantScopeRules.cs` | **Modify.** Add `AspNetCore_does_not_reference_Postgres`. Verify framework-cleanliness rule unchanged. |
 | `src/Modules/Organization/Kartova.Organization.IntegrationTests/TenantScopeMechanismTests.cs` | **Refactor.** EF write path; drop `TransactionViaReflection`. |
 | `src/Modules/Organization/Kartova.Organization.IntegrationTests/EfEnlistmentProbeTests.cs` | **Add.** Probe test that decides whether the interceptor ships. |
@@ -98,27 +103,49 @@ public interface INpgsqlTenantScope : ITenantScope
 }
 ```
 
-#### `TenantScopeEndpointFilter` (sketch)
+#### `RequireTenantScopeMarker` (sketch)
 
 ```csharp
-public sealed class TenantScopeEndpointFilter : IEndpointFilter
+public sealed class RequireTenantScopeMarker
 {
-    public async ValueTask<object?> InvokeAsync(
-        EndpointFilterInvocationContext ctx,
-        EndpointFilterDelegate next)
+    public static readonly RequireTenantScopeMarker Instance = new();
+}
+```
+
+Pure metadata. Consumed only by `TenantScopeBeginMiddleware`.
+
+#### `TenantScopeBeginMiddleware` (sketch)
+
+```csharp
+public sealed class TenantScopeBeginMiddleware
+{
+    internal const string HandleKey = "Kartova.TenantScope.Handle";
+
+    private readonly RequestDelegate _next;
+    public TenantScopeBeginMiddleware(RequestDelegate next) { _next = next; }
+
+    public async Task InvokeAsync(HttpContext context)
     {
-        var http = ctx.HttpContext;
-        var tenantContext = http.RequestServices.GetRequiredService<ITenantContext>();
-        if (!tenantContext.IsTenantScoped)
+        var endpoint = context.GetEndpoint();
+        var needsScope = endpoint?.Metadata.GetMetadata<RequireTenantScopeMarker>() is not null;
+        if (!needsScope)
         {
-            return Results.Problem(
-                type: ProblemTypes.MissingTenantClaim,
-                title: "JWT is missing the tenant_id claim",
-                statusCode: StatusCodes.Status401Unauthorized);
+            await _next(context);
+            return;
         }
 
-        var scope = http.RequestServices.GetRequiredService<ITenantScope>();
-        var ct = http.RequestAborted;
+        var tenantContext = context.RequestServices.GetRequiredService<ITenantContext>();
+        if (!tenantContext.IsTenantScoped)
+        {
+            await Results.Problem(
+                type: ProblemTypes.MissingTenantClaim,
+                title: "JWT is missing the tenant_id claim",
+                statusCode: StatusCodes.Status401Unauthorized).ExecuteAsync(context);
+            return;
+        }
+
+        var scope = context.RequestServices.GetRequiredService<ITenantScope>();
+        var ct = context.RequestAborted;
 
         IAsyncTenantScopeHandle handle;
         try
@@ -127,21 +154,56 @@ public sealed class TenantScopeEndpointFilter : IEndpointFilter
         }
         catch (TenantScopeBeginException)
         {
-            return Results.Problem(
+            await Results.Problem(
                 type: ProblemTypes.ServiceUnavailable,
                 title: "Database is currently unavailable",
-                statusCode: StatusCodes.Status503ServiceUnavailable);
+                statusCode: StatusCodes.Status503ServiceUnavailable).ExecuteAsync(context);
+            return;
         }
 
-        await using (handle)
+        // Hand off to the commit filter via Items; middleware retains DisposeAsync ownership
+        // so rollback fires on exception or non-committed paths.
+        context.Items[HandleKey] = handle;
+        try
         {
-            var result = await next(ctx);   // IResult constructed but NOT executed
-            await handle.CommitAsync(ct);   // throws → ExceptionHandler → 500
-            return result;                  // ASP.NET executes IResult AFTER commit
+            await _next(context);   // parameter binding (DbContext OK now) + filter chain + IResult.ExecuteAsync
+        }
+        finally
+        {
+            await handle.DisposeAsync();   // commit happened in filter; this is rollback-or-cleanup
         }
     }
 }
 ```
+
+The scope is *active* throughout `await _next(context)`, so DI-injected `OrganizationDbContext` resolves successfully during parameter binding (the failure mode the original filter-only design hit).
+
+#### `TenantScopeCommitEndpointFilter` (sketch)
+
+```csharp
+public sealed class TenantScopeCommitEndpointFilter : IEndpointFilter
+{
+    public async ValueTask<object?> InvokeAsync(
+        EndpointFilterInvocationContext ctx,
+        EndpointFilterDelegate next)
+    {
+        var result = await next(ctx);   // handler returns IResult — NOT yet executed
+
+        if (!ctx.HttpContext.Items.TryGetValue(TenantScopeBeginMiddleware.HandleKey, out var obj)
+            || obj is not IAsyncTenantScopeHandle handle)
+        {
+            throw new InvalidOperationException(
+                "TenantScopeCommitEndpointFilter ran without an active scope handle. " +
+                "TenantScopeBeginMiddleware must be wired in the request pipeline.");
+        }
+
+        await handle.CommitAsync(ctx.HttpContext.RequestAborted);
+        return result;   // ASP.NET runs IResult.ExecuteAsync AFTER commit succeeds
+    }
+}
+```
+
+The defensive `InvalidOperationException` surfaces a wiring bug (filter attached without the middleware in the pipeline) immediately rather than silently committing nothing.
 
 #### `RequireTenantScope` (after change)
 
@@ -149,12 +211,13 @@ public sealed class TenantScopeEndpointFilter : IEndpointFilter
 public static RouteGroupBuilder RequireTenantScope(this RouteGroupBuilder builder)
 {
     builder.RequireAuthorization();
-    builder.AddEndpointFilter<TenantScopeEndpointFilter>();
+    builder.WithMetadata(RequireTenantScopeMarker.Instance);
+    builder.AddEndpointFilter<TenantScopeCommitEndpointFilter>();
     return builder;
 }
 ```
 
-### 3.4 Request lifecycle (matches ADR-0090 §4.1)
+### 3.4 Request lifecycle (matches ADR-0090 §4.1, with hybrid two-piece adapter)
 
 ```
 Client → GET /api/v1/organizations/me + Bearer <JWT>
@@ -163,20 +226,29 @@ UseAuthentication() — JwtBearerHandler validates against KeyCloak JWKS
   ↓
 TenantClaimsTransformation — populates scoped ITenantContext
   ↓
-UseAuthorization() — implicit from RequireTenantScope() passes
+UseAuthorization() — passes (RequireAuthorization implicit from RequireTenantScope())
   ↓
-TenantScopeEndpointFilter:
-    if !ITenantContext.IsTenantScoped → return 401 (missing-tenant-claim)
+TenantScopeBeginMiddleware:
+    if endpoint has no RequireTenantScopeMarker → just await _next(context)
+    if !ITenantContext.IsTenantScoped → 401 (missing-tenant-claim) and return
     try scope.BeginAsync(tenantContext.Id, ct)
-        catch TenantScopeBeginException → return 503 (service-unavailable)
-    await using handle:
-        var result = await next(ctx)         ← endpoint runs; IResult NOT yet executed
-        await handle.CommitAsync(ct)         ← throws → bubbles → 500 problem-details
-        return result                        ← ASP.NET executes IResult AFTER commit
+        catch TenantScopeBeginException → 503 (service-unavailable) and return
+    Items[HandleKey] = handle
+    try { await _next(context) } finally { await handle.DisposeAsync() }
+  ↓ (await _next dispatches into endpoint pipeline)
+Parameter binding — OrganizationDbContext resolves OK because scope.Connection is active
+  ↓
+TenantScopeCommitEndpointFilter:
+    var result = await next(ctx)            ← handler runs, returns IResult (NOT yet executed)
+    handle = Items[HandleKey]
+    await handle.CommitAsync(ct)            ← throws → bubbles → ExceptionHandler → 500
+    return result                            ← ASP.NET runs IResult.ExecuteAsync AFTER commit
   ↓
 ASP.NET writes response body
-  ↓
-DisposeAsync on handle: rollback if not committed; release connection
+  ↓ (filter chain unwinds, control returns to middleware)
+TenantScopeBeginMiddleware finally: handle.DisposeAsync
+    if committed → resource cleanup only
+    if not committed (handler exception, commit failure, etc.) → ROLLBACK
 ```
 
 ## Error handling
@@ -262,7 +334,7 @@ before exception" from "partial body then exception"):
 4. All unit tests green.
 5. Organization integration tests green (probe + refactored §6.3 + streaming).
 6. KeyCloak smoke test (`Kartova.Api.IntegrationTests`) still green.
-7. `app.UseMiddleware<TenantScopeMiddleware>()` removed from `Program.cs`; `TenantScopeMiddleware.cs` deleted from the working tree.
+7. `app.UseMiddleware<TenantScopeMiddleware>()` replaced with `app.UseMiddleware<TenantScopeBeginMiddleware>()` in `Program.cs`; `TenantScopeMiddleware.cs` deleted; `TenantScopeBeginMiddleware.cs` and `TenantScopeCommitEndpointFilter.cs` and `RequireTenantScopeMarker.cs` added.
 8. ADR-0090 has a dated addendum at the end recording the slice-2-followup correction.
 9. `Kartova.SharedKernel.AspNetCore.csproj` no longer references `Kartova.SharedKernel.Postgres.csproj`.
 10. `INpgsqlTenantScope.Transaction` is public; reflection-based access in tests is removed.
@@ -279,6 +351,7 @@ before exception" from "partial body then exception"):
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
+| ASP.NET Core 10 endpoint-filter ordering relative to parameter binding | (resolved) | DI-injected DbContext failed to resolve when filter-only design was attempted | Empirically confirmed during Task 7's first attempt: minimal-API parameter binding runs *before* the filter chain, so `OrganizationDbContext` resolution triggered `scope.Connection` while the scope was still inactive. Hybrid design (begin-middleware + commit-filter) addresses this by opening the scope before parameter binding. Documented in §Decisions and ADR-0090 addendum. |
 | EF Core 10 auto-enlistment is brittle / version-dependent | Medium | Future EF upgrade silently breaks slice-3 writes | Probe test guards the assumption — re-runs in CI on every PR. If EF behavior changes, probe fails first. |
 | `EnlistInTenantScopeInterceptor` (if shipped) doesn't fire at the right lifecycle hook | Low | Silent non-enlistment | Plan-stage research before writing it; the interceptor's correctness is verified by the same probe test running with it wired |
 | Streaming-response test cannot reliably observe "no body sent" via TestServer | Medium | Durability promise tested only at component level | Documented fallback: component-level `CommitAsync called before IResult.ExecuteAsync` assertion |
@@ -293,7 +366,7 @@ The plan stage will sequence tasks roughly as follows; final ordering decided in
 1. Probe test (decides interceptor inclusion) — RED first.
 2. `TenantScopeBeginException` + wrap in `TenantScope.BeginAsync` + remove project reference + new arch rule.
 3. `INpgsqlTenantScope.Transaction` exposure + delete `TransactionViaReflection` from tests.
-4. `TenantScopeEndpointFilter` + `RequireTenantScope()` rewrite + delete middleware + `Program.cs` cleanup.
+4. Hybrid filter conversion: add `RequireTenantScopeMarker`, `TenantScopeBeginMiddleware`, `TenantScopeCommitEndpointFilter`; rewrite `RequireTenantScope()` to chain auth + marker + commit-filter; delete `TenantScopeMiddleware`; replace `app.UseMiddleware<TenantScopeMiddleware>()` with `app.UseMiddleware<TenantScopeBeginMiddleware>()`.
 5. (Conditional) `EnlistInTenantScopeInterceptor`.
 6. Refactor `TenantScopeMechanismTests` to EF write path.
 7. `KartovaApiFaultInjectionFixture` + streaming durability test.
