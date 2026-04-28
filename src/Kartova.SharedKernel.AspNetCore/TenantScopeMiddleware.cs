@@ -1,7 +1,6 @@
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
-using Npgsql;
 
 namespace Kartova.SharedKernel.AspNetCore;
 
@@ -63,7 +62,7 @@ public sealed class TenantScopeMiddleware
         {
             handle = await scope.BeginAsync(tenantContext.Id, ct);
         }
-        catch (NpgsqlException)
+        catch (TenantScopeBeginException)
         {
             // Spec §Error handling: Begin failure → 503 service-unavailable.
             var problem = Results.Problem(
