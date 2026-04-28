@@ -28,7 +28,7 @@ public sealed class TenantScope : INpgsqlTenantScope
         _connection ?? throw new InvalidOperationException(
             "TenantScope is not active. BeginAsync must be called by the transport adapter before any DbContext is used.");
 
-    internal NpgsqlTransaction Transaction =>
+    public NpgsqlTransaction Transaction =>
         _transaction ?? throw new InvalidOperationException(
             "TenantScope has no active transaction.");
 

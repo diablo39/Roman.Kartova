@@ -4,6 +4,7 @@ using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Postgres;
 using Kartova.Testing.Auth;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using Xunit;
@@ -67,7 +68,7 @@ public class EfEnlistmentProbeTests
         using var hostScope = _fx.Services.CreateScope();
         var sp = hostScope.ServiceProvider;
         var tenantScope = sp.GetRequiredService<ITenantScope>();
-        _ = (INpgsqlTenantScope)tenantScope;
+        var npgScope = (INpgsqlTenantScope)tenantScope;
 
         await using var handle = await tenantScope.BeginAsync(SeededOrgs.OrgA, default);
 
@@ -79,5 +80,7 @@ public class EfEnlistmentProbeTests
         var efTx = db.Database.CurrentTransaction;
         efTx.Should().NotBeNull(
             because: "DbContext should report enlistment in the scope's active transaction");
+        efTx!.GetDbTransaction().Should().BeSameAs(npgScope.Transaction,
+            because: "DbContext's CurrentTransaction must be the SAME instance as the scope's transaction");
     }
 }

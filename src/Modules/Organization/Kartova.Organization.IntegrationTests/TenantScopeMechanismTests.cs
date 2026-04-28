@@ -1,4 +1,3 @@
-using System.Reflection;
 using FluentAssertions;
 using Kartova.Organization.Infrastructure;
 using Kartova.SharedKernel.Multitenancy;
@@ -67,7 +66,6 @@ public class TenantScopeMechanismTests
         var sp = hostScope.ServiceProvider;
         var tenantScope = sp.GetRequiredService<ITenantScope>();
         var npgScope = (INpgsqlTenantScope)tenantScope;
-        var rawScope = (TenantScope)tenantScope;
 
         var rowName = $"CommitFail-{Guid.NewGuid()}";
         var rowId = Guid.NewGuid();
@@ -75,7 +73,7 @@ public class TenantScopeMechanismTests
         var handle = await tenantScope.BeginAsync(SeededOrgs.OrgA, default);
         try
         {
-            var tx = TransactionViaReflection(rawScope);
+            var tx = npgScope.Transaction;
 
             await using (var insertCmd = npgScope.Connection.CreateCommand())
             {
@@ -114,14 +112,13 @@ public class TenantScopeMechanismTests
         var sp = hostScope.ServiceProvider;
         var tenantScope = sp.GetRequiredService<ITenantScope>();
         var npgScope = (INpgsqlTenantScope)tenantScope;
-        var rawScope = (TenantScope)tenantScope;
 
         var rowName = $"Rollback-{Guid.NewGuid()}";
         var rowId = Guid.NewGuid();
 
         await using (var handle = await tenantScope.BeginAsync(SeededOrgs.OrgA, default))
         {
-            var tx = TransactionViaReflection(rawScope);
+            var tx = npgScope.Transaction;
 
             await using var insertCmd = npgScope.Connection.CreateCommand();
             insertCmd.Transaction = tx;
@@ -149,17 +146,6 @@ public class TenantScopeMechanismTests
         cmd.Parameters.AddWithValue(name);
         var count = (long)(await cmd.ExecuteScalarAsync())!;
         count.Should().Be(0, because: because);
-    }
-
-    private static NpgsqlTransaction TransactionViaReflection(TenantScope scope)
-    {
-        // TenantScope.Transaction is internal; tests reach in to share the per-request
-        // transaction so direct-SQL writes participate in the same atomic unit as the
-        // DbContext would. No production code touches this property.
-        var prop = typeof(TenantScope).GetProperty("Transaction",
-            BindingFlags.NonPublic | BindingFlags.Instance)
-            ?? throw new InvalidOperationException("TenantScope.Transaction property not found.");
-        return (NpgsqlTransaction)prop.GetValue(scope)!;
     }
 
     private sealed class InactiveScopeStub : ITenantScope
