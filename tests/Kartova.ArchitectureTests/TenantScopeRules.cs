@@ -52,6 +52,23 @@ public class TenantScopeRules
     }
 
     [Fact]
+    public void AspNetCore_adapter_does_not_reference_Postgres_adapter()
+    {
+        // Spec §3.2: SharedKernel.AspNetCore and SharedKernel.Postgres are sibling
+        // adapters consumed by the API composition root. Cross-reference would force
+        // any future transport adapter (Wolverine, Kafka) to inherit a Postgres
+        // dependency. ADR-0090 + slice-2-followup design 2026-04-28.
+        var aspNetCoreRefs = SharedKernelAspNetCore
+            .GetReferencedAssemblies()
+            .Select(a => a.Name)
+            .ToArray();
+
+        aspNetCoreRefs.Should().NotContain("Kartova.SharedKernel.Postgres",
+            because: "Spec §3.2 forbids the cross-reference; transport adapters " +
+                     "exchange failures via Kartova.SharedKernel.Multitenancy.TenantScopeBeginException");
+    }
+
+    [Fact]
     public void Wolverine_middleware_project_exists()
     {
         // Sanity: ensure the Wolverine adapter skeleton is compiled and present.
