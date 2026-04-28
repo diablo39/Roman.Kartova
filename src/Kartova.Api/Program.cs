@@ -93,7 +93,7 @@ public class Program
 
         app.UseAuthentication();
         app.UseAuthorization();
-        app.UseMiddleware<TenantScopeMiddleware>();
+        app.UseMiddleware<TenantScopeBeginMiddleware>();
 
         app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = c => c.Tags.Contains("live") });
         app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready") });
