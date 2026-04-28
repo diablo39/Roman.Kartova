@@ -443,3 +443,6 @@ coverage-report/
 generated-tests-summary.md
 mutation-report-surviving.md
 quality-analysis.md
+
+# /deep-review outputs are session artifacts, not checked in
+docs/superpowers/reviews/
