@@ -31,7 +31,36 @@ public static class AddModuleDbContextExtensions
 
             // Fail-fast on SaveChanges if scope is not active.
             options.AddInterceptors(sp.GetRequiredService<TenantScopeRequiredInterceptor>());
+
+            // Enlist DbContext transaction tracking in the shared scope transaction
+            // so EF Core writes participate in the per-request atomic unit (ADR-0090).
+            // Defensive fallback for any path that bypasses the eager enlistment below
+            // (e.g. external code that builds a DbContext outside this DI flow).
+            options.AddInterceptors(sp.GetRequiredService<EnlistInTenantScopeInterceptor>());
         });
+
+        // Replace the AddDbContext registration of TContext with a factory that eagerly
+        // enlists the new DbContext in the scope's transaction. EF Core's interceptors
+        // don't fire when the underlying connection is already open (which is the ADR-0090
+        // norm — the scope opens it), so without eager enlistment Database.CurrentTransaction
+        // would only become non-null after the first command. Eager enlistment makes EF's
+        // public API observably consistent immediately after the DbContext is resolved.
+        var existing = services.Single(d => d.ServiceType == typeof(TContext));
+        services.Remove(existing);
+        services.Add(new ServiceDescriptor(
+            typeof(TContext),
+            sp =>
+            {
+                var options = sp.GetRequiredService<DbContextOptions<TContext>>();
+                var ctx = ActivatorUtilities.CreateInstance<TContext>(sp, options);
+                var scope = sp.GetRequiredService<INpgsqlTenantScope>();
+                if (scope.IsActive && ctx.Database.CurrentTransaction is null)
+                {
+                    ctx.Database.UseTransaction(scope.Transaction);
+                }
+                return ctx;
+            },
+            existing.Lifetime));
 
         return services;
     }
@@ -46,6 +75,7 @@ public static class AddModuleDbContextExtensions
         services.AddScoped<ITenantScope>(sp => sp.GetRequiredService<TenantScope>());
         services.AddScoped<INpgsqlTenantScope>(sp => sp.GetRequiredService<TenantScope>());
         services.AddScoped<TenantScopeRequiredInterceptor>();
+        services.AddScoped<EnlistInTenantScopeInterceptor>();
         return services;
     }
 }
