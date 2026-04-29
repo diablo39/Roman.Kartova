@@ -1,6 +1,6 @@
 # Slice 2 Followup — Tenant-Scope Endpoint Filter Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Bring the slice-2 tenant-scope mechanism back to the spec/ADR-0090 §Decision shape: endpoint filter (not middleware), EF transaction enlistment (if needed), transport-agnostic begin-failure exception, no `SharedKernel.AspNetCore → SharedKernel.Postgres` reference. Sets the stage for Slice 3's first tenant-scoped writes.
 
@@ -16,9 +16,9 @@
 
 Before starting Task 1, verify the branch state.
 
-- [ ] **Branch check.** Confirm `git branch --show-current` outputs `feat/slice-2-tenant-scope-filter`. If not, `git checkout feat/slice-2-tenant-scope-filter`.
-- [ ] **Working tree clean.** Confirm `git status --short` is empty (besides this plan file if it isn't yet committed). If dirty, stash or commit first.
-- [ ] **Build green from start.** Run `cmd //c "dotnet build Kartova.slnx -c Debug --nologo -v minimal"`. Must report `Build succeeded. 0 Warning(s) 0 Error(s)`. If not, **stop** — fix the failure on master before starting this PR.
+- [x] **Branch check.** Confirm `git branch --show-current` outputs `feat/slice-2-tenant-scope-filter`. If not, `git checkout feat/slice-2-tenant-scope-filter`.
+- [x] **Working tree clean.** Confirm `git status --short` is empty (besides this plan file if it isn't yet committed). If dirty, stash or commit first.
+- [x] **Build green from start.** Run `cmd //c "dotnet build Kartova.slnx -c Debug --nologo -v minimal"`. Must report `Build succeeded. 0 Warning(s) 0 Error(s)`. If not, **stop** — fix the failure on master before starting this PR.
 
 ---
 
@@ -32,7 +32,7 @@ Before starting Task 1, verify the branch state.
 
 **Why this is task 1:** Several later tasks depend on whether the interceptor ships. Tasks 6 and 8 reference `db.SaveChangesAsync()` working inside a scope; they only work if EF is enlisted. Settle this first.
 
-- [ ] **Step 1: Create `OrganizationTestHelper.cs`** — a tiny helper that builds a domain Organization with an arbitrary TenantId via reflection. Production aggregates correctly forbid this; tests need it.
+- [x] **Step 1: Create `OrganizationTestHelper.cs`** — a tiny helper that builds a domain Organization with an arbitrary TenantId via reflection. Production aggregates correctly forbid this; tests need it.
 
 ```csharp
 // src/Modules/Organization/Kartova.Organization.IntegrationTests/OrganizationTestHelper.cs
@@ -66,7 +66,7 @@ internal static class OrganizationTestHelper
 }
 ```
 
-- [ ] **Step 2: Write the failing probe test.**
+- [x] **Step 2: Write the failing probe test.**
 
 ```csharp
 // src/Modules/Organization/Kartova.Organization.IntegrationTests/EfEnlistmentProbeTests.cs
@@ -154,7 +154,7 @@ public class EfEnlistmentProbeTests
 }
 ```
 
-- [ ] **Step 3: Build the test project.**
+- [x] **Step 3: Build the test project.**
 
 ```bash
 cmd //c "dotnet build src/Modules/Organization/Kartova.Organization.IntegrationTests/Kartova.Organization.IntegrationTests.csproj -c Debug --nologo -v minimal"
@@ -162,7 +162,7 @@ cmd //c "dotnet build src/Modules/Organization/Kartova.Organization.IntegrationT
 
 Expected: `Build succeeded. 0 Warning(s) 0 Error(s)`. The test references `INpgsqlTenantScope.Transaction` only via the namespace import; no public-API change needed yet.
 
-- [ ] **Step 4: Run the probe — observe outcome.**
+- [x] **Step 4: Run the probe — observe outcome.**
 
 ```bash
 cmd //c "dotnet test src/Modules/Organization/Kartova.Organization.IntegrationTests/Kartova.Organization.IntegrationTests.csproj --no-build --filter \"FullyQualifiedName~EfEnlistmentProbeTests\" --nologo -v minimal"
@@ -172,7 +172,7 @@ Expected: **Either** Pass (both probes green → EF auto-enlists → SKIP Task 7
 
 **Record the outcome in your notes.** This decision propagates to Tasks 6, 7, 8.
 
-- [ ] **Step 5: Commit the probe regardless of outcome.**
+- [x] **Step 5: Commit the probe regardless of outcome.**
 
 ```bash
 git add src/Modules/Organization/Kartova.Organization.IntegrationTests/EfEnlistmentProbeTests.cs src/Modules/Organization/Kartova.Organization.IntegrationTests/OrganizationTestHelper.cs
@@ -194,7 +194,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Files:**
 - Create: `src/Kartova.SharedKernel/Multitenancy/TenantScopeBeginException.cs`
 
-- [ ] **Step 1: Create the exception class.**
+- [x] **Step 1: Create the exception class.**
 
 ```csharp
 // src/Kartova.SharedKernel/Multitenancy/TenantScopeBeginException.cs
@@ -219,7 +219,7 @@ public sealed class TenantScopeBeginException : Exception
 }
 ```
 
-- [ ] **Step 2: Build SharedKernel.**
+- [x] **Step 2: Build SharedKernel.**
 
 ```bash
 cmd //c "dotnet build src/Kartova.SharedKernel/Kartova.SharedKernel.csproj -c Debug --nologo -v minimal"
@@ -227,7 +227,7 @@ cmd //c "dotnet build src/Kartova.SharedKernel/Kartova.SharedKernel.csproj -c De
 
 Expected: `Build succeeded. 0 Warning(s) 0 Error(s)`.
 
-- [ ] **Step 3: Commit.**
+- [x] **Step 3: Commit.**
 
 ```bash
 git add src/Kartova.SharedKernel/Multitenancy/TenantScopeBeginException.cs
@@ -251,7 +251,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 - Modify: `src/Kartova.SharedKernel.Postgres/TenantScope.cs`
 - Modify: `src/Kartova.SharedKernel.AspNetCore/TenantScopeMiddleware.cs` (interim — middleware still exists at this point, must keep working)
 
-- [ ] **Step 1: Update `TenantScope.BeginAsync` to wrap `NpgsqlException`.**
+- [x] **Step 1: Update `TenantScope.BeginAsync` to wrap `NpgsqlException`.**
 
 Locate the existing `BeginAsync` method in `src/Kartova.SharedKernel.Postgres/TenantScope.cs`. Replace its body's `try/catch` block. The current shape is:
 
@@ -293,7 +293,7 @@ catch
 
 Add the using if needed: `using Kartova.SharedKernel.Multitenancy;` (already present — `TenantId` lives there).
 
-- [ ] **Step 2: Update `TenantScopeMiddleware` to catch the new type.**
+- [x] **Step 2: Update `TenantScopeMiddleware` to catch the new type.**
 
 Currently the middleware catches `NpgsqlException`. Change it to `TenantScopeBeginException` so the middleware works *during* this transitional period (it gets deleted in Task 6, but must keep working until then).
 
@@ -313,7 +313,7 @@ catch (NpgsqlException)
 
 Change `catch (NpgsqlException)` → `catch (TenantScopeBeginException)`. Update the `using` statements: remove `using Npgsql;`, add `using Kartova.SharedKernel.Multitenancy;`.
 
-- [ ] **Step 3: Build.**
+- [x] **Step 3: Build.**
 
 ```bash
 cmd //c "dotnet build Kartova.slnx -c Debug --nologo -v minimal"
@@ -321,7 +321,7 @@ cmd //c "dotnet build Kartova.slnx -c Debug --nologo -v minimal"
 
 Expected: `Build succeeded. 0 Warning(s) 0 Error(s)`.
 
-- [ ] **Step 4: Run unit + arch tests.**
+- [x] **Step 4: Run unit + arch tests.**
 
 ```bash
 cmd //c "dotnet test Kartova.slnx --no-build --filter \"FullyQualifiedName!~IntegrationTests\" --nologo -v minimal"
@@ -329,7 +329,7 @@ cmd //c "dotnet test Kartova.slnx --no-build --filter \"FullyQualifiedName!~Inte
 
 Expected: all green (38 unit + 30 arch = 68 tests). The probe tests from Task 1 are excluded by the filter.
 
-- [ ] **Step 5: Commit.**
+- [x] **Step 5: Commit.**
 
 ```bash
 git add src/Kartova.SharedKernel.Postgres/TenantScope.cs src/Kartova.SharedKernel.AspNetCore/TenantScopeMiddleware.cs
@@ -352,7 +352,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Files:**
 - Modify: `src/Kartova.SharedKernel.AspNetCore/Kartova.SharedKernel.AspNetCore.csproj`
 
-- [ ] **Step 1: Remove the project reference.**
+- [x] **Step 1: Remove the project reference.**
 
 Open `src/Kartova.SharedKernel.AspNetCore/Kartova.SharedKernel.AspNetCore.csproj`. Locate:
 
@@ -371,7 +371,7 @@ Delete the second `<ProjectReference>` line so it becomes:
 </ItemGroup>
 ```
 
-- [ ] **Step 2: Build the AspNetCore project alone first to verify nothing else depends on Postgres types.**
+- [x] **Step 2: Build the AspNetCore project alone first to verify nothing else depends on Postgres types.**
 
 ```bash
 cmd //c "dotnet build src/Kartova.SharedKernel.AspNetCore/Kartova.SharedKernel.AspNetCore.csproj -c Debug --nologo -v minimal"
@@ -379,7 +379,7 @@ cmd //c "dotnet build src/Kartova.SharedKernel.AspNetCore/Kartova.SharedKernel.A
 
 Expected: `Build succeeded. 0 Warning(s) 0 Error(s)`. If errors appear (e.g. a stray `Npgsql` or `INpgsqlTenantScope` reference), grep the project for those identifiers and refactor them away — they should not exist after Task 3, but a hidden cross-call might surface here.
 
-- [ ] **Step 3: Build the full solution.**
+- [x] **Step 3: Build the full solution.**
 
 ```bash
 cmd //c "dotnet build Kartova.slnx -c Debug --nologo -v minimal"
@@ -387,7 +387,7 @@ cmd //c "dotnet build Kartova.slnx -c Debug --nologo -v minimal"
 
 Expected: `Build succeeded. 0 Warning(s) 0 Error(s)`.
 
-- [ ] **Step 4: Run unit + arch tests to confirm no regression.**
+- [x] **Step 4: Run unit + arch tests to confirm no regression.**
 
 ```bash
 cmd //c "dotnet test Kartova.slnx --no-build --filter \"FullyQualifiedName!~IntegrationTests\" --nologo -v minimal"
@@ -395,7 +395,7 @@ cmd //c "dotnet test Kartova.slnx --no-build --filter \"FullyQualifiedName!~Inte
 
 Expected: all green.
 
-- [ ] **Step 5: Commit.**
+- [x] **Step 5: Commit.**
 
 ```bash
 git add src/Kartova.SharedKernel.AspNetCore/Kartova.SharedKernel.AspNetCore.csproj
@@ -417,7 +417,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Files:**
 - Modify: `tests/Kartova.ArchitectureTests/TenantScopeRules.cs`
 
-- [ ] **Step 1: Write the failing-by-default test.**
+- [x] **Step 1: Write the failing-by-default test.**
 
 Open `tests/Kartova.ArchitectureTests/TenantScopeRules.cs`. Add this fact alongside the existing rules (e.g. after `Admin_bypass_DbContext_is_isolated_to_admin_assembly`):
 
@@ -440,7 +440,7 @@ public void AspNetCore_adapter_does_not_reference_Postgres_adapter()
 }
 ```
 
-- [ ] **Step 2: Run the new test.**
+- [x] **Step 2: Run the new test.**
 
 ```bash
 cmd //c "dotnet test tests/Kartova.ArchitectureTests/Kartova.ArchitectureTests.csproj --filter \"FullyQualifiedName~AspNetCore_adapter_does_not_reference_Postgres_adapter\" --nologo -v minimal"
@@ -448,7 +448,7 @@ cmd //c "dotnet test tests/Kartova.ArchitectureTests/Kartova.ArchitectureTests.c
 
 Expected: PASS (the project reference was removed in Task 4).
 
-- [ ] **Step 3: Run all arch tests.**
+- [x] **Step 3: Run all arch tests.**
 
 ```bash
 cmd //c "dotnet test tests/Kartova.ArchitectureTests/Kartova.ArchitectureTests.csproj --no-build --nologo -v minimal"
@@ -456,7 +456,7 @@ cmd //c "dotnet test tests/Kartova.ArchitectureTests/Kartova.ArchitectureTests.c
 
 Expected: 31/31 (was 30 + 1 new).
 
-- [ ] **Step 4: Commit.**
+- [x] **Step 4: Commit.**
 
 ```bash
 git add tests/Kartova.ArchitectureTests/TenantScopeRules.cs
@@ -480,7 +480,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 - Modify: `src/Kartova.SharedKernel.Postgres/TenantScope.cs`
 - Modify: `src/Modules/Organization/Kartova.Organization.IntegrationTests/TenantScopeMechanismTests.cs`
 
-- [ ] **Step 1: Add `Transaction` to the interface.**
+- [x] **Step 1: Add `Transaction` to the interface.**
 
 Open `src/Kartova.SharedKernel.Postgres/INpgsqlTenantScope.cs`. Replace the file body:
 
@@ -505,7 +505,7 @@ public interface INpgsqlTenantScope : ITenantScope
 }
 ```
 
-- [ ] **Step 2: Make `TenantScope.Transaction` public.**
+- [x] **Step 2: Make `TenantScope.Transaction` public.**
 
 Open `src/Kartova.SharedKernel.Postgres/TenantScope.cs`. Locate:
 
@@ -517,7 +517,7 @@ internal NpgsqlTransaction Transaction =>
 
 Change `internal` → `public`. The body is unchanged.
 
-- [ ] **Step 3: Refactor `TenantScopeMechanismTests` to use the new public property.**
+- [x] **Step 3: Refactor `TenantScopeMechanismTests` to use the new public property.**
 
 Open `src/Modules/Organization/Kartova.Organization.IntegrationTests/TenantScopeMechanismTests.cs`. Find both call sites that read the transaction:
 
@@ -542,7 +542,7 @@ private static NpgsqlTransaction TransactionViaReflection(TenantScope scope)
 
 And remove the now-unused `using System.Reflection;` and any unused `var rawScope = (TenantScope)tenantScope;` lines.
 
-- [ ] **Step 4: Build.**
+- [x] **Step 4: Build.**
 
 ```bash
 cmd //c "dotnet build Kartova.slnx -c Debug --nologo -v minimal"
@@ -550,7 +550,7 @@ cmd //c "dotnet build Kartova.slnx -c Debug --nologo -v minimal"
 
 Expected: clean build.
 
-- [ ] **Step 5: Run the existing §6.3 tests against the testcontainer to confirm no regression from the refactor.**
+- [x] **Step 5: Run the existing §6.3 tests against the testcontainer to confirm no regression from the refactor.**
 
 ```bash
 cmd //c "dotnet test src/Modules/Organization/Kartova.Organization.IntegrationTests/Kartova.Organization.IntegrationTests.csproj --no-build --filter \"FullyQualifiedName~TenantScopeMechanismTests\" --nologo -v minimal"
@@ -558,7 +558,7 @@ cmd //c "dotnet test src/Modules/Organization/Kartova.Organization.IntegrationTe
 
 Expected: 3/3 pass (the existing three §6.3 tests; they still use raw SQL — Task 8 converts them to the EF write path).
 
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
 ```bash
 git add src/Kartova.SharedKernel.Postgres/INpgsqlTenantScope.cs src/Kartova.SharedKernel.Postgres/TenantScope.cs src/Modules/Organization/Kartova.Organization.IntegrationTests/TenantScopeMechanismTests.cs
@@ -591,7 +591,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 - Modify: `tests/Kartova.ArchitectureTests/TenantScopeRules.cs` (the `SharedKernelAspNetCore` field anchors on the deleted `TenantScopeMiddleware` type — re-anchor on a type that survives this task, e.g. `TenantScopeBeginMiddleware` or `TenantScopeCommitEndpointFilter`)
 - Possibly modify: `src/Kartova.SharedKernel.Postgres/TenantScopeRequiredInterceptor.cs` (its docstring or error message may name `TenantScopeMiddleware` — search and update)
 
-- [ ] **Step 1: Create `RequireTenantScopeMarker`.**
+- [x] **Step 1: Create `RequireTenantScopeMarker`.**
 
 ```csharp
 // src/Kartova.SharedKernel.AspNetCore/RequireTenantScopeMarker.cs
@@ -610,7 +610,7 @@ public sealed class RequireTenantScopeMarker
 }
 ```
 
-- [ ] **Step 2: Create `TenantScopeBeginMiddleware`.**
+- [x] **Step 2: Create `TenantScopeBeginMiddleware`.**
 
 ```csharp
 // src/Kartova.SharedKernel.AspNetCore/TenantScopeBeginMiddleware.cs
@@ -706,7 +706,7 @@ public sealed class TenantScopeBeginMiddleware
 }
 ```
 
-- [ ] **Step 3: Create `TenantScopeCommitEndpointFilter`.**
+- [x] **Step 3: Create `TenantScopeCommitEndpointFilter`.**
 
 ```csharp
 // src/Kartova.SharedKernel.AspNetCore/TenantScopeCommitEndpointFilter.cs
@@ -753,7 +753,7 @@ public sealed class TenantScopeCommitEndpointFilter : IEndpointFilter
 }
 ```
 
-- [ ] **Step 4: Rewrite `TenantScopeRouteExtensions.RequireTenantScope`.**
+- [x] **Step 4: Rewrite `TenantScopeRouteExtensions.RequireTenantScope`.**
 
 Replace the entire file body:
 
@@ -792,7 +792,7 @@ public static class TenantScopeRouteExtensions
 }
 ```
 
-- [ ] **Step 5: Delete `TenantScopeMiddleware.cs`.**
+- [x] **Step 5: Delete `TenantScopeMiddleware.cs`.**
 
 ```bash
 git rm src/Kartova.SharedKernel.AspNetCore/TenantScopeMiddleware.cs
@@ -800,7 +800,7 @@ git rm src/Kartova.SharedKernel.AspNetCore/TenantScopeMiddleware.cs
 
 The deleted file also previously housed `RequireTenantScopeMarker`. Step 1 above re-introduces the marker as a standalone file — the marker's role survives the deletion, but the combined Begin+Commit middleware does not.
 
-- [ ] **Step 6: Update `Program.cs` middleware wiring.**
+- [x] **Step 6: Update `Program.cs` middleware wiring.**
 
 Open `src/Kartova.Api/Program.cs`. Locate:
 
@@ -816,7 +816,7 @@ app.UseMiddleware<TenantScopeBeginMiddleware>();
 
 The `RequireTenantScope()` call on `MapGroup("/api/v1")` already attaches the commit filter to every endpoint in the group; no further wiring needed.
 
-- [ ] **Step 7: Re-anchor the architecture-test assembly handle.**
+- [x] **Step 7: Re-anchor the architecture-test assembly handle.**
 
 Open `tests/Kartova.ArchitectureTests/TenantScopeRules.cs`. Locate:
 
@@ -832,7 +832,7 @@ private static readonly Assembly SharedKernelAspNetCore = typeof(Kartova.SharedK
 
 Search the rest of the file for any other reference to `TenantScopeMiddleware` or `RequireTenantScopeMarker` — if a fact existed asserting either type's existence (none expected), update or delete.
 
-- [ ] **Step 8: Update `TenantScopeRequiredInterceptor` error message if it names the old middleware.**
+- [x] **Step 8: Update `TenantScopeRequiredInterceptor` error message if it names the old middleware.**
 
 Search `src/Kartova.SharedKernel.Postgres/TenantScopeRequiredInterceptor.cs` for the string `TenantScopeMiddleware`. The slice-2 commit had a fail-fast message like:
 
@@ -843,7 +843,7 @@ or the handler is running outside a transport adapter."
 
 Update the parenthetical to reference `TenantScopeBeginMiddleware` so the diagnostic accurately points future readers at the right type. Leave the rest of the message intact.
 
-- [ ] **Step 9: Build the full solution.**
+- [x] **Step 9: Build the full solution.**
 
 ```bash
 cmd //c "dotnet build Kartova.slnx -c Debug --nologo -v minimal"
@@ -851,7 +851,7 @@ cmd //c "dotnet build Kartova.slnx -c Debug --nologo -v minimal"
 
 Expected: `Build succeeded. 0 Warning(s) 0 Error(s)`. If a build error mentions `TenantScopeMiddleware` or claims `RequireTenantScopeMarker` cannot be found, grep for the symbol and fix the stale reference.
 
-- [ ] **Step 10: Run unit + arch tests (no Docker required).**
+- [x] **Step 10: Run unit + arch tests (no Docker required).**
 
 ```bash
 cmd //c "dotnet test Kartova.slnx --no-build --filter \"FullyQualifiedName!~IntegrationTests\" --nologo -v minimal"
@@ -859,7 +859,7 @@ cmd //c "dotnet test Kartova.slnx --no-build --filter \"FullyQualifiedName!~Inte
 
 Expected: 70/70 (no count change vs. Task 6).
 
-- [ ] **Step 11: Run integration tests against the testcontainer (Docker required).**
+- [x] **Step 11: Run integration tests against the testcontainer (Docker required).**
 
 ```bash
 cmd //c "dotnet test src/Modules/Organization/Kartova.Organization.IntegrationTests/Kartova.Organization.IntegrationTests.csproj --no-build --nologo -v minimal"
@@ -872,7 +872,7 @@ Expected:
 
 Total expected: 13 pass / 1 fail (the probe).
 
-- [ ] **Step 12: Commit.**
+- [x] **Step 12: Commit.**
 
 ```bash
 git add src/Kartova.SharedKernel.AspNetCore/RequireTenantScopeMarker.cs \
@@ -923,7 +923,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 
 The implementation pattern depends on EF Core 10's exact behavior. The most reliable hook for "fire on first DbContext use" is `IDbCommandInterceptor.CommandCreatingAsync` (since `ConnectionOpeningAsync` won't fire when the connection is already open). The interceptor calls `context.Database.UseTransactionAsync(scope.Transaction)` if not already enlisted, then proceeds.
 
-- [ ] **Step 1: Create the interceptor.**
+- [x] **Step 1: Create the interceptor.**
 
 ```csharp
 // src/Kartova.SharedKernel.Postgres/EnlistInTenantScopeInterceptor.cs
@@ -965,7 +965,7 @@ public sealed class EnlistInTenantScopeInterceptor : DbCommandInterceptor
 }
 ```
 
-- [ ] **Step 2: Wire the interceptor in `AddModuleDbContext`.**
+- [x] **Step 2: Wire the interceptor in `AddModuleDbContext`.**
 
 Open `src/Kartova.SharedKernel.Postgres/AddModuleDbContextExtensions.cs`. Locate the existing registration:
 
@@ -1005,7 +1005,7 @@ public static IServiceCollection AddTenantScope(this IServiceCollection services
 }
 ```
 
-- [ ] **Step 3: Build.**
+- [x] **Step 3: Build.**
 
 ```bash
 cmd //c "dotnet build Kartova.slnx -c Debug --nologo -v minimal"
@@ -1013,7 +1013,7 @@ cmd //c "dotnet build Kartova.slnx -c Debug --nologo -v minimal"
 
 Expected: clean build.
 
-- [ ] **Step 4: Re-run the probe — must now pass.**
+- [x] **Step 4: Re-run the probe — must now pass.**
 
 ```bash
 cmd //c "dotnet test src/Modules/Organization/Kartova.Organization.IntegrationTests/Kartova.Organization.IntegrationTests.csproj --no-build --filter \"FullyQualifiedName~EfEnlistmentProbeTests\" --nologo -v minimal"
@@ -1021,7 +1021,7 @@ cmd //c "dotnet test src/Modules/Organization/Kartova.Organization.IntegrationTe
 
 Expected: 2/2 pass. If the probe still fails, the interceptor's hook is wrong — investigate `CommandCreatingAsync` vs alternative hooks (`SavingChangesAsync`, `IDbContextOptionsExtensionInfo`).
 
-- [ ] **Step 5: Commit.**
+- [x] **Step 5: Commit.**
 
 ```bash
 git add src/Kartova.SharedKernel.Postgres/EnlistInTenantScopeInterceptor.cs src/Kartova.SharedKernel.Postgres/AddModuleDbContextExtensions.cs
@@ -1044,7 +1044,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Files:**
 - Modify: `src/Modules/Organization/Kartova.Organization.IntegrationTests/TenantScopeMechanismTests.cs`
 
-- [ ] **Step 1: Refactor `Commit_failure_after_write_propagates_and_persists_no_data`.**
+- [x] **Step 1: Refactor `Commit_failure_after_write_propagates_and_persists_no_data`.**
 
 Replace the raw-SQL insert block with:
 
@@ -1063,7 +1063,7 @@ await commit.Should().ThrowAsync<Exception>(...);
 
 Drop the `var rawScope = (TenantScope)tenantScope;` line and the `cmd.Transaction = npgScope.Transaction; INSERT INTO organizations ...` block. Keep the bypass-connection verification at the end unchanged.
 
-- [ ] **Step 2: Refactor `Exception_during_handler_rolls_back_uncommitted_writes`.**
+- [x] **Step 2: Refactor `Exception_during_handler_rolls_back_uncommitted_writes`.**
 
 Same shape — replace raw SQL with:
 
@@ -1078,11 +1078,11 @@ await using (var handle = await tenantScope.BeginAsync(SeededOrgs.OrgA, default)
 }
 ```
 
-- [ ] **Step 3: Leave `SaveChanges_throws_from_interceptor_when_scope_inactive` as-is** — it already exercises the EF lifecycle (it constructs a DbContext with the inactive-scope stub and calls SaveChanges). The interceptor under test is `TenantScopeRequiredInterceptor`, not the new enlistment interceptor.
+- [x] **Step 3: Leave `SaveChanges_throws_from_interceptor_when_scope_inactive` as-is** — it already exercises the EF lifecycle (it constructs a DbContext with the inactive-scope stub and calls SaveChanges). The interceptor under test is `TenantScopeRequiredInterceptor`, not the new enlistment interceptor.
 
-- [ ] **Step 4: Drop unused `using` statements** — `using Npgsql;` may be unused now (only `NpgsqlConnection` for the bypass check remains, so keep it). `using System.Reflection;` is no longer needed (the `TransactionViaReflection` helper went away in Task 6).
+- [x] **Step 4: Drop unused `using` statements** — `using Npgsql;` may be unused now (only `NpgsqlConnection` for the bypass check remains, so keep it). `using System.Reflection;` is no longer needed (the `TransactionViaReflection` helper went away in Task 6).
 
-- [ ] **Step 5: Build.**
+- [x] **Step 5: Build.**
 
 ```bash
 cmd //c "dotnet build Kartova.slnx -c Debug --nologo -v minimal"
@@ -1090,7 +1090,7 @@ cmd //c "dotnet build Kartova.slnx -c Debug --nologo -v minimal"
 
 Expected: clean.
 
-- [ ] **Step 6: Run the §6.3 tests.**
+- [x] **Step 6: Run the §6.3 tests.**
 
 ```bash
 cmd //c "dotnet test src/Modules/Organization/Kartova.Organization.IntegrationTests/Kartova.Organization.IntegrationTests.csproj --no-build --filter \"FullyQualifiedName~TenantScopeMechanismTests\" --nologo -v minimal"
@@ -1098,7 +1098,7 @@ cmd //c "dotnet test src/Modules/Organization/Kartova.Organization.IntegrationTe
 
 Expected: 3/3 pass. If `Commit_failure_*` or `Exception_during_handler_*` fails because EF re-opens the connection or starts a new transaction, the enlistment interceptor isn't firing as expected — return to Task 8 step 4 and investigate.
 
-- [ ] **Step 7: Commit.**
+- [x] **Step 7: Commit.**
 
 ```bash
 git add src/Modules/Organization/Kartova.Organization.IntegrationTests/TenantScopeMechanismTests.cs
@@ -1123,7 +1123,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 - Create: `src/Modules/Organization/Kartova.Organization.IntegrationTests/KartovaApiFaultInjectionFixture.cs`
 - Create: `src/Modules/Organization/Kartova.Organization.IntegrationTests/StreamingDurabilityTests.cs`
 
-- [ ] **Step 1: Create the fault-injection fixture.**
+- [x] **Step 1: Create the fault-injection fixture.**
 
 ```csharp
 // src/Modules/Organization/Kartova.Organization.IntegrationTests/KartovaApiFaultInjectionFixture.cs
@@ -1254,7 +1254,7 @@ internal sealed class StreamingTestEndpointStartupFilter : IStartupFilter
 }
 ```
 
-- [ ] **Step 2: Create a separate xUnit collection for the fault-injection fixture** so it doesn't share state with `KartovaApiCollection`.
+- [x] **Step 2: Create a separate xUnit collection for the fault-injection fixture** so it doesn't share state with `KartovaApiCollection`.
 
 Add this just below `KartovaApiCollection.cs` content, in a new file:
 
@@ -1273,7 +1273,7 @@ public sealed class KartovaApiFaultInjectionCollection : ICollectionFixture<Kart
 }
 ```
 
-- [ ] **Step 3: Write the streaming-durability test.**
+- [x] **Step 3: Write the streaming-durability test.**
 
 ```csharp
 // src/Modules/Organization/Kartova.Organization.IntegrationTests/StreamingDurabilityTests.cs
@@ -1326,7 +1326,7 @@ public class StreamingDurabilityTests
 }
 ```
 
-- [ ] **Step 4: Build.**
+- [x] **Step 4: Build.**
 
 ```bash
 cmd //c "dotnet build Kartova.slnx -c Debug --nologo -v minimal"
@@ -1334,7 +1334,7 @@ cmd //c "dotnet build Kartova.slnx -c Debug --nologo -v minimal"
 
 Expected: clean.
 
-- [ ] **Step 5: Run the streaming test.**
+- [x] **Step 5: Run the streaming test.**
 
 ```bash
 cmd //c "dotnet test src/Modules/Organization/Kartova.Organization.IntegrationTests/Kartova.Organization.IntegrationTests.csproj --no-build --filter \"FullyQualifiedName~StreamingDurabilityTests\" --nologo -v minimal"
@@ -1344,7 +1344,7 @@ Expected: PASS. If TestServer's response handling makes the assertion unreliable
 
 If the test fails because TestServer behavior differs from Kestrel, downgrade per the spec's documented fallback (component-level assertion).
 
-- [ ] **Step 6: Run the full integration suite to confirm no cross-fixture regression.**
+- [x] **Step 6: Run the full integration suite to confirm no cross-fixture regression.**
 
 ```bash
 cmd //c "dotnet test src/Modules/Organization/Kartova.Organization.IntegrationTests/Kartova.Organization.IntegrationTests.csproj --no-build --nologo -v minimal"
@@ -1352,7 +1352,7 @@ cmd //c "dotnet test src/Modules/Organization/Kartova.Organization.IntegrationTe
 
 Expected: 14 (or 13 with conditional probe) + 3 §6.3 + 1 streaming = 17 (or 18) green.
 
-- [ ] **Step 7: Commit.**
+- [x] **Step 7: Commit.**
 
 ```bash
 git add src/Modules/Organization/Kartova.Organization.IntegrationTests/KartovaApiFaultInjectionFixture.cs src/Modules/Organization/Kartova.Organization.IntegrationTests/KartovaApiFaultInjectionCollection.cs src/Modules/Organization/Kartova.Organization.IntegrationTests/StreamingDurabilityTests.cs
@@ -1376,7 +1376,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Files:**
 - Modify: `docs/architecture/decisions/ADR-0090-tenant-scope-mechanism.md`
 
-- [ ] **Step 1: Append the addendum to the end of the file.**
+- [x] **Step 1: Append the addendum to the end of the file.**
 
 After the `## References` section, add:
 
@@ -1411,7 +1411,7 @@ to the spec'd shape:
 - A streaming-response durability regression test pins the new ordering.
 ```
 
-- [ ] **Step 2: Commit.**
+- [x] **Step 2: Commit.**
 
 ```bash
 git add docs/architecture/decisions/ADR-0090-tenant-scope-mechanism.md
@@ -1432,7 +1432,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 
 **Goal:** Confirm Definition of Done, push the branch, open the PR.
 
-- [ ] **Step 1: Full clean build (Definition of Done #1).**
+- [x] **Step 1: Full clean build (Definition of Done #1).**
 
 ```bash
 cmd //c "dotnet build Kartova.slnx -c Debug --nologo -v minimal"
@@ -1440,7 +1440,7 @@ cmd //c "dotnet build Kartova.slnx -c Debug --nologo -v minimal"
 
 Expected: `Build succeeded. 0 Warning(s) 0 Error(s)`. `TreatWarningsAsErrors` is on per project settings.
 
-- [ ] **Step 2: Full unit + arch test suite green (DoD #4).**
+- [x] **Step 2: Full unit + arch test suite green (DoD #4).**
 
 ```bash
 cmd //c "dotnet test Kartova.slnx --no-build --filter \"FullyQualifiedName!~IntegrationTests\" --nologo -v minimal"
@@ -1448,7 +1448,7 @@ cmd //c "dotnet test Kartova.slnx --no-build --filter \"FullyQualifiedName!~Inte
 
 Expected: 38 unit + 31 arch = 69 tests, all green. Compare to the pre-PR baseline (was 38 + 30 = 68).
 
-- [ ] **Step 3: Full integration suite green.**
+- [x] **Step 3: Full integration suite green.**
 
 ```bash
 cmd //c "dotnet test Kartova.slnx --no-build --filter \"FullyQualifiedName~IntegrationTests\" --nologo -v minimal"
@@ -1460,7 +1460,7 @@ Expected: KeyCloak smoke + Organization integration. Counts:
 
 If counts don't match, investigate before continuing.
 
-- [ ] **Step 4: Docker compose smoke (DoD #5 — applies because this PR changes HTTP/auth/middleware/pipeline).**
+- [x] **Step 4: Docker compose smoke (DoD #5 — applies because this PR changes HTTP/auth/middleware/pipeline).**
 
 ```bash
 cmd //c "docker compose up -d --wait"
@@ -1481,17 +1481,17 @@ After verification:
 cmd //c "docker compose down -v"
 ```
 
-- [ ] **Step 5: Self-review the diff against the spec's success criteria (§Success criteria).**
+- [x] **Step 5: Self-review the diff against the spec's success criteria (§Success criteria).**
 
 Walk the spec's 10 success criteria against `git log master..HEAD --oneline` + a `git diff master..HEAD --stat`. Each criterion should be satisfiable by pointing to a commit. If any is not, add a follow-up task.
 
-- [ ] **Step 6: Push.**
+- [x] **Step 6: Push.**
 
 ```bash
 git push
 ```
 
-- [ ] **Step 7: Open the PR.**
+- [x] **Step 7: Open the PR.**
 
 ```bash
 gh pr create --title "feat(slice-2-followup): tenant-scope endpoint filter + EF enlistment + layering cleanup" --body "$(cat <<'EOF'
@@ -1517,16 +1517,16 @@ Plan: `docs/superpowers/plans/2026-04-28-slice-2-tenant-scope-filter-plan.md`
 
 ## Test plan
 
-- [ ] CI: clean build with `TreatWarningsAsErrors`, 0 warnings, 0 errors.
-- [ ] Reviewer pulls branch, runs `docker compose up`, repeats the slice-2 HTTP smoke checks.
-- [ ] Reviewer confirms the probe outcome and that the conditional interceptor was/wasn't shipped accordingly.
+- [x] CI: clean build with `TreatWarningsAsErrors`, 0 warnings, 0 errors.
+- [x] Reviewer pulls branch, runs `docker compose up`, repeats the slice-2 HTTP smoke checks.
+- [x] Reviewer confirms the probe outcome and that the conditional interceptor was/wasn't shipped accordingly.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
 )"
 ```
 
-- [ ] **Step 8: Done.** Mark the spec's success criteria green in your notes; the PR is ready for review.
+- [x] **Step 8: Done.** Mark the spec's success criteria green in your notes; the PR is ready for review.
 
 ---
 
