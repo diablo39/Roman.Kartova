@@ -455,8 +455,35 @@ Slice-2 checks plus:
 
 - "match the Organization module's existing convention" in §5.7 (file layout for endpoint delegates) — intentional ambiguity, resolved at implementation time.
 
-**Known tech debt (not in scope, recorded here):**
-
-- `Organization.cs` aggregate uses `DateTimeOffset.UtcNow` directly. Slice 3 follows the same convention for `Application.cs`. A separate testability slice should later promote both aggregates to `TimeProvider` (matches the project's `dotnet-test:migrate-static-to-wrapper` skill output).
-
 **No issues found.**
+
+---
+
+## 13. Follow-up slices (registered for future planning)
+
+These items are deliberately out of slice-3 scope but recorded here so they aren't forgotten.
+
+### 13.1 TimeProvider adoption across aggregates
+
+**Why:** Both `Organization` and `Application` (slice 3) use `DateTimeOffset.UtcNow` directly inside `Create` factories. This is testable today only via "within ±1s of now" assertions, which are inherently flaky and gain no protection against clock-related regressions.
+
+**Scope:**
+- Adopt `TimeProvider` in `Kartova.SharedKernel` (DI-registered as `TimeProvider.System` by default).
+- Refactor `Organization.Create` and `Application.Create` to take an injected `TimeProvider`, replacing direct `DateTimeOffset.UtcNow`.
+- Update existing unit tests to use `FakeTimeProvider` (xUnit fixture from `Microsoft.Extensions.TimeProvider.Testing`).
+- Update Wolverine handlers and any other aggregate factory call sites.
+- Run `dotnet-test:detect-static-dependencies` skill to surface any other `DateTime.*` / `DateTimeOffset.*` static call sites that should join this migration.
+
+**Trigger:** Run `dotnet-test:migrate-static-to-wrapper` skill against `src/` after slice 3 merges, scoped to `DateTimeOffset.UtcNow` and related statics.
+
+**Effort estimate:** ~1 day. Mechanical migration; the skill handles call-site rewriting; only test updates need human review.
+
+**Ordering:** Can ship anytime after slice 3 merges. Independent of slice 4+ feature work, but should land before any slice that needs `IClock`-style behavior (e.g., expiry, scheduling, audit-log timestamps under MiFID II — `E-01.F-05.S-07`).
+
+### 13.2 API-entity URL naming
+
+**Why:** Phase 1 will introduce `E-02.F-03` (sync APIs + async APIs). The URL collection name is unresolved (`/api/v1/catalog/apis` is awkward; `/api/v1/catalog/sync-apis` + `/async-apis` is verbose; `/contracts` or `/interfaces` rename loses domain term). Defer until slice 4 (Service entity) is merged so two adjacent collection names exist for context.
+
+**Trigger:** Before slice that introduces API-entity endpoints (after Service slice).
+
+**Effort estimate:** ~30-min ADR + zero code (no APIs shipped yet).
