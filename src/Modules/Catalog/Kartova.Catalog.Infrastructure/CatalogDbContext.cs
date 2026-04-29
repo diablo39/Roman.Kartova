@@ -16,6 +16,8 @@ public sealed class CatalogDbContext : DbContext
 
     internal DbSet<KartovaMetadata> Metadata => Set<KartovaMetadata>();
 
+    public DbSet<Kartova.Catalog.Domain.Application> Applications => Set<Kartova.Catalog.Domain.Application>();
+
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -37,5 +39,7 @@ public sealed class CatalogDbContext : DbContext
                 .HasColumnName("applied_at")
                 .IsRequired();
         });
+
+        modelBuilder.ApplyConfiguration(new EfApplicationConfiguration());
     }
 }
