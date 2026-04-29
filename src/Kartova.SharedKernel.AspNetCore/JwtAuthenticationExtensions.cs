@@ -51,6 +51,9 @@ public static class JwtAuthenticationExtensions
 
         services.AddAuthorization();
 
+        services.AddHttpContextAccessor();
+        services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
+
         return services;
     }
 }
