@@ -30,6 +30,7 @@
     <InternalsVisibleTo Include="Kartova.ArchitectureTests" />
     <InternalsVisibleTo Include="Kartova.Api.IntegrationTests" />
     <InternalsVisibleTo Include="Kartova.Organization.IntegrationTests" />
+    <InternalsVisibleTo Include="Kartova.Catalog.IntegrationTests" />
   </ItemGroup>
 
 </Project>
