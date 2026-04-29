@@ -16,7 +16,7 @@ using Xunit;
 namespace Kartova.Organization.IntegrationTests;
 
 [ExcludeFromCodeCoverage]
-public sealed class KartovaApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
+public class KartovaApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly PostgreSqlContainer _pg = new PostgreSqlBuilder()
         .WithImage("postgres:16-alpine")

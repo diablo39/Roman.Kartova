@@ -36,7 +36,7 @@ public sealed class TenantScopeRequiredInterceptor : SaveChangesInterceptor
         {
             throw new InvalidOperationException(
                 "Attempted to SaveChanges on a tenant-scoped DbContext without an active ITenantScope. "
-                + "Either the endpoint is missing RequireTenantScope() (TenantScopeMiddleware skipped it), "
+                + "Either the endpoint is missing RequireTenantScope() (TenantScopeBeginMiddleware skipped it), "
                 + "or the handler is running outside a transport adapter. See ADR-0090.");
         }
     }

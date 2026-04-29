@@ -28,7 +28,7 @@ public sealed class TenantScope : INpgsqlTenantScope
         _connection ?? throw new InvalidOperationException(
             "TenantScope is not active. BeginAsync must be called by the transport adapter before any DbContext is used.");
 
-    internal NpgsqlTransaction Transaction =>
+    public NpgsqlTransaction Transaction =>
         _transaction ?? throw new InvalidOperationException(
             "TenantScope has no active transaction.");
 
@@ -53,6 +53,24 @@ public sealed class TenantScope : INpgsqlTenantScope
             await cmd.ExecuteNonQueryAsync(ct);
 
             return new Handle(this);
+        }
+        catch (NpgsqlException npg)
+        {
+            // Leave the scope in a clean uninitialized state so the caller can surface the
+            // underlying error instead of a confusing "already begun" on retry.
+            if (_transaction is not null)
+            {
+                try { await _transaction.DisposeAsync(); } catch { /* best-effort */ }
+                _transaction = null;
+            }
+            if (_connection is not null)
+            {
+                try { await _connection.DisposeAsync(); } catch { /* best-effort */ }
+                _connection = null;
+            }
+            throw new TenantScopeBeginException(
+                "Failed to begin tenant scope: database unavailable or connection failure.",
+                npg);
         }
         catch
         {

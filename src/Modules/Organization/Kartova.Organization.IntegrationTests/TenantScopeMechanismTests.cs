@@ -1,4 +1,3 @@
-using System.Reflection;
 using FluentAssertions;
 using Kartova.Organization.Infrastructure;
 using Kartova.SharedKernel.Multitenancy;
@@ -67,7 +66,6 @@ public class TenantScopeMechanismTests
         var sp = hostScope.ServiceProvider;
         var tenantScope = sp.GetRequiredService<ITenantScope>();
         var npgScope = (INpgsqlTenantScope)tenantScope;
-        var rawScope = (TenantScope)tenantScope;
 
         var rowName = $"CommitFail-{Guid.NewGuid()}";
         var rowId = Guid.NewGuid();
@@ -75,19 +73,10 @@ public class TenantScopeMechanismTests
         var handle = await tenantScope.BeginAsync(SeededOrgs.OrgA, default);
         try
         {
-            var tx = TransactionViaReflection(rawScope);
-
-            await using (var insertCmd = npgScope.Connection.CreateCommand())
-            {
-                insertCmd.Transaction = tx;
-                insertCmd.CommandText =
-                    "INSERT INTO organizations (id, tenant_id, name, created_at) " +
-                    "VALUES ($1, $2, $3, now())";
-                insertCmd.Parameters.AddWithValue(rowId);
-                insertCmd.Parameters.AddWithValue(SeededOrgs.OrgA.Value);
-                insertCmd.Parameters.AddWithValue(rowName);
-                await insertCmd.ExecuteNonQueryAsync();
-            }
+            var db = sp.GetRequiredService<OrganizationDbContext>();
+            var org = OrganizationTestHelper.CreateWithTenant(rowId, SeededOrgs.OrgA, rowName);
+            db.Add(org);
+            await db.SaveChangesAsync(default);
 
             // Force commit failure: close the underlying connection while the tx is open.
             await npgScope.Connection.CloseAsync();
@@ -113,25 +102,16 @@ public class TenantScopeMechanismTests
         using var hostScope = _fx.Services.CreateScope();
         var sp = hostScope.ServiceProvider;
         var tenantScope = sp.GetRequiredService<ITenantScope>();
-        var npgScope = (INpgsqlTenantScope)tenantScope;
-        var rawScope = (TenantScope)tenantScope;
 
         var rowName = $"Rollback-{Guid.NewGuid()}";
         var rowId = Guid.NewGuid();
 
         await using (var handle = await tenantScope.BeginAsync(SeededOrgs.OrgA, default))
         {
-            var tx = TransactionViaReflection(rawScope);
-
-            await using var insertCmd = npgScope.Connection.CreateCommand();
-            insertCmd.Transaction = tx;
-            insertCmd.CommandText =
-                "INSERT INTO organizations (id, tenant_id, name, created_at) " +
-                "VALUES ($1, $2, $3, now())";
-            insertCmd.Parameters.AddWithValue(rowId);
-            insertCmd.Parameters.AddWithValue(SeededOrgs.OrgA.Value);
-            insertCmd.Parameters.AddWithValue(rowName);
-            await insertCmd.ExecuteNonQueryAsync();
+            var db = sp.GetRequiredService<OrganizationDbContext>();
+            var org = OrganizationTestHelper.CreateWithTenant(rowId, SeededOrgs.OrgA, rowName);
+            db.Add(org);
+            await db.SaveChangesAsync(default);
 
             // Exit without CommitAsync — simulates a thrown handler.
         }
@@ -149,17 +129,6 @@ public class TenantScopeMechanismTests
         cmd.Parameters.AddWithValue(name);
         var count = (long)(await cmd.ExecuteScalarAsync())!;
         count.Should().Be(0, because: because);
-    }
-
-    private static NpgsqlTransaction TransactionViaReflection(TenantScope scope)
-    {
-        // TenantScope.Transaction is internal; tests reach in to share the per-request
-        // transaction so direct-SQL writes participate in the same atomic unit as the
-        // DbContext would. No production code touches this property.
-        var prop = typeof(TenantScope).GetProperty("Transaction",
-            BindingFlags.NonPublic | BindingFlags.Instance)
-            ?? throw new InvalidOperationException("TenantScope.Transaction property not found.");
-        return (NpgsqlTransaction)prop.GetValue(scope)!;
     }
 
     private sealed class InactiveScopeStub : ITenantScope

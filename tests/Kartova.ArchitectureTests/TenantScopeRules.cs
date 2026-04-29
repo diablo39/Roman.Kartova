@@ -11,7 +11,7 @@ namespace Kartova.ArchitectureTests;
 public class TenantScopeRules
 {
     private static readonly Assembly SharedKernel = typeof(Kartova.SharedKernel.Multitenancy.ITenantScope).Assembly;
-    private static readonly Assembly SharedKernelAspNetCore = typeof(Kartova.SharedKernel.AspNetCore.TenantScopeMiddleware).Assembly;
+    private static readonly Assembly SharedKernelAspNetCore = typeof(Kartova.SharedKernel.AspNetCore.TenantScopeBeginMiddleware).Assembly;
     private static readonly Assembly SharedKernelPostgres = typeof(Kartova.SharedKernel.Postgres.TenantScope).Assembly;
     private static readonly Assembly SharedKernelWolverine = typeof(Kartova.SharedKernel.Wolverine.TenantScopeWolverineMiddleware).Assembly;
     private static readonly Assembly OrganizationInfrastructure = typeof(Kartova.Organization.Infrastructure.OrganizationDbContext).Assembly;
@@ -49,6 +49,23 @@ public class TenantScopeRules
 
         result.IsSuccessful.Should().BeTrue(
             because: "Tenant-scoped Infrastructure must not depend on the BYPASSRLS Admin DbContext (ADR-0090)");
+    }
+
+    [Fact]
+    public void AspNetCore_adapter_does_not_reference_Postgres_adapter()
+    {
+        // Spec §3.2: SharedKernel.AspNetCore and SharedKernel.Postgres are sibling
+        // adapters consumed by the API composition root. Cross-reference would force
+        // any future transport adapter (Wolverine, Kafka) to inherit a Postgres
+        // dependency. ADR-0090 + slice-2-followup design 2026-04-28.
+        var aspNetCoreRefs = SharedKernelAspNetCore
+            .GetReferencedAssemblies()
+            .Select(a => a.Name)
+            .ToArray();
+
+        aspNetCoreRefs.Should().NotContain("Kartova.SharedKernel.Postgres",
+            because: "Spec §3.2 forbids the cross-reference; transport adapters " +
+                     "exchange failures via Kartova.SharedKernel.Multitenancy.TenantScopeBeginException");
     }
 
     [Fact]
