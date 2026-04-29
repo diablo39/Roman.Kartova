@@ -77,6 +77,31 @@ public class RegisterApplicationTests
     }
 
     [Fact]
+    public async Task GET_by_id_returns_row_in_same_tenant()
+    {
+        var client = await _fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
+        var post = await client.PostAsJsonAsync(
+            "/api/v1/catalog/applications",
+            new RegisterApplicationRequest("svc-z", "z"));
+        var created = await post.Content.ReadFromJsonAsync<ApplicationResponse>();
+
+        var get = await client.GetAsync($"/api/v1/catalog/applications/{created!.Id}");
+        get.StatusCode.Should().Be(HttpStatusCode.OK);
+        var fetched = await get.Content.ReadFromJsonAsync<ApplicationResponse>();
+        fetched!.Id.Should().Be(created.Id);
+        fetched.Name.Should().Be("svc-z");
+    }
+
+    [Fact]
+    public async Task GET_by_id_returns_404_for_unknown_id()
+    {
+        var client = await _fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
+        var resp = await client.GetAsync($"/api/v1/catalog/applications/{Guid.NewGuid()}");
+        resp.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        resp.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
+    }
+
+    [Fact]
     public async Task POST_without_token_returns_401()
     {
         using var client = _fx.CreateAnonymousClient();

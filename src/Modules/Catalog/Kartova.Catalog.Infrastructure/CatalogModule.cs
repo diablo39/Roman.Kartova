@@ -25,6 +25,8 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         var tenant = app.MapTenantScopedModule(Slug);     // /api/v1/catalog
         tenant.MapPost("/applications", CatalogEndpointDelegates.RegisterApplicationAsync)
               .WithName("RegisterApplication");
+        tenant.MapGet("/applications/{id:guid}", CatalogEndpointDelegates.GetApplicationByIdAsync)
+              .WithName("GetApplicationById");
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
@@ -39,6 +41,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         // alongside CatalogDbContext / ITenantContext / ICurrentUser. See the
         // comment on CatalogEndpointDelegates.RegisterApplicationAsync.
         services.AddScoped<RegisterApplicationHandler>();
+        services.AddScoped<GetApplicationByIdHandler>();
     }
 
     public void RegisterForMigrator(IServiceCollection services, IConfiguration configuration)

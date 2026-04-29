@@ -47,4 +47,29 @@ internal static class CatalogEndpointDelegates
 
         return Results.Created($"/api/v1/catalog/applications/{response.Id}", response);
     }
+
+    /// <summary>
+    /// GET single Application by id. Direct synchronous handler dispatch to
+    /// preserve the HTTP request scope's <c>ITenantScope</c> (see comment on
+    /// <see cref="RegisterApplicationAsync"/>). Null result maps to RFC 7807
+    /// 404 — RLS hides cross-tenant rows so unknown id and cross-tenant id
+    /// surface identically (intentional, ADR-0090).
+    /// </summary>
+    internal static async Task<IResult> GetApplicationByIdAsync(
+        Guid id,
+        GetApplicationByIdHandler handler,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        var resp = await handler.Handle(new GetApplicationByIdQuery(id), db, ct);
+        if (resp is null)
+        {
+            return Results.Problem(
+                type: ProblemTypes.ResourceNotFound,
+                title: "Application not found",
+                detail: "No application with that id is visible in the current tenant.",
+                statusCode: StatusCodes.Status404NotFound);
+        }
+        return Results.Ok(resp);
+    }
 }
