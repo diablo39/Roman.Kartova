@@ -137,3 +137,8 @@ to the spec'd shape:
   `AddModuleDbContext<T>`. Rationale and probe outcome are recorded in
   the slice-2-followup spec §Decisions and plan §Tasks 1 / 8.
 - A streaming-response durability regression test pins the new ordering.
+
+This addendum supersedes the specific adapter name in §Decision (the
+`ASP.NET` row) and the interceptor-hook detail in §Implementation notes;
+the §Decision intent (commit before response body flush, tenant-scope
+enforced before any `SaveChanges`) is unchanged.
