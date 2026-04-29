@@ -103,6 +103,11 @@ public class Program
         app.MapGet("/api/v1/version", GetVersion).AllowAnonymous();
 
         // Module endpoints — each module wires its own routes via IModuleEndpoints.
+        // OrganizationAdminModule is grafted in separately because its endpoints
+        // depend on IAdminOrganizationCommands from Kartova.Organization.Infrastructure.Admin,
+        // which already references Kartova.Organization.Infrastructure (where IModule lives).
+        // Putting MapEndpoints for admin routes inside OrganizationModule would require the
+        // reverse reference, creating a project cycle.
         IModuleEndpoints[] endpointModules =
         [
             .. modules.OfType<IModuleEndpoints>(),

@@ -16,6 +16,10 @@ namespace Kartova.Organization.Infrastructure.Admin;
 [ExcludeFromCodeCoverage]
 public sealed class OrganizationAdminModule : IModuleEndpoints
 {
+    // Mirror of OrganizationModule.Slug — both surfaces address the same resource collection,
+    // so any future rename must be applied in both places. Kept as a const here (rather than
+    // an interface property on IModuleEndpoints) because this class is not an IModule —
+    // it exists only to graft admin-route mapping into the IModuleEndpoints loop.
     public const string Slug = "organizations";
 
     public void MapEndpoints(IEndpointRouteBuilder app)
