@@ -135,4 +135,42 @@ public class RegisterApplicationTests
 
         resp.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
+
+    [Fact]
+    public async Task GET_by_id_returns_404_for_other_tenants_row()
+    {
+        // OrgA creates a row, OrgB tries to fetch it by id. Must 404 — never leak
+        // existence (no 403, no 200). Pins the cross-tenant isolation guarantee.
+        var clientA = await _fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
+        var post = await clientA.PostAsJsonAsync(
+            "/api/v1/catalog/applications",
+            new RegisterApplicationRequest("orga-private", "owned by orga"));
+        post.StatusCode.Should().Be(HttpStatusCode.Created);
+        var orgaApp = await post.Content.ReadFromJsonAsync<ApplicationResponse>();
+
+        var clientB = await _fx.CreateAuthenticatedClientAsync("admin@orgb.kartova.local");
+        var resp = await clientB.GetAsync($"/api/v1/catalog/applications/{orgaApp!.Id}");
+        resp.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GET_list_excludes_other_tenants_rows()
+    {
+        // OrgA seeds a row; OrgB's list must not include it. RLS + tenant scope
+        // together must shield orgb from any orga rows.
+        var clientA = await _fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
+        var orgaApp = await CreateApp(clientA, "orga-isolation-probe");
+
+        var clientB = await _fx.CreateAuthenticatedClientAsync("admin@orgb.kartova.local");
+        var resp = await clientB.GetAsync("/api/v1/catalog/applications");
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await resp.Content.ReadFromJsonAsync<List<ApplicationResponse>>();
+
+        body.Should().NotBeNull();
+        var rows = body!;
+        rows.Select(x => x.Id).Should().NotContain(orgaApp.Id);
+
+        var orgbTenantId = await _fx.GetTenantIdClaimAsync("admin@orgb.kartova.local");
+        rows.All(x => x.TenantId == orgbTenantId).Should().BeTrue();
+    }
 }
