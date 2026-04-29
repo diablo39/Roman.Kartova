@@ -7,12 +7,12 @@ namespace Kartova.SharedKernel.Postgres;
 /// <summary>
 /// Defensive command-creation interceptor that ensures any DbContext command issued
 /// inside an active tenant scope participates in the scope's
-/// <see cref="INpgsqlTenantScope.Transaction"/>. The primary enlistment path is the
-/// eager <c>UseTransaction</c> call performed by the DI decorator in
-/// <see cref="AddModuleDbContextExtensions.AddModuleDbContext{TContext}"/>; this
-/// interceptor exists as a safety net for any path that obtains a DbContext outside
-/// that flow (e.g. a handler that constructs a context manually) so writes still
-/// participate in the per-request atomic unit per ADR-0090.
+/// <see cref="INpgsqlTenantScope.Transaction"/>. The eager enlistment in
+/// <see cref="AddModuleDbContextExtensions.AddModuleDbContext{TContext}"/>'s replacement
+/// factory handles the normal case; this interceptor catches anything that bypasses
+/// that factory while a scope is active — e.g. a code path that resolves
+/// <see cref="DbContextOptions{TContext}"/> directly and instantiates a context outside
+/// this DI flow — so writes still participate in the per-request atomic unit per ADR-0090.
 ///
 /// Hook: EF Core 10 only ships the synchronous
 /// <see cref="DbCommandInterceptor.CommandCreating"/> (no <c>CommandCreatingAsync</c>);

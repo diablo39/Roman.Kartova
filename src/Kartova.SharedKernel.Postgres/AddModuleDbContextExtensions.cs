@@ -45,7 +45,15 @@ public static class AddModuleDbContextExtensions
         // norm — the scope opens it), so without eager enlistment Database.CurrentTransaction
         // would only become non-null after the first command. Eager enlistment makes EF's
         // public API observably consistent immediately after the DbContext is resolved.
-        var existing = services.Single(d => d.ServiceType == typeof(TContext));
+        // Match exactly the descriptor shape produced by AddDbContext<TContext>: a Scoped
+        // type registration where ImplementationType == TContext. AddDbContextPool registers
+        // TContext via a factory (ImplementationFactory != null, ImplementationType == null),
+        // so a future switch to pooling causes Single() to throw at startup with a clear error
+        // rather than silently stripping pooling here.
+        var existing = services.Single(d =>
+            d.ServiceType == typeof(TContext)
+            && d.Lifetime == ServiceLifetime.Scoped
+            && d.ImplementationType == typeof(TContext));
         services.Remove(existing);
         services.Add(new ServiceDescriptor(
             typeof(TContext),
