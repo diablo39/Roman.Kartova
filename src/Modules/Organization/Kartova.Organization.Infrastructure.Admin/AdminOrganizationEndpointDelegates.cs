@@ -1,21 +1,14 @@
 using System.Diagnostics.CodeAnalysis;
 using Kartova.Organization.Application;
 using Kartova.SharedKernel.AspNetCore;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
 
-namespace Kartova.Api.Endpoints;
+namespace Kartova.Organization.Infrastructure.Admin;
 
-internal static class AdminOrganizationEndpoints
+internal static class AdminOrganizationEndpointDelegates
 {
     [ExcludeFromCodeCoverage]
     public sealed record CreateOrganizationRequest(string Name);
-
-    public static void Map(RouteGroupBuilder group)
-    {
-        group.MapPost("/organizations", CreateAsync);
-    }
 
     private const int NameMaxLength = 100;
 

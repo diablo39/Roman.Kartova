@@ -12,6 +12,17 @@ namespace Kartova.SharedKernel;
 public interface IModule
 {
     string Name { get; }
+
+    /// <summary>
+    /// Lower-case kebab-case URL segment for this module — see ADR-0092.
+    /// Becomes the segment after <c>/api/v1/</c> for tenant-scoped routes and
+    /// after <c>/api/v1/admin/</c> for platform-admin routes.
+    /// When the module has a plural primary collection (e.g. Organization),
+    /// the slug is that plural form so the URL reads as <c>/api/v1/organizations/me</c>
+    /// rather than <c>/api/v1/organization/organizations/me</c>.
+    /// </summary>
+    string Slug { get; }
+
     Type DbContextType { get; }
     void RegisterServices(IServiceCollection services, IConfiguration configuration);
 

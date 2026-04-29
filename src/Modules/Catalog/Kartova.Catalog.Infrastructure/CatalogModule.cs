@@ -1,6 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
 using Kartova.SharedKernel;
+using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Postgres;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,11 +11,18 @@ using Wolverine;
 namespace Kartova.Catalog.Infrastructure;
 
 [ExcludeFromCodeCoverage]
-public sealed class CatalogModule : IModule
+public sealed class CatalogModule : IModule, IModuleEndpoints
 {
     public string Name => "catalog";
 
+    public string Slug => "catalog";
+
     public Type DbContextType => typeof(CatalogDbContext);
+
+    public void MapEndpoints(IEndpointRouteBuilder app)
+    {
+        // Endpoints land in Tasks 9–11.
+    }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
     {
