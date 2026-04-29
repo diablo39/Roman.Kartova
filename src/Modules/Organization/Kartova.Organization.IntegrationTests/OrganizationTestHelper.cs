@@ -1,7 +1,9 @@
+using System.Diagnostics.CodeAnalysis;
 using Kartova.SharedKernel.Multitenancy;
 
 namespace Kartova.Organization.IntegrationTests;
 
+[ExcludeFromCodeCoverage]
 internal static class OrganizationTestHelper
 {
     /// <summary>
