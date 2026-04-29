@@ -73,19 +73,10 @@ public class TenantScopeMechanismTests
         var handle = await tenantScope.BeginAsync(SeededOrgs.OrgA, default);
         try
         {
-            var tx = npgScope.Transaction;
-
-            await using (var insertCmd = npgScope.Connection.CreateCommand())
-            {
-                insertCmd.Transaction = tx;
-                insertCmd.CommandText =
-                    "INSERT INTO organizations (id, tenant_id, name, created_at) " +
-                    "VALUES ($1, $2, $3, now())";
-                insertCmd.Parameters.AddWithValue(rowId);
-                insertCmd.Parameters.AddWithValue(SeededOrgs.OrgA.Value);
-                insertCmd.Parameters.AddWithValue(rowName);
-                await insertCmd.ExecuteNonQueryAsync();
-            }
+            var db = sp.GetRequiredService<OrganizationDbContext>();
+            var org = OrganizationTestHelper.CreateWithTenant(rowId, SeededOrgs.OrgA, rowName);
+            db.Add(org);
+            await db.SaveChangesAsync(default);
 
             // Force commit failure: close the underlying connection while the tx is open.
             await npgScope.Connection.CloseAsync();
@@ -111,24 +102,16 @@ public class TenantScopeMechanismTests
         using var hostScope = _fx.Services.CreateScope();
         var sp = hostScope.ServiceProvider;
         var tenantScope = sp.GetRequiredService<ITenantScope>();
-        var npgScope = (INpgsqlTenantScope)tenantScope;
 
         var rowName = $"Rollback-{Guid.NewGuid()}";
         var rowId = Guid.NewGuid();
 
         await using (var handle = await tenantScope.BeginAsync(SeededOrgs.OrgA, default))
         {
-            var tx = npgScope.Transaction;
-
-            await using var insertCmd = npgScope.Connection.CreateCommand();
-            insertCmd.Transaction = tx;
-            insertCmd.CommandText =
-                "INSERT INTO organizations (id, tenant_id, name, created_at) " +
-                "VALUES ($1, $2, $3, now())";
-            insertCmd.Parameters.AddWithValue(rowId);
-            insertCmd.Parameters.AddWithValue(SeededOrgs.OrgA.Value);
-            insertCmd.Parameters.AddWithValue(rowName);
-            await insertCmd.ExecuteNonQueryAsync();
+            var db = sp.GetRequiredService<OrganizationDbContext>();
+            var org = OrganizationTestHelper.CreateWithTenant(rowId, SeededOrgs.OrgA, rowName);
+            db.Add(org);
+            await db.SaveChangesAsync(default);
 
             // Exit without CommitAsync — simulates a thrown handler.
         }
