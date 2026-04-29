@@ -1,0 +1,80 @@
+using FluentAssertions;
+using Kartova.SharedKernel.Multitenancy;
+
+// NOTE: A `using Kartova.Catalog.Domain;` would not bring `Application` into scope
+// unambiguously here — the enclosing `Kartova.Catalog` namespace contains a sibling
+// child namespace `Kartova.Catalog.Application` which wins simple-name lookup. We
+// therefore alias the type explicitly.
+using DomainApplication = Kartova.Catalog.Domain.Application;
+
+namespace Kartova.Catalog.Tests;
+
+public class ApplicationTests
+{
+    private static readonly TenantId Tenant = new(Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"));
+    private static readonly Guid Owner = Guid.Parse("bbbbbbbb-0000-0000-0000-000000000001");
+
+    [Fact]
+    public void Create_with_valid_args_returns_application()
+    {
+        var app = DomainApplication.Create("payments-api", "Payments REST surface.", Owner, Tenant);
+
+        app.Name.Should().Be("payments-api");
+        app.Description.Should().Be("Payments REST surface.");
+        app.OwnerUserId.Should().Be(Owner);
+        app.TenantId.Should().Be(Tenant);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("\t\n")]
+    public void Create_throws_on_empty_or_whitespace_name(string name)
+    {
+        var act = () => DomainApplication.Create(name, "desc", Owner, Tenant);
+        act.Should().Throw<ArgumentException>().WithMessage("*name*");
+    }
+
+    [Fact]
+    public void Create_throws_on_name_over_256_chars()
+    {
+        var name = new string('x', 257);
+        var act = () => DomainApplication.Create(name, "desc", Owner, Tenant);
+        act.Should().Throw<ArgumentException>().WithMessage("*256*");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Create_throws_on_empty_or_whitespace_description(string description)
+    {
+        var act = () => DomainApplication.Create("name", description, Owner, Tenant);
+        act.Should().Throw<ArgumentException>().WithMessage("*description*");
+    }
+
+    [Fact]
+    public void Create_throws_on_empty_owner_user_id()
+    {
+        var act = () => DomainApplication.Create("name", "desc", Guid.Empty, Tenant);
+        act.Should().Throw<ArgumentException>().WithMessage("*ownerUserId*");
+    }
+
+    [Fact]
+    public void Create_assigns_fresh_id_each_call()
+    {
+        var a = DomainApplication.Create("name", "desc", Owner, Tenant);
+        var b = DomainApplication.Create("name", "desc", Owner, Tenant);
+        a.Id.Should().NotBe(b.Id);
+        a.Id.Value.Should().NotBe(Guid.Empty);
+    }
+
+    [Fact]
+    public void Create_assigns_recent_utc_CreatedAt()
+    {
+        var before = DateTimeOffset.UtcNow;
+        var app = DomainApplication.Create("name", "desc", Owner, Tenant);
+        var after = DateTimeOffset.UtcNow;
+        app.CreatedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(after);
+        app.CreatedAt.Offset.Should().Be(TimeSpan.Zero);
+    }
+}
