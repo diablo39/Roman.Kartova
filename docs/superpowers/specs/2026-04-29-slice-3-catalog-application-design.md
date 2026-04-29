@@ -480,7 +480,43 @@ These items are deliberately out of slice-3 scope but recorded here so they aren
 
 **Ordering:** Can ship anytime after slice 3 merges. Independent of slice 4+ feature work, but should land before any slice that needs `IClock`-style behavior (e.g., expiry, scheduling, audit-log timestamps under MiFID II — `E-01.F-05.S-07`).
 
-### 13.2 API-entity URL naming
+### 13.2 Wolverine vs direct-dispatch ADR addendum (raised by slice-boundary review)
+
+**Why:** Slice 3's command/query handlers are invoked **directly** from endpoint delegates (resolved via `IServiceProvider` from the HTTP request scope, then `await handler.Handle(...)`), **not** through `IMessageBus.InvokeAsync<T>`. Reason: Wolverine's bus opens its own internal IoC scope for handler dispatch, and that scope is **not** the HTTP request scope where `ITenantScope` and `CatalogDbContext` live. Resolving `CatalogDbContext` inside Wolverine's scope throws "TenantScope is not active" because `TenantScopeBeginMiddleware` populated the request scope, not Wolverine's.
+
+This is a real divergence from ADR-0028 ("Wolverine — mandatory pattern") and needs ADR-grade documentation before a second module copies the precedent.
+
+**Scope:**
+- File an ADR-0093 (or addendum to ADR-0028) recording the deviation: synchronous endpoint handlers resolve directly to share the request scope; Wolverine remains mandatory for in-process *async* mediation, the outbox path, and any future event-driven flow.
+- Evaluate `WolverineFx.Http` (or equivalent) as the proper integration that lets Wolverine handlers reach via the bus while sharing request scope. If adopted, this slice's handlers can be re-routed without changing handler signatures.
+
+**Trigger:** Before any slice that adds another tenant-scoped synchronous handler (i.e., before Slice 4 / Service entity).
+
+**Effort estimate:** ~half day for the ADR; ~1 day if `WolverineFx.Http` integration is bundled.
+
+### 13.3 Validation-error mapping (raised by slice-boundary review)
+
+**Why:** `CatalogEndpointDelegates.RegisterApplicationAsync` catches `ArgumentException` from the domain factory and maps it to `Results.Problem(type: ProblemTypes.ValidationFailed, statusCode: 400)`. The existing global `IExceptionHandler` should ideally own that mapping so future write endpoints don't copy-paste the catch.
+
+**Scope:** Pick one:
+- (a) Move `ArgumentException → 400` mapping into the global `IExceptionHandler` (ADR-0091's exception-to-ProblemDetails layer).
+- (b) Document in `Program.cs` near `app.UseExceptionHandler()` that the global handler intentionally does not map domain-validation exceptions, and per-endpoint catch blocks are the convention.
+
+**Trigger:** Before the second write endpoint copies the pattern.
+
+**Effort estimate:** ~30 minutes either way.
+
+### 13.4 `MapInboundClaims = false` pinning test (raised by Task 2 code review)
+
+**Why:** `HttpContextCurrentUser.UserId` reads the literal claim `"sub"`. This works only because `JwtAuthenticationExtensions.cs` sets `MapInboundClaims = false`. If anyone re-enables claim mapping, `"sub"` becomes `ClaimTypes.NameIdentifier` and `UserId` silently throws `InvalidOperationException` for every request.
+
+**Scope:** Add a small unit or integration test asserting the JWT options shape includes `MapInboundClaims = false` (or, alternatively, broaden `HttpContextCurrentUser` to read both `"sub"` and `ClaimTypes.NameIdentifier`).
+
+**Trigger:** Same slice as the next JWT-config touch, OR within a week.
+
+**Effort estimate:** ~15 minutes.
+
+### 13.5 API-entity URL naming
 
 **Why:** Phase 1 will introduce `E-02.F-03` (sync APIs + async APIs). The URL collection name is unresolved (`/api/v1/catalog/apis` is awkward; `/api/v1/catalog/sync-apis` + `/async-apis` is verbose; `/contracts` or `/interfaces` rename loses domain term). Defer until slice 4 (Service entity) is merged so two adjacent collection names exist for context.
 
