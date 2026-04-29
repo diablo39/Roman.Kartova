@@ -102,6 +102,30 @@ public class RegisterApplicationTests
     }
 
     [Fact]
+    public async Task GET_list_returns_apps_in_current_tenant_sorted_by_createdAt()
+    {
+        var client = await _fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
+        var first = await CreateApp(client, "first-app-list");
+        var second = await CreateApp(client, "second-app-list");
+
+        var resp = await client.GetAsync("/api/v1/catalog/applications");
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await resp.Content.ReadFromJsonAsync<List<ApplicationResponse>>();
+
+        body.Should().NotBeNull();
+        body!.Select(x => x.Id).Should().Contain(new[] { first.Id, second.Id });
+        body!.OrderBy(x => x.CreatedAt).Should().Equal(body!);
+    }
+
+    private static async Task<ApplicationResponse> CreateApp(HttpClient c, string name)
+    {
+        var post = await c.PostAsJsonAsync(
+            "/api/v1/catalog/applications",
+            new RegisterApplicationRequest(name, $"desc for {name}"));
+        return (await post.Content.ReadFromJsonAsync<ApplicationResponse>())!;
+    }
+
+    [Fact]
     public async Task POST_without_token_returns_401()
     {
         using var client = _fx.CreateAnonymousClient();

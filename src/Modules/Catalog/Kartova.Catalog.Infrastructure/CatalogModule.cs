@@ -27,6 +27,8 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .WithName("RegisterApplication");
         tenant.MapGet("/applications/{id:guid}", CatalogEndpointDelegates.GetApplicationByIdAsync)
               .WithName("GetApplicationById");
+        tenant.MapGet("/applications", CatalogEndpointDelegates.ListApplicationsAsync)
+              .WithName("ListApplications");
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
@@ -42,6 +44,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         // comment on CatalogEndpointDelegates.RegisterApplicationAsync.
         services.AddScoped<RegisterApplicationHandler>();
         services.AddScoped<GetApplicationByIdHandler>();
+        services.AddScoped<ListApplicationsHandler>();
     }
 
     public void RegisterForMigrator(IServiceCollection services, IConfiguration configuration)

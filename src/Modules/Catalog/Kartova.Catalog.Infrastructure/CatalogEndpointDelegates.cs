@@ -72,4 +72,19 @@ internal static class CatalogEndpointDelegates
         }
         return Results.Ok(resp);
     }
+
+    /// <summary>
+    /// GET list of Applications visible in current tenant. Direct synchronous
+    /// handler dispatch to preserve the HTTP request scope's
+    /// <c>ITenantScope</c> (see comment on <see cref="RegisterApplicationAsync"/>).
+    /// RLS auto-filters cross-tenant rows (ADR-0090).
+    /// </summary>
+    internal static async Task<IResult> ListApplicationsAsync(
+        ListApplicationsHandler handler,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        var rows = await handler.Handle(new ListApplicationsQuery(), db, ct);
+        return Results.Ok(rows);
+    }
 }
