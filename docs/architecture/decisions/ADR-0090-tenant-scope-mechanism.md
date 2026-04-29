@@ -95,3 +95,45 @@ See "Context" — each is explicitly rejected above with its specific failure mo
 - PostgreSQL docs: `SET LOCAL`, customized options, Row Security Policies.
 - Crunchy Data: "Row-Level Security for Tenants in Postgres" — validates the `current_setting('app.xxx')` community idiom.
 - bytefish.de "ASP.NET Core Multi-Tenancy" — alternative considered, rejected due to `Pooling=false`.
+
+## Addenda
+
+### 2026-04-28 — Implementation re-aligned with §Decision
+
+Slice 2 (PR #1, merged 2026-04-26) initially shipped this mechanism as a
+`TenantScopeMiddleware` rather than the spec'd `TenantScopeEndpointFilter`.
+The middleware's `await _next(context)` caused `IResult.ExecuteAsync` to
+run before `handle.CommitAsync`, which broke the durability promise above
+for any streaming response (`Results.Stream`, `IAsyncEnumerable<T>`, SSE):
+a commit failure could occur after the response body had already begun
+flushing.
+
+Slice-2 followup (PR #6, merged 2026-04-28) restored the implementation
+to the spec'd shape:
+
+- `TenantScopeMiddleware` deleted; durability is preserved by a hybrid
+  two-piece adapter — `TenantScopeBeginMiddleware` opens the scope before
+  ASP.NET Core minimal-API parameter binding (so DI-injected `DbContext`
+  instances resolve against an active `scope.Connection`), and
+  `TenantScopeCommitEndpointFilter` runs commit between the handler's
+  `IResult` return and `IResult.ExecuteAsync`. `RequireTenantScope()`
+  wires both pieces (auth + begin-marker metadata + commit filter). A
+  single endpoint filter would not satisfy the parameter-binding
+  constraint; see the slice-2-followup design spec
+  (`docs/superpowers/specs/2026-04-28-slice-2-tenant-scope-filter-design.md`)
+  §Decisions and §Risks for the empirical justification.
+- `RequireTenantScope()` now also implies `RequireAuthorization()` —
+  tenant-scoped routes are authenticated by definition.
+- `TenantScopeBeginException` introduced in `SharedKernel.Multitenancy`;
+  `TenantScope.BeginAsync` wraps `NpgsqlException`. The filter catches
+  the agnostic type, allowing the `SharedKernel.AspNetCore →
+  SharedKernel.Postgres` project reference to be cut (matches §3.2).
+- `EnlistInTenantScopeInterceptor` shipped. The probe test
+  (`EfEnlistmentProbeTests`) showed EF Core 10 + Npgsql does **not**
+  auto-enlist a `DbContext` in an externally-managed transaction when the
+  context is configured via `UseNpgsql(NpgsqlConnection)` against a
+  connection that already has an active transaction. The interceptor is
+  therefore registered for tenant-owned modules via
+  `AddModuleDbContext<T>`. Rationale and probe outcome are recorded in
+  the slice-2-followup spec §Decisions and plan §Tasks 1 / 8.
+- A streaming-response durability regression test pins the new ordering.
