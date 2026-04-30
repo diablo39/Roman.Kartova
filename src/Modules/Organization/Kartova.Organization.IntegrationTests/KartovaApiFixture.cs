@@ -1,75 +1,24 @@
 using System.Diagnostics.CodeAnalysis;
-using Kartova.Api;
 using Kartova.Organization.Infrastructure;
-using Kartova.SharedKernel;
-using Kartova.SharedKernel.AspNetCore;
 using Kartova.Testing.Auth;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Npgsql;
-using Testcontainers.PostgreSql;
-using Xunit;
 
 namespace Kartova.Organization.IntegrationTests;
 
+/// <summary>
+/// Organization-specific fixture. All cross-module plumbing (Postgres container,
+/// role bootstrap, JWT signer wiring, env-var wiring of the Kartova.Api host,
+/// JWT minting helpers) lives in <see cref="KartovaApiFixtureBase"/>; this type
+/// declares the DbContext to migrate plus the BYPASSRLS-seeding helper that
+/// Organization integration tests use to plant rows for cross-tenant probes.
+/// </summary>
 [ExcludeFromCodeCoverage]
-public class KartovaApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
+public class KartovaApiFixture : KartovaApiFixtureBase
 {
-    private readonly PostgreSqlContainer _pg = new PostgreSqlBuilder()
-        .WithImage("postgres:16-alpine")
-        .WithDatabase("kartova")
-        .WithUsername("postgres")
-        .WithPassword("postgres")
-        .Build();
-
-    public TestJwtSigner Signer { get; } = new();
-
-    public async Task InitializeAsync()
-    {
-        await _pg.StartAsync();
-        await PostgresTestBootstrap.SeedRolesAndSchemaAsync(_pg.GetConnectionString());
-        await PostgresTestBootstrap.RunMigrationsAsync<OrganizationDbContext>(
-            MigratorConnectionString,
+    protected override Task RunModuleMigrationsAsync(string migratorConnectionString) =>
+        PostgresTestBootstrap.RunMigrationsAsync<OrganizationDbContext>(
+            migratorConnectionString,
             opts => new OrganizationDbContext(opts));
-    }
-
-    async Task IAsyncLifetime.DisposeAsync()
-    {
-        await _pg.DisposeAsync();
-        await base.DisposeAsync();
-    }
-
-    public string MainConnectionString =>
-        PostgresTestBootstrap.ConnectionStringFor(_pg.GetConnectionString(), PostgresTestBootstrap.AppRole);
-
-    public string BypassConnectionString =>
-        PostgresTestBootstrap.ConnectionStringFor(_pg.GetConnectionString(), PostgresTestBootstrap.BypassRole);
-
-    public string MigratorConnectionString =>
-        PostgresTestBootstrap.ConnectionStringFor(_pg.GetConnectionString(), PostgresTestBootstrap.MigratorRole);
-
-    protected override IHost CreateHost(IHostBuilder builder)
-    {
-        // Env vars must be set BEFORE Program.Main reads configuration; double-underscore maps to ':'.
-        Environment.SetEnvironmentVariable($"ConnectionStrings__{KartovaConnectionStrings.Main}", MainConnectionString);
-        Environment.SetEnvironmentVariable($"ConnectionStrings__{KartovaConnectionStrings.Bypass}", BypassConnectionString);
-        Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Authority), TestJwtSigner.Issuer);
-        Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Audience), TestJwtSigner.Audience);
-        Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.RequireHttpsMetadata), "false");
-        return base.CreateHost(builder);
-    }
-
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
-    {
-        builder.UseEnvironment("Testing");
-        builder.ConfigureTestServices(services =>
-        {
-            services.UseTestJwtSigner(Signer);
-        });
-    }
 
     public async Task<Guid> SeedOrganizationAsync(Guid tenantId, string name)
     {
@@ -90,6 +39,4 @@ public class KartovaApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
         var id = (Guid)(await cmd.ExecuteScalarAsync())!;
         return id;
     }
-
-    private static string EnvKey(string configKey) => configKey.Replace(":", "__");
 }

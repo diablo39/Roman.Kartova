@@ -554,7 +554,13 @@ Original entry preserved below for historical context:
 
 **Effort estimate:** ~half-day (Stryker run + survivor triage).
 
-### 13.7 `KartovaApiFixture` extraction to shared test infrastructure (raised by deep-review)
+### 13.7 `KartovaApiFixture` extraction to shared test infrastructure (raised by deep-review) — RESOLVED 2026-04-30
+
+**Resolution:** New `Kartova.Testing.Auth.KartovaApiFixtureBase` owns the cross-module plumbing — Postgres `Testcontainer`, role/grants seed (`PostgresTestBootstrap.SeedRolesAndSchemaAsync`), `TestJwtSigner` swap into the JWT-bearer pipeline, env-var wiring of the API host, and the deterministic JWT minting helpers (`CreateAuthenticatedClientAsync`, `CreateAnonymousClient`, `GetSubClaimAsync`, `GetTenantIdClaimAsync`). Module-specific fixtures (`Kartova.Catalog.IntegrationTests.KartovaApiFixture`, `Kartova.Organization.IntegrationTests.KartovaApiFixture`) shrink to ~10–35 lines: declare which `DbContext` to migrate via the abstract `RunModuleMigrationsAsync` hook, plus any module-specific seeding helpers (Organization keeps `SeedOrganizationAsync` for cross-tenant probes). `Kartova.Testing.Auth` gained `Microsoft.AspNetCore.Mvc.Testing`, `Testcontainers.PostgreSql 4.0.0`, and `xunit.extensibility.core` package refs plus project refs to `Kartova.Api` and `Kartova.SharedKernel.AspNetCore`. `Testcontainers.PostgreSql` was unified to 4.0.0 across the solution (Catalog was on 3.10.0, Organization on 4.0.0). Slice 4's integration tests will inherit the base directly.
+
+Original entry preserved below for historical context:
+
+
 
 **Why:** `src/Modules/Catalog/Kartova.Catalog.IntegrationTests/KartovaApiFixture.cs` is ~140 lines structurally identical to the Organization fixture — Postgres container bootstrap, role grants, JWT signer wiring. The only Catalog-specific bit is `RunMigrationsAsync<CatalogDbContext>`. Slice 4 (Service entity) will need a third copy.
 
