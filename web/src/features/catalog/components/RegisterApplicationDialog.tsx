@@ -32,8 +32,12 @@ import {
   type RegisterApplicationInput,
 } from "@/features/catalog/schemas/registerApplication";
 import { useRegisterApplication } from "@/features/catalog/api/applications";
-import { applyProblemDetailsToForm } from "@/shared/forms/problemDetails";
+import {
+  applyProblemDetailsToForm,
+  type ProblemDetails,
+} from "@/shared/forms/problemDetails";
 import { useCurrentUser } from "@/shared/auth/useCurrentUser";
+import { initialsOf } from "@/shared/auth/initials";
 
 interface Props {
   open: boolean;
@@ -61,24 +65,20 @@ export function RegisterApplicationDialog({ open, onOpenChange }: Props) {
       toast.success("Application registered");
       onOpenChange(false);
     } catch (err) {
-      const handled = applyProblemDetailsToForm(err as never, form.setError as never);
+      const problem = err as ProblemDetails;
+      const handled = applyProblemDetailsToForm(
+        problem,
+        form.setError as unknown as Parameters<typeof applyProblemDetailsToForm>[1]
+      );
       if (!handled) {
         const detail =
-          (err as { detail?: string }).detail ??
-          (err as { title?: string }).title ??
-          "Failed to register application";
+          problem.detail ?? problem.title ?? "Failed to register application";
         toast.error(detail);
       }
     }
   });
 
-  const initials =
-    user?.displayName
-      ?.split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((p) => p[0]?.toUpperCase())
-      .join("") ?? "?";
+  const initials = initialsOf(user?.displayName);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

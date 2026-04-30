@@ -2,6 +2,7 @@ import { Search, ChevronDown, LogOut } from "lucide-react";
 import { useAuth } from "react-oidc-context";
 import { useCurrentOrganization } from "@/features/organization/api/me";
 import { useCurrentUser } from "@/shared/auth/useCurrentUser";
+import { initialsOf } from "@/shared/auth/initials";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,13 +20,7 @@ export function TopBar() {
   const user = useCurrentUser();
   const auth = useAuth();
 
-  const initials =
-    user?.displayName
-      ?.split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map(part => part[0]?.toUpperCase())
-      .join("") ?? "?";
+  const initials = initialsOf(user?.displayName);
 
   return (
     <header className="flex h-14 items-center gap-4 border-b border-border bg-card px-6">
