@@ -49,9 +49,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
 
     public void RegisterForMigrator(IServiceCollection services, IConfiguration configuration)
     {
-        var cs = configuration.GetConnectionString(KartovaConnectionStrings.Main)
-            ?? throw new InvalidOperationException(
-                $"Connection string '{KartovaConnectionStrings.Main}' is required. Set it via ConnectionStrings__{KartovaConnectionStrings.Main} env var.");
+        var cs = KartovaConnectionStrings.RequireMain(configuration);
 
         services.AddDbContext<CatalogDbContext>(opts =>
             opts.UseNpgsql(cs, npg => npg.MigrationsAssembly(

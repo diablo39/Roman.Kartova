@@ -570,7 +570,13 @@ Original entry preserved below for historical context:
 
 **Effort estimate:** ~2 hours including the Catalog + Organization migration to the shared fixture.
 
-### 13.8 `KartovaConnectionStrings.RequireMain` helper (raised by deep-review)
+### 13.8 `KartovaConnectionStrings.RequireMain` helper (raised by deep-review) — RESOLVED 2026-04-30
+
+**Resolution:** `KartovaConnectionStrings` gained `Require(IConfiguration, string)`, `RequireMain(IConfiguration)`, and `RequireBypass(IConfiguration)` static helpers that resolve `ConnectionStrings:<name>` and throw `InvalidOperationException` with a uniform diagnostic naming the env-var form on miss. Four call sites collapsed to one-liners: `Program.cs` (Main + Bypass) and the `RegisterForMigrator` overrides on `CatalogModule` and `OrganizationModule`. New `KartovaConnectionStringsTests` (6 tests) pin the helper's contract — including the exact error-message shape that CI logs scrape on bootstrap failures. Slice 4's `RegisterForMigrator` (if it grows beyond the existing Catalog module) inherits the helper directly.
+
+Original entry preserved below for historical context:
+
+
 
 **Why:** The same `ConnectionStrings__{name} missing` `InvalidOperationException` literal exists in `Program.cs:38`, `OrganizationModule.cs:49`, and `CatalogModule.cs:52`. Three copies drift the moment one of them changes (e.g., adding diagnostic context). Slice 4 will add a fourth.
 
