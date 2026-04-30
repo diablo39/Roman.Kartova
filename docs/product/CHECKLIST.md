@@ -87,8 +87,8 @@
 ### E-02: Entity Registry
 
 **E-02.F-01: Application Entity Management**
-- [x] E-02.F-01.S-01 — Register new application in catalog (slice 3 — PR #10, 2026-04-30)
-- [ ] E-02.F-01.S-02 — Application detail page with metadata
+- [x] E-02.F-01.S-01 — Register new application in catalog (slice 3 — PR #10, 2026-04-30; UI surface added in slice 4 — PR #?, 2026-04-30)
+- [x] E-02.F-01.S-02 — Application detail page with metadata (slice 4 — PR #?, 2026-04-30; header + metadata only, tabs deferred)
 - [ ] E-02.F-01.S-03 — Edit application metadata
 - [ ] E-02.F-01.S-04 — Application lifecycle status transitions
 
