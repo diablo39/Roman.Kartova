@@ -33,6 +33,9 @@ public class KeycloakRealmSeedRules
         var attrs = web.GetProperty("attributes");
         attrs.GetProperty("pkce.code.challenge.method").GetString()
             .Should().Be("S256");
+        attrs.GetProperty("access.token.lifespan").GetString()
+            .Should().Be("900",
+                "SPA access tokens must remain short-lived (15 min) per slice-4 §4.5.");
 
         var redirects = web.GetProperty("redirectUris").EnumerateArray()
             .Select(e => e.GetString()).ToList();
@@ -44,7 +47,8 @@ public class KeycloakRealmSeedRules
 
         var origins = web.GetProperty("webOrigins").EnumerateArray()
             .Select(e => e.GetString()).ToList();
-        origins.Should().Contain("http://localhost:5173");
+        origins.Should().BeEquivalentTo(new[] { "http://localhost:5173" },
+            "additional web origins would silently widen CORS for kartova-web tokens.");
     }
 
     [Fact]
