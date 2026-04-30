@@ -25,6 +25,7 @@
 |----------|-----------|-------------------|------|
 | E-01.F-02.S-01 | As a developer, I need a CI pipeline that builds, tests, and lints on every push so that code quality is enforced automatically | Pipeline triggers on push; runs build, unit tests, linting; fails on errors | |
 | E-01.F-02.S-02 | As a developer, I need a CD pipeline that deploys to a staging environment on merge to main so that changes are validated before production | Merge to main triggers deploy; staging environment updated; smoke tests pass | |
+| E-01.F-02.S-03 | As a developer, I need a checked-in Playwright end-to-end test suite that boots `docker compose up` with seeded data and drives KeyCloak login through catalog flows so that the SPA's user-visible behavior is regression-tested in CI | `npm run test:e2e` runs locally and in CI; KeyCloak token bootstrapping handled via realm-admin API or test-only password grant; deterministic test data via per-run tenant; flaky-test budget ≤ 1% | [0083](../../architecture/decisions/ADR-0083-testing-strategy-with-architecture-tests.md), [0084](../../architecture/decisions/ADR-0084-playwright-mcp-for-frontend-development.md) |
 
 #### Feature E-01.F-03: Database Foundation
 
@@ -42,6 +43,7 @@
 | E-01.F-04.S-02 | As a developer, I need JWT validation middleware in the API so that all endpoints are secured | Requests without valid JWT return 401; expired tokens rejected; tenant claim extracted from token | [0007](../../architecture/decisions/ADR-0007-jwt-oidc-for-api-and-cli-auth.md), [0014](../../architecture/decisions/ADR-0014-tenant-claim-extracted-from-jwt.md) |
 | E-01.F-04.S-03 | As a developer, I need RBAC with roles (Org Admin, Team Admin, Member, Viewer, Service Account) so that permissions are enforced | Each role has defined permission set; unauthorized actions return 403; role assignment works per org | [0008](../../architecture/decisions/ADR-0008-five-fixed-rbac-roles.md) |
 | E-01.F-04.S-04 | As a user, I want to log in via the web UI using my organization's SSO provider so that I don't need a separate password | Login redirects to KeyCloak; SSO flow completes; user lands on dashboard with correct org context | |
+| E-01.F-04.S-05 | As a security-conscious operator, I want the SPA to use a backend-for-frontend cookie session instead of holding the OIDC access token in the browser so that token theft via XSS is mitigated and session events are server-auditable | SPA never sees the access token; cookie HttpOnly + Secure + SameSite=Lax; CSRF protection on state-changing requests; existing JWT bearer scheme remains for non-browser clients (CLI, agents, webhooks); enabled per deployment via configuration | [0006](../../architecture/decisions/ADR-0006-keycloak-as-identity-provider.md), [0007](../../architecture/decisions/ADR-0007-jwt-oidc-for-api-and-cli-auth.md) |
 
 #### Feature E-01.F-05: Data Retention & Compliance Infrastructure
 

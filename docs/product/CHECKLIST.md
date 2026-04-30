@@ -37,6 +37,7 @@
 **E-01.F-02: CI/CD Pipeline**
 - [ ] E-01.F-02.S-01 — CI pipeline (build, test, lint)
 - [ ] E-01.F-02.S-02 — CD pipeline to staging
+- [ ] E-01.F-02.S-03 — End-to-end test infrastructure (checked-in Playwright suite)
 
 **E-01.F-03: Database Foundation**
 - [x] E-01.F-03.S-01 — Multi-tenant database schema with tenant isolation
@@ -48,6 +49,7 @@
 - [x] E-01.F-04.S-02 — JWT validation middleware in API
 - [ ] E-01.F-04.S-03 — RBAC with five roles
 - [ ] E-01.F-04.S-04 — SSO login via web UI
+- [ ] E-01.F-04.S-05 — BFF cookie-session auth (security hardening, post-MVP)
 
 **E-01.F-05: Data Retention & Compliance Infrastructure**
 - [ ] E-01.F-05.S-01 — Data retention engine with configurable purge

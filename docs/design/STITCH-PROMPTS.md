@@ -659,6 +659,10 @@ CONSISTENCY RULES (mandatory — do not override):
   (Screen 2). Show Screen 2 as the dimmed background (60% black overlay).
 - The modal sits centered on screen, max-width 560px.
 - Dark mode. Follow DESIGN.md for all colors, spacing, and typography.
+- Modal content only is canonical for this screen.
+  The sidebar/topbar in the rendered mockup is a Stitch nav-drift
+  artefact and must be ignored — implementation follows DESIGN.md
+  and Screen 1 (Navigation Reference).
 
 MODAL CONTENT — Register Application:
 
