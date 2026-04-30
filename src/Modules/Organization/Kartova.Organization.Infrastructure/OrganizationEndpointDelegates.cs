@@ -1,4 +1,5 @@
 using Kartova.Organization.Application;
+using Kartova.Organization.Contracts;
 using Kartova.SharedKernel.AspNetCore;
 using Microsoft.AspNetCore.Http;
 
@@ -22,6 +23,6 @@ internal static class OrganizationEndpointDelegates
 
     internal static IResult GetAdminOnlyAsync()
     {
-        return Results.Ok(new { message = "ok" });
+        return Results.Ok(new AdminOnlyResponse("ok"));
     }
 }

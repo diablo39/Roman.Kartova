@@ -14,9 +14,8 @@ export const registerApplicationSchema = z.object({
     .max(128, "Display name must be at most 128 chars"),
   description: z
     .string()
-    .max(512, "Description must be at most 512 chars")
-    .optional()
-    .or(z.literal("")),
+    .min(1, "Description is required")
+    .max(512, "Description must be at most 512 chars"),
 });
 
 export type RegisterApplicationInput = z.infer<typeof registerApplicationSchema>;

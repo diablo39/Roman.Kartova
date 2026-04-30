@@ -10,25 +10,40 @@ namespace Kartova.Catalog.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            // Step 1: add column nullable so the backfill can populate it before we lock NOT NULL.
             migrationBuilder.AddColumn<string>(
                 name: "display_name",
                 table: "catalog_applications",
                 type: "character varying(256)",
                 maxLength: 256,
-                nullable: false,
-                defaultValue: "");
+                nullable: true);
 
-            // Backfill: existing rows get display_name = name so no row is left with
-            // the empty-string placeholder default. New rows always supply a real value.
-            // SET LOCAL satisfies the RLS policy (which evaluates current_setting for
-            // every row scan) without permanently changing session state — the value
-            // is rolled back at transaction end.  The placeholder UUID is arbitrary;
-            // the UPDATE affects ALL rows regardless of tenant because the migrator
-            // role owns the schema and runs inside a trusted maintenance connection.
-            migrationBuilder.Sql(@"
-SET LOCAL app.current_tenant_id = '00000000-0000-0000-0000-000000000000';
-UPDATE catalog_applications SET display_name = name WHERE display_name = '';
-");
+            // Step 2: disable FORCE RLS so the maintenance backfill runs as the table owner.
+            // The migrator role owns catalog_applications but lacks BYPASSRLS; FORCE makes the
+            // policy apply to the owner too. NO FORCE returns to the default (policy applies
+            // only to non-owners), allowing this maintenance UPDATE to see every row regardless
+            // of tenant. Re-enabled in Step 4 to preserve the slice-3 invariant for application
+            // queries.
+            migrationBuilder.Sql("ALTER TABLE catalog_applications NO FORCE ROW LEVEL SECURITY;");
+
+            // Step 3: backfill — every existing Application gets display_name = name, satisfying
+            // the new domain invariant (DisplayName non-empty).
+            migrationBuilder.Sql("UPDATE catalog_applications SET display_name = name;");
+
+            // Step 4: restore FORCE RLS to slice-3's stance.
+            migrationBuilder.Sql("ALTER TABLE catalog_applications FORCE ROW LEVEL SECURITY;");
+
+            // Step 5: lock NOT NULL now that every row has a value.
+            migrationBuilder.AlterColumn<string>(
+                name: "display_name",
+                table: "catalog_applications",
+                type: "character varying(256)",
+                maxLength: 256,
+                nullable: false,
+                oldClrType: typeof(string),
+                oldType: "character varying(256)",
+                oldMaxLength: 256,
+                oldNullable: true);
         }
 
         /// <inheritdoc />

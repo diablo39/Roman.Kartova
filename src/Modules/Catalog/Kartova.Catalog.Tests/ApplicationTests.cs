@@ -71,6 +71,14 @@ public class ApplicationTests
         act.Should().Throw<ArgumentException>().WithMessage("*256*");
     }
 
+    [Fact]
+    public void Create_succeeds_on_displayName_at_256_chars()
+    {
+        var displayName = new string('x', 256);
+        var app = DomainApplication.Create("name", displayName, "desc", Owner, Tenant);
+        app.DisplayName.Should().Be(displayName);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("   ")]

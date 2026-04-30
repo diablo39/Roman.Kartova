@@ -46,7 +46,10 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound);
         tenant.MapGet("/me/admin-only", OrganizationEndpointDelegates.GetAdminOnlyAsync)
             .RequireAuthorization(p => p.RequireRole(KartovaRoles.OrgAdmin))
-            .WithName("GetOrganizationMeAdminOnly");
+            .WithName("GetOrganizationMeAdminOnly")
+            .Produces<AdminOnlyResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)

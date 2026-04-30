@@ -40,7 +40,7 @@ export function useRegisterApplication() {
     mutationFn: async (input: RegisterApplicationInput) => {
       const { data, error } = await apiClient.POST(
         "/api/v1/catalog/applications",
-        { body: input as never }
+        { body: input }
       );
       if (error) throw error;
       return data!;
