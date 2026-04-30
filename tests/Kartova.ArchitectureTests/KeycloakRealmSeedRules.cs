@@ -36,7 +36,11 @@ public class KeycloakRealmSeedRules
 
         var redirects = web.GetProperty("redirectUris").EnumerateArray()
             .Select(e => e.GetString()).ToList();
-        redirects.Should().Contain("http://localhost:5173/callback");
+        redirects.Should().Contain(new[]
+        {
+            "http://localhost:5173/callback",
+            "http://localhost:5173/silent-callback"
+        });
 
         var origins = web.GetProperty("webOrigins").EnumerateArray()
             .Select(e => e.GetString()).ToList();
@@ -58,5 +62,22 @@ public class KeycloakRealmSeedRules
         audience.GetProperty("config")
             .GetProperty("included.client.audience").GetString()
             .Should().Be("kartova-api");
+    }
+
+    [Fact]
+    public void KartovaWebClient_IncludesTenantIdProtocolMapper()
+    {
+        using var doc = JsonDocument.Parse(File.ReadAllText(SeedPath));
+        var web = doc.RootElement.GetProperty("clients").EnumerateArray()
+            .First(c => c.GetProperty("clientId").GetString() == "kartova-web");
+
+        var mappers = web.GetProperty("protocolMappers").EnumerateArray().ToList();
+        var tenantIdMapper = mappers.FirstOrDefault(m =>
+            m.GetProperty("name").GetString() == "tenant_id" &&
+            m.GetProperty("protocolMapper").GetString() == "oidc-usermodel-attribute-mapper");
+        tenantIdMapper.ValueKind.Should().NotBe(JsonValueKind.Undefined,
+            "kartova-web tokens must carry the tenant_id claim, same as kartova-api.");
+        tenantIdMapper.GetProperty("config")
+            .GetProperty("claim.name").GetString().Should().Be("tenant_id");
     }
 }
