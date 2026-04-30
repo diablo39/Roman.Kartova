@@ -617,7 +617,13 @@ Original entry preserved below for historical context:
 
 **Effort estimate:** ~1 day total (mostly negative-path tests for Organization endpoints + the small SharedKernel exclusions).
 
-### 13.12 NetArchTest false positives under coverlet instrumentation (raised by coverage run)
+### 13.12 NetArchTest false positives under coverlet instrumentation (raised by coverage run) — RESOLVED 2026-04-30
+
+**Resolution:** `ContractsCoverageRules.All_types_in_Contracts_assemblies_have_ExcludeFromCodeCoverage` and `DTO_like_types_have_ExcludeFromCodeCoverage` now skip three categories of synthetic types: `[CompilerGenerated]`-decorated types, anything residing in `Coverlet.*` namespaces (the instrumentation tracker classes), and types whose CLR name matches `^<.*>.*$` (closures, anonymous-type backing classes, `<Module>`, `<PrivateImplementationDetails>`). Verified by running the full suite under `dotnet test --settings coverlet.runsettings`: 128/128 pass with the data collector attached, where previously the contracts-coverage rule reported `Coverlet.Core.Instrumentation.Tracker.<assembly>_<guid>` as undecorated classes.
+
+Original entry preserved below for historical context:
+
+
 
 **Why:** When `dotnet test --settings coverlet.runsettings` runs against `Kartova.ArchitectureTests`, `ContractsCoverageRules.All_types_in_Contracts_assemblies_have_ExcludeFromCodeCoverage` fails because coverlet injects compiler-generated helper types (e.g. `<Module>`, `<PrivateImplementationDetails>`) that NetArchTest's `Types.InAssemblies(...).That().AreClasses()` predicate sees as undecorated classes. Standalone (`dotnet test --no-build` without the data collector) the test passes. CI runs that need both the architecture gate and coverage collection currently can't enable both simultaneously.
 

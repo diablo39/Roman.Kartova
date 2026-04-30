@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore.Design;
 using NetArchTest.Rules;
@@ -18,6 +19,13 @@ namespace Kartova.ArchitectureTests;
 /// </summary>
 public class ContractsCoverageRules
 {
+    // Compiler-emitted and tooling-injected synthetic type names: <Module>, <PrivateImplementationDetails>,
+    // closure types like <>c__DisplayClass*, anonymous-type backing classes <>f__AnonymousType*.
+    // Coverlet's instrumentation tracker types live in the Coverlet.* namespace and are also filtered
+    // out by namespace; this regex covers the "<…>" synthetic-name shape regardless of namespace.
+    private const string SyntheticTypeNamePattern = @"^<.*>.*$";
+
+
     [Fact]
     public void All_types_in_Contracts_assemblies_have_ExcludeFromCodeCoverage()
     {
@@ -26,6 +34,9 @@ public class ContractsCoverageRules
 
         var result = Types.InAssemblies(contractsAssemblies)
             .That().AreClasses()
+            .And().DoNotHaveCustomAttribute(typeof(CompilerGeneratedAttribute))
+            .And().DoNotResideInNamespaceStartingWith("Coverlet.")
+            .And().DoNotHaveNameMatching(SyntheticTypeNamePattern)
             .Should().HaveCustomAttribute(typeof(ExcludeFromCodeCoverageAttribute))
             .GetResult();
 
@@ -40,7 +51,10 @@ public class ContractsCoverageRules
 
         var result = Types.InAssemblies(production)
             .That()
-            .HaveNameEndingWith("Dto")
+            .DoNotHaveCustomAttribute(typeof(CompilerGeneratedAttribute))
+            .And().DoNotResideInNamespaceStartingWith("Coverlet.")
+            .And().DoNotHaveNameMatching(SyntheticTypeNamePattern)
+            .And().HaveNameEndingWith("Dto")
             .Or().HaveNameEndingWith("Request")
             .Or().HaveNameEndingWith("Response")
             .Should().HaveCustomAttribute(typeof(ExcludeFromCodeCoverageAttribute))
