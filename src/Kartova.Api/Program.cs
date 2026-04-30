@@ -34,8 +34,7 @@ public class Program
             module.RegisterServices(builder.Services, builder.Configuration);
         }
 
-        var kartovaConnection = builder.Configuration.GetConnectionString(KartovaConnectionStrings.Main)
-            ?? throw new InvalidOperationException($"ConnectionStrings__{KartovaConnectionStrings.Main} missing");
+        var kartovaConnection = KartovaConnectionStrings.RequireMain(builder.Configuration);
 
         // NpgsqlDataSource — used by TenantScope to open pooled connections.
         builder.Services.AddNpgsqlDataSource(kartovaConnection);
@@ -65,8 +64,7 @@ public class Program
         // Admin bypass DbContext — separate BYPASSRLS connection string (ADR-0090).
         // Registered here (not in OrganizationModule) because OrganizationModule.Infrastructure
         // cannot project-reference Infrastructure.Admin (would be circular).
-        var bypassConnection = builder.Configuration.GetConnectionString(KartovaConnectionStrings.Bypass)
-            ?? throw new InvalidOperationException($"ConnectionStrings__{KartovaConnectionStrings.Bypass} missing");
+        var bypassConnection = KartovaConnectionStrings.RequireBypass(builder.Configuration);
         builder.Services.AddDbContext<AdminOrganizationDbContext>(opts => opts.UseNpgsql(bypassConnection));
         builder.Services.AddScoped<IAdminOrganizationCommands, AdminOrganizationCommands>();
 
