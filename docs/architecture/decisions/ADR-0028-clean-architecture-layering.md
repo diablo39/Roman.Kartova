@@ -1,10 +1,10 @@
 # ADR-0028: Clean Architecture Layering
 
-**Status:** Accepted
+**Status:** Accepted (scope narrowed by ADR-0093 — Wolverine no longer mandatory for synchronous HTTP request handlers; remains mandatory for outbox, async messaging, and Kafka outbound)
 **Date:** 2026-04-17
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** API & Integration Architecture
-**Related:** ADR-0027 (.NET API), ADR-0080 (Wolverine CQRS mediator), ADR-0082 (Modular monolith — Clean Architecture applied per module)
+**Related:** ADR-0027 (.NET API), ADR-0080 (Wolverine CQRS mediator), ADR-0082 (Modular monolith — Clean Architecture applied per module), ADR-0093 (Wolverine scope narrowed)
 
 ## Context
 
