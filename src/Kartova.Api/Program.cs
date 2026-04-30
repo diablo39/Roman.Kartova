@@ -56,6 +56,9 @@ public class Program
             };
         });
 
+        // OpenAPI document — /openapi/v1.json (anonymous, no Swashbuckle, ADR-0029/0034).
+        builder.Services.AddOpenApi("v1");
+
         // CORS — allow configured SPA origins (e.g. http://localhost:5173 in dev).
         // Production default: empty array → all origins blocked (safe default).
         builder.Services.AddCors(options =>
@@ -122,6 +125,9 @@ public class Program
         app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = c => c.Tags.Contains("live") });
         app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready") });
         app.MapHealthChecks("/health/startup", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready") });
+
+        // OpenAPI document endpoint — anonymous, no auth requirement (ADR-0029/0034).
+        app.MapOpenApi("/openapi/{documentName}.json").AllowAnonymous();
 
         // Anonymous version endpoint — system-level, not module-owned.
         app.MapGet("/api/v1/version", GetVersion).AllowAnonymous();
