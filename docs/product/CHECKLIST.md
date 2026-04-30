@@ -85,13 +85,13 @@
 ### E-02: Entity Registry
 
 **E-02.F-01: Application Entity Management**
-- [ ] E-02.F-01.S-01 — Register new application in catalog
+- [x] E-02.F-01.S-01 — Register new application in catalog (slice 3 — PR #10, 2026-04-30)
 - [ ] E-02.F-01.S-02 — Application detail page with metadata
 - [ ] E-02.F-01.S-03 — Edit application metadata
 - [ ] E-02.F-01.S-04 — Application lifecycle status transitions
 
 **E-02.F-02: Service Entity Management**
-- [ ] E-02.F-01.S-05 — Required minimum fields on all entity types
+- [x] E-02.F-01.S-05 — Required minimum fields on all entity types (slice 3 — PR #10, 2026-04-30; enforced as `Application.Create` invariants for the first entity)
 - [ ] E-02.F-02.S-01 — Register service with endpoints and protocol
 - [ ] E-02.F-02.S-02 — Service detail page with health and consumers
 
