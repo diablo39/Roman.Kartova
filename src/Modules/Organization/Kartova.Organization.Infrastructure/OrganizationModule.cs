@@ -38,9 +38,11 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
     public void MapEndpoints(IEndpointRouteBuilder app)
     {
         var tenant = app.MapTenantScopedModule(Slug);     // /api/v1/organizations
-        tenant.MapGet("/me", OrganizationEndpointDelegates.GetMeAsync);
+        tenant.MapGet("/me", OrganizationEndpointDelegates.GetMeAsync)
+            .WithName("GetOrganizationMe");
         tenant.MapGet("/me/admin-only", OrganizationEndpointDelegates.GetAdminOnlyAsync)
-            .RequireAuthorization(p => p.RequireRole(KartovaRoles.OrgAdmin));
+            .RequireAuthorization(p => p.RequireRole(KartovaRoles.OrgAdmin))
+            .WithName("GetOrganizationMeAdminOnly");
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)

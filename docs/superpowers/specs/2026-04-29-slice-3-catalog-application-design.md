@@ -580,7 +580,13 @@ Original entry preserved below for historical context:
 
 **Effort estimate:** ~30 minutes.
 
-### 13.9 Endpoint route-name pinning arch test (raised by deep-review)
+### 13.9 Endpoint route-name pinning arch test (raised by deep-review) — RESOLVED 2026-04-30
+
+**Resolution:** New `Kartova.ArchitectureTests.EndpointRouteRules` boots a minimal `WebApplication`, instantiates every `IModuleEndpoints` implementation found in production assemblies, and walks the resulting `EndpointDataSource` (via `IEndpointRouteBuilder.DataSources`) to assert: (1) every expected named route exists with the right verb + URL template, (2) every endpoint registered by a module has a `.WithName(...)`, (3) names are unique across modules. The hard inventory check kills the `MapPost(...) → ;` style mutants flagged in the slice-2 mutation report; the soft "every endpoint has a name" guard catches accidental drops on routes not yet listed in the inventory. To make `RequestDelegateFactory` metadata inference pass without standing up the full DI graph, the test discovers reference-type parameters on every `*EndpointDelegates` class and registers a null-factory transient for each — RDF then classifies them as `[FromServices]` rather than `[FromBody]`. Organization + Admin Organization endpoints, which had skipped `.WithName(...)` in slice 2, now declare names alongside the test. Slice 4's three new Service-entity endpoints will inherit the gate the moment they're added to the inventory.
+
+Original entry preserved below for historical context:
+
+
 
 **Why:** Plan tasks 9-11 specify `.WithName("RegisterApplication")` / `"GetApplicationById"` / `"ListApplications"`. The Organization mutation report shows `MapGet(...)` mutated to `;` survives. There is no test that enumerates the registered `EndpointDataSource` and pins each named route's HTTP method + path.
 
