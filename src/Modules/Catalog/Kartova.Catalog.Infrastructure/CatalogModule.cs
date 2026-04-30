@@ -1,8 +1,10 @@
 using System.Diagnostics.CodeAnalysis;
+using Kartova.Catalog.Contracts;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Postgres;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -24,11 +26,16 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
     {
         var tenant = app.MapTenantScopedModule(Slug);     // /api/v1/catalog
         tenant.MapPost("/applications", CatalogEndpointDelegates.RegisterApplicationAsync)
-              .WithName("RegisterApplication");
+              .WithName("RegisterApplication")
+              .Produces<ApplicationResponse>(StatusCodes.Status201Created)
+              .ProducesProblem(StatusCodes.Status400BadRequest);
         tenant.MapGet("/applications/{id:guid}", CatalogEndpointDelegates.GetApplicationByIdAsync)
-              .WithName("GetApplicationById");
+              .WithName("GetApplicationById")
+              .Produces<ApplicationResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status404NotFound);
         tenant.MapGet("/applications", CatalogEndpointDelegates.ListApplicationsAsync)
-              .WithName("ListApplications");
+              .WithName("ListApplications")
+              .Produces<IReadOnlyList<ApplicationResponse>>(StatusCodes.Status200OK);
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)

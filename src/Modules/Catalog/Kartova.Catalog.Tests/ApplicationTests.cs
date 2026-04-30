@@ -17,9 +17,10 @@ public class ApplicationTests
     [Fact]
     public void Create_with_valid_args_returns_application()
     {
-        var app = DomainApplication.Create("payments-api", "Payments REST surface.", Owner, Tenant);
+        var app = DomainApplication.Create("payments-api", "Payments API", "Payments REST surface.", Owner, Tenant);
 
         app.Name.Should().Be("payments-api");
+        app.DisplayName.Should().Be("Payments API");
         app.Description.Should().Be("Payments REST surface.");
         app.OwnerUserId.Should().Be(Owner);
         app.TenantId.Should().Be(Tenant);
@@ -31,7 +32,7 @@ public class ApplicationTests
     [InlineData("\t\n")]
     public void Create_throws_on_empty_or_whitespace_name(string name)
     {
-        var act = () => DomainApplication.Create(name, "desc", Owner, Tenant);
+        var act = () => DomainApplication.Create(name, "Display Name", "desc", Owner, Tenant);
         act.Should().Throw<ArgumentException>().WithMessage("*name*");
     }
 
@@ -39,7 +40,7 @@ public class ApplicationTests
     public void Create_throws_on_name_over_256_chars()
     {
         var name = new string('x', 257);
-        var act = () => DomainApplication.Create(name, "desc", Owner, Tenant);
+        var act = () => DomainApplication.Create(name, "Display Name", "desc", Owner, Tenant);
         act.Should().Throw<ArgumentException>().WithMessage("*256*");
     }
 
@@ -49,8 +50,25 @@ public class ApplicationTests
         // Boundary pin — the invariant is `length > 256 throws`, so 256 must succeed.
         // Without this test the off-by-one mutation `length >= 256` survives.
         var name = new string('x', 256);
-        var app = DomainApplication.Create(name, "desc", Owner, Tenant);
+        var app = DomainApplication.Create(name, "Display Name", "desc", Owner, Tenant);
         app.Name.Should().HaveLength(256);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Create_throws_on_empty_or_whitespace_displayName(string displayName)
+    {
+        var act = () => DomainApplication.Create("name", displayName, "desc", Owner, Tenant);
+        act.Should().Throw<ArgumentException>().WithMessage("*display name*");
+    }
+
+    [Fact]
+    public void Create_throws_on_displayName_over_256_chars()
+    {
+        var displayName = new string('x', 257);
+        var act = () => DomainApplication.Create("name", displayName, "desc", Owner, Tenant);
+        act.Should().Throw<ArgumentException>().WithMessage("*256*");
     }
 
     [Theory]
@@ -58,22 +76,22 @@ public class ApplicationTests
     [InlineData("   ")]
     public void Create_throws_on_empty_or_whitespace_description(string description)
     {
-        var act = () => DomainApplication.Create("name", description, Owner, Tenant);
+        var act = () => DomainApplication.Create("name", "Display Name", description, Owner, Tenant);
         act.Should().Throw<ArgumentException>().WithMessage("*description*");
     }
 
     [Fact]
     public void Create_throws_on_empty_owner_user_id()
     {
-        var act = () => DomainApplication.Create("name", "desc", Guid.Empty, Tenant);
+        var act = () => DomainApplication.Create("name", "Display Name", "desc", Guid.Empty, Tenant);
         act.Should().Throw<ArgumentException>().WithMessage("*ownerUserId*");
     }
 
     [Fact]
     public void Create_assigns_fresh_id_each_call()
     {
-        var a = DomainApplication.Create("name", "desc", Owner, Tenant);
-        var b = DomainApplication.Create("name", "desc", Owner, Tenant);
+        var a = DomainApplication.Create("name", "Display Name", "desc", Owner, Tenant);
+        var b = DomainApplication.Create("name", "Display Name", "desc", Owner, Tenant);
         a.Id.Should().NotBe(b.Id);
         a.Id.Value.Should().NotBe(Guid.Empty);
     }
@@ -82,7 +100,7 @@ public class ApplicationTests
     public void Create_assigns_recent_utc_CreatedAt()
     {
         var before = DateTimeOffset.UtcNow;
-        var app = DomainApplication.Create("name", "desc", Owner, Tenant);
+        var app = DomainApplication.Create("name", "Display Name", "desc", Owner, Tenant);
         var after = DateTimeOffset.UtcNow;
         app.CreatedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(after);
         app.CreatedAt.Offset.Should().Be(TimeSpan.Zero);

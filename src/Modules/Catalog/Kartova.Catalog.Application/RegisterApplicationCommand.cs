@@ -6,4 +6,4 @@ namespace Kartova.Catalog.Application;
 /// from the request context (ITenantScope, ICurrentUser) by the handler — never
 /// from the payload — per ADR-0090.
 /// </summary>
-public sealed record RegisterApplicationCommand(string Name, string Description);
+public sealed record RegisterApplicationCommand(string Name, string DisplayName, string Description);

@@ -1,10 +1,12 @@
 using System.Diagnostics.CodeAnalysis;
 using Kartova.Organization.Application;
+using Kartova.Organization.Contracts;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Postgres;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -39,7 +41,9 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
     {
         var tenant = app.MapTenantScopedModule(Slug);     // /api/v1/organizations
         tenant.MapGet("/me", OrganizationEndpointDelegates.GetMeAsync)
-            .WithName("GetOrganizationMe");
+            .WithName("GetOrganizationMe")
+            .Produces<OrganizationDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound);
         tenant.MapGet("/me/admin-only", OrganizationEndpointDelegates.GetAdminOnlyAsync)
             .RequireAuthorization(p => p.RequireRole(KartovaRoles.OrgAdmin))
             .WithName("GetOrganizationMeAdminOnly");

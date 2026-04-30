@@ -33,7 +33,7 @@ internal static class CatalogEndpointDelegates
         CancellationToken ct)
     {
         var response = await handler.Handle(
-            new RegisterApplicationCommand(request.Name, request.Description),
+            new RegisterApplicationCommand(request.Name, request.DisplayName, request.Description),
             db, tenant, user, ct);
 
         return Results.Created($"/api/v1/catalog/applications/{response.Id}", response);
