@@ -688,7 +688,7 @@ Body (vertical form, 24px section padding, 16px gap between fields):
    - Input: text, full width, placeholder "Payment Gateway"
    - Helper: "Human-friendly name shown in UI."
 
-3. Field — Description (optional):
+3. Field — Description (required):
    - Label: "Description"
    - Textarea: 3 rows, full width,
      placeholder "Short summary of what this application does."

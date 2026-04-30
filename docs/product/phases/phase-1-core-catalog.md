@@ -21,6 +21,8 @@
 | E-02.F-01.S-02 | As a developer, I want to view an application's detail page showing metadata, relationships, and documentation so that I understand what this application does | Detail page renders all metadata; relationships displayed; linked documentation shown; deployment history visible |
 | E-02.F-01.S-03 | As a developer, I want to edit an application's metadata so that the catalog stays up to date | Edit form pre-filled with current data; save updates entity; audit log entry created |
 | E-02.F-01.S-04 | As a team admin, I want to change an application's lifecycle status (active -> deprecated -> decommissioned) so that teams know which applications are being retired | Status transitions enforced (can't skip steps); deprecated entities show warning badge; decommissioned entities are archived |
+| E-02.F-01.S-06 | As a developer using the SPA forms, I want field-level validation errors from the backend so that form errors appear inline on the offending field rather than in a generic toast | `DomainValidationExceptionHandler` (or a successor) emits RFC 7807 ProblemDetails with `errors: { fieldName: [messages] }`; SPA already maps via `applyProblemDetailsToForm`; covered by integration test |
+| E-02.F-01.S-07 | As a platform owner, I want kebab-case Name validation enforced inside `Application.Create` so that direct API or CLI calls cannot bypass the SPA-side regex and create entities with invalid names | Domain factory rejects names that don't match `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`; covered by domain unit test; SPA zod schema mirrors the rule for UX | [0090](../../architecture/decisions/ADR-0090-tenant-scope-hybrid-begin-middleware-and-commit-filter.md) |
 
 #### Feature E-02.F-02: Service Entity Management
 

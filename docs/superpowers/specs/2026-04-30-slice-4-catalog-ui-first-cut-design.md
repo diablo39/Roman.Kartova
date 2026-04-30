@@ -106,13 +106,15 @@ SPA boot → AuthProvider (react-oidc-context)
         → silent SSO check
         → if not authed: redirect to KeyCloak /auth?response_type=code&pkce
         → user logs in → callback /callback?code=...
-        → tokens stored in memory (NOT localStorage)
+        → tokens stored in sessionStorage (tab-scoped, cleared on tab close)
         → openapi-fetch interceptor reads access_token → Bearer header on every API call
         → silent token refresh on near-expiry
         → 401 from API → AuthProvider triggers re-login
 ```
 
-OIDC config (dev): `authority=http://keycloak:8080/realms/kartova`, `client_id=kartova-web`, `redirect_uri=http://localhost:5173/callback`, `scope="openid profile email"`, public client + PKCE. Token storage: `WebStorageStateStore({ store: in-memory })` — never `localStorage` or `sessionStorage`.
+OIDC config (dev): `authority=http://localhost:8180/realms/kartova`, `client_id=kartova-web`, `redirect_uri=http://localhost:5173/callback`, `scope="openid profile email"`, public client + PKCE. Token storage: `WebStorageStateStore({ store: window.sessionStorage })` for both `userStore` and `stateStore` — **never** `localStorage`.
+
+> **Storage decision history.** This spec originally specced `InMemoryWebStorage` for both stores to keep tokens out of any disk-backed store. Real-flow Playwright verification proved that fundamentally impossible: the OIDC PKCE verifier must survive the browser navigation to KeyCloak and back, but the JS module instance holding `InMemoryWebStorage` is gone after that navigation. `sessionStorage` is the standard remedy — tab-scoped (cleared when the tab closes) and survives the redirect dance. The harder upgrade (BFF cookie session, eliminating browser-side token exposure entirely) is captured as backlog story **E-01.F-04.S-05**.
 
 ### 4.4 OpenAPI codegen pipeline
 
@@ -165,7 +167,7 @@ User clicks "+ Register Application" in CatalogListPage header
   → Form (react-hook-form + registerApplicationSchema)
        Name (required, kebab-case, 1–64 chars)
        DisplayName (required, 1–128 chars)
-       Description (optional, 0–512 chars)
+       Description (required, 1–512 chars; matches backend `Application.Create` invariant which rejects empty/whitespace)
        Owner pre-filled from useCurrentUser() (read-only pill)
        Lifecycle = Active (read-only badge)
   → Submit → useRegisterApplication() mutation
