@@ -593,3 +593,36 @@ Original entry preserved below for historical context:
 **Trigger:** Pair with §13.7 fixture extraction (test project may need a small bootstrap helper).
 
 **Effort estimate:** ~30 minutes.
+
+### 13.11 Branch-coverage gap to 85% target (raised by coverage run on slice-3 tip)
+
+**Why:** Coverage run on `b8cbe94` (full suite, 96 unit/arch + 32 integration) lands at 84.1% line / **73.9% branch** — below CLAUDE.md's 85% branch target. Slice-3 surface itself sits at 90–100%; the gap concentrates in slice-2 code that shipped before this target was tracked at the branch level.
+
+**Hot-spot inventory (uncovered branches, ranked):**
+- `Kartova.SharedKernel.Wolverine.TenantScopeWolverineMiddleware` — **0%** line coverage; never invoked. ADR-0093 makes Wolverine async-only, so this middleware now belongs to the future async/event slice. Either delete (no caller today) or pin with a focused unit test once the first async handler lands.
+- `OrganizationEndpointDelegates` — **40%**. Negative paths (validation 400 via the new `DomainValidationExceptionHandler`, missing fields) are unexercised by integration tests.
+- `AdminOrganizationEndpointDelegates` — **33.3%**. Admin-only auth-failure branch + duplicate-org conflict branch lack coverage.
+- `TenantScopeCommitEndpointFilter` — **60%**. The exception-during-commit branch (commit fails → exception bubbles to `UseExceptionHandler`) is unexercised.
+- `TenantScope` — **63%**. Rollback-on-error and dispose-while-already-disposed branches.
+- `Kartova.SharedKernel.{IModule, DomainEvent, TenantScopeBeginException}` — **0%** but cosmetic (interface/abstract/exception type with default ctor); marking `[ExcludeFromCodeCoverage]` would clean up the score without adding tests.
+
+**Scope:**
+- (a) Decide Wolverine middleware: delete or pin with a smoke test.
+- (b) Add Organization endpoint negative-path tests (validation 400, conflict 409, auth 401/403).
+- (c) Add `TenantScopeCommitEndpointFilter` exception-path test (commit throws → response intact).
+- (d) Add `TenantScope` rollback-path test.
+- (e) Add `[ExcludeFromCodeCoverage]` to `IModule`, `DomainEvent`, `TenantScopeBeginException` (cosmetic exclusions matching the existing convention for SharedKernel framework types).
+
+**Trigger:** Bundle with §13.6 (mutation rerun) — same set of files end up under both microscopes, and survivors will likely overlap with these branch gaps. Resolves the divergence before it widens.
+
+**Effort estimate:** ~1 day total (mostly negative-path tests for Organization endpoints + the small SharedKernel exclusions).
+
+### 13.12 NetArchTest false positives under coverlet instrumentation (raised by coverage run)
+
+**Why:** When `dotnet test --settings coverlet.runsettings` runs against `Kartova.ArchitectureTests`, `ContractsCoverageRules.All_types_in_Contracts_assemblies_have_ExcludeFromCodeCoverage` fails because coverlet injects compiler-generated helper types (e.g. `<Module>`, `<PrivateImplementationDetails>`) that NetArchTest's `Types.InAssemblies(...).That().AreClasses()` predicate sees as undecorated classes. Standalone (`dotnet test --no-build` without the data collector) the test passes. CI runs that need both the architecture gate and coverage collection currently can't enable both simultaneously.
+
+**Scope:** Tighten the predicate to skip compiler-generated artifacts: filter out types decorated with `[CompilerGenerated]`, types whose name matches `<*>`, and the `<Module>` synthetic type. Apply the same fix to `DTO_like_types_have_ExcludeFromCodeCoverage` if it shows the same pattern.
+
+**Trigger:** Bundle with the next CI workflow change that wires coverage into the build, or §13.11 (coverage gap closure) — both want the architecture gate to coexist with coverage collection.
+
+**Effort estimate:** ~30 minutes.
