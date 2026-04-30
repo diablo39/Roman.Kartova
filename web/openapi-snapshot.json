@@ -1,0 +1,320 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Kartova API",
+    "version": "0.1.0",
+    "description": "Kartova SaaS service catalog + developer portal API.\n\nNOTE: This snapshot was hand-authored from the endpoint definitions in the\ncodebase (CatalogModule, OrganizationModule, OrganizationAdminModule) because\nthe API does not yet expose a live OpenAPI endpoint (MapOpenApi / AddOpenApi\nnot yet wired in Program.cs). Update this file once the API wires OpenAPI."
+  },
+  "paths": {
+    "/api/v1/version": {
+      "get": {
+        "operationId": "GetVersion",
+        "summary": "Get API version info",
+        "tags": ["system"],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Version information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalog/applications": {
+      "post": {
+        "operationId": "RegisterApplication",
+        "summary": "Register a new application in the catalog",
+        "tags": ["catalog"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterApplicationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Application registered",
+            "headers": {
+              "Location": {
+                "schema": { "type": "string", "format": "uri" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Domain validation error",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "get": {
+        "operationId": "ListApplications",
+        "summary": "List all applications visible in the current tenant",
+        "tags": ["catalog"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of applications",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ApplicationResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/catalog/applications/{id}": {
+      "get": {
+        "operationId": "GetApplicationById",
+        "summary": "Get a single application by ID",
+        "tags": ["catalog"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Application found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Application not found",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/organizations/me": {
+      "get": {
+        "operationId": "GetOrganizationMe",
+        "summary": "Get the current user's organization",
+        "tags": ["organizations"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Organization for the current tenant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDto"
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/organizations/me/admin-only": {
+      "get": {
+        "operationId": "GetOrganizationMeAdminOnly",
+        "summary": "Admin-only organization details (OrgAdmin role required)",
+        "tags": ["organizations"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Organization for the current tenant (admin view)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDto"
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden — OrgAdmin role required" }
+        }
+      }
+    },
+    "/api/v1/admin/organizations": {
+      "post": {
+        "operationId": "AdminCreateOrganization",
+        "summary": "Platform-admin: create a new organization (tenant)",
+        "tags": ["admin"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrganizationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Organization created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden — PlatformAdmin role required" }
+        }
+      }
+    },
+    "/health/live": {
+      "get": {
+        "operationId": "HealthLive",
+        "summary": "Kubernetes liveness probe",
+        "tags": ["health"],
+        "security": [],
+        "responses": {
+          "200": { "description": "Healthy" },
+          "503": { "description": "Unhealthy" }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "HealthReady",
+        "summary": "Kubernetes readiness probe",
+        "tags": ["health"],
+        "security": [],
+        "responses": {
+          "200": { "description": "Ready" },
+          "503": { "description": "Not ready" }
+        }
+      }
+    },
+    "/health/startup": {
+      "get": {
+        "operationId": "HealthStartup",
+        "summary": "Kubernetes startup probe",
+        "tags": ["health"],
+        "security": [],
+        "responses": {
+          "200": { "description": "Started" },
+          "503": { "description": "Not started" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "VersionResponse": {
+        "type": "object",
+        "properties": {
+          "version": { "type": "string" },
+          "commit": { "type": "string" },
+          "buildTime": { "type": "string" }
+        },
+        "required": ["version", "commit", "buildTime"]
+      },
+      "RegisterApplicationRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" }
+        },
+        "required": ["name", "description"]
+      },
+      "ApplicationResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "tenantId": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "ownerUserId": { "type": "string", "format": "uuid" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "tenantId", "name", "description", "ownerUserId", "createdAt"]
+      },
+      "OrganizationDto": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "tenantId": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "tenantId", "name", "createdAt"]
+      },
+      "CreateOrganizationRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" }
+        },
+        "required": ["name"]
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "integer" },
+          "detail": { "type": "string" },
+          "instance": { "type": "string" },
+          "traceId": { "type": "string" }
+        }
+      }
+    }
+  }
+}

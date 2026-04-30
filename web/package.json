@@ -4,8 +4,11 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/codegen.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/codegen.mjs",
     "build": "tsc -b && vite build",
+    "codegen": "node scripts/codegen.mjs",
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint .",
     "preview": "vite preview",
