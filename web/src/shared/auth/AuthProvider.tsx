@@ -12,12 +12,7 @@ const config = buildOidcConfig({
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
-    <OidcAuthProvider
-      {...config}
-      onSigninCallback={() => {
-        window.history.replaceState({}, document.title, "/");
-      }}
-    >
+    <OidcAuthProvider {...config}>
       {children}
     </OidcAuthProvider>
   );

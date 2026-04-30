@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { buildOidcConfig } from "../authConfig";
 
 describe("buildOidcConfig", () => {
-  it("returns a UserManagerSettings shaped for PKCE + in-memory storage", () => {
+  it("returns a UserManagerSettings shaped for PKCE + session-scoped storage", () => {
     const cfg = buildOidcConfig({
       authority: "http://kc/realms/kartova",
       clientId: "kartova-web",
@@ -18,7 +18,7 @@ describe("buildOidcConfig", () => {
     expect(cfg.automaticSilentRenew).toBe(true);
   });
 
-  it("provides in-memory user/state stores (not localStorage)", () => {
+  it("uses sessionStorage (not localStorage) so tokens are tab-scoped and cleared on tab close", () => {
     const cfg = buildOidcConfig({
       authority: "http://kc/realms/kartova",
       clientId: "kartova-web",
@@ -27,10 +27,13 @@ describe("buildOidcConfig", () => {
 
     expect(cfg.userStore).toBeDefined();
     expect(cfg.stateStore).toBeDefined();
-    // Stores must NOT be a WebStorageStateStore wrapping window.localStorage / sessionStorage.
-    // Easiest invariant: the underlying store should not be a Storage instance.
-    // (Stricter — we know the implementation uses InMemoryWebStorage, so identity check by name:)
     expect(cfg.userStore!.constructor.name).toBe("WebStorageStateStore");
+    type WithStore = { _store?: Storage };
+    const userStorage = (cfg.userStore as unknown as WithStore)._store;
+    const stateStorage = (cfg.stateStore as unknown as WithStore)._store;
+    expect(userStorage).toBe(window.sessionStorage);
+    expect(stateStorage).toBe(window.sessionStorage);
+    expect(userStorage).not.toBe(window.localStorage);
   });
 
   it("derives post_logout_redirect_uri from window.location.origin", () => {
