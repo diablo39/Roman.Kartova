@@ -16,5 +16,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Kartova.SharedKernel\Kartova.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\src\Kartova.SharedKernel.Wolverine\Kartova.SharedKernel.Wolverine.csproj" />
   </ItemGroup>
 </Project>

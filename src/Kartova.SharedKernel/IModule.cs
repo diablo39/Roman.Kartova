@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Wolverine;
@@ -32,6 +33,7 @@ public interface IModule
     /// migrator cannot satisfy (e.g. <c>AddModuleDbContext</c> requires <c>ITenantScope</c>).
     /// Migrations run DDL, not DML, so RLS/tenant-scope does not apply.
     /// </summary>
+    [ExcludeFromCodeCoverage]
     void RegisterForMigrator(IServiceCollection services, IConfiguration configuration)
         => RegisterServices(services, configuration);
 

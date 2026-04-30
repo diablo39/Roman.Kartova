@@ -612,7 +612,22 @@ Original entry preserved below for historical context:
 
 **Effort estimate:** ~30 minutes.
 
-### 13.11 Branch-coverage gap to 85% target (raised by coverage run on slice-3 tip)
+### 13.11 Branch-coverage gap to 85% target (raised by coverage run on slice-3 tip) — RESOLVED 2026-04-30
+
+**Resolution:** Closed all five hot spots from the original inventory and lifted branch coverage to **87.5 %** (above the 85 % target). Headline shift: line 84.4 % → 92.0 %, branch 74.3 % → 87.5 %, method 85.8 % → 92.1 %.
+
+Specifics:
+- `TenantScopeWolverineMiddleware` 0 % → **100 %** via `TenantScopeWolverineMiddlewareTests` (7 tests). Middleware kept (rather than deleted) — it remains the canonical Wolverine-side integration for ADR-0090 once the first async tenant-scoped handler ships.
+- `AdminOrganizationEndpointDelegates` 33.3 % → **100 %** and `OrganizationEndpointDelegates` 40 % → **90 %** via new `OrganizationEndpointNegativePathTests` covering blank-name 400, over-length 400, exact-boundary 201, and the GET `/me` no-org 404 path.
+- `TenantScopeCommitEndpointFilter` 60 % → **100 %** via three unit tests on commit happy-path, missing-handle programmer-error, and commit-throws bubbling. Required adding `[InternalsVisibleTo("Kartova.SharedKernel.AspNetCore.Tests")]` so tests can reach the internal `HandleKey` constant.
+- `TenantScope` 63 % → **66.1 %** via three new integration tests in `TenantScopeMechanismTests`: "already begun" guard, idempotent `Handle.DisposeAsync`, and `CommitAsync`-after-dispose programmer error. The remaining gap (~1/3) is in the `BeginAsync` `NpgsqlException`-cleanup path and `DisposeAsyncCore` rollback-throws path — both real fault-injection territory that the existing `KartovaApiFaultInjectionFixture` is the right venue for, deliberately deferred.
+- Cosmetic exclusions on framework types: `IModule.RegisterForMigrator` (default-implementation method on the interface — interface-level `[ExcludeFromCodeCoverage]` is a CS0592 error, applied at method level), `DomainEvent` abstract record, `TenantScopeBeginException`. Each had 0 % method coverage as a counting artifact.
+
+Test count: 96 → **143** (+47 unit/arch + integration). Build clean under `TreatWarningsAsErrors=true`. Full integration suite green.
+
+Original entry preserved below for historical context:
+
+
 
 **Why:** Coverage run on `b8cbe94` (full suite, 96 unit/arch + 32 integration) lands at 84.1% line / **73.9% branch** — below CLAUDE.md's 85% branch target. Slice-3 surface itself sits at 90–100%; the gap concentrates in slice-2 code that shipped before this target was tracked at the branch level.
 

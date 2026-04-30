@@ -17,4 +17,10 @@
     <ProjectReference Include="..\Kartova.SharedKernel\Kartova.SharedKernel.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Tests need to reach the TenantScopeBeginMiddleware.HandleKey constant
+         to assert the handoff between begin-middleware and commit-filter. -->
+    <InternalsVisibleTo Include="Kartova.SharedKernel.AspNetCore.Tests" />
+  </ItemGroup>
+
 </Project>

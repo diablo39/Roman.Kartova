@@ -120,6 +120,62 @@ public class TenantScopeMechanismTests
             because: "scope disposed without commit must roll back the INSERT");
     }
 
+    [Fact]
+    public async Task BeginAsync_throws_when_called_twice_on_the_same_scope()
+    {
+        // Slice-3 §13.11: pin the "already begun" guard. The transport adapter is the
+        // only legitimate caller of BeginAsync; a second call indicates a wiring bug
+        // and must surface immediately rather than silently overwriting the connection.
+        using var hostScope = _fx.Services.CreateScope();
+        var tenantScope = hostScope.ServiceProvider.GetRequiredService<ITenantScope>();
+
+        var handle = await tenantScope.BeginAsync(SeededOrgs.OrgA, default);
+        try
+        {
+            var second = async () => await tenantScope.BeginAsync(SeededOrgs.OrgA, default);
+            await second.Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("*already begun*");
+        }
+        finally
+        {
+            await handle.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Handle_DisposeAsync_is_idempotent()
+    {
+        // Slice-3 §13.11: pin Handle.DisposeAsync's _disposed guard. Idempotent dispose
+        // is required because the transport adapter's `await using` plus the begin-middleware's
+        // `finally` block may both reach DisposeAsync — double-dispose should be safe.
+        using var hostScope = _fx.Services.CreateScope();
+        var tenantScope = hostScope.ServiceProvider.GetRequiredService<ITenantScope>();
+
+        var handle = await tenantScope.BeginAsync(SeededOrgs.OrgA, default);
+        await handle.DisposeAsync();
+
+        // Second dispose must not throw.
+        var act = async () => await handle.DisposeAsync();
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task CommitAsync_throws_when_scope_was_disposed_first()
+    {
+        // Slice-3 §13.11: pin the CommitAsync transaction-null guard. Once the scope is
+        // disposed (rollback path), calling CommitAsync via the same Handle must surface
+        // a programmer error rather than silently no-op (which would mask a wiring bug).
+        using var hostScope = _fx.Services.CreateScope();
+        var tenantScope = hostScope.ServiceProvider.GetRequiredService<ITenantScope>();
+
+        var handle = await tenantScope.BeginAsync(SeededOrgs.OrgA, default);
+        await handle.DisposeAsync();
+
+        var commit = async () => await handle.CommitAsync(default);
+        await commit.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Cannot commit*scope not active*");
+    }
+
     private async Task AssertNoOrganizationWithName(string name, string because)
     {
         await using var bypass = new NpgsqlConnection(_fx.BypassConnectionString);

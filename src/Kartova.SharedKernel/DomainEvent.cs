@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace Kartova.SharedKernel;
 
 /// <summary>
@@ -6,6 +8,7 @@ namespace Kartova.SharedKernel;
 /// <remarks>
 /// Enforced by architecture tests (ADR-0083).
 /// </remarks>
+[ExcludeFromCodeCoverage]
 public abstract record DomainEvent(DateTimeOffset OccurredAt)
 {
     protected DomainEvent() : this(DateTimeOffset.UtcNow) { }
