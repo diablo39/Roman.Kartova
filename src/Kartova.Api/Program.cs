@@ -56,6 +56,26 @@ public class Program
             };
         });
 
+        // CORS — allow configured SPA origins (e.g. http://localhost:5173 in dev).
+        // Production default: empty array → all origins blocked (safe default).
+        builder.Services.AddCors(options =>
+        {
+            var origins = builder.Configuration
+                .GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+            options.AddPolicy("KartovaWeb", policy =>
+            {
+                if (origins.Length == 0)
+                {
+                    // No origins configured — block everything (safe default for prod).
+                    return;
+                }
+                policy.WithOrigins(origins)
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .AllowCredentials();
+            });
+        });
+
         // Domain-validation → 400 mapping — slice-3 spec §13.3.
         // Maps ArgumentException (thrown by aggregate factories) to RFC 7807 400.
         // Centralized so write endpoints don't copy-paste a try/catch.
@@ -94,6 +114,7 @@ public class Program
         // text/plain bodies for 4xx/5xx without explicit bodies and shadow that contract.
         app.UseExceptionHandler();
 
+        app.UseCors("KartovaWeb");
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseMiddleware<TenantScopeBeginMiddleware>();
