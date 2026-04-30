@@ -480,7 +480,11 @@ These items are deliberately out of slice-3 scope but recorded here so they aren
 
 **Ordering:** Can ship anytime after slice 3 merges. Independent of slice 4+ feature work, but should land before any slice that needs `IClock`-style behavior (e.g., expiry, scheduling, audit-log timestamps under MiFID II — `E-01.F-05.S-07`).
 
-### 13.2 Wolverine vs direct-dispatch ADR addendum (raised by slice-boundary review)
+### 13.2 Wolverine vs direct-dispatch ADR addendum (raised by slice-boundary review) — RESOLVED 2026-04-30
+
+**Resolution:** Recorded in [ADR-0093 — Wolverine Scope: Outbox/Async Only, Direct Dispatch for Sync HTTP](../../architecture/decisions/ADR-0093-wolverine-scope-narrowed.md) (PR #11, merged 2026-04-30). ADR-0028 status banner updated to reflect the narrowed scope. Slice 3 handlers already follow this pattern; no retrofit needed. `WolverineFx.Http` evaluation remains deferred to post-slice-6.
+
+Original entry preserved below for historical context:
 
 **Why:** Slice 3's command/query handlers are invoked **directly** from endpoint delegates (resolved via `IServiceProvider` from the HTTP request scope, then `await handler.Handle(...)`), **not** through `IMessageBus.InvokeAsync<T>`. Reason: Wolverine's bus opens its own internal IoC scope for handler dispatch, and that scope is **not** the HTTP request scope where `ITenantScope` and `CatalogDbContext` live. Resolving `CatalogDbContext` inside Wolverine's scope throws "TenantScope is not active" because `TenantScopeBeginMiddleware` populated the request scope, not Wolverine's.
 
