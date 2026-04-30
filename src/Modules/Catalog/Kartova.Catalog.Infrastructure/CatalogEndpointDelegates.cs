@@ -13,10 +13,16 @@ internal static class CatalogEndpointDelegates
     /// Synchronous in-process handler dispatch — invoked directly rather than
     /// via <c>IMessageBus.InvokeAsync</c>. Wolverine's bus opens its own DI
     /// scope for handler dispatch which would not see the HTTP request's
-    /// <c>ITenantScope</c> begun by <c>TenantScopeBeginMiddleware</c> (ADR-0090).
-    /// Direct dispatch keeps the handler resolved from the HTTP request scope
-    /// where the tenant scope is active. The handler class itself stays
-    /// transport-agnostic so an async Kafka path can still resolve it later.
+    /// <c>ITenantScope</c> begun by <c>TenantScopeBeginMiddleware</c> (ADR-0090,
+    /// formalized in ADR-0093). Direct dispatch keeps the handler resolved from
+    /// the HTTP request scope where the tenant scope is active. The handler
+    /// class itself stays transport-agnostic so an async Kafka path can still
+    /// resolve it later.
+    ///
+    /// Domain factory invariants (Application.Create) throw ArgumentException
+    /// for empty/over-length name and empty description. The mapping to RFC 7807
+    /// 400 lives in <c>DomainValidationExceptionHandler</c> per slice-3 spec §13.3
+    /// — endpoints stay free of validation try/catch boilerplate.
     /// </summary>
     internal static async Task<IResult> RegisterApplicationAsync(
         [FromBody] RegisterApplicationRequest request,
@@ -26,24 +32,9 @@ internal static class CatalogEndpointDelegates
         ICurrentUser user,
         CancellationToken ct)
     {
-        ApplicationResponse response;
-        try
-        {
-            response = await handler.Handle(
-                new RegisterApplicationCommand(request.Name, request.Description),
-                db, tenant, user, ct);
-        }
-        catch (ArgumentException ex)
-        {
-            // Domain factory invariants (Application.Create) throw ArgumentException
-            // for empty/over-length name and empty description. Surface as 400 per
-            // the slice-3 spec error table.
-            return Results.Problem(
-                type: ProblemTypes.ValidationFailed,
-                title: "Invalid request",
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
-        }
+        var response = await handler.Handle(
+            new RegisterApplicationCommand(request.Name, request.Description),
+            db, tenant, user, ct);
 
         return Results.Created($"/api/v1/catalog/applications/{response.Id}", response);
     }

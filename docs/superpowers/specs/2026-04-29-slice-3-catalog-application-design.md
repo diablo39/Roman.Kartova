@@ -498,7 +498,11 @@ This is a real divergence from ADR-0028 ("Wolverine — mandatory pattern") and 
 
 **Effort estimate:** ~half day for the ADR; ~1 day if `WolverineFx.Http` integration is bundled.
 
-### 13.3 Validation-error mapping (raised by slice-boundary review)
+### 13.3 Validation-error mapping (raised by slice-boundary review) — RESOLVED 2026-04-30
+
+**Resolution:** Option (a) implemented. `DomainValidationExceptionHandler` (registered via `AddExceptionHandler<DomainValidationExceptionHandler>()` in `Program.cs`) maps `ArgumentException` to RFC 7807 400 with `type = ProblemTypes.ValidationFailed`. The per-endpoint try/catch in `CatalogEndpointDelegates.RegisterApplicationAsync` was removed. Pinning tests in `DomainValidationExceptionHandlerTests` cover the mapping plus pass-through for non-`ArgumentException` types.
+
+Original entry preserved below for historical context:
 
 **Why:** `CatalogEndpointDelegates.RegisterApplicationAsync` catches `ArgumentException` from the domain factory and maps it to `Results.Problem(type: ProblemTypes.ValidationFailed, statusCode: 400)`. The existing global `IExceptionHandler` should ideally own that mapping so future write endpoints don't copy-paste the catch.
 
@@ -510,7 +514,11 @@ This is a real divergence from ADR-0028 ("Wolverine — mandatory pattern") and 
 
 **Effort estimate:** ~30 minutes either way.
 
-### 13.4 `MapInboundClaims = false` pinning test (raised by Task 2 code review)
+### 13.4 `MapInboundClaims = false` pinning test (raised by Task 2 code review) — RESOLVED 2026-04-30
+
+**Resolution:** Already covered. `JwtAuthenticationExtensionsTests.AddKartovaJwtAuth_SetsMapInboundClaimsFalse` asserts `options.MapInboundClaims.Should().BeFalse()` against the configured `JwtBearerOptions`. Re-enabling claim mapping fails this test; `HttpContextCurrentUser.UserId` reading the literal `"sub"` claim stays load-bearing.
+
+Original entry preserved below for historical context:
 
 **Why:** `HttpContextCurrentUser.UserId` reads the literal claim `"sub"`. This works only because `JwtAuthenticationExtensions.cs` sets `MapInboundClaims = false`. If anyone re-enables claim mapping, `"sub"` becomes `ClaimTypes.NameIdentifier` and `UserId` silently throws `InvalidOperationException` for every request.
 

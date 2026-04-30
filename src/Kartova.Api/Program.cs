@@ -57,6 +57,11 @@ public class Program
             };
         });
 
+        // Domain-validation → 400 mapping — slice-3 spec §13.3.
+        // Maps ArgumentException (thrown by aggregate factories) to RFC 7807 400.
+        // Centralized so write endpoints don't copy-paste a try/catch.
+        builder.Services.AddExceptionHandler<DomainValidationExceptionHandler>();
+
         // Admin bypass DbContext — separate BYPASSRLS connection string (ADR-0090).
         // Registered here (not in OrganizationModule) because OrganizationModule.Infrastructure
         // cannot project-reference Infrastructure.Admin (would be circular).
