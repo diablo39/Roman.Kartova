@@ -1,4 +1,4 @@
-import createClient from "openapi-fetch";
+import createClient, { type Middleware } from "openapi-fetch";
 import type { paths } from "@/generated/openapi";
 
 type TokenProvider = () => string | null;
@@ -14,27 +14,27 @@ export function setUnauthorizedHandler(h: () => void): void {
   unauthorizedHandler = h;
 }
 
-// Use a lazy fetch wrapper so that:
-//  1. Test mocks replacing globalThis.fetch after client creation are honoured
-//     (openapi-fetch captures the fetch reference at createClient() time).
-//  2. The Authorization header is passed in the `init` argument (not only baked
-//     into the Request object), so test mocks that inspect `init?.headers` see it.
-//  3. 401 responses trigger the unauthorizedHandler.
-const lazyFetch: typeof fetch = async (input, init) => {
-  const tok = tokenProvider();
-  const headers = new Headers(
-    input instanceof Request ? input.headers : init?.headers
-  );
-  if (tok) {
-    headers.set("Authorization", `Bearer ${tok}`);
-  }
-  const response = await globalThis.fetch(input, { ...init, headers });
-  if (response.status === 401) unauthorizedHandler();
-  return response;
+const authMiddleware: Middleware = {
+  async onRequest({ request }) {
+    const tok = tokenProvider();
+    if (tok) request.headers.set("Authorization", `Bearer ${tok}`);
+    return request;
+  },
+  async onResponse({ response }) {
+    if (response.status === 401) unauthorizedHandler();
+    return response;
+  },
 };
 
+// Wrap globalThis.fetch so test spies installed after createApiClient() are honoured.
+// openapi-fetch captures the fetch reference at createClient() time; this indirection
+// ensures the call is always dispatched through the live globalThis.fetch binding.
+const deferredFetch: typeof fetch = (input, init) => globalThis.fetch(input as Request, init);
+
 export function createApiClient(baseUrl: string) {
-  return createClient<paths>({ baseUrl, fetch: lazyFetch });
+  const client = createClient<paths>({ baseUrl, fetch: deferredFetch });
+  client.use(authMiddleware);
+  return client;
 }
 
 export const apiClient = createApiClient(
