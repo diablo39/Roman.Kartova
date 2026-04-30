@@ -4,7 +4,8 @@ namespace Kartova.Catalog.Infrastructure;
 
 /// <summary>
 /// EF Core context for the Catalog module. Owns <see cref="KartovaMetadata"/>
-/// in Slice 1. Domain entities (Service, Application, API, etc.) arrive in Slice 3.
+/// and the <see cref="Kartova.Catalog.Domain.Application"/> aggregate; further
+/// catalog aggregates land here as the module grows.
 /// </summary>
 public sealed class CatalogDbContext : DbContext
 {

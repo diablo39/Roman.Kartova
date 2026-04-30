@@ -43,6 +43,16 @@ public class ApplicationTests
         act.Should().Throw<ArgumentException>().WithMessage("*256*");
     }
 
+    [Fact]
+    public void Create_succeeds_with_name_at_exactly_256_chars()
+    {
+        // Boundary pin — the invariant is `length > 256 throws`, so 256 must succeed.
+        // Without this test the off-by-one mutation `length >= 256` survives.
+        var name = new string('x', 256);
+        var app = DomainApplication.Create(name, "desc", Owner, Tenant);
+        app.Name.Should().HaveLength(256);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("   ")]

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FluentAssertions;
 using Kartova.SharedKernel.AspNetCore;
 using Microsoft.AspNetCore.Http;
@@ -25,6 +26,12 @@ public class DomainValidationExceptionHandlerTests
 
         handled.Should().BeTrue();
         ctx.Response.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
+
+        var body = await ReadBodyAsync(ctx);
+        body.GetProperty("type").GetString().Should().Be(ProblemTypes.ValidationFailed);
+        body.GetProperty("title").GetString().Should().Be("Invalid request");
+        body.GetProperty("status").GetInt32().Should().Be(StatusCodes.Status400BadRequest);
+        body.GetProperty("detail").GetString().Should().Be("name must not be empty");
     }
 
     [Fact]
@@ -65,5 +72,12 @@ public class DomainValidationExceptionHandlerTests
         var sut = new DomainValidationExceptionHandler(
             sp.GetRequiredService<IProblemDetailsService>());
         return (sut, ctx);
+    }
+
+    private static async Task<JsonElement> ReadBodyAsync(HttpContext ctx)
+    {
+        ctx.Response.Body.Position = 0;
+        using var doc = await JsonDocument.ParseAsync(ctx.Response.Body);
+        return doc.RootElement.Clone();
     }
 }

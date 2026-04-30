@@ -186,12 +186,12 @@ Registered as `AddScoped<ICurrentUser, HttpContextCurrentUser>()` in `SharedKern
 ```csharp
 public sealed class Application
 {
-    public Guid Id { get; private init; }
-    public TenantId TenantId { get; private init; }
-    public string Name { get; private init; } = "";
-    public string Description { get; private init; } = "";
-    public Guid OwnerUserId { get; private init; }
-    public DateTimeOffset CreatedAt { get; private init; }
+    public Guid Id { get; private set; }
+    public TenantId TenantId { get; private set; }
+    public string Name { get; private set; } = "";
+    public string Description { get; private set; } = "";
+    public Guid OwnerUserId { get; private set; }
+    public DateTimeOffset CreatedAt { get; private set; }
 
     private Application() { }       // EF
 
@@ -228,11 +228,14 @@ public sealed class RegisterApplicationHandler
     public async Task<ApplicationResponse> Handle(
         RegisterApplicationCommand cmd,
         CatalogDbContext db,
-        ITenantScope scope,
+        ITenantContext tenant,
         ICurrentUser user,
         CancellationToken ct)
     {
-        var app = Application.Create(cmd.Name, cmd.Description, user.UserId, scope.TenantId);
+        // Handlers depend on the read-only ITenantContext, never the lifecycle ITenantScope —
+        // Begin/Commit are owned by the transport adapter (TenantScopeBeginMiddleware +
+        // TenantScopeCommitEndpointFilter, ADR-0090).
+        var app = Application.Create(cmd.Name, cmd.Description, user.UserId, tenant.TenantId);
         db.Applications.Add(app);
         await db.SaveChangesAsync(ct);
         return ApplicationResponse.From(app);
@@ -259,8 +262,10 @@ CREATE TABLE catalog_applications (
 CREATE INDEX ix_catalog_applications_tenant_id ON catalog_applications (tenant_id);
 ALTER TABLE catalog_applications ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON catalog_applications
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
 ```
+
+> **Strict `current_setting` form (no second arg).** Matches the slice-2 Organization migration (`20260423080230_InitialOrganization.cs`). A missing GUC raises an error rather than silently returning every row — the `TenantScopeRequiredInterceptor` already prevents `SaveChanges` outside a scope, so a missing GUC at query time is a programmer error worth surfacing loudly. Earlier drafts of this spec used the lenient `('app.current_tenant_id', true)` form; the strict form is the project convention.
 
 Migration generated via `dotnet ef migrations add AddApplications --project Kartova.Catalog.Infrastructure --startup-project Kartova.Migrator` and committed.
 
@@ -535,3 +540,56 @@ Original entry preserved below for historical context:
 **Trigger:** Before slice that introduces API-entity endpoints (after Service slice).
 
 **Effort estimate:** ~30-min ADR + zero code (no APIs shipped yet).
+
+### 13.6 Mutation-sentinel rerun on slice-3 surface (raised by deep-review)
+
+**Why:** `mutation-report-surviving.md` is timestamped `2026-04-26T17:01:02` against the pre-slice-3 baseline. The Catalog mutants it lists target slice-2's DbContext registration; the slice-3 domain factory, three handlers, endpoint delegates, `DomainValidationExceptionHandler`, and cross-tenant probe have never been mutated. The project's mutation feedback loop (`init-code-quality` + `mutation-sentinel` skills, ≥80% target per CLAUDE.md) is operating on stale data.
+
+**Scope:**
+- Run `mutation-sentinel` against `src/Modules/Catalog/**` and `src/Kartova.SharedKernel.AspNetCore/{HttpContextCurrentUser,DomainValidationExceptionHandler,ModuleRouteExtensions}.cs`.
+- Address survivors per usual loop or document explicit accepted-survivors.
+- Regenerate `mutation-report-surviving.md` so the next slice doesn't inherit a stale baseline.
+
+**Trigger:** Before slice 4 starts. Same window as the §13.2-driven Wolverine config work — both touch the slice-3 handler shape.
+
+**Effort estimate:** ~half-day (Stryker run + survivor triage).
+
+### 13.7 `KartovaApiFixture` extraction to shared test infrastructure (raised by deep-review)
+
+**Why:** `src/Modules/Catalog/Kartova.Catalog.IntegrationTests/KartovaApiFixture.cs` is ~140 lines structurally identical to the Organization fixture — Postgres container bootstrap, role grants, JWT signer wiring. The only Catalog-specific bit is `RunMigrationsAsync<CatalogDbContext>`. Slice 4 (Service entity) will need a third copy.
+
+**Scope:** Extract the common parts to `Kartova.Testing.Auth` (or a new `Kartova.Testing.Api`) so the next module's integration tests don't copy 140 lines of fixture plumbing. The migration-runner step stays per-module.
+
+**Trigger:** Before slice 4 stands up its own integration test project.
+
+**Effort estimate:** ~2 hours including the Catalog + Organization migration to the shared fixture.
+
+### 13.8 `KartovaConnectionStrings.RequireMain` helper (raised by deep-review)
+
+**Why:** The same `ConnectionStrings__{name} missing` `InvalidOperationException` literal exists in `Program.cs:38`, `OrganizationModule.cs:49`, and `CatalogModule.cs:52`. Three copies drift the moment one of them changes (e.g., adding diagnostic context). Slice 4 will add a fourth.
+
+**Scope:** Lift to a single static helper on `KartovaConnectionStrings`, e.g. `RequireMain(IConfiguration)` returning the resolved connection string or throwing the canonical message. Call it from all three (eventually four) sites.
+
+**Trigger:** Bundle with §13.7 or take in slice 4's `RegisterForMigrator` for the Service module.
+
+**Effort estimate:** ~30 minutes.
+
+### 13.9 Endpoint route-name pinning arch test (raised by deep-review)
+
+**Why:** Plan tasks 9-11 specify `.WithName("RegisterApplication")` / `"GetApplicationById"` / `"ListApplications"`. The Organization mutation report shows `MapGet(...)` mutated to `;` survives. There is no test that enumerates the registered `EndpointDataSource` and pins each named route's HTTP method + path.
+
+**Scope:** Add an architecture test (or extend `IModuleRules`) that boots a `WebApplicationFactory`, walks `EndpointDataSource.Endpoints`, and asserts the expected named routes exist with the expected verbs and templates. Kills `MapPost`/`MapGet` statement mutants in module `MapEndpoints` overrides.
+
+**Trigger:** Bundle with §13.6 mutation rerun or take whenever the fourth named endpoint is added.
+
+**Effort estimate:** ~1 hour.
+
+### 13.10 `RegisterForMigrator` coverage parity with Organization (raised by deep-review)
+
+**Why:** `CatalogModule.RegisterForMigrator` mirrors the Organization variant but has no caller in tests; the Organization mutation report shows the parallel surface in that module has surviving NoCoverage mutants. Without a unit test, mutating the migrator-only registration silently passes.
+
+**Scope:** `Kartova.Catalog.Infrastructure.Tests.CatalogModuleRegisterForMigratorTests` — call `RegisterForMigrator(services, config)` with a stub config, resolve `CatalogDbContext`, assert it's wired to the configured connection string and not registered through the tenant-scoped `AddModuleDbContext` path.
+
+**Trigger:** Pair with §13.7 fixture extraction (test project may need a small bootstrap helper).
+
+**Effort estimate:** ~30 minutes.

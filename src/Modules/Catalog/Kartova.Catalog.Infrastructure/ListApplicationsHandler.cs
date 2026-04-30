@@ -17,8 +17,12 @@ public sealed class ListApplicationsHandler
         CatalogDbContext db,
         CancellationToken ct)
     {
+        // ThenBy(Id) guarantees stable ordering when two rows share a CreatedAt tick —
+        // without the tiebreaker, integration assertions on listing order are flaky under
+        // fast inserts on the same DateTimeOffset.UtcNow value.
         var rows = await db.Applications
             .OrderBy(x => x.CreatedAt)
+            .ThenBy(x => x.Id)
             .ToListAsync(ct);
         return rows.Select(r => r.ToResponse()).ToList();
     }

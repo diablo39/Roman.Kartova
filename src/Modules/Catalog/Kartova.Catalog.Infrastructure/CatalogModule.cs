@@ -60,7 +60,9 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
 
     public void ConfigureWolverine(WolverineOptions options)
     {
+        // Discovery only — synchronous HTTP handlers use direct dispatch (ADR-0093).
+        // This call keeps the assembly visible to Wolverine for future async/event handlers
+        // and outbox-driven publishes once the catalog starts emitting domain events.
         options.Discovery.IncludeAssembly(typeof(CatalogModule).Assembly);
-        // Handlers and publish routes arrive in Slice 3.
     }
 }
