@@ -8,6 +8,16 @@ import { MemoryRouter } from "react-router-dom";
 import * as clientModule from "@/features/catalog/api/client";
 import { CatalogListPage } from "../CatalogListPage";
 
+vi.mock("react-oidc-context", () => ({
+  useAuth: () => ({
+    isAuthenticated: true,
+    user: {
+      access_token: "t",
+      profile: { sub: "u", name: "Alice", email: "a@x", tenant_id: "t" },
+    },
+  }),
+}));
+
 function harness(qc: QueryClient) {
   return ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={qc}>
@@ -100,5 +110,19 @@ describe("CatalogListPage", () => {
     // The dialog itself wires up in Task 18; for now the button must at least be clickable
     // and not throw.
     expect(btn).toBeInTheDocument();
+  });
+
+  it("opens the Register Application dialog on button click", async () => {
+    const get = vi.fn().mockResolvedValue({ data: [], error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get,
+      POST: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CatalogListPage />, { wrapper: harness(qc) });
+
+    await userEvent.click(screen.getByRole("button", { name: /register application/i }));
+    expect(await screen.findByRole("dialog", { name: /register application/i })).toBeInTheDocument();
   });
 });

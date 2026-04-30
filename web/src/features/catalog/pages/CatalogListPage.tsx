@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useApplications } from "@/features/catalog/api/applications";
 import { ApplicationsTable } from "@/features/catalog/components/ApplicationsTable";
+import { RegisterApplicationDialog } from "@/features/catalog/components/RegisterApplicationDialog";
 
 export function CatalogListPage() {
   const query = useApplications();
-  const [, setDialogOpen] = useState(false); // dialog wiring lands in Task 18
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -32,6 +33,8 @@ export function CatalogListPage() {
           applications={query.data as never}
         />
       )}
+
+      <RegisterApplicationDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
 }
