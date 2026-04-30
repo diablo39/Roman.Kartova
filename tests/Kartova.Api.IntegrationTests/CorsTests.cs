@@ -30,7 +30,7 @@ public class CorsTests : IAsyncLifetime
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.RequireHttpsMetadata), "false");
 
         // CORS allowlist — set before WAF boots so the policy builder sees the value.
-        Environment.SetEnvironmentVariable("Cors__AllowedOrigins__0", "http://localhost:5173");
+        Environment.SetEnvironmentVariable($"{CorsConfigKeys.AllowedOrigins.Replace(":", "__")}__0", "http://localhost:5173");
 
         _app = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
         {

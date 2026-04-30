@@ -126,7 +126,7 @@ OIDC config (dev): `authority=http://keycloak:8080/realms/kartova`, `client_id=k
 
 Two and only two:
 
-1. **CORS** — `Kartova.Api` adds `app.UseCors("WebOrigin")` policy that allows configured origins (dev: `http://localhost:5173`; prod: read from config). Covered by `CorsAllowsConfiguredOrigins` integration test.
+1. **CORS** — `Kartova.Api` adds `app.UseCors("KartovaWeb")` policy that allows configured origins (dev: `http://localhost:5173`; prod: read from config). Covered by `Preflight_FromConfiguredOrigin_AllowsRequest` and `Preflight_FromUnknownOrigin_DoesNotEchoOrigin` integration tests.
 2. **KeyCloak realm seed** — add `kartova-web` public client with `redirect_uris: ["http://localhost:5173/callback"]`, `web_origins: ["+"]`, PKCE required, no client secret. Covered by `KartovaWebClientIsRegistered` realm-import test.
 
 No new endpoints. No new Contracts. No DTO changes.
@@ -209,7 +209,8 @@ Coverage target: ≥ 80% lines on `web/src/features/catalog/api/`, `web/src/feat
 
 ### 6.3 Backend integration tests added
 
-- `CorsAllowsConfiguredOrigins` — `OPTIONS` preflight from configured origin returns `Access-Control-Allow-Origin` echoing the origin; an unconfigured origin is rejected.
+- `Preflight_FromConfiguredOrigin_AllowsRequest` — `OPTIONS` preflight from configured origin returns `Access-Control-Allow-Origin` echoing the origin.
+- `Preflight_FromUnknownOrigin_DoesNotEchoOrigin` — `OPTIONS` preflight from an unconfigured origin does not echo `Access-Control-Allow-Origin`.
 - `KartovaWebClientIsRegistered` — realm-import JSON contains `kartova-web` public client with PKCE required and the expected redirect URIs.
 
 ### 6.4 Manual verification (Playwright MCP — ADR-0084)

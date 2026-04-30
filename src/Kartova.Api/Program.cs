@@ -61,7 +61,7 @@ public class Program
         builder.Services.AddCors(options =>
         {
             var origins = builder.Configuration
-                .GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+                .GetSection(CorsConfigKeys.AllowedOrigins).Get<string[]>() ?? [];
             options.AddPolicy("KartovaWeb", policy =>
             {
                 if (origins.Length == 0)
