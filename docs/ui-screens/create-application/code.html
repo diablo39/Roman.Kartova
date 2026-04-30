@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container": "#171f33",
+                        "secondary": "#b4c5ff",
+                        "on-secondary-container": "#a4b6f5",
+                        "on-error": "#690005",
+                        "on-secondary-fixed-variant": "#31447b",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "surface-container-highest": "#2d3449",
+                        "on-secondary": "#182d63",
+                        "inverse-surface": "#dae2fd",
+                        "on-primary-container": "#eeefff",
+                        "surface": "#0b1326",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "surface-bright": "#31394d",
+                        "error": "#ffb4ab",
+                        "surface-tint": "#b4c5ff",
+                        "primary": "#b4c5ff",
+                        "outline": "#8d90a0",
+                        "on-secondary-fixed": "#00174b",
+                        "surface-dim": "#0b1326",
+                        "tertiary-container": "#bc4800",
+                        "outline-variant": "#434655",
+                        "on-tertiary-fixed": "#360f00",
+                        "on-primary": "#002a78",
+                        "secondary-fixed-dim": "#b4c5ff",
+                        "on-tertiary-container": "#ffede6",
+                        "inverse-on-surface": "#283044",
+                        "tertiary": "#ffb596",
+                        "tertiary-fixed": "#ffdbcd",
+                        "surface-container-lowest": "#060e20",
+                        "error-container": "#93000a",
+                        "secondary-fixed": "#dbe1ff",
+                        "on-surface": "#dae2fd",
+                        "on-tertiary": "#581e00",
+                        "primary-fixed": "#dbe1ff",
+                        "on-tertiary-fixed-variant": "#7d2d00",
+                        "surface-container-low": "#131b2e",
+                        "background": "#0b1326",
+                        "on-surface-variant": "#c3c6d7",
+                        "inverse-primary": "#0053db",
+                        "tertiary-fixed-dim": "#ffb596",
+                        "on-background": "#dae2fd",
+                        "surface-variant": "#2d3449",
+                        "surface-container-high": "#222a3d",
+                        "on-error-container": "#ffdad6",
+                        "secondary-container": "#33467e",
+                        "on-primary-fixed": "#00174b",
+                        "primary-container": "#2563eb"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "display": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"],
+                        "mono": ["JetBrains Mono"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .glass-panel {
+            background: rgba(49, 57, 77, 0.6);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface selection:bg-primary/30">
+<!-- Background Content (Dashboard) -->
+<div class="fixed inset-0 overflow-hidden flex flex-col">
+<!-- TopAppBar Shared Component Mapping -->
+<header class="bg-slate-950 font-['Inter'] antialiased tracking-tight docked full-width top-0 h-14 border-b border-slate-800/50 flex justify-between items-center w-full px-6 sticky top-0 z-40">
+<div class="flex items-center gap-8">
+<span class="text-lg font-bold tracking-tighter text-slate-100">Sovereign Architect</span>
+<nav class="hidden md:flex gap-6 items-center h-14">
+<a class="text-blue-400 border-b-2 border-blue-500 pb-4 h-14 flex items-center mt-4" href="#">Catalog</a>
+<a class="text-slate-400 hover:text-slate-200 transition-colors" href="#">Health</a>
+<a class="text-slate-400 hover:text-slate-200 transition-colors" href="#">Metrics</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2">
+<button class="p-2 text-slate-400 hover:bg-slate-900/50 rounded-md transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-slate-400 hover:bg-slate-900/50 rounded-md transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+<div class="w-8 h-8 rounded-full bg-surface-container overflow-hidden border border-outline-variant/20">
+<img alt="User profile" data-alt="A professional close-up portrait of a user for a software profile. The person has a friendly but professional expression, with soft, directional studio lighting that highlights clear skin and sharp features. The background is a muted, dark slate blue that matches the Sovereign Architect design system, maintaining a high-end engineering aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB9chO-Kux9a2QfuZRPkte0W6dB9GCky3HWhS8g7VICfYTU6ic6TW0IiorYT6BrzpjqtSHrJ4LpgVGuZ0tzS09Kx3HZgLnovMf2M-7-uFUw6fDKp2YzvdiaA3yBk67gw8xhB1VaJoKnJrTkHHcQojm_pHTeNWM3m-u6U5Uybz87ap-q_ukBdW6rJU2aoq95UcbGm25AtLTlpX7WoaKAJv6Fpd4hb0eJ03DI6n836y5dxOXA1DWCtfFLdG_ccTrTFUM9EY1CneGQuxw"/>
+</div>
+</div>
+</header>
+<div class="flex flex-1 overflow-hidden">
+<!-- SideNavBar Shared Component Mapping -->
+<aside class="bg-slate-900 font-['Inter'] text-sm font-medium docked left-0 h-full w-64 flex flex-col py-4 gap-2 border-r border-slate-800/50 shrink-0">
+<div class="px-4 mb-6">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary-container">architecture</span>
+</div>
+<div>
+<div class="text-slate-100 font-mono text-xs uppercase tracking-widest">System Core</div>
+<div class="text-[10px] text-slate-500 uppercase">Production Environment</div>
+</div>
+</div>
+</div>
+<div class="px-2 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:bg-slate-800 transition-all duration-200 rounded-md" href="#">
+<span class="material-symbols-outlined">layers</span>
+<span>Services</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:bg-slate-800 transition-all duration-200 rounded-md" href="#">
+<span class="material-symbols-outlined">account_tree</span>
+<span>Dependencies</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:bg-slate-800 transition-all duration-200 rounded-md" href="#">
+<span class="material-symbols-outlined">dns</span>
+<span>Infrastructure</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:bg-slate-800 transition-all duration-200 rounded-md" href="#">
+<span class="material-symbols-outlined">shield</span>
+<span>Security</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:bg-slate-800 transition-all duration-200 rounded-md" href="#">
+<span class="material-symbols-outlined">terminal</span>
+<span>Pipelines</span>
+</a>
+</div>
+<div class="mt-auto px-2 flex flex-col gap-1 border-t border-slate-800/30 pt-4">
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:bg-slate-800 transition-all duration-200 rounded-md" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+<span>Documentation</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:bg-slate-800 transition-all duration-200 rounded-md" href="#">
+<span class="material-symbols-outlined">help_outline</span>
+<span>Support</span>
+</a>
+</div>
+</aside>
+<!-- Main Dashboard Canvas (Blurred in background) -->
+<main class="flex-1 overflow-y-auto p-8 bg-surface space-y-8 filter blur-sm">
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="bg-surface-container rounded-lg p-6 space-y-4">
+<div class="flex justify-between items-center">
+<span class="text-label-sm font-semibold uppercase tracking-widest text-on-surface-variant">System Health</span>
+<span class="bg-secondary-container text-on-secondary px-3 py-1 rounded-full text-xs font-bold">99.9%</span>
+</div>
+<div class="h-24 flex items-end gap-1">
+<div class="flex-1 bg-primary/20 h-1/2"></div>
+<div class="flex-1 bg-primary/20 h-2/3"></div>
+<div class="flex-1 bg-primary/20 h-3/4"></div>
+<div class="flex-1 bg-primary/20 h-full"></div>
+<div class="flex-1 bg-primary/40 h-5/6"></div>
+<div class="flex-1 bg-primary h-full"></div>
+</div>
+</div>
+<div class="bg-surface-container rounded-lg p-6 space-y-4 col-span-2">
+<h2 class="text-headline-sm font-semibold text-on-surface">Service Overview</h2>
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-surface-container-low p-4 rounded border border-outline-variant/10">
+<div class="text-label-sm text-on-surface-variant uppercase">Active Services</div>
+<div class="text-3xl font-bold text-on-surface mt-1">482</div>
+</div>
+<div class="bg-surface-container-low p-4 rounded border border-outline-variant/10">
+<div class="text-label-sm text-on-surface-variant uppercase">Pending Actions</div>
+<div class="text-3xl font-bold text-on-surface mt-1">12</div>
+</div>
+</div>
+</div>
+</section>
+<div class="bg-surface-container rounded-lg overflow-hidden">
+<div class="p-4 border-b border-outline-variant/10 flex justify-between items-center">
+<h3 class="font-semibold">Recent Applications</h3>
+<button class="text-primary text-sm hover:underline">View All</button>
+</div>
+<div class="divide-y divide-outline-variant/5">
+<div class="p-4 flex items-center justify-between">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded bg-slate-800 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">api</span>
+</div>
+<div>
+<div class="font-medium text-on-surface">Auth-Service-Production</div>
+<div class="text-xs font-mono text-on-surface-variant">arn:aws:iam::123456789:service/auth-prod</div>
+</div>
+</div>
+<div class="bg-secondary-container/50 text-secondary text-xs px-2 py-1 rounded-full">Healthy</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
+<!-- Modal Overlay -->
+<div class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+<!-- Modal Dialog -->
+<div class="w-full max-w-[560px] bg-[#0F172A] border border-[#334155] rounded-[12px] shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-300">
+<!-- Header -->
+<div class="px-6 pt-6 pb-4 flex justify-between items-start">
+<div>
+<h2 class="text-[18px] font-semibold text-white font-['Inter'] leading-tight">Register Application</h2>
+<p class="text-[14px] text-slate-400 font-['Inter'] mt-1">Add a new application to your catalog</p>
+</div>
+<button class="text-slate-400 hover:text-white transition-colors">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<!-- Body -->
+<form class="px-6 py-4 flex flex-col gap-6">
+<!-- Name Field -->
+<div class="space-y-1.5">
+<label class="block text-sm font-medium text-slate-200">
+                        Name <span class="text-red-500">*</span>
+</label>
+<input class="w-full bg-slate-800 border border-red-500 rounded-md px-4 py-2 text-white font-mono text-sm focus:ring-1 focus:ring-red-500 outline-none transition-shadow" placeholder="e.g. billing-service" type="text" value="PaymentGate"/>
+<div class="flex flex-col gap-1">
+<span class="text-[12px] text-red-500 font-medium">Name is required</span>
+<span class="text-[12px] text-slate-500">Lowercase, kebab-case. Used in URLs and CLI.</span>
+</div>
+</div>
+<!-- Display Name Field -->
+<div class="space-y-1.5">
+<label class="block text-sm font-medium text-slate-200">
+                        Display Name <span class="text-red-500">*</span>
+</label>
+<input class="w-full bg-slate-800 border border-slate-700 rounded-md px-4 py-2 text-white font-['Inter'] text-sm focus:border-blue-500 outline-none transition-colors" placeholder="Payment Gateway" type="text"/>
+</div>
+<!-- Description Field -->
+<div class="space-y-1.5">
+<label class="block text-sm font-medium text-slate-200">
+                        Description
+                    </label>
+<textarea class="w-full bg-slate-800 border border-slate-700 rounded-md px-4 py-2 text-white font-['Inter'] text-sm focus:border-blue-500 outline-none transition-colors resize-none" placeholder="Short summary..." rows="3"></textarea>
+</div>
+<!-- Read-only Info Grid -->
+<div class="grid grid-cols-2 gap-4">
+<div class="space-y-1.5">
+<label class="block text-sm font-medium text-slate-200">Owner</label>
+<div class="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-full border border-slate-700/50">
+<img alt="Jane Doe avatar" class="w-6 h-6 rounded-full" data-alt="A professional headshot of a female software engineer named Jane Doe. She is smiling confidently and wearing a professional navy blue top. The background is a clean, slightly out-of-focus modern office setting with subtle blue and grey industrial tones that complement the Technical Elegance design system." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBSh4um8ob47So398r8e36w3qE2gnJX1sWqDyaOAEwTghPccBZvP42a3mletE5URpwcHaX16MydOFSSArXgg1-o7DAxpfIxsW2iYn9rPwXCIXUM6RcPXX-c-XYxrnBPzNwvOogW6e_D8L39g-NBR0sSDSrKpdx5BCHsDwmEXQWXV7qVCEtgXfqWRJlMtCAVnMDnQ6z2egtZdu26lKbSwd9v8F0gLe1SeG-mz_MdKm66XEOz2FLYp2zkXD_IeKXPzgVG7YQ0lkZHwP0"/>
+<div class="flex flex-col leading-none">
+<span class="text-xs font-semibold text-white">Jane Doe</span>
+<span class="text-[10px] text-slate-400">jane.doe@acme.corp</span>
+</div>
+</div>
+</div>
+<div class="space-y-1.5">
+<label class="block text-sm font-medium text-slate-200">Lifecycle</label>
+<div class="h-[36px] flex items-center">
+<span class="inline-flex items-center bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                                Active
+                            </span>
+</div>
+</div>
+</div>
+</form>
+<!-- Footer -->
+<div class="px-6 py-4 mt-2 border-t border-slate-800 flex justify-end gap-4 bg-slate-900/50">
+<button class="px-5 py-2 bg-slate-800 text-slate-200 border border-slate-700 rounded-md text-sm font-medium hover:bg-slate-700 transition-colors">
+                    Cancel
+                </button>
+<button class="px-5 py-2 bg-blue-500 text-white rounded-md text-sm font-semibold hover:bg-blue-600 shadow-lg shadow-blue-500/20 transition-all active:scale-95">
+                    Register Application
+                </button>
+</div>
+</div>
+</div>
+</body></html>

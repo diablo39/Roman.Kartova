@@ -650,3 +650,72 @@ Fix the cards on this screen to match Screen 2: Slate 800 background,
 1px Slate 700 border, 8px radius, no heavy shadows. Health dots should 
 be 8px circles (green #10B981, amber #F59E0B, red #EF4444).
 ```
+
+## Screen 10: Register Application Form (Modal Dialog)
+
+```
+CONSISTENCY RULES (mandatory — do not override):
+- This screen is a MODAL DIALOG overlaid on the Catalog Home Dashboard
+  (Screen 2). Show Screen 2 as the dimmed background (60% black overlay).
+- The modal sits centered on screen, max-width 560px.
+- Dark mode. Follow DESIGN.md for all colors, spacing, and typography.
+
+MODAL CONTENT — Register Application:
+
+Header:
+- Title: "Register Application" (H3, 18px Inter 600, white).
+- Subtitle: "Add a new application to your catalog"
+  (14px Inter 400, Slate 400).
+- Close icon (X) in top-right corner, 16px lucide-react icon, Slate 400.
+
+Modal background: Slate 900, 1px Slate 700 border, 12px radius,
+shadow-xl.
+
+Body (vertical form, 24px section padding, 16px gap between fields):
+
+1. Field — Name (required):
+   - Label: "Name" (12px Inter 500, Slate 300, with red asterisk)
+   - Input: text, full width, placeholder "payment-gateway"
+   - Helper text below: "Lowercase, kebab-case. Used in URLs and CLI."
+     (12px Inter 400, Slate 500)
+
+2. Field — Display name (required):
+   - Label: "Display name" (with red asterisk)
+   - Input: text, full width, placeholder "Payment Gateway"
+   - Helper: "Human-friendly name shown in UI."
+
+3. Field — Description (optional):
+   - Label: "Description"
+   - Textarea: 3 rows, full width,
+     placeholder "Short summary of what this application does."
+
+4. Field — Owner (read-only, auto-populated):
+   - Label: "Owner"
+   - Display: user avatar (24px circle) + display name + email
+     in muted text. Slate 800 background pill, 6px radius.
+   - Helper: "You're being recorded as the owner.
+     Team ownership comes later."
+
+5. Field — Lifecycle status (read-only for now):
+   - Label: "Lifecycle"
+   - Display: green pill badge "Active" (Emerald 500 background,
+     white text, 4px radius).
+   - Helper: "All new applications start as Active.
+     Status transitions land in a later release."
+
+Form validation states (visualize one example):
+- Show "Name" field with a red 1px border + small red helper text
+  "Name is required" below the helper line.
+
+Footer (right-aligned button row, 16px gap, top-bordered with Slate 800):
+- Secondary button: "Cancel" (Slate 800 background, Slate 200 text,
+  1px Slate 700 border, 6px radius)
+- Primary button: "Register Application" (Blue 500 background,
+  white text, 6px radius) with a small loading spinner variant
+  shown to its right as a separate state preview if possible.
+
+Inputs:
+- Background Slate 800, 1px Slate 700 border, 6px radius,
+  white text, Slate 500 placeholder.
+- Focus state: 1px Blue 500 border, subtle blue glow.
+```
