@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0">
@@ -15,7 +16,6 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
-    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.7" />
     <!-- Defensive pins: WolverineFx 5.32.0 pulls Microsoft.CodeAnalysis.Workspaces.Common 5.0.0
          while EF Core 10 Design pulls Microsoft.CodeAnalysis.Workspaces.MSBuild 4.14.0 which locks
          Workspaces.Common to 4.14.0. Force both onto the 5.0.0 line to resolve NU1608. -->
@@ -28,6 +28,7 @@
     <ProjectReference Include="..\Kartova.Organization.Application\Kartova.Organization.Application.csproj" />
     <ProjectReference Include="..\Kartova.Organization.Contracts\Kartova.Organization.Contracts.csproj" />
     <ProjectReference Include="..\..\..\Kartova.SharedKernel\Kartova.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\..\Kartova.SharedKernel.AspNetCore\Kartova.SharedKernel.AspNetCore.csproj" />
     <ProjectReference Include="..\..\..\Kartova.SharedKernel.Postgres\Kartova.SharedKernel.Postgres.csproj" />
   </ItemGroup>
 </Project>

@@ -1,7 +1,11 @@
 using System.Diagnostics.CodeAnalysis;
 using Kartova.Organization.Application;
 using Kartova.SharedKernel;
+using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Postgres;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,11 +27,21 @@ namespace Kartova.Organization.Infrastructure;
 /// <c>Infrastructure.Admin</c> without creating a circular project reference.
 /// </summary>
 [ExcludeFromCodeCoverage]
-public sealed class OrganizationModule : IModule
+public sealed class OrganizationModule : IModule, IModuleEndpoints
 {
     public string Name => "organization";
 
+    public string Slug => "organizations";
+
     public Type DbContextType => typeof(OrganizationDbContext);
+
+    public void MapEndpoints(IEndpointRouteBuilder app)
+    {
+        var tenant = app.MapTenantScopedModule(Slug);     // /api/v1/organizations
+        tenant.MapGet("/me", OrganizationEndpointDelegates.GetMeAsync);
+        tenant.MapGet("/me/admin-only", OrganizationEndpointDelegates.GetAdminOnlyAsync)
+            .RequireAuthorization(p => p.RequireRole(KartovaRoles.OrgAdmin));
+    }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
     {

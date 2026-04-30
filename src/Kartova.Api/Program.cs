@@ -57,6 +57,11 @@ public class Program
             };
         });
 
+        // Domain-validation → 400 mapping — slice-3 spec §13.3.
+        // Maps ArgumentException (thrown by aggregate factories) to RFC 7807 400.
+        // Centralized so write endpoints don't copy-paste a try/catch.
+        builder.Services.AddExceptionHandler<DomainValidationExceptionHandler>();
+
         // Admin bypass DbContext — separate BYPASSRLS connection string (ADR-0090).
         // Registered here (not in OrganizationModule) because OrganizationModule.Infrastructure
         // cannot project-reference Infrastructure.Admin (would be circular).
@@ -99,16 +104,24 @@ public class Program
         app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready") });
         app.MapHealthChecks("/health/startup", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready") });
 
-        // Anonymous version endpoint.
+        // Anonymous version endpoint — system-level, not module-owned.
         app.MapGet("/api/v1/version", GetVersion).AllowAnonymous();
 
-        // Tenant-scoped routes.
-        var tenantScoped = app.MapGroup("/api/v1").RequireTenantScope();
-        Endpoints.OrganizationEndpoints.Map(tenantScoped);
-
-        // Admin (non-tenant) routes — platform-admin only.
-        var admin = app.MapGroup("/api/v1/admin").RequireAuthorization(policy => policy.RequireRole(KartovaRoles.PlatformAdmin));
-        Endpoints.AdminOrganizationEndpoints.Map(admin);
+        // Module endpoints — each module wires its own routes via IModuleEndpoints.
+        // OrganizationAdminModule is grafted in separately because its endpoints
+        // depend on IAdminOrganizationCommands from Kartova.Organization.Infrastructure.Admin,
+        // which already references Kartova.Organization.Infrastructure (where IModule lives).
+        // Putting MapEndpoints for admin routes inside OrganizationModule would require the
+        // reverse reference, creating a project cycle.
+        IModuleEndpoints[] endpointModules =
+        [
+            .. modules.OfType<IModuleEndpoints>(),
+            new OrganizationAdminModule(),
+        ];
+        foreach (var module in endpointModules)
+        {
+            module.MapEndpoints(app);
+        }
 
         if (app.Environment.IsEnvironment("Testing"))
         {

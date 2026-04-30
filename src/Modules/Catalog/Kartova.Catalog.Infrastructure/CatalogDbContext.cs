@@ -4,7 +4,8 @@ namespace Kartova.Catalog.Infrastructure;
 
 /// <summary>
 /// EF Core context for the Catalog module. Owns <see cref="KartovaMetadata"/>
-/// in Slice 1. Domain entities (Service, Application, API, etc.) arrive in Slice 3.
+/// and the <see cref="Kartova.Catalog.Domain.Application"/> aggregate; further
+/// catalog aggregates land here as the module grows.
 /// </summary>
 public sealed class CatalogDbContext : DbContext
 {
@@ -15,6 +16,8 @@ public sealed class CatalogDbContext : DbContext
     public CatalogDbContext(DbContextOptions<CatalogDbContext> options) : base(options) { }
 
     internal DbSet<KartovaMetadata> Metadata => Set<KartovaMetadata>();
+
+    public DbSet<Kartova.Catalog.Domain.Application> Applications => Set<Kartova.Catalog.Domain.Application>();
 
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -37,5 +40,7 @@ public sealed class CatalogDbContext : DbContext
                 .HasColumnName("applied_at")
                 .IsRequired();
         });
+
+        modelBuilder.ApplyConfiguration(new EfApplicationConfiguration());
     }
 }

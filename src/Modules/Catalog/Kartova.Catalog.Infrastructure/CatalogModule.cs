@@ -1,6 +1,9 @@
 using System.Diagnostics.CodeAnalysis;
 using Kartova.SharedKernel;
+using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Postgres;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,11 +12,24 @@ using Wolverine;
 namespace Kartova.Catalog.Infrastructure;
 
 [ExcludeFromCodeCoverage]
-public sealed class CatalogModule : IModule
+public sealed class CatalogModule : IModule, IModuleEndpoints
 {
     public string Name => "catalog";
 
+    public string Slug => "catalog";
+
     public Type DbContextType => typeof(CatalogDbContext);
+
+    public void MapEndpoints(IEndpointRouteBuilder app)
+    {
+        var tenant = app.MapTenantScopedModule(Slug);     // /api/v1/catalog
+        tenant.MapPost("/applications", CatalogEndpointDelegates.RegisterApplicationAsync)
+              .WithName("RegisterApplication");
+        tenant.MapGet("/applications/{id:guid}", CatalogEndpointDelegates.GetApplicationByIdAsync)
+              .WithName("GetApplicationById");
+        tenant.MapGet("/applications", CatalogEndpointDelegates.ListApplicationsAsync)
+              .WithName("ListApplications");
+    }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
     {
@@ -21,6 +37,14 @@ public sealed class CatalogModule : IModule
         // raw AddDbContext would silently bypass RLS for any future Catalog entity.
         services.AddModuleDbContext<CatalogDbContext>(npg =>
             npg.MigrationsAssembly(typeof(CatalogDbContext).Assembly.FullName));
+
+        // Handler is invoked directly from the endpoint delegate (synchronous,
+        // in-process) so it must be resolvable from the HTTP request scope
+        // alongside CatalogDbContext / ITenantContext / ICurrentUser. See the
+        // comment on CatalogEndpointDelegates.RegisterApplicationAsync.
+        services.AddScoped<RegisterApplicationHandler>();
+        services.AddScoped<GetApplicationByIdHandler>();
+        services.AddScoped<ListApplicationsHandler>();
     }
 
     public void RegisterForMigrator(IServiceCollection services, IConfiguration configuration)
@@ -36,7 +60,9 @@ public sealed class CatalogModule : IModule
 
     public void ConfigureWolverine(WolverineOptions options)
     {
+        // Discovery only — synchronous HTTP handlers use direct dispatch (ADR-0093).
+        // This call keeps the assembly visible to Wolverine for future async/event handlers
+        // and outbox-driven publishes once the catalog starts emitting domain events.
         options.Discovery.IncludeAssembly(typeof(CatalogModule).Assembly);
-        // Handlers and publish routes arrive in Slice 3.
     }
 }

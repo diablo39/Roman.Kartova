@@ -1,23 +1,11 @@
 using Kartova.Organization.Application;
 using Kartova.SharedKernel.AspNetCore;
-using Kartova.SharedKernel.Multitenancy;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
 
-namespace Kartova.Api.Endpoints;
+namespace Kartova.Organization.Infrastructure;
 
-internal static class OrganizationEndpoints
+internal static class OrganizationEndpointDelegates
 {
-    public static void Map(RouteGroupBuilder group)
-    {
-        group.MapGet("/organizations/me", GetMeAsync);
-
-        // Admin role demo endpoint — proves role-based authorization works end-to-end.
-        group.MapGet("/organizations/me/admin-only", GetAdminOnlyAsync)
-            .RequireAuthorization(policy => policy.RequireRole(KartovaRoles.OrgAdmin));
-    }
-
     internal static async Task<IResult> GetMeAsync(IOrganizationQueries queries, CancellationToken ct)
     {
         var org = await queries.GetCurrentAsync(ct);

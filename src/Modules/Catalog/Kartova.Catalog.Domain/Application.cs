@@ -1,0 +1,70 @@
+using Kartova.SharedKernel.Multitenancy;
+
+namespace Kartova.Catalog.Domain;
+
+public sealed class Application : ITenantOwned
+{
+    public ApplicationId Id { get; private set; }
+    public TenantId TenantId { get; private set; }
+    public string Name { get; private set; } = string.Empty;
+    public string Description { get; private set; } = string.Empty;
+    public Guid OwnerUserId { get; private set; }
+    public DateTimeOffset CreatedAt { get; private set; }
+
+    private Application(
+        ApplicationId id,
+        TenantId tenantId,
+        string name,
+        string description,
+        Guid ownerUserId,
+        DateTimeOffset createdAt)
+    {
+        Id = id;
+        TenantId = tenantId;
+        Name = name;
+        Description = description;
+        OwnerUserId = ownerUserId;
+        CreatedAt = createdAt;
+    }
+
+    // EF constructor
+    private Application() { }
+
+    public static Application Create(string name, string description, Guid ownerUserId, TenantId tenantId)
+    {
+        ValidateName(name);
+        ValidateDescription(description);
+        if (ownerUserId == Guid.Empty)
+        {
+            throw new ArgumentException("ownerUserId is required.", nameof(ownerUserId));
+        }
+
+        return new Application(
+            ApplicationId.New(),
+            tenantId,
+            name,
+            description,
+            ownerUserId,
+            DateTimeOffset.UtcNow);
+    }
+
+    private static void ValidateName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException("Application name must not be empty.", nameof(name));
+        }
+        if (name.Length > 256)
+        {
+            throw new ArgumentException("Application name must be <= 256 characters.", nameof(name));
+        }
+    }
+
+    private static void ValidateDescription(string description)
+    {
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            throw new ArgumentException("Application description must not be empty.", nameof(description));
+        }
+    }
+}
