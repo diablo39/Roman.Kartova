@@ -10,8 +10,8 @@ export const registerApplicationSchema = z.object({
     .regex(kebabCase, "Lowercase kebab-case (e.g. payment-gateway)"),
   displayName: z
     .string()
-    .min(1, "Display name is required")
-    .max(128, "Display name must be at most 128 chars"),
+    .min(1, "Display Name must not be empty")
+    .max(128, "Display Name must be at most 128 chars"),
   description: z
     .string()
     .min(1, "Description is required")
