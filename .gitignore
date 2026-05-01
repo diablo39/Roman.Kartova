@@ -418,6 +418,7 @@ FodyWeavers.xsd
 *.msp
 
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
 
 # MCP server config — contains API keys (project-scope registration)
 .mcp.json

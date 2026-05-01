@@ -3,7 +3,7 @@ using Kartova.SharedKernel.Multitenancy;
 
 namespace Kartova.Catalog.Domain;
 
-public sealed class Application : ITenantOwned
+public sealed partial class Application : ITenantOwned
 {
     public ApplicationId Id { get; private set; }
     public TenantId TenantId { get; private set; }
@@ -54,12 +54,9 @@ public sealed class Application : ITenantOwned
             DateTimeOffset.UtcNow);
     }
 
-    // Kebab-case: starts with a lowercase ASCII letter, then lowercase letters/digits/dashes,
-    // dashes only between alphanumeric segments, no leading/trailing/double dash. Matches the
-    // SPA's zod rule (registerApplicationSchema) so server-side validation is the source of truth
-    // and the SPA check is purely UX feedback. Spec §5.3, E-02.F-01.S-07.
-    private static readonly Regex KebabCase =
-        new("^[a-z][a-z0-9]*(-[a-z0-9]+)*$", RegexOptions.Compiled);
+    // Mirrors the SPA's zod rule so the SPA check is UX-only and the server is the source of truth.
+    [GeneratedRegex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")]
+    private static partial Regex KebabCase();
 
     private static void ValidateName(string name)
     {
@@ -71,7 +68,7 @@ public sealed class Application : ITenantOwned
         {
             throw new ArgumentException("Application name must be <= 256 characters.", nameof(name));
         }
-        if (!KebabCase.IsMatch(name))
+        if (!KebabCase().IsMatch(name))
         {
             throw new ArgumentException(
                 "Application name must be lowercase kebab-case (e.g. payment-gateway).",

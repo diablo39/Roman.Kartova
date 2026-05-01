@@ -68,7 +68,7 @@ public class RegisterApplicationTests
     [InlineData("name", "  ", "desc")]
     [InlineData("name", "Display", "")]
     [InlineData("name", "Display", "  ")]
-    [InlineData("BadName", "Display", "desc")]      // E-02.F-01.S-07: kebab-case
+    [InlineData("BadName", "Display", "desc")]      // kebab-case: uppercase
     [InlineData("bad_name", "Display", "desc")]     // underscore
     [InlineData("bad name", "Display", "desc")]     // space
     [InlineData("9digit", "Display", "desc")]       // leading digit
@@ -135,7 +135,6 @@ public class RegisterApplicationTests
     [Fact]
     public async Task POST_with_invalid_displayName_returns_field_level_problem_details()
     {
-        // E-02.F-01.S-06: SPA-form-friendly errors shape end-to-end.
         var client = await _fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",

@@ -56,9 +56,6 @@ public class ApplicationTests
     [InlineData("kebab.with.dot")]     // dot
     public void Create_throws_on_non_kebab_case_name(string name)
     {
-        // E-02.F-01.S-07: server is the source of truth for the kebab-case invariant.
-        // SPA zod check is UX-only; a direct API caller (CLI, agent, malicious request)
-        // must still be rejected.
         var act = () => DomainApplication.Create(name, "Display Name", "desc", Owner, Tenant);
         act.Should().Throw<ArgumentException>().WithMessage("*kebab-case*");
     }

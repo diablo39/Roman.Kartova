@@ -48,6 +48,22 @@ public class DomainValidationExceptionHandlerTests
     }
 
     [Fact]
+    public async Task TryHandleAsync_strips_paramName_suffix_for_ArgumentNullException()
+    {
+        // ArgumentNullException.Message is "Value cannot be null. (Parameter 'X')".
+        // The errors[name] entry must not contain the framework suffix.
+        var (sut, ctx) = Build();
+
+        await sut.TryHandleAsync(
+            ctx, new ArgumentNullException("name"), CancellationToken.None);
+
+        var body = await ReadBodyAsync(ctx);
+        body.GetProperty("errors").GetProperty("name")
+            .EnumerateArray().Single().GetString()
+            .Should().NotContain("(Parameter").And.Be("Value cannot be null.");
+    }
+
+    [Fact]
     public async Task TryHandleAsync_returns_false_for_unrelated_exceptions()
     {
         // Non-ArgumentException must fall through so UseExceptionHandler emits 500.
@@ -62,7 +78,6 @@ public class DomainValidationExceptionHandlerTests
     [Fact]
     public async Task TryHandleAsync_emits_field_level_errors_when_paramName_present()
     {
-        // E-02.F-01.S-06: SPA-form-friendly shape `errors: { field: [msg] }`.
         var (sut, ctx) = Build();
 
         var handled = await sut.TryHandleAsync(
