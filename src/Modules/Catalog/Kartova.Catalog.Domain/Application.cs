@@ -53,6 +53,13 @@ public sealed class Application : ITenantOwned
             DateTimeOffset.UtcNow);
     }
 
+    // Kebab-case: starts with a lowercase ASCII letter, then lowercase letters/digits/dashes,
+    // dashes only between alphanumeric segments, no leading/trailing/double dash. Matches the
+    // SPA's zod rule (registerApplicationSchema) so server-side validation is the source of truth
+    // and the SPA check is purely UX feedback. Spec §5.3, E-02.F-01.S-07.
+    private static readonly System.Text.RegularExpressions.Regex KebabCase =
+        new("^[a-z][a-z0-9]*(-[a-z0-9]+)*$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
     private static void ValidateName(string name)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -62,6 +69,12 @@ public sealed class Application : ITenantOwned
         if (name.Length > 256)
         {
             throw new ArgumentException("Application name must be <= 256 characters.", nameof(name));
+        }
+        if (!KebabCase.IsMatch(name))
+        {
+            throw new ArgumentException(
+                "Application name must be lowercase kebab-case (e.g. payment-gateway).",
+                nameof(name));
         }
     }
 

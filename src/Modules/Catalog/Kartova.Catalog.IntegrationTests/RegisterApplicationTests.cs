@@ -68,6 +68,10 @@ public class RegisterApplicationTests
     [InlineData("name", "  ", "desc")]
     [InlineData("name", "Display", "")]
     [InlineData("name", "Display", "  ")]
+    [InlineData("BadName", "Display", "desc")]      // E-02.F-01.S-07: kebab-case
+    [InlineData("bad_name", "Display", "desc")]     // underscore
+    [InlineData("bad name", "Display", "desc")]     // space
+    [InlineData("9digit", "Display", "desc")]       // leading digit
     public async Task POST_with_invalid_payload_returns_400(string name, string displayName, string description)
     {
         var client = await _fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");

@@ -44,6 +44,38 @@ public class ApplicationTests
         act.Should().Throw<ArgumentException>().WithMessage("*256*");
     }
 
+    [Theory]
+    [InlineData("BadName")]            // uppercase
+    [InlineData("bad name")]           // space
+    [InlineData("bad_name")]           // underscore
+    [InlineData("bad--name")]          // double dash
+    [InlineData("-leading")]           // leading dash
+    [InlineData("trailing-")]          // trailing dash
+    [InlineData("9digit")]             // leading digit
+    [InlineData("Mixed-Case")]         // mixed case
+    [InlineData("kebab.with.dot")]     // dot
+    public void Create_throws_on_non_kebab_case_name(string name)
+    {
+        // E-02.F-01.S-07: server is the source of truth for the kebab-case invariant.
+        // SPA zod check is UX-only; a direct API caller (CLI, agent, malicious request)
+        // must still be rejected.
+        var act = () => DomainApplication.Create(name, "Display Name", "desc", Owner, Tenant);
+        act.Should().Throw<ArgumentException>().WithMessage("*kebab-case*");
+    }
+
+    [Theory]
+    [InlineData("a")]                  // single letter
+    [InlineData("abc")]                // single segment
+    [InlineData("payment-gateway")]    // canonical form
+    [InlineData("a1")]                 // letter + digit
+    [InlineData("a-b-c-d")]            // many segments
+    [InlineData("v2-api")]             // segment with digit
+    public void Create_succeeds_with_kebab_case_name(string name)
+    {
+        var app = DomainApplication.Create(name, "Display Name", "desc", Owner, Tenant);
+        app.Name.Should().Be(name);
+    }
+
     [Fact]
     public void Create_succeeds_with_name_at_exactly_256_chars()
     {
