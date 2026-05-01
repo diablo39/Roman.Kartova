@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAuth } from "react-oidc-context";
+import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
 
 import { AuthProvider } from "@/shared/auth/AuthProvider";
@@ -32,13 +33,15 @@ function ApiAuthBridge({ children }: { children: React.ReactNode }) {
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClient}>
-        <ApiAuthBridge>
-          {children}
-          <Toaster richColors position="top-right" />
-        </ApiAuthBridge>
-      </QueryClientProvider>
-    </AuthProvider>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} value={{ light: "", dark: "dark-mode" }}>
+      <AuthProvider>
+        <QueryClientProvider client={queryClient}>
+          <ApiAuthBridge>
+            {children}
+            <Toaster richColors position="top-right" />
+          </ApiAuthBridge>
+        </QueryClientProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
