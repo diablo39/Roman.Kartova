@@ -40,7 +40,7 @@ Quick lookup; full context in the ADR library keyword index.
 | Testing | Five-tier pyramid: architecture (NetArchTest, mandatory CI gate) + unit (xUnit) + integration (Testcontainers) + contract (Pact) + E2E (Playwright) | ADR-0083 |
 | Frontend dev workflow | Full loop: Google Stitch MCP (design source) → implementation → Playwright MCP (verify) → commit | ADR-0084, ADR-0087 |
 | Frontend | React SPA + TypeScript strict, Vite, TanStack Query | ADR-0039 |
-| Frontend UI stack | shadcn/ui + Tailwind CSS v4 + Radix; TanStack Table, react-hook-form + zod, cmdk, sonner, Recharts, React Flow, lucide-react; nav canonical in DESIGN.md (not Stitch) | ADR-0088 |
+| Frontend UI stack | Untitled UI free-tier (react-aria-components + Tailwind CSS v4) + @untitledui/icons; nav canonical in DESIGN.md | ADR-0092 |
 | Database | PostgreSQL 16 with Row-Level Security (not schema-per-tenant) | ADR-0001, ADR-0012 |
 | Tenant scope | One connection + tx per request, `SET LOCAL` on begin, commit before response | ADR-0090 |
 | Search | Elasticsearch shared index + per-tenant routing + filtered aliases | ADR-0002, ADR-0013 |

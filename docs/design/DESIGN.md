@@ -1,5 +1,7 @@
 # Kartova Design System
 
+> **Note (2026-05-01):** Color and typography token values are deferred to Untitled UI defaults per ADR-0092. This document retains nav structure, layout density, and information-density rules — those remain canonical.
+
 ## Brand Identity
 - **Product:** Kartova — Service Catalog & Developer Portal
 - **Tagline:** Map your entire service landscape
