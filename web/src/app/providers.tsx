@@ -33,7 +33,7 @@ function ApiAuthBridge({ children }: { children: React.ReactNode }) {
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem={true} value={{ light: "", dark: "dark-mode" }}>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem={true} value={{ dark: "dark-mode" }}>
       <AuthProvider>
         <QueryClientProvider client={queryClient}>
           <ApiAuthBridge>
