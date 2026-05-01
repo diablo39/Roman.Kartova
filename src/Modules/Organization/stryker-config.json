@@ -19,8 +19,7 @@
       "Regex",
       "Update",
       "String",
-      "Linq",
-      "Block"
+      "Linq"
     ],
     "mutate": [
       "!**/obj/**",
