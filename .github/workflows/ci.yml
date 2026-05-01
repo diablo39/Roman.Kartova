@@ -50,6 +50,9 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Codegen (snapshot fallback — backend not running in CI)
+        run: npm run codegen
+
       - name: Typecheck
         run: npm run typecheck
 

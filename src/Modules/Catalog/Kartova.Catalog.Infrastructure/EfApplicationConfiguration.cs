@@ -21,6 +21,7 @@ public sealed class EfApplicationConfiguration : IEntityTypeConfiguration<Kartov
             .IsRequired();
         b.HasIndex(x => x.TenantId).HasDatabaseName("ix_catalog_applications_tenant_id");
         b.Property(x => x.Name).HasColumnName("name").HasMaxLength(256).IsRequired();
+        b.Property(x => x.DisplayName).HasColumnName("display_name").HasMaxLength(128).IsRequired();
         b.Property(x => x.Description).HasColumnName("description").IsRequired();
         b.Property(x => x.OwnerUserId).HasColumnName("owner_user_id").IsRequired();
         b.Property(x => x.CreatedAt).HasColumnName("created_at").IsRequired();

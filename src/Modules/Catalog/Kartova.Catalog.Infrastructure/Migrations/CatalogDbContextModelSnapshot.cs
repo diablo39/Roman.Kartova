@@ -37,6 +37,12 @@ namespace Kartova.Catalog.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("description");
 
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("display_name");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(256)

@@ -13,6 +13,9 @@ dist-ssr
 *.local
 *.tsbuildinfo
 
+# OpenAPI codegen output — generated at build time from openapi-snapshot.json
+src/generated/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

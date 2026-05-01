@@ -18,7 +18,7 @@ public class RegisterApplicationTests
         var client = await _fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest("payments-api", "Payments REST surface."));
+            new RegisterApplicationRequest("payments-api", "Payments API", "Payments REST surface."));
 
         resp.StatusCode.Should().Be(HttpStatusCode.Created);
         resp.Headers.Location!.ToString().Should().StartWith("/api/v1/catalog/applications/");
@@ -26,6 +26,7 @@ public class RegisterApplicationTests
         var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>();
         body.Should().NotBeNull();
         body!.Name.Should().Be("payments-api");
+        body.DisplayName.Should().Be("Payments API");
         body.Description.Should().Be("Payments REST surface.");
         body.Id.Should().NotBe(Guid.Empty);
     }
@@ -38,7 +39,7 @@ public class RegisterApplicationTests
 
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest("svc-x", "x"));
+            new RegisterApplicationRequest("svc-x", "Svc X", "x"));
         resp.StatusCode.Should().Be(HttpStatusCode.Created);
 
         var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>();
@@ -53,7 +54,7 @@ public class RegisterApplicationTests
 
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest("svc-y", "y"));
+            new RegisterApplicationRequest("svc-y", "Svc Y", "y"));
         resp.StatusCode.Should().Be(HttpStatusCode.Created);
 
         var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>();
@@ -61,16 +62,18 @@ public class RegisterApplicationTests
     }
 
     [Theory]
-    [InlineData("", "desc")]
-    [InlineData("   ", "desc")]
-    [InlineData("name", "")]
-    [InlineData("name", "  ")]
-    public async Task POST_with_invalid_payload_returns_400(string name, string description)
+    [InlineData("", "Display", "desc")]
+    [InlineData("   ", "Display", "desc")]
+    [InlineData("name", "", "desc")]
+    [InlineData("name", "  ", "desc")]
+    [InlineData("name", "Display", "")]
+    [InlineData("name", "Display", "  ")]
+    public async Task POST_with_invalid_payload_returns_400(string name, string displayName, string description)
     {
         var client = await _fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest(name, description));
+            new RegisterApplicationRequest(name, displayName, description));
 
         resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         resp.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
@@ -82,7 +85,7 @@ public class RegisterApplicationTests
         var client = await _fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
         var post = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest("svc-z", "z"));
+            new RegisterApplicationRequest("svc-z", "Svc Z", "z"));
         var created = await post.Content.ReadFromJsonAsync<ApplicationResponse>();
 
         var get = await client.GetAsync($"/api/v1/catalog/applications/{created!.Id}");
@@ -121,7 +124,7 @@ public class RegisterApplicationTests
     {
         var post = await c.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest(name, $"desc for {name}"));
+            new RegisterApplicationRequest(name, name, $"desc for {name}"));
         return (await post.Content.ReadFromJsonAsync<ApplicationResponse>())!;
     }
 
@@ -131,7 +134,7 @@ public class RegisterApplicationTests
         using var client = _fx.CreateAnonymousClient();
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest("name", "desc"));
+            new RegisterApplicationRequest("name", "Name", "desc"));
 
         resp.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -144,7 +147,7 @@ public class RegisterApplicationTests
         var clientA = await _fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
         var post = await clientA.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest("orga-private", "owned by orga"));
+            new RegisterApplicationRequest("orga-private", "Orga Private", "owned by orga"));
         post.StatusCode.Should().Be(HttpStatusCode.Created);
         var orgaApp = await post.Content.ReadFromJsonAsync<ApplicationResponse>();
 

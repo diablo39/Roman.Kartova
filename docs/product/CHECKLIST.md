@@ -33,10 +33,12 @@
 - [x] E-01.F-01.S-01 — .NET solution structure with clean architecture
 - [x] E-01.F-01.S-02 — React frontend project with TypeScript
 - [x] E-01.F-01.S-03 — Docker Compose for local development
+- [ ] E-01.F-01.S-04 — Dev-stack seed data (Org A organization row matching realm tenant_id; surfaced by slice 4 — `/api/v1/organizations/me` 404s in browser dev until then)
 
 **E-01.F-02: CI/CD Pipeline**
 - [ ] E-01.F-02.S-01 — CI pipeline (build, test, lint)
 - [ ] E-01.F-02.S-02 — CD pipeline to staging
+- [ ] E-01.F-02.S-03 — End-to-end test infrastructure (checked-in Playwright suite)
 
 **E-01.F-03: Database Foundation**
 - [x] E-01.F-03.S-01 — Multi-tenant database schema with tenant isolation
@@ -48,6 +50,7 @@
 - [x] E-01.F-04.S-02 — JWT validation middleware in API
 - [ ] E-01.F-04.S-03 — RBAC with five roles
 - [ ] E-01.F-04.S-04 — SSO login via web UI
+- [ ] E-01.F-04.S-05 — BFF cookie-session auth (security hardening, post-MVP)
 
 **E-01.F-05: Data Retention & Compliance Infrastructure**
 - [ ] E-01.F-05.S-01 — Data retention engine with configurable purge
@@ -85,10 +88,12 @@
 ### E-02: Entity Registry
 
 **E-02.F-01: Application Entity Management**
-- [x] E-02.F-01.S-01 — Register new application in catalog (slice 3 — PR #10, 2026-04-30)
-- [ ] E-02.F-01.S-02 — Application detail page with metadata
+- [x] E-02.F-01.S-01 — Register new application in catalog (slice 3 — PR #10, 2026-04-30; UI surface added in slice 4 — PR #17, 2026-04-30)
+- [x] E-02.F-01.S-02 — Application detail page with metadata (slice 4 — PR #17, 2026-04-30; header + metadata only, tabs deferred)
 - [ ] E-02.F-01.S-03 — Edit application metadata
 - [ ] E-02.F-01.S-04 — Application lifecycle status transitions
+- [ ] E-02.F-01.S-06 — Field-level ProblemDetails errors (backend emits `errors: { field: [msg] }`; SPA already maps via `applyProblemDetailsToForm`)
+- [ ] E-02.F-01.S-07 — Move kebab-case Name validation into `Application.Create` domain invariant (currently form-only; CLI/direct API bypasses it)
 
 **E-02.F-02: Service Entity Management**
 - [x] E-02.F-01.S-05 — Required minimum fields on all entity types (slice 3 — PR #10, 2026-04-30; enforced as `Application.Create` invariants for the first entity)

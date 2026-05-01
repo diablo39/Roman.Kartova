@@ -44,7 +44,7 @@ public sealed class CrossTenantWriteTests
         var currentUser = new StubCurrentUser(orgaUserId);
 
         var resp = await handler.Handle(
-            new RegisterApplicationCommand("scope-wins", "tenant id from scope only"),
+            new RegisterApplicationCommand("scope-wins", "Scope Wins", "tenant id from scope only"),
             db,
             tenantContext,
             currentUser,

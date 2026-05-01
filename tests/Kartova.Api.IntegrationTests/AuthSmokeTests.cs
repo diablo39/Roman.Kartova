@@ -13,7 +13,8 @@ using Xunit;
 
 namespace Kartova.Api.IntegrationTests;
 
-public class AuthSmokeTests : IClassFixture<KeycloakContainerFixture>, IAsyncLifetime
+[Collection(KeycloakTestCollection.Name)]
+public class AuthSmokeTests : IAsyncLifetime
 {
     private readonly KeycloakContainerFixture _fx;
     private WebApplicationFactory<Program>? _app;

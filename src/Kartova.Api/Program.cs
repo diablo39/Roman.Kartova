@@ -56,6 +56,38 @@ public class Program
             };
         });
 
+        // OpenAPI document — /openapi/v1.json (anonymous, no Swashbuckle, ADR-0029/0034).
+        builder.Services.AddOpenApi("v1");
+
+        // CORS — allow configured SPA origins (e.g. http://localhost:5173 in dev).
+        // Production default: empty array → all origins blocked (safe default).
+        // No AllowCredentials: SPA carries the access token in the `Authorization: Bearer` header,
+        // not in cookies. Re-introduce only when the BFF cookie-session story (E-01.F-04.S-05) lands.
+        var corsOrigins = builder.Configuration
+            .GetSection(CorsConfigKeys.AllowedOrigins).Get<string[]>() ?? [];
+        if (corsOrigins.Length == 0 && !builder.Environment.IsDevelopment())
+        {
+            // Surface misconfiguration loudly in non-Development environments.
+            // Empty allowlist produces silent browser breakage (no Allow-Origin header) — log so ops sees it.
+            using var startupLoggerFactory = LoggerFactory.Create(b => b.AddConsole());
+            startupLoggerFactory.CreateLogger("Kartova.Cors")
+                .LogWarning("Cors:AllowedOrigins is empty in environment {Environment}; all browser SPA requests will be blocked.",
+                    builder.Environment.EnvironmentName);
+        }
+        builder.Services.AddCors(options =>
+        {
+            options.AddPolicy("KartovaWeb", policy =>
+            {
+                if (corsOrigins.Length == 0)
+                {
+                    return;
+                }
+                policy.WithOrigins(corsOrigins)
+                    .AllowAnyHeader()
+                    .AllowAnyMethod();
+            });
+        });
+
         // Domain-validation → 400 mapping — slice-3 spec §13.3.
         // Maps ArgumentException (thrown by aggregate factories) to RFC 7807 400.
         // Centralized so write endpoints don't copy-paste a try/catch.
@@ -94,6 +126,7 @@ public class Program
         // text/plain bodies for 4xx/5xx without explicit bodies and shadow that contract.
         app.UseExceptionHandler();
 
+        app.UseCors("KartovaWeb");
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseMiddleware<TenantScopeBeginMiddleware>();
@@ -101,6 +134,9 @@ public class Program
         app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = c => c.Tags.Contains("live") });
         app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready") });
         app.MapHealthChecks("/health/startup", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready") });
+
+        // OpenAPI document endpoint — anonymous, no auth requirement (ADR-0029/0034).
+        app.MapOpenApi("/openapi/{documentName}.json").AllowAnonymous();
 
         // Anonymous version endpoint — system-level, not module-owned.
         app.MapGet("/api/v1/version", GetVersion).AllowAnonymous();

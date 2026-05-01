@@ -1,5 +1,4 @@
 {
-  "_comment": "Group-level configFile is a kitchen-sink fallback for direct dotnet-stryker invocations. Per-project configFile overrides it for routed mutation runs. Explicit per-project name fields are required because ms-detect-and-run.sh's TSV reader collapses consecutive empty tab-delimited fields.",
   "groups": [
     {
       "stack": ".NET",
@@ -42,8 +41,18 @@
           "configFile": "src/Modules/Catalog/stryker-config.json"
         },
         {
+          "name": "Kartova.Catalog.Contracts",
+          "path": "src/Modules/Catalog/Kartova.Catalog.Contracts/Kartova.Catalog.Contracts.csproj",
+          "configFile": "src/Modules/Catalog/stryker-config.json"
+        },
+        {
           "name": "Kartova.Organization.Domain",
           "path": "src/Modules/Organization/Kartova.Organization.Domain/Kartova.Organization.Domain.csproj",
+          "configFile": "src/Modules/Organization/stryker-config.json"
+        },
+        {
+          "name": "Kartova.Organization.Application",
+          "path": "src/Modules/Organization/Kartova.Organization.Application/Kartova.Organization.Application.csproj",
           "configFile": "src/Modules/Organization/stryker-config.json"
         },
         {
@@ -54,6 +63,11 @@
         {
           "name": "Kartova.Organization.Infrastructure.Admin",
           "path": "src/Modules/Organization/Kartova.Organization.Infrastructure.Admin/Kartova.Organization.Infrastructure.Admin.csproj",
+          "configFile": "src/Modules/Organization/stryker-config.json"
+        },
+        {
+          "name": "Kartova.Organization.Contracts",
+          "path": "src/Modules/Organization/Kartova.Organization.Contracts/Kartova.Organization.Contracts.csproj",
           "configFile": "src/Modules/Organization/stryker-config.json"
         }
       ]

@@ -7,6 +7,7 @@ public sealed record ApplicationResponse(
     Guid Id,
     Guid TenantId,
     string Name,
+    string DisplayName,
     string Description,
     Guid OwnerUserId,
     DateTimeOffset CreatedAt);

@@ -7,6 +7,7 @@ public sealed class Application : ITenantOwned
     public ApplicationId Id { get; private set; }
     public TenantId TenantId { get; private set; }
     public string Name { get; private set; } = string.Empty;
+    public string DisplayName { get; private set; } = string.Empty;
     public string Description { get; private set; } = string.Empty;
     public Guid OwnerUserId { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
@@ -15,6 +16,7 @@ public sealed class Application : ITenantOwned
         ApplicationId id,
         TenantId tenantId,
         string name,
+        string displayName,
         string description,
         Guid ownerUserId,
         DateTimeOffset createdAt)
@@ -22,6 +24,7 @@ public sealed class Application : ITenantOwned
         Id = id;
         TenantId = tenantId;
         Name = name;
+        DisplayName = displayName;
         Description = description;
         OwnerUserId = ownerUserId;
         CreatedAt = createdAt;
@@ -30,9 +33,10 @@ public sealed class Application : ITenantOwned
     // EF constructor
     private Application() { }
 
-    public static Application Create(string name, string description, Guid ownerUserId, TenantId tenantId)
+    public static Application Create(string name, string displayName, string description, Guid ownerUserId, TenantId tenantId)
     {
         ValidateName(name);
+        ValidateDisplayName(displayName);
         ValidateDescription(description);
         if (ownerUserId == Guid.Empty)
         {
@@ -43,6 +47,7 @@ public sealed class Application : ITenantOwned
             ApplicationId.New(),
             tenantId,
             name,
+            displayName,
             description,
             ownerUserId,
             DateTimeOffset.UtcNow);
@@ -57,6 +62,18 @@ public sealed class Application : ITenantOwned
         if (name.Length > 256)
         {
             throw new ArgumentException("Application name must be <= 256 characters.", nameof(name));
+        }
+    }
+
+    private static void ValidateDisplayName(string displayName)
+    {
+        if (string.IsNullOrWhiteSpace(displayName))
+        {
+            throw new ArgumentException("Application display name must not be empty.", nameof(displayName));
+        }
+        if (displayName.Length > 128)
+        {
+            throw new ArgumentException("Application display name must be <= 128 characters.", nameof(displayName));
         }
     }
 
