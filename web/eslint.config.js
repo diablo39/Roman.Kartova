@@ -13,6 +13,10 @@ export default tseslint.config(
       "node_modules",
       "src/generated",
       "src/components/ui", // shadcn primitives — keep their style untouched
+      "src/components/base/**", // Untitled UI CLI-installed primitives
+      "src/components/application/**", // Untitled UI CLI-installed components
+      "src/lib/utils/**", // Untitled UI CLI helpers (cx.ts, is-react-component.ts)
+      "src/styles/**", // Untitled UI theme.css and vendor styles
       "src/hooks/use-mobile.ts", // shadcn-generated viewport hook
       "vitest.config.ts",
       "vite.config.ts",
