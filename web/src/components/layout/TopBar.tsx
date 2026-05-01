@@ -47,16 +47,14 @@ export function TopBar() {
           <ChevronDown className="h-4 w-4 text-fg-quaternary" />
         </Button>
         <Dropdown.Popover className="w-56" placement="bottom right">
+          {user && (
+            <div className="px-3 py-2 text-sm">
+              <div className="font-medium text-primary">{user.displayName}</div>
+              <div className="text-xs text-tertiary">{user.email}</div>
+            </div>
+          )}
           <Dropdown.Menu>
-            {user && (
-              <Dropdown.Section>
-                <div className="px-2 py-1.5 text-sm">
-                  <div className="font-medium text-primary">{user.displayName}</div>
-                  <div className="text-xs text-tertiary">{user.email}</div>
-                </div>
-              </Dropdown.Section>
-            )}
-            <Dropdown.Separator />
+            {user && <Dropdown.Separator />}
             <Dropdown.Item onAction={() => void auth.signoutRedirect()}>
               <LogOut01 className="mr-2 h-4 w-4" /> Sign out
             </Dropdown.Item>
