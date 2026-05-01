@@ -1,20 +1,18 @@
 import { NavLink } from "react-router-dom";
-import { Folder, Server, Book, Settings as SettingsIcon, Boxes } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cx } from "@/lib/utils/cx";
 
 interface NavItem {
   to: string;
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
   enabled: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: "/catalog", label: "Catalog", icon: Folder, enabled: true },
-  { to: "/services", label: "Services", icon: Boxes, enabled: false },
-  { to: "/infrastructure", label: "Infrastructure", icon: Server, enabled: false },
-  { to: "/docs", label: "Docs", icon: Book, enabled: false },
-  { to: "/settings", label: "Settings", icon: SettingsIcon, enabled: false },
+  { to: "/catalog", label: "Catalog", enabled: true },
+  { to: "/services", label: "Services", enabled: false },
+  { to: "/infrastructure", label: "Infrastructure", enabled: false },
+  { to: "/docs", label: "Docs", enabled: false },
+  { to: "/settings", label: "Settings", enabled: false },
 ];
 
 export function Sidebar() {
@@ -31,7 +29,7 @@ export function Sidebar() {
                 <NavLink
                   to={item.to}
                   className={({ isActive }) =>
-                    cn(
+                    cx(
                       "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
                       isActive
                         ? "bg-primary text-primary-foreground"
@@ -39,7 +37,6 @@ export function Sidebar() {
                     )
                   }
                 >
-                  <item.icon className="h-4 w-4" />
                   {item.label}
                 </NavLink>
               ) : (
@@ -47,7 +44,6 @@ export function Sidebar() {
                   className="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm text-muted opacity-50"
                   data-disabled="true"
                 >
-                  <item.icon className="h-4 w-4" />
                   {item.label}
                 </span>
               )}
