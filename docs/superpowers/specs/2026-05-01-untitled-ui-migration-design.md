@@ -184,3 +184,27 @@ Definition-of-Done for the migration PR:
 - ADR-0092 + doc edits: ~150 LoC across 4 files.
 
 Order-of-magnitude: ~2,500 LoC delta in `web/`, dominated by component source files. One focused day of work.
+
+## 14. Addendum (post-CLI-spike)
+
+After running `npx untitledui@latest add button --yes` against a scratch directory, the following points refine §3, §4, and §5:
+
+**Install pathway:** components are installed via the Untitled UI CLI, not by writing JSON payloads to disk. The CLI:
+- writes each component to `web/src/components/<category>/<group>/<name>.tsx` (e.g. `base/buttons/button.tsx`)
+- creates helper utilities `web/src/utils/cx.ts` and `web/src/utils/is-react-component.ts` on first install
+- adds runtime npm dependencies to `package.json` automatically (e.g. `react-aria-components`, `tailwind-merge`)
+
+**Folder layout (revised):** Untitled's native layout `web/src/components/<category>/<group>/` is adopted as-is. The pre-existing flat `web/src/components/ui/` folder is removed. Consumer imports update from `@/components/ui/<name>` → `@/components/<category>/<group>/<name>`.
+
+**Theme tokens (revised):** sourced verbatim from Untitled's public repo at `https://raw.githubusercontent.com/untitleduico/react/main/styles/theme.css`, committed to `web/src/styles/theme.css`, imported from `index.css`. Defines brand/utility/semantic colors, typography (Inter + Roboto Mono), shadows, animations. Dark-mode toggle = `.dark-mode` class on `<html>` (rebind `next-themes` to set this class).
+
+**Helper utility (revised):** `web/src/lib/utils.ts` (`cn()` re-export of `clsx` + `tailwind-merge`) is replaced by Untitled's `web/src/utils/cx.ts` (`cx()` + `sortCx()`). Existing call sites in slice-4 update import paths.
+
+**Acceptance criteria addendum to §12:**
+- §12 #3 file list is superseded by Untitled's CLI-determined folder layout. The check becomes: "no file remains under `web/src/components/ui/` except `sonner.tsx`; every primitive imported by a consumer file resolves to a path under `web/src/components/{base,application}/...`".
+- §12 #5 — also assert no `from "@/components/ui/<name>"` import remaining (except `sonner`).
+- §12 — add: `web/src/styles/theme.css` exists and is imported from `index.css`; `web/src/utils/cx.ts` exists; `web/src/lib/utils.ts` removed (or empty).
+
+**Risks addendum:**
+- The CLI may not respect Tailwind v4's `@theme` block presence in `index.css`; verify by running `npx untitledui add button` once during Task 1 and confirming the resulting file lints/types/builds before fanning out.
+- `next-themes` dark-class binding (`class="dark"` → `class="dark-mode"`) — single config change but worth pinning with a smoke test.
