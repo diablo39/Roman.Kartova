@@ -40,13 +40,40 @@ public sealed class DomainValidationExceptionHandler : IExceptionHandler
 
         httpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
 
-        var problem = new ProblemDetails
+        // When ParamName is non-empty, surface field-level errors so the SPA's
+        // applyProblemDetailsToForm can highlight the right input. Detail keeps the
+        // single-message shape (with framework suffix) so non-form consumers don't break.
+        ProblemDetails problem;
+        if (!string.IsNullOrEmpty(argEx.ParamName))
         {
-            Type = ProblemTypes.ValidationFailed,
-            Title = "Invalid request",
-            Status = StatusCodes.Status400BadRequest,
-            Detail = argEx.Message,
-        };
+            // Framework appends `(Parameter 'X')` to ArgumentException.Message. The form
+            // wants the bare invariant text; the suffix stays on Detail for CLI/agents.
+            var suffix = $" (Parameter '{argEx.ParamName}')";
+            var fieldMessage = argEx.Message.EndsWith(suffix, StringComparison.Ordinal)
+                ? argEx.Message[..^suffix.Length]
+                : argEx.Message;
+
+            problem = new ValidationProblemDetails(new Dictionary<string, string[]>(StringComparer.Ordinal)
+            {
+                [argEx.ParamName] = [fieldMessage],
+            })
+            {
+                Type = ProblemTypes.ValidationFailed,
+                Title = "Invalid request",
+                Status = StatusCodes.Status400BadRequest,
+                Detail = argEx.Message,
+            };
+        }
+        else
+        {
+            problem = new ProblemDetails
+            {
+                Type = ProblemTypes.ValidationFailed,
+                Title = "Invalid request",
+                Status = StatusCodes.Status400BadRequest,
+                Detail = argEx.Message,
+            };
+        }
 
         return await _problemDetails.TryWriteAsync(new ProblemDetailsContext
         {

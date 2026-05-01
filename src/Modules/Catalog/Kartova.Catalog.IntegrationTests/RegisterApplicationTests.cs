@@ -68,6 +68,10 @@ public class RegisterApplicationTests
     [InlineData("name", "  ", "desc")]
     [InlineData("name", "Display", "")]
     [InlineData("name", "Display", "  ")]
+    [InlineData("BadName", "Display", "desc")]      // kebab-case: uppercase
+    [InlineData("bad_name", "Display", "desc")]     // underscore
+    [InlineData("bad name", "Display", "desc")]     // space
+    [InlineData("9digit", "Display", "desc")]       // leading digit
     public async Task POST_with_invalid_payload_returns_400(string name, string displayName, string description)
     {
         var client = await _fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
@@ -126,6 +130,21 @@ public class RegisterApplicationTests
             "/api/v1/catalog/applications",
             new RegisterApplicationRequest(name, name, $"desc for {name}"));
         return (await post.Content.ReadFromJsonAsync<ApplicationResponse>())!;
+    }
+
+    [Fact]
+    public async Task POST_with_invalid_displayName_returns_field_level_problem_details()
+    {
+        var client = await _fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
+        var resp = await client.PostAsJsonAsync(
+            "/api/v1/catalog/applications",
+            new RegisterApplicationRequest("svc-fl", "", "desc"));
+
+        resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var doc = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        var errors = doc.GetProperty("errors");
+        errors.GetProperty("displayName").EnumerateArray().Single().GetString()
+            .Should().Contain("must not be empty");
     }
 
     [Fact]

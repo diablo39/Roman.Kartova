@@ -1,8 +1,9 @@
+using System.Text.RegularExpressions;
 using Kartova.SharedKernel.Multitenancy;
 
 namespace Kartova.Catalog.Domain;
 
-public sealed class Application : ITenantOwned
+public sealed partial class Application : ITenantOwned
 {
     public ApplicationId Id { get; private set; }
     public TenantId TenantId { get; private set; }
@@ -53,6 +54,10 @@ public sealed class Application : ITenantOwned
             DateTimeOffset.UtcNow);
     }
 
+    // Mirrors the SPA's zod rule so the SPA check is UX-only and the server is the source of truth.
+    [GeneratedRegex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")]
+    private static partial Regex KebabCase();
+
     private static void ValidateName(string name)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -62,6 +67,12 @@ public sealed class Application : ITenantOwned
         if (name.Length > 256)
         {
             throw new ArgumentException("Application name must be <= 256 characters.", nameof(name));
+        }
+        if (!KebabCase().IsMatch(name))
+        {
+            throw new ArgumentException(
+                "Application name must be lowercase kebab-case (e.g. payment-gateway).",
+                nameof(name));
         }
     }
 

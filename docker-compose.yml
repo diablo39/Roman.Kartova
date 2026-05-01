@@ -68,6 +68,9 @@ services:
       context: .
       dockerfile: src/Kartova.Migrator/Dockerfile
     image: kartova/migrator:dev
+    # --seed=dev inserts Org A so admin@orga.kartova.local has a tenant row to scope to.
+    # Idempotent. Production runs (helm) do not pass this flag.
+    command: ["--seed=dev"]
     environment:
       ConnectionStrings__Kartova: "Host=postgres;Port=5432;Database=kartova;Username=migrator;Password=dev"
       DOTNET_ENVIRONMENT: Development

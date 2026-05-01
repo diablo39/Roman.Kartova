@@ -1,7 +1,9 @@
 using Kartova.Catalog.Infrastructure;
+using Kartova.Migrator;
 using Kartova.Organization.Infrastructure;
 using Kartova.SharedKernel;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -38,6 +40,19 @@ foreach (var module in modules)
 
     await dbContext.Database.MigrateAsync();
     logger.LogInformation("Module '{Module}' migrated.", module.Name);
+}
+
+if (args.Contains("--seed=dev"))
+{
+    // Defense-in-depth: a misconfigured pipeline must not write fixture rows into a
+    // customer database. The compose/helm convention is "only dev profile passes the flag";
+    // this guard makes the contract enforceable.
+    if (builder.Environment.IsProduction())
+    {
+        throw new InvalidOperationException(
+            "--seed=dev refused: dev fixtures must not run in Production.");
+    }
+    await DevSeed.RunAsync(host.Services.GetRequiredService<IConfiguration>(), logger);
 }
 
 logger.LogInformation("All migrations applied. Exiting.");
