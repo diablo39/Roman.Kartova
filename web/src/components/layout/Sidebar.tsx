@@ -17,9 +17,9 @@ const NAV_ITEMS: NavItem[] = [
 
 export function Sidebar() {
   return (
-    <aside className="flex h-full w-[260px] flex-col border-r border-border bg-card">
-      <div className="flex h-14 items-center border-b border-border px-4">
-        <span className="text-lg font-semibold">Kartova</span>
+    <aside className="flex h-full w-[260px] flex-col border-r border-secondary bg-secondary">
+      <div className="flex h-14 items-center border-b border-secondary px-4">
+        <span className="text-lg font-semibold text-primary">Kartova</span>
       </div>
       <nav className="flex-1 overflow-y-auto p-3">
         <ul className="space-y-1">
@@ -32,8 +32,8 @@ export function Sidebar() {
                     cx(
                       "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
                       isActive
-                        ? "bg-primary text-primary-foreground"
-                        : "text-foreground hover:bg-card-elevated",
+                        ? "bg-brand-solid text-white"
+                        : "text-secondary hover:bg-primary_hover",
                     )
                   }
                 >
@@ -41,7 +41,7 @@ export function Sidebar() {
                 </NavLink>
               ) : (
                 <span
-                  className="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm text-muted opacity-50"
+                  className="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm text-tertiary opacity-50"
                   data-disabled="true"
                 >
                   {item.label}
