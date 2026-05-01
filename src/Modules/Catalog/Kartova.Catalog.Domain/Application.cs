@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Kartova.SharedKernel.Multitenancy;
 
 namespace Kartova.Catalog.Domain;
@@ -57,8 +58,8 @@ public sealed class Application : ITenantOwned
     // dashes only between alphanumeric segments, no leading/trailing/double dash. Matches the
     // SPA's zod rule (registerApplicationSchema) so server-side validation is the source of truth
     // and the SPA check is purely UX feedback. Spec §5.3, E-02.F-01.S-07.
-    private static readonly System.Text.RegularExpressions.Regex KebabCase =
-        new("^[a-z][a-z0-9]*(-[a-z0-9]+)*$", System.Text.RegularExpressions.RegexOptions.Compiled);
+    private static readonly Regex KebabCase =
+        new("^[a-z][a-z0-9]*(-[a-z0-9]+)*$", RegexOptions.Compiled);
 
     private static void ValidateName(string name)
     {

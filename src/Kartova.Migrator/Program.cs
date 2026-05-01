@@ -49,6 +49,14 @@ foreach (var module in modules)
 // DO NOTHING). Toggled via --seed=dev so production migrator runs never seed.
 if (args.Contains("--seed=dev"))
 {
+    // Defense-in-depth: refuse to seed in Production even if ops accidentally pass the flag.
+    // The compose/helm convention is "only dev profile passes --seed=dev", but a misconfigured
+    // pipeline shouldn't be able to write a fixture row into a customer database.
+    if (builder.Environment.IsProduction())
+    {
+        throw new InvalidOperationException(
+            "--seed=dev refused: dev fixtures must not run in Production.");
+    }
     await SeedDevAsync(host.Services.GetRequiredService<IConfiguration>(), logger);
 }
 
