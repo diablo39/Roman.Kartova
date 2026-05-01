@@ -24,7 +24,7 @@ export function ApplicationsTable({ isLoading, applications }: ApplicationsTable
     return (
       <Table aria-label="Applications">
         <Table.Header>
-          <Table.Head id="name">Name</Table.Head>
+          <Table.Head id="name" isRowHeader>Name</Table.Head>
           <Table.Head id="description">Description</Table.Head>
         </Table.Header>
         <Table.Body>
@@ -55,7 +55,7 @@ export function ApplicationsTable({ isLoading, applications }: ApplicationsTable
   return (
     <Table aria-label="Applications">
       <Table.Header>
-        <Table.Head id="name">Name</Table.Head>
+        <Table.Head id="name" isRowHeader>Name</Table.Head>
         <Table.Head id="description">Description</Table.Head>
       </Table.Header>
       <Table.Body>
