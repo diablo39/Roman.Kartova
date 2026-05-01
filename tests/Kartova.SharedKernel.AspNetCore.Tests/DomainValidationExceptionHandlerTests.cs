@@ -59,6 +59,47 @@ public class DomainValidationExceptionHandlerTests
         handled.Should().BeFalse();
     }
 
+    [Fact]
+    public async Task TryHandleAsync_emits_field_level_errors_when_paramName_present()
+    {
+        // E-02.F-01.S-06: SPA-form-friendly shape `errors: { field: [msg] }`.
+        var (sut, ctx) = Build();
+
+        var handled = await sut.TryHandleAsync(
+            ctx,
+            new ArgumentException(
+                "Application display name must not be empty.", "displayName"),
+            CancellationToken.None);
+
+        handled.Should().BeTrue();
+        var body = await ReadBodyAsync(ctx);
+
+        var errors = body.GetProperty("errors");
+        errors.GetProperty("displayName").EnumerateArray().Single().GetString()
+            .Should().Be("Application display name must not be empty.");
+
+        // Detail still carries the legacy single-message shape (with framework suffix)
+        // for non-form consumers (CLI, agents).
+        body.GetProperty("detail").GetString()
+            .Should().Contain("Application display name must not be empty.");
+    }
+
+    [Fact]
+    public async Task TryHandleAsync_omits_errors_property_when_paramName_absent()
+    {
+        // ArgumentException with no paramName → no field-level mapping possible;
+        // SPA form receives the global toast instead of field highlight.
+        var (sut, ctx) = Build();
+
+        var handled = await sut.TryHandleAsync(
+            ctx, new ArgumentException("something is off"), CancellationToken.None);
+
+        handled.Should().BeTrue();
+        var body = await ReadBodyAsync(ctx);
+
+        body.TryGetProperty("errors", out _).Should().BeFalse();
+    }
+
     private static (DomainValidationExceptionHandler sut, HttpContext ctx) Build()
     {
         var services = new ServiceCollection();

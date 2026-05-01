@@ -48,6 +48,26 @@ public sealed class DomainValidationExceptionHandler : IExceptionHandler
             Detail = argEx.Message,
         };
 
+        // E-02.F-01.S-06: field-level errors. When the aggregate factory tagged the
+        // ArgumentException with a ParamName, surface it under `errors` so the SPA's
+        // applyProblemDetailsToForm helper can attach the message to the right input.
+        // Detail keeps the legacy single-message shape so non-form consumers (CLI,
+        // agents) don't break.
+        if (!string.IsNullOrEmpty(argEx.ParamName))
+        {
+            // Strip the framework-appended "(Parameter 'X')" suffix from the per-field
+            // message so the form shows the readable invariant text only.
+            var suffix = $" (Parameter '{argEx.ParamName}')";
+            var fieldMessage = argEx.Message.EndsWith(suffix, StringComparison.Ordinal)
+                ? argEx.Message[..^suffix.Length]
+                : argEx.Message;
+
+            problem.Extensions["errors"] = new Dictionary<string, string[]>(StringComparer.Ordinal)
+            {
+                [argEx.ParamName] = [fieldMessage],
+            };
+        }
+
         return await _problemDetails.TryWriteAsync(new ProblemDetailsContext
         {
             HttpContext = httpContext,

@@ -133,6 +133,22 @@ public class RegisterApplicationTests
     }
 
     [Fact]
+    public async Task POST_with_invalid_displayName_returns_field_level_problem_details()
+    {
+        // E-02.F-01.S-06: SPA-form-friendly errors shape end-to-end.
+        var client = await _fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
+        var resp = await client.PostAsJsonAsync(
+            "/api/v1/catalog/applications",
+            new RegisterApplicationRequest("svc-fl", "", "desc"));
+
+        resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var doc = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        var errors = doc.GetProperty("errors");
+        errors.GetProperty("displayName").EnumerateArray().Single().GetString()
+            .Should().Contain("must not be empty");
+    }
+
+    [Fact]
     public async Task POST_without_token_returns_401()
     {
         using var client = _fx.CreateAnonymousClient();
