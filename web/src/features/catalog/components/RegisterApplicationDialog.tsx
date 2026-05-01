@@ -36,6 +36,8 @@ export function RegisterApplicationDialog({ open, onOpenChange }: Props) {
     defaultValues: { name: "", displayName: "", description: "" },
   });
 
+  // useForm lives above <ModalOverlay>, so the form state survives the modal
+  // unmount and this reset fires reliably on close.
   useEffect(() => {
     if (!open) {
       form.reset({ name: "", displayName: "", description: "" });
@@ -63,7 +65,7 @@ export function RegisterApplicationDialog({ open, onOpenChange }: Props) {
   const initials = initialsOf(user?.displayName);
 
   return (
-    <ModalOverlay isOpen={open} onOpenChange={onOpenChange} isDismissable>
+    <ModalOverlay isOpen={open} onOpenChange={onOpenChange} isDismissable={!mutation.isPending}>
       <Modal>
         <Dialog aria-label="Register Application" className="bg-primary rounded-xl shadow-xl max-w-[560px] w-full p-6 outline-none">
           <div className="w-full">
