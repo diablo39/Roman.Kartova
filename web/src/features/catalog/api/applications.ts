@@ -14,7 +14,8 @@ export function useApplications() {
     queryFn: async () => {
       const { data, error } = await apiClient.GET("/api/v1/catalog/applications");
       if (error) throw error;
-      return data!;
+      if (!data) throw new Error("API returned neither data nor error");
+      return data;
     },
   });
 }
@@ -29,7 +30,8 @@ export function useApplication(id: string) {
         { params: { path: { id } } }
       );
       if (error) throw error;
-      return data!;
+      if (!data) throw new Error("API returned neither data nor error");
+      return data;
     },
   });
 }
@@ -43,7 +45,8 @@ export function useRegisterApplication() {
         { body: input }
       );
       if (error) throw error;
-      return data!;
+      if (!data) throw new Error("API returned neither data nor error");
+      return data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: applicationKeys.list() });

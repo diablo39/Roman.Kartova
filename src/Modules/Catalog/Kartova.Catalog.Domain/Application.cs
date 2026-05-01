@@ -71,9 +71,9 @@ public sealed class Application : ITenantOwned
         {
             throw new ArgumentException("Application display name must not be empty.", nameof(displayName));
         }
-        if (displayName.Length > 256)
+        if (displayName.Length > 128)
         {
-            throw new ArgumentException("Application display name must be <= 256 characters.", nameof(displayName));
+            throw new ArgumentException("Application display name must be <= 128 characters.", nameof(displayName));
         }
     }
 

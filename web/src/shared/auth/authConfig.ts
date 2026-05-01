@@ -5,6 +5,8 @@ export interface AuthConfigInputs {
   authority: string;
   clientId: string;
   redirectUri: string;
+  postLogoutRedirectUri: string;
+  storage: Storage;
 }
 
 // Slice-4 §4.3: tokens are tab-scoped (sessionStorage) and cleared on tab close.
@@ -12,30 +14,20 @@ export interface AuthConfigInputs {
 // must survive the navigation to the KeyCloak login page and back, which JS
 // module memory does not. The harder security upgrade (BFF cookie session)
 // is captured as backlog story E-01.F-04.S-05.
+//
+// This function is pure: it takes a Storage and origin string from the caller
+// instead of touching `window`. The composition root (AuthProvider.tsx) supplies
+// `window.sessionStorage` and `window.location.origin`.
 export function buildOidcConfig(i: AuthConfigInputs): UserManagerSettings {
-  /* v8 ignore start -- SSR fallback; jsdom test env always has window */
-  const store: Storage =
-    typeof window !== "undefined"
-      ? window.sessionStorage
-      : ({
-          length: 0,
-          clear: () => {},
-          getItem: () => null,
-          key: () => null,
-          removeItem: () => {},
-          setItem: () => {},
-        } as Storage);
-  /* v8 ignore stop */
   return {
     authority: i.authority,
     client_id: i.clientId,
     redirect_uri: i.redirectUri,
-    post_logout_redirect_uri:
-      typeof window !== "undefined" ? window.location.origin : "/",
+    post_logout_redirect_uri: i.postLogoutRedirectUri,
     response_type: "code",
     scope: "openid profile email",
     automaticSilentRenew: true,
-    userStore: new WebStorageStateStore({ store }),
-    stateStore: new WebStorageStateStore({ store }),
+    userStore: new WebStorageStateStore({ store: i.storage }),
+    stateStore: new WebStorageStateStore({ store: i.storage }),
   };
 }

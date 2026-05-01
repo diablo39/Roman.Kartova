@@ -66,9 +66,8 @@ export function RegisterApplicationDialog({ open, onOpenChange }: Props) {
       onOpenChange(false);
     } catch (err) {
       const problem = err as ProblemDetails;
-      const handled = applyProblemDetailsToForm(
-        problem,
-        form.setError as unknown as Parameters<typeof applyProblemDetailsToForm>[1]
+      const handled = applyProblemDetailsToForm(problem, (name, error) =>
+        form.setError(name as Parameters<typeof form.setError>[0], error)
       );
       if (!handled) {
         const detail =

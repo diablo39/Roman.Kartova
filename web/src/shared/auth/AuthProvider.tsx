@@ -8,6 +8,8 @@ const config = buildOidcConfig({
   authority: import.meta.env.VITE_OIDC_AUTHORITY ?? DEFAULT_AUTHORITY,
   clientId: import.meta.env.VITE_OIDC_CLIENT_ID ?? DEFAULT_CLIENT_ID,
   redirectUri: `${window.location.origin}/callback`,
+  postLogoutRedirectUri: window.location.origin,
+  storage: window.sessionStorage,
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {

@@ -130,7 +130,7 @@ public class EfApplicationConfigurationTests
         // DisplayName
         var displayName = entity.FindProperty("DisplayName")!;
         displayName.IsNullable.Should().BeFalse("DisplayName is required");
-        displayName.GetMaxLength().Should().Be(256, "DisplayName max length is 256");
+        displayName.GetMaxLength().Should().Be(128, "DisplayName max length is 128");
         displayName.GetColumnName().Should().Be("display_name");
 
         // Description

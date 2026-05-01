@@ -64,17 +64,17 @@ public class ApplicationTests
     }
 
     [Fact]
-    public void Create_throws_on_displayName_over_256_chars()
+    public void Create_throws_on_displayName_over_128_chars()
     {
-        var displayName = new string('x', 257);
+        var displayName = new string('x', 129);
         var act = () => DomainApplication.Create("name", displayName, "desc", Owner, Tenant);
-        act.Should().Throw<ArgumentException>().WithMessage("*256*");
+        act.Should().Throw<ArgumentException>().WithMessage("*128*");
     }
 
     [Fact]
-    public void Create_succeeds_on_displayName_at_256_chars()
+    public void Create_succeeds_on_displayName_at_128_chars()
     {
-        var displayName = new string('x', 256);
+        var displayName = new string('x', 128);
         var app = DomainApplication.Create("name", displayName, "desc", Owner, Tenant);
         app.DisplayName.Should().Be(displayName);
     }

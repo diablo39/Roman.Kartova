@@ -61,21 +61,30 @@ public class Program
 
         // CORS — allow configured SPA origins (e.g. http://localhost:5173 in dev).
         // Production default: empty array → all origins blocked (safe default).
+        // No AllowCredentials: SPA carries the access token in the `Authorization: Bearer` header,
+        // not in cookies. Re-introduce only when the BFF cookie-session story (E-01.F-04.S-05) lands.
+        var corsOrigins = builder.Configuration
+            .GetSection(CorsConfigKeys.AllowedOrigins).Get<string[]>() ?? [];
+        if (corsOrigins.Length == 0 && !builder.Environment.IsDevelopment())
+        {
+            // Surface misconfiguration loudly in non-Development environments.
+            // Empty allowlist produces silent browser breakage (no Allow-Origin header) — log so ops sees it.
+            using var startupLoggerFactory = LoggerFactory.Create(b => b.AddConsole());
+            startupLoggerFactory.CreateLogger("Kartova.Cors")
+                .LogWarning("Cors:AllowedOrigins is empty in environment {Environment}; all browser SPA requests will be blocked.",
+                    builder.Environment.EnvironmentName);
+        }
         builder.Services.AddCors(options =>
         {
-            var origins = builder.Configuration
-                .GetSection(CorsConfigKeys.AllowedOrigins).Get<string[]>() ?? [];
             options.AddPolicy("KartovaWeb", policy =>
             {
-                if (origins.Length == 0)
+                if (corsOrigins.Length == 0)
                 {
-                    // No origins configured — block everything (safe default for prod).
                     return;
                 }
-                policy.WithOrigins(origins)
+                policy.WithOrigins(corsOrigins)
                     .AllowAnyHeader()
-                    .AllowAnyMethod()
-                    .AllowCredentials();
+                    .AllowAnyMethod();
             });
         });
 

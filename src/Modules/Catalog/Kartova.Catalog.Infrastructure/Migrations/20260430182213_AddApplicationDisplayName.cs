@@ -14,16 +14,15 @@ namespace Kartova.Catalog.Infrastructure.Migrations
             migrationBuilder.AddColumn<string>(
                 name: "display_name",
                 table: "catalog_applications",
-                type: "character varying(256)",
-                maxLength: 256,
+                type: "character varying(128)",
+                maxLength: 128,
                 nullable: true);
 
             // Step 2: disable FORCE RLS so the maintenance backfill runs as the table owner.
-            // The migrator role owns catalog_applications but lacks BYPASSRLS; FORCE makes the
-            // policy apply to the owner too. NO FORCE returns to the default (policy applies
-            // only to non-owners), allowing this maintenance UPDATE to see every row regardless
-            // of tenant. Re-enabled in Step 4 to preserve the slice-3 invariant for application
-            // queries.
+            // The migrator role owns catalog_applications but lacks BYPASSRLS (ADR-0090, slice-3
+            // role-split). FORCE makes the policy apply to the owner too; NO FORCE returns to the
+            // default so this maintenance UPDATE sees every row regardless of tenant. Re-enabled in
+            // Step 4. ASSUMES migrator-role != bypass-role; revisit if that ever changes.
             migrationBuilder.Sql("ALTER TABLE catalog_applications NO FORCE ROW LEVEL SECURITY;");
 
             // Step 3: backfill — every existing Application gets display_name = name, satisfying
@@ -37,12 +36,12 @@ namespace Kartova.Catalog.Infrastructure.Migrations
             migrationBuilder.AlterColumn<string>(
                 name: "display_name",
                 table: "catalog_applications",
-                type: "character varying(256)",
-                maxLength: 256,
+                type: "character varying(128)",
+                maxLength: 128,
                 nullable: false,
                 oldClrType: typeof(string),
-                oldType: "character varying(256)",
-                oldMaxLength: 256,
+                oldType: "character varying(128)",
+                oldMaxLength: 128,
                 oldNullable: true);
         }
 
