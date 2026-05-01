@@ -1,31 +1,15 @@
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ModalOverlay, Modal, Dialog } from "@/components/application/modals/modal";
+import { HookForm, FormField } from "@/components/base/form/hook-form";
+import { Input } from "@/components/base/input/input";
+import { TextArea } from "@/components/base/textarea/textarea";
+import { Button } from "@/components/base/buttons/button";
+import { Badge } from "@/components/base/badges/badges";
+import { Avatar } from "@/components/base/avatar/avatar";
 
 import {
   registerApplicationSchema,
@@ -52,7 +36,8 @@ export function RegisterApplicationDialog({ open, onOpenChange }: Props) {
     defaultValues: { name: "", displayName: "", description: "" },
   });
 
-  // Reset form when the dialog closes (so re-opening starts clean).
+  // useForm lives above <ModalOverlay>, so the form state survives the modal
+  // unmount and this reset fires reliably on close.
   useEffect(() => {
     if (!open) {
       form.reset({ name: "", displayName: "", description: "" });
@@ -80,88 +65,83 @@ export function RegisterApplicationDialog({ open, onOpenChange }: Props) {
   const initials = initialsOf(user?.displayName);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[560px]">
-        <DialogHeader>
-          <DialogTitle>Register Application</DialogTitle>
-          <DialogDescription>Add a new application to your catalog</DialogDescription>
-        </DialogHeader>
-
-        <Form {...form}>
-          <form onSubmit={onSubmit} className="space-y-5">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Name *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="payment-gateway" {...field} />
-                  </FormControl>
-                  <FormDescription>Lowercase, kebab-case. Used in URLs and CLI.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="displayName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Display Name *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Payment Gateway" {...field} />
-                  </FormControl>
-                  <FormDescription>Human-friendly name shown in UI.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description *</FormLabel>
-                  <FormControl>
-                    <Textarea rows={3} placeholder="Short summary..." {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Owner</p>
-                <div className="mt-1 inline-flex items-center gap-2 rounded-md border border-border bg-muted/40 px-2 py-1.5">
-                  <Avatar className="h-6 w-6">
-                    <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium truncate">{user?.displayName ?? "—"}</div>
-                    <div className="text-xs text-muted-foreground truncate">{user?.email ?? ""}</div>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Lifecycle</p>
-                <Badge className="mt-1 bg-emerald-600 text-white hover:bg-emerald-700">Active</Badge>
-              </div>
+    <ModalOverlay isOpen={open} onOpenChange={onOpenChange} isDismissable={!mutation.isPending}>
+      <Modal>
+        <Dialog aria-label="Register Application" className="bg-primary rounded-xl shadow-xl max-w-[560px] w-full p-6 outline-none">
+          <div className="w-full">
+            <div className="space-y-1 mb-4">
+              <h2 className="text-lg font-semibold text-primary">Register Application</h2>
+              <p className="text-sm text-tertiary">Add a new application to your catalog</p>
             </div>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Register Application
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+            <HookForm form={form} onSubmit={onSubmit} className="space-y-5">
+              <FormField name="name" control={form.control}>
+                {({ field, fieldState }) => (
+                  <Input
+                    label="Name"
+                    placeholder="payment-gateway"
+                    hint={fieldState.error?.message ?? "Lowercase, kebab-case. Used in URLs and CLI."}
+                    isInvalid={!!fieldState.error}
+                    isRequired
+                    {...field}
+                  />
+                )}
+              </FormField>
+              <FormField name="displayName" control={form.control}>
+                {({ field, fieldState }) => (
+                  <Input
+                    label="Display Name"
+                    placeholder="Payment Gateway"
+                    hint={fieldState.error?.message ?? "Human-friendly name shown in UI."}
+                    isInvalid={!!fieldState.error}
+                    isRequired
+                    {...field}
+                  />
+                )}
+              </FormField>
+              <FormField name="description" control={form.control}>
+                {({ field, fieldState }) => (
+                  <TextArea
+                    label="Description"
+                    rows={3}
+                    placeholder="Short summary..."
+                    hint={fieldState.error?.message}
+                    isInvalid={!!fieldState.error}
+                    isRequired
+                    {...field}
+                  />
+                )}
+              </FormField>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-tertiary">Owner</p>
+                  <div className="mt-1 inline-flex items-center gap-2 rounded-md border border-secondary bg-secondary/40 px-2 py-1.5">
+                    <Avatar size="xs" initials={initials} />
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-primary truncate">{user?.displayName ?? "—"}</div>
+                      <div className="text-xs text-tertiary truncate">{user?.email ?? ""}</div>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-tertiary">Lifecycle</p>
+                  <Badge color="success" type="pill-color" size="sm" className="mt-1">Active</Badge>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" color="secondary" size="sm" onClick={() => onOpenChange(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" color="primary" size="sm" isLoading={mutation.isPending}>
+                  Register Application
+                </Button>
+              </div>
+            </HookForm>
+          </div>
+        </Dialog>
+      </Modal>
+    </ModalOverlay>
   );
 }
