@@ -13,6 +13,7 @@ export interface AuthConfigInputs {
 // module memory does not. The harder security upgrade (BFF cookie session)
 // is captured as backlog story E-01.F-04.S-05.
 export function buildOidcConfig(i: AuthConfigInputs): UserManagerSettings {
+  /* v8 ignore start -- SSR fallback; jsdom test env always has window */
   const store: Storage =
     typeof window !== "undefined"
       ? window.sessionStorage
@@ -24,6 +25,7 @@ export function buildOidcConfig(i: AuthConfigInputs): UserManagerSettings {
           removeItem: () => {},
           setItem: () => {},
         } as Storage);
+  /* v8 ignore stop */
   return {
     authority: i.authority,
     client_id: i.clientId,

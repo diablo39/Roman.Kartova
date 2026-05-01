@@ -20,6 +20,10 @@ export default defineConfig({
         "src/shared/auth/**",
         "src/shared/forms/**",
       ],
+      exclude: [
+        // Composition-root wiring (analogous to Program.cs); behavior covered via authConfig.
+        "src/shared/auth/AuthProvider.tsx",
+      ],
       thresholds: { lines: 80, statements: 80, functions: 80, branches: 75 },
     },
   },
