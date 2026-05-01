@@ -4,7 +4,7 @@
 **Date:** 2026-05-01
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** Frontend Architecture
-**Related:** ADR-0039, ADR-0040, ADR-0084, ADR-0087, ADR-0088 (superseded by this)
+**Related:** ADR-0039, ADR-0040, ADR-0084, ADR-0087, ADR-0088
 
 ## Context
 
