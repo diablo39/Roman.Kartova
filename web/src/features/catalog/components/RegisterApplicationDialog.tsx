@@ -66,8 +66,9 @@ export function RegisterApplicationDialog({ open, onOpenChange }: Props) {
 
   return (
     <ModalOverlay isOpen={open} onOpenChange={onOpenChange} isDismissable={!mutation.isPending}>
-      <Modal>
-        <Dialog aria-label="Register Application" className="bg-primary rounded-xl shadow-xl max-w-[560px] w-full p-6 outline-none">
+      <Modal className="max-w-[560px]">
+        <Dialog aria-label="Register Application" className="bg-primary rounded-xl shadow-xl p-6 outline-none">
+
           <div className="w-full">
             <div className="space-y-1 mb-4">
               <h2 className="text-lg font-semibold text-primary">Register Application</h2>
