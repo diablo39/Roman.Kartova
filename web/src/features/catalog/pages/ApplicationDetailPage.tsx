@@ -1,8 +1,7 @@
 import { useParams } from "react-router-dom";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
+import { Card, CardContent, CardHeader } from "@/components/base/card/card";
+import { Badge } from "@/components/base/badges/badges";
+import { Skeleton } from "@/components/base/skeleton/skeleton";
 import { useApplication } from "@/features/catalog/api/applications";
 
 export function ApplicationDetailPage() {
@@ -28,8 +27,8 @@ export function ApplicationDetailPage() {
     return (
       <Card className="mx-auto max-w-md">
         <CardContent className="space-y-2 p-6 text-center">
-          <p className="text-base font-medium text-destructive">Application not found</p>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base font-medium text-error-primary">Application not found</p>
+          <p className="text-sm text-tertiary">
             It may have been deleted, or you may not have access in this tenant.
           </p>
         </CardContent>
@@ -51,19 +50,19 @@ export function ApplicationDetailPage() {
     <Card>
       <CardHeader className="space-y-3">
         <div className="flex flex-wrap items-baseline gap-3">
-          <h2 className="text-2xl font-semibold">{app.displayName}</h2>
-          <Badge variant="outline" className="font-mono">{app.name}</Badge>
-          <Badge className="bg-emerald-600 text-white hover:bg-emerald-700">Active</Badge>
+          <h2 className="text-2xl font-semibold text-primary">{app.displayName}</h2>
+          <Badge color="gray" type="pill-color" size="sm" className="font-mono">{app.name}</Badge>
+          <Badge color="success" type="pill-color" size="sm">Active</Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
         <section>
-          <h3 className="text-sm font-medium text-muted-foreground">Description</h3>
-          <p className="mt-1 text-sm">
+          <h3 className="text-sm font-medium text-tertiary">Description</h3>
+          <p className="mt-1 text-sm text-secondary">
             {app.description ? app.description : <span className="italic">No description</span>}
           </p>
         </section>
-        <Separator />
+        <hr className="border-secondary" />
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Field label="ID" value={app.id} mono />
           <Field label="Owner" value={app.ownerUserId ?? "—"} mono />
@@ -77,8 +76,8 @@ export function ApplicationDetailPage() {
 function Field({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className={mono ? "mt-1 font-mono text-sm" : "mt-1 text-sm"}>{value}</div>
+      <div className="text-xs uppercase tracking-wide text-tertiary">{label}</div>
+      <div className={mono ? "mt-1 font-mono text-sm text-primary" : "mt-1 text-sm text-primary"}>{value}</div>
     </div>
   );
 }
