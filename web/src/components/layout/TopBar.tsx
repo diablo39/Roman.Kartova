@@ -1,4 +1,5 @@
 import { SearchSm, ChevronDown, LogOut01 } from "@untitledui/icons";
+import { Button as AriaButton } from "react-aria-components";
 import { useAuth } from "react-oidc-context";
 import { useCurrentOrganization } from "@/features/organization/api/me";
 import { useCurrentUser } from "@/shared/auth/useCurrentUser";
@@ -6,7 +7,6 @@ import { initialsOf } from "@/shared/auth/initials";
 import { Avatar } from "@/components/base/avatar/avatar";
 import { Badge } from "@/components/base/badges/badges";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
-import { Button } from "@/components/base/buttons/button";
 import { Dropdown } from "@/components/base/dropdown/dropdown";
 
 export function TopBar() {
@@ -42,10 +42,14 @@ export function TopBar() {
 
       {/* User avatar + dropdown */}
       <Dropdown.Root>
-        <Button color="tertiary" size="sm" className="flex items-center gap-2 px-2" data-testid="user-menu">
+        <AriaButton
+          data-testid="user-menu"
+          aria-label="Open user menu"
+          className="flex cursor-pointer items-center gap-1.5 rounded-full p-0.5 outline-none hover:bg-primary_hover focus-visible:ring-2 focus-visible:ring-brand-500"
+        >
           <Avatar size="sm" initials={initials} />
           <ChevronDown className="h-4 w-4 text-fg-quaternary" />
-        </Button>
+        </AriaButton>
         <Dropdown.Popover className="w-56" placement="bottom right">
           {user && (
             <div className="px-3 py-2 text-sm">
@@ -55,9 +59,11 @@ export function TopBar() {
           )}
           <Dropdown.Menu>
             {user && <Dropdown.Separator />}
-            <Dropdown.Item onAction={() => void auth.signoutRedirect()}>
-              <LogOut01 className="mr-2 h-4 w-4" /> Sign out
-            </Dropdown.Item>
+            <Dropdown.Item
+              label="Sign out"
+              icon={LogOut01}
+              onAction={() => void auth.signoutRedirect()}
+            />
           </Dropdown.Menu>
         </Dropdown.Popover>
       </Dropdown.Root>
