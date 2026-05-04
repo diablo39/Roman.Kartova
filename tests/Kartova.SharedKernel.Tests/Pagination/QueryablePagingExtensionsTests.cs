@@ -1,0 +1,188 @@
+using FluentAssertions;
+using Kartova.SharedKernel.Pagination;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Xunit;
+
+namespace Kartova.SharedKernel.Tests.Pagination;
+
+public sealed class QueryablePagingExtensionsTests : IAsyncLifetime
+{
+    private SqliteConnection _conn = null!;
+    private TestDbContext _db = null!;
+
+    public sealed class TestRow
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public DateTimeOffset CreatedAt { get; set; }
+    }
+
+    public sealed class TestDbContext : DbContext
+    {
+        public TestDbContext(DbContextOptions<TestDbContext> opts) : base(opts) { }
+        public DbSet<TestRow> Rows => Set<TestRow>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            // SQLite does not natively support DateTimeOffset ORDER BY.
+            // Store as TEXT (ISO-8601) so comparisons and ordering work correctly.
+            modelBuilder.Entity<TestRow>()
+                .Property(r => r.CreatedAt)
+                .HasConversion<string>();
+
+            // Suppress EF Core's auto-generation for Guid PKs so Guid.Empty
+            // (row-0) is stored as-is rather than replaced with a new Guid.
+            modelBuilder.Entity<TestRow>()
+                .Property(r => r.Id)
+                .ValueGeneratedNever();
+        }
+    }
+
+    private static readonly SortSpec<TestRow> ByCreatedAt = new("createdAt", x => x.CreatedAt);
+    private static readonly SortSpec<TestRow> ByName = new("name", x => x.Name);
+
+    public async Task InitializeAsync()
+    {
+        _conn = new SqliteConnection("DataSource=:memory:");
+        await _conn.OpenAsync();
+        var opts = new DbContextOptionsBuilder<TestDbContext>().UseSqlite(_conn).Options;
+        _db = new TestDbContext(opts);
+        await _db.Database.EnsureCreatedAsync();
+    }
+
+    public async Task DisposeAsync()
+    {
+        await _db.DisposeAsync();
+        await _conn.DisposeAsync();
+    }
+
+    private async Task SeedAsync(int count)
+    {
+        var origin = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        for (var i = 0; i < count; i++)
+        {
+            _db.Rows.Add(new TestRow
+            {
+                Id = Guid.Parse($"00000000-0000-0000-0000-{i:D12}"),
+                Name = $"row-{i:D3}",
+                CreatedAt = origin.AddMinutes(i),
+            });
+        }
+        await _db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task EmptyTable_returns_empty_page_with_null_next()
+    {
+        var page = await _db.Rows.ToCursorPagedAsync(
+            ByCreatedAt, SortOrder.Asc, cursor: null, limit: 10, x => x.Id, CancellationToken.None);
+
+        page.Items.Should().BeEmpty();
+        page.NextCursor.Should().BeNull();
+        page.PrevCursor.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task SinglePage_returns_all_rows_with_null_next()
+    {
+        await SeedAsync(5);
+
+        var page = await _db.Rows.ToCursorPagedAsync(
+            ByCreatedAt, SortOrder.Asc, cursor: null, limit: 10, x => x.Id, CancellationToken.None);
+
+        page.Items.Should().HaveCount(5);
+        page.NextCursor.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ExactLimit_does_not_emit_next_cursor()
+    {
+        await SeedAsync(5);
+
+        var page = await _db.Rows.ToCursorPagedAsync(
+            ByCreatedAt, SortOrder.Asc, cursor: null, limit: 5, x => x.Id, CancellationToken.None);
+
+        page.Items.Should().HaveCount(5);
+        page.NextCursor.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task LimitPlusOne_emits_next_cursor_and_trims()
+    {
+        await SeedAsync(6);
+
+        var page = await _db.Rows.ToCursorPagedAsync(
+            ByCreatedAt, SortOrder.Asc, cursor: null, limit: 5, x => x.Id, CancellationToken.None);
+
+        page.Items.Should().HaveCount(5);
+        page.NextCursor.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task PagingForward_yields_no_duplicates_no_skips()
+    {
+        await SeedAsync(20);
+
+        var seen = new List<Guid>();
+        string? cursor = null;
+        do
+        {
+            var page = await _db.Rows.ToCursorPagedAsync(
+                ByCreatedAt, SortOrder.Asc, cursor, limit: 7, x => x.Id, CancellationToken.None);
+            seen.AddRange(page.Items.Select(r => r.Id));
+            cursor = page.NextCursor;
+        } while (cursor is not null);
+
+        seen.Should().HaveCount(20);
+        seen.Distinct().Should().HaveCount(20);
+        seen.Should().BeInAscendingOrder();
+    }
+
+    [Fact]
+    public async Task DescendingOrder_returns_rows_in_reverse()
+    {
+        await SeedAsync(3);
+
+        var page = await _db.Rows.ToCursorPagedAsync(
+            ByCreatedAt, SortOrder.Desc, cursor: null, limit: 10, x => x.Id, CancellationToken.None);
+
+        page.Items.Select(r => r.Name).Should().Equal("row-002", "row-001", "row-000");
+    }
+
+    [Fact]
+    public async Task TieOnSortValue_uses_id_as_stable_tiebreaker()
+    {
+        var t = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        _db.Rows.AddRange(
+            new TestRow { Id = Guid.Parse("00000000-0000-0000-0000-000000000003"), Name = "c", CreatedAt = t },
+            new TestRow { Id = Guid.Parse("00000000-0000-0000-0000-000000000001"), Name = "a", CreatedAt = t },
+            new TestRow { Id = Guid.Parse("00000000-0000-0000-0000-000000000002"), Name = "b", CreatedAt = t });
+        await _db.SaveChangesAsync();
+
+        var first = await _db.Rows.ToCursorPagedAsync(
+            ByCreatedAt, SortOrder.Asc, cursor: null, limit: 1, x => x.Id, CancellationToken.None);
+        var second = await _db.Rows.ToCursorPagedAsync(
+            ByCreatedAt, SortOrder.Asc, first.NextCursor, limit: 1, x => x.Id, CancellationToken.None);
+        var third = await _db.Rows.ToCursorPagedAsync(
+            ByCreatedAt, SortOrder.Asc, second.NextCursor, limit: 1, x => x.Id, CancellationToken.None);
+
+        first.Items.Single().Name.Should().Be("a");
+        second.Items.Single().Name.Should().Be("b");
+        third.Items.Single().Name.Should().Be("c");
+        third.NextCursor.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task DirectionMismatch_between_cursor_and_request_throws()
+    {
+        await SeedAsync(5);
+        var ascPage = await _db.Rows.ToCursorPagedAsync(
+            ByCreatedAt, SortOrder.Asc, cursor: null, limit: 2, x => x.Id, CancellationToken.None);
+
+        var act = async () => await _db.Rows.ToCursorPagedAsync(
+            ByCreatedAt, SortOrder.Desc, ascPage.NextCursor, limit: 2, x => x.Id, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidCursorException>();
+    }
+}
