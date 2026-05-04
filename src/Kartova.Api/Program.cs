@@ -93,6 +93,10 @@ public class Program
         // Centralized so write endpoints don't copy-paste a try/catch.
         builder.Services.AddExceptionHandler<DomainValidationExceptionHandler>();
 
+        // Pagination/sort → 400 mapping — ADR-0095.
+        // Maps InvalidSortFieldException and InvalidCursorException to RFC 7807 400.
+        builder.Services.AddExceptionHandler<PagingExceptionHandler>();
+
         // Admin bypass DbContext — separate BYPASSRLS connection string (ADR-0090).
         // Registered here (not in OrganizationModule) because OrganizationModule.Infrastructure
         // cannot project-reference Infrastructure.Admin (would be circular).

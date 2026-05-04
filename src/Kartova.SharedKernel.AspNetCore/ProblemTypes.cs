@@ -16,4 +16,10 @@ public static class ProblemTypes
     public const string InternalServerError    = Base + "internal-server-error";
     public const string TenantScopeRequired    = Base + "tenant-scope-required";
     public const string ValidationFailed       = Base + "validation-failed";
+
+    // Pagination / sorting — ADR-0095.
+    public const string InvalidSortField       = Base + "invalid-sort-field";
+    public const string InvalidSortOrder       = Base + "invalid-sort-order";
+    public const string InvalidCursor          = Base + "invalid-cursor";
+    public const string InvalidLimit           = Base + "invalid-limit";
 }
