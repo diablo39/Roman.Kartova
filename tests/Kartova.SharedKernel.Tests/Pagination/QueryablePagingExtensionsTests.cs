@@ -174,6 +174,50 @@ public sealed class QueryablePagingExtensionsTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task PagingForward_with_string_sort_key_yields_no_duplicates_no_skips()
+    {
+        await SeedAsync(15);
+
+        var seen = new List<string>();
+        string? cursor = null;
+        do
+        {
+            var page = await _db.Rows.ToCursorPagedAsync(
+                ByName, SortOrder.Asc, cursor, limit: 4, x => x.Id, CancellationToken.None);
+            seen.AddRange(page.Items.Select(r => r.Name));
+            cursor = page.NextCursor;
+        } while (cursor is not null);
+
+        seen.Should().HaveCount(15);
+        seen.Distinct().Should().HaveCount(15);
+        seen.Should().BeInAscendingOrder();
+    }
+
+    [Fact]
+    public async Task TieOnStringSortValue_uses_id_as_stable_tiebreaker()
+    {
+        var t = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        _db.Rows.AddRange(
+            new TestRow { Id = Guid.Parse("00000000-0000-0000-0000-000000000003"), Name = "duplicate", CreatedAt = t.AddMinutes(2) },
+            new TestRow { Id = Guid.Parse("00000000-0000-0000-0000-000000000001"), Name = "duplicate", CreatedAt = t.AddMinutes(0) },
+            new TestRow { Id = Guid.Parse("00000000-0000-0000-0000-000000000002"), Name = "duplicate", CreatedAt = t.AddMinutes(1) });
+        await _db.SaveChangesAsync();
+
+        var first = await _db.Rows.ToCursorPagedAsync(
+            ByName, SortOrder.Asc, cursor: null, limit: 1, x => x.Id, CancellationToken.None);
+        var second = await _db.Rows.ToCursorPagedAsync(
+            ByName, SortOrder.Asc, first.NextCursor, limit: 1, x => x.Id, CancellationToken.None);
+        var third = await _db.Rows.ToCursorPagedAsync(
+            ByName, SortOrder.Asc, second.NextCursor, limit: 1, x => x.Id, CancellationToken.None);
+
+        // Three rows share the same Name; tiebreaker is Id ascending.
+        first.Items.Single().Id.Should().Be(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        second.Items.Single().Id.Should().Be(Guid.Parse("00000000-0000-0000-0000-000000000002"));
+        third.Items.Single().Id.Should().Be(Guid.Parse("00000000-0000-0000-0000-000000000003"));
+        third.NextCursor.Should().BeNull();
+    }
+
+    [Fact]
     public async Task DirectionMismatch_between_cursor_and_request_throws()
     {
         await SeedAsync(5);

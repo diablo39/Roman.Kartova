@@ -96,10 +96,30 @@ public static class QueryablePagingExtensions
 
         var typedConstant = Expression.Constant(ConvertCursorValue(cursorSortValue, keyType), keyType);
 
-        Expression keyGreater = order == SortOrder.Asc
-            ? Expression.GreaterThan(unwrappedKey, typedConstant)
-            : Expression.LessThan(unwrappedKey, typedConstant);
-        Expression keyEqual = Expression.Equal(unwrappedKey, typedConstant);
+        Expression keyGreater;
+        Expression keyEqual;
+        if (keyType == typeof(string))
+        {
+            // Expression.GreaterThan/Equal don't work on string; use string.Compare(a, b) instead.
+            // EF Core SQLite and PostgreSQL providers translate the two-argument string.Compare overload.
+            // The three-argument overload with StringComparison is not translatable by either provider.
+            var compareMethod = typeof(string).GetMethod(
+                nameof(string.Compare),
+                [typeof(string), typeof(string)])!;
+            var compareCall = Expression.Call(compareMethod, unwrappedKey, typedConstant);
+            var zero = Expression.Constant(0);
+            keyGreater = order == SortOrder.Asc
+                ? Expression.GreaterThan(compareCall, zero)
+                : Expression.LessThan(compareCall, zero);
+            keyEqual = Expression.Equal(compareCall, zero);
+        }
+        else
+        {
+            keyGreater = order == SortOrder.Asc
+                ? Expression.GreaterThan(unwrappedKey, typedConstant)
+                : Expression.LessThan(unwrappedKey, typedConstant);
+            keyEqual = Expression.Equal(unwrappedKey, typedConstant);
+        }
         Expression idGreater = order == SortOrder.Asc
             ? Expression.GreaterThan(idBody, Expression.Constant(cursorId))
             : Expression.LessThan(idBody, Expression.Constant(cursorId));
@@ -131,6 +151,12 @@ public static class QueryablePagingExtensions
         {
             return DateTime.Parse(s2, System.Globalization.CultureInfo.InvariantCulture).ToUniversalTime();
         }
+        if (targetType == typeof(Guid) && value is string s3)
+        {
+            return Guid.Parse(s3);
+        }
+        // Convert.ChangeType handles primitives that implement IConvertible (string, int, long, double, bool, etc.).
+        // Types without IConvertible (Guid, DateTimeOffset, custom value types) need explicit cases above.
         return Convert.ChangeType(value, targetType, System.Globalization.CultureInfo.InvariantCulture)!;
     }
 
