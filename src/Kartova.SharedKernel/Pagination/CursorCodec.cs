@@ -75,6 +75,7 @@ public static class CursorCodec
         JsonValueKind.Number => el.TryGetInt64(out var i) ? i : el.GetDouble(),
         JsonValueKind.True => true,
         JsonValueKind.False => false,
+        JsonValueKind.Null => throw new InvalidCursorException("Cursor sort value must not be null."),
         _ => throw new InvalidCursorException($"Unsupported cursor sort-value kind: {el.ValueKind}"),
     };
 

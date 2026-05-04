@@ -19,11 +19,15 @@ public sealed class SortSpecTests
     }
 
     [Fact]
-    public void Records_with_same_field_name_are_equal()
+    public void Two_specs_with_different_lambda_instances_are_not_value_equal()
     {
         var a = new SortSpec<SampleEntity>("name", x => x.Name);
         var b = new SortSpec<SampleEntity>("name", x => x.Name);
 
+        // SortSpec is a record, but its KeySelector is an Expression<> with reference-only equality.
+        // Two specs with the same field name but distinct lambda literals are NOT value-equal.
+        // Callers MUST treat SortSpec by FieldName, not by record equality. ADR-0095 §5.
+        a.Should().NotBe(b, "Expression<> instances do not implement structural equality");
         a.FieldName.Should().Be(b.FieldName);
     }
 }

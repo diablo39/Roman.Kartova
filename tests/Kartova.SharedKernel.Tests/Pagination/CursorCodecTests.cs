@@ -68,4 +68,40 @@ public sealed class CursorCodecTests
 
         act.Should().Throw<InvalidCursorException>();
     }
+
+    [Fact]
+    public void Encode_then_Decode_roundtrips_integer_sort_value()
+    {
+        var encoded = CursorCodec.Encode(42L, AnyId, SortOrder.Asc);
+        var decoded = CursorCodec.Decode(encoded);
+
+        decoded.SortValue.Should().Be(42L);
+        decoded.Direction.Should().Be(SortOrder.Asc);
+    }
+
+    [Fact]
+    public void Encode_then_Decode_roundtrips_double_sort_value()
+    {
+        var encoded = CursorCodec.Encode(3.14, AnyId, SortOrder.Desc);
+        var decoded = CursorCodec.Decode(encoded);
+
+        decoded.SortValue.Should().Be(3.14);
+    }
+
+    [Fact]
+    public void Decode_throws_when_s_field_is_explicit_json_null()
+    {
+        // Hand-craft `{"s":null,"i":"<guid>","d":"asc"}`.
+        // System.Text.Json deserializes a JSON null token for an `object?` property as C# null,
+        // so this is caught by the outer null guard rather than UnwrapJsonElement's Null arm.
+        // The UnwrapJsonElement Null arm guards against future STJ behaviour changes.
+        // Both paths are fail-closed: explicit JSON null in `s` must always be rejected.
+        var json = $$"""{"s":null,"i":"{{AnyId}}","d":"asc"}""";
+        var encoded = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(json))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+        var act = () => CursorCodec.Decode(encoded);
+
+        act.Should().Throw<InvalidCursorException>("explicit JSON null in `s` must be rejected");
+    }
 }
