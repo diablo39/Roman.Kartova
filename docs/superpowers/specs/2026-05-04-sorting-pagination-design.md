@@ -169,9 +169,9 @@ The extension method is the **only** place that knows about cursor encoding, the
 
 This slice ratifies the following as a standing convention. Captured in:
 
-1. **New ADR-00XX "Cursor pagination contract"** — the new ADR, supersedes the brief mention in ADR-0029. Authored as part of this slice.
+1. **New ADR-0095 "Cursor pagination contract"** — the new ADR, supersedes the brief mention in ADR-0029. Authored as part of this slice.
 2. **`CLAUDE.md` → "Working agreements"** — new bullet:
-   > **List endpoints & list screens:** every new list endpoint exposes `sortBy` / `sortOrder` / `cursor` / `limit` and returns `CursorPage<T>` (ADR-00XX). Every new list screen wires `useCursorList` + `useListUrlState` + `<DataTable>`. Treat this as part of "first cut" — not a follow-up phase.
+   > **List endpoints & list screens:** every new list endpoint exposes `sortBy` / `sortOrder` / `cursor` / `limit` and returns `CursorPage<T>` (ADR-0095). Every new list screen wires `useCursorList` + `useListUrlState` + `<DataTable>`. Treat this as part of "first cut" — not a follow-up phase.
 3. **Architecture fitness test** — see §8.
 
 **Bounded-list opt-out:** if a list is bounded by domain invariant (e.g., enum, fixed cap), the handler MAY return a flat `IReadOnlyList<T>` *and* MUST be decorated with `[BoundedListResult]` and an inline justification comment citing the cap. Default is paginated; opt-out is explicit and reviewed.
@@ -237,7 +237,7 @@ Seed values: deterministic, varied `name` and `displayName` so sorting by `name`
 
 ## 11. ADR work
 
-**New ADR-00XX "Cursor pagination contract"** — written as part of this slice. The concrete number is assigned at implementation time to avoid collision with parallel ADR work (note: ADR-0092 currently exists twice in the repo — `ADR-0092-rest-api-url-convention.md` and `ADR-0092-untitled-ui-component-library.md`; this slice does not fix that collision but flags it). Captures:
+**New ADR-0095 "Cursor pagination contract"** — written as part of this slice. (ADR-0094 was assigned to the renumbered Untitled UI ADR after a 0092 collision was fixed in the same branch as this spec.) Captures:
 
 - Wire shape (`?sortBy`, `?sortOrder`, `?cursor`, `?limit`).
 - Opaque cursor format (`{ s, i, d }` base64url JSON, internal; clients treat as opaque).

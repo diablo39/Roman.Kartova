@@ -34,7 +34,7 @@
 - `web/src/components/application/table/table.tsx`
 - `web/src/components/base/card/card.tsx` — hand-rolled (~10 LoC)
 - `web/src/components/base/skeleton/skeleton.tsx` — hand-rolled (~5 LoC)
-- `docs/architecture/decisions/ADR-0092-untitled-ui-component-library.md`
+- `docs/architecture/decisions/ADR-0094-untitled-ui-component-library.md`
 
 (Exact CLI file paths confirmed in Task 3; if the CLI groups differently the plan defers to its output.)
 
@@ -62,10 +62,10 @@
 
 ---
 
-## Task 1: Branch + ADR-0092 stub + tooling check
+## Task 1: Branch + ADR-0094 stub + tooling check
 
 **Files:**
-- Create: `docs/architecture/decisions/ADR-0092-untitled-ui-component-library.md`
+- Create: `docs/architecture/decisions/ADR-0094-untitled-ui-component-library.md`
 
 - [ ] **Step 1: Create the feature branch**
 
@@ -84,12 +84,12 @@ npx -y untitledui@latest --version
 
 Expected: prints a version string. If the command fails because npm cache has a stale entry, run `npm cache verify` and retry.
 
-- [ ] **Step 3: Author ADR-0092 stub (Status: Proposed)**
+- [ ] **Step 3: Author ADR-0094 stub (Status: Proposed)**
 
-Create `docs/architecture/decisions/ADR-0092-untitled-ui-component-library.md`:
+Create `docs/architecture/decisions/ADR-0094-untitled-ui-component-library.md`:
 
 ```markdown
-# ADR-0092: Untitled UI Free-Tier as Primary UI Primitive Layer
+# ADR-0094: Untitled UI Free-Tier as Primary UI Primitive Layer
 
 **Status:** Proposed
 **Date:** 2026-05-01
@@ -141,8 +141,8 @@ Adopt **Untitled UI free-tier** as the primary UI primitive layer:
 - [ ] **Step 4: Commit**
 
 ```bash
-git add docs/architecture/decisions/ADR-0092-untitled-ui-component-library.md
-git commit -m "docs(adr): ADR-0092 — Untitled UI free-tier as primary UI primitive (Proposed)"
+git add docs/architecture/decisions/ADR-0094-untitled-ui-component-library.md
+git commit -m "docs(adr): ADR-0094 — Untitled UI free-tier as primary UI primitive (Proposed)"
 ```
 
 ---
@@ -913,7 +913,7 @@ git commit -m "chore(web): remove shadcn primitives, components.json, lib/utils.
 
 **Files:**
 - Modify: `docs/architecture/decisions/ADR-0088-react-component-library.md`
-- Modify: `docs/architecture/decisions/ADR-0092-untitled-ui-component-library.md` (status flip to Accepted)
+- Modify: `docs/architecture/decisions/ADR-0094-untitled-ui-component-library.md` (status flip to Accepted)
 - Modify: `docs/architecture/decisions/README.md`
 - Modify: `CLAUDE.md`
 - Modify: `docs/design/DESIGN.md`
@@ -923,18 +923,18 @@ git commit -m "chore(web): remove shadcn primitives, components.json, lib/utils.
 Change the `**Status:**` line in `docs/architecture/decisions/ADR-0088-react-component-library.md`:
 
 ```markdown
-**Status:** Superseded by ADR-0092 (2026-05-01)
+**Status:** Superseded by ADR-0094 (2026-05-01)
 ```
 
-Add a `**Superseded-By:** ADR-0092` cross-reference line near the related-ADRs block.
+Add a `**Superseded-By:** ADR-0094` cross-reference line near the related-ADRs block.
 
-- [ ] **Step 2: Flip ADR-0092 status to Accepted**
+- [ ] **Step 2: Flip ADR-0094 status to Accepted**
 
-Change `Status: Proposed` to `Status: Accepted` in `docs/architecture/decisions/ADR-0092-untitled-ui-component-library.md`.
+Change `Status: Proposed` to `Status: Accepted` in `docs/architecture/decisions/ADR-0094-untitled-ui-component-library.md`.
 
 - [ ] **Step 3: Update ADR README keyword index**
 
-In `docs/architecture/decisions/README.md`, locate the row referencing ADR-0088 in the keyword index and change the link to ADR-0092 (or add ADR-0092 alongside it as the current decision). Re-sort if the index is sorted.
+In `docs/architecture/decisions/README.md`, locate the row referencing ADR-0088 in the keyword index and change the link to ADR-0094 (or add ADR-0094 alongside it as the current decision). Re-sort if the index is sorted.
 
 - [ ] **Step 4: Update CLAUDE.md frontend stack row**
 
@@ -947,7 +947,7 @@ In `CLAUDE.md` (project-root file), find the row:
 Replace with:
 
 ```markdown
-| Frontend UI stack | Untitled UI free-tier (react-aria-components + Tailwind CSS v4) + @untitledui/icons; nav canonical in DESIGN.md | ADR-0092 |
+| Frontend UI stack | Untitled UI free-tier (react-aria-components + Tailwind CSS v4) + @untitledui/icons; nav canonical in DESIGN.md | ADR-0094 |
 ```
 
 - [ ] **Step 5: Add the DESIGN.md header note**
@@ -955,14 +955,14 @@ Replace with:
 Edit the top of `docs/design/DESIGN.md`. Insert (immediately under the title):
 
 ```markdown
-> **Note (2026-05-01):** Color and typography token values are deferred to Untitled UI defaults per ADR-0092. This document retains nav structure, layout density, and information-density rules — those remain canonical.
+> **Note (2026-05-01):** Color and typography token values are deferred to Untitled UI defaults per ADR-0094. This document retains nav structure, layout density, and information-density rules — those remain canonical.
 ```
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add docs/ CLAUDE.md
-git commit -m "docs: ADR-0088 superseded by ADR-0092; CLAUDE.md stack row + DESIGN.md note"
+git commit -m "docs: ADR-0088 superseded by ADR-0094; CLAUDE.md stack row + DESIGN.md note"
 ```
 
 ---
@@ -1059,7 +1059,7 @@ gh pr create --title "feat(web): migrate to Untitled UI free-tier (supersede ADR
 - Token vocabulary sourced from upstream `untitleduico/react/styles/theme.css`.
 - Hand-rolled `card` + `skeleton` primitives (~15 LoC); `sonner` toast kept external.
 - All 5 slice-4 consumers (`TopBar`, `ApplicationsTable`, `RegisterApplicationDialog`, `CatalogListPage`, `ApplicationDetailPage`) ported.
-- ADR-0088 superseded by ADR-0092; CLAUDE.md frontend row swapped; DESIGN.md note added.
+- ADR-0088 superseded by ADR-0094; CLAUDE.md frontend row swapped; DESIGN.md note added.
 
 ## Test plan
 - [x] Backend build TWAE 0/0 (untouched)

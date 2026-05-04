@@ -1,4 +1,4 @@
-# ADR-0092: Untitled UI Free-Tier as Primary UI Primitive Layer
+# ADR-0094: Untitled UI Free-Tier as Primary UI Primitive Layer
 
 **Status:** Accepted
 **Date:** 2026-05-01

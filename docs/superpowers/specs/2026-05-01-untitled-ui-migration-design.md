@@ -4,7 +4,7 @@
 **Author:** Roman Głogowski (AI-assisted)
 **Status:** Drafted via `superpowers:brainstorming`; pending user review before plan.
 **Supersedes (planned):** ADR-0088 (shadcn/ui + Radix + Tailwind v4)
-**New ADR (planned):** ADR-0092 — Untitled UI free-tier as primary UI primitive layer.
+**New ADR (planned):** ADR-0094 — Untitled UI free-tier as primary UI primitive layer.
 
 ## 1. Goal
 
@@ -125,12 +125,12 @@ After migration: fresh `docker compose up` + cold `npm run dev`; walk `/login` �
 
 ## 9. ADR + docs
 
-- **New ADR-0092** — Untitled UI free-tier as primary UI primitive layer (decision, date 2026-05-01, mapping table from §3, theme decision from §7, why-changed-from-ADR-0088 paragraph).
-- **ADR-0088** — set `Status: Superseded by ADR-0092`; add `Superseded-By:` link. Don't delete; history matters.
-- **`docs/architecture/decisions/README.md`** — keyword index row for "Frontend UI stack" → ADR-0092.
+- **New ADR-0094** — Untitled UI free-tier as primary UI primitive layer (decision, date 2026-05-01, mapping table from §3, theme decision from §7, why-changed-from-ADR-0088 paragraph).
+- **ADR-0088** — set `Status: Superseded by ADR-0094`; add `Superseded-By:` link. Don't delete; history matters.
+- **`docs/architecture/decisions/README.md`** — keyword index row for "Frontend UI stack" → ADR-0094.
 - **`CLAUDE.md`** root project guide — update `Frontend UI stack` row in the "Key architectural decisions" table:
   - From: `shadcn/ui + Tailwind CSS v4 + Radix; ... lucide-react; nav canonical in DESIGN.md (not Stitch)`
-  - To: `Untitled UI free-tier (react-aria-components + Tailwind CSS v4) + @untitledui/icons; nav canonical in DESIGN.md`. Link ADR-0092.
+  - To: `Untitled UI free-tier (react-aria-components + Tailwind CSS v4) + @untitledui/icons; nav canonical in DESIGN.md`. Link ADR-0094.
 - **`docs/design/DESIGN.md`** — header note (per §7).
 - **Slice-4 specs / `docs/ui-screens/` mockups** — left alone. Visual drift acknowledged; mockup regeneration is a future slice.
 
@@ -171,7 +171,7 @@ Definition-of-Done for the migration PR:
 8. `npm run build` clean.
 9. Frontend CI workflow green on the PR.
 10. Cold-start verification evidence committed under `docs/superpowers/evidence/<date>-untitled-ui-migration/` showing the four flows from §8.3 working in a real browser.
-11. ADR-0092 written; ADR-0088 status updated; CLAUDE.md row swapped; `DESIGN.md` header note added; ADR README keyword index updated.
+11. ADR-0094 written; ADR-0088 status updated; CLAUDE.md row swapped; `DESIGN.md` header note added; ADR README keyword index updated.
 12. Slice-boundary `superpowers:code-reviewer` dispatched against full branch diff and findings addressed (or recorded as tracked follow-ups).
 
 ## 13. Estimated size
@@ -181,7 +181,7 @@ Definition-of-Done for the migration PR:
 - Consumer ports: 5 files, ~20–80 LoC delta each.
 - `index.css` token replacement: ~80 LoC delta (replace existing var block).
 - Tests: ~4 files touched, mostly attribute-name swaps.
-- ADR-0092 + doc edits: ~150 LoC across 4 files.
+- ADR-0094 + doc edits: ~150 LoC across 4 files.
 
 Order-of-magnitude: ~2,500 LoC delta in `web/`, dominated by component source files. One focused day of work.
 

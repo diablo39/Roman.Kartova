@@ -1,10 +1,10 @@
 # ADR-0088: React Component Library — shadcn/ui + Tailwind Stack for Frontend Primitives
 
-**Status:** Superseded by ADR-0092 (2026-05-01)
+**Status:** Superseded by ADR-0094 (2026-05-01)
 **Date:** 2026-04-21
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** Frontend Architecture
-**Related:** ADR-0039 (React SPA), ADR-0040 (dependency graph), ADR-0084 (Playwright MCP), ADR-0087 (Stitch MCP); superseded by ADR-0092
+**Related:** ADR-0039 (React SPA), ADR-0040 (dependency graph), ADR-0084 (Playwright MCP), ADR-0087 (Stitch MCP); superseded by ADR-0094
 
 ## Context
 
