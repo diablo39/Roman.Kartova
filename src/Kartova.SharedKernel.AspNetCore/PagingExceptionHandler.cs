@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Kartova.SharedKernel.Pagination;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
@@ -9,9 +8,19 @@ namespace Kartova.SharedKernel.AspNetCore;
 /// <summary>
 /// Maps pagination/sort exceptions to RFC 7807 400 responses per ADR-0091 + ADR-0095.
 /// Registered in <c>Program.cs</c> alongside <c>DomainValidationExceptionHandler</c>.
+/// Uses <see cref="IProblemDetailsService"/> so that the <c>AddProblemDetails</c>
+/// customisation in <c>Program.cs</c> (which injects <c>traceId</c>) is applied to
+/// every paging error response — consistent with the rest of the API.
 /// </summary>
 public sealed class PagingExceptionHandler : IExceptionHandler
 {
+    private readonly IProblemDetailsService _problemDetails;
+
+    public PagingExceptionHandler(IProblemDetailsService problemDetails)
+    {
+        _problemDetails = problemDetails;
+    }
+
     public async ValueTask<bool> TryHandleAsync(
         HttpContext httpContext,
         Exception exception,
@@ -20,58 +29,49 @@ public sealed class PagingExceptionHandler : IExceptionHandler
         switch (exception)
         {
             case InvalidSortFieldException sortEx:
-                await WriteProblemAsync(
-                    httpContext,
-                    type: ProblemTypes.InvalidSortField,
-                    title: "Invalid sort field",
-                    detail: sortEx.Message,
-                    extensions: new Dictionary<string, object?>
-                    {
-                        ["fieldName"] = sortEx.FieldName,
-                        ["allowedFields"] = sortEx.AllowedFields,
-                    },
-                    cancellationToken);
-                return true;
+            {
+                var problem = new ProblemDetails
+                {
+                    Type = ProblemTypes.InvalidSortField,
+                    Title = "Invalid sort field",
+                    Status = StatusCodes.Status400BadRequest,
+                    Detail = sortEx.Message,
+                    Instance = httpContext.Request.Path,
+                };
+                problem.Extensions["fieldName"] = sortEx.FieldName;
+                problem.Extensions["allowedFields"] = sortEx.AllowedFields;
+
+                httpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+                return await _problemDetails.TryWriteAsync(new ProblemDetailsContext
+                {
+                    HttpContext = httpContext,
+                    ProblemDetails = problem,
+                    Exception = exception,
+                });
+            }
 
             case InvalidCursorException cursorEx:
-                await WriteProblemAsync(
-                    httpContext,
-                    type: ProblemTypes.InvalidCursor,
-                    title: "Invalid cursor",
-                    detail: cursorEx.Message,
-                    extensions: null,
-                    cancellationToken);
-                return true;
+            {
+                var problem = new ProblemDetails
+                {
+                    Type = ProblemTypes.InvalidCursor,
+                    Title = "Invalid cursor",
+                    Status = StatusCodes.Status400BadRequest,
+                    Detail = cursorEx.Message,
+                    Instance = httpContext.Request.Path,
+                };
+
+                httpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+                return await _problemDetails.TryWriteAsync(new ProblemDetailsContext
+                {
+                    HttpContext = httpContext,
+                    ProblemDetails = problem,
+                    Exception = exception,
+                });
+            }
 
             default:
                 return false;
         }
-    }
-
-    private static async Task WriteProblemAsync(
-        HttpContext ctx,
-        string type,
-        string title,
-        string detail,
-        IDictionary<string, object?>? extensions,
-        CancellationToken ct)
-    {
-        var problem = new ProblemDetails
-        {
-            Type = type,
-            Title = title,
-            Status = StatusCodes.Status400BadRequest,
-            Detail = detail,
-            Instance = ctx.Request.Path,
-        };
-        if (extensions is not null)
-        {
-            foreach (var (k, v) in extensions) problem.Extensions[k] = v;
-        }
-
-        ctx.Response.StatusCode = StatusCodes.Status400BadRequest;
-        ctx.Response.ContentType = "application/problem+json";
-        var bytes = JsonSerializer.SerializeToUtf8Bytes(problem);
-        await ctx.Response.Body.WriteAsync(bytes, ct);
     }
 }
