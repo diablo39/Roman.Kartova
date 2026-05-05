@@ -115,10 +115,6 @@ internal static class CatalogEndpointDelegates
         }
 
         var effectiveLimit = limit ?? QueryablePagingExtensions.DefaultLimit;
-        if (effectiveLimit < QueryablePagingExtensions.MinLimit || effectiveLimit > QueryablePagingExtensions.MaxLimit)
-        {
-            throw new InvalidLimitException(effectiveLimit, QueryablePagingExtensions.MinLimit, QueryablePagingExtensions.MaxLimit);
-        }
 
         var query = new ListApplicationsQuery(
             SortBy: parsedSortBy ?? ApplicationSortField.CreatedAt,

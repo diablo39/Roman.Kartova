@@ -10,4 +10,16 @@ namespace Kartova.SharedKernel.Pagination;
 /// </summary>
 public sealed record SortSpec<TEntity>(
     string FieldName,
-    Expression<Func<TEntity, object>> KeySelector);
+    Expression<Func<TEntity, object>> KeySelector)
+{
+    private Func<TEntity, object>? _compiled;
+
+    /// <summary>
+    /// Lazily-compiled extractor for the sort key, used to read the boundary
+    /// row's value during cursor encoding (post-query, in-memory). Compiled
+    /// once per spec instance; production use compiles once per process at
+    /// startup since specs are <c>static readonly</c> fields.
+    /// </summary>
+    public Func<TEntity, object> CompiledKeySelector =>
+        _compiled ??= KeySelector.Compile();
+}

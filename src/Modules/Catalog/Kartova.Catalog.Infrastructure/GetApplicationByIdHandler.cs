@@ -17,11 +17,11 @@ public sealed class GetApplicationByIdHandler
         CatalogDbContext db,
         CancellationToken ct)
     {
-        // The Application entity stores its primary key in the private _id backing field
-        // (plain Guid). Use EF.Property to access it in LINQ — this translates to
-        // WHERE id = ? on PostgreSQL without any value-converter indirection.
+        // Use ApplicationSortSpecs.IdEquals so this handler never references
+        // EfApplicationConfiguration.IdFieldName (the EF backing-field string)
+        // directly — the canonical reference lives in ApplicationSortSpecs alone.
         var app = await db.Applications.FirstOrDefaultAsync(
-            x => EF.Property<Guid>(x, EfApplicationConfiguration.IdFieldName) == q.Id, ct);
+            ApplicationSortSpecs.IdEquals(q.Id), ct);
         return app?.ToResponse();
     }
 }

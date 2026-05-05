@@ -124,7 +124,7 @@ public abstract class KartovaApiFixtureBase : WebApplicationFactory<Program>, IA
 
     protected static Guid SubFor(string email) => DeterministicGuid("sub:" + email.ToLowerInvariant());
 
-    protected static TenantId TenantFor(string email)
+    public static TenantId TenantFor(string email)
     {
         // Same domain → same tenant. Two users at "@orga.kartova.local" share OrgA.
         var at = email.IndexOf('@');
@@ -132,7 +132,7 @@ public abstract class KartovaApiFixtureBase : WebApplicationFactory<Program>, IA
         return new TenantId(DeterministicGuid("tenant:" + domain));
     }
 
-    protected static Guid DeterministicGuid(string seed)
+    public static Guid DeterministicGuid(string seed)
     {
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(seed));
         var bytes = new byte[16];

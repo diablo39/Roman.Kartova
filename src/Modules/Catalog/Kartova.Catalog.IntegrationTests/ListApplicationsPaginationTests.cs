@@ -4,6 +4,7 @@ using FluentAssertions;
 using Kartova.Catalog.Contracts;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Pagination;
+using Kartova.Testing.Auth;
 
 namespace Kartova.Catalog.IntegrationTests;
 
@@ -20,8 +21,8 @@ public sealed class ListApplicationsPaginationTests
 
     // Stable test tenant ids derived from the same email-domain algorithm the
     // JWT signer uses, so seeded rows are visible through the RLS filter.
-    private static readonly TenantId OrgATenant = _TenantIdFor("orga.kartova.local");
-    private static readonly TenantId OrgBTenant = _TenantIdFor("orgb.kartova.local");
+    private static readonly TenantId OrgATenant = KartovaApiFixtureBase.TenantFor("admin@orga.kartova.local");
+    private static readonly TenantId OrgBTenant = KartovaApiFixtureBase.TenantFor("admin@orgb.kartova.local");
 
     public ListApplicationsPaginationTests(KartovaApiFixture fx) => _fx = fx;
 
@@ -230,23 +231,4 @@ public sealed class ListApplicationsPaginationTests
         body.Should().Contain("invalid-cursor");
     }
 
-    /// <summary>
-    /// Derives the same deterministic <see cref="TenantId"/> the
-    /// <see cref="KartovaApiFixtureBase"/> uses for a given email domain.
-    /// Inlined here because static fields are set before fixture construction.
-    /// The algorithm must match <c>TenantFor</c> in <see cref="KartovaApiFixtureBase"/> exactly.
-    /// </summary>
-    private static TenantId _TenantIdFor(string domain) =>
-        new TenantId(_DeterministicGuid("tenant:" + domain));
-
-    private static Guid _DeterministicGuid(string seed)
-    {
-        var hash = System.Security.Cryptography.SHA256.HashData(
-            System.Text.Encoding.UTF8.GetBytes(seed));
-        var bytes = new byte[16];
-        Array.Copy(hash, bytes, 16);
-        bytes[7] = (byte)((bytes[7] & 0x0F) | 0x40);
-        bytes[8] = (byte)((bytes[8] & 0x3F) | 0x80);
-        return new Guid(bytes);
-    }
 }

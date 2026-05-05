@@ -26,95 +26,60 @@ public sealed class PagingExceptionHandler : IExceptionHandler
         Exception exception,
         CancellationToken cancellationToken)
     {
-        switch (exception)
+        return exception switch
         {
-            case InvalidSortFieldException sortEx:
-            {
-                var problem = new ProblemDetails
-                {
-                    Type = ProblemTypes.InvalidSortField,
-                    Title = "Invalid sort field",
-                    Status = StatusCodes.Status400BadRequest,
-                    Detail = sortEx.Message,
-                    Instance = httpContext.Request.Path,
-                };
-                problem.Extensions["fieldName"] = sortEx.FieldName;
-                problem.Extensions["allowedFields"] = sortEx.AllowedFields;
+            InvalidSortFieldException sortEx => await WriteProblemAsync(
+                httpContext, exception, ProblemTypes.InvalidSortField,
+                "Invalid sort field", sortEx.Message,
+                p => { p.Extensions["fieldName"] = sortEx.FieldName; p.Extensions["allowedFields"] = sortEx.AllowedFields; },
+                cancellationToken),
 
-                httpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
-                return await _problemDetails.TryWriteAsync(new ProblemDetailsContext
-                {
-                    HttpContext = httpContext,
-                    ProblemDetails = problem,
-                    Exception = exception,
-                });
-            }
+            InvalidSortOrderException orderEx => await WriteProblemAsync(
+                httpContext, exception, ProblemTypes.InvalidSortOrder,
+                "Invalid sort order", orderEx.Message,
+                p => p.Extensions["value"] = orderEx.Value,
+                cancellationToken),
 
-            case InvalidSortOrderException sortOrderEx:
-            {
-                httpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
-                var sortOrderProblem = new ProblemDetails
-                {
-                    Type = ProblemTypes.InvalidSortOrder,
-                    Title = "Invalid sort order",
-                    Status = StatusCodes.Status400BadRequest,
-                    Detail = sortOrderEx.Message,
-                    Instance = httpContext.Request.Path,
-                    Extensions = { ["value"] = sortOrderEx.Value }
-                };
-                return await _problemDetails.TryWriteAsync(new ProblemDetailsContext
-                {
-                    HttpContext = httpContext,
-                    ProblemDetails = sortOrderProblem,
-                    Exception = sortOrderEx,
-                });
-            }
+            InvalidCursorException cursorEx => await WriteProblemAsync(
+                httpContext, exception, ProblemTypes.InvalidCursor,
+                "Invalid cursor", cursorEx.Message,
+                addExtensions: null,
+                cancellationToken),
 
-            case InvalidCursorException cursorEx:
-            {
-                var problem = new ProblemDetails
-                {
-                    Type = ProblemTypes.InvalidCursor,
-                    Title = "Invalid cursor",
-                    Status = StatusCodes.Status400BadRequest,
-                    Detail = cursorEx.Message,
-                    Instance = httpContext.Request.Path,
-                };
+            InvalidLimitException limitEx => await WriteProblemAsync(
+                httpContext, exception, ProblemTypes.InvalidLimit,
+                "Invalid limit", limitEx.Message,
+                p => { p.Extensions["limit"] = limitEx.Limit; p.Extensions["minLimit"] = limitEx.MinLimit; p.Extensions["maxLimit"] = limitEx.MaxLimit; },
+                cancellationToken),
 
-                httpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
-                return await _problemDetails.TryWriteAsync(new ProblemDetailsContext
-                {
-                    HttpContext = httpContext,
-                    ProblemDetails = problem,
-                    Exception = exception,
-                });
-            }
+            _ => false,
+        };
+    }
 
-            case InvalidLimitException limitEx:
-            {
-                var problem = new ProblemDetails
-                {
-                    Type = ProblemTypes.InvalidLimit,
-                    Title = "Invalid limit",
-                    Status = StatusCodes.Status400BadRequest,
-                    Detail = limitEx.Message,
-                    Instance = httpContext.Request.Path,
-                };
-                problem.Extensions["limit"] = limitEx.Limit;
-                problem.Extensions["minLimit"] = limitEx.MinLimit;
-                problem.Extensions["maxLimit"] = limitEx.MaxLimit;
-
-                httpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
-                return await _problemDetails.TryWriteAsync(new ProblemDetailsContext
-                {
-                    HttpContext = httpContext,
-                    ProblemDetails = problem,
-                    Exception = exception,
-                });
-            }
-
-            default:
-                return false;
-        }
+    private async ValueTask<bool> WriteProblemAsync(
+        HttpContext ctx,
+        Exception ex,
+        string type,
+        string title,
+        string detail,
+        Action<ProblemDetails>? addExtensions,
+        CancellationToken ct)
+    {
+        ctx.Response.StatusCode = StatusCodes.Status400BadRequest;
+        var problem = new ProblemDetails
+        {
+            Type = type,
+            Title = title,
+            Status = StatusCodes.Status400BadRequest,
+            Detail = detail,
+            Instance = ctx.Request.Path,
+        };
+        addExtensions?.Invoke(problem);
+        return await _problemDetails.TryWriteAsync(new ProblemDetailsContext
+        {
+            HttpContext = ctx,
+            ProblemDetails = problem,
+            Exception = ex,
+        });
     }
 }

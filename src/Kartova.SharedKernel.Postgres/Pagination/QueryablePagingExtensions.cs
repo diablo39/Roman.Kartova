@@ -76,7 +76,7 @@ public static class QueryablePagingExtensions
         {
             rows.RemoveAt(rows.Count - 1);
             var lastKept = rows[^1];
-            var sortValue = sort.KeySelector.Compile().Invoke(lastKept)!;
+            var sortValue = sort.CompiledKeySelector(lastKept)!;
             var id = idExtractor(lastKept);
             nextCursor = CursorCodec.Encode(NormalizeForCursor(sortValue), id, order);
         }

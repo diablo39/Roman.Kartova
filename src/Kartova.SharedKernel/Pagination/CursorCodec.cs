@@ -80,19 +80,10 @@ public static class CursorCodec
     };
 
     private static string ToBase64Url(byte[] bytes) =>
-        Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        System.Buffers.Text.Base64Url.EncodeToString(bytes);
 
-    private static byte[] FromBase64Url(string s)
-    {
-        var b64 = s.Replace('-', '+').Replace('_', '/');
-        switch (b64.Length % 4)
-        {
-            case 2: b64 += "=="; break;
-            case 3: b64 += "="; break;
-            case 1: throw new FormatException("Invalid base64url length.");
-        }
-        return Convert.FromBase64String(b64);
-    }
+    private static byte[] FromBase64Url(string s) =>
+        System.Buffers.Text.Base64Url.DecodeFromChars(s.AsSpan());
 
     private sealed record CursorPayload(
         [property: JsonPropertyName("s")] object? S,
