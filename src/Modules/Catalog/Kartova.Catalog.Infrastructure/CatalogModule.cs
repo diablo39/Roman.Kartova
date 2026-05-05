@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using Kartova.Catalog.Contracts;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Pagination;
 using Kartova.SharedKernel.Postgres;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -35,7 +36,16 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .ProducesProblem(StatusCodes.Status404NotFound);
         tenant.MapGet("/applications", CatalogEndpointDelegates.ListApplicationsAsync)
               .WithName("ListApplications")
-              .Produces<IReadOnlyList<ApplicationResponse>>(StatusCodes.Status200OK);
+              // CursorPage<T> envelope — ADR-0095: items + nextCursor + prevCursor.
+              .Produces<CursorPage<ApplicationResponse>>(StatusCodes.Status200OK);
+              // Note: sortBy and sortOrder appear in the generated OpenAPI doc as plain
+              // type:string (no enum constraint). This is a known limitation of using raw
+              // string parameters to work around .NET 10 minimal-API case-sensitive enum
+              // binding (Task 10). The WithOpenApi(transform) overload is deprecated in
+              // .NET 10 (ASPDEPR002); the operation-transformer replacement would require
+              // wiring in Program.cs and is out of scope for this task. Runtime safety is
+              // enforced by the server-side Enum.TryParse + PagingExceptionHandler (→ RFC 7807
+              // 400) and by useListUrlState's allowlist on the frontend. ADR-0095.
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
