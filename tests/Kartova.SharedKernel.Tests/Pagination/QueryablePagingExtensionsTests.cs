@@ -218,6 +218,33 @@ public sealed class QueryablePagingExtensionsTests : IAsyncLifetime
         third.NextCursor.Should().BeNull();
     }
 
+    [Fact]
+    public async Task TieOnSortValue_with_desc_uses_id_as_descending_tiebreaker()
+    {
+        var t = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        _db.Rows.AddRange(
+            new TestRow { Id = Guid.Parse("00000000-0000-0000-0000-000000000003"), Name = "c", CreatedAt = t },
+            new TestRow { Id = Guid.Parse("00000000-0000-0000-0000-000000000001"), Name = "a", CreatedAt = t },
+            new TestRow { Id = Guid.Parse("00000000-0000-0000-0000-000000000002"), Name = "b", CreatedAt = t });
+        await _db.SaveChangesAsync();
+
+        // Desc tiebreaker: id descending. Page through 1 row at a time.
+        var first = await _db.Rows.ToCursorPagedAsync(
+            ByCreatedAt, SortOrder.Desc, cursor: null, limit: 1, x => x.Id, CancellationToken.None);
+        var second = await _db.Rows.ToCursorPagedAsync(
+            ByCreatedAt, SortOrder.Desc, first.NextCursor, limit: 1, x => x.Id, CancellationToken.None);
+        var third = await _db.Rows.ToCursorPagedAsync(
+            ByCreatedAt, SortOrder.Desc, second.NextCursor, limit: 1, x => x.Id, CancellationToken.None);
+
+        // Original code: desc tiebreaker is id < cursorId → expect 003, 002, 001.
+        // Mutated code (always GreaterThan): id > cursorId → after first=003, second cursor would
+        //   filter id > 003, returning nothing, so second.Items would be empty.
+        first.Items.Single().Id.Should().Be(Guid.Parse("00000000-0000-0000-0000-000000000003"));
+        second.Items.Single().Id.Should().Be(Guid.Parse("00000000-0000-0000-0000-000000000002"));
+        third.Items.Single().Id.Should().Be(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        third.NextCursor.Should().BeNull();
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]

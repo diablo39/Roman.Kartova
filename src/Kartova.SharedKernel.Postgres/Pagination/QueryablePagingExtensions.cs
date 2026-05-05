@@ -159,6 +159,11 @@ public static class QueryablePagingExtensions
         private readonly ParameterExpression _from;
         private readonly ParameterExpression _to;
         public ParameterReplaceVisitor(ParameterExpression from, ParameterExpression to) { _from = from; _to = to; }
+
+        // Stryker mutation `node == _from ? _to : base.VisitParameter(node)` → always `_to`
+        // is accepted as near-equivalent: in our single-parameter expression-tree replacement,
+        // every ParameterExpression encountered IS `_from`, so the `else` branch is functionally
+        // unreachable. ADR-0095 mutation report 2026-05-04.
         protected override Expression VisitParameter(ParameterExpression node) =>
             node == _from ? _to : base.VisitParameter(node);
     }
