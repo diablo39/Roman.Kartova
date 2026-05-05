@@ -48,6 +48,25 @@ public sealed class PagingExceptionHandlerTests
     }
 
     [Fact]
+    public async Task InvalidLimitException_maps_to_400_invalid_limit()
+    {
+        var (handler, ctx) = Build();
+        var ex = new InvalidLimitException(limit: 0, minLimit: 1, maxLimit: 200);
+
+        var handled = await handler.TryHandleAsync(ctx, ex, CancellationToken.None);
+
+        handled.Should().BeTrue();
+        ctx.Response.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
+
+        ctx.Response.Body.Position = 0;
+        var body = await new StreamReader(ctx.Response.Body).ReadToEndAsync();
+        body.Should().Contain(ProblemTypes.InvalidLimit);
+        body.Should().Contain("\"limit\"");
+        body.Should().Contain("\"minLimit\"");
+        body.Should().Contain("\"maxLimit\"");
+    }
+
+    [Fact]
     public async Task UnrelatedException_returns_false()
     {
         var (handler, ctx) = Build();

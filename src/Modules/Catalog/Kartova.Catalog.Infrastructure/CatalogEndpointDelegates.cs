@@ -81,11 +81,17 @@ internal static class CatalogEndpointDelegates
         CatalogDbContext db,
         CancellationToken ct)
     {
+        var effectiveLimit = limit ?? QueryablePagingExtensions.DefaultLimit;
+        if (effectiveLimit < QueryablePagingExtensions.MinLimit || effectiveLimit > QueryablePagingExtensions.MaxLimit)
+        {
+            throw new InvalidLimitException(effectiveLimit, QueryablePagingExtensions.MinLimit, QueryablePagingExtensions.MaxLimit);
+        }
+
         var query = new ListApplicationsQuery(
             SortBy: sortBy ?? ApplicationSortField.CreatedAt,
             SortOrder: sortOrder ?? SortOrder.Desc,
             Cursor: cursor,
-            Limit: limit ?? QueryablePagingExtensions.DefaultLimit);
+            Limit: effectiveLimit);
 
         var page = await handler.Handle(query, db, ct);
         return Results.Ok(page);

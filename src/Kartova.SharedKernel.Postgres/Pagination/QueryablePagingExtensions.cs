@@ -15,6 +15,27 @@ public static class QueryablePagingExtensions
     public const int MaxLimit = 200;
     public const int DefaultLimit = 50;
 
+    public static Task<CursorPage<T>> ToCursorPagedAsync<T>(
+        this IQueryable<T> source,
+        SortSpec<T> sort,
+        SortOrder order,
+        string? cursor,
+        int limit,
+        Expression<Func<T, Guid>> idSelector,
+        CancellationToken ct)
+        where T : class
+        => source.ToCursorPagedAsync(sort, order, cursor, limit, idSelector,
+            idSelector.Compile(), ct);
+
+    /// <summary>
+    /// Overload for entity types that expose their primary key via a value-converted
+    /// strong-typed ID (e.g. <c>ApplicationId</c>). The <paramref name="idSelector"/>
+    /// expression is used only for EF Core SQL translation (keyset ORDER BY / WHERE);
+    /// <paramref name="idExtractor"/> is invoked in-memory to read the id when
+    /// encoding the next-page cursor. This separation is necessary because EF Core
+    /// cannot translate <c>x.StrongId.Value</c> in LINQ expressions, but the CLR
+    /// compiled delegate CAN access it at runtime.
+    /// </summary>
     public static async Task<CursorPage<T>> ToCursorPagedAsync<T>(
         this IQueryable<T> source,
         SortSpec<T> sort,
@@ -22,6 +43,7 @@ public static class QueryablePagingExtensions
         string? cursor,
         int limit,
         Expression<Func<T, Guid>> idSelector,
+        Func<T, Guid> idExtractor,
         CancellationToken ct)
         where T : class
     {
@@ -56,7 +78,7 @@ public static class QueryablePagingExtensions
             rows.RemoveAt(rows.Count - 1);
             var lastKept = rows[^1];
             var sortValue = sort.KeySelector.Compile().Invoke(lastKept)!;
-            var id = idSelector.Compile().Invoke(lastKept);
+            var id = idExtractor(lastKept);
             nextCursor = CursorCodec.Encode(NormalizeForCursor(sortValue), id, order);
         }
 

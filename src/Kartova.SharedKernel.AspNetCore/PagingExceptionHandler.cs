@@ -70,6 +70,29 @@ public sealed class PagingExceptionHandler : IExceptionHandler
                 });
             }
 
+            case InvalidLimitException limitEx:
+            {
+                var problem = new ProblemDetails
+                {
+                    Type = ProblemTypes.InvalidLimit,
+                    Title = "Invalid limit",
+                    Status = StatusCodes.Status400BadRequest,
+                    Detail = limitEx.Message,
+                    Instance = httpContext.Request.Path,
+                };
+                problem.Extensions["limit"] = limitEx.Limit;
+                problem.Extensions["minLimit"] = limitEx.MinLimit;
+                problem.Extensions["maxLimit"] = limitEx.MaxLimit;
+
+                httpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+                return await _problemDetails.TryWriteAsync(new ProblemDetailsContext
+                {
+                    HttpContext = httpContext,
+                    ProblemDetails = problem,
+                    Exception = exception,
+                });
+            }
+
             default:
                 return false;
         }

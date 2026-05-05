@@ -10,11 +10,23 @@ public sealed class EfApplicationConfiguration : IEntityTypeConfiguration<Kartov
     public void Configure(EntityTypeBuilder<Kartova.Catalog.Domain.Application> b)
     {
         b.ToTable("catalog_applications");
-        b.HasKey(x => x.Id);
-        b.Property(x => x.Id)
+
+        // Map the private _id backing field (Guid) directly — no value converter needed.
+        // EF can translate ORDER BY and WHERE expressions on a plain Guid property without
+        // any converter gymnastics. The domain-typed Id property is a computed read-only
+        // expression from _id and is ignored by EF. This pattern avoids the
+        // InvalidOperationException / InvalidCastException that arise when EF tries to
+        // translate `x.Id.Value` (ApplicationId → Guid value converter) in LINQ queries.
+        // Map the private backing field _id directly as a plain Guid PK.
+        // HasField("_id") tells EF Core to read/write the private field.
+        // UsePropertyAccessMode(Field) ensures EF bypasses the computed Id property
+        // (which has no setter) and accesses the field directly.
+        b.Property<Guid>("_id")
+            .HasField("_id")
             .HasColumnName("id")
-            .HasConversion(v => v.Value, v => new Kartova.Catalog.Domain.ApplicationId(v))
-            .ValueGeneratedNever();
+            .ValueGeneratedNever()
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+        b.HasKey("_id");
         b.Property(x => x.TenantId)
             .HasConversion(v => v.Value, v => new TenantId(v))
             .HasColumnName("tenant_id")

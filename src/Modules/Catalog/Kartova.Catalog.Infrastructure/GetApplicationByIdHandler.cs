@@ -17,12 +17,11 @@ public sealed class GetApplicationByIdHandler
         CatalogDbContext db,
         CancellationToken ct)
     {
-        // ApplicationId is a strongly-typed value object with an EF Core value
-        // converter. Comparing the wrapped value (x.Id == new ApplicationId(q.Id))
-        // round-trips through the converter; comparing x.Id.Value directly does
-        // not translate to SQL.
-        var appId = new Kartova.Catalog.Domain.ApplicationId(q.Id);
-        var app = await db.Applications.FirstOrDefaultAsync(x => x.Id == appId, ct);
+        // The Application entity stores its primary key in the private _id backing field
+        // (plain Guid). Use EF.Property to access it in LINQ — this translates to
+        // WHERE id = ? on PostgreSQL without any value-converter indirection.
+        var app = await db.Applications.FirstOrDefaultAsync(
+            x => EF.Property<Guid>(x, "_id") == q.Id, ct);
         return app?.ToResponse();
     }
 }
