@@ -24,7 +24,7 @@ public sealed class ListApplicationsHandler
     // outside of an EF query context. See QueryablePagingExtensions for the
     // dual-expression overload that accommodates this split.
     private static readonly Expression<Func<DomainApplication, Guid>> IdSelectorExpr =
-        x => EF.Property<Guid>(x, "_id");
+        x => EF.Property<Guid>(x, EfApplicationConfiguration.IdFieldName);
 
     private static readonly Func<DomainApplication, Guid> IdExtractor =
         x => x.Id.Value;

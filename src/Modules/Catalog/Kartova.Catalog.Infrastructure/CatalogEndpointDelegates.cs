@@ -71,16 +71,42 @@ internal static class CatalogEndpointDelegates
     /// handler dispatch to preserve the HTTP request scope's <c>ITenantScope</c>
     /// (see comment on <see cref="RegisterApplicationAsync"/>). RLS auto-filters
     /// cross-tenant rows (ADR-0090). Cursor-paginated per ADR-0095.
+    ///
+    /// <para>
+    /// <c>sortBy</c> and <c>sortOrder</c> are accepted as raw strings and parsed with
+    /// <c>Enum.TryParse(ignoreCase: true)</c> so that the wire contract
+    /// (<c>?sortBy=createdAt&amp;sortOrder=asc</c>, camelCase per ADR-0095) and the
+    /// C# enum member names (<c>CreatedAt</c>, <c>Asc</c>) are both accepted. The JSON
+    /// serializer emits camelCase names (via <see cref="System.Text.Json.Serialization.JsonStringEnumConverter"/>
+    /// registered in <c>Program.cs</c>), so the OpenAPI document and generated
+    /// TypeScript client will send camelCase values.
+    /// </para>
     /// </summary>
     internal static async Task<IResult> ListApplicationsAsync(
-        [FromQuery] ApplicationSortField? sortBy,
-        [FromQuery] SortOrder? sortOrder,
+        [FromQuery] string? sortBy,
+        [FromQuery] string? sortOrder,
         [FromQuery] string? cursor,
         [FromQuery] int? limit,
         ListApplicationsHandler handler,
         CatalogDbContext db,
         CancellationToken ct)
     {
+        // Case-insensitive parse: accepts both "createdAt" (wire contract) and "CreatedAt".
+        // Unknown strings → null → fall through to the default, just like a missing parameter.
+        // Out-of-range numeric strings (e.g. "999") still reach ApplicationSortSpecs.Resolve
+        // and produce the typed InvalidSortFieldException → RFC 7807 400.
+        ApplicationSortField? parsedSortBy = null;
+        if (sortBy is not null && Enum.TryParse<ApplicationSortField>(sortBy, ignoreCase: true, out var sf))
+        {
+            parsedSortBy = sf;
+        }
+
+        SortOrder? parsedSortOrder = null;
+        if (sortOrder is not null && Enum.TryParse<SortOrder>(sortOrder, ignoreCase: true, out var so))
+        {
+            parsedSortOrder = so;
+        }
+
         var effectiveLimit = limit ?? QueryablePagingExtensions.DefaultLimit;
         if (effectiveLimit < QueryablePagingExtensions.MinLimit || effectiveLimit > QueryablePagingExtensions.MaxLimit)
         {
@@ -88,8 +114,8 @@ internal static class CatalogEndpointDelegates
         }
 
         var query = new ListApplicationsQuery(
-            SortBy: sortBy ?? ApplicationSortField.CreatedAt,
-            SortOrder: sortOrder ?? SortOrder.Desc,
+            SortBy: parsedSortBy ?? ApplicationSortField.CreatedAt,
+            SortOrder: parsedSortOrder ?? SortOrder.Desc,
             Cursor: cursor,
             Limit: effectiveLimit);
 

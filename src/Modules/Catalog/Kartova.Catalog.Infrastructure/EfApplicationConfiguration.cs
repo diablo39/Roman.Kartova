@@ -7,6 +7,14 @@ namespace Kartova.Catalog.Infrastructure;
 
 public sealed class EfApplicationConfiguration : IEntityTypeConfiguration<Kartova.Catalog.Domain.Application>
 {
+    /// <summary>
+    /// EF shadow-property name for the private <c>_id</c> backing field.
+    /// Used by both this configuration and query handlers (e.g.,
+    /// <see cref="ListApplicationsHandler"/>, <see cref="GetApplicationByIdHandler"/>)
+    /// to avoid magic-string duplication.
+    /// </summary>
+    internal const string IdFieldName = "_id";
+
     public void Configure(EntityTypeBuilder<Kartova.Catalog.Domain.Application> b)
     {
         b.ToTable("catalog_applications");
@@ -21,12 +29,12 @@ public sealed class EfApplicationConfiguration : IEntityTypeConfiguration<Kartov
         // HasField("_id") tells EF Core to read/write the private field.
         // UsePropertyAccessMode(Field) ensures EF bypasses the computed Id property
         // (which has no setter) and accesses the field directly.
-        b.Property<Guid>("_id")
-            .HasField("_id")
+        b.Property<Guid>(IdFieldName)
+            .HasField(IdFieldName)
             .HasColumnName("id")
             .ValueGeneratedNever()
             .UsePropertyAccessMode(PropertyAccessMode.Field);
-        b.HasKey("_id");
+        b.HasKey(IdFieldName);
         b.Property(x => x.TenantId)
             .HasConversion(v => v.Value, v => new TenantId(v))
             .HasColumnName("tenant_id")

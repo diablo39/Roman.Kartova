@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using JasperFx;
 using Kartova.Catalog.Infrastructure;
 using Kartova.Organization.Application;
@@ -58,6 +60,16 @@ public class Program
 
         // OpenAPI document — /openapi/v1.json (anonymous, no Swashbuckle, ADR-0029/0034).
         builder.Services.AddOpenApi("v1");
+
+        // Emit enum values as camelCase strings in JSON and OpenAPI (ADR-0095).
+        // Applies globally so every current and future enum (ApplicationSortField,
+        // SortOrder, per-resource sort fields for Components/Services/Libraries, etc.)
+        // is covered without per-enum attributes.
+        builder.Services.ConfigureHttpJsonOptions(o =>
+        {
+            o.SerializerOptions.Converters.Add(
+                new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+        });
 
         // CORS — allow configured SPA origins (e.g. http://localhost:5173 in dev).
         // Production default: empty array → all origins blocked (safe default).

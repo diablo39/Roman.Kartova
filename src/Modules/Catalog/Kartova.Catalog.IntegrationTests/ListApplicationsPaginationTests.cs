@@ -20,8 +20,8 @@ public sealed class ListApplicationsPaginationTests
 
     // Stable test tenant ids derived from the same email-domain algorithm the
     // JWT signer uses, so seeded rows are visible through the RLS filter.
-    private static readonly TenantId OrgATenant = TenantIdFor("orga.kartova.local");
-    private static readonly TenantId OrgBTenant = TenantIdFor("orgb.kartova.local");
+    private static readonly TenantId OrgATenant = _TenantIdFor("orga.kartova.local");
+    private static readonly TenantId OrgBTenant = _TenantIdFor("orgb.kartova.local");
 
     public ListApplicationsPaginationTests(KartovaApiFixture fx) => _fx = fx;
 
@@ -38,7 +38,8 @@ public sealed class ListApplicationsPaginationTests
         var pageCount = 0;
         do
         {
-            var url = "/api/v1/catalog/applications?sortBy=CreatedAt&sortOrder=Asc&limit=50"
+            // Wire-contract camelCase values (ADR-0095).
+            var url = "/api/v1/catalog/applications?sortBy=createdAt&sortOrder=asc&limit=50"
                 + (cursor is null ? "" : $"&cursor={Uri.EscapeDataString(cursor)}");
             var resp = await client.GetAsync(url);
             resp.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -60,16 +61,29 @@ public sealed class ListApplicationsPaginationTests
     }
 
     [Fact]
-    public async Task InvalidSortBy_returns_400_with_allowed_fields()
+    public async Task CamelCase_sortBy_value_binds_correctly()
     {
+        // Wire-contract test (ADR-0095): the OpenAPI spec emits camelCase enum values,
+        // so frontend clients and third-party consumers send ?sortBy=createdAt&sortOrder=desc.
+        // The endpoint accepts strings and parses them case-insensitively, so camelCase,
+        // PascalCase, and numeric values (for out-of-range detection) all work.
         var client = _fx.CreateClientForOrgA();
+        var resp = await client.GetAsync("/api/v1/catalog/applications?sortBy=createdAt&sortOrder=desc");
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
 
-        // Use an integer value outside the defined enum range — this binds to
-        // ApplicationSortField successfully (enum allows any int) but falls
-        // through to the _ case in ApplicationSortSpecs.Resolve, which throws
-        // InvalidSortFieldException → PagingExceptionHandler → 400.
-        // Passing a pure string like "garbage" would silently bind as null for
-        // a nullable enum and default to createdAt, never reaching the handler.
+    [Fact]
+    public async Task OutOfRange_numeric_sortBy_falls_through_to_handler_validation()
+    {
+        // Numeric strings like "999" are parsed by Enum.TryParse into an undefined
+        // enum value, which passes binding but then falls through to the _ case in
+        // ApplicationSortSpecs.Resolve. That throws InvalidSortFieldException →
+        // PagingExceptionHandler → RFC 7807 400 with our "invalid-sort-field" type.
+        //
+        // This is the canonical path to test the handler-level validation because
+        // a clearly-invalid string like "garbage" silently defaults to createdAt
+        // (the endpoint parses case-insensitively; unknown strings → null → default).
+        var client = _fx.CreateClientForOrgA();
         var resp = await client.GetAsync("/api/v1/catalog/applications?sortBy=999");
 
         resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -77,6 +91,21 @@ public sealed class ListApplicationsPaginationTests
         body.Should().Contain("invalid-sort-field");
         body.Should().Contain("createdAt");
         body.Should().Contain("name");
+    }
+
+    [Fact]
+    public async Task UnknownString_sortBy_silently_defaults_to_createdAt()
+    {
+        // Non-numeric unknown strings like "garbage" do NOT match any enum member
+        // in Enum.TryParse, so parsedSortBy remains null and the endpoint defaults
+        // to ApplicationSortField.CreatedAt. The request succeeds (200 OK) — unknown
+        // sort fields are silently ignored, not rejected. Only out-of-range numeric
+        // strings (which bind to an undefined enum int) reach the handler validation
+        // path and produce a 400.
+        var client = _fx.CreateClientForOrgA();
+        var resp = await client.GetAsync("/api/v1/catalog/applications?sortBy=garbage");
+
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -112,7 +141,7 @@ public sealed class ListApplicationsPaginationTests
         var defaultResp = await client.GetFromJsonAsync<CursorPage<ApplicationResponse>>(
             "/api/v1/catalog/applications");
         var explicitResp = await client.GetFromJsonAsync<CursorPage<ApplicationResponse>>(
-            "/api/v1/catalog/applications?sortBy=CreatedAt&sortOrder=Desc&limit=50");
+            "/api/v1/catalog/applications?sortBy=createdAt&sortOrder=desc&limit=50");
 
         defaultResp.Should().NotBeNull();
         explicitResp.Should().NotBeNull();
@@ -128,14 +157,14 @@ public sealed class ListApplicationsPaginationTests
         var client = _fx.CreateClientForOrgA();
 
         var first = await client.GetFromJsonAsync<CursorPage<ApplicationResponse>>(
-            "/api/v1/catalog/applications?sortBy=CreatedAt&sortOrder=Asc&limit=4");
+            "/api/v1/catalog/applications?sortBy=createdAt&sortOrder=asc&limit=4");
         first!.Items.Should().HaveCount(4);
         first.NextCursor.Should().NotBeNull("there must be a next page after 4 rows");
 
         await _fx.DeleteApplicationAsync(OrgATenant, first.Items[^1].Id);
 
         var second = await client.GetFromJsonAsync<CursorPage<ApplicationResponse>>(
-            $"/api/v1/catalog/applications?sortBy=CreatedAt&sortOrder=Asc&limit=4&cursor={Uri.EscapeDataString(first.NextCursor!)}");
+            $"/api/v1/catalog/applications?sortBy=createdAt&sortOrder=asc&limit=4&cursor={Uri.EscapeDataString(first.NextCursor!)}");
 
         second.Should().NotBeNull();
         var firstIds = first.Items.Select(i => i.Id).ToHashSet();
@@ -146,15 +175,20 @@ public sealed class ListApplicationsPaginationTests
     /// <summary>
     /// Derives the same deterministic <see cref="TenantId"/> the
     /// <see cref="KartovaApiFixtureBase"/> uses for a given email domain.
+    /// Inlined here because static fields are set before fixture construction.
+    /// The algorithm must match <c>TenantFor</c> in <see cref="KartovaApiFixtureBase"/> exactly.
     /// </summary>
-    private static TenantId TenantIdFor(string domain)
+    private static TenantId _TenantIdFor(string domain) =>
+        new TenantId(_DeterministicGuid("tenant:" + domain));
+
+    private static Guid _DeterministicGuid(string seed)
     {
         var hash = System.Security.Cryptography.SHA256.HashData(
-            System.Text.Encoding.UTF8.GetBytes("tenant:" + domain));
+            System.Text.Encoding.UTF8.GetBytes(seed));
         var bytes = new byte[16];
         Array.Copy(hash, bytes, 16);
         bytes[7] = (byte)((bytes[7] & 0x0F) | 0x40);
         bytes[8] = (byte)((bytes[8] & 0x3F) | 0x80);
-        return new TenantId(new Guid(bytes));
+        return new Guid(bytes);
     }
 }

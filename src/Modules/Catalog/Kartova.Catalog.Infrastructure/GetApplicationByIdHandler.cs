@@ -21,7 +21,7 @@ public sealed class GetApplicationByIdHandler
         // (plain Guid). Use EF.Property to access it in LINQ — this translates to
         // WHERE id = ? on PostgreSQL without any value-converter indirection.
         var app = await db.Applications.FirstOrDefaultAsync(
-            x => EF.Property<Guid>(x, "_id") == q.Id, ct);
+            x => EF.Property<Guid>(x, EfApplicationConfiguration.IdFieldName) == q.Id, ct);
         return app?.ToResponse();
     }
 }

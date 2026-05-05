@@ -40,12 +40,19 @@ public class KartovaApiFixture : KartovaApiFixtureBase
         // Reuse the deterministic sub + tenant derivation from the base class
         // by issuing a token directly via the TestJwtSigner — mirrors what
         // CreateAuthenticatedClientAsync does but without the async wrapper.
-        var tenant = TenantIdForEmail(email);
-        var token = Signer.IssueForTenant(tenant, ["OrgAdmin"], subject: SubForEmail(email).ToString());
+        var tenant = TenantFor(email);
+        var token = Signer.IssueForTenant(tenant, ["OrgAdmin"], subject: SubFor(email).ToString());
         var client = CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
     }
+
+    /// <summary>
+    /// Returns the deterministic <see cref="TenantId"/> for <paramref name="email"/>'s
+    /// domain — the same value RLS uses. Exposed so test classes can seed rows for
+    /// the correct tenant without re-implementing the derivation algorithm.
+    /// </summary>
+    public TenantId TenantIdForEmail(string email) => TenantFor(email);
 
     /// <summary>
     /// Seeds <paramref name="count"/> applications for the given tenant, with
@@ -90,26 +97,4 @@ public class KartovaApiFixture : KartovaApiFixtureBase
             applicationId, tenantId.Value);
     }
 
-    // Replicated from KartovaApiFixtureBase private methods so the synchronous
-    // CreateClientForEmail helper can use them without going async.
-    private static Guid SubForEmail(string email)
-        => DeterministicGuid("sub:" + email.ToLowerInvariant());
-
-    private static TenantId TenantIdForEmail(string email)
-    {
-        var at = email.IndexOf('@');
-        var domain = at >= 0 ? email[(at + 1)..].ToLowerInvariant() : email.ToLowerInvariant();
-        return new TenantId(DeterministicGuid("tenant:" + domain));
-    }
-
-    private static Guid DeterministicGuid(string seed)
-    {
-        var hash = System.Security.Cryptography.SHA256.HashData(
-            System.Text.Encoding.UTF8.GetBytes(seed));
-        var bytes = new byte[16];
-        Array.Copy(hash, bytes, 16);
-        bytes[7] = (byte)((bytes[7] & 0x0F) | 0x40);
-        bytes[8] = (byte)((bytes[8] & 0x3F) | 0x80);
-        return new Guid(bytes);
-    }
 }
