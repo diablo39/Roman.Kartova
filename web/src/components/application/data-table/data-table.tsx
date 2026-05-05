@@ -1,57 +1,56 @@
 import type { ReactNode } from "react";
-import { ArrowDown, ArrowUp, ChevronSelectorVertical } from "@untitledui/icons";
+import type { SortDescriptor } from "react-aria-components";
 import { Button } from "@/components/base/buttons/button";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
 import { Table } from "@/components/application/table/table";
-import { cx } from "@/lib/utils/cx";
 import type { SortDirection } from "@/lib/list/types";
 
 interface SortableHeadProps {
   id: string;
-  activeField: string | null;
-  activeOrder: SortDirection;
-  onSortChange: (field: string, order: SortDirection) => void;
+  isRowHeader?: boolean;
   children: ReactNode;
 }
 
 /**
- * Sortable column header cell (<th scope="col">) with controlled sort state.
+ * Sortable column header. Wraps Untitled UI's <Table.Head> with
+ * allowsSorting=true. Sort state (which column, which direction) lives on
+ * the parent <Table> via sortDescriptor + onSortChange — react-aria sets
+ * aria-sort automatically and emits onSortChange when the header is clicked.
  *
- * Toggle rule:
- *  - inactive column → asc
- *  - active asc      → desc
- *  - active desc     → asc
+ * Toggle rule (handled by react-aria's default Table behavior):
+ *  - inactive column → ascending
+ *  - active asc → descending
+ *  - active desc → ascending
  *
- * Renders a plain <th> (not a react-aria AriaColumn) so that aria-sort can be
- * set directly without being stripped by react-aria's filterDOMProps.  When
- * composing a full table use this inside a plain <thead><tr> or alongside
- * react-aria's Table via a custom header row.
+ * Per ADR-0095 §6.2.
  */
-export function SortableHead({ id, activeField, activeOrder, onSortChange, children }: SortableHeadProps) {
-  const isActive = activeField === id;
-  const ariaSort: "ascending" | "descending" | "none" = !isActive
-    ? "none"
-    : activeOrder === "asc" ? "ascending" : "descending";
-  const Icon = !isActive ? ChevronSelectorVertical : (activeOrder === "asc" ? ArrowUp : ArrowDown);
-
-  const handleClick = () => {
-    if (!isActive) onSortChange(id, "asc");
-    else onSortChange(id, activeOrder === "asc" ? "desc" : "asc");
-  };
-
+export function SortableHead({ id, isRowHeader, children }: SortableHeadProps) {
   return (
-    <th scope="col" aria-sort={ariaSort} onClick={handleClick} className="relative p-0 px-6 py-2">
-      <span
-        className={cx(
-          "flex items-center gap-1 text-left text-xs font-semibold text-tertiary hover:text-primary cursor-pointer",
-          isActive && "text-primary",
-        )}
-      >
-        <span>{children}</span>
-        <Icon className="size-3.5" aria-hidden="true" />
-      </span>
-    </th>
+    <Table.Head id={id} isRowHeader={isRowHeader} allowsSorting>
+      {children}
+    </Table.Head>
   );
+}
+
+/**
+ * Convert react-aria's SortDescriptor into our (field, order) shape.
+ * The Untitled UI/RAC <Table> emits `direction: "ascending"|"descending"`;
+ * our wire contract uses `"asc"|"desc"` (per ADR-0095). Also tolerates the
+ * undefined `column` case (no active sort) by passing through `null`.
+ */
+export function toSort(descriptor: SortDescriptor): { field: string; order: SortDirection } {
+  return {
+    field: String(descriptor.column),
+    order: descriptor.direction === "ascending" ? "asc" : "desc",
+  };
+}
+
+export function fromSort(field: string | null, order: SortDirection): SortDescriptor | undefined {
+  if (field === null) return undefined;
+  return {
+    column: field,
+    direction: order === "asc" ? "ascending" : "descending",
+  };
 }
 
 interface TablePagerProps {
