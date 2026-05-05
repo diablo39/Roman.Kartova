@@ -139,7 +139,7 @@ The extension method is the **only** place that knows about cursor encoding, the
 | File | Purpose |
 |---|---|
 | `web/src/lib/list/types.ts` | `SortDirection`, `CursorListResult<T>`. |
-| `web/src/lib/list/useCursorList.ts` | Generic hook over TanStack `useInfiniteQuery`. Returns `{ items, isLoading, isFetching, isError, hasNext, hasPrev, goNext(), goPrev(), reset() }`. Maintains internal cursor stack for prev. `reset()` runs automatically when `queryKey` changes (sort change resets pagination). |
+| `web/src/lib/list/useCursorList.ts` | Generic hook over TanStack `useQuery` keyed per-cursor (one query per page; the cursor stack is maintained outside React Query). Returns `{ items, isLoading, isFetching, isError, hasNext, hasPrev, goNext(), goPrev(), reset() }`. Maintains internal cursor stack for prev. `reset()` runs automatically when `queryKey` changes (sort change resets pagination). **Implementation note (2026-05-05):** earlier drafts of this spec said `useInfiniteQuery`; we picked `useQuery` per cursor entry instead because (a) we never want flattened `pages[]` semantics (the UI is Prev/Next, not append), and (b) the cursor stack already handles navigation, so `useInfiniteQuery`'s extra machinery would be unused. |
 | `web/src/lib/list/useListUrlState.ts` | Wraps React Router `useSearchParams`. Parameters `{ defaultSortBy, defaultSortOrder, allowedSortFields }`. Returns `{ sortBy, sortOrder, setSort }`. Validates URL params against allowlist; falls back to defaults on invalid input (no error UI). Cursor is **not** in URL. |
 
 ### 6.2 New shell at `web/src/components/application/data-table/`
@@ -162,8 +162,8 @@ The extension method is the **only** place that knows about cursor encoding, the
 
 ### 6.4 Query-key invariants
 
-- `applicationKeys.list({ sortBy, sortOrder })` — cursor is **not** in the key (each cursor is a `pageParam` inside `useInfiniteQuery`'s internal `pages` array).
-- `useRegisterApplication` invalidates `applicationKeys.list()` (the prefix). After invalidation, `useInfiniteQuery` refetches from `pages[0]` (cursor = `undefined`, the first page). With default sort `createdAt:desc`, a freshly-registered app appears at the top.
+- `applicationKeys.list({ sortBy, sortOrder })` — the per-page query key extends this with `{ cursor }` inside `useCursorList`, so each page is cached under a distinct stable key.
+- `useRegisterApplication` invalidates `applicationKeys.all` (the prefix). TanStack Query invalidates every key starting with that prefix, covering all parameterized list keys plus their cursor variants. After invalidation the cursor stack resets to `[undefined]` (first page) and the query refetches. With default sort `createdAt:desc`, a freshly-registered app appears at the top.
 
 ## 7. Standards (apply to every future list)
 
@@ -213,7 +213,7 @@ Five-tier pyramid (per ADR-0083):
 | Subject | Cases |
 |---|---|
 | `useListUrlState` | Defaults applied when URL empty; URL takes precedence; invalid `sortBy` falls back to default; round-trip via `setSort`. |
-| `useCursorList` | Prev/Next stack invariants (mock `useInfiniteQuery`); `reset()` triggered on `queryKey` change. |
+| `useCursorList` | Prev/Next stack invariants (mock `fetchPage`); `reset()` triggered on `queryKey` change. |
 | `<TablePager>` | Disabled states for `hasPrev` / `hasNext`. |
 | `<SortableHead>` | Click toggles asc → desc → asc; `aria-sort` attribute correct. |
 
@@ -273,7 +273,7 @@ Per CLAUDE.md DoD:
 |---|---|
 | EF Core's PostgreSQL provider may not translate row-constructor comparison `(a, b) > (?, ?)` for all sort-key types (e.g., nullable timestamps). | Validate during Task 1 (extension method spike) with sqlite + Testcontainers. Fall back to disjunctive form `(a > ? OR (a = ? AND b > ?))` if needed — same correctness, slightly slower planner. |
 | Cursor stability under inserts is correct, but under **deletes** of the cursor row, `(sortKey, id) > (deletedSortValue, deletedId)` still works (the deleted row is just absent from the result). Validate. | Integration test: delete a row mid-pagination, assert next page is correct. |
-| `useInfiniteQuery` cache may grow large if the user pages deeply then sorts; React Query's gcTime applies but worth checking. | Set explicit `gcTime` on `useCursorList` (default 5 min). Document. |
+| Per-cursor `useQuery` cache may grow large if the user pages deeply then sorts; React Query's gcTime applies but worth checking. | Set explicit `gcTime` on `useCursorList` (default 5 min). Document. |
 | OpenAPI codegen may not handle the per-resource enum `SortByApplications` cleanly across multiple modules later. | Verify by adding a placeholder second list endpoint (e.g., `SortByComponents`) in unit tests, even if Components endpoint is post-slice. |
 
 ## 15. Effort estimate
