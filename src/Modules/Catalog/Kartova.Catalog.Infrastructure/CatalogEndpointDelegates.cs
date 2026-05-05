@@ -2,6 +2,8 @@ using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Multitenancy;
+using Kartova.SharedKernel.Pagination;
+using Kartova.SharedKernel.Postgres.Pagination;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -66,16 +68,26 @@ internal static class CatalogEndpointDelegates
 
     /// <summary>
     /// GET list of Applications visible in current tenant. Direct synchronous
-    /// handler dispatch to preserve the HTTP request scope's
-    /// <c>ITenantScope</c> (see comment on <see cref="RegisterApplicationAsync"/>).
-    /// RLS auto-filters cross-tenant rows (ADR-0090).
+    /// handler dispatch to preserve the HTTP request scope's <c>ITenantScope</c>
+    /// (see comment on <see cref="RegisterApplicationAsync"/>). RLS auto-filters
+    /// cross-tenant rows (ADR-0090). Cursor-paginated per ADR-0095.
     /// </summary>
     internal static async Task<IResult> ListApplicationsAsync(
+        [FromQuery] ApplicationSortField? sortBy,
+        [FromQuery] SortOrder? sortOrder,
+        [FromQuery] string? cursor,
+        [FromQuery] int? limit,
         ListApplicationsHandler handler,
         CatalogDbContext db,
         CancellationToken ct)
     {
-        var rows = await handler.Handle(new ListApplicationsQuery(), db, ct);
-        return Results.Ok(rows);
+        var query = new ListApplicationsQuery(
+            SortBy: sortBy ?? ApplicationSortField.CreatedAt,
+            SortOrder: sortOrder ?? SortOrder.Desc,
+            Cursor: cursor,
+            Limit: limit ?? QueryablePagingExtensions.DefaultLimit);
+
+        var page = await handler.Handle(query, db, ct);
+        return Results.Ok(page);
     }
 }
