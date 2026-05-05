@@ -92,18 +92,25 @@ internal static class CatalogEndpointDelegates
         CancellationToken ct)
     {
         // Case-insensitive parse: accepts both "createdAt" (wire contract) and "CreatedAt".
-        // Unknown strings → null → fall through to the default, just like a missing parameter.
-        // Out-of-range numeric strings (e.g. "999") still reach ApplicationSortSpecs.Resolve
-        // and produce the typed InvalidSortFieldException → RFC 7807 400.
+        // Unknown strings → InvalidSortFieldException / InvalidSortOrderException → RFC 7807 400
+        // (PagingExceptionHandler). ADR-0095 §4.3.
         ApplicationSortField? parsedSortBy = null;
-        if (sortBy is not null && Enum.TryParse<ApplicationSortField>(sortBy, ignoreCase: true, out var sf))
+        if (sortBy is not null)
         {
+            if (!Enum.TryParse<ApplicationSortField>(sortBy, ignoreCase: true, out var sf))
+            {
+                throw new InvalidSortFieldException(sortBy, ApplicationSortSpecs.AllowedFieldNames);
+            }
             parsedSortBy = sf;
         }
 
         SortOrder? parsedSortOrder = null;
-        if (sortOrder is not null && Enum.TryParse<SortOrder>(sortOrder, ignoreCase: true, out var so))
+        if (sortOrder is not null)
         {
+            if (!Enum.TryParse<SortOrder>(sortOrder, ignoreCase: true, out var so))
+            {
+                throw new InvalidSortOrderException(sortOrder);
+            }
             parsedSortOrder = so;
         }
 

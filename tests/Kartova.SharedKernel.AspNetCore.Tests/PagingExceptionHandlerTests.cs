@@ -67,6 +67,23 @@ public sealed class PagingExceptionHandlerTests
     }
 
     [Fact]
+    public async Task InvalidSortOrderException_maps_to_400_with_value()
+    {
+        var (handler, ctx) = Build();
+        var ex = new InvalidSortOrderException("upward");
+
+        var handled = await handler.TryHandleAsync(ctx, ex, CancellationToken.None);
+
+        handled.Should().BeTrue();
+        ctx.Response.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
+        ctx.Response.Body.Position = 0;
+        var body = await new StreamReader(ctx.Response.Body).ReadToEndAsync();
+        body.Should().Contain(ProblemTypes.InvalidSortOrder);
+        body.Should().Contain("\"value\"");
+        body.Should().Contain("\"upward\"");
+    }
+
+    [Fact]
     public async Task UnrelatedException_returns_false()
     {
         var (handler, ctx) = Build();

@@ -73,16 +73,12 @@ public sealed class ListApplicationsPaginationTests
     }
 
     [Fact]
-    public async Task OutOfRange_numeric_sortBy_falls_through_to_handler_validation()
+    public async Task OutOfRange_numeric_sortBy_returns_400_invalid_sort_field()
     {
         // Numeric strings like "999" are parsed by Enum.TryParse into an undefined
         // enum value, which passes binding but then falls through to the _ case in
         // ApplicationSortSpecs.Resolve. That throws InvalidSortFieldException →
         // PagingExceptionHandler → RFC 7807 400 with our "invalid-sort-field" type.
-        //
-        // This is the canonical path to test the handler-level validation because
-        // a clearly-invalid string like "garbage" silently defaults to createdAt
-        // (the endpoint parses case-insensitively; unknown strings → null → default).
         var client = _fx.CreateClientForOrgA();
         var resp = await client.GetAsync("/api/v1/catalog/applications?sortBy=999");
 
@@ -94,18 +90,27 @@ public sealed class ListApplicationsPaginationTests
     }
 
     [Fact]
-    public async Task UnknownString_sortBy_silently_defaults_to_createdAt()
+    public async Task UnknownString_sortBy_returns_400_invalid_sort_field()
     {
-        // Non-numeric unknown strings like "garbage" do NOT match any enum member
-        // in Enum.TryParse, so parsedSortBy remains null and the endpoint defaults
-        // to ApplicationSortField.CreatedAt. The request succeeds (200 OK) — unknown
-        // sort fields are silently ignored, not rejected. Only out-of-range numeric
-        // strings (which bind to an undefined enum int) reach the handler validation
-        // path and produce a 400.
         var client = _fx.CreateClientForOrgA();
+
         var resp = await client.GetAsync("/api/v1/catalog/applications?sortBy=garbage");
 
-        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var body = await resp.Content.ReadAsStringAsync();
+        body.Should().Contain("invalid-sort-field");
+    }
+
+    [Fact]
+    public async Task UnknownString_sortOrder_returns_400_invalid_sort_order()
+    {
+        var client = _fx.CreateClientForOrgA();
+
+        var resp = await client.GetAsync("/api/v1/catalog/applications?sortOrder=upward");
+
+        resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var body = await resp.Content.ReadAsStringAsync();
+        body.Should().Contain("invalid-sort-order");
     }
 
     [Fact]

@@ -50,6 +50,26 @@ public sealed class PagingExceptionHandler : IExceptionHandler
                 });
             }
 
+            case InvalidSortOrderException sortOrderEx:
+            {
+                httpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+                var sortOrderProblem = new ProblemDetails
+                {
+                    Type = ProblemTypes.InvalidSortOrder,
+                    Title = "Invalid sort order",
+                    Status = StatusCodes.Status400BadRequest,
+                    Detail = sortOrderEx.Message,
+                    Instance = httpContext.Request.Path,
+                    Extensions = { ["value"] = sortOrderEx.Value }
+                };
+                return await _problemDetails.TryWriteAsync(new ProblemDetailsContext
+                {
+                    HttpContext = httpContext,
+                    ProblemDetails = sortOrderProblem,
+                    Exception = sortOrderEx,
+                });
+            }
+
             case InvalidCursorException cursorEx:
             {
                 var problem = new ProblemDetails
