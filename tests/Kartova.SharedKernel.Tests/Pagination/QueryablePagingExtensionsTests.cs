@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Kartova.SharedKernel.Pagination;
+using Kartova.SharedKernel.Postgres.Pagination;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Xunit;

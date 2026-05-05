@@ -1,7 +1,8 @@
 using System.Linq.Expressions;
+using Kartova.SharedKernel.Pagination;
 using Microsoft.EntityFrameworkCore;
 
-namespace Kartova.SharedKernel.Pagination;
+namespace Kartova.SharedKernel.Postgres.Pagination;
 
 /// <summary>
 /// EF Core <see cref="IQueryable{T}"/> extension that applies cursor-based
