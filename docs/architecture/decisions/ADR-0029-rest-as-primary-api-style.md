@@ -43,3 +43,5 @@ Use REST as the primary API style: resource-oriented URLs, standard HTTP verbs, 
 ## References
 
 - PRD §4.5.1
+
+**See also:** ADR-0095 (Cursor pagination contract) — concretizes the "pagination via cursors" mention with a wire shape, sort syntax, and first-cut mandate.

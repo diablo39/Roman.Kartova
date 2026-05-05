@@ -1,6 +1,6 @@
 # ADR-0095: Cursor Pagination Contract — Wire Shape, Sort Syntax, and First-Cut Mandate
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-05-04
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** API & Integration Architecture

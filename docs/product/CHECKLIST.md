@@ -81,6 +81,9 @@
 - [ ] E-01.F-08.S-02 — Elasticsearch index strategy
 - [x] E-01.F-08.S-03 — Row-level security for tenant isolation
 
+**Cross-cutting: API Contract Infrastructure**
+- [x] **Cross-cutting: cursor-pagination contract.** ADR-0095 + reference impl on Applications list. (2026-05-04)
+
 ---
 
 ## Phase 1: Core Catalog & Notifications (52 stories)
