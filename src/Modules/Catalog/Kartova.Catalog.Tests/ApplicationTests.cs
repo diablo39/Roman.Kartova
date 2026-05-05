@@ -36,6 +36,19 @@ public class ApplicationTests
         act.Should().Throw<ArgumentException>().WithMessage("*name*");
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("\t")]
+    public void Create_throws_ArgumentException_with_empty_message_for_blank_name(string emptyName)
+    {
+        // Kills mutant at line 87: `throw new ArgumentException("Application name must not be empty.", ...)` mutated to `;`.
+        // With the throw removed, empty/whitespace names fall through to the kebab-case check which throws a
+        // DIFFERENT message ("kebab-case"). Asserting on "empty" in the message pins the specific guard.
+        var act = () => DomainApplication.Create(emptyName, "Display Name", "desc", Owner, Tenant);
+        act.Should().Throw<ArgumentException>().WithMessage("*empty*");
+    }
+
     [Fact]
     public void Create_throws_on_name_over_256_chars()
     {

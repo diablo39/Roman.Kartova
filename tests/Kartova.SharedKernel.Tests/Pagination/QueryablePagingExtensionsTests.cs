@@ -231,6 +231,62 @@ public sealed class QueryablePagingExtensionsTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task LimitAtMaxBoundary_does_not_throw()
+    {
+        // Kills mutant at line 50: `if (limit >= MaxLimit)` would reject limit=200 (200>=200=true→throws)
+        // but original `if (limit < MinLimit || limit > MaxLimit)` accepts it (200>200=false→no throw).
+        await SeedAsync(1);
+
+        var act = async () => await _db.Rows.ToCursorPagedAsync(
+            ByCreatedAt, SortOrder.Asc, cursor: null, limit: 200, x => x.Id, CancellationToken.None);
+
+        await act.Should().NotThrowAsync<InvalidLimitException>();
+    }
+
+    [Fact]
+    public async Task PagingForward_with_desc_order_yields_no_duplicates_no_skips()
+    {
+        // Kills mutants at lines 133, 140, 145: mutated code uses GreaterThan for Desc (instead of LessThan),
+        // so the keyset filter returns the wrong rows and the full set cannot be traversed without duplicates/skips.
+        await SeedAsync(20);
+
+        var seen = new List<Guid>();
+        string? cursor = null;
+        do
+        {
+            var page = await _db.Rows.ToCursorPagedAsync(
+                ByCreatedAt, SortOrder.Desc, cursor, limit: 7, x => x.Id, CancellationToken.None);
+            seen.AddRange(page.Items.Select(r => r.Id));
+            cursor = page.NextCursor;
+        } while (cursor is not null);
+
+        seen.Should().HaveCount(20);
+        seen.Distinct().Should().HaveCount(20);
+    }
+
+    [Fact]
+    public async Task PagingForward_with_desc_order_string_sort_yields_correct_order()
+    {
+        // Kills mutant at line 133 (string-sort path): mutated LessThan→GreaterThan inverts keyset filter for Desc,
+        // causing duplicates or skips when paginating by Name descending.
+        await SeedAsync(15);
+
+        var seen = new List<string>();
+        string? cursor = null;
+        do
+        {
+            var page = await _db.Rows.ToCursorPagedAsync(
+                ByName, SortOrder.Desc, cursor, limit: 4, x => x.Id, CancellationToken.None);
+            seen.AddRange(page.Items.Select(r => r.Name));
+            cursor = page.NextCursor;
+        } while (cursor is not null);
+
+        seen.Should().HaveCount(15);
+        seen.Distinct().Should().HaveCount(15);
+        seen.Should().BeInDescendingOrder();
+    }
+
+    [Fact]
     public async Task DirectionMismatch_between_cursor_and_request_throws()
     {
         await SeedAsync(5);

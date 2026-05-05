@@ -104,4 +104,41 @@ public sealed class CursorCodecTests
 
         act.Should().Throw<InvalidCursorException>("explicit JSON null in `s` must be rejected");
     }
+
+    [Fact]
+    public void Encode_produces_compact_output_without_whitespace()
+    {
+        // Kills mutant at line 20: WriteIndented=false mutated to true.
+        // Indented JSON contains newlines and extra spaces; compact JSON does not.
+        var encoded = CursorCodec.Encode("alpha", AnyId, SortOrder.Asc);
+
+        // Decode the base64url to inspect the JSON payload directly.
+        var bytes = System.Buffers.Text.Base64Url.DecodeFromChars(encoded.AsSpan());
+        var json = System.Text.Encoding.UTF8.GetString(bytes);
+
+        json.Should().NotContain("\n");
+        json.Should().NotContain("  "); // two spaces — indented JSON indent
+    }
+
+    [Fact]
+    public void Encode_then_Decode_roundtrips_true_bool_sort_value()
+    {
+        // Kills mutant at line 76: JsonValueKind.True => true mutated to => false.
+        // With mutated code, decoded value would be false instead of true.
+        var encoded = CursorCodec.Encode(true, AnyId, SortOrder.Asc);
+        var decoded = CursorCodec.Decode(encoded);
+
+        decoded.SortValue.Should().Be(true);
+    }
+
+    [Fact]
+    public void Encode_then_Decode_roundtrips_false_bool_sort_value()
+    {
+        // Kills mutant at line 77: JsonValueKind.False => false mutated to => true.
+        // With mutated code, decoded value would be true instead of false.
+        var encoded = CursorCodec.Encode(false, AnyId, SortOrder.Asc);
+        var decoded = CursorCodec.Decode(encoded);
+
+        decoded.SortValue.Should().Be(false);
+    }
 }

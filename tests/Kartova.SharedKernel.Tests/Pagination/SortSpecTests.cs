@@ -30,4 +30,20 @@ public sealed class SortSpecTests
         a.Should().NotBe(b, "Expression<> instances do not implement structural equality");
         a.FieldName.Should().Be(b.FieldName);
     }
+
+    [Fact]
+    public void CompiledKeySelector_caches_the_delegate_across_accesses()
+    {
+        // Kills mutant at line 24: `_compiled ??= KeySelector.Compile()` mutated to `_compiled = KeySelector.Compile()`.
+        // With original ??= the first access compiles once and caches; subsequent accesses return the same instance.
+        // With mutated =, every access recompiles, producing a new delegate instance → BeSameAs fails.
+        var spec = new SortSpec<SampleEntity>("name", x => x.Name);
+
+        var first = spec.CompiledKeySelector;
+        var second = spec.CompiledKeySelector;
+        var third = spec.CompiledKeySelector;
+
+        first.Should().BeSameAs(second);
+        second.Should().BeSameAs(third);
+    }
 }
