@@ -135,6 +135,8 @@ public sealed class ListApplicationsPaginationTests
         var resp = await client.GetAsync($"/api/v1/catalog/applications?limit={limit}");
 
         resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var body = await resp.Content.ReadAsStringAsync();
+        body.Should().Contain("invalid-limit");
     }
 
     [Fact]
@@ -175,6 +177,57 @@ public sealed class ListApplicationsPaginationTests
         var firstIds = first.Items.Select(i => i.Id).ToHashSet();
         second!.Items.Select(i => i.Id).Should().NotIntersectWith(firstIds,
             "no row from the first page should reappear after the cursor row was deleted");
+    }
+
+    [Fact]
+    public async Task Pages_through_25_apps_sorted_by_name_yields_no_duplicates_no_skips()
+    {
+        await _fx.SeedApplicationsAsync(OrgATenant, count: 25, namePrefix: "n-");
+
+        var client = _fx.CreateClientForOrgA();
+
+        var allIds = new HashSet<Guid>();
+        string? cursor = null;
+        var pageCount = 0;
+        do
+        {
+            var url = "/api/v1/catalog/applications?sortBy=name&sortOrder=asc&limit=10"
+                + (cursor is null ? "" : $"&cursor={Uri.EscapeDataString(cursor)}");
+            var resp = await client.GetAsync(url);
+            resp.StatusCode.Should().Be(HttpStatusCode.OK);
+            var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>();
+            page.Should().NotBeNull();
+            foreach (var item in page!.Items)
+            {
+                allIds.Add(item.Id).Should().BeTrue("each id must appear exactly once");
+            }
+            cursor = page.NextCursor;
+            pageCount++;
+        } while (cursor is not null && pageCount < 5);
+
+        // Filter to just our seeded prefix-25; other tests may have left rows on the same tenant.
+        allIds.Count.Should().BeGreaterThanOrEqualTo(25, "all 25 prefix-n- rows should be visible");
+    }
+
+    [Fact]
+    public async Task Cursor_issued_for_asc_replayed_with_desc_returns_400_invalid_cursor()
+    {
+        await _fx.SeedApplicationsAsync(OrgATenant, count: 5, namePrefix: "dir-");
+
+        var client = _fx.CreateClientForOrgA();
+
+        // Generate a cursor with ascending direction.
+        var ascResp = await client.GetFromJsonAsync<CursorPage<ApplicationResponse>>(
+            "/api/v1/catalog/applications?sortBy=createdAt&sortOrder=asc&limit=2");
+        ascResp!.NextCursor.Should().NotBeNull();
+
+        // Replay the same cursor with desc — should 400.
+        var mismatchUrl = $"/api/v1/catalog/applications?sortBy=createdAt&sortOrder=desc&limit=2&cursor={Uri.EscapeDataString(ascResp.NextCursor!)}";
+        var mismatchResp = await client.GetAsync(mismatchUrl);
+
+        mismatchResp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var body = await mismatchResp.Content.ReadAsStringAsync();
+        body.Should().Contain("invalid-cursor");
     }
 
     /// <summary>

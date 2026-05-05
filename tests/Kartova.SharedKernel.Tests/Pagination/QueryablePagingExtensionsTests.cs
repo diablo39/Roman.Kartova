@@ -218,6 +218,18 @@ public sealed class QueryablePagingExtensionsTests : IAsyncLifetime
         third.NextCursor.Should().BeNull();
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(201)]
+    public async Task LimitOutOfRange_throws_InvalidLimitException(int limit)
+    {
+        var act = async () => await _db.Rows.ToCursorPagedAsync(
+            ByCreatedAt, SortOrder.Asc, cursor: null, limit, x => x.Id, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidLimitException>();
+    }
+
     [Fact]
     public async Task DirectionMismatch_between_cursor_and_request_throws()
     {

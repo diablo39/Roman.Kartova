@@ -49,8 +49,7 @@ public static class QueryablePagingExtensions
     {
         if (limit < MinLimit || limit > MaxLimit)
         {
-            throw new ArgumentOutOfRangeException(nameof(limit),
-                $"limit must be between {MinLimit} and {MaxLimit}.");
+            throw new InvalidLimitException(limit, MinLimit, MaxLimit);
         }
 
         IQueryable<T> q = source;
