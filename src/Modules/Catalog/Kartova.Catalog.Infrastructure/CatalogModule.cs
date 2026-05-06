@@ -62,6 +62,16 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .ProducesProblem(StatusCodes.Status400BadRequest)
               .ProducesProblem(StatusCodes.Status404NotFound)
               .ProducesProblem(StatusCodes.Status409Conflict);
+        // POST decommission — Deprecated → Decommissioned transition. Empty body, no
+        // If-Match (same rationale as deprecate). Two failure modes share the 409:
+        // wrong source state, and "now < sunsetDate" — the latter carries
+        // reason="before-sunset-date" + a sunsetDate extension member. No 400 path:
+        // the empty body has nothing to validate.
+        tenant.MapPost("/applications/{id:guid}/decommission", CatalogEndpointDelegates.DecommissionApplicationAsync)
+              .WithName("DecommissionApplication")
+              .Produces<ApplicationResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status404NotFound)
+              .ProducesProblem(StatusCodes.Status409Conflict);
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
@@ -80,6 +90,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<ListApplicationsHandler>();
         services.AddScoped<EditApplicationHandler>();
         services.AddScoped<DeprecateApplicationHandler>();
+        services.AddScoped<DecommissionApplicationHandler>();
 
         // TimeProvider is needed by Application.Deprecate / Decommission for the
         // "sunsetDate must be in the future" / "now >= sunsetDate" checks. TryAdd

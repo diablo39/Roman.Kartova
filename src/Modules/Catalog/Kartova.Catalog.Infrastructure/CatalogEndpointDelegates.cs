@@ -220,4 +220,36 @@ internal static class CatalogEndpointDelegates
         }
         return Results.Ok(resp);
     }
+
+    /// <summary>
+    /// POST decommission transitions Deprecated → Decommissioned. No body, no
+    /// If-Match — domain invariants ("current state must be Deprecated" +
+    /// "now &gt;= sunsetDate") are the implicit version (slice 5 spec §3
+    /// Decision #7). Wrong source state surfaces as
+    /// <c>InvalidLifecycleTransitionException</c> → 409 via
+    /// <c>LifecycleConflictExceptionHandler</c>; a "now &lt; sunsetDate"
+    /// attempt surfaces as the same exception type but with
+    /// <c>reason="before-sunset-date"</c> and the stored <c>sunsetDate</c>
+    /// attached, both surfaced as RFC 7807 extension members on the 409 body
+    /// (admin override deferred to RBAC slice — slice 5 spec §13.2).
+    /// </summary>
+    internal static async Task<IResult> DecommissionApplicationAsync(
+        Guid id,
+        DecommissionApplicationHandler handler,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        var resp = await handler.Handle(
+            new DecommissionApplicationCommand(new ApplicationId(id)), db, ct);
+
+        if (resp is null)
+        {
+            return Results.Problem(
+                type: ProblemTypes.ResourceNotFound,
+                title: "Application not found",
+                detail: "No application with that id is visible in the current tenant.",
+                statusCode: StatusCodes.Status404NotFound);
+        }
+        return Results.Ok(resp);
+    }
 }
