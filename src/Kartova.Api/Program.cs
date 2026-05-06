@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -188,6 +189,7 @@ public class Program
         return await app.RunJasperFxCommands(args);
     }
 
+    [ExcludeFromCodeCoverage]
     private static IResult GetVersion()
     {
         var assembly = Assembly.GetExecutingAssembly();

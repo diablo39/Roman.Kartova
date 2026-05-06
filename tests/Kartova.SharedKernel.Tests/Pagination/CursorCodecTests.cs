@@ -141,4 +141,81 @@ public sealed class CursorCodecTests
 
         decoded.SortValue.Should().Be(false);
     }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("\t")]
+    public void Decode_throws_when_cursor_is_empty_or_whitespace(string cursor)
+    {
+        var act = () => CursorCodec.Decode(cursor);
+
+        act.Should().Throw<InvalidCursorException>().WithMessage("Cursor is empty.");
+    }
+
+    [Fact]
+    public void Decode_throws_when_id_field_is_empty_guid()
+    {
+        var json = $$"""{"s":"alpha","i":"{{Guid.Empty}}","d":"asc"}""";
+        var encoded = ToBase64Url(json);
+
+        var act = () => CursorCodec.Decode(encoded);
+
+        act.Should().Throw<InvalidCursorException>("Guid.Empty in `i` is treated as missing");
+    }
+
+    [Theory]
+    [InlineData("up")]
+    [InlineData("ASC")]
+    [InlineData("")]
+    [InlineData("ascending")]
+    public void Decode_throws_when_direction_field_is_not_asc_or_desc(string direction)
+    {
+        var json = $$"""{"s":"alpha","i":"{{AnyId}}","d":"{{direction}}"}""";
+        var encoded = ToBase64Url(json);
+
+        var act = () => CursorCodec.Decode(encoded);
+
+        act.Should().Throw<InvalidCursorException>();
+    }
+
+    [Fact]
+    public void Decode_throws_when_sort_value_is_json_array()
+    {
+        // Kills mutant at line 79 default arm: array/object kinds must be rejected.
+        // STJ deserializes object? as JsonElement when the underlying token is a structure;
+        // UnwrapJsonElement's default arm is the only guard.
+        var json = $$"""{"s":[1,2,3],"i":"{{AnyId}}","d":"asc"}""";
+        var encoded = ToBase64Url(json);
+
+        var act = () => CursorCodec.Decode(encoded);
+
+        act.Should().Throw<InvalidCursorException>()
+            .WithMessage("*Unsupported cursor sort-value kind*");
+    }
+
+    [Fact]
+    public void Decode_throws_when_sort_value_is_json_object()
+    {
+        var json = $$"""{"s":{"nested":1},"i":"{{AnyId}}","d":"asc"}""";
+        var encoded = ToBase64Url(json);
+
+        var act = () => CursorCodec.Decode(encoded);
+
+        act.Should().Throw<InvalidCursorException>()
+            .WithMessage("*Unsupported cursor sort-value kind*");
+    }
+
+    [Fact]
+    public void Encode_then_Decode_roundtrips_desc_direction()
+    {
+        // Exercises the `payload.D == "asc" ? Asc : Desc` ternary's else branch.
+        var encoded = CursorCodec.Encode(42L, AnyId, SortOrder.Desc);
+        var decoded = CursorCodec.Decode(encoded);
+
+        decoded.Direction.Should().Be(SortOrder.Desc);
+    }
+
+    private static string ToBase64Url(string json) =>
+        System.Buffers.Text.Base64Url.EncodeToString(System.Text.Encoding.UTF8.GetBytes(json));
 }

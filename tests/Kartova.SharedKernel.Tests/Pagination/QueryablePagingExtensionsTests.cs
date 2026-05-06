@@ -17,6 +17,9 @@ public sealed class QueryablePagingExtensionsTests : IAsyncLifetime
         public Guid Id { get; set; }
         public string Name { get; set; } = "";
         public DateTimeOffset CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+        public Guid OwnerId { get; set; }
+        public int Sequence { get; set; }
     }
 
     public sealed class TestDbContext : DbContext
@@ -37,11 +40,20 @@ public sealed class QueryablePagingExtensionsTests : IAsyncLifetime
             modelBuilder.Entity<TestRow>()
                 .Property(r => r.Id)
                 .ValueGeneratedNever();
+
+            // Same TEXT-storage trick as CreatedAt: SQLite cannot order DateTime
+            // natively when round-tripped through EF Core type conversions.
+            modelBuilder.Entity<TestRow>()
+                .Property(r => r.UpdatedAt)
+                .HasConversion<string>();
         }
     }
 
     private static readonly SortSpec<TestRow> ByCreatedAt = new("createdAt", x => x.CreatedAt);
     private static readonly SortSpec<TestRow> ByName = new("name", x => x.Name);
+    private static readonly SortSpec<TestRow> ByUpdatedAt = new("updatedAt", x => x.UpdatedAt);
+    private static readonly SortSpec<TestRow> ByOwnerId = new("ownerId", x => x.OwnerId);
+    private static readonly SortSpec<TestRow> BySequence = new("sequence", x => x.Sequence);
 
     public async Task InitializeAsync()
     {
@@ -68,6 +80,9 @@ public sealed class QueryablePagingExtensionsTests : IAsyncLifetime
                 Id = Guid.Parse($"00000000-0000-0000-0000-{i:D12}"),
                 Name = $"row-{i:D3}",
                 CreatedAt = origin.AddMinutes(i),
+                UpdatedAt = origin.AddMinutes(i).UtcDateTime,
+                OwnerId = Guid.Parse($"11111111-0000-0000-0000-{i:D12}"),
+                Sequence = i,
             });
         }
         await _db.SaveChangesAsync();
@@ -324,5 +339,75 @@ public sealed class QueryablePagingExtensionsTests : IAsyncLifetime
             ByCreatedAt, SortOrder.Desc, ascPage.NextCursor, limit: 2, x => x.Id, CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidCursorException>();
+    }
+
+    [Fact]
+    public async Task PagingForward_with_DateTime_sort_key_yields_no_duplicates_no_skips()
+    {
+        // Exercises ConvertCursorValue's DateTime branch (string → DateTime via Parse + ToUniversalTime).
+        // DateTime is NOT IConvertible-friendly with string in invariant culture across all kinds,
+        // so the explicit case in ConvertCursorValue is the only correct path.
+        await SeedAsync(12);
+
+        var seen = new List<DateTime>();
+        string? cursor = null;
+        do
+        {
+            var page = await _db.Rows.ToCursorPagedAsync(
+                ByUpdatedAt, SortOrder.Asc, cursor, limit: 4, x => x.Id, CancellationToken.None);
+            seen.AddRange(page.Items.Select(r => r.UpdatedAt));
+            cursor = page.NextCursor;
+        } while (cursor is not null);
+
+        seen.Should().HaveCount(12);
+        seen.Distinct().Should().HaveCount(12);
+        seen.Should().BeInAscendingOrder();
+    }
+
+    [Fact]
+    public async Task PagingForward_with_Guid_sort_key_yields_no_duplicates_no_skips()
+    {
+        // Exercises ConvertCursorValue's Guid branch (string → Guid via Guid.Parse).
+        // Guid does not implement IConvertible, so the explicit case is the only correct path —
+        // without it, Convert.ChangeType throws InvalidCastException.
+        await SeedAsync(10);
+
+        var seen = new List<Guid>();
+        string? cursor = null;
+        do
+        {
+            var page = await _db.Rows.ToCursorPagedAsync(
+                ByOwnerId, SortOrder.Asc, cursor, limit: 3, x => x.Id, CancellationToken.None);
+            seen.AddRange(page.Items.Select(r => r.OwnerId));
+            cursor = page.NextCursor;
+        } while (cursor is not null);
+
+        seen.Should().HaveCount(10);
+        seen.Distinct().Should().HaveCount(10);
+        seen.Should().BeInAscendingOrder();
+    }
+
+    [Fact]
+    public async Task PagingForward_with_int_sort_key_uses_Convert_ChangeType_fallback()
+    {
+        // Exercises ConvertCursorValue's `Convert.ChangeType` fallthrough — int is IConvertible
+        // and round-trips through string via the invariant-culture overload. Cursor encoder writes
+        // the boundary value as a long (JsonValueKind.Number → Int64), so the fallback receives
+        // a boxed long that must be converted to int for the keyset comparison.
+        await SeedAsync(10);
+
+        var seen = new List<int>();
+        string? cursor = null;
+        do
+        {
+            var page = await _db.Rows.ToCursorPagedAsync(
+                BySequence, SortOrder.Asc, cursor, limit: 3, x => x.Id, CancellationToken.None);
+            seen.AddRange(page.Items.Select(r => r.Sequence));
+            cursor = page.NextCursor;
+        } while (cursor is not null);
+
+        seen.Should().HaveCount(10);
+        seen.Distinct().Should().HaveCount(10);
+        seen.Should().BeInAscendingOrder();
     }
 }
