@@ -11,7 +11,7 @@ namespace Kartova.Api.IntegrationTests;
 public sealed class KeycloakContainerFixture : IAsyncLifetime
 {
     public PostgreSqlContainer Postgres { get; } = new PostgreSqlBuilder()
-        .WithImage("postgres:16-alpine")
+        .WithImage("postgres:18-alpine")
         .WithDatabase("kartova")
         .WithUsername("postgres")
         .WithPassword("postgres")

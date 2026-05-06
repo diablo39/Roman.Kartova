@@ -12,7 +12,7 @@ Kartova is a multi-tenant SaaS developer portal targeting 1000+ tenants, 10k ser
 
 ## Decision
 
-Use PostgreSQL (currently v16+) as the primary transactional datastore for all tenant data, including catalog entities, relationships, users/RBAC, audit log, notifications log, billing metering, and tenant configuration. Row-level security (RLS) with `tenant_id` columns and composite indexes will be used for isolation (see ADR-0012).
+Use PostgreSQL (currently v18+) as the primary transactional datastore for all tenant data, including catalog entities, relationships, users/RBAC, audit log, notifications log, billing metering, and tenant configuration. Row-level security (RLS) with `tenant_id` columns and composite indexes will be used for isolation (see ADR-0012).
 
 ## Rationale
 

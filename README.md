@@ -4,7 +4,7 @@ SaaS service catalog and developer portal (Backstage + Compass + Statuspage hybr
 
 ## Stack
 
-.NET 10 LTS · React 19 · PostgreSQL 16 · Wolverine · KafkaFlow · Kubernetes.
+.NET 10 LTS · React 19 · PostgreSQL 18 · Wolverine · KafkaFlow · Kubernetes.
 
 See [CLAUDE.md](CLAUDE.md) for full architecture, key decisions, and working agreements.
 

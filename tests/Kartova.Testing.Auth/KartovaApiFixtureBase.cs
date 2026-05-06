@@ -19,7 +19,7 @@ namespace Kartova.Testing.Auth;
 /// <summary>
 /// Shared <see cref="WebApplicationFactory{TEntryPoint}"/> base for module-level
 /// HTTP integration tests. Owns the cross-cutting plumbing every module repeats:
-/// a <c>postgres:16-alpine</c> Testcontainer, the role-and-grants seed, the
+/// a <c>postgres:18-alpine</c> Testcontainer, the role-and-grants seed, the
 /// <see cref="TestJwtSigner"/> swap into the API's JWT-bearer pipeline, and JWT
 /// minting helpers (deterministic <c>sub</c> and tenant-id derivation from
 /// email). Module-specific fixtures derive from this and only have to declare
@@ -29,7 +29,7 @@ namespace Kartova.Testing.Auth;
 public abstract class KartovaApiFixtureBase : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly PostgreSqlContainer _pg = new PostgreSqlBuilder()
-        .WithImage("postgres:16-alpine")
+        .WithImage("postgres:18-alpine")
         .WithDatabase("kartova")
         .WithUsername("postgres")
         .WithPassword("postgres")

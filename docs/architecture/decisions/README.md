@@ -21,7 +21,7 @@ operations:
   api_style: REST with cursor pagination and consistent error envelope (ADR-0029)
   api_versioning: URL-based primary (/api/v1/...), optional Accept-Version header (ADR-0030)
   api_docs: OpenAPI 3.x auto-generated, self-rendered inside Kartova docs engine (ADR-0034)
-  database: PostgreSQL 16+ with Row-Level Security (ADR-0001, ADR-0012)
+  database: PostgreSQL 18+ with Row-Level Security (ADR-0001, ADR-0012)
   search: Elasticsearch shared-index with per-tenant routing and filtered aliases (ADR-0002, ADR-0013)
   messaging: Apache Kafka via Strimzi on K8s, KRaft mode — Wolverine outbound + KafkaFlow inbound over Confluent.Kafka (ADR-0003, ADR-0080, ADR-0081)
   mediator: Wolverine (CQRS mediation + transactional outbox), MediatR not used (ADR-0080)

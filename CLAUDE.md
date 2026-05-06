@@ -2,7 +2,7 @@
 
 **Product:** Kartova — SaaS service catalog + developer portal (Backstage + Compass + Statuspage hybrid)
 **Owner:** Solo developer (Roman Głogowski), AI-assisted
-**Stack:** .NET 10 (LTS) / ASP.NET Core + EF Core · Wolverine (CQRS mediator + outbound + outbox) · KafkaFlow (inbound Kafka consumers) · React + TypeScript · PostgreSQL 16 (RLS) · Elasticsearch · Apache Kafka (Strimzi/KRaft) · MinIO (S3) · KeyCloak (OIDC/JWT) · Kubernetes
+**Stack:** .NET 10 (LTS) / ASP.NET Core + EF Core · Wolverine (CQRS mediator + outbound + outbox) · KafkaFlow (inbound Kafka consumers) · React + TypeScript · PostgreSQL 18 (RLS) · Elasticsearch · Apache Kafka (Strimzi/KRaft) · MinIO (S3) · KeyCloak (OIDC/JWT) · Kubernetes
 
 ## Where to find things
 
@@ -35,7 +35,7 @@ Do/don't rules. For everything else, see [docs/architecture/decisions/README.md]
 
 - **CQRS mediator:** Wolverine — MediatR and MassTransit **not** used (ADR-0028, ADR-0080)
 - **Messaging:** Apache Kafka (Strimzi/KRaft) — RabbitMQ/Redpanda **not** used (ADR-0003)
-- **Database:** PostgreSQL 16 + Row-Level Security — **not** schema-per-tenant (ADR-0001, ADR-0012)
+- **Database:** PostgreSQL 18 + Row-Level Security — **not** schema-per-tenant (ADR-0001, ADR-0012)
 - **Search:** Elasticsearch shared index + per-tenant routing + filtered aliases — **not** index-per-tenant (ADR-0002, ADR-0013)
 - **API style:** REST + OpenAPI 3.x — GraphQL **not** used (ADR-0029, ADR-0034)
 - **Encryption:** column-level for OAuth tokens + TLS 1.2+ — mTLS **not** used (ADR-0077)
