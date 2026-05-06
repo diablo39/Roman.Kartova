@@ -5,6 +5,15 @@ import type { RegisterApplicationInput } from "../schemas/registerApplication";
 import type { components, operations } from "@/generated/openapi";
 
 type ApplicationResponse = components["schemas"]["ApplicationResponse"];
+type Lifecycle = ApplicationResponse["lifecycle"];
+
+// Temporary inline aliases — Task 17 introduces zod schemas at
+// ../schemas/editApplication and ../schemas/deprecateApplication and replaces
+// these with `import type { ... } from "../schemas/..."` re-exports. Shapes
+// match `EditApplicationRequest` / `DeprecateApplicationRequest` in the
+// generated OpenAPI client so the mutations are wire-compatible today.
+type EditApplicationInput = { displayName: string; description: string };
+type DeprecateApplicationInput = { sunsetDate: string };
 
 // Derive sort-param types from the generated OpenAPI operation so the wire
 // allowlist (createdAt|name, asc|desc) is a single source of truth — adding
@@ -79,3 +88,99 @@ export function useRegisterApplication() {
     },
   });
 }
+
+/**
+ * PUT /applications/{id} — full-replacement edit (ADR-0096). The If-Match
+ * header carries the optimistic concurrency token from the cached version
+ * (the strong-ETag wrapping is `"v"` per RFC 7232). On 412 the dialog is
+ * expected to refetch and reapply.
+ *
+ * Errors are re-thrown with a non-enumerable `__status` so callers can
+ * branch on 412 / 409 / 400 without re-parsing the response.
+ */
+export function useEditApplication(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { values: EditApplicationInput; expectedVersion: string }) => {
+      const { data, error, response } = await apiClient.PUT(
+        "/api/v1/catalog/applications/{id}",
+        {
+          params: { path: { id } },
+          body: input.values,
+          headers: { "If-Match": `"${input.expectedVersion}"` },
+        }
+      );
+      if (error) {
+        const enriched = error as Record<string, unknown>;
+        enriched.__status = response.status;
+        throw enriched;
+      }
+      if (!data) throw new Error("API returned neither data nor error");
+      return data;
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(applicationKeys.detail(id), data);
+      qc.invalidateQueries({ queryKey: applicationKeys.all });
+    },
+  });
+}
+
+/**
+ * POST /applications/{id}/deprecate — Active → Deprecated transition.
+ * No If-Match: lifecycle changes are idempotent on the source state, and the
+ * server enforces the transition with `409 LifecycleConflict` on a wrong
+ * source state.
+ */
+export function useDeprecateApplication(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: DeprecateApplicationInput) => {
+      const { data, error, response } = await apiClient.POST(
+        "/api/v1/catalog/applications/{id}/deprecate",
+        { params: { path: { id } }, body: input }
+      );
+      if (error) {
+        const enriched = error as Record<string, unknown>;
+        enriched.__status = response.status;
+        throw enriched;
+      }
+      if (!data) throw new Error("API returned neither data nor error");
+      return data;
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(applicationKeys.detail(id), data);
+      qc.invalidateQueries({ queryKey: applicationKeys.all });
+    },
+  });
+}
+
+/**
+ * POST /applications/{id}/decommission — Deprecated → Decommissioned.
+ * No request body, no If-Match. Server returns
+ * `409` with `reason=before-sunset-date` when invoked before the configured
+ * sunset date.
+ */
+export function useDecommissionApplication(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error, response } = await apiClient.POST(
+        "/api/v1/catalog/applications/{id}/decommission",
+        { params: { path: { id } } }
+      );
+      if (error) {
+        const enriched = error as Record<string, unknown>;
+        enriched.__status = response.status;
+        throw enriched;
+      }
+      if (!data) throw new Error("API returned neither data nor error");
+      return data;
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(applicationKeys.detail(id), data);
+      qc.invalidateQueries({ queryKey: applicationKeys.all });
+    },
+  });
+}
+
+export type { ApplicationResponse, Lifecycle };
