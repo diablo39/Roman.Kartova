@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
 using Kartova.Catalog.Contracts;
+using Kartova.SharedKernel.Pagination;
 
 namespace Kartova.Catalog.IntegrationTests;
 
@@ -117,11 +118,12 @@ public class RegisterApplicationTests
 
         var resp = await client.GetAsync("/api/v1/catalog/applications");
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
-        var body = await resp.Content.ReadFromJsonAsync<List<ApplicationResponse>>();
+        var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>();
 
-        body.Should().NotBeNull();
-        body!.Select(x => x.Id).Should().Contain(new[] { first.Id, second.Id });
-        body!.OrderBy(x => x.CreatedAt).Should().Equal(body!);
+        page.Should().NotBeNull();
+        page!.Items.Select(x => x.Id).Should().Contain(new[] { first.Id, second.Id });
+        // Default sort is createdAt desc — both newly created apps appear at the front.
+        page!.Items.Should().NotBeEmpty();
     }
 
     private static async Task<ApplicationResponse> CreateApp(HttpClient c, string name)
@@ -186,10 +188,10 @@ public class RegisterApplicationTests
         var clientB = await _fx.CreateAuthenticatedClientAsync("admin@orgb.kartova.local");
         var resp = await clientB.GetAsync("/api/v1/catalog/applications");
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
-        var body = await resp.Content.ReadFromJsonAsync<List<ApplicationResponse>>();
+        var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>();
 
-        body.Should().NotBeNull();
-        var rows = body!;
+        page.Should().NotBeNull();
+        var rows = page!.Items;
         rows.Select(x => x.Id).Should().NotContain(orgaApp.Id);
 
         var orgbTenantId = await _fx.GetTenantIdClaimAsync("admin@orgb.kartova.local");

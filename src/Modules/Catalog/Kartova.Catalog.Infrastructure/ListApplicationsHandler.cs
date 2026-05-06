@@ -1,29 +1,39 @@
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
-using Microsoft.EntityFrameworkCore;
+using Kartova.SharedKernel.Pagination;
+using Kartova.SharedKernel.Postgres.Pagination;
+using DomainApplication = Kartova.Catalog.Domain.Application;
 
 namespace Kartova.Catalog.Infrastructure;
 
 /// <summary>
-/// Handler for <see cref="ListApplicationsQuery"/>. Lives in Infrastructure
-/// (mirrors <see cref="GetApplicationByIdHandler"/>) because it depends on
-/// <see cref="CatalogDbContext"/>. RLS auto-filters cross-tenant rows so the
-/// result set is implicitly scoped to the current tenant (ADR-0090).
+/// Handler for <see cref="ListApplicationsQuery"/>. RLS auto-filters cross-tenant
+/// rows so the result set is implicitly scoped to the current tenant (ADR-0090).
+/// Pagination applied via <see cref="QueryablePagingExtensions.ToCursorPagedAsync{T}"/>
+/// (ADR-0095).
 /// </summary>
 public sealed class ListApplicationsHandler
 {
-    public async Task<IReadOnlyList<ApplicationResponse>> Handle(
-        ListApplicationsQuery _,
+    // The separate IdExtractor accesses the primary key in-memory via the domain
+    // property (x.Id.Value) for cursor encoding — EF.Property is not invokable
+    // outside of an EF query context. ApplicationSortSpecs.IdSelector provides
+    // the EF-translatable expression. See QueryablePagingExtensions for the
+    // dual-expression overload that accommodates this split.
+    private static readonly Func<DomainApplication, Guid> IdExtractor =
+        x => x.Id.Value;
+
+    public async Task<CursorPage<ApplicationResponse>> Handle(
+        ListApplicationsQuery q,
         CatalogDbContext db,
         CancellationToken ct)
     {
-        // ThenBy(Id) guarantees stable ordering when two rows share a CreatedAt tick —
-        // without the tiebreaker, integration assertions on listing order are flaky under
-        // fast inserts on the same DateTimeOffset.UtcNow value.
-        var rows = await db.Applications
-            .OrderBy(x => x.CreatedAt)
-            .ThenBy(x => x.Id)
-            .ToListAsync(ct);
-        return rows.Select(r => r.ToResponse()).ToList();
+        var spec = ApplicationSortSpecs.Resolve(q.SortBy);
+
+        var page = await db.Applications
+            .ToCursorPagedAsync(spec, q.SortOrder, q.Cursor, q.Limit,
+                ApplicationSortSpecs.IdSelector, IdExtractor, ct);
+
+        var items = page.Items.Select(r => r.ToResponse()).ToList();
+        return new CursorPage<ApplicationResponse>(items, page.NextCursor, page.PrevCursor);
     }
 }

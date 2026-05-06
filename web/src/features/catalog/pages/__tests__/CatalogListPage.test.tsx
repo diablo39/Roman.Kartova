@@ -26,13 +26,18 @@ function harness(qc: QueryClient) {
   );
 }
 
+/** Returns a cursor page envelope matching CursorPageOfApplicationResponse. */
+function pageOf<T>(items: T[]) {
+  return { items, nextCursor: null, prevCursor: null };
+}
+
 describe("CatalogListPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
   it("renders heading and Register Application button", () => {
-    const get = vi.fn().mockResolvedValue({ data: [], error: undefined });
+    const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
     vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
       GET: get, POST: vi.fn(),
     } as never);
@@ -45,7 +50,7 @@ describe("CatalogListPage", () => {
   });
 
   it("renders empty state when API returns no rows", async () => {
-    const get = vi.fn().mockResolvedValue({ data: [], error: undefined });
+    const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
     vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
       GET: get, POST: vi.fn(),
     } as never);
@@ -58,7 +63,7 @@ describe("CatalogListPage", () => {
 
   it("renders rows when API returns applications", async () => {
     const get = vi.fn().mockResolvedValue({
-      data: [
+      data: pageOf([
         {
           id: "00000000-0000-0000-0000-000000000001",
           tenantId: "t",
@@ -68,7 +73,7 @@ describe("CatalogListPage", () => {
           ownerUserId: "u",
           createdAt: "2026-01-01T00:00:00Z",
         },
-      ],
+      ]),
       error: undefined,
     });
     vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
@@ -97,7 +102,7 @@ describe("CatalogListPage", () => {
   });
 
   it("toggles dialog open state when Register Application is clicked", async () => {
-    const get = vi.fn().mockResolvedValue({ data: [], error: undefined });
+    const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
     vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
       GET: get, POST: vi.fn(),
     } as never);
@@ -113,7 +118,7 @@ describe("CatalogListPage", () => {
   });
 
   it("opens the Register Application dialog on button click", async () => {
-    const get = vi.fn().mockResolvedValue({ data: [], error: undefined });
+    const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
     vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
       GET: get,
       POST: vi.fn(),

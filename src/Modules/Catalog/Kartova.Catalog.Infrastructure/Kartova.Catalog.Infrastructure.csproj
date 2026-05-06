@@ -30,4 +30,8 @@
     <ProjectReference Include="..\..\..\Kartova.SharedKernel.Postgres\Kartova.SharedKernel.Postgres.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Kartova.Catalog.Tests" />
+  </ItemGroup>
+
 </Project>

@@ -66,18 +66,17 @@ public class EfApplicationConfigurationTests
         var pk = entity.FindPrimaryKey();
 
         // Assert
-        // This pins the explicit `b.HasKey(x => x.Id)` call (line 13).
-        // EF convention would also resolve "Id" as PK, so we additionally
-        // assert ConfigurationSource.Explicit to distinguish the two code paths.
-        // Removing `b.HasKey(x => x.Id)` leaves ConfigurationSource.Convention.
+        // The PK is mapped via the private backing field _id (plain Guid).
+        // Using a backing field instead of the ApplicationId-typed property allows
+        // EF Core to translate ORDER BY / WHERE on the id column without going
+        // through the value converter (which EF cannot push down to SQL).
         pk.Should().NotBeNull("a primary key must be configured");
-        pk!.Properties.Should().ContainSingle(p => p.Name == "Id",
-            "Id must be the sole primary key property");
+        pk!.Properties.Should().ContainSingle(p => p.Name == "_id",
+            "_id backing field must be the sole primary key property");
 
         // The strongest kill: explicit HasKey → ConfigurationSource.Explicit.
-        // Convention-only PK would be ConfigurationSource.Convention.
         pk.GetConfigurationSource().Should().Be(ConfigurationSource.Explicit,
-            "the PK must be configured via explicit HasKey, not left to convention");
+            "the PK must be configured via explicit HasKey on the _id field");
     }
 
     // -----------------------------------------------------------------------
@@ -97,8 +96,8 @@ public class EfApplicationConfigurationTests
     [Fact]
     public void Configure_value_generation_never_on_Id()
     {
-        // Arrange / Act
-        var idProp = GetEntityType().FindProperty("Id")!;
+        // Arrange / Act — the PK is now the _id backing field (plain Guid)
+        var idProp = GetEntityType().FindProperty("_id")!;
 
         // Assert
         idProp.ValueGenerated.Should().Be(ValueGenerated.Never,
@@ -108,8 +107,8 @@ public class EfApplicationConfigurationTests
     [Fact]
     public void Configure_Id_column_name_is_id()
     {
-        // Arrange / Act
-        var idProp = GetEntityType().FindProperty("Id")!;
+        // Arrange / Act — the PK is now the _id backing field (plain Guid)
+        var idProp = GetEntityType().FindProperty("_id")!;
 
         // Assert
         idProp.GetColumnName().Should().Be("id");

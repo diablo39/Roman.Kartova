@@ -5,7 +5,15 @@ namespace Kartova.Catalog.Domain;
 
 public sealed partial class Application : ITenantOwned
 {
-    public ApplicationId Id { get; private set; }
+    // Backing field for the primary key — stored as a plain Guid so EF Core can
+    // translate ORDER BY / WHERE expressions without going through the value
+    // converter. The domain-typed Id property is computed from this backing field.
+    // Using a backing field eliminates the .Value member access that EF Core's
+    // LINQ translator cannot push down to SQL when the property has a converter.
+    private Guid _id;
+
+    /// <summary>Domain-typed identifier. EF maps the <c>_id</c> backing field.</summary>
+    public ApplicationId Id => new(_id);
     public TenantId TenantId { get; private set; }
     public string Name { get; private set; } = string.Empty;
     public string DisplayName { get; private set; } = string.Empty;
@@ -22,7 +30,7 @@ public sealed partial class Application : ITenantOwned
         Guid ownerUserId,
         DateTimeOffset createdAt)
     {
-        Id = id;
+        _id = id.Value;
         TenantId = tenantId;
         Name = name;
         DisplayName = displayName;
@@ -35,6 +43,20 @@ public sealed partial class Application : ITenantOwned
     private Application() { }
 
     public static Application Create(string name, string displayName, string description, Guid ownerUserId, TenantId tenantId)
+        => Create(name, displayName, description, ownerUserId, tenantId, DateTimeOffset.UtcNow);
+
+    /// <summary>
+    /// Overload that accepts an explicit <paramref name="createdAt"/> timestamp.
+    /// Used by migration/seeding code and integration-test fixtures that need
+    /// deterministic ordering without sleeping between inserts.
+    /// </summary>
+    public static Application Create(
+        string name,
+        string displayName,
+        string description,
+        Guid ownerUserId,
+        TenantId tenantId,
+        DateTimeOffset createdAt)
     {
         ValidateName(name);
         ValidateDisplayName(displayName);
@@ -51,7 +73,7 @@ public sealed partial class Application : ITenantOwned
             displayName,
             description,
             ownerUserId,
-            DateTimeOffset.UtcNow);
+            createdAt);
     }
 
     // Mirrors the SPA's zod rule so the SPA check is UX-only and the server is the source of truth.

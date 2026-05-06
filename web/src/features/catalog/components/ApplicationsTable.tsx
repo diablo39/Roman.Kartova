@@ -1,7 +1,11 @@
 import { Link } from "react-router-dom";
 import { Table } from "@/components/application/table/table";
-import { Skeleton } from "@/components/base/skeleton/skeleton";
 import { Card, CardContent } from "@/components/base/card/card";
+import {
+  SortableHead, TablePager, TableSkeleton,
+  fromSort, toSort,
+} from "@/components/application/data-table/data-table";
+import type { CursorListResult, SortDirection } from "@/lib/list/types";
 
 export interface ApplicationRow {
   id: string;
@@ -12,34 +16,30 @@ export interface ApplicationRow {
   createdAt?: string;
 }
 
-interface ApplicationsTableProps {
-  isLoading: boolean;
-  applications: ApplicationRow[] | undefined;
+type SortField = "createdAt" | "name";
+
+interface Props {
+  list: CursorListResult<ApplicationRow>;
+  sortBy: SortField;
+  sortOrder: SortDirection;
+  onSortChange: (field: SortField, order: SortDirection) => void;
 }
 
-const SKELETON_ROW_COUNT = 5;
-
-export function ApplicationsTable({ isLoading, applications }: ApplicationsTableProps) {
-  if (isLoading) {
+export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange }: Props) {
+  if (list.isLoading) {
     return (
       <Table aria-label="Applications">
         <Table.Header>
           <Table.Head id="name" isRowHeader>Name</Table.Head>
           <Table.Head id="description">Description</Table.Head>
+          <Table.Head id="createdAt">Created</Table.Head>
         </Table.Header>
-        <Table.Body>
-          {Array.from({ length: SKELETON_ROW_COUNT }).map((_, i) => (
-            <Table.Row key={i} id={`skeleton-${i}`} data-testid="row-skeleton">
-              <Table.Cell><Skeleton className="h-5 w-40" /></Table.Cell>
-              <Table.Cell><Skeleton className="h-5 w-72" /></Table.Cell>
-            </Table.Row>
-          ))}
-        </Table.Body>
+        <TableSkeleton rows={5} cells={3} />
       </Table>
     );
   }
 
-  if (!applications || applications.length === 0) {
+  if (list.items.length === 0) {
     return (
       <Card className="mx-auto max-w-md text-center">
         <CardContent className="space-y-2 p-8">
@@ -52,30 +52,54 @@ export function ApplicationsTable({ isLoading, applications }: ApplicationsTable
     );
   }
 
+  const handleSortChange = (descriptor: Parameters<typeof toSort>[0]) => {
+    const { field, order } = toSort(descriptor);
+    if (field === "createdAt" || field === "name") {
+      onSortChange(field, order);
+    }
+  };
+
   return (
-    <Table aria-label="Applications">
-      <Table.Header>
-        <Table.Head id="name" isRowHeader>Name</Table.Head>
-        <Table.Head id="description">Description</Table.Head>
-      </Table.Header>
-      <Table.Body>
-        {applications.map(app => (
-          <Table.Row key={app.id} id={app.id}>
-            <Table.Cell>
-              <Link
-                to={`/catalog/applications/${app.id}`}
-                className="block font-medium text-primary hover:underline"
-              >
-                {app.displayName}
-              </Link>
-              <span className="font-mono text-xs text-tertiary">{app.name}</span>
-            </Table.Cell>
-            <Table.Cell className="text-sm text-tertiary">
-              {app.description || <span className="italic">No description</span>}
-            </Table.Cell>
-          </Table.Row>
-        ))}
-      </Table.Body>
-    </Table>
+    <div className="overflow-hidden rounded-xl bg-primary shadow-xs ring-1 ring-secondary">
+      <Table
+        aria-label="Applications"
+        sortDescriptor={fromSort(sortBy, sortOrder)}
+        onSortChange={handleSortChange}
+      >
+        <Table.Header>
+          <SortableHead id="name" isRowHeader>Name</SortableHead>
+          <Table.Head id="description">Description</Table.Head>
+          <SortableHead id="createdAt">Created</SortableHead>
+        </Table.Header>
+        <Table.Body>
+          {list.items.map(app => (
+            <Table.Row key={app.id} id={app.id}>
+              <Table.Cell>
+                <Link
+                  to={`/catalog/applications/${app.id}`}
+                  className="block font-medium text-primary hover:underline"
+                >
+                  {app.displayName}
+                </Link>
+                <span className="font-mono text-xs text-tertiary">{app.name}</span>
+              </Table.Cell>
+              <Table.Cell className="text-sm text-tertiary">
+                {app.description || <span className="italic">No description</span>}
+              </Table.Cell>
+              <Table.Cell className="text-sm text-tertiary">
+                {app.createdAt ? new Date(app.createdAt).toLocaleDateString() : ""}
+              </Table.Cell>
+            </Table.Row>
+          ))}
+        </Table.Body>
+      </Table>
+      <TablePager
+        hasPrev={list.hasPrev}
+        hasNext={list.hasNext}
+        onPrev={list.goPrev}
+        onNext={list.goNext}
+        pageSize={list.items.length}
+      />
+    </div>
   );
 }

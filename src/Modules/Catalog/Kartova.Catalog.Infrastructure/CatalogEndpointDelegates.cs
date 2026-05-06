@@ -2,6 +2,8 @@ using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Multitenancy;
+using Kartova.SharedKernel.Pagination;
+using Kartova.SharedKernel.Postgres.Pagination;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -66,16 +68,84 @@ internal static class CatalogEndpointDelegates
 
     /// <summary>
     /// GET list of Applications visible in current tenant. Direct synchronous
-    /// handler dispatch to preserve the HTTP request scope's
-    /// <c>ITenantScope</c> (see comment on <see cref="RegisterApplicationAsync"/>).
-    /// RLS auto-filters cross-tenant rows (ADR-0090).
+    /// handler dispatch to preserve the HTTP request scope's <c>ITenantScope</c>
+    /// (see comment on <see cref="RegisterApplicationAsync"/>). RLS auto-filters
+    /// cross-tenant rows (ADR-0090). Cursor-paginated per ADR-0095.
+    ///
+    /// <para>
+    /// <c>sortBy</c> and <c>sortOrder</c> are accepted as raw strings and parsed with
+    /// <c>Enum.TryParse(ignoreCase: true)</c> so that the wire contract
+    /// (<c>?sortBy=createdAt&amp;sortOrder=asc</c>, camelCase per ADR-0095) and the
+    /// C# enum member names (<c>CreatedAt</c>, <c>Asc</c>) are both accepted. The JSON
+    /// serializer emits camelCase names (via <see cref="System.Text.Json.Serialization.JsonStringEnumConverter"/>
+    /// registered in <c>Program.cs</c>), so the OpenAPI document and generated
+    /// TypeScript client will send camelCase values.
+    /// </para>
     /// </summary>
     internal static async Task<IResult> ListApplicationsAsync(
+        [FromQuery] string? sortBy,
+        [FromQuery] string? sortOrder,
+        [FromQuery] string? cursor,
+        [FromQuery] string? limit,
         ListApplicationsHandler handler,
         CatalogDbContext db,
         CancellationToken ct)
     {
-        var rows = await handler.Handle(new ListApplicationsQuery(), db, ct);
-        return Results.Ok(rows);
+        // Case-insensitive parse: accepts both "createdAt" (wire contract) and "CreatedAt".
+        // Unknown strings → InvalidSortFieldException / InvalidSortOrderException → RFC 7807 400
+        // (PagingExceptionHandler). ADR-0095 §4.3.
+        //
+        // Enum.TryParse alone accepts numeric strings ("999", "-1") and binds them to
+        // an undefined enum value. Enum.IsDefined rejects those before they reach the
+        // sort spec / order branch (otherwise an undefined SortOrder would silently
+        // fall through to the desc branch in QueryablePagingExtensions).
+        ApplicationSortField? parsedSortBy = null;
+        if (sortBy is not null)
+        {
+            if (!Enum.TryParse<ApplicationSortField>(sortBy, ignoreCase: true, out var sf)
+                || !Enum.IsDefined(sf))
+            {
+                throw new InvalidSortFieldException(sortBy, ApplicationSortSpecs.AllowedFieldNames);
+            }
+            parsedSortBy = sf;
+        }
+
+        SortOrder? parsedSortOrder = null;
+        if (sortOrder is not null)
+        {
+            if (!Enum.TryParse<SortOrder>(sortOrder, ignoreCase: true, out var so)
+                || !Enum.IsDefined(so))
+            {
+                throw new InvalidSortOrderException(sortOrder);
+            }
+            parsedSortOrder = so;
+        }
+
+        // limit is bound as string? (not int?) so a non-integer input like ?limit=abc maps
+        // to the same `invalid-limit` RFC 7807 envelope as out-of-range numerics, instead of
+        // bypassing PagingExceptionHandler with a framework-generated parse-error 400.
+        // Range validation lives downstream in ToCursorPagedAsync.
+        int effectiveLimit;
+        if (limit is null)
+        {
+            effectiveLimit = QueryablePagingExtensions.DefaultLimit;
+        }
+        else if (!int.TryParse(limit, System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out effectiveLimit))
+        {
+            throw new InvalidLimitException(
+                limit,
+                QueryablePagingExtensions.MinLimit,
+                QueryablePagingExtensions.MaxLimit);
+        }
+
+        var query = new ListApplicationsQuery(
+            SortBy: parsedSortBy ?? ApplicationSortField.CreatedAt,
+            SortOrder: parsedSortOrder ?? SortOrder.Desc,
+            Cursor: cursor,
+            Limit: effectiveLimit);
+
+        var page = await handler.Handle(query, db, ct);
+        return Results.Ok(page);
     }
 }

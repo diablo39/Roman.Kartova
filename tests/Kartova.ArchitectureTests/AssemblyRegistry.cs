@@ -58,4 +58,15 @@ internal static class AssemblyRegistry
         yield return Catalog.Contracts;
         yield return Organization.Contracts;
     }
+
+    /// <summary>
+    /// Returns every module's primary <c>*.Infrastructure</c> assembly.
+    /// Used by <see cref="PaginationConventionRules"/> (ADR-0095 §8).
+    /// Add new module Infrastructure assemblies here when modules are added.
+    /// </summary>
+    public static IReadOnlyList<Assembly> AllInfrastructureAssemblies() =>
+    [
+        Catalog.Infrastructure,
+        Organization.Infrastructure,
+    ];
 }

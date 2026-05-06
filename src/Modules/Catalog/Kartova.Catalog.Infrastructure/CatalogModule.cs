@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using Kartova.Catalog.Contracts;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Pagination;
 using Kartova.SharedKernel.Postgres;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -35,7 +36,13 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .ProducesProblem(StatusCodes.Status404NotFound);
         tenant.MapGet("/applications", CatalogEndpointDelegates.ListApplicationsAsync)
               .WithName("ListApplications")
-              .Produces<IReadOnlyList<ApplicationResponse>>(StatusCodes.Status200OK);
+              // CursorPage<T> envelope — ADR-0095: items + nextCursor + prevCursor.
+              .Produces<CursorPage<ApplicationResponse>>(StatusCodes.Status200OK);
+              // sortBy/sortOrder enum schemas + bounded-integer limit schema are emitted
+              // in the OpenAPI doc by Kartova.Api.OpenApi.CursorListQueryParameterTransformer
+              // (registered in Program.cs). Endpoint binding stays `string?` so the custom
+              // RFC 7807 envelopes (allowedFields, rawLimit) are preserved on parse failure;
+              // the transformer keeps the wire schema honest for the generated TypeScript client.
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)

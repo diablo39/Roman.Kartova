@@ -17,12 +17,11 @@ public sealed class GetApplicationByIdHandler
         CatalogDbContext db,
         CancellationToken ct)
     {
-        // ApplicationId is a strongly-typed value object with an EF Core value
-        // converter. Comparing the wrapped value (x.Id == new ApplicationId(q.Id))
-        // round-trips through the converter; comparing x.Id.Value directly does
-        // not translate to SQL.
-        var appId = new Kartova.Catalog.Domain.ApplicationId(q.Id);
-        var app = await db.Applications.FirstOrDefaultAsync(x => x.Id == appId, ct);
+        // Use ApplicationSortSpecs.IdEquals so this handler never references
+        // EfApplicationConfiguration.IdFieldName (the EF backing-field string)
+        // directly — the canonical reference lives in ApplicationSortSpecs alone.
+        var app = await db.Applications.FirstOrDefaultAsync(
+            ApplicationSortSpecs.IdEquals(q.Id), ct);
         return app?.ToResponse();
     }
 }

@@ -32,16 +32,26 @@ public class ContractsCoverageRules
         var contractsAssemblies = AssemblyRegistry.AllContracts().ToArray();
         contractsAssemblies.Should().NotBeEmpty();
 
-        var result = Types.InAssemblies(contractsAssemblies)
-            .That().AreClasses()
-            .And().DoNotHaveCustomAttribute(typeof(CompilerGeneratedAttribute))
-            .And().DoNotResideInNamespaceStartingWith("Coverlet.")
-            .And().DoNotHaveNameMatching(SyntheticTypeNamePattern)
-            .Should().HaveCustomAttribute(typeof(ExcludeFromCodeCoverageAttribute))
-            .GetResult();
+        // Enums cannot carry [ExcludeFromCodeCoverage] (the attribute's AttributeUsage
+        // does not include AttributeTargets.Enum). Coverlet excludes enums from its
+        // branch-coverage instrumentation by default, so they are already harmless.
+        // We filter them out via reflection after NetArchTest resolves the type list,
+        // because NetArchTest's AreClasses() predicate may include enum types depending
+        // on its internal Type.IsClass implementation (enums in .NET inherit System.Enum
+        // which is a class, so reflection can be ambiguous).
+        var offendingNonEnumTypes = contractsAssemblies
+            .SelectMany(a => a.GetTypes())
+            .Where(t => t.IsClass && !t.IsEnum)
+            .Where(t => !Attribute.IsDefined(t, typeof(CompilerGeneratedAttribute)))
+            .Where(t => !t.Namespace?.StartsWith("Coverlet.", StringComparison.Ordinal) ?? true)
+            .Where(t => !System.Text.RegularExpressions.Regex.IsMatch(t.Name, SyntheticTypeNamePattern))
+            .Where(t => !Attribute.IsDefined(t, typeof(ExcludeFromCodeCoverageAttribute), inherit: false))
+            .Select(t => t.FullName ?? t.Name)
+            .ToArray();
 
-        result.IsSuccessful.Should().BeTrue(
-            because: BuildFailureMessage(result, "Every type in a *.Contracts assembly is a pure data carrier and must be decorated with [ExcludeFromCodeCoverage]"));
+        offendingNonEnumTypes.Should().BeEmpty(
+            because: "Every non-enum type in a *.Contracts assembly is a pure data carrier and must be decorated with [ExcludeFromCodeCoverage]. " +
+                     $"Offending types: {string.Join(", ", offendingNonEnumTypes)}");
     }
 
     [Fact]

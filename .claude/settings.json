@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"C:/Users/roman.glogowski/.claude/hooks/dod-check.js\""
+          }
+        ]
+      }
+    ]
+  }
+}

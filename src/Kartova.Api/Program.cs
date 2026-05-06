@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using JasperFx;
 using Kartova.Catalog.Infrastructure;
 using Kartova.Organization.Application;
@@ -57,7 +59,23 @@ public class Program
         });
 
         // OpenAPI document — /openapi/v1.json (anonymous, no Swashbuckle, ADR-0029/0034).
-        builder.Services.AddOpenApi("v1");
+        // Cursor-list parameter schemas (ADR-0095): see CursorListQueryParameterTransformer
+        // for why the wire-level binding stays `string?` while OpenAPI advertises typed
+        // enum/bounded-integer schemas for sortBy / sortOrder / limit.
+        builder.Services.AddOpenApi("v1", o =>
+        {
+            o.AddOperationTransformer<Kartova.Api.OpenApi.CursorListQueryParameterTransformer>();
+        });
+
+        // Emit enum values as camelCase strings in JSON and OpenAPI (ADR-0095).
+        // Applies globally so every current and future enum (ApplicationSortField,
+        // SortOrder, per-resource sort fields for Components/Services/Libraries, etc.)
+        // is covered without per-enum attributes.
+        builder.Services.ConfigureHttpJsonOptions(o =>
+        {
+            o.SerializerOptions.Converters.Add(
+                new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+        });
 
         // CORS — allow configured SPA origins (e.g. http://localhost:5173 in dev).
         // Production default: empty array → all origins blocked (safe default).
@@ -92,6 +110,10 @@ public class Program
         // Maps ArgumentException (thrown by aggregate factories) to RFC 7807 400.
         // Centralized so write endpoints don't copy-paste a try/catch.
         builder.Services.AddExceptionHandler<DomainValidationExceptionHandler>();
+
+        // Pagination/sort → 400 mapping — ADR-0095.
+        // Maps InvalidSortFieldException and InvalidCursorException to RFC 7807 400.
+        builder.Services.AddExceptionHandler<PagingExceptionHandler>();
 
         // Admin bypass DbContext — separate BYPASSRLS connection string (ADR-0090).
         // Registered here (not in OrganizationModule) because OrganizationModule.Infrastructure
