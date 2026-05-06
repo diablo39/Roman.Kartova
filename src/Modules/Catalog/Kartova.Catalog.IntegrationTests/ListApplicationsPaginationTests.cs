@@ -44,7 +44,7 @@ public sealed class ListApplicationsPaginationTests
                 + (cursor is null ? "" : $"&cursor={Uri.EscapeDataString(cursor)}");
             var resp = await client.GetAsync(url);
             resp.StatusCode.Should().Be(HttpStatusCode.OK);
-            var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>();
+            var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
             page.Should().NotBeNull();
             foreach (var item in page!.Items)
             {
@@ -182,9 +182,10 @@ public sealed class ListApplicationsPaginationTests
         var client = _fx.CreateClientForOrgA();
 
         var defaultResp = await client.GetFromJsonAsync<CursorPage<ApplicationResponse>>(
-            "/api/v1/catalog/applications");
+            "/api/v1/catalog/applications", KartovaApiFixtureBase.WireJson);
         var explicitResp = await client.GetFromJsonAsync<CursorPage<ApplicationResponse>>(
-            "/api/v1/catalog/applications?sortBy=createdAt&sortOrder=desc&limit=50");
+            "/api/v1/catalog/applications?sortBy=createdAt&sortOrder=desc&limit=50",
+            KartovaApiFixtureBase.WireJson);
 
         defaultResp.Should().NotBeNull();
         explicitResp.Should().NotBeNull();
@@ -200,14 +201,16 @@ public sealed class ListApplicationsPaginationTests
         var client = _fx.CreateClientForOrgA();
 
         var first = await client.GetFromJsonAsync<CursorPage<ApplicationResponse>>(
-            "/api/v1/catalog/applications?sortBy=createdAt&sortOrder=asc&limit=4");
+            "/api/v1/catalog/applications?sortBy=createdAt&sortOrder=asc&limit=4",
+            KartovaApiFixtureBase.WireJson);
         first!.Items.Should().HaveCount(4);
         first.NextCursor.Should().NotBeNull("there must be a next page after 4 rows");
 
         await _fx.DeleteApplicationAsync(OrgATenant, first.Items[^1].Id);
 
         var second = await client.GetFromJsonAsync<CursorPage<ApplicationResponse>>(
-            $"/api/v1/catalog/applications?sortBy=createdAt&sortOrder=asc&limit=4&cursor={Uri.EscapeDataString(first.NextCursor!)}");
+            $"/api/v1/catalog/applications?sortBy=createdAt&sortOrder=asc&limit=4&cursor={Uri.EscapeDataString(first.NextCursor!)}",
+            KartovaApiFixtureBase.WireJson);
 
         second.Should().NotBeNull();
         var firstIds = first.Items.Select(i => i.Id).ToHashSet();
@@ -231,7 +234,7 @@ public sealed class ListApplicationsPaginationTests
                 + (cursor is null ? "" : $"&cursor={Uri.EscapeDataString(cursor)}");
             var resp = await client.GetAsync(url);
             resp.StatusCode.Should().Be(HttpStatusCode.OK);
-            var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>();
+            var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
             page.Should().NotBeNull();
             foreach (var item in page!.Items)
             {
@@ -254,7 +257,8 @@ public sealed class ListApplicationsPaginationTests
 
         // Generate a cursor with ascending direction.
         var ascResp = await client.GetFromJsonAsync<CursorPage<ApplicationResponse>>(
-            "/api/v1/catalog/applications?sortBy=createdAt&sortOrder=asc&limit=2");
+            "/api/v1/catalog/applications?sortBy=createdAt&sortOrder=asc&limit=2",
+            KartovaApiFixtureBase.WireJson);
         ascResp!.NextCursor.Should().NotBeNull();
 
         // Replay the same cursor with desc — should 400.

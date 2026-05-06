@@ -11,6 +11,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Kartova.Catalog.Domain\Kartova.Catalog.Domain.csproj" />
     <ProjectReference Include="..\Kartova.Catalog.Contracts\Kartova.Catalog.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\Kartova.SharedKernel.AspNetCore\Kartova.SharedKernel.AspNetCore.csproj" />
   </ItemGroup>
 
 </Project>

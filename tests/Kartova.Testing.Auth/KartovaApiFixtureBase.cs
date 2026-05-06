@@ -2,6 +2,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Kartova.Api;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.AspNetCore;
@@ -36,6 +38,20 @@ public abstract class KartovaApiFixtureBase : WebApplicationFactory<Program>, IA
         .Build();
 
     public TestJwtSigner Signer { get; } = new();
+
+    /// <summary>
+    /// Mirror of the API's <c>ConfigureHttpJsonOptions</c> setup in <c>Program.cs</c>:
+    /// camelCase property names (default for ASP.NET Core minimal APIs) plus a
+    /// <see cref="JsonStringEnumConverter"/> that emits enum values as camelCase
+    /// strings (per ADR-0095). Tests deserialize HTTP responses with this so the
+    /// wire shape matches end-to-end — without it, any enum field on a response
+    /// (e.g. <c>ApplicationResponse.Lifecycle</c>) fails to deserialize because
+    /// <see cref="JsonSerializerOptions.Default"/> expects integer enums.
+    /// </summary>
+    public static JsonSerializerOptions WireJson { get; } = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
+    };
 
     public string MainConnectionString =>
         PostgresTestBootstrap.ConnectionStringFor(_pg.GetConnectionString(), PostgresTestBootstrap.AppRole);

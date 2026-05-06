@@ -63,7 +63,10 @@ internal static class CatalogEndpointDelegates
                 detail: "No application with that id is visible in the current tenant.",
                 statusCode: StatusCodes.Status404NotFound);
         }
-        return Results.Ok(resp);
+        // Emit ETag (RFC 7232 quoted) so clients can capture for a future
+        // PUT If-Match request. Only the single-resource GET emits the header;
+        // list rows carry `version` in the body but no per-row ETag.
+        return Results.Ok(resp).WithEtag(resp.Version);
     }
 
     /// <summary>
