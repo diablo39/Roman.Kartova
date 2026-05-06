@@ -120,6 +120,13 @@ public class Program
         // RFC 7807 412 with a currentVersion extension so clients can resync.
         builder.Services.AddExceptionHandler<ConcurrencyConflictExceptionHandler>();
 
+        // Lifecycle-conflict → 409 mapping — slice 5 (ADR-0073).
+        // Maps any module's InvalidLifecycleTransitionException (matched by
+        // type name to avoid SharedKernel → Catalog coupling) to RFC 7807 409
+        // with currentLifecycle / attemptedTransition / sunsetDate? / reason?
+        // extensions so clients can render an actionable error.
+        builder.Services.AddExceptionHandler<LifecycleConflictExceptionHandler>();
+
         // Domain-validation → 400 mapping — slice-3 spec §13.3.
         // Maps ArgumentException (thrown by aggregate factories) to RFC 7807 400.
         // Centralized so write endpoints don't copy-paste a try/catch.
