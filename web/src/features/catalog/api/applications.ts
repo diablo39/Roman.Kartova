@@ -2,18 +2,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "./client";
 import { useCursorList } from "@/lib/list/useCursorList";
 import type { RegisterApplicationInput } from "../schemas/registerApplication";
+import type { EditApplicationInput } from "../schemas/editApplication";
+import type { DeprecateApplicationInput } from "../schemas/deprecateApplication";
 import type { components, operations } from "@/generated/openapi";
 
 type ApplicationResponse = components["schemas"]["ApplicationResponse"];
 type Lifecycle = ApplicationResponse["lifecycle"];
-
-// Temporary inline aliases — Task 17 introduces zod schemas at
-// ../schemas/editApplication and ../schemas/deprecateApplication and replaces
-// these with `import type { ... } from "../schemas/..."` re-exports. Shapes
-// match `EditApplicationRequest` / `DeprecateApplicationRequest` in the
-// generated OpenAPI client so the mutations are wire-compatible today.
-type EditApplicationInput = { displayName: string; description: string };
-type DeprecateApplicationInput = { sunsetDate: string };
 
 // Derive sort-param types from the generated OpenAPI operation so the wire
 // allowlist (createdAt|name, asc|desc) is a single source of truth — adding
