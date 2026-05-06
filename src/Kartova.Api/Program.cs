@@ -59,11 +59,12 @@ public class Program
         });
 
         // OpenAPI document — /openapi/v1.json (anonymous, no Swashbuckle, ADR-0029/0034).
-        // Sort query-parameter enum surfacing (ADR-0095): see SortQueryEnumTransformer
-        // for why the wire-level binding stays `string?` while OpenAPI gets enum values.
+        // Cursor-list parameter schemas (ADR-0095): see CursorListQueryParameterTransformer
+        // for why the wire-level binding stays `string?` while OpenAPI advertises typed
+        // enum/bounded-integer schemas for sortBy / sortOrder / limit.
         builder.Services.AddOpenApi("v1", o =>
         {
-            o.AddOperationTransformer<Kartova.Api.OpenApi.SortQueryEnumTransformer>();
+            o.AddOperationTransformer<Kartova.Api.OpenApi.CursorListQueryParameterTransformer>();
         });
 
         // Emit enum values as camelCase strings in JSON and OpenAPI (ADR-0095).

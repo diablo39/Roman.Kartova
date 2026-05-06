@@ -66,12 +66,12 @@ public class OpenApiTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task ListApplications_sortBy_and_sortOrder_parameters_surface_camelCase_enum()
+    public async Task ListApplications_query_parameter_schemas_match_runtime_contract()
     {
         // ADR-0095 §Consequences: OpenAPI generates per-resource sort-field enums
-        // (SortByApplications, SortOrder) so the frontend gets compile-time-safe sort
-        // values via openapi-typescript codegen. Surfacing happens via
-        // SortQueryEnumTransformer (Kartova.Api.OpenApi).
+        // (SortByApplications, SortOrder) and a bounded-integer ?limit so the frontend
+        // gets compile-time-safe sort values + range hints via openapi-typescript
+        // codegen. Surfacing happens via CursorListQueryParameterTransformer.
         var client = _app!.CreateClient();
         var resp = await client.GetAsync("/openapi/v1.json");
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -88,18 +88,30 @@ public class OpenApiTests : IAsyncLifetime
 
         var sortOrderEnum = ParameterEnum(parameters, "sortOrder");
         sortOrderEnum.Should().BeEquivalentTo(["asc", "desc"]);
+
+        var limitSchema = ParameterSchema(parameters, "limit");
+        limitSchema.GetProperty("type").GetString().Should().Be("integer");
+        limitSchema.GetProperty("format").GetString().Should().Be("int32");
+        limitSchema.GetProperty("minimum").GetInt32().Should().Be(1);
+        limitSchema.GetProperty("maximum").GetInt32().Should().Be(200);
     }
 
     private static IReadOnlyList<string> ParameterEnum(System.Text.Json.JsonElement parameters, string name)
+    {
+        var schema = ParameterSchema(parameters, name);
+        return schema.GetProperty("enum")
+            .EnumerateArray()
+            .Select(e => e.GetString()!)
+            .ToList();
+    }
+
+    private static System.Text.Json.JsonElement ParameterSchema(System.Text.Json.JsonElement parameters, string name)
     {
         foreach (var p in parameters.EnumerateArray())
         {
             if (p.GetProperty("name").GetString() == name)
             {
-                return p.GetProperty("schema").GetProperty("enum")
-                    .EnumerateArray()
-                    .Select(e => e.GetString()!)
-                    .ToList();
+                return p.GetProperty("schema");
             }
         }
         throw new InvalidOperationException($"Parameter '{name}' not found.");

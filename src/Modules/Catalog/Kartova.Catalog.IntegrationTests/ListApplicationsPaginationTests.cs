@@ -157,6 +157,24 @@ public sealed class ListApplicationsPaginationTests
         body.Should().Contain("invalid-limit");
     }
 
+    [Theory]
+    [InlineData("abc")]
+    [InlineData("1.5")]
+    [InlineData("")]
+    public async Task LimitNonInteger_returns_400_invalid_limit(string raw)
+    {
+        // Non-integer ?limit values must surface the same RFC 7807 invalid-limit
+        // envelope as out-of-range numerics, not a framework-generated parse-error
+        // 400. Symmetric with sortOrder=999 / sortBy=999 handling.
+        var client = _fx.CreateClientForOrgA();
+
+        var resp = await client.GetAsync($"/api/v1/catalog/applications?limit={raw}");
+
+        resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var body = await resp.Content.ReadAsStringAsync();
+        body.Should().Contain("invalid-limit");
+    }
+
     [Fact]
     public async Task DefaultParams_match_explicit_createdAt_desc_50()
     {

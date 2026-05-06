@@ -86,7 +86,7 @@ internal static class CatalogEndpointDelegates
         [FromQuery] string? sortBy,
         [FromQuery] string? sortOrder,
         [FromQuery] string? cursor,
-        [FromQuery] int? limit,
+        [FromQuery] string? limit,
         ListApplicationsHandler handler,
         CatalogDbContext db,
         CancellationToken ct)
@@ -121,7 +121,23 @@ internal static class CatalogEndpointDelegates
             parsedSortOrder = so;
         }
 
-        var effectiveLimit = limit ?? QueryablePagingExtensions.DefaultLimit;
+        // limit is bound as string? (not int?) so a non-integer input like ?limit=abc maps
+        // to the same `invalid-limit` RFC 7807 envelope as out-of-range numerics, instead of
+        // bypassing PagingExceptionHandler with a framework-generated parse-error 400.
+        // Range validation lives downstream in ToCursorPagedAsync.
+        int effectiveLimit;
+        if (limit is null)
+        {
+            effectiveLimit = QueryablePagingExtensions.DefaultLimit;
+        }
+        else if (!int.TryParse(limit, System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out effectiveLimit))
+        {
+            throw new InvalidLimitException(
+                limit,
+                QueryablePagingExtensions.MinLimit,
+                QueryablePagingExtensions.MaxLimit);
+        }
 
         var query = new ListApplicationsQuery(
             SortBy: parsedSortBy ?? ApplicationSortField.CreatedAt,

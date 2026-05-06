@@ -35,6 +35,12 @@ public sealed class EfApplicationConfiguration : IEntityTypeConfiguration<Kartov
             .ValueGeneratedNever()
             .UsePropertyAccessMode(PropertyAccessMode.Field);
         b.HasKey(IdFieldName);
+
+        // The domain-typed Id getter (`ApplicationId Id => new(_id);`) has no setter
+        // and EF currently ignores it by convention. Explicit Ignore guards against
+        // future EF convention changes (e.g. complex/owned-type auto-mapping for
+        // record-struct returns) that could otherwise cause silent model-snapshot drift.
+        b.Ignore(x => x.Id);
         b.Property(x => x.TenantId)
             .HasConversion(v => v.Value, v => new TenantId(v))
             .HasColumnName("tenant_id")

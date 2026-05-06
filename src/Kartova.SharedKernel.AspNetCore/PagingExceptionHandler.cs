@@ -49,7 +49,13 @@ public sealed class PagingExceptionHandler : IExceptionHandler
             InvalidLimitException limitEx => await WriteProblemAsync(
                 httpContext, exception, ProblemTypes.InvalidLimit,
                 "Invalid limit", limitEx.Message,
-                p => { p.Extensions["limit"] = limitEx.Limit; p.Extensions["minLimit"] = limitEx.MinLimit; p.Extensions["maxLimit"] = limitEx.MaxLimit; },
+                p =>
+                {
+                    p.Extensions["limit"] = limitEx.Limit;
+                    p.Extensions["rawLimit"] = limitEx.RawLimit;
+                    p.Extensions["minLimit"] = limitEx.MinLimit;
+                    p.Extensions["maxLimit"] = limitEx.MaxLimit;
+                },
                 cancellationToken),
 
             _ => false,

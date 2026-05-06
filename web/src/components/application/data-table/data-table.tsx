@@ -35,8 +35,10 @@ export function SortableHead({ id, isRowHeader, children }: SortableHeadProps) {
 /**
  * Convert react-aria's SortDescriptor into our (field, order) shape.
  * The Untitled UI/RAC <Table> emits `direction: "ascending"|"descending"`;
- * our wire contract uses `"asc"|"desc"` (per ADR-0095). Also tolerates the
- * undefined `column` case (no active sort) by passing through `null`.
+ * our wire contract uses `"asc"|"desc"` (per ADR-0095). `descriptor.column`
+ * is typed as `Key` (string|number) by react-aria and is always defined when
+ * the host <Table> emits onSortChange — callers must still allowlist the
+ * resulting `field` against the per-resource sort enum before sending it.
  */
 export function toSort(descriptor: SortDescriptor): { field: string; order: SortDirection } {
   return {

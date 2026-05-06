@@ -38,11 +38,11 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .WithName("ListApplications")
               // CursorPage<T> envelope — ADR-0095: items + nextCursor + prevCursor.
               .Produces<CursorPage<ApplicationResponse>>(StatusCodes.Status200OK);
-              // sortBy/sortOrder enum schemas are emitted in the OpenAPI doc by
-              // Kartova.Api.OpenApi.SortQueryEnumTransformer (registered in Program.cs).
-              // Endpoint binding stays `string?` so the custom RFC 7807 envelope (with
-              // allowedFields) is preserved on parse failure; the transformer keeps the
-              // wire schema honest for the generated TypeScript client.
+              // sortBy/sortOrder enum schemas + bounded-integer limit schema are emitted
+              // in the OpenAPI doc by Kartova.Api.OpenApi.CursorListQueryParameterTransformer
+              // (registered in Program.cs). Endpoint binding stays `string?` so the custom
+              // RFC 7807 envelopes (allowedFields, rawLimit) are preserved on parse failure;
+              // the transformer keeps the wire schema honest for the generated TypeScript client.
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
