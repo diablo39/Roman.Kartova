@@ -61,7 +61,7 @@ That leaves `PUT` for full-resource replacement on stable, small DTOs (e.g., the
 ## Implementation notes
 
 - Slice 5 introduces three new endpoints under this policy: `PUT /api/v1/catalog/applications/{id}`, `POST /api/v1/catalog/applications/{id}/deprecate`, `POST /api/v1/catalog/applications/{id}/decommission`. Each is the reference exemplar.
-- The architecture test `RestVerbPolicyRules.No_endpoint_uses_PATCH_verb` (Task 3) walks the `EndpointDataSource` after `WebApplicationFactory` boot and asserts no endpoint metadata declares a `PATCH` HTTP method.
+- The architecture test `RestVerbPolicyRules.No_endpoint_uses_PATCH_verb` (Task 2 of slice 5) walks the `EndpointDataSource` after `WebApplicationFactory` boot and asserts no endpoint metadata declares a `PATCH` HTTP method.
 
 ## References
 
