@@ -11,6 +11,8 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
+    <!-- ConcurrencyConflictExceptionHandler maps EF Core DbUpdateConcurrencyException → 412. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
   </ItemGroup>
 
   <ItemGroup>
