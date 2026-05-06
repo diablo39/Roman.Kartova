@@ -1,6 +1,6 @@
 # Kartova — Development Progress Checklist
 
-**Last updated:** 2026-04-28
+**Last updated:** 2026-05-06
 
 ## How to use
 - [ ] = Not started
@@ -11,8 +11,8 @@
 
 | Phase | Status | Progress |
 |-------|--------|----------|
-| Phase 0: Foundation | In Progress | 7/33 |
-| Phase 1: Core Catalog & Notifications | Not Started | 0/55 |
+| Phase 0: Foundation | In Progress | 8/33 |
+| Phase 1: Core Catalog & Notifications | In Progress | 7/55 |
 | Phase 2: Auto-Import | Not Started | 0/36 |
 | Phase 3: Documentation | Not Started | 0/15 |
 | Phase 4: Status Page | Not Started | 0/16 |
@@ -21,7 +21,7 @@
 | Phase 7: Intelligence | Not Started | 0/13 |
 | Phase 8: Analytics | Not Started | 0/14 |
 | Phase 9: Advanced | Not Started | 0/0 |
-| **Total** | | **7/209** |
+| **Total** | | **15/209** |
 
 ---
 
@@ -33,7 +33,7 @@
 - [x] E-01.F-01.S-01 — .NET solution structure with clean architecture
 - [x] E-01.F-01.S-02 — React frontend project with TypeScript
 - [x] E-01.F-01.S-03 — Docker Compose for local development
-- [ ] E-01.F-01.S-04 — Dev-stack seed data (Org A organization row matching realm tenant_id; surfaced by slice 4 — `/api/v1/organizations/me` 404s in browser dev until then)
+- [x] E-01.F-01.S-04 — Dev-stack seed data (Org A organization row matching realm tenant_id) (slice-4-cleanup — PR #18, 2026-05-01)
 
 **E-01.F-02: CI/CD Pipeline**
 - [ ] E-01.F-02.S-01 — CI pipeline (build, test, lint)
@@ -93,10 +93,10 @@
 **E-02.F-01: Application Entity Management**
 - [x] E-02.F-01.S-01 — Register new application in catalog (slice 3 — PR #10, 2026-04-30; UI surface added in slice 4 — PR #17, 2026-04-30)
 - [x] E-02.F-01.S-02 — Application detail page with metadata (slice 4 — PR #17, 2026-04-30; header + metadata only, tabs deferred)
-- [ ] E-02.F-01.S-03 — Edit application metadata
-- [ ] E-02.F-01.S-04 — Application lifecycle status transitions
-- [ ] E-02.F-01.S-06 — Field-level ProblemDetails errors (backend emits `errors: { field: [msg] }`; SPA already maps via `applyProblemDetailsToForm`)
-- [ ] E-02.F-01.S-07 — Move kebab-case Name validation into `Application.Create` domain invariant (currently form-only; CLI/direct API bypasses it)
+- [x] E-02.F-01.S-03 — Edit application metadata (slice 5 — PR #<n>, 2026-05-06; PUT /api/v1/catalog/applications/{id} with If-Match/ETag optimistic concurrency, ADR-0096)
+- [x] E-02.F-01.S-04 — Application lifecycle status transitions (slice 5 — PR #<n>, 2026-05-06; ADR-0073 Active → Deprecated → Decommissioned linear forward, sunsetDate strict; admin override + audit + notifications deferred to follow-up slices)
+- [x] E-02.F-01.S-06 — Field-level ProblemDetails errors (slice-4-cleanup — PR #18, 2026-05-01)
+- [x] E-02.F-01.S-07 — Move kebab-case Name validation into `Application.Create` domain invariant (slice-4-cleanup — PR #18, 2026-05-01)
 
 **E-02.F-02: Service Entity Management**
 - [x] E-02.F-01.S-05 — Required minimum fields on all entity types (slice 3 — PR #10, 2026-04-30; enforced as `Application.Create` invariants for the first entity)
