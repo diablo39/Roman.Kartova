@@ -189,4 +189,35 @@ internal static class CatalogEndpointDelegates
 
         return Results.Ok(resp).WithEtag(resp.Version);
     }
+
+    /// <summary>
+    /// POST deprecate transitions Active → Deprecated. No If-Match — domain
+    /// invariant ("current state must be Active") is the implicit version
+    /// (slice 5 spec §3 Decision #7). Domain rejection of a non-Active source
+    /// surfaces as <c>InvalidLifecycleTransitionException</c> → 409 via
+    /// <c>LifecycleConflictExceptionHandler</c>. A past <c>sunsetDate</c> surfaces
+    /// as <see cref="ArgumentException"/> → 400 via
+    /// <c>DomainValidationExceptionHandler</c> (with <c>errors.sunsetDate</c>).
+    /// </summary>
+    internal static async Task<IResult> DeprecateApplicationAsync(
+        Guid id,
+        [FromBody] DeprecateApplicationRequest request,
+        DeprecateApplicationHandler handler,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        var resp = await handler.Handle(
+            new DeprecateApplicationCommand(new ApplicationId(id), request.SunsetDate),
+            db, ct);
+
+        if (resp is null)
+        {
+            return Results.Problem(
+                type: ProblemTypes.ResourceNotFound,
+                title: "Application not found",
+                detail: "No application with that id is visible in the current tenant.",
+                statusCode: StatusCodes.Status404NotFound);
+        }
+        return Results.Ok(resp);
+    }
 }

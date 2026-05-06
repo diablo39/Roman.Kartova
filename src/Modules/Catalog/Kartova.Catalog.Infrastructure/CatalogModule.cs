@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Wolverine;
 
 namespace Kartova.Catalog.Infrastructure;
@@ -52,6 +53,15 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .ProducesProblem(StatusCodes.Status409Conflict)
               .ProducesProblem(StatusCodes.Status412PreconditionFailed)
               .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+        // POST deprecate — Active → Deprecated transition. Lifecycle endpoints don't
+        // take If-Match (slice 5 spec §3 Decision #7); the domain invariant "current
+        // state must be Active" is the implicit version.
+        tenant.MapPost("/applications/{id:guid}/deprecate", CatalogEndpointDelegates.DeprecateApplicationAsync)
+              .WithName("DeprecateApplication")
+              .Produces<ApplicationResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status404NotFound)
+              .ProducesProblem(StatusCodes.Status409Conflict);
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
@@ -69,6 +79,14 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<GetApplicationByIdHandler>();
         services.AddScoped<ListApplicationsHandler>();
         services.AddScoped<EditApplicationHandler>();
+        services.AddScoped<DeprecateApplicationHandler>();
+
+        // TimeProvider is needed by Application.Deprecate / Decommission for the
+        // "sunsetDate must be in the future" / "now >= sunsetDate" checks. TryAdd
+        // is idempotent — if another module (or test fixture override) already
+        // registered TimeProvider, this is a no-op so tests can swap in
+        // FakeTimeProvider without losing the production default.
+        services.TryAddSingleton(TimeProvider.System);
     }
 
     public void RegisterForMigrator(IServiceCollection services, IConfiguration configuration)
