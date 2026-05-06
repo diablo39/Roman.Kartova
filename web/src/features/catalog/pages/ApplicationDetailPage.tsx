@@ -1,12 +1,17 @@
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "@/components/base/card/card";
 import { Badge } from "@/components/base/badges/badges";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
+import { Button } from "@/components/base/buttons/button";
 import { useApplication } from "@/features/catalog/api/applications";
+import { LifecycleMenu } from "@/features/catalog/components/LifecycleMenu";
+import { EditApplicationDialog } from "@/features/catalog/components/EditApplicationDialog";
 
 export function ApplicationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const query = useApplication(id ?? "");
+  const [editOpen, setEditOpen] = useState(false);
 
   if (query.isLoading) {
     return (
@@ -36,40 +41,48 @@ export function ApplicationDetailPage() {
     );
   }
 
-  const app = query.data as {
-    id: string;
-    tenantId?: string;
-    name: string;
-    displayName: string;
-    description: string;
-    ownerUserId?: string;
-    createdAt?: string;
-  };
+  const app = query.data;
+  // Defense-in-depth: hide Edit when terminal. The server still returns 409
+  // LifecycleConflict if a stale client tries to PUT a Decommissioned app.
+  const canEdit = app.lifecycle !== "decommissioned";
 
   return (
-    <Card>
-      <CardHeader className="space-y-3">
-        <div className="flex flex-wrap items-baseline gap-3">
-          <h2 className="text-2xl font-semibold text-primary">{app.displayName}</h2>
-          <Badge color="gray" type="pill-color" size="sm" className="font-mono">{app.name}</Badge>
-          <Badge color="success" type="pill-color" size="sm">Active</Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <section>
-          <h3 className="text-sm font-medium text-tertiary">Description</h3>
-          <p className="mt-1 text-sm text-secondary">
-            {app.description ? app.description : <span className="italic">No description</span>}
-          </p>
-        </section>
-        <hr className="border-secondary" />
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Field label="ID" value={app.id} mono />
-          <Field label="Owner" value={app.ownerUserId ?? "—"} mono />
-          <Field label="Created" value={app.createdAt ?? "—"} />
-        </section>
-      </CardContent>
-    </Card>
+    <>
+      <Card>
+        <CardHeader className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-baseline gap-3">
+              <h2 className="text-2xl font-semibold text-primary">{app.displayName}</h2>
+              <Badge color="gray" type="pill-color" size="sm" className="font-mono">{app.name}</Badge>
+              <LifecycleMenu application={app} />
+            </div>
+            {canEdit && (
+              <Button color="secondary" size="sm" onClick={() => setEditOpen(true)}>
+                Edit
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <section>
+            <h3 className="text-sm font-medium text-tertiary">Description</h3>
+            <p className="mt-1 text-sm text-secondary">
+              {app.description ? app.description : <span className="italic">No description</span>}
+            </p>
+          </section>
+          <hr className="border-secondary" />
+          <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Field label="ID" value={app.id} mono />
+            <Field label="Owner" value={app.ownerUserId ?? "—"} mono />
+            <Field label="Created" value={app.createdAt ?? "—"} />
+          </section>
+        </CardContent>
+      </Card>
+
+      {editOpen && (
+        <EditApplicationDialog application={app} open onOpenChange={setEditOpen} />
+      )}
+    </>
   );
 }
 
