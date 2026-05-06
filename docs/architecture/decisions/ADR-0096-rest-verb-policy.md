@@ -56,7 +56,7 @@ That leaves `PUT` for full-resource replacement on stable, small DTOs (e.g., the
 - "Change one nullable field" cases that don't map to a named command (genuine sparse update) cannot be expressed at all under this policy. If such a case appears, the resolution is to either expand the `PUT` body (fields stay required, send the unchanged ones explicitly) or introduce a named action. Neither has been needed yet; this ADR is amended (not violated) if and when one does.
 
 **Neutral:**
-- The architecture test that pins absence of `PATCH` (Task 3 of slice 5) costs nothing to maintain.
+- The architecture test that pins absence of `PATCH` (Task 2 of slice 5) costs nothing to maintain.
 
 ## Implementation notes
 
