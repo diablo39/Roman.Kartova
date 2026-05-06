@@ -20,6 +20,9 @@ public sealed partial class Application : ITenantOwned
     public string Description { get; private set; } = string.Empty;
     public Guid OwnerUserId { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
+    public Lifecycle Lifecycle { get; private set; } = Lifecycle.Active;
+    public DateTimeOffset? SunsetDate { get; private set; }
+    public uint Version { get; private set; }
 
     private Application(
         ApplicationId id,
@@ -74,6 +77,53 @@ public sealed partial class Application : ITenantOwned
             description,
             ownerUserId,
             createdAt);
+    }
+
+    public void EditMetadata(string displayName, string description)
+    {
+        if (Lifecycle == Lifecycle.Decommissioned)
+        {
+            throw new InvalidLifecycleTransitionException(Lifecycle, "EditMetadata");
+        }
+
+        ValidateDisplayName(displayName);
+        ValidateDescription(description);
+
+        DisplayName = displayName;
+        Description = description;
+    }
+
+    public void Deprecate(DateTimeOffset sunsetDate, TimeProvider clock)
+    {
+        if (Lifecycle != Lifecycle.Active)
+        {
+            throw new InvalidLifecycleTransitionException(Lifecycle, "Deprecate", SunsetDate);
+        }
+
+        if (sunsetDate <= clock.GetUtcNow())
+        {
+            throw new ArgumentException(
+                "sunsetDate must be in the future.", nameof(sunsetDate));
+        }
+
+        Lifecycle = Lifecycle.Deprecated;
+        SunsetDate = sunsetDate;
+    }
+
+    public void Decommission(TimeProvider clock)
+    {
+        if (Lifecycle != Lifecycle.Deprecated)
+        {
+            throw new InvalidLifecycleTransitionException(Lifecycle, "Decommission", SunsetDate);
+        }
+
+        if (clock.GetUtcNow() < SunsetDate!.Value)
+        {
+            throw new InvalidLifecycleTransitionException(
+                Lifecycle, "Decommission", SunsetDate, reason: "before-sunset-date");
+        }
+
+        Lifecycle = Lifecycle.Decommissioned;
     }
 
     // Mirrors the SPA's zod rule so the SPA check is UX-only and the server is the source of truth.
