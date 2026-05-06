@@ -78,10 +78,10 @@ Shared type `CursorPage<T>` lives in `Kartova.SharedKernel.Contracts`:
 
 | Condition | Status | `type` |
 |---|---|---|
-| `sortBy` outside per-resource allowlist | 400 | `https://kartova.dev/problems/invalid-sort-field` (response includes `allowedFields`) |
-| `sortOrder` not in {asc, desc} | 400 | `https://kartova.dev/problems/invalid-sort-order` |
-| `cursor` malformed / tampered / direction-mismatched against `sortOrder` | 400 | `https://kartova.dev/problems/invalid-cursor` |
-| `limit` outside [1, 200] | 400 | `https://kartova.dev/problems/invalid-limit` |
+| `sortBy` outside per-resource allowlist | 400 | `https://kartova.io/problems/invalid-sort-field` (response includes `allowedFields`) |
+| `sortOrder` not in {asc, desc} | 400 | `https://kartova.io/problems/invalid-sort-order` |
+| `cursor` malformed / tampered / direction-mismatched against `sortOrder` | 400 | `https://kartova.io/problems/invalid-cursor` |
+| `limit` outside [1, 200] | 400 | `https://kartova.io/problems/invalid-limit` |
 | Unknown id, cross-tenant id (404 semantics) | n/a — list endpoint, RLS auto-filters |
 
 ## 5. Server-side architecture
@@ -287,3 +287,10 @@ Order-of-magnitude:
 - Architecture fitness test + ADR + CLAUDE.md update: ~0.5 day.
 
 Total: ~3.5 days of focused work.
+
+---
+
+## Corrigenda (post-implementation)
+
+- **§5.1 file paths.** The pagination contract carriers (`CursorPage<T>`, `SortOrder`, `BoundedListResultAttribute`) ship at `src/Kartova.SharedKernel/Pagination/` rather than under a new `Kartova.SharedKernel.Contracts` assembly. Creating a dedicated assembly for three pure-data types added ceremony without value at this scale; each type carries `[ExcludeFromCodeCoverage]` directly so the coverage rule (CLAUDE.md "DTO coverage exclusion") is honored manually. `tests/Kartova.ArchitectureTests/ContractsCoverageRules.cs` still enumerates only `*.Contracts` assemblies, so a future contributor adding a new public DTO under `Kartova.SharedKernel/Pagination/` without `[ExcludeFromCodeCoverage]` will not be caught by the architecture suite — keep this in mind when extending the namespace, or revisit by introducing the dedicated assembly when the second-resource list endpoint (Components) lands.
+- **§4.3 problem-type URIs.** Originally listed as `https://kartova.dev/problems/...`; the deployed wire shape uses `https://kartova.io/problems/...` (governed by ADR-0091). Spec table updated; ADR-0095 §Decision item 7 amended to forward to ADR-0091 for the base URI.

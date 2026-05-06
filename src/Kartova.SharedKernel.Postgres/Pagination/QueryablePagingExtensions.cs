@@ -85,9 +85,11 @@ public static class QueryablePagingExtensions
     }
 
     /// <summary>
-    /// Applies <c>WHERE (sortKey, id) &gt; (?, ?)</c> for asc, reversed for desc.
-    /// Built as an expression tree so EF translates to a row-constructor comparison
-    /// in PostgreSQL (and to a logically equivalent disjunction on sqlite during tests).
+    /// Applies the keyset filter <c>WHERE sortKey &gt; @p OR (sortKey = @p AND id &gt; @p)</c>
+    /// for ascending order (reversed comparators for descending). The disjunctive form is
+    /// portable across the EF Core PostgreSQL provider and the sqlite test path; the
+    /// row-constructor form <c>(sortKey, id) &gt; (?, ?)</c> was the original target but
+    /// was dropped per design spec §14 mitigation. ADR-0095.
     /// </summary>
     private static IQueryable<T> ApplyKeysetFilter<T>(
         IQueryable<T> source,

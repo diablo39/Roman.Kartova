@@ -20,7 +20,7 @@ We also observed that adding pagination retroactively is a wire-shape break + a 
 4. **Pagination style.** Pure cursor; no `total`, no `page`, no `hasMore` (derivable from `nextCursor`). No `?include=total` opt-in in MVP.
 5. **`prevCursor`.** Reserved on the wire; always `null` in MVP. Frontend manages "Prev" via a client-side cursor stack.
 6. **Limit.** `?limit=N`, default 50, max 200, range error → 400 RFC 7807.
-7. **Error type prefixes** (per ADR-0091): `https://kartova.dev/problems/invalid-sort-field`, `.../invalid-sort-order`, `.../invalid-cursor`, `.../invalid-limit`.
+7. **Error type prefixes.** Base URI defined in ADR-0091 (`https://kartova.io/problems/`). ADR-0095 only adds the slugs: `invalid-sort-field`, `invalid-sort-order`, `invalid-cursor`, `invalid-limit` — i.e. `https://kartova.io/problems/invalid-sort-field`, `.../invalid-sort-order`, `.../invalid-cursor`, `.../invalid-limit`.
 8. **Standing convention.** Every new list endpoint and every new list screen MUST be designed and implemented with sorting + cursor pagination from the first cut. Bounded lists (≤ N rows by domain invariant) MAY return a flat array, but MUST be decorated with `[BoundedListResult]` and an inline justification comment citing the cap. Default is paginated; opt-out is explicit.
 9. **Architecture fitness test** enforces clause 8 — `tests/Kartova.ArchitectureTests/PaginationConventionRules.cs`.
 
@@ -34,6 +34,6 @@ We also observed that adding pagination retroactively is a wire-shape break + a 
 ## Implementation notes
 
 - `s` (sort value) carries a JSON scalar (string, number, or ISO-8601 timestamp string).
-- Stable tiebreaker is `id` (Guid). The keyset filter uses PostgreSQL row-constructor comparison: `(sortKey, id) > (?, ?)` for `asc`, reversed for `desc`. EF Core's PostgreSQL provider translates this directly.
+- Stable tiebreaker is `id` (Guid). The keyset filter uses the disjunctive form `key > @p OR (key = @p AND id > @p)` for `asc`, reversed for `desc` (chosen for portability across PostgreSQL + sqlite test path; row-constructor was the original target but was dropped per spec §14 mitigation).
 - Cursor decode mismatching `d` against the request's `sortOrder` throws `InvalidCursorException` → 400.
-- `gcTime` on frontend `useCursorList` set to 5 min default to bound `useInfiniteQuery` cache growth.
+- `gcTime` on frontend `useCursorList` set to 5 min default to bound the per-cursor `useQuery` cache growth (one cached entry per visited cursor in the in-memory stack).

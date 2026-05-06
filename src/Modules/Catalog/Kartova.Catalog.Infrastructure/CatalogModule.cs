@@ -38,14 +38,11 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .WithName("ListApplications")
               // CursorPage<T> envelope — ADR-0095: items + nextCursor + prevCursor.
               .Produces<CursorPage<ApplicationResponse>>(StatusCodes.Status200OK);
-              // Note: sortBy and sortOrder appear in the generated OpenAPI doc as plain
-              // type:string (no enum constraint). This is a known limitation of using raw
-              // string parameters to work around .NET 10 minimal-API case-sensitive enum
-              // binding (Task 10). The WithOpenApi(transform) overload is deprecated in
-              // .NET 10 (ASPDEPR002); the operation-transformer replacement would require
-              // wiring in Program.cs and is out of scope for this task. Runtime safety is
-              // enforced by the server-side Enum.TryParse + PagingExceptionHandler (→ RFC 7807
-              // 400) and by useListUrlState's allowlist on the frontend. ADR-0095.
+              // sortBy/sortOrder enum schemas are emitted in the OpenAPI doc by
+              // Kartova.Api.OpenApi.SortQueryEnumTransformer (registered in Program.cs).
+              // Endpoint binding stays `string?` so the custom RFC 7807 envelope (with
+              // allowedFields) is preserved on parse failure; the transformer keeps the
+              // wire schema honest for the generated TypeScript client.
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)

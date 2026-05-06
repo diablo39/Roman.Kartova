@@ -34,6 +34,6 @@ public sealed class ListApplicationsHandler
                 ApplicationSortSpecs.IdSelector, IdExtractor, ct);
 
         var items = page.Items.Select(r => r.ToResponse()).ToList();
-        return new CursorPage<ApplicationResponse>(items, page.NextCursor, PrevCursor: null);
+        return new CursorPage<ApplicationResponse>(items, page.NextCursor, page.PrevCursor);
     }
 }

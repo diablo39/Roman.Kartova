@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { useQuery, type QueryKey } from "@tanstack/react-query";
 import type { CursorListResult, CursorPageEnvelope } from "./types";
 
@@ -16,25 +16,30 @@ interface UseCursorListOptions<TItem> {
  *
  * - The cursor stack is `[undefined, c1, c2, ...]`; the last entry is the
  *   current page's cursor. goNext pushes the next-cursor; goPrev pops.
- * - Sort changes that mutate `queryKey` automatically reset the stack via
- *   useEffect dependency on the serialized key.
+ * - Sort changes that mutate `queryKey` reset the stack synchronously during
+ *   render (React's "store-previous-prop-in-state" pattern) so the stale
+ *   cursor never reaches `useQuery` — otherwise a sort flip would emit one
+ *   wasted 400 (cursor direction ≠ request order) before the reset committed.
  */
 export function useCursorList<TItem>(
   options: UseCursorListOptions<TItem>,
 ): CursorListResult<TItem> {
   const { queryKey, fetchPage, gcTime = 5 * 60 * 1000 } = options;
-  const [stack, setStack] = useState<(string | undefined)[]>([undefined]);
-  const currentCursor = stack[stack.length - 1];
-
-  // Reset stack when queryKey identity changes (sort flip).
   const keyStr = JSON.stringify(queryKey);
-  const prevKey = useRef(keyStr);
-  useEffect(() => {
-    if (prevKey.current !== keyStr) {
-      prevKey.current = keyStr;
-      setStack([undefined]);
-    }
-  }, [keyStr]);
+  const [stack, setStack] = useState<(string | undefined)[]>([undefined]);
+  const [seenKey, setSeenKey] = useState(keyStr);
+
+  // Synchronous reset during render: when `queryKey` identity changes (sort
+  // flip), drop the cursor stack before `useQuery` reads `currentCursor`.
+  // Setting state during render with a guard is the React-recommended way to
+  // derive state from props without a render → useEffect → re-render race.
+  let activeStack = stack;
+  if (seenKey !== keyStr) {
+    activeStack = [undefined];
+    setStack(activeStack);
+    setSeenKey(keyStr);
+  }
+  const currentCursor = activeStack[activeStack.length - 1];
 
   const query = useQuery({
     queryKey: [...queryKey, { cursor: currentCursor }],
@@ -61,7 +66,7 @@ export function useCursorList<TItem>(
     isFetching: query.isFetching,
     isError: query.isError,
     hasNext: !!query.data?.nextCursor,
-    hasPrev: stack.length > 1,
+    hasPrev: activeStack.length > 1,
     goNext,
     goPrev,
     reset,

@@ -114,6 +114,23 @@ public sealed class ListApplicationsPaginationTests
         body.Should().Contain("invalid-sort-order");
     }
 
+    [Theory]
+    [InlineData("999")]
+    [InlineData("-1")]
+    public async Task OutOfRange_numeric_sortOrder_returns_400_invalid_sort_order(string raw)
+    {
+        // Symmetric with OutOfRange_numeric_sortBy: Enum.TryParse accepts numeric strings
+        // and binds them to undefined enum values that would otherwise silently fall through
+        // to the desc branch. The Enum.IsDefined check rejects them as invalid-sort-order.
+        var client = _fx.CreateClientForOrgA();
+
+        var resp = await client.GetAsync($"/api/v1/catalog/applications?sortOrder={raw}");
+
+        resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var body = await resp.Content.ReadAsStringAsync();
+        body.Should().Contain("invalid-sort-order");
+    }
+
     [Fact]
     public async Task TamperedCursor_returns_400_invalid_cursor()
     {

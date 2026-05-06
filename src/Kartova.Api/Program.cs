@@ -59,7 +59,12 @@ public class Program
         });
 
         // OpenAPI document — /openapi/v1.json (anonymous, no Swashbuckle, ADR-0029/0034).
-        builder.Services.AddOpenApi("v1");
+        // Sort query-parameter enum surfacing (ADR-0095): see SortQueryEnumTransformer
+        // for why the wire-level binding stays `string?` while OpenAPI gets enum values.
+        builder.Services.AddOpenApi("v1", o =>
+        {
+            o.AddOperationTransformer<Kartova.Api.OpenApi.SortQueryEnumTransformer>();
+        });
 
         // Emit enum values as camelCase strings in JSON and OpenAPI (ADR-0095).
         // Applies globally so every current and future enum (ApplicationSortField,

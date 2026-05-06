@@ -94,10 +94,16 @@ internal static class CatalogEndpointDelegates
         // Case-insensitive parse: accepts both "createdAt" (wire contract) and "CreatedAt".
         // Unknown strings → InvalidSortFieldException / InvalidSortOrderException → RFC 7807 400
         // (PagingExceptionHandler). ADR-0095 §4.3.
+        //
+        // Enum.TryParse alone accepts numeric strings ("999", "-1") and binds them to
+        // an undefined enum value. Enum.IsDefined rejects those before they reach the
+        // sort spec / order branch (otherwise an undefined SortOrder would silently
+        // fall through to the desc branch in QueryablePagingExtensions).
         ApplicationSortField? parsedSortBy = null;
         if (sortBy is not null)
         {
-            if (!Enum.TryParse<ApplicationSortField>(sortBy, ignoreCase: true, out var sf))
+            if (!Enum.TryParse<ApplicationSortField>(sortBy, ignoreCase: true, out var sf)
+                || !Enum.IsDefined(sf))
             {
                 throw new InvalidSortFieldException(sortBy, ApplicationSortSpecs.AllowedFieldNames);
             }
@@ -107,7 +113,8 @@ internal static class CatalogEndpointDelegates
         SortOrder? parsedSortOrder = null;
         if (sortOrder is not null)
         {
-            if (!Enum.TryParse<SortOrder>(sortOrder, ignoreCase: true, out var so))
+            if (!Enum.TryParse<SortOrder>(sortOrder, ignoreCase: true, out var so)
+                || !Enum.IsDefined(so))
             {
                 throw new InvalidSortOrderException(sortOrder);
             }

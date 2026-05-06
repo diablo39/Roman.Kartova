@@ -51,7 +51,7 @@ describe("<SortableHead> integrated with <Table>", () => {
   });
 
   it("toSort/fromSort round-trip our (field, order) shape", () => {
-    const desc = fromSort("name", "desc")!;
+    const desc = fromSort("name", "desc");
     expect(toSort(desc)).toEqual({ field: "name", order: "desc" });
   });
 });

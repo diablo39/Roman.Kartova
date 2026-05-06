@@ -65,5 +65,45 @@ public class OpenApiTests : IAsyncLifetime
                 "the version endpoint must be advertised in the OpenAPI document.");
     }
 
+    [Fact]
+    public async Task ListApplications_sortBy_and_sortOrder_parameters_surface_camelCase_enum()
+    {
+        // ADR-0095 §Consequences: OpenAPI generates per-resource sort-field enums
+        // (SortByApplications, SortOrder) so the frontend gets compile-time-safe sort
+        // values via openapi-typescript codegen. Surfacing happens via
+        // SortQueryEnumTransformer (Kartova.Api.OpenApi).
+        var client = _app!.CreateClient();
+        var resp = await client.GetAsync("/openapi/v1.json");
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var doc = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+        var parameters = doc.RootElement
+            .GetProperty("paths")
+            .GetProperty("/api/v1/catalog/applications")
+            .GetProperty("get")
+            .GetProperty("parameters");
+
+        var sortByEnum = ParameterEnum(parameters, "sortBy");
+        sortByEnum.Should().BeEquivalentTo(["createdAt", "name"]);
+
+        var sortOrderEnum = ParameterEnum(parameters, "sortOrder");
+        sortOrderEnum.Should().BeEquivalentTo(["asc", "desc"]);
+    }
+
+    private static IReadOnlyList<string> ParameterEnum(System.Text.Json.JsonElement parameters, string name)
+    {
+        foreach (var p in parameters.EnumerateArray())
+        {
+            if (p.GetProperty("name").GetString() == name)
+            {
+                return p.GetProperty("schema").GetProperty("enum")
+                    .EnumerateArray()
+                    .Select(e => e.GetString()!)
+                    .ToList();
+            }
+        }
+        throw new InvalidOperationException($"Parameter '{name}' not found.");
+    }
+
     private static string EnvKey(string configKey) => configKey.Replace(":", "__");
 }

@@ -71,14 +71,22 @@
             "name": "sortBy",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "createdAt",
+                "name"
+              ]
             }
           },
           {
             "name": "sortOrder",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
             }
           },
           {

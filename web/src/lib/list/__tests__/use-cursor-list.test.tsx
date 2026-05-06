@@ -62,6 +62,40 @@ describe("useCursorList", () => {
     expect(result.current.hasPrev).toBe(false);
   });
 
+  it("queryKey change resets stack synchronously without firing a stale-cursor request", async () => {
+    // Regression test for the render-race fix: when queryKey identity changes
+    // (e.g. user flips sort), the cursor stack must be reset before useQuery
+    // is invoked, so the previous page's cursor never reaches fetchPage with
+    // mismatched sort parameters. Previously the useEffect-based reset ran
+    // *after* the render that detected the change, causing one wasted
+    // fetchPage call with the stale cursor before the reset committed.
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const fetchPage = fetchPageMock([
+      { items: [{ id: "a", name: "A" }], nextCursor: "1", prevCursor: null },
+      { items: [{ id: "b", name: "B" }], nextCursor: null, prevCursor: null },
+    ]);
+
+    const { result, rerender } = renderHook(
+      ({ key }: { key: string }) => useCursorList<Row>({ queryKey: ["t", key], fetchPage }),
+      { wrapper: wrapper(qc), initialProps: { key: "a" } }
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => { result.current.goNext(); });
+    await waitFor(() => expect(result.current.items.map(i => i.id)).toEqual(["b"]));
+    expect(result.current.hasPrev).toBe(true);
+
+    fetchPage.mockClear();
+    rerender({ key: "b" });
+
+    // After the rerender there must be exactly one fetch — for the first page
+    // (cursor === undefined) — never the prior page's cursor "1".
+    await waitFor(() => expect(fetchPage).toHaveBeenCalled());
+    const cursorsRequested = fetchPage.mock.calls.map(call => call[0]);
+    expect(cursorsRequested).toEqual([undefined]);
+    expect(result.current.hasPrev).toBe(false);
+  });
+
   it("reset clears the cursor stack and refetches first page", async () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const fetchPage = fetchPageMock([

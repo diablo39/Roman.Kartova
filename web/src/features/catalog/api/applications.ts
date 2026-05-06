@@ -1,15 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "./client";
 import { useCursorList } from "@/lib/list/useCursorList";
-import type { CursorPageEnvelope } from "@/lib/list/types";
 import type { RegisterApplicationInput } from "../schemas/registerApplication";
-import type { components } from "@/generated/openapi";
+import type { components, operations } from "@/generated/openapi";
 
 type ApplicationResponse = components["schemas"]["ApplicationResponse"];
 
+// Derive sort-param types from the generated OpenAPI operation so the wire
+// allowlist (createdAt|name, asc|desc) is a single source of truth — adding
+// a new sort field on the backend (ADR-0095 §4.1) flows through codegen
+// without requiring a hand edit here.
+type ListApplicationsQuery = NonNullable<operations["ListApplications"]["parameters"]["query"]>;
+
 type ApplicationsListParams = {
-  sortBy: "createdAt" | "name";
-  sortOrder: "asc" | "desc";
+  sortBy: NonNullable<ListApplicationsQuery["sortBy"]>;
+  sortOrder: NonNullable<ListApplicationsQuery["sortOrder"]>;
   limit?: number;
 };
 
@@ -38,7 +43,7 @@ export function useApplicationsList(params: ApplicationsListParams) {
       });
       if (error) throw error;
       if (!data) throw new Error("API returned neither data nor error");
-      return data as unknown as CursorPageEnvelope<ApplicationResponse>;
+      return data;
     },
   });
 }

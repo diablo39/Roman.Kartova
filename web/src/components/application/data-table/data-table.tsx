@@ -45,8 +45,7 @@ export function toSort(descriptor: SortDescriptor): { field: string; order: Sort
   };
 }
 
-export function fromSort(field: string | null, order: SortDirection): SortDescriptor | undefined {
-  if (field === null) return undefined;
+export function fromSort(field: string, order: SortDirection): SortDescriptor {
   return {
     column: field,
     direction: order === "asc" ? "ascending" : "descending",
