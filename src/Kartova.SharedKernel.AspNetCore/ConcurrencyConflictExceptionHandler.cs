@@ -44,13 +44,38 @@ public sealed class ConcurrencyConflictExceptionHandler : IExceptionHandler
 
         // Best-effort: pull the database's current version into the extensions
         // dictionary so the client can resync without a separate GET.
-        var entry = dbEx.Entries.FirstOrDefault();
-        if (entry is not null)
+        //
+        // Two sources, in order of preference:
+        //  1. dbEx.Data["currentVersion"] — populated by the originating handler
+        //     while its DbContext + tenant connection are still alive (the rollback
+        //     in TenantScopeBeginMiddleware's finally block disposes the connection
+        //     before this handler runs, so a fresh GetDatabaseValuesAsync would
+        //     fail in the integration path).
+        //  2. entry.GetDatabaseValuesAsync — fallback for unit tests and any caller
+        //     that hasn't pre-captured the value. Wrapped in try/catch so a disposed
+        //     connection surfaces the bare 412 envelope instead of rethrowing.
+        if (dbEx.Data["currentVersion"] is uint preCaptured)
         {
-            var dbValues = await entry.GetDatabaseValuesAsync(ct);
-            if (dbValues is not null && dbValues["Version"] is uint currentVersion)
+            problem.Extensions["currentVersion"] = VersionEncoding.Encode(preCaptured);
+        }
+        else
+        {
+            var entry = dbEx.Entries.FirstOrDefault();
+            if (entry is not null)
             {
-                problem.Extensions["currentVersion"] = VersionEncoding.Encode(currentVersion);
+                try
+                {
+                    var dbValues = await entry.GetDatabaseValuesAsync(ct);
+                    if (dbValues is not null && dbValues["Version"] is uint currentVersion)
+                    {
+                        problem.Extensions["currentVersion"] = VersionEncoding.Encode(currentVersion);
+                    }
+                }
+                catch
+                {
+                    // Connection / DbContext may already be disposed; we still want
+                    // to emit the 412 envelope. The client can re-fetch via GET.
+                }
             }
         }
 

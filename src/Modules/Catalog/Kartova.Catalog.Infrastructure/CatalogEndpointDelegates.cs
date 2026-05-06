@@ -6,6 +6,10 @@ using Kartova.SharedKernel.Pagination;
 using Kartova.SharedKernel.Postgres.Pagination;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+// ApplicationId is aliased rather than imported via `using Kartova.Catalog.Domain`
+// because that would clash with `System.ApplicationId` in the BCL — same trick
+// ApplicationSortSpecs uses for `DomainApplication`.
+using ApplicationId = Kartova.Catalog.Domain.ApplicationId;
 
 namespace Kartova.Catalog.Infrastructure;
 
@@ -150,5 +154,39 @@ internal static class CatalogEndpointDelegates
 
         var page = await handler.Handle(query, db, ct);
         return Results.Ok(page);
+    }
+
+    /// <summary>
+    /// PUT edit metadata on an existing Application. Full-replacement body
+    /// (DisplayName, Description) per ADR-0096. If-Match required (parsed by
+    /// IfMatchEndpointFilter into HttpContext.Items["expected-version"]).
+    /// Stale If-Match → DbUpdateConcurrencyException → 412 ProblemDetails.
+    /// Edit on Decommissioned → InvalidLifecycleTransitionException → 409.
+    /// </summary>
+    internal static async Task<IResult> EditApplicationAsync(
+        Guid id,
+        [FromBody] EditApplicationRequest request,
+        EditApplicationHandler handler,
+        CatalogDbContext db,
+        ITenantContext tenant,
+        HttpContext http,
+        CancellationToken ct)
+    {
+        var expected = (uint)http.Items[IfMatchEndpointFilter.ExpectedVersionKey]!;
+
+        var resp = await handler.Handle(
+            new EditApplicationCommand(new ApplicationId(id), request.DisplayName, request.Description, expected),
+            db, tenant, ct);
+
+        if (resp is null)
+        {
+            return Results.Problem(
+                type: ProblemTypes.ResourceNotFound,
+                title: "Application not found",
+                detail: "No application with that id is visible in the current tenant.",
+                statusCode: StatusCodes.Status404NotFound);
+        }
+
+        return Results.Ok(resp).WithEtag(resp.Version);
     }
 }

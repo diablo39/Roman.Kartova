@@ -43,6 +43,15 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               // (registered in Program.cs). Endpoint binding stays `string?` so the custom
               // RFC 7807 envelopes (allowedFields, rawLimit) are preserved on parse failure;
               // the transformer keeps the wire schema honest for the generated TypeScript client.
+        tenant.MapPut("/applications/{id:guid}", CatalogEndpointDelegates.EditApplicationAsync)
+              .WithName("EditApplication")
+              .AddEndpointFilter<IfMatchEndpointFilter>()
+              .Produces<ApplicationResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status404NotFound)
+              .ProducesProblem(StatusCodes.Status409Conflict)
+              .ProducesProblem(StatusCodes.Status412PreconditionFailed)
+              .ProducesProblem(StatusCodes.Status428PreconditionRequired);
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
@@ -59,6 +68,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<RegisterApplicationHandler>();
         services.AddScoped<GetApplicationByIdHandler>();
         services.AddScoped<ListApplicationsHandler>();
+        services.AddScoped<EditApplicationHandler>();
     }
 
     public void RegisterForMigrator(IServiceCollection services, IConfiguration configuration)
