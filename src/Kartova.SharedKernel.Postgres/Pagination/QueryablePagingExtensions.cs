@@ -63,13 +63,13 @@ public static class QueryablePagingExtensions
                 throw new InvalidCursorException(
                     $"Cursor was issued for direction '{decoded.Direction}' but request uses '{order}'.");
             }
-            if (expectedIncludeDecommissioned is bool expected
-                && decoded.IncludeDecommissioned != expected)
+            if (expectedIncludeDecommissioned is bool currentFilter
+                && decoded.IncludeDecommissioned != currentFilter)
             {
                 throw new CursorFilterMismatchException(
                     filterName: "includeDecommissioned",
                     expectedValue: decoded.IncludeDecommissioned ? "true" : "false",
-                    actualValue: expected ? "true" : "false");
+                    actualValue: currentFilter ? "true" : "false");
             }
             q = ApplyKeysetFilter(q, sort.KeySelector, idSelector, decoded.SortValue, decoded.Id, order);
         }
