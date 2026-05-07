@@ -15,6 +15,7 @@
     <Project Path="src/Modules/Catalog/Kartova.Catalog.Infrastructure/Kartova.Catalog.Infrastructure.csproj" />
     <Project Path="src/Modules/Catalog/Kartova.Catalog.IntegrationTests/Kartova.Catalog.IntegrationTests.csproj" />
     <Project Path="src/Modules/Catalog/Kartova.Catalog.Tests/Kartova.Catalog.Tests.csproj" />
+    <Project Path="src/Modules/Catalog/Kartova.Catalog.Infrastructure.Tests/Kartova.Catalog.Infrastructure.Tests.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Organization/">
     <Project Path="src/Modules/Organization/Kartova.Organization.Application/Kartova.Organization.Application.csproj" />
@@ -24,6 +25,7 @@
     <Project Path="src/Modules/Organization/Kartova.Organization.Infrastructure.Admin/Kartova.Organization.Infrastructure.Admin.csproj" />
     <Project Path="src/Modules/Organization/Kartova.Organization.IntegrationTests/Kartova.Organization.IntegrationTests.csproj" />
     <Project Path="src/Modules/Organization/Kartova.Organization.Tests/Kartova.Organization.Tests.csproj" />
+    <Project Path="src/Modules/Organization/Kartova.Organization.Infrastructure.Tests/Kartova.Organization.Infrastructure.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Kartova.Api.IntegrationTests/Kartova.Api.IntegrationTests.csproj" />
