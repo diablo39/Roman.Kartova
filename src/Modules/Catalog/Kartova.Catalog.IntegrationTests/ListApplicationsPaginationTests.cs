@@ -383,7 +383,8 @@ public sealed class ListApplicationsPaginationTests
         }
         finally
         {
-            await _fx.DeleteApplicationsAsync(tenantId);
+            await _fx.DeleteApplicationsByPrefixAsync(tenantId, activePrefix);
+            await _fx.DeleteApplicationsByPrefixAsync(tenantId, decommPrefix);
         }
     }
 
@@ -412,7 +413,8 @@ public sealed class ListApplicationsPaginationTests
         }
         finally
         {
-            await _fx.DeleteApplicationsAsync(tenantId);
+            await _fx.DeleteApplicationsByPrefixAsync(tenantId, activePrefix);
+            await _fx.DeleteApplicationsByPrefixAsync(tenantId, decommPrefix);
         }
     }
 
@@ -445,16 +447,24 @@ public sealed class ListApplicationsPaginationTests
         }
         finally
         {
-            await _fx.DeleteApplicationsAsync(tenantId);
+            await _fx.DeleteApplicationsByPrefixAsync(tenantId, activePrefix);
+            await _fx.DeleteApplicationsByPrefixAsync(tenantId, decommPrefix);
         }
     }
 
     [Fact]
     public async Task GET_applications_with_cursor_from_includeDecommissioned_true_then_request_false_returns_400_cursor_filter_mismatch()
     {
+        var unique = $"f6-mism-{Guid.NewGuid():N}";
+        var activePrefix = $"{unique}-a-";
+        var decommPrefix = $"{unique}-d-";
+
         var tenantId = _fx.TenantIdForEmail("admin@orga.kartova.local");
-        await _fx.SeedApplicationsAsync(tenantId, count: 3, namePrefix: "active-");
-        await _fx.SeedApplicationsWithLifecycleAsync(tenantId, count: 2, namePrefix: "decomm-", Lifecycle.Decommissioned);
+        // Seed enough rows (5 total) so limit=2 always produces a NextCursor regardless of
+        // other tenant rows — the 5 rows are the most recent (seeded now), so createdAt desc
+        // puts them at the front, and limit=2 leaves 3 more behind the cursor.
+        await _fx.SeedApplicationsAsync(tenantId, count: 3, namePrefix: activePrefix);
+        await _fx.SeedApplicationsWithLifecycleAsync(tenantId, count: 2, namePrefix: decommPrefix, Lifecycle.Decommissioned);
 
         try
         {
@@ -475,15 +485,22 @@ public sealed class ListApplicationsPaginationTests
         }
         finally
         {
-            await _fx.DeleteApplicationsAsync(tenantId);
+            await _fx.DeleteApplicationsByPrefixAsync(tenantId, activePrefix);
+            await _fx.DeleteApplicationsByPrefixAsync(tenantId, decommPrefix);
         }
     }
 
     [Fact]
     public async Task GET_applications_with_legacy_cursor_lacking_ic_decodes_as_false_and_pages()
     {
+        var unique = $"f6-legc-{Guid.NewGuid():N}";
+        var activePrefix = $"{unique}-a-";
+
         var tenantId = _fx.TenantIdForEmail("admin@orga.kartova.local");
-        await _fx.SeedApplicationsAsync(tenantId, count: 5, namePrefix: "active-");
+        // Seed 5 rows as the most recent rows in the tenant (seeded now, so createdAt desc
+        // puts them at the top). limit=2 on page1 returns 2 of our rows and yields a cursor
+        // pointing into our seeded range.
+        await _fx.SeedApplicationsAsync(tenantId, count: 5, namePrefix: activePrefix);
 
         try
         {
@@ -506,7 +523,7 @@ public sealed class ListApplicationsPaginationTests
         }
         finally
         {
-            await _fx.DeleteApplicationsAsync(tenantId);
+            await _fx.DeleteApplicationsByPrefixAsync(tenantId, activePrefix);
         }
     }
 

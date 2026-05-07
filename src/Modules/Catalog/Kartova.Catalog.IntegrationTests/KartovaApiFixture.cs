@@ -135,12 +135,16 @@ public class KartovaApiFixture : KartovaApiFixtureBase
                 var clock = new FakeTimeProvider();
                 clock.SetUtcNow(origin.AddMinutes(i).AddHours(1));
                 app.Deprecate(sunsetDate: clock.GetUtcNow().AddMinutes(1), clock);
-            }
-            if (lifecycle == Lifecycle.Decommissioned)
-            {
-                var clock = new FakeTimeProvider();
-                clock.SetUtcNow(origin.AddMinutes(i).AddHours(2));
-                app.Decommission(clock);
+
+                if (lifecycle == Lifecycle.Decommissioned)
+                {
+                    // Advance the same clock past the sunset date so Decommission's
+                    // "now >= SunsetDate" invariant holds. Using one provider makes the
+                    // temporal relationship explicit; otherwise a future tweak to the first
+                    // clock could silently invalidate the decommission step.
+                    clock.SetUtcNow(origin.AddMinutes(i).AddHours(2));
+                    app.Decommission(clock);
+                }
             }
 
             db.Applications.Add(app);
@@ -162,6 +166,24 @@ public class KartovaApiFixture : KartovaApiFixtureBase
         await using var db = new CatalogDbContext(opts);
         await db.Database.ExecuteSqlRawAsync(
             "DELETE FROM catalog_applications WHERE tenant_id = {0}", tenantId.Value);
+    }
+
+    /// <summary>
+    /// Deletes application rows for a tenant whose <c>Name</c> starts with
+    /// <paramref name="namePrefix"/>. Use in test teardown when the test seeded
+    /// rows with a unique (e.g., Guid-suffixed) prefix — preserves rows seeded
+    /// by other tests in the same class fixture. Slice 6.
+    /// </summary>
+    public async Task DeleteApplicationsByPrefixAsync(TenantId tenantId, string namePrefix)
+    {
+        var opts = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseNpgsql(BypassConnectionString)
+            .Options;
+
+        await using var db = new CatalogDbContext(opts);
+        await db.Database.ExecuteSqlRawAsync(
+            "DELETE FROM catalog_applications WHERE tenant_id = {0} AND name LIKE {1} || '%'",
+            tenantId.Value, namePrefix);
     }
 
 }
