@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"C:/Users/roman.glogowski/.claude/hooks/dod-check.js\""
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/dod-check.js\""
           }
         ]
       }
