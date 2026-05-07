@@ -1,5 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
-
 namespace Kartova.SharedKernel.Pagination;
 
 /// <summary>
@@ -9,7 +7,6 @@ namespace Kartova.SharedKernel.Pagination;
 /// repeat them. Mapped to RFC 7807 by <c>PagingExceptionHandler</c> with
 /// problem-type slug <c>cursor-filter-mismatch</c>. ADR-0095 / ADR-0073, slice 6.
 /// </summary>
-[ExcludeFromCodeCoverage]
 public sealed class CursorFilterMismatchException : Exception
 {
     public string FilterName { get; }
