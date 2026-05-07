@@ -66,7 +66,7 @@ describe("useDecommissionApplication", () => {
       { params: { path: { id: "abc" } } }
     );
     expect(setQueryData).toHaveBeenCalledWith(applicationKeys.detail("abc"), decommissionedResponse);
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: applicationKeys.all });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: applicationKeys.list() });
   });
 
   it("attaches __status on 409 before-sunset-date so the dialog can branch", async () => {

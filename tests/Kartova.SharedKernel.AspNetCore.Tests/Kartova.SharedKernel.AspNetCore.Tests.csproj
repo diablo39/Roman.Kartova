@@ -22,6 +22,5 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Kartova.SharedKernel\Kartova.SharedKernel.csproj" />
     <ProjectReference Include="..\..\src\Kartova.SharedKernel.AspNetCore\Kartova.SharedKernel.AspNetCore.csproj" />
-    <ProjectReference Include="..\..\src\Modules\Catalog\Kartova.Catalog.Domain\Kartova.Catalog.Domain.csproj" />
   </ItemGroup>
 </Project>

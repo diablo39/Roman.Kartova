@@ -73,7 +73,8 @@ describe("useEditApplication", () => {
       })
     );
     expect(setQueryData).toHaveBeenCalledWith(applicationKeys.detail("abc"), successResponse);
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: applicationKeys.all });
+    // Detail is already refreshed via setQueryData; only the list prefix needs invalidation.
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: applicationKeys.list() });
   });
 
   it("attaches __status on error so the dialog can branch on 412 / 409 / 400", async () => {

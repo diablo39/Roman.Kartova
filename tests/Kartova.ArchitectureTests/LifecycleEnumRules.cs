@@ -5,11 +5,12 @@ using Kartova.Catalog.Domain;
 namespace Kartova.ArchitectureTests;
 
 /// <summary>
-/// Pins the Lifecycle enum's wire stability. The numeric values (1=Active,
-/// 2=Deprecated, 3=Decommissioned) are load-bearing — comparison ops in
-/// Application.Decommission rely on monotonic ordering. Inserting or
-/// reordering members shifts every comparison and changes the wire shape.
-/// These tests force a deliberate reckoning when changing the enum.
+/// Pins the Lifecycle enum's persisted-value stability. The numeric values
+/// (1=Active, 2=Deprecated, 3=Decommissioned) are stored in the
+/// <c>lifecycle smallint</c> column on <c>catalog.applications</c> — reordering
+/// or renumbering would silently corrupt rows already on disk. Linear ordering
+/// is also pinned so future SQL filters (<c>WHERE lifecycle &gt;= :x</c>) can
+/// rely on monotonic numeric values.
 /// </summary>
 [ExcludeFromCodeCoverage]
 public class LifecycleEnumRules

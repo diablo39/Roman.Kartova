@@ -8,8 +8,10 @@ import { Toaster } from "sonner";
 import { LifecycleMenu } from "../LifecycleMenu";
 import type { ApplicationResponse } from "@/features/catalog/api/applications";
 
-// Wrapper supplies the QueryClient that the dialog mutations need (LifecycleMenu
-// always mounts both confirm dialogs as siblings, even when closed).
+// Wrapper supplies the QueryClient that the confirm dialogs' mutations need
+// when the user opens one. Confirm dialogs are mounted on demand (gated by
+// the menu's `openDialog` state) but the QueryClient must be present for
+// hooks within them in any test that drives them.
 function wrapper({ children }: { children: ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return (

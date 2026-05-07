@@ -69,7 +69,7 @@ describe("useDeprecateApplication", () => {
       }
     );
     expect(setQueryData).toHaveBeenCalledWith(applicationKeys.detail("abc"), deprecatedResponse);
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: applicationKeys.all });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: applicationKeys.list() });
   });
 
   it("attaches __status on 409 LifecycleConflict so the dialog can branch", async () => {

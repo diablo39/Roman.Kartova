@@ -8,8 +8,8 @@ import * as clientModule from "@/features/catalog/api/client";
 import { EditApplicationDialog } from "../EditApplicationDialog";
 import type { ApplicationResponse } from "@/features/catalog/api/applications";
 
-// Lifecycle wire casing is camelCase (per Task 17 finding) — `"active"`,
-// `"deprecated"`, `"decommissioned"`. The fixture below mirrors that.
+// Lifecycle wire shape is lowercase ("active" | "deprecated" |
+// "decommissioned") via JsonStringEnumConverter(JsonNamingPolicy.CamelCase).
 const baseApp: ApplicationResponse = {
   id: "00000000-0000-0000-0000-000000000abc",
   tenantId: "t1",
@@ -47,7 +47,7 @@ function setup({
       <EditApplicationDialog application={application} open={open} onOpenChange={onOpenChange} />
     </QueryClientProvider>
   );
-  return { onOpenChange };
+  return { onOpenChange, qc };
 }
 
 describe("EditApplicationDialog", () => {
@@ -106,14 +106,15 @@ describe("EditApplicationDialog", () => {
     expect(put).not.toHaveBeenCalled();
   });
 
-  it("on 412 ConcurrencyConflict keeps the dialog open and toasts", async () => {
+  it("on 412 ConcurrencyConflict keeps the dialog open, toasts, and invalidates the detail query", async () => {
     const put = vi.fn().mockResolvedValue({
       data: undefined,
       error: { type: "https://kartova.io/problems/concurrency-conflict", title: "stale" },
       response: { status: 412 } as Response,
     });
     const onOpenChange = vi.fn();
-    setup({ put, onOpenChange });
+    const { qc } = setup({ put, onOpenChange });
+    const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
 
     await userEvent.click(screen.getByRole("button", { name: /save changes/i }));
 
@@ -121,7 +122,14 @@ describe("EditApplicationDialog", () => {
     await waitFor(() =>
       expect(screen.getByText(/someone else edited this/i)).toBeInTheDocument()
     );
+    // Spec §8.3: dialog stays open AND detail query is invalidated so the
+    // parent page refetches and the form auto-resets via RHF `values`.
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
+    await waitFor(() =>
+      expect(invalidateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ["applications", "detail", baseApp.id] })
+      )
+    );
   });
 
   it("on 409 LifecycleConflict (decommissioned) closes the dialog and toasts", async () => {

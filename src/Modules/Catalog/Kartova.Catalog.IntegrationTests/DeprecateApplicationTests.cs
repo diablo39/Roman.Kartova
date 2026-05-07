@@ -79,7 +79,7 @@ public class DeprecateApplicationTests
         second.StatusCode.Should().Be(HttpStatusCode.Conflict);
         var problem = await second.Content.ReadFromJsonAsync<ProblemPayload>();
         problem!.Type.Should().Be(ProblemTypes.LifecycleConflict);
-        problem.Extensions["currentLifecycle"]!.ToString().Should().Be("Deprecated");
+        problem.Extensions["currentLifecycle"]!.ToString().Should().Be("deprecated");
         problem.Extensions["attemptedTransition"]!.ToString().Should().Be("Deprecate");
     }
 

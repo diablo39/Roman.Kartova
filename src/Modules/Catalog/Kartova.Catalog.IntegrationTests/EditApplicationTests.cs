@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
 using Kartova.Catalog.Contracts;
+using Kartova.Catalog.Domain;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.Testing.Auth;
 
@@ -66,6 +67,7 @@ public class EditApplicationTests
         var firstPut = NewPut(registered.Id, registered.Version, "Edit App 3 v2", "Desc v2.");
         var firstResp = await client.SendAsync(firstPut);
         firstResp.IsSuccessStatusCode.Should().BeTrue();
+        var firstBody = (await firstResp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
 
         // Second PUT uses the original (now stale) version.
         var stalePut = NewPut(registered.Id, registered.Version, "Edit App 3 v3", "Desc v3.");
@@ -74,7 +76,11 @@ public class EditApplicationTests
 
         var problem = await staleResp.Content.ReadFromJsonAsync<ProblemPayload>();
         problem!.Type.Should().Be(ProblemTypes.ConcurrencyConflict);
-        problem.Extensions.Should().ContainKey("currentVersion");
+        // currentVersion must equal the version returned by the first (successful)
+        // PUT — otherwise the client cannot resync without a separate GET, which
+        // is the entire reason the extension exists. Asserting the value (not
+        // just the key) kills mutations like Encode(0u) and Encode(stale).
+        problem.CurrentVersion.Should().Be(firstBody.Version);
     }
 
     [Theory]
@@ -133,13 +139,38 @@ public class EditApplicationTests
     }
 
     [Fact]
+    public async Task PUT_on_Deprecated_application_returns_200()
+    {
+        // Spec §9.8 step 5: Deprecated still allows edit. The terminal-write
+        // 409 fires only on Decommissioned. Mirrors the domain test
+        // ApplicationLifecycleTests.EditMetadata_on_Deprecated_succeeds —
+        // pinned at integration tier so a mutation that flipped the guard
+        // direction is caught end-to-end.
+        var client = await _fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var registered = await RegisterAsync(client, "edit-app-deprecated", "App", "Desc.");
+
+        var deprecateResp = await client.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{registered.Id}/deprecate",
+            new DeprecateApplicationRequest(DateTimeOffset.UtcNow.AddDays(30)));
+        deprecateResp.IsSuccessStatusCode.Should().BeTrue();
+        var deprecated = (await deprecateResp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
+
+        var put = NewPut(deprecated.Id, deprecated.Version, "Renamed While Deprecated", "Updated desc.");
+        var resp = await client.SendAsync(put);
+
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = (await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
+        body.DisplayName.Should().Be("Renamed While Deprecated");
+        body.Lifecycle.Should().Be(Lifecycle.Deprecated, because: "edit must not change lifecycle");
+    }
+
+    [Fact]
     public async Task PUT_on_Decommissioned_application_returns_409()
     {
-        // Setup: create + deprecate + decommission an application
-        // (Deprecate/Decommission endpoints land in Tasks 12 and 13 — this test
-        // is added to the PUT suite for proximity but uses those endpoints
-        // once they exist. If running this task alone, the test fails with
-        // "endpoint not found" — that's expected; it'll go green at end of Task 13.)
+        // Drives an application through Active → Deprecated → Decommissioned
+        // via the lifecycle endpoints, then asserts that PUT returns 409 with
+        // type=lifecycle-conflict (the terminal-state guard in
+        // Application.EditMetadata).
         var client = await _fx.CreateAuthenticatedClientAsync(OrgAUser);
         var registered = await RegisterAsync(client, "edit-app-7", "App", "Desc.");
 
@@ -165,7 +196,7 @@ public class EditApplicationTests
         resp.StatusCode.Should().Be(HttpStatusCode.Conflict);
         var problem = await resp.Content.ReadFromJsonAsync<ProblemPayload>();
         problem!.Type.Should().Be(ProblemTypes.LifecycleConflict);
-        problem.Extensions["currentLifecycle"]!.ToString().Should().Be("Decommissioned");
+        problem.Extensions["currentLifecycle"]!.ToString().Should().Be("decommissioned");
         problem.Extensions["attemptedTransition"]!.ToString().Should().Be("EditMetadata");
     }
 

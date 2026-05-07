@@ -2,9 +2,12 @@ using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
 using Kartova.Catalog.Contracts;
+using Kartova.Catalog.Infrastructure;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Pagination;
 using Kartova.Testing.Auth;
+using Microsoft.EntityFrameworkCore;
+using DomainApplication = Kartova.Catalog.Domain.Application;
 
 namespace Kartova.Catalog.IntegrationTests;
 
@@ -268,6 +271,79 @@ public sealed class ListApplicationsPaginationTests
         mismatchResp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var body = await mismatchResp.Content.ReadAsStringAsync();
         body.Should().Contain("invalid-cursor");
+    }
+
+    [Fact]
+    public async Task NonNumericLimit_returns_400_with_raw_value_in_envelope()
+    {
+        // Mutation-killing test (line 102): if the throw of InvalidLimitException(rawLimit, ...)
+        // is removed, effectiveLimit defaults to 0 (the failed TryParse out-value), and the
+        // handler later throws InvalidLimitException(0, MinLimit, MaxLimit). Both produce a
+        // 400 with type=invalid-limit, so a generic body.Contains("invalid-limit") cannot
+        // distinguish them. Pin the rawLimit echo back: only the original throw preserves
+        // the literal "abc" in the envelope; the fall-through path would echo "0".
+        var client = _fx.CreateClientForOrgA();
+
+        var resp = await client.GetAsync("/api/v1/catalog/applications?limit=abc");
+
+        resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var body = await resp.Content.ReadAsStringAsync();
+        body.Should().Contain("invalid-limit");
+        body.Should().Contain("\"rawLimit\":\"abc\"",
+            "the original raw string must be echoed back in the RFC 7807 envelope");
+    }
+
+    [Fact]
+    public async Task SortBy_name_asc_overrides_default_createdAt_ordering()
+    {
+        // Mutation-killing test (line 109): if `parsedSortBy ?? ApplicationSortField.CreatedAt`
+        // collapses to `ApplicationSortField.CreatedAt`, user-supplied sortBy=name is silently
+        // ignored. To distinguish, we seed rows with names in REVERSE alpha order vs creation
+        // order: created first = "zzz-mut-c-...", created last = "zzz-mut-a-...". Asking for
+        // sortBy=name&sortOrder=asc must return alpha-first ("a..." then "b..." then "c...").
+        // With the mutant (sortBy collapses to createdAt asc), the first item would be the
+        // earliest-created row, i.e. the "c..." prefix.
+        var tenant = OrgATenant;
+        var unique = $"zzz-mut-{Guid.NewGuid():N}";
+        var aName = $"{unique}-a";
+        var bName = $"{unique}-b";
+        var cName = $"{unique}-c";
+
+        var opts = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseNpgsql(_fx.BypassConnectionString)
+            .Options;
+        await using (var db = new CatalogDbContext(opts))
+        {
+            // Created in REVERSE-alpha order: c first (oldest), then b, then a (newest).
+            var origin = DateTimeOffset.UtcNow.AddMinutes(-5);
+            db.Applications.Add(DomainApplication.Create(
+                name: cName, displayName: cName, description: "mut-test",
+                ownerUserId: Guid.NewGuid(), tenantId: tenant,
+                createdAt: origin));
+            db.Applications.Add(DomainApplication.Create(
+                name: bName, displayName: bName, description: "mut-test",
+                ownerUserId: Guid.NewGuid(), tenantId: tenant,
+                createdAt: origin.AddMinutes(1)));
+            db.Applications.Add(DomainApplication.Create(
+                name: aName, displayName: aName, description: "mut-test",
+                ownerUserId: Guid.NewGuid(), tenantId: tenant,
+                createdAt: origin.AddMinutes(2)));
+            await db.SaveChangesAsync();
+        }
+
+        var client = _fx.CreateClientForOrgA();
+        var page = await client.GetFromJsonAsync<CursorPage<ApplicationResponse>>(
+            "/api/v1/catalog/applications?sortBy=name&sortOrder=asc&limit=200",
+            KartovaApiFixtureBase.WireJson);
+
+        page.Should().NotBeNull();
+        var ours = page!.Items
+            .Where(i => i.Name.StartsWith(unique, StringComparison.Ordinal))
+            .Select(i => i.Name)
+            .ToList();
+        ours.Should().Equal(
+            new[] { aName, bName, cName },
+            "sortBy=name&sortOrder=asc must order by Name (alpha), not by CreatedAt");
     }
 
 }

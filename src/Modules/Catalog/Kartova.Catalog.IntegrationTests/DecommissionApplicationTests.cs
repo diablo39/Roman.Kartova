@@ -74,7 +74,7 @@ public class DecommissionApplicationTests
         var problem = await resp.Content.ReadFromJsonAsync<ProblemPayload>();
         problem!.Type.Should().Be(ProblemTypes.LifecycleConflict);
         problem.Reason.Should().Be("before-sunset-date");
-        problem.CurrentLifecycle.Should().Be("Deprecated");
+        problem.CurrentLifecycle.Should().Be("deprecated");
         problem.AttemptedTransition.Should().Be("Decommission");
         // SunsetDate extension carries the originally-stored value so the client knows
         // when the transition would become valid. Round-trip JSON precision tolerance
@@ -99,7 +99,7 @@ public class DecommissionApplicationTests
         resp.StatusCode.Should().Be(HttpStatusCode.Conflict);
         var problem = await resp.Content.ReadFromJsonAsync<ProblemPayload>();
         problem!.Type.Should().Be(ProblemTypes.LifecycleConflict);
-        problem.CurrentLifecycle.Should().Be("Active");
+        problem.CurrentLifecycle.Should().Be("active");
         problem.AttemptedTransition.Should().Be("Decommission");
         problem.Reason.Should().BeNull();
     }
@@ -131,7 +131,7 @@ public class DecommissionApplicationTests
         resp.StatusCode.Should().Be(HttpStatusCode.Conflict);
         var problem = await resp.Content.ReadFromJsonAsync<ProblemPayload>();
         problem!.Type.Should().Be(ProblemTypes.LifecycleConflict);
-        problem.CurrentLifecycle.Should().Be("Decommissioned");
+        problem.CurrentLifecycle.Should().Be("decommissioned");
         problem.AttemptedTransition.Should().Be("Decommission");
     }
 

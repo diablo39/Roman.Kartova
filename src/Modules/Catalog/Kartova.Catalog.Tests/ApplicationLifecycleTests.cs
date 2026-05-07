@@ -103,6 +103,24 @@ public class ApplicationLifecycleTests
     }
 
     [Fact]
+    public void EditMetadata_on_Deprecated_succeeds()
+    {
+        // Spec §9.8 step 5: Deprecated still allows edit. The terminal-write
+        // guard only fires on Decommissioned. A mutation that flipped the
+        // guard from `Lifecycle == Decommissioned` to `Lifecycle != Active`
+        // would silently break editing for every Deprecated app — this test
+        // is the positive allow-path that catches it.
+        var app = NewActive();
+        app.Deprecate(Now.AddDays(1), Clock());
+
+        app.EditMetadata("New Display", "New description.");
+
+        app.Lifecycle.Should().Be(Lifecycle.Deprecated);
+        app.DisplayName.Should().Be("New Display");
+        app.Description.Should().Be("New description.");
+    }
+
+    [Fact]
     public void Deprecate_with_valid_args_sets_state_and_sunsetDate()
     {
         var app = NewActive();
