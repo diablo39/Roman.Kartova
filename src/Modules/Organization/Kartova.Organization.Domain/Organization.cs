@@ -20,13 +20,14 @@ public sealed class Organization : ITenantOwned
     // EF constructor
     private Organization() { Name = string.Empty; }
 
-    public static Organization Create(string name)
+    public static Organization Create(string name, TimeProvider clock)
     {
+        ArgumentNullException.ThrowIfNull(clock);
         ValidateName(name);
         var id = OrganizationId.New();
         // Per ADR-0011, one org = one tenant; tenant_id is the same GUID as the org id.
         var tenantId = new TenantId(id.Value);
-        return new Organization(id, tenantId, name, DateTimeOffset.UtcNow);
+        return new Organization(id, tenantId, name, clock.GetUtcNow());
     }
 
     public void Rename(string newName)
