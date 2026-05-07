@@ -153,22 +153,6 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     }
 
     /// <summary>
-    /// Deletes all application rows for a tenant. Bypass-RLS connection so it
-    /// works without an active tenant scope. Slice 6 — multi-row teardown helper
-    /// used by ListApplicationsFilterTests between scenarios.
-    /// </summary>
-    public async Task DeleteApplicationsAsync(TenantId tenantId)
-    {
-        var opts = new DbContextOptionsBuilder<CatalogDbContext>()
-            .UseNpgsql(BypassConnectionString)
-            .Options;
-
-        await using var db = new CatalogDbContext(opts);
-        await db.Database.ExecuteSqlRawAsync(
-            "DELETE FROM catalog_applications WHERE tenant_id = {0}", tenantId.Value);
-    }
-
-    /// <summary>
     /// Deletes application rows for a tenant whose <c>Name</c> starts with
     /// <paramref name="namePrefix"/>. Use in test teardown when the test seeded
     /// rows with a unique (e.g., Guid-suffixed) prefix — preserves rows seeded

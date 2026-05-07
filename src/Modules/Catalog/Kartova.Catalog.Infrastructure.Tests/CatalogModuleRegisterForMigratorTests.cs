@@ -73,7 +73,7 @@ public sealed class CatalogModuleRegisterForMigratorTests
     }
 
     [Fact]
-    public void RegisterForMigrator_throws_canonical_InvalidOperationException_when_main_connection_string_is_missing()
+    public void RegisterForMigrator_throws_InvalidOperationException_when_main_connection_string_is_missing()
     {
         // Pins the exact message shape KartovaConnectionStrings.Require produces.
         // CI bootstrap log scrapers depend on this format.

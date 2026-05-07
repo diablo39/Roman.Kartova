@@ -18,12 +18,7 @@ public class ApplicationTests
     private static readonly DateTimeOffset Now =
         new(2026, 5, 7, 12, 0, 0, TimeSpan.Zero);
 
-    private static FakeTimeProvider Clock(DateTimeOffset? now = null)
-    {
-        var c = new FakeTimeProvider();
-        c.SetUtcNow(now ?? Now);
-        return c;
-    }
+    private static FakeTimeProvider Clock(DateTimeOffset? now = null) => TestClocks.At(now ?? Now);
 
     [Fact]
     public void Create_with_valid_args_returns_application()

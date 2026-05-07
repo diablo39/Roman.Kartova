@@ -17,12 +17,7 @@ public class ApplicationLifecycleTests
     private static readonly Guid Owner = Guid.Parse("bbbbbbbb-0000-0000-0000-000000000001");
     private static readonly DateTimeOffset Now = new(2026, 5, 6, 12, 0, 0, TimeSpan.Zero);
 
-    private static FakeTimeProvider Clock(DateTimeOffset? now = null)
-    {
-        var c = new FakeTimeProvider();
-        c.SetUtcNow(now ?? Now);
-        return c;
-    }
+    private static FakeTimeProvider Clock(DateTimeOffset? now = null) => TestClocks.At(now ?? Now);
 
     private static DomainApplication NewActive() =>
         DomainApplication.Create("payments-api", "Payments API", "Description.", Owner, Tenant, Clock());
