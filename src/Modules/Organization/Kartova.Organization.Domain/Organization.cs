@@ -17,7 +17,10 @@ public sealed class Organization : ITenantOwned
         CreatedAt = createdAt;
     }
 
-    // EF constructor
+    // EF constructor — Name is defensively initialized in case EF instantiates
+    // without immediately rehydrating from a row. Mutation-survivor: EF Core
+    // always sets backing fields via reflection from the row data, so removing
+    // this initializer is observably equivalent. (slice-6 mutation report 2026-05-07)
     private Organization() { Name = string.Empty; }
 
     public static Organization Create(string name, TimeProvider clock)
@@ -32,6 +35,8 @@ public sealed class Organization : ITenantOwned
 
     public void Rename(string newName)
     {
+        // mutation-survivor: pre-slice-6; killing requires a Rename invalid-name test
+        // that wasn't in scope for slice 6. Carries forward to the next Organization slice.
         ValidateName(newName);
         Name = newName;
     }

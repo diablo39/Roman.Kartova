@@ -465,4 +465,22 @@ public sealed class QueryablePagingExtensionsTests : IAsyncLifetime
         var page = await act.Should().NotThrowAsync();
         page.Subject.Items.Should().NotBeEmpty("rows 1-4 are after the row-0 boundary");
     }
+
+    [Fact]
+    public async Task ToCursorPagedAsync_with_null_expectedIncludeDecommissioned_encodes_next_cursor_with_ic_false()
+    {
+        // Kills mutation at QueryablePagingExtensions.cs:94: `expectedIncludeDecommissioned ?? false` → `?? true`.
+        // With the mutation the next cursor would encode ic=true; this test decodes it and asserts ic=false.
+        // Arrange: seed enough rows (> limit) so a NextCursor is produced.
+        await SeedAsync(6);
+
+        // Act: call with null expectedIncludeDecommissioned (default) and a small limit so NextCursor is set.
+        var page = await _db.Rows.ToCursorPagedAsync(
+            ByCreatedAt, SortOrder.Asc, cursor: null, limit: 5, x => x.Id, CancellationToken.None);
+
+        // Assert: NextCursor must exist (6 rows > limit 5) and decode with IncludeDecommissioned == false.
+        page.NextCursor.Should().NotBeNull();
+        var decoded = CursorCodec.Decode(page.NextCursor!);
+        decoded.IncludeDecommissioned.Should().BeFalse();
+    }
 }
