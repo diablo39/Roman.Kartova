@@ -1,5 +1,6 @@
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
+using Kartova.Catalog.Domain;
 using Kartova.SharedKernel.Pagination;
 using Kartova.SharedKernel.Postgres.Pagination;
 using DomainApplication = Kartova.Catalog.Domain.Application;
@@ -37,7 +38,7 @@ public sealed class ListApplicationsHandler
         IQueryable<DomainApplication> source = db.Applications;
         if (!q.IncludeDecommissioned)
         {
-            source = source.Where(a => a.Lifecycle != Domain.Lifecycle.Decommissioned);
+            source = source.Where(a => a.Lifecycle != Lifecycle.Decommissioned);
         }
 
         var page = await source
