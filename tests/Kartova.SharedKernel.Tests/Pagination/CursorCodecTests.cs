@@ -216,6 +216,32 @@ public sealed class CursorCodecTests
         decoded.Direction.Should().Be(SortOrder.Desc);
     }
 
+    [Fact]
+    public void Encode_then_Decode_preserves_includeDecommissioned_true()
+    {
+        var encoded = CursorCodec.Encode(
+            sortValue: "2026-05-07T12:00:00.0000000Z",
+            id: Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            direction: SortOrder.Desc,
+            includeDecommissioned: true);
+
+        var decoded = CursorCodec.Decode(encoded);
+
+        decoded.IncludeDecommissioned.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Decode_legacy_cursor_without_ic_field_returns_includeDecommissioned_false()
+    {
+        // Hand-crafted legacy cursor: { s, i, d } only, no `ic` — the shape pre-slice-6 emitted.
+        var legacyJson = "{\"s\":\"2026-05-07T12:00:00.0000000Z\",\"i\":\"11111111-1111-1111-1111-111111111111\",\"d\":\"desc\"}";
+        var legacyCursor = System.Buffers.Text.Base64Url.EncodeToString(System.Text.Encoding.UTF8.GetBytes(legacyJson));
+
+        var decoded = CursorCodec.Decode(legacyCursor);
+
+        decoded.IncludeDecommissioned.Should().BeFalse();
+    }
+
     private static string ToBase64Url(string json) =>
         System.Buffers.Text.Base64Url.EncodeToString(System.Text.Encoding.UTF8.GetBytes(json));
 }

@@ -46,6 +46,17 @@ public sealed class PagingExceptionHandler : IExceptionHandler
                 addExtensions: null,
                 cancellationToken),
 
+            CursorFilterMismatchException filterEx => await WriteProblemAsync(
+                httpContext, exception, ProblemTypes.CursorFilterMismatch,
+                "Cursor filter mismatch", filterEx.Message,
+                p =>
+                {
+                    p.Extensions["filterName"] = filterEx.FilterName;
+                    p.Extensions["expectedValue"] = filterEx.ExpectedValue;
+                    p.Extensions["actualValue"] = filterEx.ActualValue;
+                },
+                cancellationToken),
+
             InvalidLimitException limitEx => await WriteProblemAsync(
                 httpContext, exception, ProblemTypes.InvalidLimit,
                 "Invalid limit", limitEx.Message,

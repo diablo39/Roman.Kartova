@@ -44,7 +44,8 @@ public static class QueryablePagingExtensions
         int limit,
         Expression<Func<T, Guid>> idSelector,
         Func<T, Guid> idExtractor,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool? expectedIncludeDecommissioned = null)
         where T : class
     {
         if (limit < MinLimit || limit > MaxLimit)
@@ -62,6 +63,14 @@ public static class QueryablePagingExtensions
                 throw new InvalidCursorException(
                     $"Cursor was issued for direction '{decoded.Direction}' but request uses '{order}'.");
             }
+            if (expectedIncludeDecommissioned is bool expected
+                && decoded.IncludeDecommissioned != expected)
+            {
+                throw new CursorFilterMismatchException(
+                    filterName: "includeDecommissioned",
+                    expectedValue: decoded.IncludeDecommissioned ? "true" : "false",
+                    actualValue: expected ? "true" : "false");
+            }
             q = ApplyKeysetFilter(q, sort.KeySelector, idSelector, decoded.SortValue, decoded.Id, order);
         }
 
@@ -78,7 +87,11 @@ public static class QueryablePagingExtensions
             var lastKept = rows[^1];
             var sortValue = sort.CompiledKeySelector(lastKept)!;
             var id = idExtractor(lastKept);
-            nextCursor = CursorCodec.Encode(NormalizeForCursor(sortValue), id, order);
+            nextCursor = CursorCodec.Encode(
+                    NormalizeForCursor(sortValue),
+                    id,
+                    order,
+                    expectedIncludeDecommissioned ?? false);
         }
 
         return new CursorPage<T>(rows, nextCursor, PrevCursor: null);
