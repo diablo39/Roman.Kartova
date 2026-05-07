@@ -14,13 +14,21 @@ public sealed class CursorFilterMismatchException : Exception
     public string ActualValue { get; }
 
     public CursorFilterMismatchException(string filterName, string expectedValue, string actualValue)
-        : base($"Cursor was issued for {filterName}={expectedValue} but request uses {filterName}={actualValue}.")
+        : base(MakeMessage(filterName, expectedValue, actualValue))
+    {
+        FilterName = filterName;
+        ExpectedValue = expectedValue;
+        ActualValue = actualValue;
+    }
+
+    // Validation runs in the helper (pre-base) so the base Exception is never constructed
+    // with null/empty inputs — even momentarily. Order matters because base(...) executes
+    // before the ctor body, so guards in the body would fire AFTER message construction.
+    private static string MakeMessage(string filterName, string expectedValue, string actualValue)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filterName);
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedValue);
         ArgumentException.ThrowIfNullOrWhiteSpace(actualValue);
-        FilterName = filterName;
-        ExpectedValue = expectedValue;
-        ActualValue = actualValue;
+        return $"Cursor was issued for {filterName}={expectedValue} but request uses {filterName}={actualValue}.";
     }
 }
