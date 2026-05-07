@@ -25,7 +25,7 @@ public class ApplicationLifecycleTests
     }
 
     private static DomainApplication NewActive() =>
-        DomainApplication.Create("payments-api", "Payments API", "Description.", Owner, Tenant, TimeProvider.System);
+        DomainApplication.Create("payments-api", "Payments API", "Description.", Owner, Tenant, Clock());
 
     [Fact]
     public void New_application_starts_in_Active_state_with_null_sunsetDate()
