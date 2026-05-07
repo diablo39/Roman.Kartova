@@ -20,6 +20,10 @@ namespace Kartova.Catalog.Infrastructure;
 /// </summary>
 public sealed class RegisterApplicationHandler
 {
+    private readonly TimeProvider _clock;
+
+    public RegisterApplicationHandler(TimeProvider clock) => _clock = clock;
+
     public async Task<ApplicationResponse> Handle(
         RegisterApplicationCommand cmd,
         CatalogDbContext db,
@@ -28,7 +32,7 @@ public sealed class RegisterApplicationHandler
         CancellationToken ct)
     {
         var app = Kartova.Catalog.Domain.Application.Create(
-            cmd.Name, cmd.DisplayName, cmd.Description, user.UserId, tenant.Id);
+            cmd.Name, cmd.DisplayName, cmd.Description, user.UserId, tenant.Id, _clock);
         db.Applications.Add(app);
         await db.SaveChangesAsync(ct);
         return app.ToResponse();
