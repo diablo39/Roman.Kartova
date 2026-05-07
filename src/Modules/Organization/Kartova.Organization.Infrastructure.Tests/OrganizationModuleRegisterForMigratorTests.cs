@@ -68,6 +68,8 @@ public sealed class OrganizationModuleRegisterForMigratorTests
         var act = () => scope.ServiceProvider.GetRequiredService<OrganizationDbContext>();
 
         act.Should().NotThrow();
+        var db = act();
+        db.Should().NotBeNull();
     }
 
     [Fact]

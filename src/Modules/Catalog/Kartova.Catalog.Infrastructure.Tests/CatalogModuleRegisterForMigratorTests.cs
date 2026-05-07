@@ -68,6 +68,8 @@ public sealed class CatalogModuleRegisterForMigratorTests
         var act = () => scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
 
         act.Should().NotThrow();
+        var db = act();
+        db.Should().NotBeNull();
     }
 
     [Fact]
