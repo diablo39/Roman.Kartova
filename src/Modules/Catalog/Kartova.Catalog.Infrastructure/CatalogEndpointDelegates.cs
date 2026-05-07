@@ -67,7 +67,7 @@ internal static class CatalogEndpointDelegates
         [FromQuery] string? sortOrder,
         [FromQuery] string? cursor,
         [FromQuery] string? limit,
-        [FromQuery] bool includeDecommissioned,
+        [FromQuery] bool? includeDecommissioned,
         ListApplicationsHandler handler,
         CatalogDbContext db,
         CancellationToken ct)
@@ -116,7 +116,7 @@ internal static class CatalogEndpointDelegates
             SortOrder: parsedSortOrder ?? SortOrder.Desc,
             Cursor: cursor,
             Limit: effectiveLimit,
-            IncludeDecommissioned: includeDecommissioned);
+            IncludeDecommissioned: includeDecommissioned ?? false);
 
         var page = await handler.Handle(query, db, ct);
         return Results.Ok(page);
