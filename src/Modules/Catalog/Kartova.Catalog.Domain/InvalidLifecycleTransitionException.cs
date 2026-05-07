@@ -1,17 +1,24 @@
+using Kartova.SharedKernel;
+
 namespace Kartova.Catalog.Domain;
 
 /// <summary>
 /// Thrown by Application.EditMetadata / Deprecate / Decommission when an
 /// ADR-0073 lifecycle invariant is violated (transition not allowed from the
 /// current state, or "decommission before sunset_date" without admin override).
-/// Mapped to RFC 7807 409 Conflict by LifecycleConflictExceptionHandler.
+/// Mapped to RFC 7807 409 Conflict by LifecycleConflictExceptionHandler — the
+/// handler matches by <see cref="ILifecycleConflict"/>.
 /// </summary>
-public sealed class InvalidLifecycleTransitionException : InvalidOperationException
+public sealed class InvalidLifecycleTransitionException : InvalidOperationException, ILifecycleConflict
 {
     public Lifecycle CurrentLifecycle { get; }
     public string AttemptedTransition { get; }
     public DateTimeOffset? SunsetDate { get; }
     public string? Reason { get; }
+
+    // camelCase wire shape per ADR-0095 — same converter ApplicationResponse uses.
+    string ILifecycleConflict.CurrentLifecycleName
+        => System.Text.Json.JsonNamingPolicy.CamelCase.ConvertName(CurrentLifecycle.ToString());
 
     public InvalidLifecycleTransitionException(
         Lifecycle current,

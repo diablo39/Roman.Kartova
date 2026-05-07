@@ -60,7 +60,7 @@ Nothing in slice 5 depends on a separate doc-only PR landing first; **ADR-0096 i
 | 10 | Sunset date validation: must be strictly `> clock.GetUtcNow()` at deprecation time, enforced as domain invariant in `Application.Deprecate`. | Past dates have no semantic meaning for "consumers should have migrated by". Strict-greater-than (not ≥) keeps the boundary unambiguous. |
 | 11 | Re-deprecating an already-Deprecated application = 409 Conflict, **not** idempotent no-op. | Idempotency keys are deferred (slice 3 §13). Honest "already in this state" signal helps clients distinguish "I succeeded" from "someone beat me to it". |
 | 12 | `EditMetadata` on a `Decommissioned` application = 409 (`…/lifecycle-conflict`, `attemptedTransition: "EditMetadata"`). Decommissioned is the project's terminal read-only state. | Single domain rule: Decommissioned forbids all writes. Server is authority; SPA hides the Edit button optimistically. |
-| 13 | `Lifecycle` enum stored as `smallint` with explicit numeric values 1=Active, 2=Deprecated, 3=Decommissioned. JSON wire shape is **string** (`"Active"` / `"Deprecated"` / `"Decommissioned"`) via the project's existing `JsonStringEnumConverter`. Linear ordering pinned by arch test. | Numeric DB encoding keeps comparisons cheap and lets future SQL filters use `<=` / `>=`. String wire shape keeps the API self-documenting and avoids "what does 2 mean" debugging. |
+| 13 | `Lifecycle` enum stored as `smallint` with explicit numeric values 1=Active, 2=Deprecated, 3=Decommissioned. JSON wire shape is **lowercase camelCase string** (`"active"` / `"deprecated"` / `"decommissioned"`) via the project's `JsonStringEnumConverter(JsonNamingPolicy.CamelCase)` registered in `Program.cs` (ADR-0095). The same casing applies to the `currentLifecycle` extension on `lifecycle-conflict` 409 responses, so clients can compare `application.lifecycle === problem.currentLifecycle` directly. Linear ordering of numeric values pinned by arch test for DB-side `<=` / `>=` filters. | Numeric DB encoding keeps comparisons cheap and lets future SQL filters use `<=` / `>=`. CamelCase wire shape matches ADR-0095 and stays consistent across all enum surfaces (body + RFC 7807 extensions). |
 | 14 | `TimeProvider` adopted **only** for new methods (`Deprecate`, `Decommission`). `Application.Create` still uses `DateTimeOffset.UtcNow` directly — the retrofit is registered backlog (slice-3 §13.1) and lands in its own slice. | Sunset-date arithmetic needs deterministic tests; retrofitting `Create` would balloon scope and conflict with the existing backlog item. |
 | 15 | Migration `AddApplicationLifecycle` adds `lifecycle smallint NOT NULL DEFAULT 1` and `sunset_date timestamptz NULL` columns in a single migration. Same RLS toggle dance as `AddApplicationDisplayName` (NO FORCE → backfill if needed → FORCE). | Default value of 1=Active backfills every existing row in one ALTER. No row-by-row UPDATE needed. |
 
@@ -429,9 +429,9 @@ export function EditApplicationDialog({ application, open, onOpenChange }: Props
 ```tsx
 export function LifecycleMenu({ application, now, onTransitionRequested }: Props) {
     const items: MenuItem[] = [];
-    if (application.lifecycle === "Active") {
+    if (application.lifecycle === "active") {
         items.push({ id: "deprecate", label: "Deprecate…", action: "deprecate" });
-    } else if (application.lifecycle === "Deprecated") {
+    } else if (application.lifecycle === "deprecated") {
         const canDecommission = now >= new Date(application.sunsetDate!);
         items.push({
             id: "decommission",
@@ -512,13 +512,18 @@ Client → JWT → BeginMiddleware
         title: "Lifecycle transition not allowed",
         detail: "Cannot deprecate application currently in state Deprecated.",
         extensions: {
-            currentLifecycle: "Deprecated",
+            currentLifecycle: "deprecated",
             attemptedTransition: "Deprecate",
             sunsetDate: "2026-12-31T23:59:59Z",
             reason: null
         }
       }
 ```
+
+(`currentLifecycle` matches the `lifecycle` field casing on `ApplicationResponse` —
+camelCase per Decision #13 and ADR-0095. `attemptedTransition` is a domain
+operation name (PascalCase from `nameof(EditMetadata|Deprecate|Decommission)`),
+not an enum value, and stays as written.)
 
 ### 6.5 POST decommission "before-sunset-date" 409
 
@@ -527,7 +532,7 @@ Client → JWT → BeginMiddleware
   → 409 + ProblemDetails {
         ...,
         extensions: {
-            currentLifecycle: "Deprecated",
+            currentLifecycle: "deprecated",
             attemptedTransition: "Decommission",
             sunsetDate: "2026-12-31T23:59:59Z",
             reason: "before-sunset-date"

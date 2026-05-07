@@ -18,17 +18,8 @@ internal static class CatalogEndpointDelegates
     /// <summary>
     /// Synchronous in-process handler dispatch — invoked directly rather than
     /// via <c>IMessageBus.InvokeAsync</c>. Wolverine's bus opens its own DI
-    /// scope for handler dispatch which would not see the HTTP request's
-    /// <c>ITenantScope</c> begun by <c>TenantScopeBeginMiddleware</c> (ADR-0090,
-    /// formalized in ADR-0093). Direct dispatch keeps the handler resolved from
-    /// the HTTP request scope where the tenant scope is active. The handler
-    /// class itself stays transport-agnostic so an async Kafka path can still
-    /// resolve it later.
-    ///
-    /// Domain factory invariants (Application.Create) throw ArgumentException
-    /// for empty/over-length name and empty description. The mapping to RFC 7807
-    /// 400 lives in <c>DomainValidationExceptionHandler</c> per slice-3 spec §13.3
-    /// — endpoints stay free of validation try/catch boilerplate.
+    /// scope which would not see the HTTP request's <c>ITenantScope</c> begun
+    /// by <c>TenantScopeBeginMiddleware</c> (ADR-0090, formalized in ADR-0093).
     /// </summary>
     internal static async Task<IResult> RegisterApplicationAsync(
         [FromBody] RegisterApplicationRequest request,
@@ -45,13 +36,6 @@ internal static class CatalogEndpointDelegates
         return Results.Created($"/api/v1/catalog/applications/{response.Id}", response);
     }
 
-    /// <summary>
-    /// GET single Application by id. Direct synchronous handler dispatch to
-    /// preserve the HTTP request scope's <c>ITenantScope</c> (see comment on
-    /// <see cref="RegisterApplicationAsync"/>). Null result maps to RFC 7807
-    /// 404 — RLS hides cross-tenant rows so unknown id and cross-tenant id
-    /// surface identically (intentional, ADR-0090).
-    /// </summary>
     internal static async Task<IResult> GetApplicationByIdAsync(
         Guid id,
         GetApplicationByIdHandler handler,
@@ -59,35 +43,19 @@ internal static class CatalogEndpointDelegates
         CancellationToken ct)
     {
         var resp = await handler.Handle(new GetApplicationByIdQuery(id), db, ct);
-        if (resp is null)
-        {
-            return Results.Problem(
-                type: ProblemTypes.ResourceNotFound,
-                title: "Application not found",
-                detail: "No application with that id is visible in the current tenant.",
-                statusCode: StatusCodes.Status404NotFound);
-        }
-        // Emit ETag (RFC 7232 quoted) so clients can capture for a future
-        // PUT If-Match request. Only the single-resource GET emits the header;
-        // list rows carry `version` in the body but no per-row ETag.
+        if (resp is null) return EndpointResultExtensions.ApplicationNotFound();
+        // Only the single-resource GET emits ETag; list rows carry `version` in
+        // the body but no per-row ETag.
         return Results.Ok(resp).WithEtag(resp.Version);
     }
 
     /// <summary>
-    /// GET list of Applications visible in current tenant. Direct synchronous
-    /// handler dispatch to preserve the HTTP request scope's <c>ITenantScope</c>
-    /// (see comment on <see cref="RegisterApplicationAsync"/>). RLS auto-filters
-    /// cross-tenant rows (ADR-0090). Cursor-paginated per ADR-0095.
-    ///
-    /// <para>
     /// <c>sortBy</c> and <c>sortOrder</c> are accepted as raw strings and parsed with
     /// <c>Enum.TryParse(ignoreCase: true)</c> so that the wire contract
     /// (<c>?sortBy=createdAt&amp;sortOrder=asc</c>, camelCase per ADR-0095) and the
-    /// C# enum member names (<c>CreatedAt</c>, <c>Asc</c>) are both accepted. The JSON
-    /// serializer emits camelCase names (via <see cref="System.Text.Json.Serialization.JsonStringEnumConverter"/>
-    /// registered in <c>Program.cs</c>), so the OpenAPI document and generated
-    /// TypeScript client will send camelCase values.
-    /// </para>
+    /// C# enum member names both bind. <c>limit</c> stays <c>string?</c> so non-integer
+    /// inputs route through <c>InvalidLimitException</c> instead of the framework's
+    /// generic parse-error 400.
     /// </summary>
     internal static async Task<IResult> ListApplicationsAsync(
         [FromQuery] string? sortBy,
@@ -98,14 +66,9 @@ internal static class CatalogEndpointDelegates
         CatalogDbContext db,
         CancellationToken ct)
     {
-        // Case-insensitive parse: accepts both "createdAt" (wire contract) and "CreatedAt".
-        // Unknown strings → InvalidSortFieldException / InvalidSortOrderException → RFC 7807 400
-        // (PagingExceptionHandler). ADR-0095 §4.3.
-        //
         // Enum.TryParse alone accepts numeric strings ("999", "-1") and binds them to
         // an undefined enum value. Enum.IsDefined rejects those before they reach the
-        // sort spec / order branch (otherwise an undefined SortOrder would silently
-        // fall through to the desc branch in QueryablePagingExtensions).
+        // sort spec / order branch.
         ApplicationSortField? parsedSortBy = null;
         if (sortBy is not null)
         {
@@ -128,10 +91,6 @@ internal static class CatalogEndpointDelegates
             parsedSortOrder = so;
         }
 
-        // limit is bound as string? (not int?) so a non-integer input like ?limit=abc maps
-        // to the same `invalid-limit` RFC 7807 envelope as out-of-range numerics, instead of
-        // bypassing PagingExceptionHandler with a framework-generated parse-error 400.
-        // Range validation lives downstream in ToCursorPagedAsync.
         int effectiveLimit;
         if (limit is null)
         {
@@ -156,19 +115,11 @@ internal static class CatalogEndpointDelegates
         return Results.Ok(page);
     }
 
-    /// <summary>
-    /// PUT edit metadata on an existing Application. Full-replacement body
-    /// (DisplayName, Description) per ADR-0096. If-Match required (parsed by
-    /// IfMatchEndpointFilter into HttpContext.Items["expected-version"]).
-    /// Stale If-Match → DbUpdateConcurrencyException → 412 ProblemDetails.
-    /// Edit on Decommissioned → InvalidLifecycleTransitionException → 409.
-    /// </summary>
     internal static async Task<IResult> EditApplicationAsync(
         Guid id,
         [FromBody] EditApplicationRequest request,
         EditApplicationHandler handler,
         CatalogDbContext db,
-        ITenantContext tenant,
         HttpContext http,
         CancellationToken ct)
     {
@@ -176,29 +127,12 @@ internal static class CatalogEndpointDelegates
 
         var resp = await handler.Handle(
             new EditApplicationCommand(new ApplicationId(id), request.DisplayName, request.Description, expected),
-            db, tenant, ct);
+            db, ct);
 
-        if (resp is null)
-        {
-            return Results.Problem(
-                type: ProblemTypes.ResourceNotFound,
-                title: "Application not found",
-                detail: "No application with that id is visible in the current tenant.",
-                statusCode: StatusCodes.Status404NotFound);
-        }
-
+        if (resp is null) return EndpointResultExtensions.ApplicationNotFound();
         return Results.Ok(resp).WithEtag(resp.Version);
     }
 
-    /// <summary>
-    /// POST deprecate transitions Active → Deprecated. No If-Match — domain
-    /// invariant ("current state must be Active") is the implicit version
-    /// (slice 5 spec §3 Decision #7). Domain rejection of a non-Active source
-    /// surfaces as <c>InvalidLifecycleTransitionException</c> → 409 via
-    /// <c>LifecycleConflictExceptionHandler</c>. A past <c>sunsetDate</c> surfaces
-    /// as <see cref="ArgumentException"/> → 400 via
-    /// <c>DomainValidationExceptionHandler</c> (with <c>errors.sunsetDate</c>).
-    /// </summary>
     internal static async Task<IResult> DeprecateApplicationAsync(
         Guid id,
         [FromBody] DeprecateApplicationRequest request,
@@ -210,29 +144,10 @@ internal static class CatalogEndpointDelegates
             new DeprecateApplicationCommand(new ApplicationId(id), request.SunsetDate),
             db, ct);
 
-        if (resp is null)
-        {
-            return Results.Problem(
-                type: ProblemTypes.ResourceNotFound,
-                title: "Application not found",
-                detail: "No application with that id is visible in the current tenant.",
-                statusCode: StatusCodes.Status404NotFound);
-        }
+        if (resp is null) return EndpointResultExtensions.ApplicationNotFound();
         return Results.Ok(resp);
     }
 
-    /// <summary>
-    /// POST decommission transitions Deprecated → Decommissioned. No body, no
-    /// If-Match — domain invariants ("current state must be Deprecated" +
-    /// "now &gt;= sunsetDate") are the implicit version (slice 5 spec §3
-    /// Decision #7). Wrong source state surfaces as
-    /// <c>InvalidLifecycleTransitionException</c> → 409 via
-    /// <c>LifecycleConflictExceptionHandler</c>; a "now &lt; sunsetDate"
-    /// attempt surfaces as the same exception type but with
-    /// <c>reason="before-sunset-date"</c> and the stored <c>sunsetDate</c>
-    /// attached, both surfaced as RFC 7807 extension members on the 409 body
-    /// (admin override deferred to RBAC slice — slice 5 spec §13.2).
-    /// </summary>
     internal static async Task<IResult> DecommissionApplicationAsync(
         Guid id,
         DecommissionApplicationHandler handler,
@@ -242,14 +157,7 @@ internal static class CatalogEndpointDelegates
         var resp = await handler.Handle(
             new DecommissionApplicationCommand(new ApplicationId(id)), db, ct);
 
-        if (resp is null)
-        {
-            return Results.Problem(
-                type: ProblemTypes.ResourceNotFound,
-                title: "Application not found",
-                detail: "No application with that id is visible in the current tenant.",
-                statusCode: StatusCodes.Status404NotFound);
-        }
+        if (resp is null) return EndpointResultExtensions.ApplicationNotFound();
         return Results.Ok(resp);
     }
 }

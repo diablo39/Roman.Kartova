@@ -1,3 +1,4 @@
+using Kartova.SharedKernel;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -6,17 +7,10 @@ using Microsoft.AspNetCore.Mvc.Infrastructure;
 namespace Kartova.SharedKernel.AspNetCore;
 
 /// <summary>
-/// Maps any module's <c>InvalidLifecycleTransitionException</c> (matched by
-/// type name to avoid SharedKernel → module coupling) to RFC 7807
-/// <c>409 Conflict</c> with <c>type = </c><see cref="ProblemTypes.LifecycleConflict"/>.
-///
-/// Extensions populated from the exception's public properties:
-/// <list type="bullet">
-///   <item><c>currentLifecycle</c> — string name of the current state.</item>
-///   <item><c>attemptedTransition</c> — name of the rejected transition.</item>
-///   <item><c>sunsetDate</c> — present when the exception carries one (deprecate/decommission paths).</item>
-///   <item><c>reason</c> — present when set (e.g. <c>before-sunset-date</c>).</item>
-/// </list>
+/// Maps any module exception implementing <see cref="ILifecycleConflict"/> to
+/// RFC 7807 <c>409 Conflict</c> with <c>type = </c><see cref="ProblemTypes.LifecycleConflict"/>.
+/// Extension members on the response: <c>currentLifecycle</c>, <c>attemptedTransition</c>,
+/// optional <c>sunsetDate</c>, optional <c>reason</c>.
 /// </summary>
 public sealed class LifecycleConflictExceptionHandler : IExceptionHandler
 {
@@ -30,16 +24,10 @@ public sealed class LifecycleConflictExceptionHandler : IExceptionHandler
     public async ValueTask<bool> TryHandleAsync(
         HttpContext httpContext, Exception exception, CancellationToken ct)
     {
-        if (exception.GetType().Name != "InvalidLifecycleTransitionException")
+        if (exception is not ILifecycleConflict conflict)
         {
             return false;
         }
-
-        var t = exception.GetType();
-        var current = t.GetProperty("CurrentLifecycle")?.GetValue(exception)?.ToString();
-        var attempted = t.GetProperty("AttemptedTransition")?.GetValue(exception)?.ToString();
-        var sunset = t.GetProperty("SunsetDate")?.GetValue(exception) as DateTimeOffset?;
-        var reason = t.GetProperty("Reason")?.GetValue(exception)?.ToString();
 
         httpContext.Response.StatusCode = StatusCodes.Status409Conflict;
 
@@ -51,10 +39,10 @@ public sealed class LifecycleConflictExceptionHandler : IExceptionHandler
             Detail = exception.Message,
         };
 
-        if (current is not null)   problem.Extensions["currentLifecycle"]   = current;
-        if (attempted is not null) problem.Extensions["attemptedTransition"] = attempted;
-        if (sunset.HasValue)       problem.Extensions["sunsetDate"]          = sunset.Value;
-        if (reason is not null)    problem.Extensions["reason"]              = reason;
+        problem.Extensions["currentLifecycle"]    = conflict.CurrentLifecycleName;
+        problem.Extensions["attemptedTransition"] = conflict.AttemptedTransition;
+        if (conflict.SunsetDate.HasValue) problem.Extensions["sunsetDate"] = conflict.SunsetDate.Value;
+        if (conflict.Reason is not null)  problem.Extensions["reason"]     = conflict.Reason;
 
         return await _problemDetails.TryWriteAsync(new ProblemDetailsContext
         {

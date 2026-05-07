@@ -121,10 +121,11 @@ public class Program
         builder.Services.AddExceptionHandler<ConcurrencyConflictExceptionHandler>();
 
         // Lifecycle-conflict → 409 mapping — slice 5 (ADR-0073).
-        // Maps any module's InvalidLifecycleTransitionException (matched by
-        // type name to avoid SharedKernel → Catalog coupling) to RFC 7807 409
-        // with currentLifecycle / attemptedTransition / sunsetDate? / reason?
-        // extensions so clients can render an actionable error.
+        // Maps any exception implementing ILifecycleConflict (defined in
+        // Kartova.SharedKernel) to RFC 7807 409 with currentLifecycle /
+        // attemptedTransition / sunsetDate? / reason? extensions. The marker
+        // interface decouples SharedKernel.AspNetCore from module domains
+        // while keeping property reads compile-time-checked.
         builder.Services.AddExceptionHandler<LifecycleConflictExceptionHandler>();
 
         // Domain-validation → 400 mapping — slice-3 spec §13.3.

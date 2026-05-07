@@ -10,10 +10,11 @@ namespace Kartova.SharedKernel.AspNetCore;
 /// Maps EF Core <see cref="DbUpdateConcurrencyException"/> (raised when the
 /// supplied row-version <c>OriginalValue</c> doesn't match the database's
 /// current value) to RFC 7807 <c>412 Precondition Failed</c> with
-/// <c>type = </c><see cref="ProblemTypes.ConcurrencyConflict"/>.
-///
-/// The current version is captured from the entry's <c>DatabaseValues</c>
-/// when available so the client can retry against the latest state.
+/// <c>type = </c><see cref="ProblemTypes.ConcurrencyConflict"/>. The originating
+/// handler is expected to stash the current row version on
+/// <c>Exception.Data["currentVersion"]</c> while the tenant connection is still
+/// alive — by the time this handler runs, <c>TenantScopeBeginMiddleware</c> has
+/// disposed the connection, so a fresh database read is no longer possible.
 /// </summary>
 public sealed class ConcurrencyConflictExceptionHandler : IExceptionHandler
 {
@@ -42,41 +43,9 @@ public sealed class ConcurrencyConflictExceptionHandler : IExceptionHandler
             Detail = "The resource was modified by another request. Reload and reapply.",
         };
 
-        // Best-effort: pull the database's current version into the extensions
-        // dictionary so the client can resync without a separate GET.
-        //
-        // Two sources, in order of preference:
-        //  1. dbEx.Data["currentVersion"] — populated by the originating handler
-        //     while its DbContext + tenant connection are still alive (the rollback
-        //     in TenantScopeBeginMiddleware's finally block disposes the connection
-        //     before this handler runs, so a fresh GetDatabaseValuesAsync would
-        //     fail in the integration path).
-        //  2. entry.GetDatabaseValuesAsync — fallback for unit tests and any caller
-        //     that hasn't pre-captured the value. Wrapped in try/catch so a disposed
-        //     connection surfaces the bare 412 envelope instead of rethrowing.
         if (dbEx.Data["currentVersion"] is uint preCaptured)
         {
             problem.Extensions["currentVersion"] = VersionEncoding.Encode(preCaptured);
-        }
-        else
-        {
-            var entry = dbEx.Entries.FirstOrDefault();
-            if (entry is not null)
-            {
-                try
-                {
-                    var dbValues = await entry.GetDatabaseValuesAsync(ct);
-                    if (dbValues is not null && dbValues["Version"] is uint currentVersion)
-                    {
-                        problem.Extensions["currentVersion"] = VersionEncoding.Encode(currentVersion);
-                    }
-                }
-                catch
-                {
-                    // Connection / DbContext may already be disposed; we still want
-                    // to emit the 412 envelope. The client can re-fetch via GET.
-                }
-            }
         }
 
         return await _problemDetails.TryWriteAsync(new ProblemDetailsContext

@@ -83,7 +83,7 @@ public sealed partial class Application : ITenantOwned
     {
         if (Lifecycle == Lifecycle.Decommissioned)
         {
-            throw new InvalidLifecycleTransitionException(Lifecycle, "EditMetadata");
+            throw new InvalidLifecycleTransitionException(Lifecycle, nameof(EditMetadata));
         }
 
         ValidateDisplayName(displayName);
@@ -97,7 +97,7 @@ public sealed partial class Application : ITenantOwned
     {
         if (Lifecycle != Lifecycle.Active)
         {
-            throw new InvalidLifecycleTransitionException(Lifecycle, "Deprecate", SunsetDate);
+            throw new InvalidLifecycleTransitionException(Lifecycle, nameof(Deprecate), SunsetDate);
         }
 
         if (sunsetDate <= clock.GetUtcNow())
@@ -114,13 +114,13 @@ public sealed partial class Application : ITenantOwned
     {
         if (Lifecycle != Lifecycle.Deprecated)
         {
-            throw new InvalidLifecycleTransitionException(Lifecycle, "Decommission", SunsetDate);
+            throw new InvalidLifecycleTransitionException(Lifecycle, nameof(Decommission), SunsetDate);
         }
 
         if (clock.GetUtcNow() < SunsetDate!.Value)
         {
             throw new InvalidLifecycleTransitionException(
-                Lifecycle, "Decommission", SunsetDate, reason: "before-sunset-date");
+                Lifecycle, nameof(Decommission), SunsetDate, reason: "before-sunset-date");
         }
 
         Lifecycle = Lifecycle.Decommissioned;

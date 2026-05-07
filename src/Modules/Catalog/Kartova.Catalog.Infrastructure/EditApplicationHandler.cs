@@ -1,27 +1,22 @@
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
-using Kartova.SharedKernel.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kartova.Catalog.Infrastructure;
 
 /// <summary>
-/// Direct-dispatch handler for <see cref="EditApplicationCommand"/>. Mirrors
-/// the GetApplicationByIdHandler nullable-return pattern: null = not found in
-/// current tenant scope (RLS auto-filters cross-tenant rows). Endpoint
-/// delegate maps null to RFC 7807 404.
-///
-/// Concurrency: handler sets <c>OriginalValue(Version)</c> to the supplied
-/// ExpectedVersion so EF's UPDATE includes <c>WHERE xmin = :expected</c>;
-/// mismatch raises DbUpdateConcurrencyException → 412
-/// (ConcurrencyConflictExceptionHandler).
+/// Direct-dispatch handler for <see cref="EditApplicationCommand"/>. Returns
+/// <c>null</c> when no row is visible in the current tenant scope (RLS
+/// auto-filters cross-tenant rows — handler does not need an explicit tenant
+/// id). Concurrency: sets <c>OriginalValue(Version)</c> to the supplied
+/// <c>ExpectedVersion</c> so EF's UPDATE includes <c>WHERE xmin = :expected</c>;
+/// mismatch raises <see cref="DbUpdateConcurrencyException"/> → 412.
 /// </summary>
 public sealed class EditApplicationHandler
 {
     public async Task<ApplicationResponse?> Handle(
         EditApplicationCommand cmd,
         CatalogDbContext db,
-        ITenantContext tenant,
         CancellationToken ct)
     {
         var app = await db.Applications
@@ -37,12 +32,11 @@ public sealed class EditApplicationHandler
         }
         catch (DbUpdateConcurrencyException ex)
         {
-            // Capture the current row version on the still-alive tenant connection
-            // BEFORE the exception escapes the handler. Once the exception bubbles
-            // up the pipeline, TenantScopeBeginMiddleware's finally block will roll
-            // back and dispose the connection — at which point GetDatabaseValuesAsync
-            // would fail. Stash on Exception.Data so ConcurrencyConflictExceptionHandler
-            // can read it without re-querying the DB.
+            // Capture the current row version while the tenant connection is
+            // still alive — TenantScopeBeginMiddleware rolls back and disposes
+            // the connection before ConcurrencyConflictExceptionHandler runs,
+            // so a fresh GetDatabaseValuesAsync would fail there. Stashing on
+            // Exception.Data is the handoff path.
             await TryCaptureCurrentVersionAsync(ex, ct);
             throw;
         }
@@ -50,10 +44,6 @@ public sealed class EditApplicationHandler
         return app.ToResponse();
     }
 
-    /// <summary>
-    /// Best-effort fetch of the row's current xmin via EF's tracked entry. Failures
-    /// are swallowed so the original concurrency exception still surfaces.
-    /// </summary>
     private static async Task TryCaptureCurrentVersionAsync(
         DbUpdateConcurrencyException ex, CancellationToken ct)
     {
@@ -70,10 +60,13 @@ public sealed class EditApplicationHandler
                 ex.Data["currentVersion"] = currentVersion;
             }
         }
-        catch
+        catch (Exception captureEx) when (captureEx is not OperationCanceledException)
         {
-            // Connection or DbContext may be disposed; the conflict status itself is
-            // still informative without the extension. Don't mask the real exception.
+            // Swallow — the 412 envelope is still informative without the
+            // currentVersion extension; we just lose the round-trip-saving
+            // hint. Don't mask the real DbUpdateConcurrencyException.
+            // OperationCanceledException is excluded so a request-cancellation
+            // mid-recapture isn't silently dropped.
         }
     }
 }

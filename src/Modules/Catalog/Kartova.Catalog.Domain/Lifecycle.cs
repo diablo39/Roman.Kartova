@@ -3,9 +3,13 @@ namespace Kartova.Catalog.Domain;
 /// <summary>
 /// Application lifecycle states per ADR-0073. Linear forward progression
 /// (Active → Deprecated → Decommissioned). Backward transitions require Org
-/// Admin (deferred to RBAC slice — spec §13.2). Numeric values are
-/// load-bearing — reordering breaks Application.Decommission's monotonic
-/// comparisons. Pinned by LifecycleEnumRules arch tests.
+/// Admin (deferred to RBAC slice — spec §13.2).
+/// <para>
+/// Numeric values are load-bearing because they are persisted to the
+/// <c>lifecycle smallint</c> column on <c>catalog.applications</c> — reordering
+/// or renumbering would silently corrupt rows already on disk. Pinned by
+/// <see cref="LifecycleEnumRules"/> arch tests.
+/// </para>
 /// </summary>
 public enum Lifecycle
 {
