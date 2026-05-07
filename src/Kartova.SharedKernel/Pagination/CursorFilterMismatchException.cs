@@ -19,6 +19,9 @@ public sealed class CursorFilterMismatchException : Exception
     public CursorFilterMismatchException(string filterName, string expectedValue, string actualValue)
         : base($"Cursor was issued for {filterName}={expectedValue} but request uses {filterName}={actualValue}.")
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(filterName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(expectedValue);
+        ArgumentException.ThrowIfNullOrWhiteSpace(actualValue);
         FilterName = filterName;
         ExpectedValue = expectedValue;
         ActualValue = actualValue;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { Card, CardContent } from "@/components/base/card/card";
@@ -23,6 +23,12 @@ export function CatalogListPage() {
   const list = useApplicationsList({ sortBy, sortOrder, includeDecommissioned });
   const [dialogOpen, setDialogOpen] = useState(false);
 
+  useEffect(() => {
+    if (list.isError) {
+      console.error("CatalogListPage list error", list.error);
+    }
+  }, [list.isError, list.error]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -42,9 +48,10 @@ export function CatalogListPage() {
 
       {list.isError ? (
         <Card className="mx-auto max-w-md">
-          <CardContent className="space-y-2 p-6 text-center">
+          <CardContent className="space-y-3 p-6 text-center">
             <p className="text-base font-medium text-error-primary">Failed to load applications</p>
-            <p className="text-sm text-tertiary">Try again in a moment, or check that you&apos;re signed in.</p>
+            <p className="text-sm text-tertiary">Try refreshing or resetting the list.</p>
+            <Button size="sm" onClick={() => list.reset()}>Reset</Button>
           </CardContent>
         </Card>
       ) : (

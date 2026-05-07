@@ -279,9 +279,9 @@ public sealed class ListApplicationsPaginationTests
     [Fact]
     public async Task NonNumericLimit_returns_400_with_raw_value_in_envelope()
     {
-        // Mutation-killing test (line 102): if the throw of InvalidLimitException(rawLimit, ...)
-        // is removed, effectiveLimit defaults to 0 (the failed TryParse out-value), and the
-        // handler later throws InvalidLimitException(0, MinLimit, MaxLimit). Both produce a
+        // Mutation-killing test for the `throw new InvalidLimitException(rawLimit, ...)` branch:
+        // if that throw is removed, effectiveLimit defaults to 0 (the failed TryParse out-value),
+        // and the handler later throws InvalidLimitException(0, MinLimit, MaxLimit). Both produce a
         // 400 with type=invalid-limit, so a generic body.Contains("invalid-limit") cannot
         // distinguish them. Pin the rawLimit echo back: only the original throw preserves
         // the literal "abc" in the envelope; the fall-through path would echo "0".
@@ -299,8 +299,8 @@ public sealed class ListApplicationsPaginationTests
     [Fact]
     public async Task SortBy_name_asc_overrides_default_createdAt_ordering()
     {
-        // Mutation-killing test (line 109): if `parsedSortBy ?? ApplicationSortField.CreatedAt`
-        // collapses to `ApplicationSortField.CreatedAt`, user-supplied sortBy=name is silently
+        // Mutation-killing test for the `parsedSortBy ?? ApplicationSortField.CreatedAt` expression:
+        // if the null-coalesce is mutated and always returns CreatedAt, user-supplied sortBy=name is silently
         // ignored. To distinguish, we seed rows with names in REVERSE alpha order vs creation
         // order: created first = "zzz-mut-c-...", created last = "zzz-mut-a-...". Asking for
         // sortBy=name&sortOrder=asc must return alpha-first ("a..." then "b..." then "c...").
@@ -482,6 +482,8 @@ public sealed class ListApplicationsPaginationTests
             var problem = await page2.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
             problem!.Type.Should().Be(ProblemTypes.CursorFilterMismatch);
             problem.Extensions["filterName"]!.ToString().Should().Be("includeDecommissioned");
+            problem.Extensions["expectedValue"]!.ToString().Should().Be("true");   // cursor was issued with true
+            problem.Extensions["actualValue"]!.ToString().Should().Be("false");    // request sent false
         }
         finally
         {
@@ -525,6 +527,30 @@ public sealed class ListApplicationsPaginationTests
         {
             await _fx.DeleteApplicationsByPrefixAsync(tenantId, activePrefix);
         }
+    }
+
+    [Fact]
+    public async Task GET_applications_legacy_cursor_replayed_with_includeDecommissioned_true_returns_400()
+    {
+        // Build a legacy cursor (no `ic` field) directly — no seeding needed because
+        // the filter-mismatch check fires before any keyset WHERE is applied, so the
+        // sort value and id do not need to point at real rows.
+        // Legacy cursor shape: { s, i, d } — the pre-slice-6 format.
+        var fakeTimestamp = "2020-01-01T00:00:00.0000000Z";
+        var fakeId = Guid.NewGuid().ToString();
+        var legacyJson = $"{{\"s\":\"{fakeTimestamp}\",\"i\":\"{fakeId}\",\"d\":\"desc\"}}";
+        var legacyCursor = System.Buffers.Text.Base64Url.EncodeToString(System.Text.Encoding.UTF8.GetBytes(legacyJson));
+
+        var client = _fx.CreateClientForOrgA();
+
+        // Replay with ?includeDecommissioned=true. Cursor decodes ic=false (legacy default),
+        // request expects true → mismatch is detected before keyset filtering.
+        var resp = await client.GetAsync(
+            $"/api/v1/catalog/applications?limit=2&sortBy=createdAt&sortOrder=desc&includeDecommissioned=true&cursor={Uri.EscapeDataString(legacyCursor)}");
+
+        resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problem = await resp.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
+        problem!.Type.Should().Be(ProblemTypes.CursorFilterMismatch);
     }
 
 }

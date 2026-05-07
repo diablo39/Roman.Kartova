@@ -22,7 +22,7 @@ public sealed class CatalogModuleRegisterForMigratorTests
     {
         // Migrator runs against the Main connection (the migrator role is granted
         // BYPASSRLS in PG; KartovaConnectionStrings.RequireMain is what production
-        // uses — see CatalogModule.cs:105 + OrganizationModule.cs:73).
+        // uses — see CatalogModule.RegisterForMigrator and OrganizationModule.RegisterForMigrator).
         const string mainCs = "Host=localhost;Database=kartova_test_main;Username=test;Password=test";
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>

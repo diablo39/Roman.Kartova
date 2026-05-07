@@ -123,7 +123,7 @@ public sealed class CursorCodecTests
     [Fact]
     public void Encode_then_Decode_roundtrips_true_bool_sort_value()
     {
-        // Kills mutant at line 76: JsonValueKind.True => true mutated to => false.
+        // Kills mutant: `JsonValueKind.True => true` arm mutated to `=> false`.
         // With mutated code, decoded value would be false instead of true.
         var encoded = CursorCodec.Encode(true, AnyId, SortOrder.Asc);
         var decoded = CursorCodec.Decode(encoded);
@@ -134,7 +134,7 @@ public sealed class CursorCodecTests
     [Fact]
     public void Encode_then_Decode_roundtrips_false_bool_sort_value()
     {
-        // Kills mutant at line 77: JsonValueKind.False => false mutated to => true.
+        // Kills mutant: `JsonValueKind.False => false` arm mutated to `=> true`.
         // With mutated code, decoded value would be true instead of false.
         var encoded = CursorCodec.Encode(false, AnyId, SortOrder.Asc);
         var decoded = CursorCodec.Decode(encoded);
@@ -182,7 +182,7 @@ public sealed class CursorCodecTests
     [Fact]
     public void Decode_throws_when_sort_value_is_json_array()
     {
-        // Kills mutant at line 79 default arm: array/object kinds must be rejected.
+        // Kills mutant: default arm in `UnwrapJsonElement` switch — array/object kinds must be rejected.
         // STJ deserializes object? as JsonElement when the underlying token is a structure;
         // UnwrapJsonElement's default arm is the only guard.
         var json = $$"""{"s":[1,2,3],"i":"{{AnyId}}","d":"asc"}""";
@@ -239,6 +239,24 @@ public sealed class CursorCodecTests
 
         var decoded = CursorCodec.Decode(legacyCursor);
 
+        decoded.IncludeDecommissioned.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Encode_with_includeDecommissioned_false_omits_ic_field_and_round_trips()
+    {
+        var encoded = CursorCodec.Encode(
+            sortValue: "2026-05-07T12:00:00.0000000Z",
+            id: Guid.Parse("22222222-2222-2222-2222-222222222222"),
+            direction: SortOrder.Asc,
+            includeDecommissioned: false);
+
+        // ic must be absent in the wire JSON to keep cursors compact and forward-compatible.
+        var bytes = System.Buffers.Text.Base64Url.DecodeFromChars(encoded.AsSpan());
+        var json = System.Text.Encoding.UTF8.GetString(bytes);
+        json.Should().NotContain("\"ic\"", "ic is omitted (not written as false) per WhenWritingNull");
+
+        var decoded = CursorCodec.Decode(encoded);
         decoded.IncludeDecommissioned.Should().BeFalse();
     }
 

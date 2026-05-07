@@ -1,11 +1,12 @@
 import React from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
 
 import * as clientModule from "@/features/catalog/api/client";
+import * as applicationsModule from "@/features/catalog/api/applications";
 import { CatalogListPage } from "../CatalogListPage";
 
 vi.mock("react-oidc-context", () => ({
@@ -158,6 +159,37 @@ function harnessWithRoutes(qc: QueryClient, initialEntries: string[] = ["/"]) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// API hook params — assert that useApplicationsList receives the right query
+// params as derived from URL state (Slice 6 Fix 2.6).
+// ---------------------------------------------------------------------------
+
+const stubListResult = {
+  items: [],
+  isLoading: false,
+  isFetching: false,
+  isError: false,
+  error: null,
+  hasNext: false,
+  hasPrev: false,
+  goNext: vi.fn(),
+  goPrev: vi.fn(),
+  reset: vi.fn(),
+};
+
+function harnessWithApp(initialEntries: string[] = ["/"]) {
+  return ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter initialEntries={initialEntries}>
+        <Routes>
+          <Route path="/" element={<CatalogListPage />} />
+        </Routes>
+        {children}
+      </MemoryRouter>
+    </QueryClientProvider>
+  );
+}
+
 describe("CatalogListPage — Show decommissioned checkbox", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -218,5 +250,33 @@ describe("CatalogListPage — Show decommissioned checkbox", () => {
     const checkbox = screen.getByRole("checkbox", { name: /show decommissioned/i });
     await user.click(checkbox);
     expect(screen.getByTestId("probe").textContent).not.toContain("includeDecommissioned");
+  });
+});
+
+describe("CatalogListPage — API hook receives correct query params", () => {
+  let useApplicationsListSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    useApplicationsListSpy = vi
+      .spyOn(applicationsModule, "useApplicationsList")
+      .mockReturnValue(stubListResult);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("passes includeDecommissioned=true to useApplicationsList when URL has the param", () => {
+    render(<></>, { wrapper: harnessWithApp(["/?includeDecommissioned=true"]) });
+    expect(useApplicationsListSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ includeDecommissioned: true }),
+    );
+  });
+
+  it("passes includeDecommissioned=false to useApplicationsList when URL has no param", () => {
+    render(<></>, { wrapper: harnessWithApp(["/"])  });
+    expect(useApplicationsListSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ includeDecommissioned: false }),
+    );
   });
 });

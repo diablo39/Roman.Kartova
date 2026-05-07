@@ -102,7 +102,7 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     /// <summary>
     /// Seeds <paramref name="count"/> applications in the given lifecycle state
     /// for the given tenant, with spread-apart <c>createdAt</c> timestamps.
-    /// Slice 6 — used by ListApplicationsFilterTests to populate Decommissioned
+    /// Slice 6 — used by ListApplicationsPaginationTests to populate Decommissioned
     /// rows that ADR-0073's default-view filter must hide.
     /// </summary>
     public async Task SeedApplicationsWithLifecycleAsync(

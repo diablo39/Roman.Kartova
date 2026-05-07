@@ -20,13 +20,13 @@ export interface ListUrlState<TField extends string, TBoolFilter extends string 
   sortOrder: SortDirection;
   setSort: (field: TField, order: SortDirection) => void;
   /** Map of filter name to current boolean value (default false). */
-  booleanFilters: Record<TBoolFilter, boolean>;
+  booleanFilters: Readonly<Record<TBoolFilter, boolean>>;
   setBooleanFilter: (name: TBoolFilter, value: boolean) => void;
 }
 
 /**
  * URL-backed sort + filter state for list pages. Falls back to defaults when URL
- * params are absent or invalid (per ADR-0095 §6.1 — no error UI for "user typed
+ * params are absent or invalid (per ADR-0095 — no error UI for "user typed
  * garbage in URL"). Cursor is intentionally not in URL — see ADR-0095 §3 Q5 = C.
  *
  * Slice 6: optional boolean filters supported via the `booleanFilters` config —
