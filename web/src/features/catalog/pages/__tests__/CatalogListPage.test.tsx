@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
 
 import * as clientModule from "@/features/catalog/api/client";
 import { CatalogListPage } from "../CatalogListPage";
@@ -132,5 +132,91 @@ describe("CatalogListPage", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /register application/i }));
     expect(await screen.findByRole("dialog", { name: /register application/i })).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Show decommissioned checkbox — URL round-trip tests (Slice 6)
+// Uses Routes + Route so useSearchParams can update the URL in MemoryRouter.
+// ---------------------------------------------------------------------------
+
+function LocationProbe() {
+  const loc = useLocation();
+  return <div data-testid="probe">{loc.search}</div>;
+}
+
+function harnessWithRoutes(qc: QueryClient, initialEntries: string[] = ["/"]) {
+  return ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={qc}>
+      <MemoryRouter initialEntries={initialEntries}>
+        <Routes>
+          <Route path="/" element={<><CatalogListPage /><LocationProbe /></>} />
+        </Routes>
+        {children}
+      </MemoryRouter>
+    </QueryClientProvider>
+  );
+}
+
+describe("CatalogListPage — Show decommissioned checkbox", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("is unchecked by default and URL has no includeDecommissioned param", () => {
+    const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<></>, { wrapper: harnessWithRoutes(qc) });
+
+    const checkbox = screen.getByRole("checkbox", { name: /show decommissioned/i });
+    expect(checkbox).not.toBeChecked();
+    expect(screen.getByTestId("probe").textContent).toBe("");
+  });
+
+  it("hydrates to checked when URL has ?includeDecommissioned=true", () => {
+    const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<></>, { wrapper: harnessWithRoutes(qc, ["/?includeDecommissioned=true"]) });
+
+    const checkbox = screen.getByRole("checkbox", { name: /show decommissioned/i });
+    expect(checkbox).toBeChecked();
+  });
+
+  it("toggling the checkbox writes the URL param to true", async () => {
+    const user = userEvent.setup();
+    const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<></>, { wrapper: harnessWithRoutes(qc) });
+
+    const checkbox = screen.getByRole("checkbox", { name: /show decommissioned/i });
+    await user.click(checkbox);
+    expect(screen.getByTestId("probe").textContent).toContain("includeDecommissioned=true");
+  });
+
+  it("toggling off removes the URL param entirely (no =false clutter)", async () => {
+    const user = userEvent.setup();
+    const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<></>, { wrapper: harnessWithRoutes(qc, ["/?includeDecommissioned=true"]) });
+
+    const checkbox = screen.getByRole("checkbox", { name: /show decommissioned/i });
+    await user.click(checkbox);
+    expect(screen.getByTestId("probe").textContent).not.toContain("includeDecommissioned");
   });
 });

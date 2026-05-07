@@ -2,21 +2,25 @@ import { useState } from "react";
 import { Plus } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { Card, CardContent } from "@/components/base/card/card";
+import { Checkbox } from "@/components/base/checkbox/checkbox";
 import { useApplicationsList } from "@/features/catalog/api/applications";
 import { useListUrlState } from "@/lib/list/useListUrlState";
 import { ApplicationsTable } from "@/features/catalog/components/ApplicationsTable";
 import { RegisterApplicationDialog } from "@/features/catalog/components/RegisterApplicationDialog";
 
 const ALLOWED_SORT_FIELDS = ["createdAt", "name"] as const;
+const BOOLEAN_FILTERS = ["includeDecommissioned"] as const;
 
 export function CatalogListPage() {
-  const { sortBy, sortOrder, setSort } = useListUrlState({
+  const { sortBy, sortOrder, setSort, booleanFilters, setBooleanFilter } = useListUrlState({
     defaultSortBy: "createdAt",
     defaultSortOrder: "desc",
     allowedSortFields: ALLOWED_SORT_FIELDS,
+    booleanFilters: BOOLEAN_FILTERS,
   });
+  const includeDecommissioned = booleanFilters.includeDecommissioned;
 
-  const list = useApplicationsList({ sortBy, sortOrder });
+  const list = useApplicationsList({ sortBy, sortOrder, includeDecommissioned });
   const [dialogOpen, setDialogOpen] = useState(false);
 
   return (
@@ -26,6 +30,14 @@ export function CatalogListPage() {
         <Button onClick={() => setDialogOpen(true)} size="sm" color="primary" iconLeading={Plus}>
           Register Application
         </Button>
+      </div>
+
+      <div className="flex items-center justify-end">
+        <Checkbox
+          isSelected={includeDecommissioned}
+          onChange={(value: boolean) => setBooleanFilter("includeDecommissioned", value)}
+          label="Show decommissioned"
+        />
       </div>
 
       {list.isError ? (
