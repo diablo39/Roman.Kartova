@@ -6,6 +6,8 @@ WORKDIR /src
 
 COPY global.json ./
 COPY Kartova.slnx ./
+COPY Directory.Packages.props ./
+COPY NuGet.Config ./
 COPY src/Kartova.SharedKernel/*.csproj src/Kartova.SharedKernel/
 COPY src/Kartova.SharedKernel.AspNetCore/*.csproj src/Kartova.SharedKernel.AspNetCore/
 COPY src/Kartova.SharedKernel.Postgres/*.csproj src/Kartova.SharedKernel.Postgres/
