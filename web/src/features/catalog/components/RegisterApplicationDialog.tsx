@@ -8,7 +8,6 @@ import { HookForm, FormField } from "@/components/base/form/hook-form";
 import { Input } from "@/components/base/input/input";
 import { TextArea } from "@/components/base/textarea/textarea";
 import { Button } from "@/components/base/buttons/button";
-import { Badge } from "@/components/base/badges/badges";
 import { Avatar } from "@/components/base/avatar/avatar";
 
 import {
@@ -16,6 +15,7 @@ import {
   type RegisterApplicationInput,
 } from "@/features/catalog/schemas/registerApplication";
 import { useRegisterApplication } from "@/features/catalog/api/applications";
+import { LifecycleBadge } from "./LifecycleBadge";
 import {
   applyProblemDetailsToForm,
   type ProblemDetails,
@@ -127,7 +127,9 @@ export function RegisterApplicationDialog({ open, onOpenChange }: Props) {
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-wide text-tertiary">Lifecycle</p>
-                  <Badge color="success" type="pill-color" size="sm" className="mt-1">Active</Badge>
+                  <div className="mt-1">
+                    <LifecycleBadge lifecycle="active" />
+                  </div>
                 </div>
               </div>
 

@@ -17,6 +17,8 @@ const a1: ApplicationRow = {
   description: "first app",
   ownerUserId: "u",
   createdAt: "2026-04-30T00:00:00Z",
+  lifecycle: "active",
+  sunsetDate: null,
 };
 const a2: ApplicationRow = { ...a1, id: "00000000-0000-0000-0000-000000000002", name: "n2", displayName: "App Two", description: "second" };
 

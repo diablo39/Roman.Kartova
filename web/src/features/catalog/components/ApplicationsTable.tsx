@@ -5,7 +5,9 @@ import {
   SortableHead, TablePager, TableSkeleton,
   fromSort, toSort,
 } from "@/components/application/data-table/data-table";
+import { LifecycleBadge } from "./LifecycleBadge";
 import type { CursorListResult, SortDirection } from "@/lib/list/types";
+import type { Lifecycle } from "@/features/catalog/api/applications";
 
 export interface ApplicationRow {
   id: string;
@@ -14,6 +16,8 @@ export interface ApplicationRow {
   description: string;
   ownerUserId?: string;
   createdAt?: string;
+  lifecycle: Lifecycle;
+  sunsetDate: string | null;
 }
 
 type SortField = "createdAt" | "name";
@@ -31,10 +35,11 @@ export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange }: Pro
       <Table aria-label="Applications">
         <Table.Header>
           <Table.Head id="name" isRowHeader>Name</Table.Head>
+          <Table.Head id="lifecycle">Lifecycle</Table.Head>
           <Table.Head id="description">Description</Table.Head>
           <Table.Head id="createdAt">Created</Table.Head>
         </Table.Header>
-        <TableSkeleton rows={5} cells={3} />
+        <TableSkeleton rows={5} cells={4} />
       </Table>
     );
   }
@@ -68,6 +73,7 @@ export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange }: Pro
       >
         <Table.Header>
           <SortableHead id="name" isRowHeader>Name</SortableHead>
+          <Table.Head id="lifecycle">Lifecycle</Table.Head>
           <Table.Head id="description">Description</Table.Head>
           <SortableHead id="createdAt">Created</SortableHead>
         </Table.Header>
@@ -82,6 +88,9 @@ export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange }: Pro
                   {app.displayName}
                 </Link>
                 <span className="font-mono text-xs text-tertiary">{app.name}</span>
+              </Table.Cell>
+              <Table.Cell>
+                <LifecycleBadge lifecycle={app.lifecycle} sunsetDate={app.sunsetDate} />
               </Table.Cell>
               <Table.Cell className="text-sm text-tertiary">
                 {app.description || <span className="italic">No description</span>}

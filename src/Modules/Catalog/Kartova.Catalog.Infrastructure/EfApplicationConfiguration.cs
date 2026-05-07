@@ -51,5 +51,23 @@ public sealed class EfApplicationConfiguration : IEntityTypeConfiguration<Kartov
         b.Property(x => x.Description).HasColumnName("description").IsRequired();
         b.Property(x => x.OwnerUserId).HasColumnName("owner_user_id").IsRequired();
         b.Property(x => x.CreatedAt).HasColumnName("created_at").IsRequired();
+
+        b.Property(x => x.Lifecycle)
+            .HasColumnName("lifecycle")
+            .HasColumnType("smallint")
+            .HasConversion<short>()                           // enum → smallint
+            .HasDefaultValue(Lifecycle.Active)
+            .IsRequired();
+
+        b.Property(x => x.SunsetDate)
+            .HasColumnName("sunset_date")
+            .HasColumnType("timestamptz");                    // nullable by default
+
+        b.Property(x => x.Version)
+            .HasColumnName("xmin")
+            .HasColumnType("xid")
+            .ValueGeneratedOnAddOrUpdate()
+            .IsRowVersion()
+            .IsConcurrencyToken();
     }
 }

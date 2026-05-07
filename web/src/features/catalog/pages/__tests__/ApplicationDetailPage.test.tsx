@@ -33,6 +33,9 @@ describe("ApplicationDetailPage", () => {
         description: "Handles charges",
         ownerUserId: "u-1",
         createdAt: "2026-01-01T12:34:56Z",
+        lifecycle: "active",
+        sunsetDate: null,
+        version: "v1",
       },
       error: undefined,
     });
@@ -59,6 +62,9 @@ describe("ApplicationDetailPage", () => {
         description: "d",
         ownerUserId: "u",
         createdAt: "2026-01-01T00:00:00Z",
+        lifecycle: "active",
+        sunsetDate: null,
+        version: "v1",
       },
       error: undefined,
     });
@@ -114,6 +120,9 @@ describe("ApplicationDetailPage", () => {
         description: "",
         ownerUserId: "u",
         createdAt: "2026-01-01T00:00:00Z",
+        lifecycle: "active",
+        sunsetDate: null,
+        version: "v1",
       },
       error: undefined,
     });

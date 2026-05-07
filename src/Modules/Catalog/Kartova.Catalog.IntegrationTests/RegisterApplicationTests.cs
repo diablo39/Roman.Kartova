@@ -2,7 +2,10 @@ using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
 using Kartova.Catalog.Contracts;
+using Kartova.Catalog.Domain;
+using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Pagination;
+using Kartova.Testing.Auth;
 
 namespace Kartova.Catalog.IntegrationTests;
 
@@ -24,12 +27,19 @@ public class RegisterApplicationTests
         resp.StatusCode.Should().Be(HttpStatusCode.Created);
         resp.Headers.Location!.ToString().Should().StartWith("/api/v1/catalog/applications/");
 
-        var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>();
+        var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
         body.Should().NotBeNull();
         body!.Name.Should().Be("payments-api");
         body.DisplayName.Should().Be("Payments API");
         body.Description.Should().Be("Payments REST surface.");
         body.Id.Should().NotBe(Guid.Empty);
+
+        // Slice 5 wire-shape pin: lifecycle defaults to Active, no sunset on
+        // create, Version is base64(4-byte xmin) and round-trips via VersionEncoding.
+        body.Lifecycle.Should().Be(Lifecycle.Active);
+        body.SunsetDate.Should().BeNull();
+        body.Version.Should().NotBeNullOrWhiteSpace();
+        VersionEncoding.TryDecode(body.Version, out _).Should().BeTrue();
     }
 
     [Fact]
@@ -43,7 +53,7 @@ public class RegisterApplicationTests
             new RegisterApplicationRequest("svc-x", "Svc X", "x"));
         resp.StatusCode.Should().Be(HttpStatusCode.Created);
 
-        var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>();
+        var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
         body!.OwnerUserId.Should().Be(subFromToken);
     }
 
@@ -58,7 +68,7 @@ public class RegisterApplicationTests
             new RegisterApplicationRequest("svc-y", "Svc Y", "y"));
         resp.StatusCode.Should().Be(HttpStatusCode.Created);
 
-        var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>();
+        var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
         body!.TenantId.Should().Be(tenantFromToken);
     }
 
@@ -91,11 +101,11 @@ public class RegisterApplicationTests
         var post = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
             new RegisterApplicationRequest("svc-z", "Svc Z", "z"));
-        var created = await post.Content.ReadFromJsonAsync<ApplicationResponse>();
+        var created = await post.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
 
         var get = await client.GetAsync($"/api/v1/catalog/applications/{created!.Id}");
         get.StatusCode.Should().Be(HttpStatusCode.OK);
-        var fetched = await get.Content.ReadFromJsonAsync<ApplicationResponse>();
+        var fetched = await get.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
         fetched!.Id.Should().Be(created.Id);
         fetched.Name.Should().Be("svc-z");
     }
@@ -110,6 +120,23 @@ public class RegisterApplicationTests
     }
 
     [Fact]
+    public async Task GET_by_id_emits_ETag_header_matching_Version_field()
+    {
+        // Slice 5 §13.5 — the single-resource GET emits an RFC 7232 quoted ETag
+        // whose value is the base64-encoded xmin row version. Clients capture
+        // it for a future PUT If-Match request (Task 8+).
+        var client = await _fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
+        var registered = await CreateApp(client, "etag-app");
+
+        var resp = await client.GetAsync($"/api/v1/catalog/applications/{registered.Id}");
+        resp.IsSuccessStatusCode.Should().BeTrue();
+
+        var etag = resp.Headers.ETag?.Tag;
+        etag.Should().NotBeNullOrWhiteSpace();
+        etag.Should().Be($"\"{registered.Version}\"");        // RFC 7232 quoted
+    }
+
+    [Fact]
     public async Task GET_list_returns_apps_in_current_tenant_sorted_by_createdAt()
     {
         var client = await _fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
@@ -118,7 +145,7 @@ public class RegisterApplicationTests
 
         var resp = await client.GetAsync("/api/v1/catalog/applications");
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
-        var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>();
+        var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
 
         page.Should().NotBeNull();
         page!.Items.Select(x => x.Id).Should().Contain(new[] { first.Id, second.Id });
@@ -131,7 +158,7 @@ public class RegisterApplicationTests
         var post = await c.PostAsJsonAsync(
             "/api/v1/catalog/applications",
             new RegisterApplicationRequest(name, name, $"desc for {name}"));
-        return (await post.Content.ReadFromJsonAsync<ApplicationResponse>())!;
+        return (await post.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
     }
 
     [Fact]
@@ -170,7 +197,7 @@ public class RegisterApplicationTests
             "/api/v1/catalog/applications",
             new RegisterApplicationRequest("orga-private", "Orga Private", "owned by orga"));
         post.StatusCode.Should().Be(HttpStatusCode.Created);
-        var orgaApp = await post.Content.ReadFromJsonAsync<ApplicationResponse>();
+        var orgaApp = await post.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
 
         var clientB = await _fx.CreateAuthenticatedClientAsync("admin@orgb.kartova.local");
         var resp = await clientB.GetAsync($"/api/v1/catalog/applications/{orgaApp!.Id}");
@@ -188,7 +215,7 @@ public class RegisterApplicationTests
         var clientB = await _fx.CreateAuthenticatedClientAsync("admin@orgb.kartova.local");
         var resp = await clientB.GetAsync("/api/v1/catalog/applications");
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
-        var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>();
+        var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
 
         page.Should().NotBeNull();
         var rows = page!.Items;

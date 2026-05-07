@@ -24,7 +24,7 @@ namespace Kartova.Catalog.Infrastructure.Migrations
 
             modelBuilder.Entity("Kartova.Catalog.Domain.Application", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<Guid>("_id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
@@ -43,6 +43,12 @@ namespace Kartova.Catalog.Infrastructure.Migrations
                         .HasColumnType("character varying(128)")
                         .HasColumnName("display_name");
 
+                    b.Property<short>("Lifecycle")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasDefaultValue((short)1)
+                        .HasColumnName("lifecycle");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -53,11 +59,21 @@ namespace Kartova.Catalog.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("owner_user_id");
 
+                    b.Property<DateTimeOffset?>("SunsetDate")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("sunset_date");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("tenant_id");
 
-                    b.HasKey("Id");
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("_id");
 
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_catalog_applications_tenant_id");
