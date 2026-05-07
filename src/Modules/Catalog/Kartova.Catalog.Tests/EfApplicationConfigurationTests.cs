@@ -154,6 +154,38 @@ public class EfApplicationConfigurationTests
     }
 
     [Fact]
+    public void Configure_ignores_domain_typed_Id_property()
+    {
+        // Arrange — use the convention model so we can read IgnoredMembers (which is
+        // erased once the model is finalized). Apply the configuration to a fresh
+        // ModelBuilder, then inspect the underlying convention entity type.
+        var conventionSet = InMemoryConventionSetBuilder.Build();
+        var modelBuilder = new ModelBuilder(conventionSet);
+        new EfApplicationConfiguration().Configure(modelBuilder.Entity<DomainApplication>());
+
+        var conventionEntity = (IConventionEntityType)modelBuilder.Model
+            .FindEntityType(typeof(DomainApplication))!;
+
+        // Act
+        var ignoredMembers = conventionEntity.GetIgnoredMembers();
+        var finalEntity = GetEntityType();
+        var idProperty = finalEntity.FindProperty(nameof(DomainApplication.Id));
+        var mappedNames = finalEntity.GetProperties().Select(p => p.Name).ToList();
+
+        // Assert
+        // Primary kill: explicit Ignore registers the member name in IgnoredMembers.
+        ignoredMembers.Should().Contain(nameof(DomainApplication.Id),
+            "Configure must explicitly Ignore the domain-typed Id getter so future EF " +
+            "convention changes (complex/owned-type auto-mapping) cannot silently map it");
+
+        // Secondary kill: the finalized model must not surface Id as a mapped property —
+        // only the shadow _id backing field should appear.
+        idProperty.Should().BeNull("the domain-typed Id getter must not be mapped");
+        mappedNames.Should().NotContain(nameof(DomainApplication.Id));
+        mappedNames.Should().Contain("_id", "the backing field _id must be mapped instead");
+    }
+
+    [Fact]
     public void Configure_indexes_tenant_id_with_named_index()
     {
         // Arrange / Act

@@ -107,6 +107,27 @@ public class Program
             });
         });
 
+        // Precondition-required → 428 mapping — slice 5 (ADR-0096 + spec §7).
+        // Maps PreconditionRequiredException (thrown by IfMatchEndpointFilter when
+        // the If-Match header is absent or malformed) to RFC 7807 428.
+        // Registered before DomainValidationExceptionHandler so the more-specific
+        // handler runs first in the IExceptionHandler chain.
+        builder.Services.AddExceptionHandler<PreconditionRequiredExceptionHandler>();
+
+        // Concurrency-conflict → 412 mapping — slice 5 (ADR-0096 + spec §7).
+        // Maps EF Core DbUpdateConcurrencyException (raised when the supplied
+        // xmin OriginalValue doesn't match the database's current value) to
+        // RFC 7807 412 with a currentVersion extension so clients can resync.
+        builder.Services.AddExceptionHandler<ConcurrencyConflictExceptionHandler>();
+
+        // Lifecycle-conflict → 409 mapping — slice 5 (ADR-0073).
+        // Maps any exception implementing ILifecycleConflict (defined in
+        // Kartova.SharedKernel) to RFC 7807 409 with currentLifecycle /
+        // attemptedTransition / sunsetDate? / reason? extensions. The marker
+        // interface decouples SharedKernel.AspNetCore from module domains
+        // while keeping property reads compile-time-checked.
+        builder.Services.AddExceptionHandler<LifecycleConflictExceptionHandler>();
+
         // Domain-validation → 400 mapping — slice-3 spec §13.3.
         // Maps ArgumentException (thrown by aggregate factories) to RFC 7807 400.
         // Centralized so write endpoints don't copy-paste a try/catch.

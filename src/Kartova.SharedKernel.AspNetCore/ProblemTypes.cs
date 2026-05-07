@@ -22,4 +22,11 @@ public static class ProblemTypes
     public const string InvalidSortOrder       = Base + "invalid-sort-order";
     public const string InvalidCursor          = Base + "invalid-cursor";
     public const string InvalidLimit           = Base + "invalid-limit";
+
+    // Optimistic concurrency / preconditions — slice 5 (ADR-0096 + spec §7).
+    public const string ConcurrencyConflict    = Base + "concurrency-conflict";
+    public const string PreconditionRequired   = Base + "precondition-required";
+
+    // Lifecycle transitions — ADR-0073, slice 5.
+    public const string LifecycleConflict      = Base + "lifecycle-conflict";
 }

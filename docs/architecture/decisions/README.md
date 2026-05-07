@@ -1,8 +1,8 @@
 ---
 platform: Kartova
 description: SaaS service catalog and developer portal platform (Backstage + Compass + Statuspage)
-adr_count: 95
-last_updated: 2026-05-04
+adr_count: 96
+last_updated: 2026-05-06
 architecture:
   backend: .NET 10 (LTS) / ASP.NET Core + EF Core (ADR-0027)
   backend_pattern: Modular monolith (ADR-0082) with Clean Architecture per module — Domain / Application / Infrastructure / Contracts (ADR-0028); inter-module via Wolverine mediator or Kafka events
@@ -115,8 +115,8 @@ open_source_strategy: fully proprietary, no OSS core / source-available (ADR-002
 # Architecture Decision Records — Kartova
 
 **Status:** Living document
-**Last updated:** 2026-05-04
-**Total accepted:** 94
+**Last updated:** 2026-05-06
+**Total accepted:** 95
 **Convention:** Michael Nygard template (Status / Context / Decision / Rationale / Alternatives / Consequences / References)
 
 ## How to use this index
@@ -222,6 +222,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0093](ADR-0093-wolverine-scope-narrowed.md) | Wolverine Scope — Outbox/Async Only, Direct Dispatch for Sync HTTP | Backend Architecture | Accepted | 0028, 0080, 0081, 0090 | Narrows ADR-0028. Sync HTTP handlers dispatch directly from endpoint delegates (share request scope with `TenantScopeBeginMiddleware`); Wolverine remains mandatory for transactional outbox, async messaging, and Kafka outbound. `WolverineFx.Http` evaluation deferred until post-slice-6. |
 | [0094](ADR-0094-untitled-ui-component-library.md) | Untitled UI Free-Tier as Primary UI Primitive Layer | Frontend Architecture | Accepted | 0039, 0040, 0084, 0087, 0088 | Untitled UI free-tier (react-aria-components + Tailwind CSS v4) + @untitledui/icons as primary UI primitive layer; supersedes ADR-0088 (shadcn/ui). |
 | [0095](ADR-0095-cursor-pagination-contract.md) | Cursor Pagination Contract — Wire Shape, Sort Syntax, and First-Cut Mandate | API & Integration Architecture | Accepted | 0029, 0083, 0090, 0091, 0092 | List endpoints return `CursorPage<T>` envelope with opaque base64url cursor `{s,i,d}`; `?sortBy=<field>&sortOrder=asc\|desc` per-resource enum allowlist; default 50, max 200; pure cursor (no total). First-cut mandate enforced by `PaginationConventionRules` arch test; `[BoundedListResult]` opt-out for bounded lists. |
+| [0096](ADR-0096-rest-verb-policy.md) | REST Verb Policy — PUT for Full Replacement, POST for Actions, No PATCH | API & Integration Architecture | Accepted | 0029, 0073, 0091, 0092, 0095 | `PUT /resources/{id}` for idempotent full-resource replacement on small/stable DTOs; `POST /resources/{id}/<action>` for named domain commands (deprecate, decommission, restore, transfer-ownership); `PATCH` forbidden (semantics drift, missing-vs-null ambiguity, uneven codegen). Enforced by `RestVerbPolicyRules` arch test. |
 
 ## By category (quick navigation)
 
@@ -230,7 +231,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Multi-Tenancy**: 0011, 0012, 0013, 0014, 0090
 - **Compliance & Retention**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050
 - **Platform Infrastructure**: 0022, 0023, 0024, 0025, 0026
-- **API & Integration Architecture**: 0027, 0028, 0029, 0030, 0031, 0032, 0033, 0034, 0035, 0036, 0037, 0038, 0091, 0092, 0095
+- **API & Integration Architecture**: 0027, 0028, 0029, 0030, 0031, 0032, 0033, 0034, 0035, 0036, 0037, 0038, 0091, 0092, 0095, 0096
 - **Backend Architecture**: 0080, 0081, 0082, 0089, 0093
 - **Frontend Architecture**: 0039, 0040, 0088
 - **Agent Architecture**: 0041, 0042, 0043, 0044, 0045
@@ -433,7 +434,9 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Relationship origin** → 0067
 - **Required minimum fields** → 0069
 - **Residency region** → 0021
-- **REST API** → 0029, 0030, 0031, 0032, 0034
+- **REST API** → 0029, 0030, 0031, 0032, 0034, 0092, 0096
+- **HTTP verbs / PUT / POST / PATCH** → 0096
+- **Named action endpoints** → 0073, 0096
 - **Retention (180 days / 5 years)** → 0017, 0019, 0020
 - **Right to erasure (GDPR)** → 0015, 0019
 - **RLS (Row-Level Security)** → 0012, 0014
@@ -513,3 +516,4 @@ _No ADRs have been deprecated or superseded yet. When an ADR is superseded by a 
 | 2026-04-30 | ADR-0093 (Wolverine scope narrowed) accepted — narrows ADR-0028; sync HTTP handlers use direct dispatch to share `ITenantScope` request scope, Wolverine retained for outbox/async/Kafka; `WolverineFx.Http` deferred |
 | 2026-05-01 | ADR-0094 (Untitled UI free-tier as primary UI primitive layer) accepted — supersedes ADR-0088 (shadcn/ui); `react-aria-components` + Tailwind CSS v4 + `@untitledui/icons` adopted; DESIGN.md color/typography deferred to Untitled defaults. (Originally numbered ADR-0092; renumbered to ADR-0094 on 2026-05-04 after a numbering collision with the REST API URL convention ADR was discovered.) |
 | 2026-05-04 | ADR-0095 (Cursor pagination contract) accepted — concrete contract for ADR-0029's "pagination via cursors" mention; first-cut mandate + arch fitness rule; reference impl on Applications list |
+| 2026-05-06 | ADR-0096 (REST verb policy) accepted — `PUT` for full replacement, `POST /<action>` for named domain commands, `PATCH` forbidden; arch fitness rule pins the no-PATCH invariant; first instantiated by Slice 5 (Applications edit + lifecycle) |

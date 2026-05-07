@@ -25,6 +25,7 @@ public class EndpointRouteRules
 {
     private const string Get = "GET";
     private const string Post = "POST";
+    private const string Put = "PUT";
 
     /// <summary>
     /// The single source of truth for what HTTP routes the API must expose.
@@ -38,6 +39,9 @@ public class EndpointRouteRules
         new("RegisterApplication",         Post, "/api/v1/catalog/applications"),
         new("GetApplicationById",          Get,  "/api/v1/catalog/applications/{id:guid}"),
         new("ListApplications",            Get,  "/api/v1/catalog/applications"),
+        new("EditApplication",             Put,  "/api/v1/catalog/applications/{id:guid}"),
+        new("DeprecateApplication",        Post, "/api/v1/catalog/applications/{id:guid}/deprecate"),
+        new("DecommissionApplication",     Post, "/api/v1/catalog/applications/{id:guid}/decommission"),
 
         // Organization (slug doubles as the primary collection per ADR-0092 skip rule)
         new("GetOrganizationMe",           Get,  "/api/v1/organizations/me"),
