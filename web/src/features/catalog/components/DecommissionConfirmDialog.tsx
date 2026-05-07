@@ -7,6 +7,7 @@ import {
   useDecommissionApplication,
   type ApplicationResponse,
 } from "@/features/catalog/api/applications";
+import { isLifecycle, lifecycleLabel } from "@/features/catalog/lifecycle";
 import type { ProblemDetails } from "@/shared/forms/problemDetails";
 
 interface Props {
@@ -51,7 +52,9 @@ export function DecommissionConfirmDialog({ application, open, onOpenChange }: P
           onOpenChange(false);
           return;
         }
-        const current = problem.currentLifecycle ?? "an unexpected state";
+        const current = isLifecycle(problem.currentLifecycle)
+          ? lifecycleLabel(problem.currentLifecycle)
+          : "an unexpected state";
         toast.error(`Cannot decommission — current state is ${current}.`);
         onOpenChange(false);
         return;
@@ -66,28 +69,26 @@ export function DecommissionConfirmDialog({ application, open, onOpenChange }: P
     <ModalOverlay isOpen={open} onOpenChange={onOpenChange} isDismissable={!mutation.isPending}>
       <Modal className="max-w-[480px]">
         <Dialog aria-label="Decommission Application" className="bg-primary rounded-xl shadow-xl p-6 outline-none">
-          <div className="w-full">
-            <div className="space-y-1 mb-4">
-              <h2 className="text-lg font-semibold text-primary">Decommission {application.displayName}?</h2>
-              <p className="text-sm text-tertiary">
-                This is a terminal state. The application will be hidden from default views and become read-only. This cannot be undone in the current product version.
-              </p>
-            </div>
+          <div className="space-y-1 mb-4">
+            <h2 className="text-lg font-semibold text-primary">Decommission {application.displayName}?</h2>
+            <p className="text-sm text-tertiary">
+              This is a terminal state. The application will be hidden from default views and become read-only. This cannot be undone in the current product version.
+            </p>
+          </div>
 
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" color="secondary" size="sm" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                color="primary-destructive"
-                size="sm"
-                isLoading={mutation.isPending}
-                onClick={onConfirm}
-              >
-                Decommission
-              </Button>
-            </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" color="secondary" size="sm" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              color="primary-destructive"
+              size="sm"
+              isLoading={mutation.isPending}
+              onClick={onConfirm}
+            >
+              Decommission
+            </Button>
           </div>
         </Dialog>
       </Modal>

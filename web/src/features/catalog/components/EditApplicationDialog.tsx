@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -47,23 +46,15 @@ interface Props {
  */
 export function EditApplicationDialog({ application, open, onOpenChange }: Props) {
   const mutation = useEditApplication(application.id);
+  // RHF `values` re-syncs the form whenever the application prop changes —
+  // post-412 refetch lands here without an explicit useEffect.
   const form = useForm<EditApplicationInput>({
     resolver: zodResolver(editApplicationSchema),
-    defaultValues: {
+    values: {
       displayName: application.displayName,
       description: application.description,
     },
   });
-
-  // Re-sync defaults when the application prop changes (e.g. after 412 refetch
-  // upstream) or when the dialog reopens, so the form always reflects the
-  // server's current state.
-  useEffect(() => {
-    form.reset({
-      displayName: application.displayName,
-      description: application.description,
-    });
-  }, [application.displayName, application.description, open, form]);
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
@@ -98,51 +89,49 @@ export function EditApplicationDialog({ application, open, onOpenChange }: Props
     <ModalOverlay isOpen={open} onOpenChange={onOpenChange} isDismissable={!mutation.isPending}>
       <Modal className="max-w-[560px]">
         <Dialog aria-label="Edit Application" className="bg-primary rounded-xl shadow-xl p-6 outline-none">
-          <div className="w-full">
-            <div className="space-y-1 mb-4">
-              <h2 className="text-lg font-semibold text-primary">Edit Application</h2>
-              <p className="text-sm text-tertiary">
-                Update the display name and description. Name (slug) and ownership cannot be changed here.
-              </p>
-            </div>
-
-            <HookForm form={form} onSubmit={onSubmit} className="space-y-5">
-              <FormField name="displayName" control={form.control}>
-                {({ field, fieldState }) => (
-                  <Input
-                    label="Display Name"
-                    placeholder="Payment Gateway"
-                    hint={fieldState.error?.message ?? "Human-friendly name shown in UI."}
-                    isInvalid={!!fieldState.error}
-                    isRequired
-                    {...field}
-                  />
-                )}
-              </FormField>
-              <FormField name="description" control={form.control}>
-                {({ field, fieldState }) => (
-                  <TextArea
-                    label="Description"
-                    rows={3}
-                    placeholder="What this application does"
-                    hint={fieldState.error?.message}
-                    isInvalid={!!fieldState.error}
-                    isRequired
-                    {...field}
-                  />
-                )}
-              </FormField>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" color="secondary" size="sm" onClick={() => onOpenChange(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" color="primary" size="sm" isLoading={mutation.isPending}>
-                  Save Changes
-                </Button>
-              </div>
-            </HookForm>
+          <div className="space-y-1 mb-4">
+            <h2 className="text-lg font-semibold text-primary">Edit Application</h2>
+            <p className="text-sm text-tertiary">
+              Update the display name and description. Name (slug) and ownership cannot be changed here.
+            </p>
           </div>
+
+          <HookForm form={form} onSubmit={onSubmit} className="space-y-5">
+            <FormField name="displayName" control={form.control}>
+              {({ field, fieldState }) => (
+                <Input
+                  label="Display Name"
+                  placeholder="Payment Gateway"
+                  hint={fieldState.error?.message ?? "Human-friendly name shown in UI."}
+                  isInvalid={!!fieldState.error}
+                  isRequired
+                  {...field}
+                />
+              )}
+            </FormField>
+            <FormField name="description" control={form.control}>
+              {({ field, fieldState }) => (
+                <TextArea
+                  label="Description"
+                  rows={3}
+                  placeholder="What this application does"
+                  hint={fieldState.error?.message}
+                  isInvalid={!!fieldState.error}
+                  isRequired
+                  {...field}
+                />
+              )}
+            </FormField>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" color="secondary" size="sm" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" color="primary" size="sm" isLoading={mutation.isPending}>
+                Save Changes
+              </Button>
+            </div>
+          </HookForm>
         </Dialog>
       </Modal>
     </ModalOverlay>

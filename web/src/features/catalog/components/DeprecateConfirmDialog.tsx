@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ import {
   useDeprecateApplication,
   type ApplicationResponse,
 } from "@/features/catalog/api/applications";
+import { isLifecycle, lifecycleLabel } from "@/features/catalog/lifecycle";
 import {
   applyProblemDetailsToForm,
   type ProblemDetails,
@@ -69,24 +70,14 @@ function fromDateInputValue(local: string): string {
 export function DeprecateConfirmDialog({ application, open, onOpenChange }: Props) {
   const mutation = useDeprecateApplication(application.id);
 
-  // Lazy-init the form's seed value once at mount. The lazy `useState`
-  // initializer is the React-blessed way to call an impure function during
-  // mount without tripping `react-hooks/purity`. Subsequent re-seeds happen
-  // in the `useEffect` below, which is also off the render path.
+  // Lazy `useState` keeps the impure `Date.now()` read off the render path
+  // (react-hooks/purity). Parent remounts on open, so the seed stays current.
   const [initialSunset] = useState(() => isoDateAtMidnight(Date.now(), 30));
 
   const form = useForm<DeprecateApplicationInput>({
     resolver: zodResolver(deprecateApplicationSchema),
     defaultValues: { sunsetDate: initialSunset },
   });
-
-  // Re-seed default when the dialog reopens, so each open shows a fresh
-  // "today + 30d" instead of a stale value from an earlier open.
-  useEffect(() => {
-    if (open) {
-      form.reset({ sunsetDate: isoDateAtMidnight(Date.now(), 30) });
-    }
-  }, [open, form]);
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
@@ -107,7 +98,9 @@ export function DeprecateConfirmDialog({ application, open, onOpenChange }: Prop
       if (handled) return;
 
       if (status === 409) {
-        const current = problem.currentLifecycle ?? "an unexpected state";
+        const current = isLifecycle(problem.currentLifecycle)
+          ? lifecycleLabel(problem.currentLifecycle)
+          : "an unexpected state";
         toast.error(`Cannot deprecate — current state is ${current}.`);
         onOpenChange(false);
         return;
@@ -122,41 +115,39 @@ export function DeprecateConfirmDialog({ application, open, onOpenChange }: Prop
     <ModalOverlay isOpen={open} onOpenChange={onOpenChange} isDismissable={!mutation.isPending}>
       <Modal className="max-w-[480px]">
         <Dialog aria-label="Deprecate Application" className="bg-primary rounded-xl shadow-xl p-6 outline-none">
-          <div className="w-full">
-            <div className="space-y-1 mb-4">
-              <h2 className="text-lg font-semibold text-primary">Deprecate {application.displayName}</h2>
-              <p className="text-sm text-tertiary">
-                Mark this application as deprecated. After the sunset date, you'll be able to decommission it. The application will continue to function until then.
-              </p>
-            </div>
-
-            <HookForm form={form} onSubmit={onSubmit} className="space-y-5">
-              <FormField name="sunsetDate" control={form.control}>
-                {({ field, fieldState }) => (
-                  <Input
-                    type="date"
-                    label="Sunset date"
-                    hint={fieldState.error?.message ?? "Must be in the future. Decommission becomes available after this date."}
-                    isInvalid={!!fieldState.error}
-                    isRequired
-                    name={field.name}
-                    value={toDateInputValue(field.value ?? "")}
-                    onBlur={field.onBlur}
-                    onChange={(v) => field.onChange(fromDateInputValue(v))}
-                  />
-                )}
-              </FormField>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" color="secondary" size="sm" onClick={() => onOpenChange(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" color="primary" size="sm" isLoading={mutation.isPending}>
-                  Deprecate
-                </Button>
-              </div>
-            </HookForm>
+          <div className="space-y-1 mb-4">
+            <h2 className="text-lg font-semibold text-primary">Deprecate {application.displayName}</h2>
+            <p className="text-sm text-tertiary">
+              Mark this application as deprecated. After the sunset date, you'll be able to decommission it. The application will continue to function until then.
+            </p>
           </div>
+
+          <HookForm form={form} onSubmit={onSubmit} className="space-y-5">
+            <FormField name="sunsetDate" control={form.control}>
+              {({ field, fieldState }) => (
+                <Input
+                  type="date"
+                  label="Sunset date"
+                  hint={fieldState.error?.message ?? "Must be in the future. Decommission becomes available after this date."}
+                  isInvalid={!!fieldState.error}
+                  isRequired
+                  name={field.name}
+                  value={toDateInputValue(field.value ?? "")}
+                  onBlur={field.onBlur}
+                  onChange={(v) => field.onChange(fromDateInputValue(v))}
+                />
+              )}
+            </FormField>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" color="secondary" size="sm" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" color="primary" size="sm" isLoading={mutation.isPending}>
+                Deprecate
+              </Button>
+            </div>
+          </HookForm>
         </Dialog>
       </Modal>
     </ModalOverlay>

@@ -30,6 +30,22 @@ export const applicationKeys = {
   detail: (id: string) => [...applicationKeys.all, "detail", id] as const,
 };
 
+/**
+ * Re-throws an openapi-fetch error after attaching the HTTP status as a
+ * `__status` field so callers can branch on 412 / 409 / 400 without re-parsing
+ * the response. Used by every mutation that maps RFC 7807 problem types to
+ * dialog UX.
+ */
+function throwWithStatus(error: unknown, response: { status: number }): never {
+  (error as Record<string, unknown>).__status = response.status;
+  throw error;
+}
+
+function unwrapData<T>(data: T | undefined): T {
+  if (!data) throw new Error("API returned neither data nor error");
+  return data;
+}
+
 export function useApplicationsList(params: ApplicationsListParams) {
   return useCursorList<ApplicationResponse>({
     queryKey: applicationKeys.list(params),
@@ -45,8 +61,7 @@ export function useApplicationsList(params: ApplicationsListParams) {
         },
       });
       if (error) throw error;
-      if (!data) throw new Error("API returned neither data nor error");
-      return data;
+      return unwrapData(data);
     },
   });
 }
@@ -61,8 +76,7 @@ export function useApplication(id: string) {
         { params: { path: { id } } }
       );
       if (error) throw error;
-      if (!data) throw new Error("API returned neither data nor error");
-      return data;
+      return unwrapData(data);
     },
   });
 }
@@ -73,8 +87,7 @@ export function useRegisterApplication() {
     mutationFn: async (input: RegisterApplicationInput) => {
       const { data, error } = await apiClient.POST("/api/v1/catalog/applications", { body: input });
       if (error) throw error;
-      if (!data) throw new Error("API returned neither data nor error");
-      return data;
+      return unwrapData(data);
     },
     onSuccess: () => {
       // Invalidate the list prefix — covers all parameterized queryKeys.
@@ -86,11 +99,10 @@ export function useRegisterApplication() {
 /**
  * PUT /applications/{id} — full-replacement edit (ADR-0096). The If-Match
  * header carries the optimistic concurrency token from the cached version
- * (the strong-ETag wrapping is `"v"` per RFC 7232). On 412 the dialog is
- * expected to refetch and reapply.
- *
- * Errors are re-thrown with a non-enumerable `__status` so callers can
- * branch on 412 / 409 / 400 without re-parsing the response.
+ * (the version is wrapped in double quotes for the wire — `If-Match: "v1"` —
+ * per RFC 7232 §2.3 strong-ETag syntax). On 412 the hook invalidates the
+ * detail query so the dialog auto-refreshes from RHF `values` next render
+ * (spec §8.3).
  */
 export function useEditApplication(id: string) {
   const qc = useQueryClient();
@@ -104,17 +116,25 @@ export function useEditApplication(id: string) {
           headers: { "If-Match": `"${input.expectedVersion}"` },
         }
       );
-      if (error) {
-        const enriched = error as Record<string, unknown>;
-        enriched.__status = response.status;
-        throw enriched;
-      }
-      if (!data) throw new Error("API returned neither data nor error");
-      return data;
+      if (error) throwWithStatus(error, response);
+      return unwrapData(data);
     },
     onSuccess: (data) => {
       qc.setQueryData(applicationKeys.detail(id), data);
-      qc.invalidateQueries({ queryKey: applicationKeys.all });
+      // Detail is already refreshed via setQueryData; only list views need a
+      // refetch to pick up the new displayName / version.
+      qc.invalidateQueries({ queryKey: applicationKeys.list() });
+    },
+    onError: (err) => {
+      // Spec §8.3 — on 412 ConcurrencyConflict the dialog stays open with
+      // refreshed pre-fill (RHF `values` resets when the parent re-renders
+      // with the freshly fetched application). Invalidating the detail query
+      // here triggers that refetch + re-render. Other statuses are handled
+      // by the dialog's catch branch.
+      const status = (err as { __status?: number }).__status;
+      if (status === 412) {
+        qc.invalidateQueries({ queryKey: applicationKeys.detail(id) });
+      }
     },
   });
 }
@@ -133,17 +153,12 @@ export function useDeprecateApplication(id: string) {
         "/api/v1/catalog/applications/{id}/deprecate",
         { params: { path: { id } }, body: input }
       );
-      if (error) {
-        const enriched = error as Record<string, unknown>;
-        enriched.__status = response.status;
-        throw enriched;
-      }
-      if (!data) throw new Error("API returned neither data nor error");
-      return data;
+      if (error) throwWithStatus(error, response);
+      return unwrapData(data);
     },
     onSuccess: (data) => {
       qc.setQueryData(applicationKeys.detail(id), data);
-      qc.invalidateQueries({ queryKey: applicationKeys.all });
+      qc.invalidateQueries({ queryKey: applicationKeys.list() });
     },
   });
 }
@@ -162,17 +177,12 @@ export function useDecommissionApplication(id: string) {
         "/api/v1/catalog/applications/{id}/decommission",
         { params: { path: { id } } }
       );
-      if (error) {
-        const enriched = error as Record<string, unknown>;
-        enriched.__status = response.status;
-        throw enriched;
-      }
-      if (!data) throw new Error("API returned neither data nor error");
-      return data;
+      if (error) throwWithStatus(error, response);
+      return unwrapData(data);
     },
     onSuccess: (data) => {
       qc.setQueryData(applicationKeys.detail(id), data);
-      qc.invalidateQueries({ queryKey: applicationKeys.all });
+      qc.invalidateQueries({ queryKey: applicationKeys.list() });
     },
   });
 }

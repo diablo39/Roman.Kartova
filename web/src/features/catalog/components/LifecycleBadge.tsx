@@ -1,5 +1,6 @@
 import { Badge } from "@/components/base/badges/badges";
 import type { Lifecycle } from "@/features/catalog/api/applications";
+import { lifecycleColor, lifecycleLabel } from "@/features/catalog/lifecycle";
 
 export interface LifecycleBadgeProps {
   lifecycle: Lifecycle;
@@ -10,21 +11,6 @@ export interface LifecycleBadgeProps {
   showSunsetSubline?: boolean;
 }
 
-// Wire casing is camelCase (OpenAPI Lifecycle enum: "active" | "deprecated" |
-// "decommissioned"), so the records key on the same shape the SPA receives
-// from the API.
-const COLOR: Record<Lifecycle, "success" | "warning" | "gray"> = {
-  active: "success",
-  deprecated: "warning",
-  decommissioned: "gray",
-};
-
-const LABEL: Record<Lifecycle, string> = {
-  active: "Active",
-  deprecated: "Deprecated",
-  decommissioned: "Decommissioned",
-};
-
 export function LifecycleBadge({
   lifecycle,
   sunsetDate,
@@ -33,8 +19,8 @@ export function LifecycleBadge({
 }: LifecycleBadgeProps) {
   return (
     <span className="inline-flex flex-col items-start gap-0.5">
-      <Badge color={COLOR[lifecycle]} type="pill-color" size={size}>
-        {LABEL[lifecycle]}
+      <Badge color={lifecycleColor(lifecycle)} type="pill-color" size={size}>
+        {lifecycleLabel(lifecycle)}
       </Badge>
       {showSunsetSubline && lifecycle === "deprecated" && sunsetDate && (
         <span className="text-xs text-tertiary">

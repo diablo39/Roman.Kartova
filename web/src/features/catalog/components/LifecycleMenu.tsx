@@ -59,19 +59,16 @@ function buildItems(
  *                      passed, with explanatory hint when disabled.
  *  - `decommissioned`→ no menu — terminal state, badge only.
  *
- * Wire casing is camelCase per the Lifecycle enum (see Task 17 finding); all
- * comparisons here use lowercase string literals.
+ * Lifecycle wire shape is lowercase ("active" | "deprecated" |
+ * "decommissioned") via JsonStringEnumConverter(JsonNamingPolicy.CamelCase);
+ * all comparisons in this file use those literals directly.
  */
 export function LifecycleMenu({ application }: Props) {
   const [openDialog, setOpenDialog] = useState<DialogKind>(null);
 
-  // Lazy `useState` initializer captures "now" once at mount — the
-  // React-blessed way to call an impure function without tripping the
-  // `react-hooks/purity` rule. The disable check is only meaningful at the
-  // moment the menu opens; if the parent refetches the application after a
-  // transition, this component remounts with the new `application.id` shape
-  // anyway. A page sitting open across a sunset-date boundary is the rare
-  // edge case the next cache invalidation will resolve.
+  // Lazy `useState` keeps the impure `Date.now()` read off the render path
+  // (react-hooks/purity). A page sitting open across a sunset-date boundary
+  // is resolved on the next cache invalidation.
   const [now] = useState(() => Date.now());
 
   const items = useMemo(
@@ -123,16 +120,20 @@ export function LifecycleMenu({ application }: Props) {
         </Dropdown.Popover>
       </Dropdown.Root>
 
-      <DeprecateConfirmDialog
-        application={application}
-        open={openDialog === "deprecate"}
-        onOpenChange={(o) => setOpenDialog(o ? "deprecate" : null)}
-      />
-      <DecommissionConfirmDialog
-        application={application}
-        open={openDialog === "decommission"}
-        onOpenChange={(o) => setOpenDialog(o ? "decommission" : null)}
-      />
+      {openDialog === "deprecate" && (
+        <DeprecateConfirmDialog
+          application={application}
+          open
+          onOpenChange={(o) => setOpenDialog(o ? "deprecate" : null)}
+        />
+      )}
+      {openDialog === "decommission" && (
+        <DecommissionConfirmDialog
+          application={application}
+          open
+          onOpenChange={(o) => setOpenDialog(o ? "decommission" : null)}
+        />
+      )}
     </>
   );
 }
