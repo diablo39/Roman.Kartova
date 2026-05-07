@@ -57,7 +57,7 @@ Notifications fire automatically on state transitions (ADR-0047) to dependents d
 
 ### Implementation note (slice 6, 2026-05-07)
 
-The "filtered out of default views" rule lands on `GET /api/v1/catalog/applications` as a default-false `?includeDecommissioned=true` query parameter (slice 6, PR #<n>). Filter state is encoded in the cursor JSON (`CursorCodec.ic`); cursor with mismatched filter returns 400 `cursor-filter-mismatch`. Legacy cursors lacking the field decode as `false` for backward-compatibility with in-flight clients. SPA `ApplicationsTable` exposes a "Show decommissioned" checkbox in the toolbar wired through `useListUrlState`. The pattern carries forward to every future entity list (Service, API, Infrastructure, Broker) — captured as slice-6 spec §13.8.
+The "filtered out of default views" rule lands on `GET /api/v1/catalog/applications` as a default-false `?includeDecommissioned=true` query parameter (slice 6, PR #22). Filter state is encoded in the cursor JSON (`CursorCodec.ic`); cursor with mismatched filter returns 400 `cursor-filter-mismatch`. Legacy cursors lacking the field decode as `false` for backward-compatibility with in-flight clients. SPA `ApplicationsTable` exposes a "Show decommissioned" checkbox in the toolbar wired through `useListUrlState`. The pattern carries forward to every future entity list (Service, API, Infrastructure, Broker) — captured as slice-6 spec §13.8.
 
 ## References
 
