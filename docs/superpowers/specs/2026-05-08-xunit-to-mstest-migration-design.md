@@ -25,7 +25,7 @@
 - Not refactoring tests for "MSTest-idiomatic" style beyond what migration mechanically requires.
 - Not migrating mutation testing tool — Stryker.NET stays.
 - Not mass-renaming test files or methods.
-- Not adopting Microsoft.Testing.Platform (MTP) — Stryker.NET 4.14.1 does not support it (stryker-net#3094); deferred to a future migration once Stryker support lands.
+- Not adopting Microsoft.Testing.Platform (MTP) — Stryker.NET does not support it as of Phase 0 (stryker-net#3094; baseline-doc records the exact version probed); deferred to a future migration once Stryker support lands.
 
 ## 2. Phase 0 — tooling, ADR, CI (no test code rewritten)
 
@@ -376,11 +376,11 @@ ADR-0083 currently states xUnit + FluentAssertions for unit and integration tier
 | 4. Test suite green | xUnit suite still green | mixed: this project all-MSTest, others still xUnit | xUnit consumers of `KartovaApiFixtureBase` still green | this project all-MSTest, others still on prior state | all-MSTest, full suite |
 | 5. Real HTTP happy + negative path | n/a | n/a | n/a (no test runtime changes) | **mandatory** — `docker compose up` + at least one HTTP test from this project + one negative path | not required (cleanup only) |
 | 6. `/simplify` on diff | yes | yes | yes | yes | yes |
-| 7. Mutation sentinel (≥80%, baseline ±1pt) | establish baseline | only Phases 4 and 5 are Stryker targets — must match baseline | n/a (no production-code or test-code semantic changes) | n/a (Stryker doesn't target integration test projects) | full-suite run, all Stryker targets within ±1pt of baseline |
+| 7. Mutation sentinel (≥80%, baseline ±1pt) | establish baseline | gate-owners must match baseline (see baseline-doc §"Per-phase mutation-gate ownership" for the canonical phase-to-target mapping) | n/a (no production-code or test-code semantic changes) | gate-owners must match baseline (see baseline-doc §"Per-phase mutation-gate ownership") | full-suite run, all Stryker targets within ±1pt of baseline |
 | 8. `/pr-review-toolkit:review-pr` | yes | yes | yes | yes | yes |
 | 9. `/deep-review` | yes | yes | yes | yes | yes |
 
-Phase 0 has slightly relaxed DoD — no test code changes → mutation baseline is the deliverable, not a regression check. The mutation gate applies per-phase based on which test projects drive which production-assembly mutations — see baseline-doc §"Per-phase mutation-gate ownership" for the canonical mapping. **Phase 1** owns `Kartova.SharedKernel`; **Phase 2** owns `Kartova.SharedKernel.AspNetCore` (primary; co-driven with Phase 11); **Phase 4** owns the Catalog source projects; **Phase 5** owns the Organization source projects; **Phases 9 + 10** co-drive `Kartova.SharedKernel.Postgres`; **Phase 11** co-drives `Kartova.SharedKernel.AspNetCore` (with Phase 2). **Phase 12** is the full-suite re-run. **Phases 3, 6, 7, 8** have no Stryker-driven mutation target — those phases skip DoD #7.
+Phase 0 has slightly relaxed DoD — no test code changes → mutation baseline is the deliverable, not a regression check. The mutation gate applies per-phase based on which test projects drive which production-assembly mutations — see baseline-doc §"Per-phase mutation-gate ownership" for the canonical phase-to-target mapping. Phases without a Stryker-driven mutation target (Phases 3, 6, 7, 8) skip DoD #7.
 
 ### 7.2 Risks and mitigations
 

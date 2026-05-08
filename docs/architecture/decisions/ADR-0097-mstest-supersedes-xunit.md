@@ -35,7 +35,7 @@ Across **all xUnit-using test projects in the repository** (under `tests/` and `
 
 ### Note: Microsoft.Testing.Platform (MTP) deferred
 
-Originally this ADR also adopted `MSTest.Sdk` + Microsoft.Testing.Platform as the runner. A Phase 0 compatibility probe (recorded in `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md`, §"Stryker × MTP compatibility probe") found that **Stryker.NET 4.14.1 does not support MTP** — tracked upstream as [stryker-mutator/stryker-net#3094](https://github.com/stryker-mutator/stryker-net/issues/3094). Since Stryker is a critical part of the project's testing discipline (mutation gate at ≥80% per Definition of Done), the runner switch is deferred. All test projects stay on `Microsoft.NET.Sdk` + VSTest with `Microsoft.NET.Test.Sdk` and `coverlet.collector`. Revisit MTP adoption in a future migration once Stryker support lands.
+Originally this ADR also adopted `MSTest.Sdk` + Microsoft.Testing.Platform as the runner. A Phase 0 compatibility probe (recorded in `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md`, §"Stryker × MTP compatibility probe") found that **Stryker.NET does not support MTP at the version pinned during Phase 0** — tracked upstream as [stryker-mutator/stryker-net#3094](https://github.com/stryker-mutator/stryker-net/issues/3094); the baseline doc records the exact version probed. Since Stryker is a critical part of the project's testing discipline (mutation gate at ≥80% per Definition of Done), the runner switch is deferred. All test projects stay on `Microsoft.NET.Sdk` + VSTest with `Microsoft.NET.Test.Sdk` and `coverlet.collector`. Revisit MTP adoption in a future migration once Stryker support lands.
 
 ## Consequences
 
