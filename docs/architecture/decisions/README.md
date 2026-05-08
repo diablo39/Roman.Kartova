@@ -115,8 +115,8 @@ open_source_strategy: fully proprietary, no OSS core / source-available (ADR-002
 # Architecture Decision Records — Kartova
 
 **Status:** Living document
-**Last updated:** 2026-05-06
-**Total accepted:** 95
+**Last updated:** 2026-05-08
+**Total accepted:** 97
 **Convention:** Michael Nygard template (Status / Context / Decision / Rationale / Alternatives / Consequences / References)
 
 ## How to use this index
@@ -407,7 +407,7 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Browser automation (development)** → 0084
 - **Testcontainers** → 0083
 - **Testing pyramid / test strategy** → 0083
-- **xUnit / FluentAssertions** → 0083
+- **xUnit / FluentAssertions (removed)** → 0083, 0097
 - **Per-key parallelism (Kafka consumers)** → 0081
 - **Metering (per-user)** → 0063
 - **Metrics (/metrics)** → 0036, 0059
