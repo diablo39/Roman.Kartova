@@ -3,19 +3,19 @@
 **Date:** 2026-05-08
 **Status:** Draft (awaiting plan)
 **Owner:** Roman Głogowski
-**Slice scope:** Test framework + runner + assertion library swap across all `tests/` projects, plus superseding ADR.
+**Slice scope:** Test framework + runner + assertion library swap across **all xUnit-using test projects in the repository** (both `tests/` and `src/Modules/**/*Tests*`), plus superseding ADR.
 
 ## 1. Goals & non-goals
 
 ### Goals
 
-1. Replace **xUnit 2.9.3** with **MSTest v4** across all five `tests/` projects.
+1. Replace **xUnit 2.9.3** with **MSTest v4** across **all ten xUnit-using test projects** (5 under `tests/`, 5 under `src/Modules/**`).
 2. Adopt **`MSTest.Sdk`** + **Microsoft.Testing.Platform (MTP)** as the runner, dropping VSTest.
 3. Replace **FluentAssertions 6.12.0** with **MSTest v4 native assertions** (`Assert`, `CollectionAssert`, `StringAssert`, `Assert.ThrowsExactly`).
 4. Keep NSubstitute, Testcontainers (Postgres + Keycloak), and NetArchTest unchanged — all are framework-agnostic.
 5. **Supersede ADR-0083** with a new ADR documenting the framework + runner change. Five-tier pyramid (architecture / unit / integration / contract / E2E) is unchanged.
-6. Land via phased delivery — **Phase 0 (tooling/ADR/CI) + Phases 1–5 (one project at a time)** — each phase mergeable on its own.
-7. Translate test count and behavior **1:1**. No new tests, no removed coverage. Mutation score must match the pre-migration baseline ±1 percentage point.
+6. Land via phased delivery — **Phase 0 (tooling/ADR/CI) + Phases 1–11 (one project at a time, plus a final cleanup phase)** — each phase mergeable on its own.
+7. Translate test count and behavior **1:1**. No new tests, no removed coverage. Mutation score (Stryker targets `Catalog.Tests` and `Organization.Tests` per repo `stryker-config.json`) must match the pre-migration baseline ±1 percentage point per project.
 
 ### Non-goals
 
@@ -63,50 +63,102 @@ After Phase 0 lands, the existing xUnit suite still runs. Plumbing only.
 - Mutation baseline captured (stored in `docs/superpowers/specs/baselines/mstest-migration-mutation-baseline.md` or equivalent).
 - CI green on `master` after Phase 0 PR merges.
 
-## 3. Phases 1–5 — per-project migration
+## 3. Phases 1–12 — per-project migration
 
-Each phase: rewrite that project's test files xUnit → MSTest, replace FluentAssertions with native asserts, build green, tests green, mutation score within baseline ±1pt, full DoD invoked at slice boundary, merge.
+Each phase: rewrite that project's test files xUnit → MSTest, replace FluentAssertions with native asserts, build green, tests green, mutation score within baseline ±1pt (where Stryker mutates this project), full DoD invoked at slice boundary, merge.
 
-### Phase 1 — `Kartova.SharedKernel.Tests` (sets the patterns)
+**Per-project mechanic for build-green incrementalism:** keep the project on `Microsoft.NET.Sdk` and add MSTest packages alongside the existing xUnit packages while files are translated one at a time. xUnit and MSTest test classes coexist within a single assembly during the translation window (xUnit discovers `[Fact]`, MSTest discovers `[TestMethod]`). After the last file is translated, drop xUnit references from the project. Switching to `MSTest.Sdk` (for MTP runner) happens in Phase 12 across all migrated projects.
 
-- 6 test files, ~82 attribute uses (CursorCodec, QueryablePaging, SortSpec, CursorFilterMismatch, KartovaConnectionStrings, TenantContextAccessor, TenantScopeWolverineMiddleware).
+### Phase 1 — `tests/Kartova.SharedKernel.Tests` (sets the patterns)
+
+- ~7 test files, ~82 attribute uses (CursorCodec, QueryablePaging, SortSpec, CursorFilterMismatch, KartovaConnectionStrings, TenantContextAccessor, TenantScopeWolverineMiddleware).
 - Pure unit tests. No Testcontainers fixtures.
 - One `IAsyncLifetime` site (`QueryablePagingExtensionsTests`) — translate to `[TestInitialize]`/`[TestCleanup]` async.
 - **Output: canonical "what an MSTest file looks like in this repo" pattern.** All subsequent phases follow this style.
 
-### Phase 2 — `Kartova.SharedKernel.AspNetCore.Tests`
+### Phase 2 — `tests/Kartova.SharedKernel.AspNetCore.Tests`
 
 - 12 test files, ~79 attribute uses. Endpoint filters, exception handlers, JWT auth wiring.
 - Heavy NSubstitute usage — unchanged.
 - A few `IAsyncLifetime` sites (none container-backed) — same pattern as Phase 1.
 
-### Phase 3 — `Kartova.ArchitectureTests` (most `[MemberData]`/`[InlineData]` translation)
+### Phase 3 — `tests/Kartova.ArchitectureTests` (most `[MemberData]`/`[InlineData]` translation)
 
 - 13 files, ~46 attribute uses, mostly `[Theory]` + `[InlineData]`.
 - Translation rules applied uniformly per Section 4.
 - NetArchTest doesn't care which framework drives it.
 
-### Phase 4 — `Kartova.Testing.Auth` (test infra — keystone)
+### Phase 4 — `src/Modules/Catalog/Kartova.Catalog.Tests` (module unit tests)
+
+- ~7 test files (`ApplicationTests`, `ApplicationLifecycleTests`, `CatalogAssemblyLoadsTests`, `EfApplicationConfigurationTests`, `InvalidLifecycleTransitionExceptionTests`, `ListApplicationsHandlerFilterTests`, `ListApplicationsHandlerTests`).
+- **Stryker target.** Mutation score change > ±1pt blocks the phase.
+- Pure unit tests; same pattern as Phase 1.
+
+### Phase 5 — `src/Modules/Organization/Kartova.Organization.Tests` (module unit tests)
+
+- ~1 test file (`OrganizationAggregateTests`).
+- **Stryker target.** Mutation score gate as Phase 4.
+- Pure unit tests.
+
+### Phase 6 — `src/Modules/Catalog/Kartova.Catalog.Infrastructure.Tests`
+
+- ~1 test file (`CatalogModuleRegisterForMigratorTests`).
+- Pure unit tests; trivially small.
+
+### Phase 7 — `src/Modules/Organization/Kartova.Organization.Infrastructure.Tests`
+
+- ~1 test file (`OrganizationModuleRegisterForMigratorTests`).
+- Pure unit tests; trivially small.
+
+### Phase 8 — `tests/Kartova.Testing.Auth` (test infra — additive contract change)
 
 - Not a test project. Holds `KartovaApiFixtureBase`, `PostgresTestBootstrap`, `TestJwtSigner`, `SeededOrgs`.
-- `KartovaApiFixtureBase` rewrite is the keystone. See Section 5.3.
-- **No consumers in the test tree currently** — Phase 4 PR is a contract-only change. Build-green is the verification bar.
-- After Phase 4, `Kartova.Testing.Auth.csproj` has zero test-framework dependency (drop `xunit.extensibility.core`).
+- **`KartovaApiFixtureBase` HAS consumers**: `Kartova.Catalog.IntegrationTests/KartovaApiFixture` and `Kartova.Organization.IntegrationTests/KartovaApiFixture` both inherit from it; `KartovaApiCollection` in each module integration project uses `ICollectionFixture<KartovaApiFixture>`.
+- **Strategy: additive change, not replacement.** In Phase 8, `KartovaApiFixtureBase`:
+  - Keeps `IAsyncLifetime` interface (consumers still rely on it).
+  - Adds `IAsyncDisposable` interface (alongside `IAsyncLifetime`).
+  - The existing `InitializeAsync()` / `DisposeAsync()` method bodies are unchanged.
+  - Drop `using Xunit;` only if `IAsyncLifetime` can be referenced via fully-qualified name; otherwise keep the using until Phase 12.
+- After Phase 8, both old (xUnit `IClassFixture`/`ICollectionFixture` consumption) and new (MSTest `[ClassInitialize]` consumption with `await Fx.InitializeAsync(); await Fx.DisposeAsync();`) patterns work.
+- `Kartova.Testing.Auth.csproj` retains `xunit.extensibility.core` reference until Phase 12.
 
-### Phase 5 — `Kartova.Api.IntegrationTests` (hardest) + cleanup
+### Phase 9 — `src/Modules/Catalog/Kartova.Catalog.IntegrationTests`
+
+- ~9 test files + `KartovaApiFixture` (derives from `KartovaApiFixtureBase`) + `KartovaApiCollection` (`ICollectionFixture<KartovaApiFixture>`) + `Fixtures/PostgresFixture : IAsyncLifetime` + `Migrations/MigrationIntegrationTests : IClassFixture<PostgresFixture>`.
+- Container-backed integration tests; uses `KartovaApiFixtureBase` contract from Phase 8.
+- Migration:
+  - Convert `KartovaApiFixture` to MSTest via `[ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]` pattern from Section 5.3, calling `Fx.InitializeAsync()` directly (the additive Phase 8 method).
+  - Convert `PostgresFixture` to a plain `IAsyncDisposable` class with an `InitializeAsync()` method, consumed via `[ClassInitialize]` in `MigrationIntegrationTests`.
+  - Delete `KartovaApiCollection.cs` (xUnit collection-definition class).
+  - Apply `[assembly: DoNotParallelize]` if existing collection serialization is needed.
+
+### Phase 10 — `src/Modules/Organization/Kartova.Organization.IntegrationTests`
+
+- ~9 test files + `KartovaApiFixture` + `KartovaApiCollection` + `KartovaApiFaultInjectionFixture` + `KartovaApiFaultInjectionCollection`.
+- Same pattern as Phase 9, with two fixture variants instead of one.
+- Test base class `KartovaApiFaultInjectionFixture` migrates the same way as the standard fixture.
+
+### Phase 11 — `tests/Kartova.Api.IntegrationTests`
 
 - 4 test files + `KeycloakContainerFixture` + `KeycloakTestCollection`.
-- Container fixture migration per Section 5.1.
+- Container fixture migration per Section 5.1 (assembly-scoped singleton via `[AssemblyInitialize]`).
 - `[assembly: DoNotParallelize]` to preserve env-var-race protection currently provided by `[Collection]` (see Section 5.4).
-- **Phase 5 cleanup (same PR):**
-  - Remove `xunit`, `xunit.runner.visualstudio`, `xunit.extensibility.core` from `Directory.Packages.props`.
-  - Remove `FluentAssertions` from `Directory.Packages.props`.
-  - Remove `coverlet.collector` if MTP code coverage is fully wired.
-  - Verify `Microsoft.NET.Test.Sdk` removal is safe under MTP-only setup.
+
+### Phase 12 — Final cleanup
+
+- Drop `IAsyncLifetime` interface from `KartovaApiFixtureBase` (no consumers left after Phases 9–10).
+- Drop `using Xunit;` from `KartovaApiFixtureBase.cs`.
+- Remove `xunit`, `xunit.runner.visualstudio`, `xunit.extensibility.core` from `Directory.Packages.props`.
+- Remove `FluentAssertions` from `Directory.Packages.props`.
+- Switch all migrated test projects to `MSTest.Sdk` (enables MTP runner): replace `<Project Sdk="Microsoft.NET.Sdk">` with `<Project Sdk="MSTest.Sdk/4.x">` in each test `.csproj`.
+- `Kartova.Testing.Auth` (infra project, not a test project) stays on `Microsoft.NET.Sdk`; just drop `xunit.extensibility.core` reference.
+- Remove `coverlet.collector` if MTP code coverage is fully wired.
+- Verify `Microsoft.NET.Test.Sdk` removal is safe under MTP-only setup.
+- Run full mutation suite; all module test projects within ±1pt of Phase 0 baseline.
 
 ### Phase ordering rationale
 
-Pure-unit projects first (1, 2) → patterns established without container/fixture noise. Architecture (3) → `[Theory]/[DataRow]/[DynamicData]` translation at scale. Test infra (4) before integration (5). Integration (5) last → benefits from every pattern established earlier.
+Pure-unit projects first (1, 2, 4–7) → patterns established without container/fixture noise. Architecture (3) → `[Theory]/[DataRow]/[DynamicData]` translation at scale. Test infra (8) is **additive**, so it doesn't break the still-on-xUnit consumers. Module integration tests (9, 10) consume the new contract. Top-level integration tests (11) come last because they're independent. Phase 12 is the cleanup that needs all consumers off the xUnit `IAsyncLifetime` shape.
 
 ## 4. Translation rules (xUnit → MSTest v4 + native asserts)
 
@@ -205,7 +257,7 @@ public sealed class IntegrationTestAssemblySetup
 }
 ```
 
-Test classes consume containers through `IntegrationTestAssemblySetup.Containers`. **Delete `KeycloakTestCollection.cs`** in Phase 5.
+Test classes consume containers through `IntegrationTestAssemblySetup.Containers`. **Delete `KeycloakTestCollection.cs`** in Phase 11.
 
 ### 5.2 `AuthSmokeTests` (and similar) translation
 
@@ -229,50 +281,67 @@ public sealed class AuthSmokeTests
 
 Per-test cadence is preserved (xUnit's per-test-instance lifecycle ≡ MSTest's `[TestInitialize]` per test). DB-seed idempotency assumption is unchanged.
 
-### 5.3 `KartovaApiFixtureBase` (Phase 4)
+### 5.3 `KartovaApiFixtureBase` — additive change in Phase 8, cleanup in Phase 12
 
-Drop `IAsyncLifetime`. Keep `WebApplicationFactory<Program>` inheritance.
+`KartovaApiFixtureBase` has **two real consumer fixtures** today: `Kartova.Catalog.IntegrationTests/KartovaApiFixture` and `Kartova.Organization.IntegrationTests/KartovaApiFixture` (plus `KartovaApiFaultInjectionFixture`), each consumed via `ICollectionFixture<...>`. We can't replace `IAsyncLifetime` outright without also flipping those consumer projects in the same atomic operation, which would force one large PR.
+
+**Phase 8 — additive contract change in `KartovaApiFixtureBase`:**
 
 ```csharp
-public abstract class KartovaApiFixtureBase : WebApplicationFactory<Program>, IAsyncDisposable
+public abstract class KartovaApiFixtureBase
+    : WebApplicationFactory<Program>, IAsyncLifetime, IAsyncDisposable
 {
+    // unchanged: existing IAsyncLifetime methods serve current xUnit consumers
     public async Task InitializeAsync() { /* current body */ }
-    public new async ValueTask DisposeAsync() { /* current body + base.DisposeAsync() */ }
+    Task IAsyncLifetime.DisposeAsync() => DisposeAsyncCore();
+
+    // new: IAsyncDisposable.DisposeAsync wraps the same teardown for MSTest consumers
+    async ValueTask IAsyncDisposable.DisposeAsync() => await DisposeAsyncCore();
+
+    private async Task DisposeAsyncCore()
+    {
+        await _pg.DisposeAsync();
+        await base.DisposeAsync();
+    }
     // ... rest unchanged
 }
 ```
 
-Future consumer pattern (documented in XML doc on `KartovaApiFixtureBase`):
+This keeps existing consumers (Phases 9–10 not yet migrated) working through `IAsyncLifetime`, while letting Phase 9–10's MSTest test classes call `Fx.InitializeAsync()` + `await ((IAsyncDisposable)Fx).DisposeAsync()` directly.
+
+**Phase 9 / 10 consumer pattern (MSTest):**
 
 ```csharp
 [TestClass]
 public abstract class CatalogIntegrationTestBase
 {
-    protected static MyFixture Fx { get; private set; } = null!;
+    protected static KartovaApiFixture Fx { get; private set; } = null!;
 
     [ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
     public static async Task ClassInit(TestContext _)
     {
-        Fx = new MyFixture();
+        Fx = new KartovaApiFixture();
         await Fx.InitializeAsync();
     }
 
     [ClassCleanup(InheritanceBehavior.BeforeEachDerivedClass)]
-    public static async Task ClassDone() => await Fx.DisposeAsync();
+    public static async Task ClassDone() => await ((IAsyncDisposable)Fx).DisposeAsync();
 }
 ```
 
-`[ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]` is the v4 idiom for "run for every concrete subclass of an abstract test base" — the semantic equivalent of `IClassFixture<T>`.
+`[ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]` is the v4 idiom for "run for every concrete subclass of an abstract test base" — semantic equivalent of `IClassFixture<T>`.
+
+**Phase 12 — cleanup:** drop `IAsyncLifetime` from `KartovaApiFixtureBase`, drop `using Xunit;`, drop `xunit.extensibility.core` package reference.
 
 ### 5.4 Parallelism / serialization (subtle correctness risk)
 
 xUnit's `[Collection]` on `KeycloakTestCollection` does double duty: shares the fixture instance **and** serializes execution across the collection. Comment in `KeycloakTestCollection.cs` explicitly cites the env-var race protection.
 
-MSTest's defaults: methods within a class run sequentially, but classes can run in parallel (assembly-level setting). **Decision: `[assembly: DoNotParallelize]` in `Kartova.Api.IntegrationTests/Properties/AssemblyInfo.cs`** to preserve current behavior. Integration tests are slow and shared-state-y; serial execution is honest.
+MSTest's defaults: methods within a class run sequentially, but classes can run in parallel (assembly-level setting). **Decision: `[assembly: DoNotParallelize]` in every integration-test assembly** (`Kartova.Api.IntegrationTests`, `Kartova.Catalog.IntegrationTests`, `Kartova.Organization.IntegrationTests`) to preserve current behavior. Integration tests are slow and shared-state-y; serial execution is honest. Unit-test projects (Phases 1–7) keep MSTest's default class-level parallelism since they're framework-pure logic with no shared state.
 
 ### 5.5 `Kartova.Testing.Auth` xUnit reference removal
 
-`KartovaApiFixtureBase.cs` currently has `using Xunit;` for `IAsyncLifetime`. Drop the using when we drop the interface. The `.csproj` references `xunit.extensibility.core` — drop in Phase 4. After Phase 4, this project has zero test-framework dependency, the right shape for an infra project.
+`KartovaApiFixtureBase.cs` currently has `using Xunit;` for `IAsyncLifetime`. The `.csproj` references `xunit.extensibility.core`. Both stay through Phase 8 (still serving xUnit consumers in Phases 9–10) and are dropped in Phase 12 along with the `IAsyncLifetime` interface. After Phase 12, `Kartova.Testing.Auth` has zero test-framework dependency — the right shape for an infra project.
 
 ### 5.6 Items confirmed at execution time (not now)
 
@@ -303,40 +372,41 @@ ADR-0083 currently states xUnit + FluentAssertions for unit and integration tier
 
 ### 7.1 Per-phase Definition of Done
 
-| DoD point | Phase 0 (tooling) | Phases 1–4 (per project) | Phase 5 (integration + cleanup) |
-|---|---|---|---|
-| 1. Full build, `TreatWarningsAsErrors=true` | yes | yes | yes |
-| 2. Per-task subagent reviews (spec + code-quality) | yes | yes | yes |
-| 3. `requesting-code-review` at slice boundary | yes | yes | yes |
-| 4. Test suite green | xUnit suite still green | mixed: this phase's project on MSTest, others still xUnit | all-MSTest, full suite |
-| 5. Real HTTP happy + negative path | n/a | n/a (Phases 1–3 unit/arch; Phase 4 has no consumers) | **mandatory** — `docker compose up` + `AuthSmokeTests` + one negative path |
-| 6. `/simplify` on diff | yes | yes | yes |
-| 7. Mutation sentinel (≥80%, baseline ±1pt) | establish baseline | per-project run, must match baseline | full-suite run, must match baseline |
-| 8. `/pr-review-toolkit:review-pr` | yes | yes | yes |
-| 9. `/deep-review` | yes | yes | yes |
+| DoD point | Phase 0 (tooling) | Phases 1–7 (unit/arch projects) | Phase 8 (Testing.Auth additive) | Phases 9–11 (integration projects) | Phase 12 (cleanup) |
+|---|---|---|---|---|---|
+| 1. Full build, `TreatWarningsAsErrors=true` | yes | yes | yes | yes | yes |
+| 2. Per-task subagent reviews | yes | yes | yes | yes | yes |
+| 3. `requesting-code-review` at slice boundary | yes | yes | yes | yes | yes |
+| 4. Test suite green | xUnit suite still green | mixed: this project all-MSTest, others still xUnit | xUnit consumers of `KartovaApiFixtureBase` still green | this project all-MSTest, others still on prior state | all-MSTest, full suite |
+| 5. Real HTTP happy + negative path | n/a | n/a | n/a (no test runtime changes) | **mandatory** — `docker compose up` + at least one HTTP test from this project + one negative path | not required (cleanup only) |
+| 6. `/simplify` on diff | yes | yes | yes | yes | yes |
+| 7. Mutation sentinel (≥80%, baseline ±1pt) | establish baseline | only Phases 4 and 5 are Stryker targets — must match baseline | n/a (no production-code or test-code semantic changes) | n/a (Stryker doesn't target integration test projects) | full-suite run, all Stryker targets within ±1pt of baseline |
+| 8. `/pr-review-toolkit:review-pr` | yes | yes | yes | yes | yes |
+| 9. `/deep-review` | yes | yes | yes | yes | yes |
 
-Phase 0 has slightly relaxed DoD — no test code changes → mutation baseline is the deliverable, not a regression check.
+Phase 0 has slightly relaxed DoD — no test code changes → mutation baseline is the deliverable, not a regression check. Phases 1, 2, 3, 6, 7 are not Stryker targets per `stryker-config.json` (only `Catalog.Tests` and `Organization.Tests` drive mutations); the mutation gate applies to those phases (4, 5) and to Phase 12.
 
 ### 7.2 Risks and mitigations
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
-| Env-var race regression if MSTest parallel defaults differ from xUnit collections | Med | High | `[assembly: DoNotParallelize]` in integration project; documented in AssemblyInfo comment |
-| Mutation score regression post-migration | Med | Med | Phase 0 baseline; per-phase ±1pt gate; investigate any drop > 1pt before merging that phase |
-| `BeEquivalentTo` deep-equality loss breaks tests silently | Med | Med | Phase 0 audit; if > 15 sites, escape hatch to AwesomeAssertions for that subset |
+| Env-var race regression if MSTest parallel defaults differ from xUnit collections | Med | High | `[assembly: DoNotParallelize]` in every integration assembly; documented in AssemblyInfo comment |
+| Mutation score regression post-migration in Stryker target projects | Med | Med | Phase 0 baseline; Phases 4, 5, 12 ±1pt gate; investigate any drop > 1pt before merging |
+| `BeEquivalentTo` deep-equality loss breaks tests silently | Med | Med | Phase 0 audit (now scoped to all 10 projects); if > 15 sites, escape hatch to AwesomeAssertions for that subset |
 | MTP exit-code semantics break CI | Low | High | Phase 0 includes CI dry-run with `--ignore-exit-code` policy documented; `migrate-vstest-to-mtp` skill drives the conversion |
 | Stryker.NET breaks under MTP | Med | High | Phase 0 verification; if broken, hold migration on VSTest one phase longer |
-| `KartovaApiFixtureBase` future consumers expect xUnit shape | Low | Low | No consumers exist yet; XML doc the new contract; sample consumer in file header |
-| Phase 4 lands in isolation with no test coverage | Low | Low | Phase 4 PR has no test-runtime changes; build green is sufficient. Optional: fold Phase 4 into Phase 5 |
-| `[ClassInitialize]` inheritance quirks for future module fixtures | Low | Med | Document `InheritanceBehavior.BeforeEachDerivedClass` requirement |
+| `KartovaApiFixtureBase` consumer breakage during Phase 8 additive change | Med | High | Phase 8 keeps `IAsyncLifetime` interface alongside new `IAsyncDisposable`; consumer projects (Phases 9–10) verify they still compile and pass before their own migration |
+| Phase 12 cleanup forgets a transitive xUnit reference | Low | Med | Phase 12 task list explicitly enumerates every CPM entry, every `.csproj` `Sdk` attribute, every `using Xunit;` site (find via Grep); CI build with `xunit.*` removed from CPM is the gate |
+| `[ClassInitialize]` inheritance quirks for module fixtures (Phases 9–10) | Med | Med | Document `InheritanceBehavior.BeforeEachDerivedClass` requirement; verify by writing one consumer in Phase 9 first and checking it runs against derived classes |
+| Long migration window keeps mixed-framework state for many PRs | Low | Med | Each phase is small and mergeable; no phase blocks others except by ordering. Mid-migration state is functionally correct (both runners coexist) |
 
 ### 7.3 Rollback strategy
 
 Each phase merges as its own PR. Rollback = revert that PR.
 
-**Mid-migration state is safe.** During Phases 1–4 the test suite has mixed frameworks running side-by-side: MSTest projects use `MSTest.Sdk` + MTP; xUnit projects use `Microsoft.NET.Sdk` + VSTest. Both are invoked by `dotnet test` at the solution level — the documented `MSTest.Sdk` + xUnit coexistence pattern.
+**Mid-migration state is safe.** During Phases 1–11 the test suite has mixed frameworks running side-by-side. xUnit projects use `Microsoft.NET.Sdk` + VSTest; MSTest projects use `Microsoft.NET.Sdk` + MSTest packages (still on VSTest until Phase 12 flips them to `MSTest.Sdk` + MTP). Both runners are invoked by `dotnet test` at the solution level — the documented coexistence pattern.
 
-**Phase 4 + Phase 5 atomicity.** Phase 4 leaves `Kartova.Testing.Auth` with a new shape and no consumers. Recommend keeping Phases 4 and 5 separate (smaller diffs, clearer review). Folding them is acceptable if review burden is the larger concern.
+**Phase 8 atomicity.** Phase 8 is purely additive (adds `IAsyncDisposable` alongside `IAsyncLifetime`); no consumer changes. Phases 9 and 10 each migrate one consumer project. Phase 12 removes the `IAsyncLifetime` interface only after both consumers have flipped. This sequence avoids any single PR carrying both contract and consumer changes.
 
 ### 7.4 Out-of-scope items explicitly punted
 
@@ -358,6 +428,6 @@ Each phase merges as its own PR. Rollback = revert that PR.
 ## 9. Out-of-spec changes the plan must not introduce
 
 - New tests beyond what is needed to translate existing tests.
-- Changes to production code other than the minimal additions to `KartovaApiFixtureBase` (new method names) needed to drop `IAsyncLifetime`.
-- Renaming or restructuring `tests/` projects.
-- Any change to mutation-testing config beyond verifying compatibility.
+- Changes to production code other than the additive contract change in `KartovaApiFixtureBase` (Phase 8 adds `IAsyncDisposable`, Phase 12 removes `IAsyncLifetime`).
+- Renaming or restructuring test projects (under `tests/` or `src/Modules/**/*Tests*`).
+- Any change to mutation-testing config (`stryker-config.json`) beyond verifying compatibility with MTP.
