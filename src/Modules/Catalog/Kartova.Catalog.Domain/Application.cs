@@ -45,8 +45,11 @@ public sealed partial class Application : ITenantOwned
     // EF constructor
     private Application() { }
 
-    public static Application Create(string name, string displayName, string description, Guid ownerUserId, TenantId tenantId)
-        => Create(name, displayName, description, ownerUserId, tenantId, DateTimeOffset.UtcNow);
+    public static Application Create(string name, string displayName, string description, Guid ownerUserId, TenantId tenantId, TimeProvider clock)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        return Create(name, displayName, description, ownerUserId, tenantId, clock.GetUtcNow());
+    }
 
     /// <summary>
     /// Overload that accepts an explicit <paramref name="createdAt"/> timestamp.

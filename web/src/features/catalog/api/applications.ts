@@ -19,6 +19,8 @@ type ApplicationsListParams = {
   sortBy: NonNullable<ListApplicationsQuery["sortBy"]>;
   sortOrder: NonNullable<ListApplicationsQuery["sortOrder"]>;
   limit?: number;
+  /** ADR-0073 default-view rule: false (the default) hides Decommissioned rows. Slice 6. */
+  includeDecommissioned?: boolean;
 };
 
 export const applicationKeys = {
@@ -57,6 +59,7 @@ export function useApplicationsList(params: ApplicationsListParams) {
             sortOrder: params.sortOrder,
             limit: params.limit ?? 50,
             cursor,
+            includeDecommissioned: params.includeDecommissioned ?? false,
           },
         },
       });

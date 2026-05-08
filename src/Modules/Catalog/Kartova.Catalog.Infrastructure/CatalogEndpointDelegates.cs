@@ -56,12 +56,18 @@ internal static class CatalogEndpointDelegates
     /// C# enum member names both bind. <c>limit</c> stays <c>string?</c> so non-integer
     /// inputs route through <c>InvalidLimitException</c> instead of the framework's
     /// generic parse-error 400.
+    /// <para>
+    /// <c>includeDecommissioned</c> defaults false per ADR-0073 §"filtered out of
+    /// default views" / slice-6 spec §5. Cursor encodes the filter so paging is
+    /// stable; mismatch returns 400 <c>cursor-filter-mismatch</c>.
+    /// </para>
     /// </summary>
     internal static async Task<IResult> ListApplicationsAsync(
         [FromQuery] string? sortBy,
         [FromQuery] string? sortOrder,
         [FromQuery] string? cursor,
         [FromQuery] string? limit,
+        [FromQuery] bool? includeDecommissioned,
         ListApplicationsHandler handler,
         CatalogDbContext db,
         CancellationToken ct)
@@ -109,7 +115,8 @@ internal static class CatalogEndpointDelegates
             SortBy: parsedSortBy ?? ApplicationSortField.CreatedAt,
             SortOrder: parsedSortOrder ?? SortOrder.Desc,
             Cursor: cursor,
-            Limit: effectiveLimit);
+            Limit: effectiveLimit,
+            IncludeDecommissioned: includeDecommissioned ?? false);
 
         var page = await handler.Handle(query, db, ct);
         return Results.Ok(page);

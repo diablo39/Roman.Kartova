@@ -105,6 +105,14 @@
               "type": "integer",
               "format": "int32"
             }
+          },
+          {
+            "name": "includeDecommissioned",
+            "in": "query",
+            "description": "When true, Decommissioned applications are included in the result set. Defaults to false per ADR-0073.",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {

@@ -84,6 +84,29 @@ public sealed class PagingExceptionHandlerTests
     }
 
     [Fact]
+    public async Task CursorFilterMismatchException_maps_to_400_with_filter_extensions()
+    {
+        var (handler, ctx) = Build();
+        var ex = new CursorFilterMismatchException("includeDecommissioned", "true", "false");
+
+        var handled = await handler.TryHandleAsync(ctx, ex, CancellationToken.None);
+
+        handled.Should().BeTrue();
+        ctx.Response.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
+        ctx.Response.ContentType.Should().StartWith("application/problem+json");
+
+        ctx.Response.Body.Position = 0;
+        var body = await new StreamReader(ctx.Response.Body).ReadToEndAsync();
+        body.Should().Contain(ProblemTypes.CursorFilterMismatch);
+        body.Should().Contain("\"filterName\"");
+        body.Should().Contain("\"includeDecommissioned\"");
+        body.Should().Contain("\"expectedValue\"");
+        body.Should().Contain("\"true\"");
+        body.Should().Contain("\"actualValue\"");
+        body.Should().Contain("\"false\"");
+    }
+
+    [Fact]
     public async Task UnrelatedException_returns_false()
     {
         var (handler, ctx) = Build();

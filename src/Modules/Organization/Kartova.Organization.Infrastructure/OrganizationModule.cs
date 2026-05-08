@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Wolverine;
 
 namespace Kartova.Organization.Infrastructure;
@@ -60,6 +61,13 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
             npg.MigrationsAssembly(typeof(OrganizationDbContext).Assembly.FullName));
 
         services.AddScoped<IOrganizationQueries, OrganizationQueries>();
+
+        // TimeProvider is needed by Organization.Create and any future
+        // organization-side handler. TryAdd is idempotent — if another module
+        // (or test fixture override) already registered TimeProvider, this is a
+        // no-op so tests can swap in FakeTimeProvider without losing the
+        // production default. Mirrors CatalogModule.RegisterServices.
+        services.TryAddSingleton(TimeProvider.System);
     }
 
     /// <summary>

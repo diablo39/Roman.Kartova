@@ -44,7 +44,8 @@ public static class QueryablePagingExtensions
         int limit,
         Expression<Func<T, Guid>> idSelector,
         Func<T, Guid> idExtractor,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool? expectedIncludeDecommissioned = null)
         where T : class
     {
         if (limit < MinLimit || limit > MaxLimit)
@@ -62,6 +63,14 @@ public static class QueryablePagingExtensions
                 throw new InvalidCursorException(
                     $"Cursor was issued for direction '{decoded.Direction}' but request uses '{order}'.");
             }
+            if (expectedIncludeDecommissioned is bool requestFilter
+                && decoded.IncludeDecommissioned != requestFilter)
+            {
+                throw new CursorFilterMismatchException(
+                    filterName: "includeDecommissioned",
+                    expectedValue: decoded.IncludeDecommissioned ? "true" : "false",
+                    actualValue: requestFilter ? "true" : "false");
+            }
             q = ApplyKeysetFilter(q, sort.KeySelector, idSelector, decoded.SortValue, decoded.Id, order);
         }
 
@@ -78,7 +87,11 @@ public static class QueryablePagingExtensions
             var lastKept = rows[^1];
             var sortValue = sort.CompiledKeySelector(lastKept)!;
             var id = idExtractor(lastKept);
-            nextCursor = CursorCodec.Encode(NormalizeForCursor(sortValue), id, order);
+            nextCursor = CursorCodec.Encode(
+                    NormalizeForCursor(sortValue),
+                    id,
+                    order,
+                    expectedIncludeDecommissioned ?? false);
         }
 
         return new CursorPage<T>(rows, nextCursor, PrevCursor: null);
@@ -165,7 +178,7 @@ public static class QueryablePagingExtensions
         // Stryker mutation `node == _from ? _to : base.VisitParameter(node)` → always `_to`
         // is accepted as near-equivalent: in our single-parameter expression-tree replacement,
         // every ParameterExpression encountered IS `_from`, so the `else` branch is functionally
-        // unreachable. ADR-0095 mutation report 2026-05-04.
+        // unreachable. ADR-0095 mutation report 2026-05-07 (slice 6, re-confirmed from slice 3).
         protected override Expression VisitParameter(ParameterExpression node) =>
             node == _from ? _to : base.VisitParameter(node);
     }

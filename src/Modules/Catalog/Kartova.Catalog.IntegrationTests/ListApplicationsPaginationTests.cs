@@ -2,10 +2,13 @@ using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
 using Kartova.Catalog.Contracts;
+using Kartova.Catalog.Domain;
 using Kartova.Catalog.Infrastructure;
+using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Pagination;
 using Kartova.Testing.Auth;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using DomainApplication = Kartova.Catalog.Domain.Application;
 
@@ -276,9 +279,9 @@ public sealed class ListApplicationsPaginationTests
     [Fact]
     public async Task NonNumericLimit_returns_400_with_raw_value_in_envelope()
     {
-        // Mutation-killing test (line 102): if the throw of InvalidLimitException(rawLimit, ...)
-        // is removed, effectiveLimit defaults to 0 (the failed TryParse out-value), and the
-        // handler later throws InvalidLimitException(0, MinLimit, MaxLimit). Both produce a
+        // Mutation-killing test for the `throw new InvalidLimitException(rawLimit, ...)` branch:
+        // if that throw is removed, effectiveLimit defaults to 0 (the failed TryParse out-value),
+        // and the handler later throws InvalidLimitException(0, MinLimit, MaxLimit). Both produce a
         // 400 with type=invalid-limit, so a generic body.Contains("invalid-limit") cannot
         // distinguish them. Pin the rawLimit echo back: only the original throw preserves
         // the literal "abc" in the envelope; the fall-through path would echo "0".
@@ -296,8 +299,8 @@ public sealed class ListApplicationsPaginationTests
     [Fact]
     public async Task SortBy_name_asc_overrides_default_createdAt_ordering()
     {
-        // Mutation-killing test (line 109): if `parsedSortBy ?? ApplicationSortField.CreatedAt`
-        // collapses to `ApplicationSortField.CreatedAt`, user-supplied sortBy=name is silently
+        // Mutation-killing test for the `parsedSortBy ?? ApplicationSortField.CreatedAt` expression:
+        // if the null-coalesce is mutated and always returns CreatedAt, user-supplied sortBy=name is silently
         // ignored. To distinguish, we seed rows with names in REVERSE alpha order vs creation
         // order: created first = "zzz-mut-c-...", created last = "zzz-mut-a-...". Asking for
         // sortBy=name&sortOrder=asc must return alpha-first ("a..." then "b..." then "c...").
@@ -344,6 +347,210 @@ public sealed class ListApplicationsPaginationTests
         ours.Should().Equal(
             new[] { aName, bName, cName },
             "sortBy=name&sortOrder=asc must order by Name (alpha), not by CreatedAt");
+    }
+
+    // -----------------------------------------------------------------------
+    // Slice-6 filter tests — ?includeDecommissioned wire contract (ADR-0073)
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GET_applications_default_excludes_Decommissioned()
+    {
+        // Use a unique prefix so the assertions are not confused by rows seeded by
+        // other tests in the same shared fixture (IClassFixture keeps DB across tests).
+        var unique = $"f6-excl-{Guid.NewGuid():N}";
+        var activePrefix = $"{unique}-a-";
+        var decommPrefix = $"{unique}-d-";
+
+        var tenantId = _fx.TenantIdForEmail("admin@orga.kartova.local");
+        await _fx.SeedApplicationsAsync(tenantId, count: 3, namePrefix: activePrefix);
+        await _fx.SeedApplicationsWithLifecycleAsync(tenantId, count: 2, namePrefix: decommPrefix, Lifecycle.Decommissioned);
+
+        try
+        {
+            var client = _fx.CreateClientForOrgA();
+            // Retrieve enough rows to see all our seeded items and use the unique prefix to filter.
+            var response = await client.GetAsync("/api/v1/catalog/applications?limit=200");
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var page = await response.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
+            var ours = page!.Items.Where(i => i.Name.StartsWith(unique, StringComparison.Ordinal)).ToList();
+
+            // All 3 active-prefix rows must be visible.
+            ours.Where(i => i.Name.StartsWith(activePrefix)).Should().HaveCount(3, "active rows must not be filtered");
+            // No decomm-prefix rows must appear (default view excludes Decommissioned).
+            ours.Where(i => i.Name.StartsWith(decommPrefix)).Should().BeEmpty("Decommissioned rows must be excluded by default");
+        }
+        finally
+        {
+            await _fx.DeleteApplicationsByPrefixAsync(tenantId, activePrefix);
+            await _fx.DeleteApplicationsByPrefixAsync(tenantId, decommPrefix);
+        }
+    }
+
+    [Fact]
+    public async Task GET_applications_with_includeDecommissioned_true_returns_all_lifecycles()
+    {
+        var unique = $"f6-incl-{Guid.NewGuid():N}";
+        var activePrefix = $"{unique}-a-";
+        var decommPrefix = $"{unique}-d-";
+
+        var tenantId = _fx.TenantIdForEmail("admin@orga.kartova.local");
+        await _fx.SeedApplicationsAsync(tenantId, count: 3, namePrefix: activePrefix);
+        await _fx.SeedApplicationsWithLifecycleAsync(tenantId, count: 2, namePrefix: decommPrefix, Lifecycle.Decommissioned);
+
+        try
+        {
+            var client = _fx.CreateClientForOrgA();
+            var response = await client.GetAsync("/api/v1/catalog/applications?limit=200&includeDecommissioned=true");
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var page = await response.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
+            var ours = page!.Items.Where(i => i.Name.StartsWith(unique, StringComparison.Ordinal)).ToList();
+
+            // Both active and decommissioned rows must be visible.
+            ours.Should().HaveCount(5, "?includeDecommissioned=true must return all 5 seeded rows");
+        }
+        finally
+        {
+            await _fx.DeleteApplicationsByPrefixAsync(tenantId, activePrefix);
+            await _fx.DeleteApplicationsByPrefixAsync(tenantId, decommPrefix);
+        }
+    }
+
+    [Fact]
+    public async Task GET_applications_with_explicit_includeDecommissioned_false_matches_default()
+    {
+        var unique = $"f6-expl-{Guid.NewGuid():N}";
+        var activePrefix = $"{unique}-a-";
+        var decommPrefix = $"{unique}-d-";
+
+        var tenantId = _fx.TenantIdForEmail("admin@orga.kartova.local");
+        await _fx.SeedApplicationsAsync(tenantId, count: 3, namePrefix: activePrefix);
+        await _fx.SeedApplicationsWithLifecycleAsync(tenantId, count: 2, namePrefix: decommPrefix, Lifecycle.Decommissioned);
+
+        try
+        {
+            var client = _fx.CreateClientForOrgA();
+            var defaultResp = await client.GetAsync("/api/v1/catalog/applications?limit=200");
+            var explicitResp = await client.GetAsync("/api/v1/catalog/applications?limit=200&includeDecommissioned=false");
+
+            defaultResp.StatusCode.Should().Be(HttpStatusCode.OK);
+            explicitResp.StatusCode.Should().Be(HttpStatusCode.OK);
+            var defaultPage = await defaultResp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
+            var explicitPage = await explicitResp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
+            // Both queries must return the same row set. Compare filtered to our unique prefix.
+            var defaultOurs = defaultPage!.Items.Where(i => i.Name.StartsWith(unique, StringComparison.Ordinal)).Select(i => i.Id);
+            var explicitOurs = explicitPage!.Items.Where(i => i.Name.StartsWith(unique, StringComparison.Ordinal)).Select(i => i.Id);
+            explicitOurs.Should().BeEquivalentTo(defaultOurs,
+                "explicit ?includeDecommissioned=false must match the default (omitted) behavior");
+        }
+        finally
+        {
+            await _fx.DeleteApplicationsByPrefixAsync(tenantId, activePrefix);
+            await _fx.DeleteApplicationsByPrefixAsync(tenantId, decommPrefix);
+        }
+    }
+
+    [Fact]
+    public async Task GET_applications_with_cursor_from_includeDecommissioned_true_then_request_false_returns_400_cursor_filter_mismatch()
+    {
+        var unique = $"f6-mism-{Guid.NewGuid():N}";
+        var activePrefix = $"{unique}-a-";
+        var decommPrefix = $"{unique}-d-";
+
+        var tenantId = _fx.TenantIdForEmail("admin@orga.kartova.local");
+        // Seed enough rows (5 total) so limit=2 always produces a NextCursor regardless of
+        // other tenant rows — the 5 rows are the most recent (seeded now), so createdAt desc
+        // puts them at the front, and limit=2 leaves 3 more behind the cursor.
+        await _fx.SeedApplicationsAsync(tenantId, count: 3, namePrefix: activePrefix);
+        await _fx.SeedApplicationsWithLifecycleAsync(tenantId, count: 2, namePrefix: decommPrefix, Lifecycle.Decommissioned);
+
+        try
+        {
+            var client = _fx.CreateClientForOrgA();
+
+            var page1 = await client.GetAsync("/api/v1/catalog/applications?limit=2&includeDecommissioned=true");
+            page1.StatusCode.Should().Be(HttpStatusCode.OK);
+            var p1 = await page1.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
+            p1!.NextCursor.Should().NotBeNull();
+
+            var page2 = await client.GetAsync(
+                $"/api/v1/catalog/applications?limit=2&includeDecommissioned=false&cursor={Uri.EscapeDataString(p1.NextCursor!)}");
+            page2.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+            var problem = await page2.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
+            problem!.Type.Should().Be(ProblemTypes.CursorFilterMismatch);
+            problem.Extensions["filterName"]!.ToString().Should().Be("includeDecommissioned");
+            problem.Extensions["expectedValue"]!.ToString().Should().Be("true");   // cursor was issued with true
+            problem.Extensions["actualValue"]!.ToString().Should().Be("false");    // request sent false
+        }
+        finally
+        {
+            await _fx.DeleteApplicationsByPrefixAsync(tenantId, activePrefix);
+            await _fx.DeleteApplicationsByPrefixAsync(tenantId, decommPrefix);
+        }
+    }
+
+    [Fact]
+    public async Task GET_applications_with_legacy_cursor_lacking_ic_decodes_as_false_and_pages()
+    {
+        var unique = $"f6-legc-{Guid.NewGuid():N}";
+        var activePrefix = $"{unique}-a-";
+
+        var tenantId = _fx.TenantIdForEmail("admin@orga.kartova.local");
+        // Seed 5 rows as the most recent rows in the tenant (seeded now, so createdAt desc
+        // puts them at the top). limit=2 on page1 returns 2 of our rows and yields a cursor
+        // pointing into our seeded range.
+        await _fx.SeedApplicationsAsync(tenantId, count: 5, namePrefix: activePrefix);
+
+        try
+        {
+            var client = _fx.CreateClientForOrgA();
+
+            var page1 = await client.GetAsync("/api/v1/catalog/applications?limit=2&sortBy=createdAt&sortOrder=desc");
+            page1.StatusCode.Should().Be(HttpStatusCode.OK);
+            var p1 = await page1.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
+            var boundary = p1!.Items.Last();
+
+            // Construct a cursor JSON without the `ic` field — pre-slice-6 shape.
+            var legacyJson = $"{{\"s\":\"{boundary.CreatedAt:O}\",\"i\":\"{boundary.Id}\",\"d\":\"desc\"}}";
+            var legacyCursor = System.Buffers.Text.Base64Url.EncodeToString(System.Text.Encoding.UTF8.GetBytes(legacyJson));
+
+            // Default request (no includeDecommissioned param → false). Legacy cursor decodes to ic=false → match.
+            var page2 = await client.GetAsync(
+                $"/api/v1/catalog/applications?limit=2&sortBy=createdAt&sortOrder=desc&cursor={Uri.EscapeDataString(legacyCursor)}");
+
+            page2.StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+        finally
+        {
+            await _fx.DeleteApplicationsByPrefixAsync(tenantId, activePrefix);
+        }
+    }
+
+    [Fact]
+    public async Task GET_applications_legacy_cursor_replayed_with_includeDecommissioned_true_returns_400()
+    {
+        // Build a legacy cursor (no `ic` field) directly — no seeding needed because
+        // the filter-mismatch check fires before any keyset WHERE is applied, so the
+        // sort value and id do not need to point at real rows.
+        // Legacy cursor shape: { s, i, d } — the pre-slice-6 format.
+        var fakeTimestamp = "2020-01-01T00:00:00.0000000Z";
+        var fakeId = Guid.NewGuid().ToString();
+        var legacyJson = $"{{\"s\":\"{fakeTimestamp}\",\"i\":\"{fakeId}\",\"d\":\"desc\"}}";
+        var legacyCursor = System.Buffers.Text.Base64Url.EncodeToString(System.Text.Encoding.UTF8.GetBytes(legacyJson));
+
+        var client = _fx.CreateClientForOrgA();
+
+        // Replay with ?includeDecommissioned=true. Cursor decodes ic=false (legacy default),
+        // request expects true → mismatch is detected before keyset filtering.
+        var resp = await client.GetAsync(
+            $"/api/v1/catalog/applications?limit=2&sortBy=createdAt&sortOrder=desc&includeDecommissioned=true&cursor={Uri.EscapeDataString(legacyCursor)}");
+
+        resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problem = await resp.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
+        problem!.Type.Should().Be(ProblemTypes.CursorFilterMismatch);
     }
 
 }

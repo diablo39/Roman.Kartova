@@ -5,6 +5,8 @@ export interface CursorListResult<TItem> {
   isLoading: boolean;
   isFetching: boolean;
   isError: boolean;
+  /** The error value when isError is true; null otherwise. */
+  error: unknown;
   hasNext: boolean;
   hasPrev: boolean;
   goNext: () => void;
