@@ -214,47 +214,17 @@ git add docs/superpowers/specs/baselines/2026-05-08-mstest-migration-beequivalen
 git commit -m "docs(test): audit BeEquivalentTo sites for MSTest migration"
 ```
 
-### Task 0.6: Verify Stryker.NET works under MTP
+### Task 0.6: Stryker × MTP compatibility probe (already executed; outcome drove MTP-drop)
 
-This is a forward-looking check. Phase 12 switches projects to `MSTest.Sdk` + MTP runner. Stryker drives tests through the test runner; if Stryker breaks on MTP, Phase 12 is gated on a workaround.
+**Status:** Already complete. Result: **FAIL** — Stryker.NET 4.14.1 does not support Microsoft.Testing.Platform (tracked at [stryker-mutator/stryker-net#3094](https://github.com/stryker-mutator/stryker-net/issues/3094)).
 
-**Files:**
-- Read-only verification.
+**Outcome recorded in:** `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md` §"Stryker × MTP compatibility probe".
 
-- [ ] **Step 1: Set up a throwaway MTP project to probe Stryker.**
+**Decision driven by this task:** MTP is dropped from this migration's scope entirely. All test projects stay on `Microsoft.NET.Sdk` + VSTest + `coverlet.collector` + `Microsoft.NET.Test.Sdk`. Phase 12 cleanup no longer flips any project to `MSTest.Sdk`. Tasks 12.3 (SDK flip) and 12.5 (coverlet → Microsoft.Testing.Extensions.CodeCoverage) are removed accordingly. Revisit MTP in a future migration once stryker-net#3094 closes.
 
-Create a temporary directory outside the repo (e.g., `/tmp/stryker-mtp-probe`). Initialize a tiny MSTest.Sdk project with MTP enabled, write one trivial test, then run Stryker against it:
+**Why this stub remains in the plan:** preserves task IDs (engineers reaching here via cross-reference see the rationale rather than a missing section) and records the historical sequence — the probe was the deciding factor in the migration's MTP scope.
 
-```
-dotnet new mstest -o probe
-cd probe
-# Edit probe.csproj to use Sdk="MSTest.Sdk/4.0.0" and add <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
-dotnet build
-dotnet stryker --solution probe.sln --reporter cleartext
-```
-
-Expected: Stryker runs and reports a mutation score. If it errors with "test runner unsupported" or "exit code mismatch" or similar, the probe failed — flag this and adjust Phase 12.
-
-- [ ] **Step 2: Record the result in the baseline doc.**
-
-Append to `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md`:
-
-```markdown
-## Stryker × MTP compatibility probe
-
-**Result:** PASS / FAIL (date: 2026-05-08)
-
-**Notes:**
-- (e.g., "Stryker 4.x runs against MSTest.Sdk + MTP without config changes")
-- (or: "Stryker fails with X — Phase 12 must wait on Stryker version Y")
-```
-
-- [ ] **Step 3: Commit.**
-
-```
-git add docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md
-git commit -m "docs(test): record Stryker × MTP compatibility probe result"
-```
+- [x] Already executed during Phase 0; no further action.
 
 ### Task 0.7: Write ADR-0097 superseding ADR-0083
 
