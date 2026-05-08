@@ -13,8 +13,8 @@
 2. Replace **FluentAssertions 6.12.0** with **MSTest v4 native assertions** (`Assert`, `CollectionAssert`, `StringAssert`, `Assert.ThrowsExactly`).
 3. Keep NSubstitute, Testcontainers (Postgres + Keycloak), and NetArchTest unchanged — all are framework-agnostic.
 4. **Supersede ADR-0083** with a new ADR documenting the framework + assertion change. Five-tier pyramid (architecture / unit / integration / contract / E2E) is unchanged.
-5. Land via phased delivery — **Phase 0 (tooling/ADR/CI) + Phases 1–11 (one project at a time, plus a final cleanup phase)** — each phase mergeable on its own.
-6. Translate test count and behavior **1:1**. No new tests, no removed coverage. Mutation score (Stryker targets `Catalog.Tests` and `Organization.Tests` per repo `stryker-config.json`) must match the pre-migration baseline ±1 percentage point per project.
+5. Land via phased delivery — **Phase 0 (tooling/ADR) + Phases 1–11 (per-project migration) + Phase 12 (cleanup)** — each phase mergeable on its own.
+6. Translate test count and behavior **1:1**. No new tests, no removed coverage. Per-project mutation scores (per `mutation-targets.json` orchestration; mapping in baseline-doc §"Per-phase mutation-gate ownership") must match the pre-migration baseline ±1 percentage point. Degenerate-baseline projects (n/a or tiny denominators) follow the absolute-survivor-count rule documented in the baseline doc Notes.
 
 ### Non-goals
 
@@ -380,7 +380,7 @@ ADR-0083 currently states xUnit + FluentAssertions for unit and integration tier
 | 8. `/pr-review-toolkit:review-pr` | yes | yes | yes | yes | yes |
 | 9. `/deep-review` | yes | yes | yes | yes | yes |
 
-Phase 0 has slightly relaxed DoD — no test code changes → mutation baseline is the deliverable, not a regression check. Phases 1, 2, 3, 6, 7 are not Stryker targets per `stryker-config.json` (only `Catalog.Tests` and `Organization.Tests` drive mutations); the mutation gate applies to those phases (4, 5) and to Phase 12.
+Phase 0 has slightly relaxed DoD — no test code changes → mutation baseline is the deliverable, not a regression check. The mutation gate applies per-phase based on which test projects drive which production-assembly mutations — see baseline-doc §"Per-phase mutation-gate ownership" for the canonical mapping. **Phase 1** owns `Kartova.SharedKernel`; **Phase 2** owns `Kartova.SharedKernel.AspNetCore` (primary; co-driven with Phase 11); **Phase 4** owns the Catalog source projects; **Phase 5** owns the Organization source projects; **Phases 9 + 10** co-drive `Kartova.SharedKernel.Postgres`; **Phase 11** co-drives `Kartova.SharedKernel.AspNetCore` (with Phase 2). **Phase 12** is the full-suite re-run. **Phases 3, 6, 7, 8** have no Stryker-driven mutation target — those phases skip DoD #7.
 
 ### 7.2 Risks and mitigations
 

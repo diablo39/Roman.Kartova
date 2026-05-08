@@ -257,7 +257,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Messaging / mediation / CQRS**: 0003, 0028, 0037, 0080, 0081, 0093
 - **Modular monolith / bounded contexts**: 0028, 0080, 0081, 0082, 0089
 - **Solution file format / tooling**: 0082, 0089
-- **Testing / quality gates**: 0025, 0083
+- **Testing / quality gates**: 0025, 0083, 0097
 - **Frontend workflow / dev-time verification**: 0039, 0083, 0084, 0087
 - **AI-assisted development**: 0079, 0084, 0087
 - **Design source / mockups**: 0039, 0087

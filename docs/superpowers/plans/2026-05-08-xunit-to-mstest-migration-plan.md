@@ -789,6 +789,16 @@ Expected: same total test count as Phase 0 baseline; all green.
 
 Open one of the translated test classes in IDE Test Explorer; confirm tests appear under the MSTest discovery path with green check marks after running.
 
+- [ ] **Step 4: Mutation regression — `Kartova.SharedKernel`.**
+
+Run per-project Stryker against `Kartova.SharedKernel`:
+```
+dotnet stryker -f src/Kartova.SharedKernel/stryker-config.json
+```
+Expected: mutation score within ±1pt of baseline (75.00% per `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md`). If outside ±1pt, see the merge-gate language in that doc and the per-phase ownership table.
+
+(Note: at the Stryker version pinned during Phase 0, the root `stryker-config.json` invocation can fail at a source-generator/interceptor bug — use the per-project config above, not the root one.)
+
 Phase 1 is complete and ready for PR review.
 
 ---
@@ -880,6 +890,16 @@ dotnet test Kartova.slnx --no-build
 git add tests/Kartova.SharedKernel.AspNetCore.Tests/Kartova.SharedKernel.AspNetCore.Tests.csproj
 git commit -m "chore(test): remove xUnit + FluentAssertions from Kartova.SharedKernel.AspNetCore.Tests"
 ```
+
+- [ ] **Step 5: Mutation regression — `Kartova.SharedKernel.AspNetCore` (interim score; Phase 11 is the official gate).**
+
+Run per-project Stryker against `Kartova.SharedKernel.AspNetCore`:
+```
+dotnet stryker -f src/Kartova.SharedKernel.AspNetCore/stryker-config.json
+```
+Phase 2 is the **primary owner** of this mutation target but **co-driven with Phase 11** (the AspNetCore Stryker config also feeds `tests/Kartova.Api.IntegrationTests`, which is still on xUnit at this point). The score captured here is an **interim diagnostic** — a >1pt drift vs the 100.00% baseline (per `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md`) flags a translation defect in this phase to investigate before Phase 11. The official gate runs at Phase 11 once both driving test suites are on MSTest.
+
+(Note: at the Stryker version pinned during Phase 0, the root `stryker-config.json` invocation can fail at a source-generator/interceptor bug — use the per-project config above, not the root one.)
 
 Phase 2 complete.
 
@@ -1537,6 +1557,16 @@ git add src/Modules/Catalog/Kartova.Catalog.IntegrationTests/Kartova.Catalog.Int
 git commit -m "chore(test): remove xUnit + FluentAssertions from Kartova.Catalog.IntegrationTests"
 ```
 
+- [ ] **Step 6: Mutation regression — `Kartova.SharedKernel.Postgres` (interim score; Phase 10 is the official gate).**
+
+Run per-project Stryker against `Kartova.SharedKernel.Postgres`:
+```
+dotnet stryker -f src/Kartova.SharedKernel.Postgres/stryker-config.json
+```
+Phase 9 is **co-driver** of this mutation target with Phase 10 (the Postgres Stryker config feeds both `Kartova.Catalog.IntegrationTests` and `Kartova.Organization.IntegrationTests`). Phase 10 is the second of the two co-drivers and is the official gate; this Phase-9 run captures an **interim diagnostic** score — a >1pt drift vs the 94.74% baseline (per `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md`) flags a translation defect in this phase to investigate before Phase 10.
+
+(Note: at the Stryker version pinned during Phase 0, the root `stryker-config.json` invocation can fail at a source-generator/interceptor bug — use the per-project config above, not the root one.)
+
 Phase 9 complete.
 
 ---
@@ -1607,6 +1637,17 @@ Same shape as Task 9.5 but two file deletions.
 ### Task 10.6: Drop xUnit references and verify
 
 Same shape as Task 9.6. Real HTTP verification step required.
+
+### Task 10.7: Mutation regression — `Kartova.SharedKernel.Postgres` (official gate)
+
+- [ ] **Step 1: Run per-project Stryker against `Kartova.SharedKernel.Postgres`.**
+
+```
+dotnet stryker -f src/Kartova.SharedKernel.Postgres/stryker-config.json
+```
+Phase 10 is the **second of the two co-drivers** for this mutation target (Phase 9 captured an interim diagnostic score). At this point both `Kartova.Catalog.IntegrationTests` and `Kartova.Organization.IntegrationTests` are on MSTest, so this run is the **official gate** for `Kartova.SharedKernel.Postgres`. Expected: mutation score within ±1pt of the 94.74% baseline (per `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md`). If outside ±1pt, see the merge-gate language in that doc and the per-phase ownership table.
+
+(Note: at the Stryker version pinned during Phase 0, the root `stryker-config.json` invocation can fail at a source-generator/interceptor bug — use the per-project config above, not the root one.)
 
 Phase 10 complete.
 
@@ -1894,6 +1935,16 @@ Capture: at minimum the `Full_KeyCloak_realm_issues_token_and_API_accepts_it` te
 git add tests/Kartova.Api.IntegrationTests/Kartova.Api.IntegrationTests.csproj tests/Kartova.Api.IntegrationTests/KeycloakContainerFixture.cs tests/Kartova.Api.IntegrationTests/IntegrationTestAssemblySetup.cs
 git commit -m "chore(test): remove xUnit + FA from Kartova.Api.IntegrationTests"
 ```
+
+- [ ] **Step 5: Mutation regression — `Kartova.SharedKernel.AspNetCore` (official gate).**
+
+Run per-project Stryker against `Kartova.SharedKernel.AspNetCore`:
+```
+dotnet stryker -f src/Kartova.SharedKernel.AspNetCore/stryker-config.json
+```
+Phase 11 is the **second of the two co-drivers** for this mutation target (Phase 2 captured an interim diagnostic score). At this point both `tests/Kartova.SharedKernel.AspNetCore.Tests` and `tests/Kartova.Api.IntegrationTests` are on MSTest, so this run is the **official gate** for `Kartova.SharedKernel.AspNetCore`. Expected: mutation score within ±1pt of the 100.00% baseline (per `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md`). If outside ±1pt, see the merge-gate language in that doc and the per-phase ownership table.
+
+(Note: at the Stryker version pinned during Phase 0, the root `stryker-config.json` invocation can fail at a source-generator/interceptor bug — use the per-project config above, not the root one.)
 
 Phase 11 complete.
 
