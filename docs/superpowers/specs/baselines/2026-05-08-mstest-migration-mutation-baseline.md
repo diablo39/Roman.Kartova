@@ -33,15 +33,11 @@ Mutation score = `killed / (killed + survived + no-coverage + timeout) × 100`. 
 
 ## Mutation gate (per spec §7.2)
 
-Phases 4, 5, and 12 must keep the relevant per-project mutation score within **±1 percentage point** of the baseline above. Investigate any deviation > 1pt before merging the offending phase.
+Every phase that rewrites a test project driving a mutation target must keep the relevant per-project mutation score within **±1 percentage point** of the baseline above (see §"Per-phase mutation-gate ownership" below for the canonical phase-to-target mapping: Phases 1, 2, 4, 5, 9, 10, 11, 12). Investigate any deviation > 1pt before merging the offending phase.
 
 **Merge gate:** if a project's mutation score drops by > 1pt vs the baseline above, the offending phase PR cannot merge until either (a) the regression is fixed and the score recovers within ±1pt, or (b) the surviving mutants are enumerated in this doc and the new floor is signed off by the project owner. Score *increases* > 1pt do not block merge but should be sanity-checked to confirm the gain is from real coverage and not from mutants reclassifying to CompileError (which would silently leave the denominator and inflate the score — see CompileError-delta check below).
 
-**Secondary check (CompileError delta):** Phase 4 / 5 / 12 reviewers should additionally verify the per-project CompileError count is within ±5 of the baseline. A large CompileError swing — even when the headline score looks fine — is a signal that test coverage instrumentation has shifted in a way that's reclassifying Killed mutants as uncompilable, which silently inflates the mutation score. If CompileError swings by more than ±5, dig into the raw report and confirm no Killed→CompileError reclassification.
-
-- **Phase 4** (`Kartova.Catalog.Tests` migration): regression check against `Kartova.Catalog.{Domain, Application, Infrastructure, Contracts}` baselines.
-- **Phase 5** (`Kartova.Organization.Tests` migration): regression check against `Kartova.Organization.{Domain, Application, Infrastructure, Infrastructure.Admin, Contracts}` baselines.
-- **Phase 12** (cleanup): full re-run; all 12 projects within ±1pt.
+**Secondary check (CompileError delta):** every gate-owning phase reviewer should additionally verify the per-project CompileError count is within ±5 of the baseline. A large CompileError swing — even when the headline score looks fine — is a signal that test coverage instrumentation has shifted in a way that's reclassifying Killed mutants as uncompilable, which silently inflates the mutation score. If CompileError swings by more than ±5, dig into the raw report and confirm no Killed→CompileError reclassification.
 
 ## Per-phase mutation-gate ownership
 
