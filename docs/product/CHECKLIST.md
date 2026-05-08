@@ -1,6 +1,6 @@
 # Kartova — Development Progress Checklist
 
-**Last updated:** 2026-05-06
+**Last updated:** 2026-05-07
 
 ## How to use
 - [ ] = Not started
@@ -91,10 +91,10 @@
 ### E-02: Entity Registry
 
 **E-02.F-01: Application Entity Management**
-- [x] E-02.F-01.S-01 — Register new application in catalog (slice 3 — PR #10, 2026-04-30; UI surface added in slice 4 — PR #17, 2026-04-30)
+- [x] E-02.F-01.S-01 — Register new application in catalog (slice 3 — PR #10, 2026-04-30; UI surface added in slice 4 — PR #17, 2026-04-30; TimeProvider on Application.Create — slice 6, PR #22, 2026-05-07)
 - [x] E-02.F-01.S-02 — Application detail page with metadata (slice 4 — PR #17, 2026-04-30; header + metadata only, tabs deferred)
 - [x] E-02.F-01.S-03 — Edit application metadata (slice 5 — PR #21, 2026-05-06; PUT /api/v1/catalog/applications/{id} with If-Match/ETag optimistic concurrency, ADR-0096)
-- [x] E-02.F-01.S-04 — Application lifecycle status transitions (slice 5 — PR #21, 2026-05-06; ADR-0073 Active → Deprecated → Decommissioned linear forward, sunsetDate strict; admin override + audit + notifications deferred to follow-up slices)
+- [x] E-02.F-01.S-04 — Application lifecycle status transitions (slice 5 — PR #21, 2026-05-06; ADR-0073 Active → Deprecated → Decommissioned linear forward, sunsetDate strict; admin override + audit + notifications deferred to follow-up slices; default-view filter — slice 6, PR #22, 2026-05-07)
 - [x] E-02.F-01.S-06 — Field-level ProblemDetails errors (slice-4-cleanup — PR #18, 2026-05-01)
 - [x] E-02.F-01.S-07 — Move kebab-case Name validation into `Application.Create` domain invariant (slice-4-cleanup — PR #18, 2026-05-01)
 

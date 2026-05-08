@@ -48,7 +48,7 @@ public class TenantScopeMechanismTests
             .Options;
 
         await using var db = new OrganizationDbContext(options);
-        db.Add(Kartova.Organization.Domain.Organization.Create("never-saved"));
+        db.Add(Kartova.Organization.Domain.Organization.Create("never-saved", TimeProvider.System));
 
         var act = async () => await db.SaveChangesAsync();
 

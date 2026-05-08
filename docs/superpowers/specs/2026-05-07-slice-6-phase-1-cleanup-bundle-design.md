@@ -416,6 +416,19 @@ Until all nine green, status is "implementation staged, verification pending" �
 
 **Effort:** Trivial copy-paste once first one is shipped.
 
+### 13.9 Replace FluentAssertions with an open-source-licensed alternative
+
+**Why:** FluentAssertions 7.0.0 (released 2025) introduced a paid commercial license. The Apache-2.0 license stays on 6.x. Slice 6 standardized the repo on FA 6.12.0 via Central Package Management to keep the build license-clean while a replacement is selected. Long-term FA 6.x will not receive features or security fixes.
+
+**Scope:**
+- Evaluate replacement candidates: Shouldly (BSD-3-Clause), AwesomeAssertions (a community fork of FA 7), or a dedicated migration to xUnit's built-in `Assert.*` (no third-party dependency).
+- Migrate every test project's assertions to the chosen library — current count is ~500 `.Should().X` call sites across 50+ test files.
+- Drop `FluentAssertions` from `Directory.Packages.props`.
+
+**Trigger:** Standalone slice once a candidate is chosen. Not bundled with feature work — the migration is mechanical and benefits from a clean PR. Expect to schedule before the next major .NET version bump (which often surfaces transitive-dependency conflicts that highlight stagnant packages).
+
+**Effort estimate:** ~1 day for evaluation + ADR + ~1-2 days for the mechanical migration depending on call-site count.
+
 ---
 
 **End of design.**

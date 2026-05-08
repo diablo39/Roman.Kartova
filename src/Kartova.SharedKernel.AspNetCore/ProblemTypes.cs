@@ -22,6 +22,7 @@ public static class ProblemTypes
     public const string InvalidSortOrder       = Base + "invalid-sort-order";
     public const string InvalidCursor          = Base + "invalid-cursor";
     public const string InvalidLimit           = Base + "invalid-limit";
+    public const string CursorFilterMismatch   = Base + "cursor-filter-mismatch";
 
     // Optimistic concurrency / preconditions — slice 5 (ADR-0096 + spec §7).
     public const string ConcurrencyConflict    = Base + "concurrency-conflict";

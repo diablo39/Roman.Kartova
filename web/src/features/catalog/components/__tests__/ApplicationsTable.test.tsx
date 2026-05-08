@@ -28,6 +28,7 @@ function makeList(overrides: Partial<CursorListResult<ApplicationRow>>): CursorL
     isLoading: false,
     isFetching: false,
     isError: false,
+    error: null,
     hasNext: false,
     hasPrev: false,
     goNext: () => {},

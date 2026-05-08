@@ -65,6 +65,7 @@ export function useCursorList<TItem>(
     isLoading: query.isLoading,
     isFetching: query.isFetching,
     isError: query.isError,
+    error: query.error,
     hasNext: !!query.data?.nextCursor,
     hasPrev: activeStack.length > 1,
     goNext,

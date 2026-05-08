@@ -15,7 +15,7 @@ internal static class OrganizationTestHelper
     /// </summary>
     public static Kartova.Organization.Domain.Organization CreateWithTenant(Guid id, TenantId tenantId, string name)
     {
-        var org = Kartova.Organization.Domain.Organization.Create(name);
+        var org = Kartova.Organization.Domain.Organization.Create(name, TimeProvider.System);
 
         var idProp = typeof(Kartova.Organization.Domain.Organization).GetProperty(
             nameof(Kartova.Organization.Domain.Organization.Id))!;
