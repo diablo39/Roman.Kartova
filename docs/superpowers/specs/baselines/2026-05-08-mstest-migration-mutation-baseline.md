@@ -1,8 +1,8 @@
 # MSTest migration — mutation baseline (Phase 0)
 
 **Date:** 2026-05-08
-**Stryker version:** 4.14.1
-**Source of baseline data:** Reused from per-project mutation reports captured on 2026-05-07 (manifest: `StrykerOutput/mutation-sentinel-gh-last-run.manifest`, run started `2026-05-07T20:36:56Z`, exit_code=0). Phase 0 of this migration touches only documentation/CPM/ADRs — no production code — so May 7 reports remain a valid pre-migration baseline.
+**Stryker version:** 4.14.1 (per `dotnet tool list -g | grep dotnet-stryker`; same version that produced the May 7 reports).
+**Source of baseline data:** Reused from per-project mutation reports captured on 2026-05-07 (manifest: `StrykerOutput/mutation-sentinel-gh-last-run.manifest`, run started `2026-05-07T20:36:56Z`, exit_code=0). Phase 0 of this migration touches only documentation/CPM/ADRs — no production code — so May 7 reports remain a valid pre-migration baseline. Stryker's mutation targets are the `src/**` assemblies enumerated in `mutation-targets.json`; none of them have been modified between 2026-05-07 and 2026-05-08 (Phase 0 commits change only `Directory.Packages.props`, the new `Directory.Build.props`, ADR markdown, README index, and CLAUDE.md), so any fresh run would mutate the identical compilation units and produce the same Killed/Survived counts. Timeout nondeterminism is moot here because every project has Timeout = 0 in the May 7 reports.
 
 ## Why not a fresh run?
 
@@ -34,6 +34,10 @@ Mutation score = `killed / (killed + survived + no-coverage + timeout) × 100`. 
 ## Mutation gate (per spec §7.2)
 
 Phases 4, 5, and 12 must keep the relevant per-project mutation score within **±1 percentage point** of the baseline above. Investigate any deviation > 1pt before merging the offending phase.
+
+**Merge gate:** if a project's mutation score drops by > 1pt vs the baseline above, the offending phase PR cannot merge until either (a) the regression is fixed and the score recovers within ±1pt, or (b) the surviving mutants are enumerated in this doc and the new floor is signed off by the project owner. Score *increases* > 1pt do not block merge but should be sanity-checked to confirm the gain is from real coverage and not from mutants reclassifying to CompileError (which would silently leave the denominator and inflate the score — see CompileError-delta check below).
+
+**Secondary check (CompileError delta):** Phase 4 / 5 / 12 reviewers should additionally verify the per-project CompileError count is within ±5 of the baseline. A large CompileError swing — even when the headline score looks fine — is a signal that test coverage instrumentation has shifted in a way that's reclassifying Killed mutants as uncompilable, which silently inflates the mutation score. If CompileError swings by more than ±5, dig into the raw report and confirm no Killed→CompileError reclassification.
 
 - **Phase 4** (`Kartova.Catalog.Tests` migration): regression check against `Kartova.Catalog.{Domain, Application, Infrastructure, Contracts}` baselines.
 - **Phase 5** (`Kartova.Organization.Tests` migration): regression check against `Kartova.Organization.{Domain, Application, Infrastructure, Infrastructure.Admin, Contracts}` baselines.
