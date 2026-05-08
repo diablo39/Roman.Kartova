@@ -1,8 +1,7 @@
-using FluentAssertions;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Wolverine;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Wolverine;
-using Xunit;
 
 namespace Kartova.SharedKernel.Tests;
 
@@ -13,9 +12,10 @@ namespace Kartova.SharedKernel.Tests;
 /// first async tenant-scoped handler, so we pin its three branches now rather than
 /// let it sit at 0% coverage waiting for a slice that may not arrive for months.
 /// </summary>
+[TestClass]
 public class TenantScopeWolverineMiddlewareTests
 {
-    [Fact]
+    [TestMethod]
     public async Task BeforeAsync_returns_null_when_envelope_has_no_tenant_header()
     {
         var envelope = new Envelope { Headers = { } };
@@ -24,13 +24,14 @@ public class TenantScopeWolverineMiddlewareTests
 
         var handle = await TenantScopeWolverineMiddleware.BeforeAsync(envelope, ctx, scope, CancellationToken.None);
 
-        handle.Should().BeNull(because: "messages without tenant_id are platform-admin / system messages " +
-                                        "and must not enter a tenant scope");
-        scope.BeganFor.Should().BeNull(because: "scope.BeginAsync should be skipped on the no-header path");
-        ctx.IsTenantScoped.Should().BeFalse();
+        // Messages without tenant_id are platform-admin / system messages and must not enter a tenant scope.
+        Assert.IsNull(handle);
+        // scope.BeginAsync should be skipped on the no-header path.
+        Assert.IsNull(scope.BeganFor);
+        Assert.IsFalse(ctx.IsTenantScoped);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task BeforeAsync_returns_null_when_tenant_header_is_unparseable()
     {
         var envelope = new Envelope { Headers = { [KartovaClaims.TenantId] = "not-a-guid" } };
@@ -39,11 +40,12 @@ public class TenantScopeWolverineMiddlewareTests
 
         var handle = await TenantScopeWolverineMiddleware.BeforeAsync(envelope, ctx, scope, CancellationToken.None);
 
-        handle.Should().BeNull(because: "an unparseable tenant_id is treated as absent — the alternative " +
-                                        "(throwing here) would be silently retried by Wolverine until DLQ");
+        // An unparseable tenant_id is treated as absent — the alternative
+        // (throwing here) would be silently retried by Wolverine until DLQ.
+        Assert.IsNull(handle);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task BeforeAsync_populates_context_and_begins_scope_when_tenant_header_is_a_valid_guid()
     {
         var tenantId = Guid.NewGuid();
@@ -54,39 +56,39 @@ public class TenantScopeWolverineMiddlewareTests
 
         var handle = await TenantScopeWolverineMiddleware.BeforeAsync(envelope, ctx, scope, CancellationToken.None);
 
-        handle.Should().BeSameAs(fakeHandle);
-        scope.BeganFor.Should().Be(new TenantId(tenantId));
-        ctx.Id.Should().Be(new TenantId(tenantId));
+        Assert.AreSame(fakeHandle, handle);
+        Assert.AreEqual(new TenantId(tenantId), scope.BeganFor);
+        Assert.AreEqual(new TenantId(tenantId), ctx.Id);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task AfterAsync_commits_when_handle_is_present()
     {
         var handle = new FakeHandle();
 
         await TenantScopeWolverineMiddleware.AfterAsync(handle, CancellationToken.None);
 
-        handle.CommitCount.Should().Be(1);
+        Assert.AreEqual(1, handle.CommitCount);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task AfterAsync_is_a_noop_when_handle_is_null()
     {
         // No throw — the BeforeAsync no-tenant path returns null and AfterAsync must tolerate it.
         await TenantScopeWolverineMiddleware.AfterAsync(null, CancellationToken.None);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task FinallyAsync_disposes_when_handle_is_present()
     {
         var handle = new FakeHandle();
 
         await TenantScopeWolverineMiddleware.FinallyAsync(handle);
 
-        handle.DisposeCount.Should().Be(1);
+        Assert.AreEqual(1, handle.DisposeCount);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task FinallyAsync_is_a_noop_when_handle_is_null()
     {
         await TenantScopeWolverineMiddleware.FinallyAsync(null);
