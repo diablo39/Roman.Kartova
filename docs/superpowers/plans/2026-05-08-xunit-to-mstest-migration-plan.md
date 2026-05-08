@@ -36,7 +36,9 @@ Expected: `working tree clean` on `master` (or your migration branch).
 
 ## Stryker invocation note (referenced from Phase 1 / 2 / 9 / 10 / 11 mutation steps)
 
-At the Stryker version pinned during Phase 0, the root `stryker-config.json` invocation can fail at a source-generator/interceptor bug in `Microsoft.AspNetCore.OpenApi.SourceGenerators` (CS9234). The repo's working pattern is per-project orchestration via `mutation-targets.json` + the `mutation-sentinel` skill. Mutation steps in Phases 1, 2, 9, 10, 11 below explicitly use per-project Stryker configs (`src/Kartova.SharedKernel/stryker-config.json`, `src/Kartova.SharedKernel.AspNetCore/stryker-config.json`, etc.) — do NOT use the root config.
+At the Stryker version pinned during Phase 0, the root `stryker-config.json` invocation can fail at a source-generator/interceptor bug in `Microsoft.AspNetCore.OpenApi.SourceGenerators` (CS9234). The repo's working pattern is per-project orchestration via `mutation-targets.json` + the `mutation-sentinel` skill. Mutation steps in Phases 1, 2, 9, 10, 11 below explicitly use per-project Stryker configs (`src/Kartova.SharedKernel/stryker-config.json`, `src/Kartova.SharedKernel.AspNetCore/stryker-config.json`, etc.) — do NOT use the root config in those per-phase mutation steps.
+
+**Phase 12 (Task 12.6 — final mutation regression check) is the exception:** Phase 12 deliberately re-runs the root config as the post-migration full-suite gate. If the root invocation still trips CS9234 at that point, fall back to per-project runs and aggregate the scores manually.
 
 (See also: baseline doc §"Why not a fresh run?" for the original diagnosis.)
 
@@ -91,7 +93,6 @@ Path: `Directory.Build.props` (repo root).
 ```xml
 <Project>
   <!-- Cross-cutting test settings. Per-project test settings live in each .csproj. -->
-  <!-- Added during xUnit→MSTest migration to host test-related defaults. -->
 </Project>
 ```
 
