@@ -34,6 +34,14 @@ Expected: `working tree clean` on `master` (or your migration branch).
 
 ---
 
+## Stryker invocation note (referenced from Phase 1 / 2 / 9 / 10 / 11 mutation steps)
+
+At the Stryker version pinned during Phase 0, the root `stryker-config.json` invocation can fail at a source-generator/interceptor bug in `Microsoft.AspNetCore.OpenApi.SourceGenerators` (CS9234). The repo's working pattern is per-project orchestration via `mutation-targets.json` + the `mutation-sentinel` skill. Mutation steps in Phases 1, 2, 9, 10, 11 below explicitly use per-project Stryker configs (`src/Kartova.SharedKernel/stryker-config.json`, `src/Kartova.SharedKernel.AspNetCore/stryker-config.json`, etc.) — do NOT use the root config.
+
+(See also: baseline doc §"Why not a fresh run?" for the original diagnosis.)
+
+---
+
 ## Phase 0 — Tooling, ADR, baseline (no test code rewritten)
 
 After Phase 0 lands, the existing xUnit suite still runs. Plumbing only.
@@ -736,7 +744,7 @@ dotnet stryker -f src/Kartova.SharedKernel/stryker-config.json
 ```
 Expected: mutation score within ±1pt of baseline (75.00% per `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md`). If outside ±1pt, see the merge-gate language in that doc and the per-phase ownership table.
 
-(Note: at the Stryker version pinned during Phase 0, the root `stryker-config.json` invocation can fail at a source-generator/interceptor bug — use the per-project config above, not the root one.)
+(Per-project config used per the §Stryker invocation note at the top of this plan.)
 
 Phase 1 is complete and ready for PR review.
 
@@ -838,7 +846,7 @@ dotnet stryker -f src/Kartova.SharedKernel.AspNetCore/stryker-config.json
 ```
 Phase 2 is the **primary owner** of this mutation target but **co-driven with Phase 11** (the AspNetCore Stryker config also feeds `tests/Kartova.Api.IntegrationTests`, which is still on xUnit at this point). The score captured here is an **interim diagnostic** — a >1pt drift vs the 100.00% baseline (per `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md`) flags a translation defect in this phase to investigate before Phase 11. The official gate runs at Phase 11 once both driving test suites are on MSTest.
 
-(Note: at the Stryker version pinned during Phase 0, the root `stryker-config.json` invocation can fail at a source-generator/interceptor bug — use the per-project config above, not the root one.)
+(Per-project config used per the §Stryker invocation note at the top of this plan.)
 
 Phase 2 complete.
 
@@ -1504,7 +1512,7 @@ dotnet stryker -f src/Kartova.SharedKernel.Postgres/stryker-config.json
 ```
 Phase 9 is **co-driver** of this mutation target with Phase 10 (the Postgres Stryker config feeds both `Kartova.Catalog.IntegrationTests` and `Kartova.Organization.IntegrationTests`). Phase 10 is the second of the two co-drivers and is the official gate; this Phase-9 run captures an **interim diagnostic** score — a >1pt drift vs the 94.74% baseline (per `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md`) flags a translation defect in this phase to investigate before Phase 10.
 
-(Note: at the Stryker version pinned during Phase 0, the root `stryker-config.json` invocation can fail at a source-generator/interceptor bug — use the per-project config above, not the root one.)
+(Per-project config used per the §Stryker invocation note at the top of this plan.)
 
 Phase 9 complete.
 
@@ -1586,7 +1594,7 @@ dotnet stryker -f src/Kartova.SharedKernel.Postgres/stryker-config.json
 ```
 Phase 10 is the **second of the two co-drivers** for this mutation target (Phase 9 captured an interim diagnostic score). At this point both `Kartova.Catalog.IntegrationTests` and `Kartova.Organization.IntegrationTests` are on MSTest, so this run is the **official gate** for `Kartova.SharedKernel.Postgres`. Expected: mutation score within ±1pt of the 94.74% baseline (per `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md`). If outside ±1pt, see the merge-gate language in that doc and the per-phase ownership table.
 
-(Note: at the Stryker version pinned during Phase 0, the root `stryker-config.json` invocation can fail at a source-generator/interceptor bug — use the per-project config above, not the root one.)
+(Per-project config used per the §Stryker invocation note at the top of this plan.)
 
 Phase 10 complete.
 
@@ -1883,7 +1891,7 @@ dotnet stryker -f src/Kartova.SharedKernel.AspNetCore/stryker-config.json
 ```
 Phase 11 is the **second of the two co-drivers** for this mutation target (Phase 2 captured an interim diagnostic score). At this point both `tests/Kartova.SharedKernel.AspNetCore.Tests` and `tests/Kartova.Api.IntegrationTests` are on MSTest, so this run is the **official gate** for `Kartova.SharedKernel.AspNetCore`. Expected: mutation score within ±1pt of the 100.00% baseline (per `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md`). If outside ±1pt, see the merge-gate language in that doc and the per-phase ownership table.
 
-(Note: at the Stryker version pinned during Phase 0, the root `stryker-config.json` invocation can fail at a source-generator/interceptor bug — use the per-project config above, not the root one.)
+(Per-project config used per the §Stryker invocation note at the top of this plan.)
 
 Phase 11 complete.
 
@@ -1997,7 +2005,13 @@ In `Directory.Packages.props`, remove:
     <PackageVersion Include="FluentAssertions" Version="..." />
 ```
 
-- [ ] **Step 3: Build + test.**
+- [ ] **Step 3: Trim the migration-era comment in `Directory.Packages.props`.**
+
+The MSTest entries currently sit under `<!-- MSTest v4 — added during xUnit→MSTest migration; xUnit lines are removed in Phase 12 -->`. After this task removes the xUnit lines, the trailing clause becomes stale.
+
+Replace with `<!-- MSTest v4 -->` (or delete the comment entirely — git blame answers the "when added" question).
+
+- [ ] **Step 4: Build + test.**
 
 ```
 dotnet restore Kartova.slnx
@@ -2005,7 +2019,7 @@ dotnet build Kartova.slnx -warnaserror
 dotnet test Kartova.slnx --no-build
 ```
 
-- [ ] **Step 4: Commit.**
+- [ ] **Step 5: Commit.**
 
 ```
 git add Directory.Packages.props
@@ -2015,6 +2029,8 @@ git commit -m "chore(test): drop xUnit + FluentAssertions package versions from 
 ### Task 12.5: (Removed) — coverage tool replacement deferred
 
 Originally this task replaced `coverlet.collector` with `Microsoft.Testing.Extensions.CodeCoverage`. **Removed from scope** along with Task 12.3 — that replacement is part of the MTP runner switch, which is deferred (see Task 12.3 note). `coverlet.collector` stays as the coverage collector.
+
+**Numbering:** Task 12.6 follows directly. The 12.5 gap is intentional — same rationale as 12.3.
 
 ### Task 12.6: Final mutation regression check
 
