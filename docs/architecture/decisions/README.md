@@ -223,7 +223,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0094](ADR-0094-untitled-ui-component-library.md) | Untitled UI Free-Tier as Primary UI Primitive Layer | Frontend Architecture | Accepted | 0039, 0040, 0084, 0087, 0088 | Untitled UI free-tier (react-aria-components + Tailwind CSS v4) + @untitledui/icons as primary UI primitive layer; supersedes ADR-0088 (shadcn/ui). |
 | [0095](ADR-0095-cursor-pagination-contract.md) | Cursor Pagination Contract — Wire Shape, Sort Syntax, and First-Cut Mandate | API & Integration Architecture | Accepted | 0029, 0083, 0090, 0091, 0092 | List endpoints return `CursorPage<T>` envelope with opaque base64url cursor `{s,i,d}`; `?sortBy=<field>&sortOrder=asc\|desc` per-resource enum allowlist; default 50, max 200; pure cursor (no total). First-cut mandate enforced by `PaginationConventionRules` arch test; `[BoundedListResult]` opt-out for bounded lists. |
 | [0096](ADR-0096-rest-verb-policy.md) | REST Verb Policy — PUT for Full Replacement, POST for Actions, No PATCH | API & Integration Architecture | Accepted | 0029, 0073, 0091, 0092, 0095 | `PUT /resources/{id}` for idempotent full-resource replacement on small/stable DTOs; `POST /resources/{id}/<action>` for named domain commands (deprecate, decommission, restore, transfer-ownership); `PATCH` forbidden (semantics drift, missing-vs-null ambiguity, uneven codegen). Enforced by `RestVerbPolicyRules` arch test. |
-| [0097](ADR-0097-mstest-and-mtp-supersedes-xunit.md) | MSTest v4 + Microsoft.Testing.Platform supersedes xUnit | Testing & Quality | Accepted | 0028, 0080, 0082, 0083, 0084, 0095 | Replaces xUnit + FluentAssertions with MSTest v4 native assertions across all 10 xUnit-using test projects; adopts `MSTest.Sdk` + Microsoft.Testing.Platform (MTP) as the runner. Five-tier pyramid (NetArchTest / unit / integration / contract / E2E), NSubstitute mocks, and Testcontainers all unchanged. Migration tracked in `docs/superpowers/specs/2026-05-08-xunit-to-mstest-migration-design.md`. |
+| [0097](ADR-0097-mstest-supersedes-xunit.md) | MSTest v4 supersedes xUnit | Testing & Quality | Accepted | 0028, 0080, 0082, 0083, 0084, 0095 | Replaces xUnit + FluentAssertions with MSTest v4 native assertions across all 10 xUnit-using test projects. Project SDK, VSTest runner, `coverlet.collector`, and Stryker per-module orchestration all unchanged. MTP deferred — Stryker.NET 4.14.1 does not support it (stryker-net#3094). Migration tracked in `docs/superpowers/specs/2026-05-08-xunit-to-mstest-migration-design.md`. |
 
 ## By category (quick navigation)
 
@@ -379,7 +379,6 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Maturity model (5 levels)** → 0071
 - **MediatR (NOT used)** → 0027, 0080
 - **Mediator pattern** → 0028, 0080
-- **Microsoft.Testing.Platform / MTP** → 0097
 - **Modular monolith** → 0082
 - **MSTest v4** → 0097
 - **Solution file format / .slnx / .sln** → 0089
@@ -494,7 +493,7 @@ _No ADRs have been deprecated or superseded yet. When an ADR is superseded by a 
 
 | ADR | Superseded By | Reason | Date |
 |-----|---------------|--------|------|
-| 0083 | 0097 | Migrated test framework + assertion library + runner (xUnit + FluentAssertions + VSTest → MSTest v4 + native asserts + Microsoft.Testing.Platform) | 2026-05-08 |
+| 0083 | 0097 | Migrated test framework + assertion library (xUnit + FluentAssertions → MSTest v4 + native asserts). Runner (VSTest) and project SDK unchanged; MTP deferred — Stryker incompatibility, see ADR-0097 Note. | 2026-05-08 |
 
 ## History
 
@@ -522,4 +521,4 @@ _No ADRs have been deprecated or superseded yet. When an ADR is superseded by a 
 | 2026-05-01 | ADR-0094 (Untitled UI free-tier as primary UI primitive layer) accepted — supersedes ADR-0088 (shadcn/ui); `react-aria-components` + Tailwind CSS v4 + `@untitledui/icons` adopted; DESIGN.md color/typography deferred to Untitled defaults. (Originally numbered ADR-0092; renumbered to ADR-0094 on 2026-05-04 after a numbering collision with the REST API URL convention ADR was discovered.) |
 | 2026-05-04 | ADR-0095 (Cursor pagination contract) accepted — concrete contract for ADR-0029's "pagination via cursors" mention; first-cut mandate + arch fitness rule; reference impl on Applications list |
 | 2026-05-06 | ADR-0096 (REST verb policy) accepted — `PUT` for full replacement, `POST /<action>` for named domain commands, `PATCH` forbidden; arch fitness rule pins the no-PATCH invariant; first instantiated by Slice 5 (Applications edit + lifecycle) |
-| 2026-05-08 | ADR-0097 (MSTest v4 + MTP supersedes xUnit) accepted — replaces xUnit + FluentAssertions with MSTest v4 native assertions across all 10 xUnit-using test projects; adopts `MSTest.Sdk` + Microsoft.Testing.Platform runner; ADR-0083 marked superseded |
+| 2026-05-08 | ADR-0097 (MSTest v4 supersedes xUnit) accepted — replaces xUnit + FluentAssertions with MSTest v4 native assertions across all 10 xUnit-using test projects; project SDK and VSTest runner unchanged (MTP deferred — Stryker.NET 4.14.1 does not support it, see stryker-net#3094); ADR-0083 marked superseded |

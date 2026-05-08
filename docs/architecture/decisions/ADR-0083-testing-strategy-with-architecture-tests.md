@@ -1,6 +1,6 @@
 # ADR-0083: Testing Strategy — Test Pyramid with Architecture Tests as CI Gate
 
-**Status:** Superseded by ADR-0097 (test framework + assertion library + runner)
+**Status:** Superseded by ADR-0097 (test framework + assertion library)
 **Date:** 2026-04-21
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** Testing & Quality
