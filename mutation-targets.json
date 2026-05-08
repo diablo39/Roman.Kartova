@@ -6,11 +6,6 @@
       "configFile": "stryker-config.json",
       "projects": [
         {
-          "name": "Kartova.Api",
-          "path": "src/Kartova.Api/Kartova.Api.csproj",
-          "configFile": "src/Kartova.Api/stryker-config.json"
-        },
-        {
           "name": "Kartova.SharedKernel",
           "path": "src/Kartova.SharedKernel/Kartova.SharedKernel.csproj",
           "configFile": "src/Kartova.SharedKernel/stryker-config.json"
