@@ -14,9 +14,6 @@
     <PackageReference Include="MSTest.Analyzers" />
     <PackageReference Include="MSTest.TestAdapter" />
     <PackageReference Include="MSTest.TestFramework" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio" />
-    <PackageReference Include="FluentAssertions" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Kartova.SharedKernel\Kartova.SharedKernel.csproj" />
