@@ -1,61 +1,65 @@
-using FluentAssertions;
+using System.Text.RegularExpressions;
 using Kartova.SharedKernel;
 using Microsoft.Extensions.Configuration;
-using Xunit;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Kartova.SharedKernel.Tests;
 
+[TestClass]
 public class KartovaConnectionStringsTests
 {
-    [Fact]
+    [TestMethod]
     public void Require_returns_value_when_connection_string_is_present()
     {
         var config = BuildConfig(("ConnectionStrings:Kartova", "Host=db;Database=k"));
 
         var cs = KartovaConnectionStrings.Require(config, KartovaConnectionStrings.Main);
 
-        cs.Should().Be("Host=db;Database=k");
+        Assert.AreEqual("Host=db;Database=k", cs);
     }
 
-    [Fact]
+    [TestMethod]
     public void Require_throws_with_canonical_message_when_missing()
     {
         var config = BuildConfig();
 
-        var act = () => KartovaConnectionStrings.Require(config, KartovaConnectionStrings.Main);
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(
+            () => KartovaConnectionStrings.Require(config, KartovaConnectionStrings.Main));
 
-        act.Should().Throw<InvalidOperationException>()
-            // Stable diagnostic shape — Program.cs and module RegisterForMigrator
-            // calls all surface this message; CI logs scrape it on bootstrap failures.
-            .WithMessage("Connection string 'Kartova' is required. Set it via ConnectionStrings__Kartova env var.");
+        // Stable diagnostic shape — Program.cs and module RegisterForMigrator
+        // calls all surface this message; CI logs scrape it on bootstrap failures.
+        Assert.AreEqual(
+            "Connection string 'Kartova' is required. Set it via ConnectionStrings__Kartova env var.",
+            ex.Message);
     }
 
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("   ")]
     public void Require_throws_when_connection_string_is_blank(string blank)
     {
         var config = BuildConfig(("ConnectionStrings:Kartova", blank));
 
-        var act = () => KartovaConnectionStrings.Require(config, KartovaConnectionStrings.Main);
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(
+            () => KartovaConnectionStrings.Require(config, KartovaConnectionStrings.Main));
 
-        act.Should().Throw<InvalidOperationException>().WithMessage("*Kartova*required*");
+        StringAssert.Matches(ex.Message, new Regex("Kartova.*required"));
     }
 
-    [Fact]
+    [TestMethod]
     public void RequireMain_resolves_against_Kartova_key()
     {
         var config = BuildConfig(("ConnectionStrings:Kartova", "main-cs"));
 
-        KartovaConnectionStrings.RequireMain(config).Should().Be("main-cs");
+        Assert.AreEqual("main-cs", KartovaConnectionStrings.RequireMain(config));
     }
 
-    [Fact]
+    [TestMethod]
     public void RequireBypass_resolves_against_KartovaBypass_key()
     {
         var config = BuildConfig(("ConnectionStrings:KartovaBypass", "bypass-cs"));
 
-        KartovaConnectionStrings.RequireBypass(config).Should().Be("bypass-cs");
+        Assert.AreEqual("bypass-cs", KartovaConnectionStrings.RequireBypass(config));
     }
 
     private static IConfiguration BuildConfig(params (string Key, string Value)[] entries) =>
