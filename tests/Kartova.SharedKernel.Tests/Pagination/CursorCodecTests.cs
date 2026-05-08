@@ -1,94 +1,92 @@
-using FluentAssertions;
+using System.Text.RegularExpressions;
 using Kartova.SharedKernel.Pagination;
-using Xunit;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Kartova.SharedKernel.Tests.Pagination;
 
+[TestClass]
 public sealed class CursorCodecTests
 {
     private static readonly Guid AnyId = Guid.Parse("11111111-2222-3333-4444-555555555555");
 
-    [Fact]
+    [TestMethod]
     public void Encode_then_Decode_roundtrips_string_sort_value()
     {
         var encoded = CursorCodec.Encode("alpha", AnyId, SortOrder.Asc);
         var decoded = CursorCodec.Decode(encoded);
 
-        decoded.SortValue.Should().Be("alpha");
-        decoded.Id.Should().Be(AnyId);
-        decoded.Direction.Should().Be(SortOrder.Asc);
+        Assert.AreEqual("alpha", decoded.SortValue);
+        Assert.AreEqual(AnyId, decoded.Id);
+        Assert.AreEqual(SortOrder.Asc, decoded.Direction);
     }
 
-    [Fact]
+    [TestMethod]
     public void Encode_then_Decode_roundtrips_iso8601_timestamp_string()
     {
         var encoded = CursorCodec.Encode("2026-05-04T12:34:56.789Z", AnyId, SortOrder.Desc);
         var decoded = CursorCodec.Decode(encoded);
 
-        decoded.SortValue.Should().Be("2026-05-04T12:34:56.789Z");
-        decoded.Direction.Should().Be(SortOrder.Desc);
+        Assert.AreEqual("2026-05-04T12:34:56.789Z", decoded.SortValue);
+        Assert.AreEqual(SortOrder.Desc, decoded.Direction);
     }
 
-    [Fact]
+    [TestMethod]
     public void Encode_produces_url_safe_string()
     {
         var encoded = CursorCodec.Encode("value with spaces & symbols/+", AnyId, SortOrder.Asc);
 
-        encoded.Should().NotContain("+");
-        encoded.Should().NotContain("/");
-        encoded.Should().NotContain("=");
+        StringAssert.DoesNotMatch(encoded, new Regex(@"\+"));
+        StringAssert.DoesNotMatch(encoded, new Regex("/"));
+        StringAssert.DoesNotMatch(encoded, new Regex("="));
     }
 
-    [Fact]
+    [TestMethod]
     public void Decode_throws_InvalidCursorException_on_garbage_input()
     {
-        var act = () => CursorCodec.Decode("not-a-valid-cursor!!!");
-
-        act.Should().Throw<InvalidCursorException>();
+        Assert.ThrowsExactly<InvalidCursorException>(() => CursorCodec.Decode("not-a-valid-cursor!!!"));
     }
 
-    [Fact]
+    [TestMethod]
     public void Decode_throws_InvalidCursorException_on_tampered_base64()
     {
         var encoded = CursorCodec.Encode("alpha", AnyId, SortOrder.Asc);
         var tampered = encoded[..(encoded.Length / 2)] + "X" + encoded[(encoded.Length / 2 + 1)..];
 
-        var act = () => CursorCodec.Decode(tampered);
-
-        act.Should().Throw<InvalidCursorException>();
+        Assert.ThrowsExactly<InvalidCursorException>(() => CursorCodec.Decode(tampered));
     }
 
-    [Fact]
+    [TestMethod]
     public void Decode_throws_InvalidCursorException_when_required_field_missing()
     {
         var malformed = Convert.ToBase64String("{\"s\":\"alpha\"}"u8.ToArray())
             .TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
-        var act = () => CursorCodec.Decode(malformed);
-
-        act.Should().Throw<InvalidCursorException>();
+        Assert.ThrowsExactly<InvalidCursorException>(() => CursorCodec.Decode(malformed));
     }
 
-    [Fact]
+    [TestMethod]
     public void Encode_then_Decode_roundtrips_integer_sort_value()
     {
         var encoded = CursorCodec.Encode(42L, AnyId, SortOrder.Asc);
         var decoded = CursorCodec.Decode(encoded);
 
-        decoded.SortValue.Should().Be(42L);
-        decoded.Direction.Should().Be(SortOrder.Asc);
+        // SortValue is `object`; FluentAssertions did numeric coercion across long/double,
+        // MSTest's Assert.AreEqual<object> uses Object.Equals which is type-strict.
+        // Decode picks Int64 first (TryGetInt64) so the boxed runtime type is long.
+        Assert.AreEqual(42L, Convert.ToInt64(decoded.SortValue));
+        Assert.AreEqual(SortOrder.Asc, decoded.Direction);
     }
 
-    [Fact]
+    [TestMethod]
     public void Encode_then_Decode_roundtrips_double_sort_value()
     {
         var encoded = CursorCodec.Encode(3.14, AnyId, SortOrder.Desc);
         var decoded = CursorCodec.Decode(encoded);
 
-        decoded.SortValue.Should().Be(3.14);
+        Assert.AreEqual(3.14, Convert.ToDouble(decoded.SortValue));
     }
 
-    [Fact]
+    [TestMethod]
     public void Decode_throws_when_s_field_is_explicit_json_null()
     {
         // Hand-craft `{"s":null,"i":"<guid>","d":"asc"}`.
@@ -100,12 +98,11 @@ public sealed class CursorCodecTests
         var encoded = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(json))
             .TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
-        var act = () => CursorCodec.Decode(encoded);
-
-        act.Should().Throw<InvalidCursorException>("explicit JSON null in `s` must be rejected");
+        // explicit JSON null in `s` must be rejected
+        Assert.ThrowsExactly<InvalidCursorException>(() => CursorCodec.Decode(encoded));
     }
 
-    [Fact]
+    [TestMethod]
     public void Encode_produces_compact_output_without_whitespace()
     {
         // Kills mutant at line 20: WriteIndented=false mutated to true.
@@ -116,11 +113,11 @@ public sealed class CursorCodecTests
         var bytes = System.Buffers.Text.Base64Url.DecodeFromChars(encoded.AsSpan());
         var json = System.Text.Encoding.UTF8.GetString(bytes);
 
-        json.Should().NotContain("\n");
-        json.Should().NotContain("  "); // two spaces — indented JSON indent
+        StringAssert.DoesNotMatch(json, new Regex("\n"));
+        StringAssert.DoesNotMatch(json, new Regex("  ")); // two spaces — indented JSON indent
     }
 
-    [Fact]
+    [TestMethod]
     public void Encode_then_Decode_roundtrips_true_bool_sort_value()
     {
         // Kills mutant: `JsonValueKind.True => true` arm mutated to `=> false`.
@@ -128,10 +125,10 @@ public sealed class CursorCodecTests
         var encoded = CursorCodec.Encode(true, AnyId, SortOrder.Asc);
         var decoded = CursorCodec.Decode(encoded);
 
-        decoded.SortValue.Should().Be(true);
+        Assert.AreEqual(true, decoded.SortValue);
     }
 
-    [Fact]
+    [TestMethod]
     public void Encode_then_Decode_roundtrips_false_bool_sort_value()
     {
         // Kills mutant: `JsonValueKind.False => false` arm mutated to `=> true`.
@@ -139,47 +136,43 @@ public sealed class CursorCodecTests
         var encoded = CursorCodec.Encode(false, AnyId, SortOrder.Asc);
         var decoded = CursorCodec.Decode(encoded);
 
-        decoded.SortValue.Should().Be(false);
+        Assert.AreEqual(false, decoded.SortValue);
     }
 
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    [InlineData("\t")]
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("   ")]
+    [DataRow("\t")]
     public void Decode_throws_when_cursor_is_empty_or_whitespace(string cursor)
     {
-        var act = () => CursorCodec.Decode(cursor);
-
-        act.Should().Throw<InvalidCursorException>().WithMessage("Cursor is empty.");
+        var ex = Assert.ThrowsExactly<InvalidCursorException>(() => CursorCodec.Decode(cursor));
+        Assert.AreEqual("Cursor is empty.", ex.Message);
     }
 
-    [Fact]
+    [TestMethod]
     public void Decode_throws_when_id_field_is_empty_guid()
     {
         var json = $$"""{"s":"alpha","i":"{{Guid.Empty}}","d":"asc"}""";
         var encoded = ToBase64Url(json);
 
-        var act = () => CursorCodec.Decode(encoded);
-
-        act.Should().Throw<InvalidCursorException>("Guid.Empty in `i` is treated as missing");
+        // Guid.Empty in `i` is treated as missing
+        Assert.ThrowsExactly<InvalidCursorException>(() => CursorCodec.Decode(encoded));
     }
 
-    [Theory]
-    [InlineData("up")]
-    [InlineData("ASC")]
-    [InlineData("")]
-    [InlineData("ascending")]
+    [TestMethod]
+    [DataRow("up")]
+    [DataRow("ASC")]
+    [DataRow("")]
+    [DataRow("ascending")]
     public void Decode_throws_when_direction_field_is_not_asc_or_desc(string direction)
     {
         var json = $$"""{"s":"alpha","i":"{{AnyId}}","d":"{{direction}}"}""";
         var encoded = ToBase64Url(json);
 
-        var act = () => CursorCodec.Decode(encoded);
-
-        act.Should().Throw<InvalidCursorException>();
+        Assert.ThrowsExactly<InvalidCursorException>(() => CursorCodec.Decode(encoded));
     }
 
-    [Fact]
+    [TestMethod]
     public void Decode_throws_when_sort_value_is_json_array()
     {
         // Kills mutant: default arm in `UnwrapJsonElement` switch — array/object kinds must be rejected.
@@ -188,35 +181,31 @@ public sealed class CursorCodecTests
         var json = $$"""{"s":[1,2,3],"i":"{{AnyId}}","d":"asc"}""";
         var encoded = ToBase64Url(json);
 
-        var act = () => CursorCodec.Decode(encoded);
-
-        act.Should().Throw<InvalidCursorException>()
-            .WithMessage("*Unsupported cursor sort-value kind*");
+        var ex = Assert.ThrowsExactly<InvalidCursorException>(() => CursorCodec.Decode(encoded));
+        StringAssert.Matches(ex.Message, new Regex("Unsupported cursor sort-value kind"));
     }
 
-    [Fact]
+    [TestMethod]
     public void Decode_throws_when_sort_value_is_json_object()
     {
         var json = $$"""{"s":{"nested":1},"i":"{{AnyId}}","d":"asc"}""";
         var encoded = ToBase64Url(json);
 
-        var act = () => CursorCodec.Decode(encoded);
-
-        act.Should().Throw<InvalidCursorException>()
-            .WithMessage("*Unsupported cursor sort-value kind*");
+        var ex = Assert.ThrowsExactly<InvalidCursorException>(() => CursorCodec.Decode(encoded));
+        StringAssert.Matches(ex.Message, new Regex("Unsupported cursor sort-value kind"));
     }
 
-    [Fact]
+    [TestMethod]
     public void Encode_then_Decode_roundtrips_desc_direction()
     {
         // Exercises the `payload.D == "asc" ? Asc : Desc` ternary's else branch.
         var encoded = CursorCodec.Encode(42L, AnyId, SortOrder.Desc);
         var decoded = CursorCodec.Decode(encoded);
 
-        decoded.Direction.Should().Be(SortOrder.Desc);
+        Assert.AreEqual(SortOrder.Desc, decoded.Direction);
     }
 
-    [Fact]
+    [TestMethod]
     public void Encode_then_Decode_preserves_includeDecommissioned_true()
     {
         var encoded = CursorCodec.Encode(
@@ -227,10 +216,10 @@ public sealed class CursorCodecTests
 
         var decoded = CursorCodec.Decode(encoded);
 
-        decoded.IncludeDecommissioned.Should().BeTrue();
+        Assert.IsTrue(decoded.IncludeDecommissioned);
     }
 
-    [Fact]
+    [TestMethod]
     public void Decode_legacy_cursor_without_ic_field_returns_includeDecommissioned_false()
     {
         // Hand-crafted legacy cursor: { s, i, d } only, no `ic` — the shape pre-slice-6 emitted.
@@ -239,10 +228,10 @@ public sealed class CursorCodecTests
 
         var decoded = CursorCodec.Decode(legacyCursor);
 
-        decoded.IncludeDecommissioned.Should().BeFalse();
+        Assert.IsFalse(decoded.IncludeDecommissioned);
     }
 
-    [Fact]
+    [TestMethod]
     public void Encode_with_includeDecommissioned_false_omits_ic_field_and_round_trips()
     {
         var encoded = CursorCodec.Encode(
@@ -251,13 +240,14 @@ public sealed class CursorCodecTests
             direction: SortOrder.Asc,
             includeDecommissioned: false);
 
-        // ic must be absent in the wire JSON to keep cursors compact and forward-compatible.
+        // ic must be absent in the wire JSON to keep cursors compact and forward-compatible
+        // (ic is omitted (not written as false) per WhenWritingNull).
         var bytes = System.Buffers.Text.Base64Url.DecodeFromChars(encoded.AsSpan());
         var json = System.Text.Encoding.UTF8.GetString(bytes);
-        json.Should().NotContain("\"ic\"", "ic is omitted (not written as false) per WhenWritingNull");
+        StringAssert.DoesNotMatch(json, new Regex("\"ic\""));
 
         var decoded = CursorCodec.Decode(encoded);
-        decoded.IncludeDecommissioned.Should().BeFalse();
+        Assert.IsFalse(decoded.IncludeDecommissioned);
     }
 
     private static string ToBase64Url(string json) =>
