@@ -50,3 +50,29 @@ Phases 4, 5, and 12 must keep the relevant per-project mutation score within **�
 - `Kartova.Organization.Infrastructure.Admin` shows a low score (33.33%) on a tiny denominator (3 mutants) — one extra survivor would swing the score by ~33pt, so the ±1pt rule is brittle here. Phase 5 should check absolute survivor count rather than score delta for this project until coverage thickens.
 - `Kartova.SharedKernel.AspNetCore` and `Kartova.SharedKernel.Postgres` carry large `CompileError` counts (110 and 24). These are mutations Stryker generated but couldn't compile — they're excluded from the score per formula and represent neither a regression risk nor extra coverage. No action needed; flagged here so the numbers don't surprise reviewers.
 - All scores are computed from raw mutant-status counts in the JSON reports; Stryker's report schema (v2) does not embed a top-level `score` field, so there is no Stryker-side number to reconcile against.
+
+## Stryker × MTP compatibility probe
+
+**Date:** 2026-05-08
+**Stryker version:** 4.14.1 (`dotnet tool list -g`)
+**MSTest.Sdk version:** 4.2.2 (matches `Directory.Packages.props`)
+**Probe location:** ad-hoc throwaway project in `C:\temp\stryker-mtp-probe` (cleaned up after probe; not committed). Layout: `calc/` class library (mutation target — `Calculator.Add`, `Calculator.Multiply`) + `probe/` MSTest.Sdk/4.2.2 test project on `net10.0` with `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>` referencing `calc`.
+
+**Result:** **FAIL**
+
+**Notes:**
+- Native MTP run (`dotnet run --no-build` against the test project, since `dotnet test` on .NET 10 SDK rejects VSTest path) reported `total: 2 / failed: 0 / succeeded: 2`, exit code 0 — the probe project itself is healthy under MTP.
+- `dotnet stryker` (4.14.1) explicitly rejected the project with:
+  - `[ERR] TestDiscoverer: Test discovery has been aborted!`
+  - `[WRN] Project 'C:\temp\stryker-mtp-probe\probe\probe.csproj' is using Microsoft.Testing.Platform which is not yet supported by Stryker, see https://github.com/stryker-mutator/stryker-net/issues/3094`
+  - Final message: `No test result reported. Make sure your test project contains test and is compatible with VsTest. Project '...probe.csproj' is using Microsoft.Testing.Platform which is not yet supported by Stryker, see https://github.com/stryker-mutator/stryker-net/issues/3094`
+- 0 mutants generated, 0 tests run; Stryker bailed during analysis after the test-discovery abort.
+- Stryker process exit code: 0 (Stryker exits 0 even on this failure mode — the failure is in the human-readable output and absence of mutants, not the process exit code; downstream tooling cannot rely on exit code alone to detect the incompatibility).
+- The cause is **structural**: Stryker.NET 4.14.1 drives test runs through the legacy VSTest console, which MTP-only projects no longer expose. This is independent of the OpenAPI source-generator/interceptor bug that derailed Task 0.4's fresh runs against the real solution — that bug is a separate pre-existing Kartova.Api issue. The probe directly proves Stryker × MTP itself is broken at this version pair.
+
+**Implication for Phase 12:** Phase 12 (the universal `MSTest.Sdk` + MTP flip) **cannot** include the Stryker target projects (`Kartova.Catalog.Tests`, `Kartova.Organization.Tests`, plus any other test project Stryker drives through the per-project `mutation-targets.json`) until Stryker.NET ships MTP support (issue [stryker-mutator/stryker-net#3094](https://github.com/stryker-mutator/stryker-net/issues/3094)). Concrete options for the Phase 12 plan:
+1. **Hold the MTP flip on Stryker-driven test projects** — keep `Kartova.Catalog.Tests` and `Kartova.Organization.Tests` on the classic `Microsoft.NET.Sdk` + MSTest packages + VSTest path until Stryker.NET upstream lands MTP, then flip them in a follow-up phase. Other test projects (architecture, integration, contract) can flip in Phase 12 unchanged.
+2. **Pin Stryker.NET to a version that worked for us pre-MTP and stay on it** — not viable here because the failing version *is* current (4.14.1) and there is no known earlier version that supports MTP either; this option exists only if a future Stryker version regresses MTP support after gaining it.
+3. **Wrap MTP execution manually** — write a custom test runner adapter or use Stryker's `--test-runner-command` flag (if/when added) to invoke MTP entrypoints. Speculative; would need a spike.
+
+The plan-of-record recommendation is option (1): leave the two Stryker-driven test projects on VSTest in Phase 12, complete the rest of the migration, and revisit once stryker-net#3094 closes. Add a note to the Phase 12 plan and a tracking item to the post-MVP backlog.
