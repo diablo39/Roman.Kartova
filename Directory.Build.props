@@ -1,0 +1,4 @@
+<Project>
+  <!-- Cross-cutting test settings. Per-project test settings live in each .csproj. -->
+  <!-- Added during xUnit→MSTest migration to host test-related defaults. -->
+</Project>
