@@ -301,7 +301,8 @@ public sealed class QueryablePagingExtensionsTests
         // but original `if (limit < MinLimit || limit > MaxLimit)` accepts it (200>200=false→no throw).
         await SeedAsync(1);
 
-        // No throw expected — call directly; if it throws, the test fails.
+        // Tightened from FA's NotThrowAsync<InvalidLimitException>: any thrown
+        // exception now fails the test, which is the strictly-stronger invariant.
         await _db.Rows.ToCursorPagedAsync(
             ByCreatedAt, SortOrder.Asc, cursor: null, limit: 200, x => x.Id, CancellationToken.None);
     }

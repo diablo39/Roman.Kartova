@@ -70,10 +70,8 @@ public sealed class CursorCodecTests
         var encoded = CursorCodec.Encode(42L, AnyId, SortOrder.Asc);
         var decoded = CursorCodec.Decode(encoded);
 
-        // SortValue is `object`; FluentAssertions did numeric coercion across long/double,
-        // MSTest's Assert.AreEqual<object> uses Object.Equals which is type-strict.
-        // Decode picks Int64 first (TryGetInt64) so the boxed runtime type is long.
-        Assert.AreEqual(42L, Convert.ToInt64(decoded.SortValue));
+        Assert.IsInstanceOfType<long>(decoded.SortValue);
+        Assert.AreEqual(42L, decoded.SortValue);
         Assert.AreEqual(SortOrder.Asc, decoded.Direction);
     }
 
@@ -83,7 +81,8 @@ public sealed class CursorCodecTests
         var encoded = CursorCodec.Encode(3.14, AnyId, SortOrder.Desc);
         var decoded = CursorCodec.Decode(encoded);
 
-        Assert.AreEqual(3.14, Convert.ToDouble(decoded.SortValue));
+        Assert.IsInstanceOfType<double>(decoded.SortValue);
+        Assert.AreEqual(3.14, decoded.SortValue);
     }
 
     [TestMethod]
