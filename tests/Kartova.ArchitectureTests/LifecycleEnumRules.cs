@@ -19,7 +19,9 @@ public class LifecycleEnumRules
     // sees these as compile-time-constant comparisons, but that is precisely the point of
     // a pinning test — if a future edit renumbers the enum, the constant changes and the
     // assertion flips to "always false". The runtime assertion guards the on-disk schema
-    // contract documented in the class summary.
+    // contract documented in the class summary. We deliberately do NOT rewrite via
+    // reflection to defeat the analyzer: that would lose the compile-time re-binding that
+    // makes this test fail at the next edit of Lifecycle, near the change site.
 #pragma warning disable MSTEST0032
     [TestMethod]
     public void Lifecycle_has_exactly_three_members_with_explicit_values()
