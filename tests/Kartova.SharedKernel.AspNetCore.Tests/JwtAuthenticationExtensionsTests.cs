@@ -1,4 +1,4 @@
-using FluentAssertions;
+using System.Text.RegularExpressions;
 using Kartova.SharedKernel.AspNetCore;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -6,10 +6,11 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Xunit;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Kartova.SharedKernel.AspNetCore.Tests;
 
+[TestClass]
 public class JwtAuthenticationExtensionsTests
 {
     // Use an HTTP authority throughout to represent the dev-compose scenario; tests that
@@ -42,7 +43,7 @@ public class JwtAuthenticationExtensionsTests
         ["Authentication:RequireHttpsMetadata"] = "false"
     };
 
-    [Fact]
+    [TestMethod]
     public void AddKartovaJwtAuth_WhenAuthorityMissing_ThrowsInvalidOperationException()
     {
         // Arrange
@@ -55,15 +56,12 @@ public class JwtAuthenticationExtensionsTests
         var services = new ServiceCollection();
         services.AddLogging();
 
-        // Act
-        var act = () => services.AddKartovaJwtAuth(cfg);
-
-        // Assert
-        act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*Authority not configured*");
+        // Tightening: ThrowsExactly enforces exact InvalidOperationException type vs FA's loose Throw.
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(() => services.AddKartovaJwtAuth(cfg));
+        StringAssert.Matches(ex.Message, new Regex(".*Authority not configured.*"));
     }
 
-    [Fact]
+    [TestMethod]
     public void AddKartovaJwtAuth_WhenAudienceMissing_ThrowsInvalidOperationException()
     {
         // Arrange
@@ -76,17 +74,13 @@ public class JwtAuthenticationExtensionsTests
         var services = new ServiceCollection();
         services.AddLogging();
 
-        // Act
-        var act = () => services.AddKartovaJwtAuth(cfg);
-
-        // Assert
-        act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*Audience not configured*");
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(() => services.AddKartovaJwtAuth(cfg));
+        StringAssert.Matches(ex.Message, new Regex(".*Audience not configured.*"));
     }
 
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("   ")]
     public void AddKartovaJwtAuth_WhenAuthorityBlank_ThrowsInvalidOperationException(string blank)
     {
         var cfg = new ConfigurationBuilder()
@@ -99,13 +93,11 @@ public class JwtAuthenticationExtensionsTests
         var services = new ServiceCollection();
         services.AddLogging();
 
-        var act = () => services.AddKartovaJwtAuth(cfg);
-
-        act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*Authority not configured*");
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(() => services.AddKartovaJwtAuth(cfg));
+        StringAssert.Matches(ex.Message, new Regex(".*Authority not configured.*"));
     }
 
-    [Fact]
+    [TestMethod]
     public void AddKartovaJwtAuth_WhenMetadataAddressAbsent_DerivesFromAuthority()
     {
         // Arrange
@@ -119,11 +111,12 @@ public class JwtAuthenticationExtensionsTests
         // option unset; JwtBearerPostConfigureOptions then derives the discovery document
         // URL from Authority. Observable contract: resolved MetadataAddress points at
         // Authority's well-known OIDC configuration endpoint.
-        options.MetadataAddress.Should().Be(
-            HttpAuthority.TrimEnd('/') + "/.well-known/openid-configuration");
+        Assert.AreEqual(
+            HttpAuthority.TrimEnd('/') + "/.well-known/openid-configuration",
+            options.MetadataAddress);
     }
 
-    [Fact]
+    [TestMethod]
     public void AddKartovaJwtAuth_WhenMetadataAddressProvided_PropagatesToOptions()
     {
         // Arrange
@@ -137,13 +130,13 @@ public class JwtAuthenticationExtensionsTests
         // Assert
         // When provided explicitly, the configured value is propagated verbatim — it is
         // NOT overwritten by PostConfigure's Authority-derived default.
-        options.MetadataAddress.Should().Be(explicitMetadata);
+        Assert.AreEqual(explicitMetadata, options.MetadataAddress);
     }
 
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    [InlineData("\t")]
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("   ")]
+    [DataRow("\t")]
     public void AddKartovaJwtAuth_WhenMetadataAddressWhitespaceOrEmpty_FallsBackToAuthorityDerivedDefault(string metadataValue)
     {
         // Arrange
@@ -157,11 +150,12 @@ public class JwtAuthenticationExtensionsTests
         // Guard `!string.IsNullOrWhiteSpace(metadataAddress)` prevents empty/whitespace values
         // from being propagated. The MetadataAddress is then derived from Authority by
         // PostConfigure — same result as when the key is absent entirely.
-        options.MetadataAddress.Should().Be(
-            HttpAuthority.TrimEnd('/') + "/.well-known/openid-configuration");
+        Assert.AreEqual(
+            HttpAuthority.TrimEnd('/') + "/.well-known/openid-configuration",
+            options.MetadataAddress);
     }
 
-    [Fact]
+    [TestMethod]
     public void AddKartovaJwtAuth_WhenRequireHttpsMetadataAbsent_DefaultsToTrue()
     {
         // Arrange
@@ -179,10 +173,10 @@ public class JwtAuthenticationExtensionsTests
         // Assert
         // Secure-by-default: when the flag is not configured, HTTPS for metadata discovery
         // must be required. Opting out is an explicit dev-only configuration.
-        options.RequireHttpsMetadata.Should().BeTrue();
+        Assert.IsTrue(options.RequireHttpsMetadata);
     }
 
-    [Fact]
+    [TestMethod]
     public void AddKartovaJwtAuth_WhenRequireHttpsMetadataExplicitlyFalse_PropagatesFalse()
     {
         // Arrange
@@ -197,10 +191,10 @@ public class JwtAuthenticationExtensionsTests
         var options = BuildAndGetOptions(config);
 
         // Assert
-        options.RequireHttpsMetadata.Should().BeFalse();
+        Assert.IsFalse(options.RequireHttpsMetadata);
     }
 
-    [Fact]
+    [TestMethod]
     public void AddKartovaJwtAuth_SetsMapInboundClaimsFalse()
     {
         // Arrange
@@ -213,10 +207,10 @@ public class JwtAuthenticationExtensionsTests
         // MapInboundClaims=false preserves original claim names from the JWT (e.g. "sub",
         // "aud") rather than transforming to the legacy Microsoft-style URIs. This is
         // required for downstream policy/authorization code that reads standard OIDC claims.
-        options.MapInboundClaims.Should().BeFalse();
+        Assert.IsFalse(options.MapInboundClaims);
     }
 
-    [Fact]
+    [TestMethod]
     public void AddKartovaJwtAuth_ConfiguresTokenValidationParametersAndAuthorityAndAudience()
     {
         // Arrange
@@ -226,14 +220,14 @@ public class JwtAuthenticationExtensionsTests
         var options = BuildAndGetOptions(config);
 
         // Assert
-        options.Authority.Should().Be(HttpAuthority);
-        options.Audience.Should().Be(ValidAudience);
-        options.TokenValidationParameters.ValidateIssuer.Should().BeTrue();
-        options.TokenValidationParameters.ValidateAudience.Should().BeTrue();
-        options.TokenValidationParameters.ValidateLifetime.Should().BeTrue();
+        Assert.AreEqual(HttpAuthority, options.Authority);
+        Assert.AreEqual(ValidAudience, options.Audience);
+        Assert.IsTrue(options.TokenValidationParameters.ValidateIssuer);
+        Assert.IsTrue(options.TokenValidationParameters.ValidateAudience);
+        Assert.IsTrue(options.TokenValidationParameters.ValidateLifetime);
     }
 
-    [Fact]
+    [TestMethod]
     public void AddKartovaJwtAuth_RegistersAuthenticationAndAuthorizationServices()
     {
         // Arrange
@@ -248,13 +242,13 @@ public class JwtAuthenticationExtensionsTests
         var sp = services.BuildServiceProvider();
 
         // Assert
-        sp.GetService<IAuthenticationService>().Should().NotBeNull(
-            "AddAuthentication must register IAuthenticationService in the DI container");
-        sp.GetService<IAuthorizationService>().Should().NotBeNull(
-            "AddAuthorization must register IAuthorizationService in the DI container");
+        // AddAuthentication must register IAuthenticationService in the DI container
+        Assert.IsNotNull(sp.GetService<IAuthenticationService>());
+        // AddAuthorization must register IAuthorizationService in the DI container
+        Assert.IsNotNull(sp.GetService<IAuthorizationService>());
     }
 
-    [Fact]
+    [TestMethod]
     public void AddKartovaJwtAuth_ReturnsSameServiceCollectionForChaining()
     {
         // Arrange
@@ -268,6 +262,6 @@ public class JwtAuthenticationExtensionsTests
         var result = services.AddKartovaJwtAuth(cfg);
 
         // Assert
-        result.Should().BeSameAs(services);
+        Assert.AreSame(services, result);
     }
 }
