@@ -6,7 +6,7 @@ using Microsoft.Extensions.Time.Testing;
 // NOTE: A `using Kartova.Catalog.Domain;` would not bring `Application` into scope
 // unambiguously here — the enclosing `Kartova.Catalog` namespace contains a sibling
 // child namespace `Kartova.Catalog.Application` which wins simple-name lookup. We
-// therefore alias the type explicitly. (Mirrors ApplicationTests.cs.)
+// therefore alias the type explicitly.
 using DomainApplication = Kartova.Catalog.Domain.Application;
 
 namespace Kartova.Catalog.Tests;

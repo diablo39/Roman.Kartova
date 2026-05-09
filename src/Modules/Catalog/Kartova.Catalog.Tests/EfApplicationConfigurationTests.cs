@@ -4,8 +4,8 @@ using Microsoft.EntityFrameworkCore.InMemory.Infrastructure.Internal;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 
-// NOTE: The same alias trick as ApplicationTests.cs — `Kartova.Catalog.Application`
-// namespace wins simple-name lookup, so we alias the domain type explicitly.
+// NOTE: `Kartova.Catalog.Application` namespace wins simple-name lookup over
+// `Kartova.Catalog.Domain.Application`, so we alias the domain type explicitly.
 using DomainApplication = Kartova.Catalog.Domain.Application;
 
 namespace Kartova.Catalog.Tests;
@@ -163,14 +163,8 @@ public class EfApplicationConfigurationTests
     public void Configure_ignores_domain_typed_Id_property()
     {
         // Arrange — use the convention model so we can read IgnoredMembers (which is
-        // erased once the model is finalized). Apply the configuration to a fresh
-        // ModelBuilder, then inspect the underlying convention entity type.
-        var conventionSet = InMemoryConventionSetBuilder.Build();
-        var modelBuilder = new ModelBuilder(conventionSet);
-        new EfApplicationConfiguration().Configure(modelBuilder.Entity<DomainApplication>());
-
-        var conventionEntity = (IConventionEntityType)modelBuilder.Model
-            .FindEntityType(typeof(DomainApplication))!;
+        // erased once the model is finalized).
+        var conventionEntity = BuildConventionModel();
 
         // Act
         var ignoredMembers = conventionEntity.GetIgnoredMembers();
