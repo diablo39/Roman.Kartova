@@ -95,7 +95,7 @@ public abstract class KartovaApiFixtureBase
         await RunModuleMigrationsAsync(MigratorConnectionString);
     }
 
-    Task IAsyncLifetime.DisposeAsync() => DisposeAsyncCore();
+    async Task IAsyncLifetime.DisposeAsync() => await DisposeAsyncCore();
 
     async ValueTask IAsyncDisposable.DisposeAsync()
     {
@@ -103,7 +103,13 @@ public abstract class KartovaApiFixtureBase
         GC.SuppressFinalize(this);
     }
 
-    private async Task DisposeAsyncCore()
+    /// <summary>
+    /// Override hook for module-specific teardown — called by both the xUnit
+    /// <see cref="IAsyncLifetime"/> path and the MSTest <see cref="IAsyncDisposable"/>
+    /// path. Derived classes that own additional disposable resources (e.g. a
+    /// Keycloak container) should override and chain via <c>await base.DisposeAsyncCore();</c>.
+    /// </summary>
+    protected virtual async ValueTask DisposeAsyncCore()
     {
         await _pg.DisposeAsync();
         await base.DisposeAsync();
