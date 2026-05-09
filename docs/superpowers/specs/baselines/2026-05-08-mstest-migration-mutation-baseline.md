@@ -190,7 +190,7 @@ The 33.33% → 80.00% jump (+46.67pt) is far larger than the ±1pt threshold, bu
 | CompileError | **0** | **0** | **0** |
 | Total | 24 | 24 | 0 |
 
-CompileError is unchanged at 0, confirming the +7 Killed gain came from `Ignored → Killed` reclassification (mutants in `AdminOrganizationDbContext.cs` and `AdminOrganizationEndpointDelegates.cs` that were filtered as out-of-scope under the May 7 `--since:master` filter became reachable under Phase 5's full-mode run, and the existing xUnit `Organization.IntegrationTests` exercised them). This is the same baseline-staleness pattern as Phase 4's Catalog.Infrastructure (see §"Phase 4 verification"), but here it produces a positive signal rather than a regression because the existing IntegrationTests already covered the slice-5/6-added handler paths.
+CompileError is unchanged at 0, confirming the +7 Killed gain came from `Ignored → Killed` reclassification — the +7 mutants live in `AdminOrganizationDbContext.cs` and `AdminOrganizationEndpointDelegates.cs`, filtered out by the May 7 `--since:master` baseline run via the same mechanism Phase 4's Catalog.Infrastructure documents (see §"Phase 4 verification"). Here it produces a positive signal rather than a regression because the existing xUnit `Organization.IntegrationTests` already covered the slice-5/6-added handler paths.
 
 ### Reconciliation
 
