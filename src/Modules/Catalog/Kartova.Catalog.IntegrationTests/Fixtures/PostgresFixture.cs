@@ -1,9 +1,8 @@
 using Testcontainers.PostgreSql;
-using Xunit;
 
 namespace Kartova.Catalog.IntegrationTests.Fixtures;
 
-public sealed class PostgresFixture : IAsyncLifetime
+public sealed class PostgresFixture : IAsyncDisposable
 {
     private PostgreSqlContainer? _container;
 
@@ -22,7 +21,7 @@ public sealed class PostgresFixture : IAsyncLifetime
         await _container.StartAsync();
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (_container is not null)
         {
