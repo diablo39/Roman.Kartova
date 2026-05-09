@@ -1,4 +1,3 @@
-using FluentAssertions;
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
@@ -7,6 +6,7 @@ using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Pagination;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Time.Testing;
+using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
 // NOTE: Alias needed — the enclosing `Kartova.Catalog` namespace contains a sibling child
 // namespace `Kartova.Catalog.Application` which wins simple-name lookup for `Application`.
@@ -19,6 +19,7 @@ namespace Kartova.Catalog.Tests;
 /// <see cref="ListApplicationsHandler"/>. Uses the EF Core InMemory provider so this
 /// runs without a database. Spec §8 (slice 6).
 /// </summary>
+[TestClass]
 public class ListApplicationsHandlerFilterTests
 {
     private static readonly TenantId Tenant = new(Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"));
@@ -74,7 +75,7 @@ public class ListApplicationsHandlerFilterTests
         return new CatalogDbContext(options);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Handle_with_IncludeDecommissioned_false_excludes_Decommissioned_rows()
     {
         await using var db = await BuildDbWithBothLifecyclesAsync();
@@ -89,11 +90,11 @@ public class ListApplicationsHandlerFilterTests
 
         var page = await handler.Handle(query, db, CancellationToken.None);
 
-        page.Items.Should().ContainSingle("only Active rows are visible when IncludeDecommissioned=false")
-            .Which.Name.Should().Be("active-app");
+        Assert.AreEqual(1, page.Items.Count, "only Active rows are visible when IncludeDecommissioned=false");
+        Assert.AreEqual("active-app", page.Items.Single().Name);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Handle_with_IncludeDecommissioned_true_returns_both_lifecycles()
     {
         await using var db = await BuildDbWithBothLifecyclesAsync();
@@ -108,7 +109,9 @@ public class ListApplicationsHandlerFilterTests
 
         var page = await handler.Handle(query, db, CancellationToken.None);
 
-        page.Items.Should().HaveCount(2, "both Active and Decommissioned rows are returned when IncludeDecommissioned=true");
-        page.Items.Select(i => i.Name).Should().BeEquivalentTo(["active-app", "decomm-app"]);
+        Assert.AreEqual(2, page.Items.Count, "both Active and Decommissioned rows are returned when IncludeDecommissioned=true");
+        CollectionAssert.AreEquivalent(
+            new[] { "active-app", "decomm-app" },
+            page.Items.Select(i => i.Name).ToArray());
     }
 }
