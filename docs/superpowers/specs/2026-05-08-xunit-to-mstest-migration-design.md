@@ -422,4 +422,18 @@ Each phase merges as its own PR. Rollback = revert that PR.
 - New tests beyond what is needed to translate existing tests.
 - Changes to production code other than the additive contract change in `KartovaApiFixtureBase` (Phase 8 adds `IAsyncDisposable`, Phase 12 removes `IAsyncLifetime`).
 - Renaming or restructuring test projects (under `tests/` or `src/Modules/**/*Tests*`).
-- Any change to mutation-testing config (`stryker-config.json`).
+- Any change to mutation-testing config (`stryker-config.json`) beyond verifying compatibility with MTP.
+
+### 9.1 Exception: production fixes surfaced by migration assertion strictness
+
+When MSTest's strict `Object.Equals` semantics expose a latent production bug that FluentAssertions' silent numeric/string coercion was masking — and the bug genuinely needs fixing for the translated test to pass — the production fix MAY land in the same per-project phase as the test that surfaced it, subject to all of the following gates:
+
+1. The fix is **≤1 production file** with a **≤10-line diff** (excluding comments).
+2. The fix is accompanied by a **tightened test** (e.g., `Assert.IsInstanceOfType<T>` plus exact-value `Assert.AreEqual`) that locks in the corrected runtime type or behaviour, NOT just a translation shim that accommodates the bug.
+3. The fix has a **clear root-cause comment** at the point of change naming the language rule, the failure mode, and the observable symptom.
+4. The fix is in a **separate commit** (not bundled into a translation commit) so `git revert` of the translation work does not unintentionally revert the production fix and vice versa.
+5. The phase's slice-boundary code review explicitly calls out the fix as a deviation from this section, and the deviation is acknowledged in the PR body.
+
+If any gate fails, the production fix MUST extract to its own PR ahead of (or alongside) the migration phase PR.
+
+**Precedent:** Phase 1 (commit `19f52dd`) fixed `CursorCodec.UnwrapJsonElement` where C#'s `?:` common-type rule was silently widening `long` to `double`, causing every integer cursor sort-value to decode as `Double` instead of `Int64`. FluentAssertions' numeric coercion was masking this; MSTest's strict `Object.Equals` exposed it. All five gates above were met (1 file, +12/-7 net incl. tests, root-cause comment at `CursorCodec.cs:87–90`, separate commit, slice-boundary review acknowledged).
