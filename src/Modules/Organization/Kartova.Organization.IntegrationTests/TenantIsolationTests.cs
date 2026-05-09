@@ -4,7 +4,6 @@ using System.Net.Http.Json;
 using Kartova.Organization.Contracts;
 using Kartova.Testing.Auth;
 using Npgsql;
-using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
 namespace Kartova.Organization.IntegrationTests;
 
