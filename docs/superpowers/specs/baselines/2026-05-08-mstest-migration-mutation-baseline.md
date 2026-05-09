@@ -84,3 +84,59 @@ The `mutation-targets.json` orchestration manifest maps each mutation-target sou
 - The cause is **structural**: Stryker.NET 4.14.1 drives test runs through the legacy VSTest console, which MTP-only projects no longer expose. This is independent of the OpenAPI source-generator/interceptor bug that derailed Task 0.4's fresh runs against the real solution — that bug is a separate pre-existing Kartova.Api issue. The probe directly proves Stryker × MTP itself is broken at this version pair.
 
 **Implication for the migration:** MTP is **dropped from this migration's scope entirely**. All test projects stay on `Microsoft.NET.Sdk` + VSTest + `coverlet.collector` + `Microsoft.NET.Test.Sdk`. Phase 12 cleanup no longer flips any project to `MSTest.Sdk`. Revisit MTP in a future migration once stryker-net#3094 closes — at that point a separate ADR captures the runner switch decision.
+
+## Phase 4 verification (2026-05-09)
+
+**Date:** 2026-05-09
+**Branch:** `feat/mstest-migration-phase-4`
+**Stryker version:** 4.14.1 (unchanged from baseline)
+**Run shape:** per-source-project, full mode (no `--since`), via `dotnet stryker -f src/Modules/Catalog/stryker-config.json --project <csproj>`. Both test projects in the config (`Kartova.Catalog.Tests` now MSTest, `Kartova.Catalog.IntegrationTests` still xUnit) discovered as drivers.
+
+### Scores
+
+| Project | Baseline (May 7) | Phase 4 (May 9) | Δ vs baseline | Verdict |
+|---|---|---|---|---|
+| `Kartova.Catalog.Domain` | 100.00% (39 evaluable) | 100.00% (43 evaluable, 43 killed, 0 survived/nocov) | 0pt | **PASS** ±1pt gate |
+| `Kartova.Catalog.Infrastructure` | 100.00% (30 evaluable) | 95.77% (71 evaluable, 68 killed, 0 survived, 3 nocoverage) | −4.23pt | gate triggered — diagnosis below |
+
+### Catalog.Infrastructure regression diagnosis — baseline staleness, not Phase 4 defect
+
+The Phase 4 run produced 71 evaluable mutants across 11 source files in `Kartova.Catalog.Infrastructure`. The May 7 baseline report (`StrykerOutput/Kartova.Catalog.Infrastructure/2026-05-07.20-36-42/reports/mutation-report.json`, parsed directly) covered only **3 source files / 30 evaluable mutants** — `CatalogEndpointDelegates.cs`, `ListApplicationsHandler.cs`, `RegisterApplicationHandler.cs`. The baseline did **not** measure files added by slice-5 (commit `b432cce`, merged 2026-05-07 10:44 — same day as the baseline run at 20:36 but apparently against a pre-slice-5 source tree, OR via `--since:master` filter that excluded the new files).
+
+Files **not** in the May 7 baseline but mutated under Phase 4's full-mode run:
+
+| File | Origin | Phase 4 score |
+|---|---|---|
+| `EditApplicationHandler.cs` | slice-5 (`b432cce`) | 8 killed / 11 evaluable / 3 nocoverage = 72.73% |
+| `DeprecateApplicationHandler.cs` | slice-5 | 100% (3 killed) |
+| `DecommissionApplicationHandler.cs` | slice-5 | 100% (3 killed) |
+| `GetApplicationByIdHandler.cs` | slice-5 | 100% (1 killed) |
+| `EfApplicationConfiguration.cs` | slice-5 | 100% (14 killed) |
+| `EndpointResultExtensions.cs` | pre-slice-5 (excluded by stale filter) | 100% (1 killed) |
+| `ApplicationSortSpecs.cs` | pre-slice-5 (excluded by stale filter) | 100% (1 killed) |
+| `CatalogDbContext.cs` | pre-slice-5 (excluded by stale filter) | 100% (7 killed) |
+| `CatalogDbContextFactory.cs` | pre-slice-5 (excluded by stale filter) | N/A (0 evaluable) |
+
+The 3 baseline files (`CatalogEndpointDelegates`, `ListApplicationsHandler`, `RegisterApplicationHandler`) all score **100%** under Phase 4 — identical to the May 7 baseline, so Phase 4's MSTest translation preserved kill rates exactly. The −4.23pt headline drop is **entirely explained by 3 nocoverage mutants in `EditApplicationHandler.cs`**, all in slice-5-added code that the May 7 baseline never measured.
+
+### Enumerated nocoverage mutants (the new floor for Catalog.Infrastructure)
+
+All three live in the private `TryCaptureCurrentVersionAsync` best-effort-recovery helper at `src/Modules/Catalog/Kartova.Catalog.Infrastructure/EditApplicationHandler.cs:47-71`. Their nocoverage status reflects the absence of an integration test that exercises a `DbUpdateConcurrencyException` path while injecting either an empty `ex.Entries`, a null `GetDatabaseValuesAsync` result, or an exception-during-recapture — none of which happens in the current `Catalog.IntegrationTests` suite.
+
+| Line | Mutator | Replaces | Nature |
+|---|---|---|---|
+| 53 | Statement | `if (entry is null) return;` → `;` | Null-guard early return when `ex.Entries` is empty |
+| 56 | Statement | `if (dbValues is null) return;` → `;` | Null-guard early return when `GetDatabaseValuesAsync` returns null |
+| 63 | Equality | `captureEx is not OperationCanceledException` → `captureEx is OperationCanceledException` | `catch-when` filter clause; flipped, the swallow path catches OperationCanceledException and rethrows everything else |
+
+### Reconciliation per merge-gate language (§"Mutation gate" line 38)
+
+Phase 4 is **not** the offending phase under §38's clause-(a) test (Phase 4 changed zero production code and zero tests for `EditApplicationHandler.cs`). The merge-gate's clause-(b) — "the surviving mutants are enumerated in this doc and the new floor is signed off by the project owner" — fits this situation. The corrected Catalog.Infrastructure floor is **95.77% (68/71)** with the three enumerated nocoverage mutants above as the accepted gap.
+
+### Follow-up — Phase 9 ownership
+
+Per §"Per-phase mutation-gate ownership" line 50, `Kartova.Catalog.IntegrationTests` is the test project responsible for `Kartova.SharedKernel.Postgres` mutations (Phase 9 + Phase 10 co-drivers). It is also the test project that should cover handler-level integration paths in `Kartova.Catalog.Infrastructure` (the unit-tier `Kartova.Catalog.Tests` is correctly scoped to Domain + Application). When Phase 9 migrates `Catalog.IntegrationTests` to MSTest, that slice is the appropriate place to either (a) add tests killing the three `EditApplicationHandler` nocoverage mutants enumerated above, or (b) re-affirm the 95.77% floor with another sign-off pass.
+
+### Manifest staleness note
+
+The manifest at `StrykerOutput/mutation-sentinel-gh-last-run.manifest` originally pointed to the May 7 reports cited in §"Source of baseline data" (line 5) but has since been overwritten by the Phase 1 mutation-sentinel run on 2026-05-09 (`run_started_at_utc=2026-05-09T05:17:10Z`). The May 9 manifest's Catalog.Infrastructure report (`StrykerOutput/Kartova.Catalog.Infrastructure/2026-05-09.05-16-50/reports/mutation-report.json`) shows `Ignored=154, CompileError=8, evaluable=0` — that run's per-project filter excluded all source files. The May 7 reports remain on disk and are the direct source for the baseline numbers in this doc; the manifest path in §"Source of baseline data" is historical.
