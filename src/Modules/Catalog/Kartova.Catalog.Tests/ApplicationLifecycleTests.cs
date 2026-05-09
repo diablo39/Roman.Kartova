@@ -101,10 +101,10 @@ public class ApplicationLifecycleTests
     public void EditMetadata_on_Deprecated_succeeds()
     {
         // Spec §9.8 step 5: Deprecated still allows edit. The terminal-write
-        // guard only fires on Decommissioned. A mutation that flipped the
-        // guard from `Lifecycle == Decommissioned` to `Lifecycle != Active`
-        // would silently break editing for every Deprecated app — this test
-        // is the positive allow-path that catches it.
+        // guard only fires on Decommissioned. A `==` → `!=` flip on the
+        // `Lifecycle == Decommissioned` guard would invert the terminal-write
+        // rule and reject every Deprecated edit — this positive allow-path
+        // is what catches that flip.
         var app = NewActive();
         app.Deprecate(Now.AddDays(1), Clock());
 

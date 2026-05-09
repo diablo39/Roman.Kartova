@@ -49,9 +49,10 @@ public class ApplicationTests
     [DataRow("\t")]
     public void Create_throws_ArgumentException_with_empty_message_for_blank_name(string emptyName)
     {
-        // Kills mutant at line 87: `throw new ArgumentException("Application name must not be empty.", ...)` mutated to `;`.
-        // With the throw removed, empty/whitespace names fall through to the kebab-case check which throws a
-        // DIFFERENT message ("kebab-case"). Asserting on "empty" in the message pins the specific guard.
+        // Kills the Statement mutator that erases `throw new ArgumentException("...empty.", ...)`
+        // in `Application.ValidateName`. With the throw removed, empty/whitespace names fall through
+        // to the kebab-case check which throws a DIFFERENT message ("kebab-case"). Asserting on
+        // "empty" in the message pins the specific guard.
         var ex = Assert.ThrowsExactly<ArgumentException>(
             () => DomainApplication.Create(emptyName, "Display Name", "desc", Owner, Tenant, Clock()));
         StringAssert.Contains(ex.Message, "empty");

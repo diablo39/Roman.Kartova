@@ -53,7 +53,7 @@ public class EfApplicationConfigurationTests
     }
 
     // -----------------------------------------------------------------------
-    // Mutant-killing assertion (Statement_EfApplicationConfiguration.cs:13)
+    // Mutant-killing assertion — Statement mutator on `EfApplicationConfiguration.HasKey(IdFieldName)`.
     // -----------------------------------------------------------------------
 
     [TestMethod]
