@@ -64,9 +64,9 @@ public abstract class KartovaApiFixtureBase
         PostgresTestBootstrap.ConnectionStringFor(_pg.GetConnectionString(), PostgresTestBootstrap.MigratorRole);
 
     /// <summary>
-    /// Spins up the Postgres container and applies module migrations. Call once per
-    /// fixture lifetime — typically from <c>[ClassInitialize]</c> in MSTest test
-    /// classes (semantic equivalent of xUnit's <c>IAsyncLifetime.InitializeAsync</c>).
+    /// Spins up the Postgres container and applies module migrations. xUnit consumers
+    /// get this for free via <see cref="IAsyncLifetime"/>; MSTest consumers must call
+    /// it explicitly from <c>[ClassInitialize]</c> (see remarks).
     /// </summary>
     /// <remarks>
     /// MSTest consumer pattern (Phases 9–10):
@@ -100,10 +100,11 @@ public abstract class KartovaApiFixtureBase
     ValueTask IAsyncDisposable.DisposeAsync() => DisposeAsyncCore();
 
     /// <summary>
-    /// Override hook for module-specific teardown — called by both the xUnit
-    /// <see cref="IAsyncLifetime"/> path and the MSTest <see cref="IAsyncDisposable"/>
-    /// path. Derived classes that own additional disposable resources (e.g. a
-    /// Keycloak container) should override and chain via <c>await base.DisposeAsyncCore();</c>.
+    /// Override hook for module-specific teardown — called by both the
+    /// <see cref="IAsyncLifetime"/>.DisposeAsync hook (xUnit auto-teardown) and the
+    /// <see cref="IAsyncDisposable"/>.DisposeAsync hook (used by <c>await using</c>
+    /// or MSTest <c>[ClassCleanup]</c>). Derived classes that own additional disposable
+    /// resources should override and chain via <c>await base.DisposeAsyncCore();</c>.
     /// </summary>
     protected virtual async ValueTask DisposeAsyncCore()
     {
