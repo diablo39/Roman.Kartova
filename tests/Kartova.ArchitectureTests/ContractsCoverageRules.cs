@@ -97,7 +97,7 @@ public class ContractsCoverageRules
                      "Offending types: " + string.Join(", ", missing));
     }
 
-    private static string BuildFailureMessage(TestResult result, string lead)
+    private static string BuildFailureMessage(NetArchTest.Rules.TestResult result, string lead)
     {
         if (result.IsSuccessful) return lead;
         var offenders = result.FailingTypeNames is null
