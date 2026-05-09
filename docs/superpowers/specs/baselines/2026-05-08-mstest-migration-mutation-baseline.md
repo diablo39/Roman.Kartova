@@ -140,3 +140,62 @@ Per §"Per-phase mutation-gate ownership" line 50, `Kartova.Catalog.IntegrationT
 ### Manifest staleness note
 
 The manifest at `StrykerOutput/mutation-sentinel-gh-last-run.manifest` originally pointed to the May 7 reports cited in §"Source of baseline data" (line 5) but has since been overwritten by the Phase 1 mutation-sentinel run on 2026-05-09 (`run_started_at_utc=2026-05-09T05:17:10Z`). The May 9 manifest's Catalog.Infrastructure report (`StrykerOutput/Kartova.Catalog.Infrastructure/2026-05-09.05-16-50/reports/mutation-report.json`) shows `Ignored=154, CompileError=8, evaluable=0` — that run's per-project filter excluded all source files. The May 7 reports remain on disk and are the direct source for the baseline numbers in this doc; the manifest path in §"Source of baseline data" is historical.
+
+## Phase 5 verification (2026-05-09)
+
+**Date:** 2026-05-09
+**Branch:** `feat/mstest-migration-phase-5`
+**Stryker version:** 4.14.1 (unchanged from baseline)
+**Run shape:** per-source-project, full mode (no `--since`), via `dotnet stryker -f src/Modules/Organization/stryker-config.json --project <csproj>`. The Catalog.Tests project is now MSTest (Phase 4); Organization.IntegrationTests is still xUnit (Phase 10 will migrate it). Both runners discovered side-by-side per the per-project Stryker config's test-projects list.
+
+### Scores
+
+| Project | Baseline (May 7) | Phase 5 (May 9) | Survivor delta | Verdict |
+|---|---|---|---|---|
+| `Kartova.Organization.Domain` | 81.82% (11 evaluable, 9 killed, 2 survived) | 81.82% (11 evaluable, 9 killed, 2 survived) | **0** | **PASS** ±1pt gate, survivor count preserved |
+| `Kartova.Organization.Infrastructure.Admin` | 33.33% (3 evaluable, 1 killed, 2 survived) | 80.00% (10 evaluable, 8 killed, 2 survived) | **0** | **PASS** — score increase is real coverage gain (see below) |
+| `Kartova.Organization.Application` | n/a (0 evaluable, degenerate) | not run (degenerate per baseline §Notes) | — | gate skipped per baseline §Notes |
+| `Kartova.Organization.Contracts` | n/a (0 evaluable, degenerate) | not run | — | gate skipped per baseline §Notes |
+| `Kartova.Organization.Infrastructure` | n/a (0 evaluable, degenerate) | not run | — | gate skipped per baseline §Notes |
+
+### Survivor analysis — both targets preserved survivor counts at 2
+
+Per the baseline doc §Notes, the ±1pt rule is brittle on small denominators (Organization.Domain at 11 evaluable, Infrastructure.Admin at 3); the canonical check for these projects is **absolute survivor count**, not percentage delta. Both Phase 5 runs preserve survivor count exactly at **2 each**, with the same mutators on the same source statements (only line numbers shifted due to slice-6's TimeProvider parameter additions).
+
+**Organization.Domain (`Organization.cs`):**
+
+| Survivor | Baseline line | Phase 5 line | Mutator | Status |
+|---|---|---|---|---|
+| EF parameterless ctor block-removal | 21 | 24 | Block removal | Documented at `Organization.cs:20-23` — EF Core sets backing fields via reflection, so the `Name = string.Empty` initializer is observably equivalent whether removed or not. **Accepted by slice-6.** |
+| `Rename` `ValidateName` Statement removal | 35 | 40 | Statement | Documented at `Organization.cs:38-39` — killing requires a `Rename` invalid-name test that wasn't in scope for slice-6. **Pattern carries forward to next Organization slice.** |
+
+**Organization.Infrastructure.Admin (`AdminOrganizationCommands.cs`):**
+
+| Survivor | Baseline line | Phase 5 line | Mutator | Status |
+|---|---|---|---|---|
+| `_db.Organizations.Add(org);` Statement removal | 20 | 24 | Statement | Documented at `AdminOrganizationCommands.cs:20-23` — AdminBypassTests asserts response-DTO shape, not DB persistence. **Pattern carries forward to next Organization slice.** |
+| `await _db.SaveChangesAsync(ct);` Statement removal | 21 | 25 | Statement | Same documented rationale (line 20-23). **Carries forward.** |
+
+The line shift in both files (3 lines on Domain, 4 lines on Infrastructure.Admin) is consistent with slice-6 (commit `4c2d527`, 2026-05-08) adding TimeProvider parameter and ArgumentNullException guard to `Organization.Create`, which propagated through `AdminOrganizationCommands.CreateAsync` callers.
+
+### Infrastructure.Admin score increase — sanity-check per merge-gate clause (§"Mutation gate" line 40)
+
+The 33.33% → 80.00% jump (+46.67pt) is far larger than the ±1pt threshold, but the merge-gate language explicitly accepts score *increases* without blocking, requiring only a sanity-check that the gain is real coverage rather than Killed→CompileError reclassification. Verifying:
+
+| Status | Baseline | Phase 5 | Δ |
+|---|---|---|---|
+| Killed | 1 | 8 | +7 |
+| Survived | 2 | 2 | 0 |
+| Ignored | 21 | 14 | −7 |
+| CompileError | **0** | **0** | **0** |
+| Total | 24 | 24 | 0 |
+
+CompileError is unchanged at 0, confirming the +7 Killed gain came from `Ignored → Killed` reclassification (mutants in `AdminOrganizationDbContext.cs` and `AdminOrganizationEndpointDelegates.cs` that were filtered as out-of-scope under the May 7 `--since:master` filter became reachable under Phase 5's full-mode run, and the existing xUnit `Organization.IntegrationTests` exercised them). This is the same baseline-staleness pattern as Phase 4's Catalog.Infrastructure (see §"Phase 4 verification"), but here it produces a positive signal rather than a regression because the existing IntegrationTests already covered the slice-5/6-added handler paths.
+
+### Reconciliation
+
+Phase 5 PASSES the mutation gate on all in-scope targets:
+- Organization.Domain: ±1pt rule satisfied directly (Δ 0pt on identical denominator).
+- Organization.Infrastructure.Admin: absolute-survivor-count rule satisfied per baseline §Notes (2 survivors before, 2 survivors after; same mutations, same source statements). Score increase is sanity-checked clean.
+
+Phase 10 (which owns `Kartova.Organization.IntegrationTests` per the per-phase ownership table at line 50) is the appropriate slice to address the 2 documented `Rename`/`Add+SaveChanges` survivors when the IntegrationTests project migrates to MSTest — both source comments at `Organization.cs:38-39` and `AdminOrganizationCommands.cs:20-23` flag this carry-forward explicitly.
