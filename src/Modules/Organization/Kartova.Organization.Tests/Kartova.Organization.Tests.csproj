@@ -13,9 +13,6 @@
     <PackageReference Include="MSTest.TestFramework" />
     <PackageReference Include="MSTest.TestAdapter" />
     <PackageReference Include="MSTest.Analyzers" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio" />
-    <PackageReference Include="FluentAssertions" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
   </ItemGroup>
   <ItemGroup>
