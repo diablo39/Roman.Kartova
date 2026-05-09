@@ -42,10 +42,13 @@ public class TenantScopeCommitEndpointFilterTests
         var ctx = MakeContext(handle: null);
         var sut = new TenantScopeCommitEndpointFilter();
 
-        // Tightening: ThrowsExactlyAsync vs FA's loose ThrowAsync — exact type enforced.
+        // Note: Assert.ThrowsExactlyAsync<InvalidOperationException> is used uniformly in this file
+        // as a translation policy. Production throws via literal `new InvalidOperationException(...)`,
+        // so there is no behavioural difference vs FluentAssertions' permissive Should().ThrowAsync<>()
+        // — but the ThrowsExactly idiom is preferred per the migration's spec §4.
         var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
             () => sut.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(Results.Ok())).AsTask());
-        // Original FA chained two WithMessage calls — both substrings must appear.
+        // Both substrings must appear independently.
         StringAssert.Matches(ex.Message, new Regex(".*TenantScopeCommitEndpointFilter ran without an active scope handle.*"));
         StringAssert.Matches(ex.Message, new Regex(".*TenantScopeBeginMiddleware.*"));
     }
@@ -60,7 +63,6 @@ public class TenantScopeCommitEndpointFilterTests
         var ctx = MakeContext(handle);
         var sut = new TenantScopeCommitEndpointFilter();
 
-        // Tightening (see line 45): exact-type assertion vs FA's base-type permissiveness.
         var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
             () => sut.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(Results.Ok())).AsTask());
         Assert.AreEqual("connection lost", ex.Message);

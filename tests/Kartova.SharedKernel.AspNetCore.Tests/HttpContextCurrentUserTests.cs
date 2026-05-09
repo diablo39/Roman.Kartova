@@ -23,8 +23,9 @@ public class HttpContextCurrentUserTests
     {
         var sut = CreateSut();
 
-        // Tightening: original FA `Should().Throw<InvalidOperationException>()` allowed derived
-        // types; ThrowsExactly enforces exact type. The handler raises plain InvalidOperationException.
+        // Translation policy: Assert.ThrowsExactly is used uniformly per spec §4. Production throws
+        // via literal `new InvalidOperationException(...)`, so there is no behavioural difference vs
+        // FluentAssertions' permissive Should().Throw<>().
         var ex = Assert.ThrowsExactly<InvalidOperationException>(() => _ = sut.UserId);
         StringAssert.Matches(ex.Message, new Regex(".*sub.*"));
     }
@@ -34,7 +35,8 @@ public class HttpContextCurrentUserTests
     {
         var sut = CreateSut(("sub", "not-a-guid"));
 
-        // Tightening: ThrowsExactly enforces exact FormatException type vs FA's loose Throw.
+        // Translation policy per spec §4: Guid.Parse raises FormatException directly per BCL contract,
+        // so ThrowsExactly is exact-type by construction with no derived-type narrowing.
         Assert.ThrowsExactly<FormatException>(() => _ = sut.UserId);
     }
 

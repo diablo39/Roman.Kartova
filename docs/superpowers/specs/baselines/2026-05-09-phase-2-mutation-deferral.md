@@ -23,9 +23,9 @@ Two attempts to run `dotnet stryker -f src/Kartova.SharedKernel.AspNetCore/stryk
 ## What replaces the gate
 
 - **Test count parity:** Phase 2 preserves 74/74 tests (verified at every commit).
-- **Build green:** `dotnet build Kartova.slnx -warnaserror` → 0 warnings, 0 errors at HEAD `6fbcb10`.
-- **Per-task subagent reviews:** every Phase 2 commit (`9c6be45`, `0e03aba`, `4b2c32e`, `daf9788`, `322e344`, `4dcf005`, `06c004a`, `dab9319`, `7ab76f3`, `272629f`, `d502a84`, `7779486`, `5154868`, `6fbcb10`) had spec-compliance + code-quality reviewers dispatched per CLAUDE.md DoD #2.
-- **Slice-boundary review:** the Task 2.2 batch review confirmed argument-order discipline, `Assert.ThrowsExactly` tightening with documenting comments, NSubstitute idiom preservation, and `BeEquivalentTo` audit alignment for the 2 sites in `TenantClaimsTransformationTests`.
+- **Build green:** `dotnet build Kartova.slnx -warnaserror` → 0 warnings, 0 errors at the last source-touching commit (`6fbcb10`); subsequent commits in the slice (`5660512` adding this doc, `c52498c` correcting comment framing, plus the `/pr-review-toolkit:review-pr` cleanup commit) touch only test comments and docs and preserve the green status.
+- **Per-task subagent reviews:** every source-touching Phase 2 commit (`9c6be45`, `0e03aba`, `4b2c32e`, `daf9788`, `322e344`, `4dcf005`, `06c004a`, `dab9319`, `7ab76f3`, `272629f`, `d502a84`, `7779486`, `5154868`, `6fbcb10`) had spec-compliance + code-quality reviewers dispatched per CLAUDE.md DoD #2. Subsequent comment-only cleanups (`c52498c` and the `/pr-review-toolkit:review-pr` cleanup) were validated by the slice-boundary review skills rather than per-task review.
+- **Slice-boundary review:** the Task 2.2 batch review confirmed argument-order discipline, NSubstitute idiom preservation, and `BeEquivalentTo` audit alignment for the 2 sites in `TenantClaimsTransformationTests`. The `/pr-review-toolkit:review-pr` follow-up reframed the remaining `// Tightening:` comments as translation-policy notes — the per-spec-§4 uniform `ThrowsExactly` adoption is correctly characterized as policy, not site-specific narrowing, when the throw site uses literal `new BaseType(...)`.
 - **Phase 11 official gate:** when `Kartova.Api.IntegrationTests` migrates in Phase 11, both Phase 2's and Phase 11's translated test suites will be in scope for a full-mode mutation run against `Kartova.SharedKernel.AspNetCore`. That gate is the canonical apples-to-apples regression check vs the 100% baseline (3 killed / 3 evaluable from the May 7 baseline).
 
 ## Risk

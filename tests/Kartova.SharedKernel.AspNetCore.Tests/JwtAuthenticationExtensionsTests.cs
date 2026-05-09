@@ -56,7 +56,11 @@ public class JwtAuthenticationExtensionsTests
         var services = new ServiceCollection();
         services.AddLogging();
 
-        // Tightening: ThrowsExactly enforces exact InvalidOperationException type vs FA's loose Throw.
+        // Note: Assert.ThrowsExactly<InvalidOperationException> is used uniformly throughout this
+        // file as a translation policy. Production throws via literal `new InvalidOperationException(...)`
+        // at every guard site, so there is no behavioural difference vs FluentAssertions' permissive
+        // Should().Throw<>() — but the ThrowsExactly idiom is preferred per the migration's spec §4
+        // to keep all exception assertions strictly typed.
         var ex = Assert.ThrowsExactly<InvalidOperationException>(() => services.AddKartovaJwtAuth(cfg));
         StringAssert.Matches(ex.Message, new Regex(".*Authority not configured.*"));
     }
@@ -74,7 +78,6 @@ public class JwtAuthenticationExtensionsTests
         var services = new ServiceCollection();
         services.AddLogging();
 
-        // Tightening (see line 59): exact-type assertion vs FA's base-type permissiveness.
         var ex = Assert.ThrowsExactly<InvalidOperationException>(() => services.AddKartovaJwtAuth(cfg));
         StringAssert.Matches(ex.Message, new Regex(".*Audience not configured.*"));
     }
@@ -94,7 +97,6 @@ public class JwtAuthenticationExtensionsTests
         var services = new ServiceCollection();
         services.AddLogging();
 
-        // Tightening (see line 59): exact-type assertion vs FA's base-type permissiveness.
         var ex = Assert.ThrowsExactly<InvalidOperationException>(() => services.AddKartovaJwtAuth(cfg));
         StringAssert.Matches(ex.Message, new Regex(".*Authority not configured.*"));
     }

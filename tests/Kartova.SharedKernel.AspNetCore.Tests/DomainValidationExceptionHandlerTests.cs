@@ -60,9 +60,8 @@ public class DomainValidationExceptionHandlerTests
         var body = await ReadBodyAsync(ctx);
         var nameError = body.GetProperty("errors").GetProperty("name")
             .EnumerateArray().Single().GetString();
-        // Original FA chain was `.NotContain("(Parameter").And.Be("Value cannot be null.")` —
-        // the AreEqual already enforces both, but we keep the explicit absence assert
-        // for diagnostic clarity if the equality fails.
+        // The AreEqual subsumes the IsFalse check, but we keep the explicit absence assert
+        // for diagnostic clarity if the equality ever fails on a regression.
         Assert.IsFalse(nameError!.Contains("(Parameter"));
         Assert.AreEqual("Value cannot be null.", nameError);
     }
