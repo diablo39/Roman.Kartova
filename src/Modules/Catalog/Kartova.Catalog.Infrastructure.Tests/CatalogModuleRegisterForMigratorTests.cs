@@ -1,10 +1,9 @@
-using FluentAssertions;
 using Kartova.Catalog.Infrastructure;
 using Kartova.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
+using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
 namespace Kartova.Catalog.Infrastructure.Tests;
 
@@ -15,9 +14,10 @@ namespace Kartova.Catalog.Infrastructure.Tests;
 /// followup: the equivalent Organization registration shows surviving NoCoverage
 /// mutants in the slice-3 mutation report; this test closes the same gap on Catalog.
 /// </summary>
+[TestClass]
 public sealed class CatalogModuleRegisterForMigratorTests
 {
-    [Fact]
+    [TestMethod]
     public void RegisterForMigrator_resolves_CatalogDbContext_with_main_connection_string()
     {
         // Migrator runs against the Main connection (the migrator role is granted
@@ -38,11 +38,11 @@ public sealed class CatalogModuleRegisterForMigratorTests
         using var scope = sp.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
 
-        db.Should().NotBeNull();
-        db.Database.GetConnectionString().Should().Be(mainCs);
+        Assert.IsNotNull(db);
+        Assert.AreEqual(mainCs, db.Database.GetConnectionString());
     }
 
-    [Fact]
+    [TestMethod]
     public void RegisterForMigrator_does_not_require_active_TenantScope_to_resolve_DbContext()
     {
         // The tenant-scoped path (AddModuleDbContext, used by RegisterServices) demands
@@ -65,14 +65,12 @@ public sealed class CatalogModuleRegisterForMigratorTests
         // CatalogDbContext must succeed.
         using var sp = services.BuildServiceProvider();
         using var scope = sp.CreateScope();
-        var act = () => scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
 
-        act.Should().NotThrow();
-        var db = act();
-        db.Should().NotBeNull();
+        Assert.IsNotNull(db);
     }
 
-    [Fact]
+    [TestMethod]
     public void RegisterForMigrator_throws_InvalidOperationException_when_main_connection_string_is_missing()
     {
         // Pins the exact message shape KartovaConnectionStrings.Require produces.
@@ -82,9 +80,10 @@ public sealed class CatalogModuleRegisterForMigratorTests
             .Build();
         var services = new ServiceCollection();
 
-        var act = () => new CatalogModule().RegisterForMigrator(services, config);
-
-        act.Should().Throw<InvalidOperationException>()
-            .WithMessage("Connection string 'Kartova' is required. Set it via ConnectionStrings__Kartova env var.");
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(
+            () => new CatalogModule().RegisterForMigrator(services, config));
+        Assert.AreEqual(
+            "Connection string 'Kartova' is required. Set it via ConnectionStrings__Kartova env var.",
+            ex.Message);
     }
 }
