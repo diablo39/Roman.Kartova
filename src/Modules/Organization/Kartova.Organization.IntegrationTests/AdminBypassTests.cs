@@ -1,43 +1,38 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using FluentAssertions;
 using Kartova.Organization.Contracts;
 using Kartova.Testing.Auth;
-using Xunit;
+using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
 namespace Kartova.Organization.IntegrationTests;
 
-[Collection(KartovaApiCollection.Name)]
-public class AdminBypassTests
+[TestClass]
+public class AdminBypassTests : OrganizationIntegrationTestBase
 {
-    private readonly KartovaApiFixture _fx;
-
-    public AdminBypassTests(KartovaApiFixture fx) => _fx = fx;
-
-    [Fact]
+    [TestMethod]
     public async Task Platform_admin_can_create_organization_without_tenant_scope()
     {
-        var client = _fx.CreateClient();
+        var client = Fx.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer", _fx.Signer.IssueForPlatformAdmin());
+            "Bearer", Fx.Signer.IssueForPlatformAdmin());
 
         var resp = await client.PostAsJsonAsync("/api/v1/admin/organizations", new { name = "Newly created" });
-        resp.StatusCode.Should().Be(HttpStatusCode.Created);
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode);
 
         var dto = await resp.Content.ReadFromJsonAsync<OrganizationDto>();
-        dto!.Name.Should().Be("Newly created");
-        dto.Id.Should().Be(dto.TenantId);
+        Assert.AreEqual("Newly created", dto!.Name);
+        Assert.AreEqual(dto.TenantId, dto.Id);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Non_platform_admin_cannot_post_admin_organizations()
     {
-        var client = _fx.CreateClient();
+        var client = Fx.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer", _fx.Signer.IssueForTenant(SeededOrgs.OrgA, new[] { "OrgAdmin" }));
+            "Bearer", Fx.Signer.IssueForTenant(SeededOrgs.OrgA, new[] { "OrgAdmin" }));
 
         var resp = await client.PostAsJsonAsync("/api/v1/admin/organizations", new { name = "Denied" });
-        resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
     }
 }

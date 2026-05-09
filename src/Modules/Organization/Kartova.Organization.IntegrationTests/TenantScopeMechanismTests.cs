@@ -1,4 +1,3 @@
-using FluentAssertions;
 using Kartova.Organization.Infrastructure;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Postgres;
@@ -6,7 +5,7 @@ using Kartova.Testing.Auth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
-using Xunit;
+using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
 namespace Kartova.Organization.IntegrationTests;
 
@@ -23,14 +22,10 @@ namespace Kartova.Organization.IntegrationTests;
 /// regardless of caller; the HTTP-level wrapper is exercised by the existing
 /// integration suite.
 /// </summary>
-[Collection(KartovaApiCollection.Name)]
-public class TenantScopeMechanismTests
+[TestClass]
+public class TenantScopeMechanismTests : OrganizationIntegrationTestBase
 {
-    private readonly KartovaApiFixture _fx;
-
-    public TenantScopeMechanismTests(KartovaApiFixture fx) => _fx = fx;
-
-    [Fact]
+    [TestMethod]
     public async Task SaveChanges_throws_from_interceptor_when_scope_inactive()
     {
         // The interceptor must reject SaveChanges before any SQL is sent when the
@@ -39,7 +34,7 @@ public class TenantScopeMechanismTests
         var inactiveScope = new InactiveScopeStub();
         var interceptor = new TenantScopeRequiredInterceptor(inactiveScope);
 
-        await using var conn = new NpgsqlConnection(_fx.MainConnectionString);
+        await using var conn = new NpgsqlConnection(Fx.MainConnectionString);
         await conn.OpenAsync();
 
         var options = new DbContextOptionsBuilder<OrganizationDbContext>()
@@ -50,19 +45,17 @@ public class TenantScopeMechanismTests
         await using var db = new OrganizationDbContext(options);
         db.Add(Kartova.Organization.Domain.Organization.Create("never-saved", TimeProvider.System));
 
-        var act = async () => await db.SaveChangesAsync();
-
-        (await act.Should().ThrowAsync<InvalidOperationException>())
-            .WithMessage("*ITenantScope*");
+        var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () => await db.SaveChangesAsync());
+        StringAssert.Contains(ex.Message, "ITenantScope");
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Commit_failure_after_write_propagates_and_persists_no_data()
     {
         // Durability promise of ADR-0090: if CommitAsync fails after a successful
         // INSERT inside the scope's transaction, the failure is observable to the
         // caller (HTTP middleware turns it into 5xx) and no row survives.
-        using var hostScope = _fx.Services.CreateScope();
+        using var hostScope = Fx.Services.CreateScope();
         var sp = hostScope.ServiceProvider;
         var tenantScope = sp.GetRequiredService<ITenantScope>();
         var npgScope = (INpgsqlTenantScope)tenantScope;
@@ -81,25 +74,33 @@ public class TenantScopeMechanismTests
             // Force commit failure: close the underlying connection while the tx is open.
             await npgScope.Connection.CloseAsync();
 
-            var commit = async () => await handle.CommitAsync(default);
-            await commit.Should().ThrowAsync<Exception>(
-                because: "commit on a closed connection must surface as an exception");
+            // commit on a closed connection must surface as an exception
+            Exception? caught = null;
+            try
+            {
+                await handle.CommitAsync(default);
+            }
+            catch (Exception ex)
+            {
+                caught = ex;
+            }
+            Assert.IsNotNull(caught);
         }
         finally
         {
             await handle.DisposeAsync();
         }
 
-        await AssertNoOrganizationWithName(rowName,
-            because: "commit failed, so the INSERT must not be visible");
+        // commit failed, so the INSERT must not be visible
+        await AssertNoOrganizationWithName(rowName);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Exception_during_handler_rolls_back_uncommitted_writes()
     {
         // Handler exits without CommitAsync; DisposeAsyncCore must roll back any
         // uncommitted writes so partial state never reaches the table.
-        using var hostScope = _fx.Services.CreateScope();
+        using var hostScope = Fx.Services.CreateScope();
         var sp = hostScope.ServiceProvider;
         var tenantScope = sp.GetRequiredService<ITenantScope>();
 
@@ -116,25 +117,25 @@ public class TenantScopeMechanismTests
             // Exit without CommitAsync — simulates a thrown handler.
         }
 
-        await AssertNoOrganizationWithName(rowName,
-            because: "scope disposed without commit must roll back the INSERT");
+        // scope disposed without commit must roll back the INSERT
+        await AssertNoOrganizationWithName(rowName);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task BeginAsync_throws_when_called_twice_on_the_same_scope()
     {
         // Slice-3 §13.11: pin the "already begun" guard. The transport adapter is the
         // only legitimate caller of BeginAsync; a second call indicates a wiring bug
         // and must surface immediately rather than silently overwriting the connection.
-        using var hostScope = _fx.Services.CreateScope();
+        using var hostScope = Fx.Services.CreateScope();
         var tenantScope = hostScope.ServiceProvider.GetRequiredService<ITenantScope>();
 
         var handle = await tenantScope.BeginAsync(SeededOrgs.OrgA, default);
         try
         {
-            var second = async () => await tenantScope.BeginAsync(SeededOrgs.OrgA, default);
-            await second.Should().ThrowAsync<InvalidOperationException>()
-                .WithMessage("*already begun*");
+            var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+                async () => await tenantScope.BeginAsync(SeededOrgs.OrgA, default));
+            StringAssert.Contains(ex.Message, "already begun");
         }
         finally
         {
@@ -142,49 +143,49 @@ public class TenantScopeMechanismTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Handle_DisposeAsync_is_idempotent()
     {
         // Slice-3 §13.11: pin Handle.DisposeAsync's _disposed guard. Idempotent dispose
         // is required because the transport adapter's `await using` plus the begin-middleware's
         // `finally` block may both reach DisposeAsync — double-dispose should be safe.
-        using var hostScope = _fx.Services.CreateScope();
+        using var hostScope = Fx.Services.CreateScope();
         var tenantScope = hostScope.ServiceProvider.GetRequiredService<ITenantScope>();
 
         var handle = await tenantScope.BeginAsync(SeededOrgs.OrgA, default);
         await handle.DisposeAsync();
 
         // Second dispose must not throw.
-        var act = async () => await handle.DisposeAsync();
-        await act.Should().NotThrowAsync();
+        await handle.DisposeAsync();
     }
 
-    [Fact]
+    [TestMethod]
     public async Task CommitAsync_throws_when_scope_was_disposed_first()
     {
         // Slice-3 §13.11: pin the CommitAsync transaction-null guard. Once the scope is
         // disposed (rollback path), calling CommitAsync via the same Handle must surface
         // a programmer error rather than silently no-op (which would mask a wiring bug).
-        using var hostScope = _fx.Services.CreateScope();
+        using var hostScope = Fx.Services.CreateScope();
         var tenantScope = hostScope.ServiceProvider.GetRequiredService<ITenantScope>();
 
         var handle = await tenantScope.BeginAsync(SeededOrgs.OrgA, default);
         await handle.DisposeAsync();
 
-        var commit = async () => await handle.CommitAsync(default);
-        await commit.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Cannot commit*scope not active*");
+        var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            async () => await handle.CommitAsync(default));
+        StringAssert.Contains(ex.Message, "Cannot commit");
+        StringAssert.Contains(ex.Message, "scope not active");
     }
 
-    private async Task AssertNoOrganizationWithName(string name, string because)
+    private async Task AssertNoOrganizationWithName(string name)
     {
-        await using var bypass = new NpgsqlConnection(_fx.BypassConnectionString);
+        await using var bypass = new NpgsqlConnection(Fx.BypassConnectionString);
         await bypass.OpenAsync();
         await using var cmd = bypass.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM organizations WHERE name = $1";
         cmd.Parameters.AddWithValue(name);
         var count = (long)(await cmd.ExecuteScalarAsync())!;
-        count.Should().Be(0, because: because);
+        Assert.AreEqual(0L, count);
     }
 
     private sealed class InactiveScopeStub : ITenantScope

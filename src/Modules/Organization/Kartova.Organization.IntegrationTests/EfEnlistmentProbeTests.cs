@@ -1,4 +1,3 @@
-using FluentAssertions;
 using Kartova.Organization.Infrastructure;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Postgres;
@@ -7,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
-using Xunit;
+using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
 namespace Kartova.Organization.IntegrationTests;
 
@@ -19,14 +18,10 @@ namespace Kartova.Organization.IntegrationTests;
 /// - Pass → EF auto-enlists; interceptor not needed.
 /// - Fail → ship the interceptor.
 /// </summary>
-[Collection(KartovaApiCollection.Name)]
-public class EfEnlistmentProbeTests
+[TestClass]
+public class EfEnlistmentProbeTests : OrganizationIntegrationTestBase
 {
-    private readonly KartovaApiFixture _fx;
-
-    public EfEnlistmentProbeTests(KartovaApiFixture fx) => _fx = fx;
-
-    [Fact]
+    [TestMethod]
     public async Task DbContext_writes_inside_scope_are_rolled_back_on_scope_dispose()
     {
         // If EF is enlisted in the scope's tx, the scope's DisposeAsync rollback must
@@ -34,7 +29,7 @@ public class EfEnlistmentProbeTests
         var rowName = $"Probe-{Guid.NewGuid()}";
         var rowId = Guid.NewGuid();
 
-        using var hostScope = _fx.Services.CreateScope();
+        using var hostScope = Fx.Services.CreateScope();
         var sp = hostScope.ServiceProvider;
         var tenantScope = sp.GetRequiredService<ITenantScope>();
 
@@ -48,24 +43,24 @@ public class EfEnlistmentProbeTests
             // Exit without CommitAsync → handle.DisposeAsync rolls back.
         }
 
-        await using var bypass = new NpgsqlConnection(_fx.BypassConnectionString);
+        await using var bypass = new NpgsqlConnection(Fx.BypassConnectionString);
         await bypass.OpenAsync();
         await using var cmd = bypass.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM organizations WHERE name = $1";
         cmd.Parameters.AddWithValue(rowName);
         var count = (long)(await cmd.ExecuteScalarAsync())!;
 
-        count.Should().Be(0,
-            because: "if EF is enlisted in the scope's transaction, scope rollback drops the row. " +
-                     "Non-zero count means EF committed independently (interceptor needed).");
+        // if EF is enlisted in the scope's transaction, scope rollback drops the row.
+        // Non-zero count means EF committed independently (interceptor needed).
+        Assert.AreEqual(0L, count);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task DbContext_CurrentTransaction_matches_scope_transaction()
     {
         // Direct verification via EF's public API: the DbContext should report the
         // scope's NpgsqlTransaction as its current ambient transaction.
-        using var hostScope = _fx.Services.CreateScope();
+        using var hostScope = Fx.Services.CreateScope();
         var sp = hostScope.ServiceProvider;
         var tenantScope = sp.GetRequiredService<ITenantScope>();
         var npgScope = (INpgsqlTenantScope)tenantScope;
@@ -78,9 +73,9 @@ public class EfEnlistmentProbeTests
         await db.Database.OpenConnectionAsync();
 
         var efTx = db.Database.CurrentTransaction;
-        efTx.Should().NotBeNull(
-            because: "DbContext should report enlistment in the scope's active transaction");
-        efTx!.GetDbTransaction().Should().BeSameAs(npgScope.Transaction,
-            because: "DbContext's CurrentTransaction must be the SAME instance as the scope's transaction");
+        // DbContext should report enlistment in the scope's active transaction
+        Assert.IsNotNull(efTx);
+        // DbContext's CurrentTransaction must be the SAME instance as the scope's transaction
+        Assert.AreSame(npgScope.Transaction, efTx!.GetDbTransaction());
     }
 }

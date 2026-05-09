@@ -1,54 +1,49 @@
 using System.Net;
 using System.Net.Http.Headers;
-using FluentAssertions;
 using Kartova.Testing.Auth;
-using Xunit;
+using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
 namespace Kartova.Organization.IntegrationTests;
 
-[Collection(KartovaApiCollection.Name)]
-public class AuthErrorTests
+[TestClass]
+public class AuthErrorTests : OrganizationIntegrationTestBase
 {
-    private readonly KartovaApiFixture _fx;
-
-    public AuthErrorTests(KartovaApiFixture fx) => _fx = fx;
-
-    [Fact]
+    [TestMethod]
     public async Task No_token_returns_401()
     {
-        var client = _fx.CreateClient();
+        var client = Fx.CreateClient();
         var resp = await client.GetAsync("/api/v1/organizations/me");
-        resp.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Expired_token_returns_401()
     {
-        var client = _fx.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _fx.Signer.IssueExpired(SeededOrgs.OrgA));
+        var client = Fx.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Fx.Signer.IssueExpired(SeededOrgs.OrgA));
         var resp = await client.GetAsync("/api/v1/organizations/me");
-        resp.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Platform_admin_without_tenant_hits_missing_tenant_on_tenant_scoped_route()
     {
-        var client = _fx.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _fx.Signer.IssueForPlatformAdmin());
+        var client = Fx.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Fx.Signer.IssueForPlatformAdmin());
         var resp = await client.GetAsync("/api/v1/organizations/me");
-        resp.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
         var body = await resp.Content.ReadAsStringAsync();
-        body.Should().Contain("missing-tenant-claim");
+        StringAssert.Contains(body, "missing-tenant-claim");
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Non_org_admin_gets_403_on_admin_only_endpoint()
     {
-        await _fx.SeedOrganizationAsync(SeededOrgs.OrgA.Value, "Org A");
-        var client = _fx.CreateClient();
+        await Fx.SeedOrganizationAsync(SeededOrgs.OrgA.Value, "Org A");
+        var client = Fx.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer", _fx.Signer.IssueForTenant(SeededOrgs.OrgA, new[] { "Member" }));
+            "Bearer", Fx.Signer.IssueForTenant(SeededOrgs.OrgA, new[] { "Member" }));
         var resp = await client.GetAsync("/api/v1/organizations/me/admin-only");
-        resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
     }
 }
