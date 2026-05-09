@@ -1,12 +1,11 @@
 using System.Diagnostics.CodeAnalysis;
-using FluentAssertions;
 using Kartova.SharedKernel.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Xunit;
+using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
 namespace Kartova.ArchitectureTests;
 
@@ -21,6 +20,7 @@ namespace Kartova.ArchitectureTests;
 /// that don't yet appear in the inventory.
 /// </summary>
 [ExcludeFromCodeCoverage]
+[TestClass]
 public class EndpointRouteRules
 {
     private const string Get = "GET";
@@ -51,7 +51,7 @@ public class EndpointRouteRules
         new("AdminCreateOrganization",     Post, "/api/v1/admin/organizations/"),
     ];
 
-    [Fact]
+    [TestMethod]
     public void Every_expected_endpoint_is_registered_with_correct_verb_and_template()
     {
         var actual = MapEndpointsForArchTest();
@@ -61,30 +61,37 @@ public class EndpointRouteRules
             var match = actual.SingleOrDefault(e =>
                 string.Equals(e.Name, expected.Name, StringComparison.Ordinal));
 
-            match.Should().NotBeNull(
-                because: $"named route '{expected.Name}' must exist — kills `MapGet(...)` → `;` style mutants");
-            match!.HttpMethod.Should().Be(expected.HttpMethod,
-                because: $"named route '{expected.Name}' must keep its HTTP method");
-            match.Template.Should().Be(expected.Template,
-                because: $"named route '{expected.Name}' must keep its URL template (ADR-0092)");
+            Assert.IsNotNull(
+                match,
+                $"named route '{expected.Name}' must exist — kills `MapGet(...)` → `;` style mutants");
+            Assert.AreEqual(
+                expected.HttpMethod,
+                match!.HttpMethod,
+                $"named route '{expected.Name}' must keep its HTTP method");
+            Assert.AreEqual(
+                expected.Template,
+                match.Template,
+                $"named route '{expected.Name}' must keep its URL template (ADR-0092)");
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void Every_module_endpoint_has_a_route_name()
     {
         var actual = MapEndpointsForArchTest();
 
         var unnamed = actual.Where(e => string.IsNullOrEmpty(e.Name)).ToArray();
 
-        unnamed.Should().BeEmpty(
-            because: "every endpoint mapped via IModuleEndpoints.MapEndpoints must call .WithName(...) " +
-                     "so the route inventory in EndpointRouteRules can pin verb+template+name. " +
-                     "Unnamed endpoints (count: " + unnamed.Length + "): " +
-                     string.Join(", ", unnamed.Select(e => $"{e.HttpMethod} {e.Template}")));
+        Assert.AreEqual(
+            0,
+            unnamed.Length,
+            "every endpoint mapped via IModuleEndpoints.MapEndpoints must call .WithName(...) " +
+            "so the route inventory in EndpointRouteRules can pin verb+template+name. " +
+            "Unnamed endpoints (count: " + unnamed.Length + "): " +
+            string.Join(", ", unnamed.Select(e => $"{e.HttpMethod} {e.Template}")));
     }
 
-    [Fact]
+    [TestMethod]
     public void Route_names_are_unique_across_modules()
     {
         var actual = MapEndpointsForArchTest();
@@ -96,9 +103,11 @@ public class EndpointRouteRules
             .Select(g => g.Key)
             .ToArray();
 
-        duplicates.Should().BeEmpty(
-            because: "route names are used as link-relation identifiers and must be unique across the API. " +
-                     "Duplicates: " + string.Join(", ", duplicates));
+        Assert.AreEqual(
+            0,
+            duplicates.Length,
+            "route names are used as link-relation identifiers and must be unique across the API. " +
+            "Duplicates: " + string.Join(", ", duplicates));
     }
 
     /// <summary>
