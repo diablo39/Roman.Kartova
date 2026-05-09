@@ -1,7 +1,7 @@
-using FluentAssertions;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Infrastructure;
 using Kartova.SharedKernel.Pagination;
+using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
 namespace Kartova.Catalog.Tests;
 
@@ -13,27 +13,28 @@ namespace Kartova.Catalog.Tests;
 /// (cursor encode/decode, RLS, real SQL) lives in
 /// <c>Kartova.Catalog.IntegrationTests.ListApplicationsPaginationTests</c>.
 /// </summary>
+[TestClass]
 public class ListApplicationsHandlerTests
 {
-    [Fact]
+    [TestMethod]
     public void Resolve_CreatedAt_returns_CreatedAt_sort_spec()
     {
         var spec = ApplicationSortSpecs.Resolve(ApplicationSortField.CreatedAt);
 
-        spec.Should().BeSameAs(ApplicationSortSpecs.CreatedAt);
-        spec.FieldName.Should().Be("createdAt");
+        Assert.AreSame(ApplicationSortSpecs.CreatedAt, spec);
+        Assert.AreEqual("createdAt", spec.FieldName);
     }
 
-    [Fact]
+    [TestMethod]
     public void Resolve_Name_returns_Name_sort_spec()
     {
         var spec = ApplicationSortSpecs.Resolve(ApplicationSortField.Name);
 
-        spec.Should().BeSameAs(ApplicationSortSpecs.Name);
-        spec.FieldName.Should().Be("name");
+        Assert.AreSame(ApplicationSortSpecs.Name, spec);
+        Assert.AreEqual("name", spec.FieldName);
     }
 
-    [Fact]
+    [TestMethod]
     public void Resolve_undefined_enum_value_throws_InvalidSortFieldException_with_allowlist()
     {
         // (ApplicationSortField)999 is the exact path Enum.TryParse takes when given a
@@ -41,16 +42,16 @@ public class ListApplicationsHandlerTests
         // endpoint boundary, but the spec mandates the inner Resolve() also be hardened
         // so a future code path (e.g. internal caller bypassing the endpoint guard)
         // cannot fall through to a default sort silently.
-        var act = () => ApplicationSortSpecs.Resolve((ApplicationSortField)999);
-
-        act.Should().Throw<InvalidSortFieldException>()
-            .Which.AllowedFields.Should().BeEquivalentTo(["createdAt", "name"]);
+        var ex = Assert.ThrowsExactly<InvalidSortFieldException>(
+            () => ApplicationSortSpecs.Resolve((ApplicationSortField)999));
+        CollectionAssert.AreEquivalent(new[] { "createdAt", "name" }, ex.AllowedFields.ToArray());
     }
 
-    [Fact]
+    [TestMethod]
     public void AllowedFieldNames_lists_only_supported_fields()
     {
-        ApplicationSortSpecs.AllowedFieldNames
-            .Should().BeEquivalentTo(["createdAt", "name"]);
+        CollectionAssert.AreEquivalent(
+            new[] { "createdAt", "name" },
+            ApplicationSortSpecs.AllowedFieldNames.ToArray());
     }
 }
