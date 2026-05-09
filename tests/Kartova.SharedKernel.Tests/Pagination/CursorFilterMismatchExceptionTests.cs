@@ -10,6 +10,9 @@ public class CursorFilterMismatchExceptionTests
     // and ArgumentException for empty/whitespace. The original FA `Throw<ArgumentException>()`
     // tolerated both via base-type matching; MSTest's ThrowsExactly is type-strict, so we
     // catch as the base class and assert ParamName.
+    // Deliberately accepts the derived type — the null-vs-whitespace split inside
+    // ArgumentException.ThrowIfNullOrWhiteSpace is a BCL implementation detail, not
+    // a contract this test should pin.
     private static ArgumentException CaptureArgumentExceptionOrDerived(Action action)
     {
         try

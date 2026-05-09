@@ -110,6 +110,9 @@ public class TenantContextAccessorTests
         sut.Populate(NewTenantId(), roles);
 
         // Assert — exact count AND exact contents (order-sensitive: test name says "exact")
+        // Order-sensitive: 'exact' includes ordering. The IEnumerable<string> contract on
+        // Roles does not formally promise order preservation, but Populate's array-passthrough
+        // implementation does today; this test pins that.
         Assert.AreEqual(3, sut.Roles.Count());
         CollectionAssert.AreEqual(new[] { "OrgAdmin", "Member", "Viewer" }, sut.Roles.ToArray());
     }

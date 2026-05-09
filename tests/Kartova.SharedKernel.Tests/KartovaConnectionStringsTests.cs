@@ -23,6 +23,7 @@ public class KartovaConnectionStringsTests
     {
         var config = BuildConfig();
 
+        // ThrowsExactly pins the exact type — Require throws InvalidOperationException, not a derived type. Symmetric with the diagnostic-stable message contract below.
         var ex = Assert.ThrowsExactly<InvalidOperationException>(
             () => KartovaConnectionStrings.Require(config, KartovaConnectionStrings.Main));
 

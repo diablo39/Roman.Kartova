@@ -88,6 +88,9 @@ public static class CursorCodec
             // common-type `double` between `long` and `double` and silently widening
             // `i` to `42.0`. Without it, every integer-cursor sort value decodes as
             // System.Double instead of Int64.
+            // Downstream cursor comparisons (`ConvertCursorValue`, JSON re-serialization for
+            // the next page) compare runtime types via Object.Equals — silently widening to
+            // double flips paging behaviour, not just the boxed type label.
             el.TryGetInt64(out var i) ? (object)i : el.GetDouble(),
         JsonValueKind.True => true,
         JsonValueKind.False => false,
