@@ -428,8 +428,8 @@ Each phase merges as its own PR. Rollback = revert that PR.
 
 When MSTest's strict `Object.Equals` semantics expose a latent production bug that FluentAssertions' silent numeric/string coercion was masking — and the bug genuinely needs fixing for the translated test to pass — the production fix MAY land in the same per-project phase as the test that surfaced it, subject to all of the following gates:
 
-1. The fix is **≤1 production file** with a **≤10-line diff** (excluding comments).
-2. The fix is accompanied by a **tightened test** (e.g., `Assert.IsInstanceOfType<T>` plus exact-value `Assert.AreEqual`) that locks in the corrected runtime type or behaviour, NOT just a translation shim that accommodates the bug.
+1. The fix is **≤1 production file** with a **≤10-line production-code diff** (excluding comments and tests). Test changes accompanying the fix are not counted toward this limit.
+2. The fix is accompanied by a **tightened test** (e.g., `Assert.IsInstanceOfType<T>` plus exact-value `Assert.AreEqual`) that locks in the corrected runtime type or behaviour. Translation shims that merely accommodate the bug (e.g., asserting against `Convert.ToDouble(value)` to match the buggy widening) are explicit deviations and disqualify the exception.
 3. The fix has a **clear root-cause comment** at the point of change naming the language rule, the failure mode, and the observable symptom.
 4. The fix is in a **separate commit** (not bundled into a translation commit) so `git revert` of the translation work does not unintentionally revert the production fix and vice versa.
 5. The phase's slice-boundary code review explicitly calls out the fix as a deviation from this section, and the deviation is acknowledged in the PR body.

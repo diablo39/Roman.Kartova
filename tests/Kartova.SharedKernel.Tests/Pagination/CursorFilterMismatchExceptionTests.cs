@@ -10,7 +10,7 @@ public class CursorFilterMismatchExceptionTests
     // and ArgumentException for empty/whitespace. The original FA `Throw<ArgumentException>()`
     // tolerated both via base-type matching; MSTest's ThrowsExactly is type-strict, so we
     // catch as the base class and assert ParamName.
-    private static ArgumentException CaptureArgumentException(Action action)
+    private static ArgumentException CaptureArgumentExceptionOrDerived(Action action)
     {
         try
         {
@@ -30,7 +30,7 @@ public class CursorFilterMismatchExceptionTests
     [DataRow("   ")]
     public void Ctor_throws_ArgumentException_when_filterName_is_null_empty_or_whitespace(string? filterName)
     {
-        var ex = CaptureArgumentException(
+        var ex = CaptureArgumentExceptionOrDerived(
             () => new CursorFilterMismatchException(filterName!, "true", "false"));
         Assert.AreEqual("filterName", ex.ParamName);
     }
@@ -41,7 +41,7 @@ public class CursorFilterMismatchExceptionTests
     [DataRow("   ")]
     public void Ctor_throws_ArgumentException_when_expectedValue_is_null_empty_or_whitespace(string? expectedValue)
     {
-        var ex = CaptureArgumentException(
+        var ex = CaptureArgumentExceptionOrDerived(
             () => new CursorFilterMismatchException("includeDecommissioned", expectedValue!, "false"));
         Assert.AreEqual("expectedValue", ex.ParamName);
     }
@@ -52,7 +52,7 @@ public class CursorFilterMismatchExceptionTests
     [DataRow("   ")]
     public void Ctor_throws_ArgumentException_when_actualValue_is_null_empty_or_whitespace(string? actualValue)
     {
-        var ex = CaptureArgumentException(
+        var ex = CaptureArgumentExceptionOrDerived(
             () => new CursorFilterMismatchException("includeDecommissioned", "true", actualValue!));
         Assert.AreEqual("actualValue", ex.ParamName);
     }

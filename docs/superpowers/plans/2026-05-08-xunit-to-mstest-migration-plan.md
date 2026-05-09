@@ -42,6 +42,8 @@ At the Stryker version pinned during Phase 0, the root `stryker-config.json` inv
 
 (See also: baseline doc §"Why not a fresh run?" for the original diagnosis.)
 
+**Phase 2+ optimisation idea (deferred):** Phase 1's mutation gate ran the per-project Stryker loop sequentially via `&&`-chained commands; on this hardware the orchestrator took ~5 hours wall-clock with most time spent on sequential test discovery across the 12 source projects. For Phases 2 / 4 / 5 / 9 / 10 / 11 / 12 — where the same orchestrator pattern repeats — consider either (a) bumping `"concurrency"` in `stryker-config.json` (default is ½ CPU cores), or (b) wrapping the per-project loop in PowerShell `ForEach-Object -Parallel -ThrottleLimit 3` so 2–3 projects run concurrently. Out of scope for Phase 1 (gate already met); track as a Phase 2 prelude opportunity.
+
 ---
 
 ## Phase 0 — Tooling, ADR, baseline (no test code rewritten)
