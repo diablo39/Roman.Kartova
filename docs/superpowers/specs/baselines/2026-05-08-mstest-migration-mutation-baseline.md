@@ -101,9 +101,9 @@ The `mutation-targets.json` orchestration manifest maps each mutation-target sou
 
 ### Catalog.Infrastructure regression diagnosis — baseline staleness, not Phase 4 defect
 
-The Phase 4 run produced 71 evaluable mutants across 11 source files in `Kartova.Catalog.Infrastructure`. The May 7 baseline report (`StrykerOutput/Kartova.Catalog.Infrastructure/2026-05-07.20-36-42/reports/mutation-report.json`, parsed directly) covered only **3 source files / 30 evaluable mutants** — `CatalogEndpointDelegates.cs`, `ListApplicationsHandler.cs`, `RegisterApplicationHandler.cs`. The baseline did **not** measure files added by slice-5 (commit `b432cce`, merged 2026-05-07 10:44 — same day as the baseline run at 20:36 but apparently against a pre-slice-5 source tree, OR via `--since:master` filter that excluded the new files).
+The Phase 4 run produced 71 evaluable mutants across 11 source files in `Kartova.Catalog.Infrastructure`. The May 7 baseline report (`StrykerOutput/Kartova.Catalog.Infrastructure/2026-05-07.20-36-42/reports/mutation-report.json`, parsed directly) **does include all 11 source files in its `files` array**, but only **3 of those files contributed evaluable mutants** — `CatalogEndpointDelegates.cs`, `ListApplicationsHandler.cs`, `RegisterApplicationHandler.cs`. In the other 8 files every mutant has status `Ignored` (and one had a single `CompileError`); the most likely cause is the mutation-sentinel orchestrator's `--since:master` filter at the time of the May 7 run filtering out the slice-5 files (commit `b432cce`, merged 2026-05-07 10:44 — same day as the baseline run at 20:36, so the `--since` filter would have flagged the freshly-added handlers as out-of-scope). The baseline's reported total of 30 evaluable mutants and the 100% score therefore reflect only those 3 unfiltered files; they are not a complete measurement of `Kartova.Catalog.Infrastructure` at the time.
 
-Files **not** in the May 7 baseline but mutated under Phase 4's full-mode run:
+Files present in the May 7 baseline report but with **0 evaluable mutants** (every candidate `Ignored`), then mutated meaningfully under Phase 4's full-mode run:
 
 | File | Origin | Phase 4 score |
 |---|---|---|
@@ -112,10 +112,10 @@ Files **not** in the May 7 baseline but mutated under Phase 4's full-mode run:
 | `DecommissionApplicationHandler.cs` | slice-5 | 100% (3 killed) |
 | `GetApplicationByIdHandler.cs` | slice-5 | 100% (1 killed) |
 | `EfApplicationConfiguration.cs` | slice-5 | 100% (14 killed) |
-| `EndpointResultExtensions.cs` | pre-slice-5 (excluded by stale filter) | 100% (1 killed) |
-| `ApplicationSortSpecs.cs` | pre-slice-5 (excluded by stale filter) | 100% (1 killed) |
-| `CatalogDbContext.cs` | pre-slice-5 (excluded by stale filter) | 100% (7 killed) |
-| `CatalogDbContextFactory.cs` | pre-slice-5 (excluded by stale filter) | N/A (0 evaluable) |
+| `EndpointResultExtensions.cs` | pre-slice-5 (all-Ignored under May 7 `--since` filter) | 100% (1 killed) |
+| `ApplicationSortSpecs.cs` | pre-slice-5 (all-Ignored under May 7 `--since` filter) | 100% (1 killed) |
+| `CatalogDbContext.cs` | pre-slice-5 (all-Ignored under May 7 `--since` filter) | 100% (7 killed) |
+| `CatalogDbContextFactory.cs` | pre-slice-5 (all-Ignored under May 7 `--since` filter) | N/A (0 evaluable) |
 
 The 3 baseline files (`CatalogEndpointDelegates`, `ListApplicationsHandler`, `RegisterApplicationHandler`) all score **100%** under Phase 4 — identical to the May 7 baseline, so Phase 4's MSTest translation preserved kill rates exactly. The −4.23pt headline drop is **entirely explained by 3 nocoverage mutants in `EditApplicationHandler.cs`**, all in slice-5-added code that the May 7 baseline never measured.
 

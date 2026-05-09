@@ -131,7 +131,9 @@ public class ApplicationLifecycleTests
     {
         var app = NewActive();
         var ex = Assert.ThrowsExactly<ArgumentException>(() => app.Deprecate(Now.AddDays(-1), Clock()));
-        // FA's "*sunset*future*" glob (two segments) translated to a regex requiring both substrings.
+        // Two-substring ordered match: requires "sunset" to appear, then "future".
+        // Encoded as a regex because StringAssert has no multi-substring helper —
+        // do not "simplify" to a single Contains, which would lose the ordering guarantee.
         StringAssert.Matches(ex.Message, new Regex("sunset.*future"));
     }
 
