@@ -2,7 +2,6 @@ using System.Text.RegularExpressions;
 using Kartova.Catalog.Domain;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.Extensions.Time.Testing;
-using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
 // NOTE: A `using Kartova.Catalog.Domain;` would not bring `Application` into scope
 // unambiguously here — the enclosing `Kartova.Catalog` namespace contains a sibling

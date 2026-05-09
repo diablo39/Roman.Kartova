@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.InMemory.Infrastructure.Internal;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
-using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
 // NOTE: The same alias trick as ApplicationTests.cs — `Kartova.Catalog.Application`
 // namespace wins simple-name lookup, so we alias the domain type explicitly.

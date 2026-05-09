@@ -6,7 +6,6 @@ using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Pagination;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Time.Testing;
-using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
 // NOTE: Alias needed — the enclosing `Kartova.Catalog` namespace contains a sibling child
 // namespace `Kartova.Catalog.Application` which wins simple-name lookup for `Application`.

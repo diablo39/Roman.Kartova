@@ -1,6 +1,5 @@
 using Kartova.Catalog.Domain;
 using Kartova.SharedKernel;
-using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
 namespace Kartova.Catalog.Tests;
 

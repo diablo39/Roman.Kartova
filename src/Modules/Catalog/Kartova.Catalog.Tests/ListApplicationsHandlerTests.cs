@@ -1,7 +1,6 @@
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Infrastructure;
 using Kartova.SharedKernel.Pagination;
-using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
 namespace Kartova.Catalog.Tests;
 
