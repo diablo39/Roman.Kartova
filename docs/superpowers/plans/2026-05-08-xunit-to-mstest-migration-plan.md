@@ -38,7 +38,7 @@ Expected: `working tree clean` on `master` (or your migration branch).
 
 At the Stryker version pinned during Phase 0, the root `stryker-config.json` invocation can fail at a source-generator/interceptor bug in `Microsoft.AspNetCore.OpenApi.SourceGenerators` (CS9234). The repo's working pattern is per-project orchestration via `mutation-targets.json` + the `mutation-sentinel` skill. Mutation steps in Phases 1, 2, 9, 10, 11 below explicitly use per-project Stryker configs (`src/Kartova.SharedKernel/stryker-config.json`, `src/Kartova.SharedKernel.AspNetCore/stryker-config.json`, etc.) — do NOT use the root config in those per-phase mutation steps.
 
-**Phase 12 (Task 12.6 — final mutation regression check) is the exception:** Phase 12 deliberately re-runs the root config as the post-migration full-suite gate. If the root invocation still trips CS9234 at that point, fall back to per-project runs and aggregate the scores manually.
+**Phase 12 (Task 12.6 — final mutation regression check) is the exception:** Phase 12 deliberately re-runs the full per-project orchestrator post-migration. The per-phase incremental gate captures only changed-file scope (Phases 1, 2, 9, 10, 11); Phase 12's full mode captures the complete picture across all 12 source projects. If the root `stryker-config.json` is fixable by then (CS9234 resolves upstream), Phase 12 may switch to that single invocation; otherwise the orchestrator pattern remains canonical.
 
 (See also: baseline doc §"Why not a fresh run?" for the original diagnosis.)
 
@@ -743,9 +743,11 @@ Open one of the translated test classes in IDE Test Explorer; confirm tests appe
 
 Run per-project Stryker against `Kartova.SharedKernel`:
 ```
-dotnet stryker -f src/Kartova.SharedKernel/stryker-config.json
+dotnet stryker -f src/Kartova.SharedKernel/stryker-config.json --since:master
 ```
 Expected: mutation score within ±1pt of baseline (75.00% per `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md`). If outside ±1pt, see the merge-gate language in that doc and the per-phase ownership table.
+
+This per-project incremental run satisfies the per-phase mutation gate (~5 min wall-clock). To refresh the canonical `mutation-report-surviving.md` artifact across all 12 source projects, run the `mutation-sentinel` skill orchestrator (`bash ./.claude/skills/mutation-sentinel/scripts/ms-detect-and-run.sh`) — typically once per slice boundary, not per phase.
 
 (Per-project config used per the §Stryker invocation note at the top of this plan.)
 
@@ -845,9 +847,11 @@ git commit -m "chore(test): remove xUnit + FluentAssertions from Kartova.SharedK
 
 Run per-project Stryker against `Kartova.SharedKernel.AspNetCore`:
 ```
-dotnet stryker -f src/Kartova.SharedKernel.AspNetCore/stryker-config.json
+dotnet stryker -f src/Kartova.SharedKernel.AspNetCore/stryker-config.json --since:master
 ```
 Phase 2 is the **primary owner** of this mutation target but **co-driven with Phase 11** (the AspNetCore Stryker config also feeds `tests/Kartova.Api.IntegrationTests`, which is still on xUnit at this point). The score captured here is an **interim diagnostic** — a >1pt drift vs the 100.00% baseline (per `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md`) flags a translation defect in this phase to investigate before Phase 11. The official gate runs at Phase 11 once both driving test suites are on MSTest.
+
+This per-project incremental run satisfies the per-phase mutation gate (~5 min wall-clock). To refresh the canonical `mutation-report-surviving.md` artifact across all 12 source projects, run the `mutation-sentinel` skill orchestrator (`bash ./.claude/skills/mutation-sentinel/scripts/ms-detect-and-run.sh`) — typically once per slice boundary, not per phase.
 
 (Per-project config used per the §Stryker invocation note at the top of this plan.)
 
@@ -1511,9 +1515,11 @@ git commit -m "chore(test): remove xUnit + FluentAssertions from Kartova.Catalog
 
 Run per-project Stryker against `Kartova.SharedKernel.Postgres`:
 ```
-dotnet stryker -f src/Kartova.SharedKernel.Postgres/stryker-config.json
+dotnet stryker -f src/Kartova.SharedKernel.Postgres/stryker-config.json --since:master
 ```
 Phase 9 is **co-driver** of this mutation target with Phase 10 (the Postgres Stryker config feeds both `Kartova.Catalog.IntegrationTests` and `Kartova.Organization.IntegrationTests`). Phase 10 is the second of the two co-drivers and is the official gate; this Phase-9 run captures an **interim diagnostic** score — a >1pt drift vs the 94.74% baseline (per `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md`) flags a translation defect in this phase to investigate before Phase 10.
+
+This per-project incremental run satisfies the per-phase mutation gate (~5 min wall-clock). To refresh the canonical `mutation-report-surviving.md` artifact across all 12 source projects, run the `mutation-sentinel` skill orchestrator (`bash ./.claude/skills/mutation-sentinel/scripts/ms-detect-and-run.sh`) — typically once per slice boundary, not per phase.
 
 (Per-project config used per the §Stryker invocation note at the top of this plan.)
 
@@ -1593,9 +1599,11 @@ Same shape as Task 9.6. Real HTTP verification step required.
 - [ ] **Step 1: Run per-project Stryker against `Kartova.SharedKernel.Postgres`.**
 
 ```
-dotnet stryker -f src/Kartova.SharedKernel.Postgres/stryker-config.json
+dotnet stryker -f src/Kartova.SharedKernel.Postgres/stryker-config.json --since:master
 ```
 Phase 10 is the **second of the two co-drivers** for this mutation target (Phase 9 captured an interim diagnostic score). At this point both `Kartova.Catalog.IntegrationTests` and `Kartova.Organization.IntegrationTests` are on MSTest, so this run is the **official gate** for `Kartova.SharedKernel.Postgres`. Expected: mutation score within ±1pt of the 94.74% baseline (per `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md`). If outside ±1pt, see the merge-gate language in that doc and the per-phase ownership table.
+
+This per-project incremental run satisfies the per-phase mutation gate (~5 min wall-clock). To refresh the canonical `mutation-report-surviving.md` artifact across all 12 source projects, run the `mutation-sentinel` skill orchestrator (`bash ./.claude/skills/mutation-sentinel/scripts/ms-detect-and-run.sh`) — typically once per slice boundary, not per phase.
 
 (Per-project config used per the §Stryker invocation note at the top of this plan.)
 
@@ -1890,9 +1898,11 @@ git commit -m "chore(test): remove xUnit + FA from Kartova.Api.IntegrationTests"
 
 Run per-project Stryker against `Kartova.SharedKernel.AspNetCore`:
 ```
-dotnet stryker -f src/Kartova.SharedKernel.AspNetCore/stryker-config.json
+dotnet stryker -f src/Kartova.SharedKernel.AspNetCore/stryker-config.json --since:master
 ```
 Phase 11 is the **second of the two co-drivers** for this mutation target (Phase 2 captured an interim diagnostic score). At this point both `tests/Kartova.SharedKernel.AspNetCore.Tests` and `tests/Kartova.Api.IntegrationTests` are on MSTest, so this run is the **official gate** for `Kartova.SharedKernel.AspNetCore`. Expected: mutation score within ±1pt of the 100.00% baseline (per `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md`). If outside ±1pt, see the merge-gate language in that doc and the per-phase ownership table.
+
+This per-project incremental run satisfies the per-phase mutation gate (~5 min wall-clock). To refresh the canonical `mutation-report-surviving.md` artifact across all 12 source projects, run the `mutation-sentinel` skill orchestrator (`bash ./.claude/skills/mutation-sentinel/scripts/ms-detect-and-run.sh`) — typically once per slice boundary, not per phase.
 
 (Per-project config used per the §Stryker invocation note at the top of this plan.)
 

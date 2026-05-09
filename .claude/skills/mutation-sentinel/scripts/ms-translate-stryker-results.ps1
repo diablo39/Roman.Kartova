@@ -306,7 +306,14 @@ foreach ($extraStatus in ($statusCounts.Keys | Where-Object { -not $orderedCount
     $orderedCounts[$extraStatus] = [int]$statusCounts[$extraStatus]
 }
 
-$survivorRows | Set-Content -Path $survivorPath -Encoding utf8
+# When zero survivors, an empty pipeline doesn't create the file. Force-create
+# an empty file so downstream Get-Content (line 325) doesn't crash on the
+# "all-mutants-killed" PASS path.
+if ($null -eq $survivorRows -or @($survivorRows).Count -eq 0) {
+    Set-Content -Path $survivorPath -Value '' -Encoding utf8
+} else {
+    $survivorRows | Set-Content -Path $survivorPath -Encoding utf8
+}
 ($orderedCounts | ConvertTo-Json -Compress) | Set-Content -Path $countsPath -Encoding utf8
 
 $ignored = Get-StatusCount -Counts $statusCounts -Name 'Ignored'
@@ -442,8 +449,8 @@ if ($status -eq 'FAIL') {
 $reportLines | Set-Content -Path $OutputPath -Encoding utf8
 
 Write-Output "report_count=$($reportPaths.Count)"
-Write-Output "survivor_rows=$($survivorRows.Count)"
-Write-Output "unique_files=$((($rows | Group-Object FilePath).Count))"
+Write-Output "survivor_rows=$(@($survivorRows).Count)"
+Write-Output "unique_files=$(@($rows | Group-Object FilePath).Count)"
 Write-Output "score=$scoreText"
 Write-Output "status=$status"
 Write-Output "temp_root=$TempRoot"
