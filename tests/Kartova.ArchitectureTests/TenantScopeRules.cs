@@ -144,7 +144,8 @@ public class TenantScopeRules
             var ex = Assert.ThrowsExactly<InvalidOperationException>(
                 () => scope.ServiceProvider.GetRequiredService(module.DbContextType),
                 $"module '{module.Name}' must register its DbContext via AddModuleDbContext (ADR-0090)");
-            // FA's WithMessage("*INpgsqlTenantScope*") was a glob — translated to a substring check.
+            // INpgsqlTenantScope is the missing collaborator AddModuleDbContext requires —
+            // its absence pins the registration path (raw AddDbContext would resolve fine).
             StringAssert.Contains(ex.Message, "INpgsqlTenantScope");
         }
     }
