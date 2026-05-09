@@ -1,12 +1,12 @@
-using FluentAssertions;
 using NetArchTest.Rules;
-using Xunit;
+using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
 namespace Kartova.ArchitectureTests;
 
+[TestClass]
 public class WolverinePersistenceBoundaryTests
 {
-    [Fact]
+    [TestMethod]
     public void No_Production_Assembly_Depends_On_WolverinePostgresql()
     {
         foreach (var assembly in AssemblyRegistry.AllProduction())
@@ -16,7 +16,8 @@ public class WolverinePersistenceBoundaryTests
                 .NotHaveDependencyOn("Wolverine.Postgresql")
                 .GetResult();
 
-            result.IsSuccessful.Should().BeTrue(
+            Assert.IsTrue(
+                result.IsSuccessful,
                 $"Wolverine PostgreSQL persistence is deferred per " +
                 $"docs/superpowers/specs/2026-04-24-defer-wolverine-persistence-design.md. " +
                 $"Assembly {assembly.GetName().Name} must not reference Wolverine.Postgresql. " +
