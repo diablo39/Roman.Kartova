@@ -1,4 +1,3 @@
-using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 using Kartova.Catalog.Infrastructure;
 using Kartova.Catalog.IntegrationTests.Fixtures;
 using Microsoft.EntityFrameworkCore;

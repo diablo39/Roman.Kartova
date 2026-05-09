@@ -1,4 +1,3 @@
-using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Infrastructure;
 using Kartova.SharedKernel.AspNetCore;

@@ -1,4 +1,3 @@
-using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 using System.Net;
 using System.Net.Http.Json;
 using Kartova.Catalog.Contracts;
