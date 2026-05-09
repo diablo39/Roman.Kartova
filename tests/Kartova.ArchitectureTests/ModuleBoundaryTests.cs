@@ -1,6 +1,5 @@
 using System.Linq;
 using NetArchTest.Rules;
-using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
 namespace Kartova.ArchitectureTests;
 

@@ -3,7 +3,6 @@ using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Postgres;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
 namespace Kartova.ArchitectureTests;
 

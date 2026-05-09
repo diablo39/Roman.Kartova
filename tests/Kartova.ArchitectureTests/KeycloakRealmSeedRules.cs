@@ -1,8 +1,6 @@
 using System.IO;
 using System.Linq;
 using System.Text.Json;
-using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
-using CollectionAssert = Microsoft.VisualStudio.TestTools.UnitTesting.CollectionAssert;
 
 namespace Kartova.ArchitectureTests;
 

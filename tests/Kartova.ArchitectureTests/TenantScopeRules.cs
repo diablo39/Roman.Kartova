@@ -3,8 +3,6 @@ using Kartova.SharedKernel;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NetArchTest.Rules;
-using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
-using StringAssert = Microsoft.VisualStudio.TestTools.UnitTesting.StringAssert;
 
 namespace Kartova.ArchitectureTests;
 

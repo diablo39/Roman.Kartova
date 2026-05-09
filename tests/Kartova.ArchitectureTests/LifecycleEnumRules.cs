@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using Kartova.Catalog.Domain;
-using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
 namespace Kartova.ArchitectureTests;
 

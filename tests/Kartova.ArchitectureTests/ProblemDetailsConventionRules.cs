@@ -1,5 +1,4 @@
 using System.Text.RegularExpressions;
-using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
 namespace Kartova.ArchitectureTests;
 

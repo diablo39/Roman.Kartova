@@ -1,7 +1,6 @@
 using System.Text.RegularExpressions;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.AspNetCore;
-using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
 namespace Kartova.ArchitectureTests;
 
