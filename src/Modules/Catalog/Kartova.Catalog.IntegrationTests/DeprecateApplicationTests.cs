@@ -1,6 +1,6 @@
+using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 using System.Net;
 using System.Net.Http.Json;
-using FluentAssertions;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
 using Kartova.SharedKernel.AspNetCore;
@@ -8,20 +8,16 @@ using Kartova.Testing.Auth;
 
 namespace Kartova.Catalog.IntegrationTests;
 
-[Collection(KartovaApiCollection.Name)]
-public class DeprecateApplicationTests
+[TestClass]
+public class DeprecateApplicationTests : CatalogIntegrationTestBase
 {
     private const string OrgAUser = "admin@orga.kartova.local";
     private const string OrgBUser = "admin@orgb.kartova.local";
 
-    private readonly KartovaApiFixture _fx;
-
-    public DeprecateApplicationTests(KartovaApiFixture fx) => _fx = fx;
-
-    [Fact]
+    [TestMethod]
     public async Task POST_deprecate_with_future_sunsetDate_returns_200_and_sets_lifecycle_and_sunsetDate()
     {
-        var client = await _fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
         var registered = await RegisterAsync(client, "deprecate-app-1", "Deprecate App 1", "Desc.");
 
         var sunset = DateTimeOffset.UtcNow.AddDays(30);
@@ -29,20 +25,21 @@ public class DeprecateApplicationTests
             $"/api/v1/catalog/applications/{registered.Id}/deprecate",
             new DeprecateApplicationRequest(sunset));
 
-        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
         var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
-        body!.Lifecycle.Should().Be(Lifecycle.Deprecated);
+        Assert.AreEqual(Lifecycle.Deprecated, body!.Lifecycle);
         // Round-trip through JSON loses sub-microsecond precision; the close-enough
         // tolerance keeps the assertion robust against PostgreSQL's microsecond
         // resolution while still pinning the value end-to-end.
-        body.SunsetDate.Should().NotBeNull();
-        body.SunsetDate!.Value.Should().BeCloseTo(sunset, TimeSpan.FromSeconds(1));
+        Assert.IsNotNull(body.SunsetDate);
+        var diff = (body.SunsetDate!.Value - sunset).Duration();
+        Assert.IsTrue(diff <= TimeSpan.FromSeconds(1));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task POST_deprecate_with_past_sunsetDate_returns_400_with_field_error()
     {
-        var client = await _fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
         var registered = await RegisterAsync(client, "deprecate-app-2", "Deprecate App 2", "Desc.");
 
         var past = DateTimeOffset.UtcNow.AddDays(-1);
@@ -50,16 +47,16 @@ public class DeprecateApplicationTests
             $"/api/v1/catalog/applications/{registered.Id}/deprecate",
             new DeprecateApplicationRequest(past));
 
-        resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
         var problem = await resp.Content.ReadFromJsonAsync<ProblemPayload>();
-        problem!.Type.Should().Be(ProblemTypes.ValidationFailed);
-        problem.Errors.Should().ContainKey("sunsetDate");
+        Assert.AreEqual(ProblemTypes.ValidationFailed, problem!.Type);
+        Assert.IsTrue(problem.Errors.ContainsKey("sunsetDate"));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task POST_deprecate_already_Deprecated_returns_409()
     {
-        var client = await _fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
         var registered = await RegisterAsync(client, "deprecate-app-3", "Deprecate App 3", "Desc.");
 
         // First deprecate succeeds.
@@ -67,7 +64,7 @@ public class DeprecateApplicationTests
         var first = await client.PostAsJsonAsync(
             $"/api/v1/catalog/applications/{registered.Id}/deprecate",
             new DeprecateApplicationRequest(firstSunset));
-        first.IsSuccessStatusCode.Should().BeTrue();
+        Assert.IsTrue(first.IsSuccessStatusCode);
 
         // Second deprecate on an already-Deprecated row violates the
         // "current state must be Active" invariant → 409 with currentLifecycle.
@@ -76,35 +73,35 @@ public class DeprecateApplicationTests
             $"/api/v1/catalog/applications/{registered.Id}/deprecate",
             new DeprecateApplicationRequest(secondSunset));
 
-        second.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        Assert.AreEqual(HttpStatusCode.Conflict, second.StatusCode);
         var problem = await second.Content.ReadFromJsonAsync<ProblemPayload>();
-        problem!.Type.Should().Be(ProblemTypes.LifecycleConflict);
-        problem.Extensions["currentLifecycle"]!.ToString().Should().Be("deprecated");
-        problem.Extensions["attemptedTransition"]!.ToString().Should().Be("Deprecate");
+        Assert.AreEqual(ProblemTypes.LifecycleConflict, problem!.Type);
+        Assert.AreEqual("deprecated", problem.Extensions["currentLifecycle"]!.ToString());
+        Assert.AreEqual("Deprecate", problem.Extensions["attemptedTransition"]!.ToString());
     }
 
-    [Fact]
+    [TestMethod]
     public async Task POST_deprecate_for_other_tenants_id_returns_404()
     {
-        var orgAClient = await _fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var orgAClient = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
         var orgARegistered = await RegisterAsync(orgAClient, "deprecate-app-4", "App", "Desc.");
 
-        var orgBClient = await _fx.CreateAuthenticatedClientAsync(OrgBUser);
+        var orgBClient = await Fx.CreateAuthenticatedClientAsync(OrgBUser);
         var resp = await orgBClient.PostAsJsonAsync(
             $"/api/v1/catalog/applications/{orgARegistered.Id}/deprecate",
             new DeprecateApplicationRequest(DateTimeOffset.UtcNow.AddDays(30)));
 
-        resp.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task POST_deprecate_without_token_returns_401()
     {
-        using var anon = _fx.CreateAnonymousClient();
+        using var anon = Fx.CreateAnonymousClient();
         var resp = await anon.PostAsJsonAsync(
             $"/api/v1/catalog/applications/{Guid.NewGuid()}/deprecate",
             new DeprecateApplicationRequest(DateTimeOffset.UtcNow.AddDays(30)));
-        resp.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
     }
 
     private static async Task<ApplicationResponse> RegisterAsync(HttpClient client, string name, string displayName, string description)
@@ -112,7 +109,7 @@ public class DeprecateApplicationTests
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
             new RegisterApplicationRequest(name, displayName, description));
-        resp.IsSuccessStatusCode.Should().BeTrue();
+        Assert.IsTrue(resp.IsSuccessStatusCode);
         return (await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
     }
 
