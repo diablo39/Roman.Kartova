@@ -95,13 +95,9 @@ public abstract class KartovaApiFixtureBase
         await RunModuleMigrationsAsync(MigratorConnectionString);
     }
 
-    async Task IAsyncLifetime.DisposeAsync() => await DisposeAsyncCore();
+    Task IAsyncLifetime.DisposeAsync() => DisposeAsyncCore().AsTask();
 
-    async ValueTask IAsyncDisposable.DisposeAsync()
-    {
-        await DisposeAsyncCore();
-        GC.SuppressFinalize(this);
-    }
+    ValueTask IAsyncDisposable.DisposeAsync() => DisposeAsyncCore();
 
     /// <summary>
     /// Override hook for module-specific teardown — called by both the xUnit
