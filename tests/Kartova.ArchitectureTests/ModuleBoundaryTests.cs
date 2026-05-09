@@ -1,13 +1,13 @@
 using System.Linq;
-using FluentAssertions;
 using NetArchTest.Rules;
-using Xunit;
+using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
 namespace Kartova.ArchitectureTests;
 
+[TestClass]
 public class ModuleBoundaryTests
 {
-    [Fact]
+    [TestMethod]
     public void Catalog_Does_Not_Reference_Other_Modules_Internals()
     {
         // In Slice 1 only Catalog exists; this test is vacuously true but scaffolds
@@ -38,13 +38,14 @@ public class ModuleBoundaryTests
                 .NotHaveDependencyOnAny(forbiddenNamespaces)
                 .GetResult();
 
-            result.IsSuccessful.Should().BeTrue(
+            Assert.IsTrue(
+                result.IsSuccessful,
                 $"Catalog assembly {assembly.GetName().Name} must not reference other modules' internals (ADR-0082). " +
                 $"Violating types: {string.Join(", ", result.FailingTypeNames ?? [])}");
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void SharedKernel_Does_Not_Reference_Any_Module()
     {
         var result = Types.InAssembly(AssemblyRegistry.SharedKernel)
@@ -56,7 +57,8 @@ public class ModuleBoundaryTests
                 "Kartova.Catalog.Contracts")
             .GetResult();
 
-        result.IsSuccessful.Should().BeTrue(
+        Assert.IsTrue(
+            result.IsSuccessful,
             "SharedKernel must be stable and not depend on any module (ADR-0082). " +
             $"Violating types: {string.Join(", ", result.FailingTypeNames ?? [])}");
     }
