@@ -60,6 +60,7 @@ public class TenantScopeCommitEndpointFilterTests
         var ctx = MakeContext(handle);
         var sut = new TenantScopeCommitEndpointFilter();
 
+        // Tightening (see line 45): exact-type assertion vs FA's base-type permissiveness.
         var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
             () => sut.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(Results.Ok())).AsTask());
         Assert.AreEqual("connection lost", ex.Message);

@@ -15,7 +15,11 @@ public class IfMatchEndpointFilterTests
         var ctx = MakeContext(headerValue: null);
         var filter = new IfMatchEndpointFilter();
 
-        // Tightening: ThrowsExactlyAsync vs FA's loose ThrowAsync — exact type enforced.
+        // Note: Assert.ThrowsExactlyAsync<PreconditionRequiredException> is used uniformly throughout
+        // this file as a translation policy. Since PreconditionRequiredException is sealed, there is
+        // no behavioural difference vs FluentAssertions' permissive Should().ThrowAsync<>() — but the
+        // ThrowsExactly idiom is preferred per the migration's spec §4 to keep all exception
+        // assertions strictly typed.
         var ex = await Assert.ThrowsExactlyAsync<PreconditionRequiredException>(
             async () => await filter.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(null)));
         StringAssert.Matches(ex.Message, new Regex(".*required.*"));

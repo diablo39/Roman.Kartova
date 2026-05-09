@@ -74,6 +74,7 @@ public class JwtAuthenticationExtensionsTests
         var services = new ServiceCollection();
         services.AddLogging();
 
+        // Tightening (see line 59): exact-type assertion vs FA's base-type permissiveness.
         var ex = Assert.ThrowsExactly<InvalidOperationException>(() => services.AddKartovaJwtAuth(cfg));
         StringAssert.Matches(ex.Message, new Regex(".*Audience not configured.*"));
     }
@@ -93,6 +94,7 @@ public class JwtAuthenticationExtensionsTests
         var services = new ServiceCollection();
         services.AddLogging();
 
+        // Tightening (see line 59): exact-type assertion vs FA's base-type permissiveness.
         var ex = Assert.ThrowsExactly<InvalidOperationException>(() => services.AddKartovaJwtAuth(cfg));
         StringAssert.Matches(ex.Message, new Regex(".*Authority not configured.*"));
     }
