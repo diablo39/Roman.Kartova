@@ -28,7 +28,8 @@ namespace Kartova.Testing.Auth;
 /// which DbContext to migrate.
 /// </summary>
 [ExcludeFromCodeCoverage]
-public abstract class KartovaApiFixtureBase : WebApplicationFactory<Program>, IAsyncLifetime
+public abstract class KartovaApiFixtureBase
+    : WebApplicationFactory<Program>, IAsyncLifetime, IAsyncDisposable
 {
     private readonly PostgreSqlContainer _pg = new PostgreSqlBuilder()
         .WithImage("postgres:18-alpine")
@@ -62,6 +63,31 @@ public abstract class KartovaApiFixtureBase : WebApplicationFactory<Program>, IA
     public string MigratorConnectionString =>
         PostgresTestBootstrap.ConnectionStringFor(_pg.GetConnectionString(), PostgresTestBootstrap.MigratorRole);
 
+    /// <summary>
+    /// Spins up the Postgres container and applies module migrations. Call once per
+    /// fixture lifetime — typically from <c>[ClassInitialize]</c> in MSTest test
+    /// classes (semantic equivalent of xUnit's <c>IAsyncLifetime.InitializeAsync</c>).
+    /// </summary>
+    /// <remarks>
+    /// MSTest consumer pattern (Phases 9–10):
+    /// <code>
+    /// [TestClass]
+    /// public abstract class CatalogIntegrationTestBase
+    /// {
+    ///     protected static KartovaApiFixture Fx { get; private set; } = null!;
+    ///
+    ///     [ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
+    ///     public static async Task ClassInit(TestContext _)
+    ///     {
+    ///         Fx = new KartovaApiFixture();
+    ///         await Fx.InitializeAsync();
+    ///     }
+    ///
+    ///     [ClassCleanup(InheritanceBehavior.BeforeEachDerivedClass)]
+    ///     public static async Task ClassDone() =&gt; await ((IAsyncDisposable)Fx).DisposeAsync();
+    /// }
+    /// </code>
+    /// </remarks>
     public async Task InitializeAsync()
     {
         await _pg.StartAsync();
@@ -69,7 +95,15 @@ public abstract class KartovaApiFixtureBase : WebApplicationFactory<Program>, IA
         await RunModuleMigrationsAsync(MigratorConnectionString);
     }
 
-    async Task IAsyncLifetime.DisposeAsync()
+    Task IAsyncLifetime.DisposeAsync() => DisposeAsyncCore();
+
+    async ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        await DisposeAsyncCore();
+        GC.SuppressFinalize(this);
+    }
+
+    private async Task DisposeAsyncCore()
     {
         await _pg.DisposeAsync();
         await base.DisposeAsync();
