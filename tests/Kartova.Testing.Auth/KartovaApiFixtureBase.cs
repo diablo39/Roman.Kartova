@@ -66,27 +66,39 @@ public abstract class KartovaApiFixtureBase
     /// <summary>
     /// Spins up the Postgres container and applies module migrations. xUnit consumers
     /// get this for free via <see cref="IAsyncLifetime"/>; MSTest consumers must call
-    /// it explicitly from <c>[ClassInitialize]</c> (see remarks).
+    /// it explicitly from <c>[AssemblyInitialize]</c> (see remarks).
     /// </summary>
     /// <remarks>
-    /// MSTest consumer pattern (Phases 9–10):
+    /// MSTest consumer pattern (Phases 9–11): one fixture per assembly run, shared
+    /// across every test class. Matches xUnit's <c>ICollectionFixture&lt;T&gt;</c>
+    /// granularity when the collection already spans the project (the typical case).
+    /// Requires <c>[assembly: DoNotParallelize]</c> in <c>Properties/AssemblyInfo.cs</c>
+    /// because the fixture mutates process-global env vars.
     /// <code>
     /// [TestClass]
-    /// public abstract class CatalogIntegrationTestBase
+    /// public sealed class IntegrationTestAssemblySetup
     /// {
-    ///     protected static KartovaApiFixture Fx { get; private set; } = null!;
+    ///     public static KartovaApiFixture Fx { get; private set; } = null!;
     ///
-    ///     [ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
-    ///     public static async Task ClassInit(TestContext _)
+    ///     [AssemblyInitialize]
+    ///     public static async Task InitAsync(TestContext _)
     ///     {
     ///         Fx = new KartovaApiFixture();
     ///         await Fx.InitializeAsync();
     ///     }
     ///
-    ///     [ClassCleanup(InheritanceBehavior.BeforeEachDerivedClass)]
-    ///     public static async Task ClassDone() =&gt; await ((IAsyncDisposable)Fx).DisposeAsync();
+    ///     [AssemblyCleanup]
+    ///     public static async Task CleanupAsync()
+    ///     {
+    ///         if (Fx is not null) await ((IAsyncDisposable)Fx).DisposeAsync();
+    ///     }
     /// }
     /// </code>
+    /// Per-class <c>[ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]</c>
+    /// is the wrong pattern here — it creates one fixture per derived class, which
+    /// for a heavyweight Postgres+API fixture is a 6× wall-clock regression vs the
+    /// xUnit baseline. See <c>docs/superpowers/reviews/2026-05-09-feat-mstest-migration-phase-9-review.md</c>
+    /// for the bug Phase 9 hit and corrected.
     /// </remarks>
     public async Task InitializeAsync()
     {

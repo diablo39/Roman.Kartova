@@ -352,9 +352,9 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
     [TestMethod]
     public async Task GET_applications_default_excludes_Decommissioned()
     {
-        // Use a unique prefix so the assertions are not confused by rows seeded by
-        // other tests in the same class — CatalogIntegrationTestBase's static Fx is
-        // class-scoped (BeforeEachDerivedClass), so DB state survives across tests.
+        // Use a unique prefix; rows from earlier tests in the assembly survive in
+        // the shared DB (the assembly-scoped Fx in IntegrationTestAssemblySetup keeps
+        // one Postgres container alive across all test classes).
         var unique = $"f6-excl-{Guid.NewGuid():N}";
         var activePrefix = $"{unique}-a-";
         var decommPrefix = $"{unique}-d-";
