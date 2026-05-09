@@ -3,7 +3,6 @@ using Kartova.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
 namespace Kartova.Catalog.Infrastructure.Tests;
 
