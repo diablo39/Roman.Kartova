@@ -1,18 +1,18 @@
-using FluentAssertions;
 using Kartova.SharedKernel.AspNetCore;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Update;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
-using Xunit;
 
 namespace Kartova.SharedKernel.AspNetCore.Tests;
 
+[TestClass]
 public class ConcurrencyConflictExceptionHandlerTests
 {
-    [Fact]
+    [TestMethod]
     public async Task Maps_DbUpdateConcurrencyException_to_412_with_correct_type()
     {
         var pds = Substitute.For<IProblemDetailsService>();
@@ -30,14 +30,14 @@ public class ConcurrencyConflictExceptionHandlerTests
 
         var handled = await handler.TryHandleAsync(http, ex, CancellationToken.None);
 
-        handled.Should().BeTrue();
-        http.Response.StatusCode.Should().Be(StatusCodes.Status412PreconditionFailed);
+        Assert.IsTrue(handled);
+        Assert.AreEqual(StatusCodes.Status412PreconditionFailed, http.Response.StatusCode);
         await pds.Received(1).TryWriteAsync(Arg.Is<ProblemDetailsContext>(c =>
             c.ProblemDetails.Type == ProblemTypes.ConcurrencyConflict &&
             c.ProblemDetails.Status == 412));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Returns_false_for_unrelated_exception()
     {
         var pds = Substitute.For<IProblemDetailsService>();
@@ -46,7 +46,7 @@ public class ConcurrencyConflictExceptionHandlerTests
         var handled = await handler.TryHandleAsync(new DefaultHttpContext(),
             new InvalidOperationException(), CancellationToken.None);
 
-        handled.Should().BeFalse();
+        Assert.IsFalse(handled);
         await pds.DidNotReceive().TryWriteAsync(Arg.Any<ProblemDetailsContext>());
     }
 }
