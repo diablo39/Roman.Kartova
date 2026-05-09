@@ -1,20 +1,14 @@
 namespace Kartova.Catalog.IntegrationTests;
 
+/// <summary>
+/// Convenience base class — exposes the assembly-scoped <see cref="KartovaApiFixture"/>
+/// (owned by <see cref="IntegrationTestAssemblySetup"/>) as a protected static so derived
+/// test classes can write <c>Fx.X</c> instead of the fully qualified
+/// <c>IntegrationTestAssemblySetup.Fx.X</c>. The fixture itself is created exactly once
+/// per assembly run via <c>[AssemblyInitialize]</c>; this base class adds no lifecycle.
+/// </summary>
 [TestClass]
 public abstract class CatalogIntegrationTestBase
 {
-    protected static KartovaApiFixture Fx { get; private set; } = null!;
-
-    [ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
-    public static async Task ClassInit(TestContext _)
-    {
-        Fx = new KartovaApiFixture();
-        await Fx.InitializeAsync();
-    }
-
-    [ClassCleanup(InheritanceBehavior.BeforeEachDerivedClass)]
-    public static async Task ClassDone()
-    {
-        if (Fx is not null) await ((IAsyncDisposable)Fx).DisposeAsync();
-    }
+    protected static KartovaApiFixture Fx => IntegrationTestAssemblySetup.Fx;
 }

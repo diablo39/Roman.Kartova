@@ -204,7 +204,7 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
         var first = await client.GetFromJsonAsync<CursorPage<ApplicationResponse>>(
             "/api/v1/catalog/applications?sortBy=createdAt&sortOrder=asc&limit=4",
             KartovaApiFixtureBase.WireJson);
-        Assert.AreEqual(4, first!.Items.Count());
+        Assert.AreEqual(4, first!.Items.Count);
         Assert.IsNotNull(first.NextCursor);
 
         await Fx.DeleteApplicationAsync(OrgATenant, first.Items[^1].Id);
