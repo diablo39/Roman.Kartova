@@ -3,12 +3,11 @@ using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using Testcontainers.Keycloak;
 using Testcontainers.PostgreSql;
-using Xunit;
 
 namespace Kartova.Api.IntegrationTests;
 
 [ExcludeFromCodeCoverage]
-public sealed class KeycloakContainerFixture : IAsyncLifetime
+public sealed class KeycloakContainerFixture : IAsyncDisposable
 {
     public PostgreSqlContainer Postgres { get; } = new PostgreSqlBuilder()
         .WithImage("postgres:18-alpine")
@@ -40,7 +39,7 @@ public sealed class KeycloakContainerFixture : IAsyncLifetime
         await Task.WhenAll(Postgres.StartAsync(), Keycloak.StartAsync());
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await Task.WhenAll(Postgres.DisposeAsync().AsTask(), Keycloak.DisposeAsync().AsTask());
     }
