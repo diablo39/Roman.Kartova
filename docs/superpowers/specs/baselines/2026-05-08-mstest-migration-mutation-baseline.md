@@ -258,3 +258,71 @@ The single file in scope of the baseline (`QueryablePagingExtensions.cs`) actual
 Phase 10 is not the offending phase: it changed zero production code, and the headline regression is entirely explained by the baseline measuring 1 of 5 files. The corrected `Kartova.SharedKernel.Postgres` floor is **82.69% (86 killed inc. timeout / 104 evaluable)** with the enumerated survivors above. Score *increase* sanity check (per §"Mutation gate" line 40 secondary check): CompileError went from 24 → 24 (unchanged), confirming no `Killed → CompileError` silent reclassification of the kind that would inflate the score artificially. The +50 mutant count is real coverage scope expansion.
 
 Future slices that touch `TenantScope.cs` rollback paths (especially any that exercises the `[Commit_failure_after_write_propagates_and_persists_no_data]` test class which Phase 10 translated with `try/catch+IsNotNull` to preserve covariance) should kill or further document these survivors. Most are pre-existing slice-2-followup paths; a focused integration test exercising the `_committed`/`_transaction`/`_connection` null-guards would close several at once.
+
+## Phase 11 verification (2026-05-09)
+
+**Date:** 2026-05-09
+**Branch:** `feat/mstest-migration-phase-11`
+**Stryker version:** 4.14.1 (unchanged)
+**Run shape:** per-source-project, full mode, via `dotnet stryker -f src/Kartova.SharedKernel.AspNetCore/stryker-config.json --project src/Kartova.SharedKernel.AspNetCore/Kartova.SharedKernel.AspNetCore.csproj`. Phase 11 is the **second of two co-drivers** for `Kartova.SharedKernel.AspNetCore` (Phase 2 was the first; deferred its interim diagnostic per the "diagnostic-only license" at `docs/superpowers/specs/baselines/2026-05-09-phase-2-mutation-deferral.md`). At Phase 11's HEAD both driving test suites (`Kartova.SharedKernel.AspNetCore.Tests` from Phase 2 + `Kartova.Api.IntegrationTests` from Phase 11) are on MSTest — this is the canonical apples-to-apples regression check vs baseline.
+
+### Score
+
+| Project | Baseline (May 7) | Phase 11 (May 9) | Δ headline |
+|---|---|---|---|
+| `Kartova.SharedKernel.AspNetCore` | 100% (3 evaluable, 3 killed) | 91.53% (59 evaluable, 51 killed, 3 timeout, 5 survived, 0 nocov) | **−8.47pt** |
+
+### Diagnosis — third instance of the same baseline-staleness pattern
+
+Same pattern as Phase 4 (Catalog.Infrastructure) and Phase 10 (SharedKernel.Postgres). The May 7 baseline (`StrykerOutput/Kartova.SharedKernel.AspNetCore/2026-05-07.20-36-42/reports/mutation-report.json`) measured evaluable mutants in **only 1 of 14 source files** (`PagingExceptionHandler.cs` — 3 killed, 0 survived = 100%, baseline's reported score). All 13 other files in the project appeared in the baseline `files` array but every mutant had status `Ignored` — under the mutation-sentinel orchestrator's `--since:master` filter, only files changed in the working branch at run time produced non-Ignored mutants. The other 13 files were stable on master at that point, so they contributed no evaluable mutants to the baseline.
+
+Phase 11's full-mode run (no `--since`) is the first measurement of the actual mutation surface of `Kartova.SharedKernel.AspNetCore`. **Phase 11 changed zero production code**; the test translations don't affect mutation kill rates. `PagingExceptionHandler.cs` (the one file the baseline measured) preserved its 100% score under Phase 11 (same 3 killed, 0 survivors) — confirming translation parity on the measured surface.
+
+### Per-file breakdown
+
+| File | Baseline May 7 | Phase 11 May 9 | Origin |
+|---|---|---|---|
+| `ConcurrencyConflictExceptionHandler.cs` | 0 evaluable (all Ignored / CompileError) | 100% (2 killed) | slice-2 / slice-3 |
+| `DomainValidationExceptionHandler.cs` | 0 evaluable | 83.33% (5 killed, 1 survived) | slice-3 (`98c7574`) |
+| `HttpContextCurrentUser.cs` | 0 evaluable | 100% (1 killed) | slice-2 |
+| `IfMatchEndpointFilter.cs` | 0 evaluable | N/A (0 evaluable; 48 CompileError) | slice-5 |
+| `JwtAuthenticationExtensions.cs` | 0 evaluable | 92.86% (13 killed, 1 survived) | slice-2 (`3938931`) |
+| `LifecycleConflictExceptionHandler.cs` | 0 evaluable | 100% (4 killed) | slice-3 |
+| `ModuleRouteExtensions.cs` | 0 evaluable | **0% (0 killed, 2 survived)** | slice-3 (`98c7574`) |
+| `PagingExceptionHandler.cs` | 100% (3 killed) | 100% (3 killed) — **same as baseline** | pre-baseline |
+| `PreconditionRequiredExceptionHandler.cs` | 0 evaluable | 100% (1 killed) | slice-2 / slice-3 |
+| `TenantClaimsTransformation.cs` | 0 evaluable | 100% (11 killed, 3 timeout) | slice-2 |
+| `TenantScopeBeginMiddleware.cs` | 0 evaluable | N/A (0 evaluable; 20 CompileError) | slice-2-followup |
+| `TenantScopeCommitEndpointFilter.cs` | 0 evaluable | N/A (0 evaluable; 11 CompileError) | slice-2-followup |
+| `TenantScopeRouteExtensions.cs` | 0 evaluable | 66.67% (2 killed, 1 survived) | slice-2 (`3938931`) |
+| `VersionEncoding.cs` | 0 evaluable | 100% (9 killed) | slice-2 |
+
+### Enumerated post-Phase-11 floor (the new accepted state per merge-gate clause-(b))
+
+**Survivors:**
+| File | Line | Mutator | Origin commit / slice |
+|---|---|---|---|
+| `DomainValidationExceptionHandler.cs` | 52 | Conditional (true) | slice-3 `98c7574` (2026-04-30) |
+| `JwtAuthenticationExtensions.cs` | 54 | Statement | slice-2 `3938931` (2026-04-26) |
+| `ModuleRouteExtensions.cs` | 21 | Statement | slice-3 `98c7574` (2026-04-30) |
+| `ModuleRouteExtensions.cs` | 32 | Statement | slice-3 `98c7574` (2026-04-30) |
+| `TenantScopeRouteExtensions.cs` | 26 | Statement | slice-2 `3938931` (2026-04-26) |
+
+**All 5 survivors are in code added by slice-2 (`3938931`, 2026-04-26) or slice-3 (`98c7574`, 2026-04-30) — both predating the migration baseline run by 7-11 days.** They were filtered to `Ignored` at the baseline by the `--since:master` mechanism.
+
+### Reconciliation — clause-(b) of merge-gate
+
+Phase 11 is not the offending phase. Phase 2 (the co-driver) also changed zero production code in `Kartova.SharedKernel.AspNetCore`. The headline regression is entirely explained by the baseline measuring 1 of 14 files. The corrected floor for `Kartova.SharedKernel.AspNetCore` is **91.53% (54 killed inc. timeout / 59 evaluable)** with the enumerated 5 survivors above. Sanity check (§"Mutation gate" line 40 secondary): CompileError 110 → 110 (unchanged), confirming no `Killed → CompileError` silent reclassification. The +56 mutant count is real coverage scope expansion under full mode.
+
+Three of the 5 survivors live in delegate-bound endpoint-registration extensions (`ModuleRouteExtensions.cs:21, :32` and `TenantScopeRouteExtensions.cs:26` — Statement mutations that remove the body of methods used during route group composition). Killing them would require an integration test that asserts the registered endpoint set against the live `EndpointDataSource` — exactly what `tests/Kartova.ArchitectureTests/EndpointRouteRules.cs` already does. A future slice could route those tests through both modules' route extensions to close the gap; out of scope for Phase 11 translation.
+
+### Migration mutation-gate landscape — closed
+
+All four official co-driver / single-owner mutation gates have now landed:
+
+- Phase 4 — `Kartova.Catalog.Domain` 100% (Δ +0pt); `Kartova.Catalog.Infrastructure` 95.77% (3 nocov, slice-5 origin, reconciled).
+- Phase 5 — `Kartova.Organization.Domain` 81.82% (Δ +0pt); `Kartova.Organization.Infrastructure.Admin` 80.00% (absolute survivor count preserved at 2; real coverage gain).
+- Phase 10 — `Kartova.SharedKernel.Postgres` 82.69% (5 survived + 13 nocov, slice-2-followup origin, reconciled).
+- Phase 11 — `Kartova.SharedKernel.AspNetCore` 91.53% (5 survived, slice-2 / slice-3 origin, reconciled).
+
+The repeated baseline-staleness pattern across Phase 4, 10, and 11 (`--since:master` filter at baseline-run time underreporting evaluable mutants by an order of magnitude) suggests the mutation-sentinel orchestrator's default filtering is well-suited for incremental-PR diagnostic runs but poorly suited for capturing a comprehensive baseline. **Future baseline-refresh runs should explicitly use full mode** so the doc reflects the actual mutation surface, not the diff-since-master surface.
