@@ -326,3 +326,46 @@ All four official co-driver / single-owner mutation gates have now landed:
 - Phase 11 — `Kartova.SharedKernel.AspNetCore` 91.53% (5 survived, slice-2 / slice-3 origin, reconciled).
 
 The repeated baseline-staleness pattern across Phase 4, 10, and 11 (`--since:master` filter at baseline-run time underreporting evaluable mutants by an order of magnitude) suggests the mutation-sentinel orchestrator's default filtering is well-suited for incremental-PR diagnostic runs but poorly suited for capturing a comprehensive baseline. **Future baseline-refresh runs should explicitly use full mode** so the doc reflects the actual mutation surface, not the diff-since-master surface.
+
+## Phase 12 — migration close-out (2026-05-09)
+
+**Date:** 2026-05-09
+**Branch:** `feat/mstest-migration-phase-12`
+
+### Task 12.6 — final mutation regression check
+
+**Skipped.** The plan prescribed `dotnet stryker -f stryker-config.json` (root config) as a whole-repo regression check. Two reasons not to run it:
+
+1. **Root config is broken** per §"Why not a fresh run?" at the top of this doc — Stryker.NET internal compile error rolling back a mutation in `Microsoft.AspNetCore.OpenApi.SourceGenerators\OpenApiXmlCommentSupport.generated.cs` (CS9234: interceptor file not found). The repo's working pattern is per-project orchestration via `mutation-targets.json`, which is what the Phase 4 / 5 / 10 / 11 official gates used.
+
+2. **Phase 12 changed no production code.** The 3 changes (Task 12.1 dropped `IAsyncLifetime` from `KartovaApiFixtureBase` — test infra, not mutated; Task 12.2 dropped a test infra package reference; Task 12.4 dropped CPM package versions for already-unreferenced packages) have zero effect on the mutation surface. Re-running the same per-project gates that landed in Phases 4 / 5 / 10 / 11 would produce identical reports.
+
+The canonical migration mutation-gate record is the four §"Phase N verification" entries above (Phase 4, 5, 10, 11) plus the deferral docs at `docs/superpowers/specs/baselines/2026-05-09-phase-2-mutation-deferral.md` (Phase 2 → Phase 11 co-driver) and the implicit Phase 9 → Phase 10 co-driver close-out at the §"Phase 10 verification" entry.
+
+### Migration accepted
+
+All 12 phases (0–12) of the xUnit → MSTest v4 migration are complete. Final tally:
+
+| Phase | Slice | DoD verified |
+|---|---|---|
+| 0 | Tooling, ADR, baseline capture | ✅ |
+| 1 | `tests/Kartova.SharedKernel.Tests` + CursorCodec.cs Int64 fix (§9.1) | ✅ |
+| 2 | `tests/Kartova.SharedKernel.AspNetCore.Tests` | ✅ (mutation gate deferred to Phase 11) |
+| 3 | `tests/Kartova.ArchitectureTests` (MSTEST0032 pragma at `LifecycleEnumRules`) | ✅ |
+| 4 | `src/Modules/Catalog/Kartova.Catalog.Tests` + first Stryker gate | ✅ |
+| 5 | `src/Modules/Organization/Kartova.Organization.Tests` + second Stryker gate | ✅ |
+| 6 | `src/Modules/Catalog/Kartova.Catalog.Infrastructure.Tests` | ✅ |
+| 7 | `src/Modules/Organization/Kartova.Organization.Infrastructure.Tests` | ✅ |
+| 8 | `tests/Kartova.Testing.Auth` additive contract (IAsyncDisposable alongside IAsyncLifetime) | ✅ |
+| 9 | `src/Modules/Catalog/Kartova.Catalog.IntegrationTests` + assembly-scoped fixture refactor | ✅ (mutation gate deferred to Phase 10 co-driver) |
+| 10 | `src/Modules/Organization/Kartova.Organization.IntegrationTests` + SharedKernel.Postgres official gate | ✅ |
+| 11 | `tests/Kartova.Api.IntegrationTests` + SharedKernel.AspNetCore official gate | ✅ |
+| 12 | Drop IAsyncLifetime; drop xunit.extensibility.core; drop xUnit + FA from CPM | ✅ |
+
+**End-state:**
+- All 10 test assemblies on MSTest v4.2.2 + native asserts. Zero xUnit references anywhere in the repo (`git grep -nE "xunit|FluentAssertions" -- "**/*.csproj"` returns empty; `git grep -n "using FluentAssertions" -- "tests/**" "src/Modules/**"` returns empty).
+- Full-solution `dotnet build Kartova.slnx -warnaserror` green at HEAD.
+- Full-solution `dotnet test Kartova.slnx --no-build` green: 398/398 across 10 assemblies (Unit: 7+74+3+3+74+88+46 = 295. Integration: 26+72+5 = 103. Total: 398.).
+- MTP adoption deferred per the spec — runner stays on VSTest, coverage stays on `coverlet.collector`. Revisit once `stryker-net#3094` closes.
+- 4 official mutation gates landed and reconciled: Catalog.Domain 100% (Δ +0pt), Catalog.Infrastructure 95.77% (slice-5 carry-forward), Organization.Domain 81.82% (Δ +0pt), Organization.Infrastructure.Admin 80.00% (real coverage gain), SharedKernel.Postgres 82.69% (slice-2-followup carry-forward), SharedKernel.AspNetCore 91.53% (slice-2 / slice-3 carry-forward). Three of the six surfaced the same baseline-staleness pattern from the May 7 baseline's `--since:master` filter — documented in their respective verification entries above and flagged as a process improvement for future baseline-refresh runs.
+- ADR-0097 (MSTest supersedes xUnit) merged in Phase 0; ADR-0083 marked superseded.
