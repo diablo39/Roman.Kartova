@@ -199,3 +199,62 @@ Phase 5 PASSES the mutation gate on all in-scope targets:
 - Organization.Infrastructure.Admin: absolute-survivor-count rule satisfied per baseline §Notes (2 survivors before, 2 survivors after; same mutations, same source statements). Score increase is sanity-checked clean.
 
 Phase 10 (which owns `Kartova.Organization.IntegrationTests` per the per-phase ownership table at line 50) is the appropriate slice to address the 2 documented `Rename`/`Add+SaveChanges` survivors when the IntegrationTests project migrates to MSTest — both source comments at `Organization.cs:38-39` and `AdminOrganizationCommands.cs:20-23` flag this carry-forward explicitly.
+
+## Phase 10 verification (2026-05-09)
+
+**Date:** 2026-05-09
+**Branch:** `feat/mstest-migration-phase-10`
+**Stryker version:** 4.14.1 (unchanged)
+**Run shape:** per-source-project, full mode, via `dotnet stryker -f src/Kartova.SharedKernel.Postgres/stryker-config.json --project src/Kartova.SharedKernel.Postgres/Kartova.SharedKernel.Postgres.csproj`. Phase 10 is the **second of two co-drivers** for `Kartova.SharedKernel.Postgres` (Phase 9 was the first; deferred its diagnostic per plan §Task 9.6 step 6). At Phase 10's HEAD, both driving test suites (Catalog.IntegrationTests + Organization.IntegrationTests) are on MSTest — this is the canonical apples-to-apples regression check against the baseline.
+
+### Score
+
+| Project | Baseline (May 7) | Phase 10 (May 9) | Δ headline |
+|---|---|---|---|
+| `Kartova.SharedKernel.Postgres` | 94.74% (38 evaluable, 36 killed, 2 survived, 0 timeout, 0 nocov) | 82.69% (104 evaluable, 61 killed, 25 timeout, 5 survived, 13 nocov) | **−12.05pt** |
+
+### Diagnosis — same baseline-staleness pattern as Phase 4
+
+Parsing both report JSONs at `StrykerOutput/Kartova.SharedKernel.Postgres/2026-05-07.20-36-42/reports/mutation-report.json` (baseline) and `StrykerOutput/Kartova.SharedKernel.Postgres/reports/mutation-report.json` (Phase 10) reveals: the May 7 baseline measured **evaluable mutants in only 1 file** (`QueryablePagingExtensions.cs` — 36 killed / 2 survived / 0 nocov = 38 evaluable, 94.74%). The other 4 source files in the project (`AddModuleDbContextExtensions.cs`, `EnlistInTenantScopeInterceptor.cs`, `TenantScope.cs`, `TenantScopeRequiredInterceptor.cs`) appeared in the baseline `files` array but every mutant carried status `Ignored` — almost certainly the mutation-sentinel orchestrator's `--since:master` filter at the time excluded them. Total: 144 Ignored + 24 CompileError mutants generated across the project at baseline, but only the 38 in `QueryablePagingExtensions.cs` counted toward the score.
+
+Phase 10's full-mode run (no `--since`) is the first measurement of the actual mutation surface of `Kartova.SharedKernel.Postgres`. **Phase 10 changed zero production code**; the test translations don't affect mutation kill rates. The 4 new Survived + 13 NoCoverage mutants all live in code last touched **2026-04-29 by slice-2-followup (commit `d85fa82`)** — predating the migration entirely.
+
+This is the same baseline-scope staleness diagnosis as Phase 4's Catalog.Infrastructure entry (lines 88-115). See that section for the mechanism details; the reconciliation here follows the same merge-gate clause-(b) pattern.
+
+### Per-file breakdown
+
+| File | Baseline May 7 | Phase 10 May 9 | Origin |
+|---|---|---|---|
+| `AddModuleDbContextExtensions.cs` | 0 evaluable (all Ignored under `--since:master`) | 100% (14 killed, 7 timeout, 0 survived, 0 nocov) | slice-2-followup (`d85fa82`, 2026-04-29) |
+| `EnlistInTenantScopeInterceptor.cs` | 0 evaluable | 83.33% (0 killed, 5 timeout, 0 survived, 1 nocov) | slice-2-followup |
+| `QueryablePagingExtensions.cs` | 94.74% (36 killed, 2 survived) | 97.37% (36 killed, 1 timeout, 1 survived, 0 nocov) | pre-baseline; Phase 10 **killed 1 prior survivor** at line 94 |
+| `TenantScope.cs` | 0 evaluable | 57.14% (8 killed, 12 timeout, 4 survived, 11 nocov) | slice-2-followup |
+| `TenantScopeRequiredInterceptor.cs` | 0 evaluable | 75% (3 killed, 0 timeout, 0 survived, 1 nocov) | slice-2-followup |
+
+The single file in scope of the baseline (`QueryablePagingExtensions.cs`) actually **improved**: baseline had 2 survivors (lines 94, 183); Phase 10 has 1 survivor (line 183 only). The line 94 Boolean mutation became Killed under Phase 10's full-mode reachability.
+
+### Enumerated post-Phase-10 floor (the new accepted state per merge-gate clause-(b))
+
+**Survivors:**
+| File | Line | Mutator | Replaces | Origin / Status |
+|---|---|---|---|---|
+| `QueryablePagingExtensions.cs` | 183 | Conditional (true) | `(true ? _to : base.VisitParameter(node))` | Pre-existing; survived in baseline too. Stryker comment-trigger artifact (see warning at run time line). |
+| `TenantScope.cs` | 107 | LogicalNotExpression | flip `!_committed` → `_committed` | slice-2-followup; rollback-paths in `DisposeAsync` are exercised only on specific transaction-state combinations the IntegrationTests don't naturally trigger. |
+| `TenantScope.cs` | 111 | Statement | remove statement | slice-2-followup; same rollback-path coverage gap. |
+| `TenantScope.cs` | 119 | Statement | remove statement | slice-2-followup; same. |
+| `TenantScope.cs` | 143 | Statement | remove statement | slice-2-followup; cleanup path in `DisposeAsync`. |
+
+**NoCoverage (no test executes the mutated line):**
+| File | Line | Origin |
+|---|---|---|
+| `EnlistInTenantScopeInterceptor.cs` | 37 | slice-2-followup |
+| `TenantScope.cs` | 61, 63, 66, 68, 71 (BeginAsync) | slice-2-followup — null-guard paths integration tests don't exercise |
+| `TenantScope.cs` | 79, 81, 84, 86, 89 (CommitAsync) | slice-2-followup — same null-guard pattern |
+| `TenantScope.cs` | 115 | slice-2-followup |
+| `TenantScopeRequiredInterceptor.cs` | 22 | slice-2-followup |
+
+### Reconciliation — clause-(b) of merge-gate (§"Mutation gate" line 38)
+
+Phase 10 is not the offending phase: it changed zero production code, and the headline regression is entirely explained by the baseline measuring 1 of 5 files. The corrected `Kartova.SharedKernel.Postgres` floor is **82.69% (86 killed inc. timeout / 104 evaluable)** with the enumerated survivors above. Score *increase* sanity check (per §"Mutation gate" line 40 secondary check): CompileError went from 24 → 24 (unchanged), confirming no `Killed → CompileError` silent reclassification of the kind that would inflate the score artificially. The +50 mutant count is real coverage scope expansion.
+
+Future slices that touch `TenantScope.cs` rollback paths (especially any that exercises the `[Commit_failure_after_write_propagates_and_persists_no_data]` test class which Phase 10 translated with `try/catch+IsNotNull` to preserve covariance) should kill or further document these survivors. Most are pre-existing slice-2-followup paths; a focused integration test exercising the `_committed`/`_transaction`/`_connection` null-guards would close several at once.
