@@ -242,7 +242,7 @@ The single file in scope of the baseline (`QueryablePagingExtensions.cs`) actual
 | `TenantScope.cs` | 107 | LogicalNotExpression | flip `!_committed` → `_committed` | slice-2-followup; rollback-paths in `DisposeAsync` are exercised only on specific transaction-state combinations the IntegrationTests don't naturally trigger. |
 | `TenantScope.cs` | 111 | Statement | remove statement | slice-2-followup; same rollback-path coverage gap. |
 | `TenantScope.cs` | 119 | Statement | remove statement | slice-2-followup; same. |
-| `TenantScope.cs` | 143 | Statement | remove statement | slice-2-followup; cleanup path in `DisposeAsync`. |
+| `TenantScope.cs` | 143 | Statement | remove statement | slice-2-followup; idempotency guard (`if (_disposed) return;`) in `Handle.DisposeAsync`. |
 
 **NoCoverage (no test executes the mutated line):**
 | File | Line | Origin |
