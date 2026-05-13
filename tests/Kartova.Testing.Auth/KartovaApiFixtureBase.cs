@@ -14,7 +14,6 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Testcontainers.PostgreSql;
-using Xunit;
 
 namespace Kartova.Testing.Auth;
 
@@ -29,7 +28,7 @@ namespace Kartova.Testing.Auth;
 /// </summary>
 [ExcludeFromCodeCoverage]
 public abstract class KartovaApiFixtureBase
-    : WebApplicationFactory<Program>, IAsyncLifetime, IAsyncDisposable
+    : WebApplicationFactory<Program>, IAsyncDisposable
 {
     private readonly PostgreSqlContainer _pg = new PostgreSqlBuilder()
         .WithImage("postgres:18-alpine")
@@ -64,14 +63,11 @@ public abstract class KartovaApiFixtureBase
         PostgresTestBootstrap.ConnectionStringFor(_pg.GetConnectionString(), PostgresTestBootstrap.MigratorRole);
 
     /// <summary>
-    /// Spins up the Postgres container and applies module migrations. xUnit consumers
-    /// get this for free via <see cref="IAsyncLifetime"/>; MSTest consumers must call
-    /// it explicitly from <c>[AssemblyInitialize]</c> (see remarks).
+    /// Spins up the Postgres container and applies module migrations. Call once per
+    /// assembly run from an <c>[AssemblyInitialize]</c> handler (see remarks).
     /// </summary>
     /// <remarks>
-    /// MSTest consumer pattern (Phases 9–11): one fixture per assembly run, shared
-    /// across every test class. Matches xUnit's <c>ICollectionFixture&lt;T&gt;</c>
-    /// granularity when the collection already spans the project (the typical case).
+    /// Consumer pattern: one fixture per assembly run, shared across every test class.
     /// Requires <c>[assembly: DoNotParallelize]</c> in <c>Properties/AssemblyInfo.cs</c>
     /// because the fixture mutates process-global env vars.
     /// <code>
@@ -107,13 +103,10 @@ public abstract class KartovaApiFixtureBase
         await RunModuleMigrationsAsync(MigratorConnectionString);
     }
 
-    Task IAsyncLifetime.DisposeAsync() => DisposeAsyncCore().AsTask();
-
     ValueTask IAsyncDisposable.DisposeAsync() => DisposeAsyncCore();
 
     /// <summary>
-    /// Override hook for module-specific teardown — called by both the
-    /// <see cref="IAsyncLifetime"/>.DisposeAsync hook (xUnit auto-teardown) and the
+    /// Override hook for module-specific teardown — called via the
     /// <see cref="IAsyncDisposable"/>.DisposeAsync hook (used by <c>await using</c>
     /// or MSTest <c>[ClassCleanup]</c>). Derived classes that own additional disposable
     /// resources should override and chain via <c>await base.DisposeAsyncCore();</c>.
