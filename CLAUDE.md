@@ -43,7 +43,7 @@ Do/don't rules. For everything else, see [docs/architecture/decisions/README.md]
 - **Solution style:** modular monolith, one csproj tree per bounded context, NetArchTest enforced (ADR-0082)
 - **Agent transport:** HTTPS polling — gRPC streaming **not** used (ADR-0042)
 - **Frontend UI stack:** Untitled UI free-tier (react-aria-components + Tailwind v4) + @untitledui/icons (ADR-0094)
-- **Testing:** five-tier pyramid — architecture (NetArchTest, mandatory CI gate) + unit + integration (Testcontainers) + contract (Pact) + E2E (Playwright) (ADR-0083)
+- **Testing:** five-tier pyramid — architecture (NetArchTest, mandatory CI gate) + unit + integration (Testcontainers) + contract (Pact) + E2E (Playwright); MSTest v4 framework + native asserts + NSubstitute (ADR-0097, supersedes ADR-0083)
 
 ## Phases (MVP = 0–5)
 

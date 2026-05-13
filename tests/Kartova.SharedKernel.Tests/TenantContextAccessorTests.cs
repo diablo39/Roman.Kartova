@@ -1,9 +1,9 @@
-using FluentAssertions;
 using Kartova.SharedKernel.Multitenancy;
-using Xunit;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Kartova.SharedKernel.Tests;
 
+[TestClass]
 public class TenantContextAccessorTests
 {
     private static TenantId NewTenantId() => new(Guid.NewGuid());
@@ -20,7 +20,7 @@ public class TenantContextAccessorTests
     // Case (a) below (fresh instance) gives A=F with B=F — not an MC/DC pair partner by itself,
     // but still exercises the short-circuit false branch and is included for defensive coverage.
 
-    [Fact]
+    [TestMethod]
     public void IsTenantScoped_is_false_on_fresh_instance_covers_A_false_branch()
     {
         // Arrange
@@ -30,13 +30,13 @@ public class TenantContextAccessorTests
         var isScoped = sut.IsTenantScoped;
 
         // Assert
-        isScoped.Should().BeFalse();
-        sut.Id.Should().Be(TenantId.Empty);
-        sut.Roles.Should().NotBeNull();
-        sut.Roles.Should().BeEmpty();
+        Assert.IsFalse(isScoped);
+        Assert.AreEqual(TenantId.Empty, sut.Id);
+        Assert.IsNotNull(sut.Roles);
+        Assert.AreEqual(0, sut.Roles.Count());
     }
 
-    [Fact]
+    [TestMethod]
     public void IsTenantScoped_is_true_when_populated_with_non_empty_tenant_id_MC_DC_T1()
     {
         // Arrange
@@ -47,10 +47,10 @@ public class TenantContextAccessorTests
         sut.Populate(id, new[] { "OrgAdmin" });
 
         // Assert — MC/DC pair partner: A=T, B=T -> true
-        sut.IsTenantScoped.Should().BeTrue();
+        Assert.IsTrue(sut.IsTenantScoped);
     }
 
-    [Fact]
+    [TestMethod]
     public void IsTenantScoped_is_false_when_populated_with_empty_tenant_id_MC_DC_T3()
     {
         // Arrange
@@ -62,12 +62,12 @@ public class TenantContextAccessorTests
         // Assert — MC/DC pair partner: A=T, B=F -> false.
         // Flipping B from T (T1) to F while holding A=T flips the decision, proving B
         // independently affects the outcome.
-        sut.IsTenantScoped.Should().BeFalse();
+        Assert.IsFalse(sut.IsTenantScoped);
     }
 
     // ---- Id accessor ----
 
-    [Fact]
+    [TestMethod]
     public void Id_returns_value_supplied_to_Populate()
     {
         // Arrange
@@ -78,11 +78,11 @@ public class TenantContextAccessorTests
         sut.Populate(id, Array.Empty<string>());
 
         // Assert
-        sut.Id.Should().Be(id);
-        sut.Id.Value.Should().Be(Guid.Parse("11111111-1111-1111-1111-111111111111"));
+        Assert.AreEqual(id, sut.Id);
+        Assert.AreEqual(Guid.Parse("11111111-1111-1111-1111-111111111111"), sut.Id.Value);
     }
 
-    [Fact]
+    [TestMethod]
     public void Id_resets_to_Empty_after_Clear()
     {
         // Arrange
@@ -93,13 +93,13 @@ public class TenantContextAccessorTests
         sut.Clear();
 
         // Assert
-        sut.Id.Should().Be(TenantId.Empty);
-        sut.Id.Value.Should().Be(Guid.Empty);
+        Assert.AreEqual(TenantId.Empty, sut.Id);
+        Assert.AreEqual(Guid.Empty, sut.Id.Value);
     }
 
     // ---- Roles accessor ----
 
-    [Fact]
+    [TestMethod]
     public void Roles_returns_exact_collection_supplied_to_Populate()
     {
         // Arrange
@@ -109,12 +109,15 @@ public class TenantContextAccessorTests
         // Act
         sut.Populate(NewTenantId(), roles);
 
-        // Assert — exact count AND exact contents
-        sut.Roles.Should().HaveCount(3);
-        sut.Roles.Should().BeEquivalentTo(new[] { "OrgAdmin", "Member", "Viewer" });
+        // Assert — exact count AND exact contents (order-sensitive: test name says "exact")
+        // Order-sensitive: 'exact' includes ordering. The IEnumerable<string> contract on
+        // Roles does not formally promise order preservation, but Populate's array-passthrough
+        // implementation does today; this test pins that.
+        Assert.AreEqual(3, sut.Roles.Count());
+        CollectionAssert.AreEqual(new[] { "OrgAdmin", "Member", "Viewer" }, sut.Roles.ToArray());
     }
 
-    [Fact]
+    [TestMethod]
     public void Roles_on_fresh_instance_is_empty_but_not_null()
     {
         // Arrange
@@ -124,12 +127,11 @@ public class TenantContextAccessorTests
         var roles = sut.Roles;
 
         // Assert
-        roles.Should().NotBeNull();
-        roles.Should().BeEmpty();
-        roles.Should().HaveCount(0);
+        Assert.IsNotNull(roles);
+        Assert.AreEqual(0, roles.Count());
     }
 
-    [Fact]
+    [TestMethod]
     public void Populate_with_empty_roles_yields_empty_non_null_collection()
     {
         // Arrange
@@ -139,29 +141,27 @@ public class TenantContextAccessorTests
         sut.Populate(NewTenantId(), Array.Empty<string>());
 
         // Assert
-        sut.Roles.Should().NotBeNull();
-        sut.Roles.Should().BeEmpty();
+        Assert.IsNotNull(sut.Roles);
+        Assert.AreEqual(0, sut.Roles.Count());
     }
 
     // ---- Null-roles path ----
 
-    [Fact]
+    [TestMethod]
     public void Populate_with_null_roles_throws_ArgumentNullException()
     {
         // Arrange
         var sut = new TenantContextAccessor();
         var id = NewTenantId();
 
-        // Act
-        var act = () => sut.Populate(id, null!);
-
-        // Assert — non-nullable parameter contract; null is rejected consistently.
-        act.Should().Throw<ArgumentNullException>().WithParameterName("roles");
+        // Act / Assert — non-nullable parameter contract; null is rejected consistently.
+        var ex = Assert.ThrowsExactly<ArgumentNullException>(() => sut.Populate(id, null!));
+        Assert.AreEqual("roles", ex.ParamName);
     }
 
     // ---- Double Populate ----
 
-    [Fact]
+    [TestMethod]
     public void Second_Populate_replaces_id_and_roles_completely()
     {
         // Arrange
@@ -174,16 +174,16 @@ public class TenantContextAccessorTests
         sut.Populate(secondId, new[] { "r2", "r3" });
 
         // Assert
-        sut.Id.Should().Be(secondId);
-        sut.Roles.Should().HaveCount(2);
-        sut.Roles.Should().BeEquivalentTo(new[] { "r2", "r3" });
-        sut.Roles.Should().NotContain("r1");
-        sut.IsTenantScoped.Should().BeTrue();
+        Assert.AreEqual(secondId, sut.Id);
+        Assert.AreEqual(2, sut.Roles.Count());
+        CollectionAssert.AreEquivalent(new[] { "r2", "r3" }, sut.Roles.ToArray());
+        CollectionAssert.DoesNotContain(sut.Roles.ToArray(), "r1");
+        Assert.IsTrue(sut.IsTenantScoped);
     }
 
     // ---- Clear ----
 
-    [Fact]
+    [TestMethod]
     public void Clear_after_Populate_resets_all_state()
     {
         // Arrange
@@ -194,13 +194,13 @@ public class TenantContextAccessorTests
         sut.Clear();
 
         // Assert
-        sut.Id.Should().Be(TenantId.Empty);
-        sut.Roles.Should().NotBeNull();
-        sut.Roles.Should().BeEmpty();
-        sut.IsTenantScoped.Should().BeFalse();
+        Assert.AreEqual(TenantId.Empty, sut.Id);
+        Assert.IsNotNull(sut.Roles);
+        Assert.AreEqual(0, sut.Roles.Count());
+        Assert.IsFalse(sut.IsTenantScoped);
     }
 
-    [Fact]
+    [TestMethod]
     public void Clear_on_fresh_instance_is_idempotent()
     {
         // Arrange
@@ -210,14 +210,14 @@ public class TenantContextAccessorTests
         sut.Clear();
 
         // Assert
-        sut.Id.Should().Be(TenantId.Empty);
-        sut.Roles.Should().BeEmpty();
-        sut.IsTenantScoped.Should().BeFalse();
+        Assert.AreEqual(TenantId.Empty, sut.Id);
+        Assert.AreEqual(0, sut.Roles.Count());
+        Assert.IsFalse(sut.IsTenantScoped);
     }
 
     // ---- Populate -> Clear -> Populate cycle ----
 
-    [Fact]
+    [TestMethod]
     public void Populate_then_Clear_then_Populate_reflects_second_Populate()
     {
         // Arrange
@@ -231,10 +231,10 @@ public class TenantContextAccessorTests
         sut.Populate(secondId, new[] { "new-role-1", "new-role-2" });
 
         // Assert
-        sut.Id.Should().Be(secondId);
-        sut.Roles.Should().HaveCount(2);
-        sut.Roles.Should().BeEquivalentTo(new[] { "new-role-1", "new-role-2" });
-        sut.Roles.Should().NotContain("old-role");
-        sut.IsTenantScoped.Should().BeTrue();
+        Assert.AreEqual(secondId, sut.Id);
+        Assert.AreEqual(2, sut.Roles.Count());
+        CollectionAssert.AreEquivalent(new[] { "new-role-1", "new-role-2" }, sut.Roles.ToArray());
+        CollectionAssert.DoesNotContain(sut.Roles.ToArray(), "old-role");
+        Assert.IsTrue(sut.IsTenantScoped);
     }
 }

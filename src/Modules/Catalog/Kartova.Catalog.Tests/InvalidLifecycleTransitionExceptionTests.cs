@@ -1,12 +1,12 @@
-using FluentAssertions;
 using Kartova.Catalog.Domain;
 using Kartova.SharedKernel;
 
 namespace Kartova.Catalog.Tests;
 
+[TestClass]
 public class InvalidLifecycleTransitionExceptionTests
 {
-    [Fact]
+    [TestMethod]
     public void Message_for_null_reason_omits_parenthetical()
     {
         var ex = new InvalidLifecycleTransitionException(
@@ -15,10 +15,10 @@ public class InvalidLifecycleTransitionExceptionTests
             sunsetDate: null,
             reason: null);
 
-        ex.Message.Should().Be("Cannot deprecate application currently in state Decommissioned.");
+        Assert.AreEqual("Cannot deprecate application currently in state Decommissioned.", ex.Message);
     }
 
-    [Fact]
+    [TestMethod]
     public void Message_for_non_null_reason_includes_parenthetical()
     {
         var sunsetDate = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
@@ -29,10 +29,10 @@ public class InvalidLifecycleTransitionExceptionTests
             sunsetDate: sunsetDate,
             reason: "before-sunset-date");
 
-        ex.Message.Should().Be("Cannot decommission application currently in state Deprecated (before-sunset-date).");
+        Assert.AreEqual("Cannot decommission application currently in state Deprecated (before-sunset-date).", ex.Message);
     }
 
-    [Fact]
+    [TestMethod]
     public void Properties_match_constructor_args()
     {
         var sunsetDate = new DateTimeOffset(2026, 7, 15, 9, 30, 0, TimeSpan.Zero);
@@ -43,16 +43,16 @@ public class InvalidLifecycleTransitionExceptionTests
             sunsetDate: sunsetDate,
             reason: "before-sunset-date");
 
-        ex.CurrentLifecycle.Should().Be(Lifecycle.Active);
-        ex.AttemptedTransition.Should().Be("Decommission");
-        ex.SunsetDate.Should().Be(sunsetDate);
-        ex.Reason.Should().Be("before-sunset-date");
+        Assert.AreEqual(Lifecycle.Active, ex.CurrentLifecycle);
+        Assert.AreEqual("Decommission", ex.AttemptedTransition);
+        Assert.AreEqual(sunsetDate, ex.SunsetDate);
+        Assert.AreEqual("before-sunset-date", ex.Reason);
     }
 
-    [Theory]
-    [InlineData(Lifecycle.Active, "active")]
-    [InlineData(Lifecycle.Deprecated, "deprecated")]
-    [InlineData(Lifecycle.Decommissioned, "decommissioned")]
+    [TestMethod]
+    [DataRow(Lifecycle.Active, "active")]
+    [DataRow(Lifecycle.Deprecated, "deprecated")]
+    [DataRow(Lifecycle.Decommissioned, "decommissioned")]
     public void ILifecycleConflict_CurrentLifecycleName_returns_camelCase_wire_shape(
         Lifecycle current, string expectedWire)
     {
@@ -65,6 +65,6 @@ public class InvalidLifecycleTransitionExceptionTests
         // implementation that returns PascalCase — caught by this assertion.
         var ex = new InvalidLifecycleTransitionException(current, "Deprecate");
 
-        ((ILifecycleConflict)ex).CurrentLifecycleName.Should().Be(expectedWire);
+        Assert.AreEqual(expectedWire, ((ILifecycleConflict)ex).CurrentLifecycleName);
     }
 }

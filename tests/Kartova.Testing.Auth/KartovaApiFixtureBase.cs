@@ -14,7 +14,6 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Testcontainers.PostgreSql;
-using Xunit;
 
 namespace Kartova.Testing.Auth;
 
@@ -28,7 +27,8 @@ namespace Kartova.Testing.Auth;
 /// which DbContext to migrate.
 /// </summary>
 [ExcludeFromCodeCoverage]
-public abstract class KartovaApiFixtureBase : WebApplicationFactory<Program>, IAsyncLifetime
+public abstract class KartovaApiFixtureBase
+    : WebApplicationFactory<Program>, IAsyncDisposable
 {
     private readonly PostgreSqlContainer _pg = new PostgreSqlBuilder()
         .WithImage("postgres:18-alpine")
@@ -62,6 +62,40 @@ public abstract class KartovaApiFixtureBase : WebApplicationFactory<Program>, IA
     public string MigratorConnectionString =>
         PostgresTestBootstrap.ConnectionStringFor(_pg.GetConnectionString(), PostgresTestBootstrap.MigratorRole);
 
+    /// <summary>
+    /// Spins up the Postgres container and applies module migrations. Call once per
+    /// assembly run from an <c>[AssemblyInitialize]</c> handler (see remarks).
+    /// </summary>
+    /// <remarks>
+    /// Consumer pattern: one fixture per assembly run, shared across every test class.
+    /// Requires <c>[assembly: DoNotParallelize]</c> in <c>Properties/AssemblyInfo.cs</c>
+    /// because the fixture mutates process-global env vars.
+    /// <code>
+    /// [TestClass]
+    /// public sealed class IntegrationTestAssemblySetup
+    /// {
+    ///     public static KartovaApiFixture Fx { get; private set; } = null!;
+    ///
+    ///     [AssemblyInitialize]
+    ///     public static async Task InitAsync(TestContext _)
+    ///     {
+    ///         Fx = new KartovaApiFixture();
+    ///         await Fx.InitializeAsync();
+    ///     }
+    ///
+    ///     [AssemblyCleanup]
+    ///     public static async Task CleanupAsync()
+    ///     {
+    ///         if (Fx is not null) await ((IAsyncDisposable)Fx).DisposeAsync();
+    ///     }
+    /// }
+    /// </code>
+    /// Per-class <c>[ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]</c>
+    /// is the wrong pattern here — it creates one fixture per derived class, which
+    /// for a heavyweight Postgres+API fixture is a 6× wall-clock regression vs the
+    /// xUnit baseline. See <c>docs/superpowers/reviews/2026-05-09-feat-mstest-migration-phase-9-review.md</c>
+    /// for the bug Phase 9 hit and corrected.
+    /// </remarks>
     public async Task InitializeAsync()
     {
         await _pg.StartAsync();
@@ -69,7 +103,15 @@ public abstract class KartovaApiFixtureBase : WebApplicationFactory<Program>, IA
         await RunModuleMigrationsAsync(MigratorConnectionString);
     }
 
-    async Task IAsyncLifetime.DisposeAsync()
+    ValueTask IAsyncDisposable.DisposeAsync() => DisposeAsyncCore();
+
+    /// <summary>
+    /// Override hook for module-specific teardown — called via the
+    /// <see cref="IAsyncDisposable"/>.DisposeAsync hook (used by <c>await using</c>
+    /// or MSTest <c>[ClassCleanup]</c>). Derived classes that own additional disposable
+    /// resources should override and chain via <c>await base.DisposeAsyncCore();</c>.
+    /// </summary>
+    protected virtual async ValueTask DisposeAsyncCore()
     {
         await _pg.DisposeAsync();
         await base.DisposeAsync();

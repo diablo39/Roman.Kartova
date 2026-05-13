@@ -1,4 +1,3 @@
-using FluentAssertions;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.AspNetCore.Builder;
@@ -7,13 +6,14 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Xunit;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Kartova.SharedKernel.AspNetCore.Tests;
 
+[TestClass]
 public class ModuleRouteExtensionsTests
 {
-    [Fact]
+    [TestMethod]
     public async Task MapTenantScopedModule_groups_routes_under_api_v1_slug()
     {
         using var host = await CreateHostAsync(app =>
@@ -23,10 +23,10 @@ public class ModuleRouteExtensionsTests
         });
         var client = host.GetTestClient();
         var resp = await client.GetAsync("/api/v1/catalog/applications");
-        resp.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        Assert.AreEqual(System.Net.HttpStatusCode.OK, resp.StatusCode);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task MapAdminModule_groups_routes_under_api_v1_admin_slug()
     {
         using var host = await CreateHostAsync(app =>
@@ -36,10 +36,10 @@ public class ModuleRouteExtensionsTests
         });
         var client = host.GetTestClient();
         var resp = await client.GetAsync("/api/v1/admin/catalog/applications");
-        resp.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        Assert.AreEqual(System.Net.HttpStatusCode.OK, resp.StatusCode);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task MapTenantScopedModule_skip_rule_when_slug_is_plural_collection()
     {
         // Convention: slug IS the URL segment. The "skip" rule is mechanical —
@@ -51,7 +51,7 @@ public class ModuleRouteExtensionsTests
         });
         var client = host.GetTestClient();
         var resp = await client.GetAsync("/api/v1/organizations/me");
-        resp.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        Assert.AreEqual(System.Net.HttpStatusCode.OK, resp.StatusCode);
     }
 
     private static async Task<IHost> CreateHostAsync(Action<WebApplication> configure)

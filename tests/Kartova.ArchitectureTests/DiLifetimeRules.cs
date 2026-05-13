@@ -1,10 +1,8 @@
-using FluentAssertions;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Postgres;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace Kartova.ArchitectureTests;
 
@@ -14,35 +12,40 @@ namespace Kartova.ArchitectureTests;
 /// transport adapter began. Singleton or Transient drift would silently break tenant isolation
 /// at scale (a singleton ICurrentUser would freeze on the first caller's identity).
 /// </summary>
+[TestClass]
 public class DiLifetimeRules
 {
-    [Fact]
+    [TestMethod]
     public void ICurrentUser_is_registered_as_scoped()
     {
         var services = BuildContainer();
 
         var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(ICurrentUser));
 
-        descriptor.Should().NotBeNull(because: "AddKartovaJwtAuth wires ICurrentUser → HttpContextCurrentUser");
-        descriptor!.Lifetime.Should().Be(ServiceLifetime.Scoped,
-            because: "ICurrentUser reads per-request claims; singleton or transient would either freeze or " +
-                     "fail to share the JWT-derived tenant scope (ADR-0090/0093)");
+        Assert.IsNotNull(descriptor, "AddKartovaJwtAuth wires ICurrentUser → HttpContextCurrentUser");
+        Assert.AreEqual(
+            ServiceLifetime.Scoped,
+            descriptor!.Lifetime,
+            "ICurrentUser reads per-request claims; singleton or transient would either freeze or " +
+            "fail to share the JWT-derived tenant scope (ADR-0090/0093)");
     }
 
-    [Theory]
-    [InlineData(typeof(Kartova.Catalog.Infrastructure.CatalogDbContext))]
-    [InlineData(typeof(Kartova.Organization.Infrastructure.OrganizationDbContext))]
+    [TestMethod]
+    [DataRow(typeof(Kartova.Catalog.Infrastructure.CatalogDbContext))]
+    [DataRow(typeof(Kartova.Organization.Infrastructure.OrganizationDbContext))]
     public void Tenant_scoped_DbContexts_are_registered_as_scoped(Type dbContextType)
     {
         var services = BuildContainer();
 
         var descriptor = services.SingleOrDefault(d => d.ServiceType == dbContextType);
 
-        descriptor.Should().NotBeNull(because: $"{dbContextType.Name} is registered by its module's RegisterServices");
-        descriptor!.Lifetime.Should().Be(ServiceLifetime.Scoped,
-            because: $"{dbContextType.Name} resolves its connection from ITenantScope; " +
-                     "singleton/transient would either share state across tenants or open extra connections " +
-                     "outside the request scope (ADR-0090)");
+        Assert.IsNotNull(descriptor, $"{dbContextType.Name} is registered by its module's RegisterServices");
+        Assert.AreEqual(
+            ServiceLifetime.Scoped,
+            descriptor!.Lifetime,
+            $"{dbContextType.Name} resolves its connection from ITenantScope; " +
+            "singleton/transient would either share state across tenants or open extra connections " +
+            "outside the request scope (ADR-0090)");
     }
 
     private static IServiceCollection BuildContainer()

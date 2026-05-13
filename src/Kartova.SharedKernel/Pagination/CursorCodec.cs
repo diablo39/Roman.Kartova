@@ -83,7 +83,15 @@ public static class CursorCodec
     private static object UnwrapJsonElement(JsonElement el) => el.ValueKind switch
     {
         JsonValueKind.String => el.GetString()!,
-        JsonValueKind.Number => el.TryGetInt64(out var i) ? i : el.GetDouble(),
+        JsonValueKind.Number =>
+            // The (object) cast on the long arm prevents C# `?:` from finding the
+            // common-type `double` between `long` and `double` and silently widening
+            // `i` to `42.0`. Without it, every integer-cursor sort value decodes as
+            // System.Double instead of Int64.
+            // Downstream cursor comparisons (`ConvertCursorValue`, JSON re-serialization for
+            // the next page) compare runtime types via Object.Equals — silently widening to
+            // double flips paging behaviour, not just the boxed type label.
+            el.TryGetInt64(out var i) ? (object)i : el.GetDouble(),
         JsonValueKind.True => true,
         JsonValueKind.False => false,
         JsonValueKind.Null => throw new InvalidCursorException("Cursor sort value must not be null."),

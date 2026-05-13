@@ -1,4 +1,4 @@
-using FluentAssertions;
+using System.Text.RegularExpressions;
 using Kartova.Catalog.Domain;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.Extensions.Time.Testing;
@@ -6,11 +6,12 @@ using Microsoft.Extensions.Time.Testing;
 // NOTE: A `using Kartova.Catalog.Domain;` would not bring `Application` into scope
 // unambiguously here — the enclosing `Kartova.Catalog` namespace contains a sibling
 // child namespace `Kartova.Catalog.Application` which wins simple-name lookup. We
-// therefore alias the type explicitly. (Mirrors ApplicationTests.cs.)
+// therefore alias the type explicitly.
 using DomainApplication = Kartova.Catalog.Domain.Application;
 
 namespace Kartova.Catalog.Tests;
 
+[TestClass]
 public class ApplicationLifecycleTests
 {
     private static readonly TenantId Tenant = new(Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"));
@@ -22,53 +23,53 @@ public class ApplicationLifecycleTests
     private static DomainApplication NewActive() =>
         DomainApplication.Create("payments-api", "Payments API", "Description.", Owner, Tenant, Clock());
 
-    [Fact]
+    [TestMethod]
     public void New_application_starts_in_Active_state_with_null_sunsetDate()
     {
         var app = NewActive();
-        app.Lifecycle.Should().Be(Lifecycle.Active);
-        app.SunsetDate.Should().BeNull();
+        Assert.AreEqual(Lifecycle.Active, app.Lifecycle);
+        Assert.IsNull(app.SunsetDate);
     }
 
-    [Fact]
+    [TestMethod]
     public void EditMetadata_with_valid_args_updates_displayName_and_description()
     {
         var app = NewActive();
         app.EditMetadata("New Display", "New description.");
-        app.DisplayName.Should().Be("New Display");
-        app.Description.Should().Be("New description.");
+        Assert.AreEqual("New Display", app.DisplayName);
+        Assert.AreEqual("New description.", app.Description);
     }
 
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("   ")]
     public void EditMetadata_throws_on_empty_displayName(string displayName)
     {
         var app = NewActive();
-        var act = () => app.EditMetadata(displayName, "desc");
-        act.Should().Throw<ArgumentException>().WithMessage("*display name*");
+        var ex = Assert.ThrowsExactly<ArgumentException>(() => app.EditMetadata(displayName, "desc"));
+        StringAssert.Contains(ex.Message, "display name");
     }
 
-    [Fact]
+    [TestMethod]
     public void EditMetadata_throws_on_displayName_over_128()
     {
         var app = NewActive();
         var tooLong = new string('x', 129);
-        var act = () => app.EditMetadata(tooLong, "desc");
-        act.Should().Throw<ArgumentException>().WithMessage("*128*");
+        var ex = Assert.ThrowsExactly<ArgumentException>(() => app.EditMetadata(tooLong, "desc"));
+        StringAssert.Contains(ex.Message, "128");
     }
 
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("   ")]
     public void EditMetadata_throws_on_empty_description(string description)
     {
         var app = NewActive();
-        var act = () => app.EditMetadata("Display", description);
-        act.Should().Throw<ArgumentException>().WithMessage("*description*");
+        var ex = Assert.ThrowsExactly<ArgumentException>(() => app.EditMetadata("Display", description));
+        StringAssert.Contains(ex.Message, "description");
     }
 
-    [Fact]
+    [TestMethod]
     public void EditMetadata_does_not_change_Name_or_OwnerUserId_or_TenantId_or_CreatedAt()
     {
         var app = NewActive();
@@ -79,93 +80,95 @@ public class ApplicationLifecycleTests
 
         app.EditMetadata("Different", "Different.");
 
-        app.Name.Should().Be(origName);
-        app.OwnerUserId.Should().Be(origOwner);
-        app.TenantId.Should().Be(origTenant);
-        app.CreatedAt.Should().Be(origCreated);
+        Assert.AreEqual(origName, app.Name);
+        Assert.AreEqual(origOwner, app.OwnerUserId);
+        Assert.AreEqual(origTenant, app.TenantId);
+        Assert.AreEqual(origCreated, app.CreatedAt);
     }
 
-    [Fact]
+    [TestMethod]
     public void EditMetadata_on_Decommissioned_throws_InvalidLifecycleTransitionException()
     {
         var app = NewActive();
         app.Deprecate(Now.AddDays(1), Clock());
         app.Decommission(Clock(Now.AddDays(2)));
 
-        var act = () => app.EditMetadata("X", "Y");
-        act.Should().Throw<InvalidLifecycleTransitionException>()
-           .Which.CurrentLifecycle.Should().Be(Lifecycle.Decommissioned);
+        var ex = Assert.ThrowsExactly<InvalidLifecycleTransitionException>(() => app.EditMetadata("X", "Y"));
+        Assert.AreEqual(Lifecycle.Decommissioned, ex.CurrentLifecycle);
     }
 
-    [Fact]
+    [TestMethod]
     public void EditMetadata_on_Deprecated_succeeds()
     {
         // Spec §9.8 step 5: Deprecated still allows edit. The terminal-write
-        // guard only fires on Decommissioned. A mutation that flipped the
-        // guard from `Lifecycle == Decommissioned` to `Lifecycle != Active`
-        // would silently break editing for every Deprecated app — this test
-        // is the positive allow-path that catches it.
+        // guard only fires on Decommissioned. A `==` → `!=` flip on the
+        // `Lifecycle == Decommissioned` guard would invert the terminal-write
+        // rule and reject every Deprecated edit — this positive allow-path
+        // is what catches that flip.
         var app = NewActive();
         app.Deprecate(Now.AddDays(1), Clock());
 
         app.EditMetadata("New Display", "New description.");
 
-        app.Lifecycle.Should().Be(Lifecycle.Deprecated);
-        app.DisplayName.Should().Be("New Display");
-        app.Description.Should().Be("New description.");
+        Assert.AreEqual(Lifecycle.Deprecated, app.Lifecycle);
+        Assert.AreEqual("New Display", app.DisplayName);
+        Assert.AreEqual("New description.", app.Description);
     }
 
-    [Fact]
+    [TestMethod]
     public void Deprecate_with_valid_args_sets_state_and_sunsetDate()
     {
         var app = NewActive();
         var sunset = Now.AddDays(30);
         app.Deprecate(sunset, Clock());
 
-        app.Lifecycle.Should().Be(Lifecycle.Deprecated);
-        app.SunsetDate.Should().Be(sunset);
+        Assert.AreEqual(Lifecycle.Deprecated, app.Lifecycle);
+        Assert.AreEqual(sunset, app.SunsetDate);
     }
 
-    [Fact]
+    [TestMethod]
     public void Deprecate_throws_on_past_sunsetDate()
     {
         var app = NewActive();
-        var act = () => app.Deprecate(Now.AddDays(-1), Clock());
-        act.Should().Throw<ArgumentException>().WithMessage("*sunset*future*");
+        var ex = Assert.ThrowsExactly<ArgumentException>(() => app.Deprecate(Now.AddDays(-1), Clock()));
+        // Two-substring ordered match: requires "sunset" to appear, then "future".
+        // Encoded as a regex because StringAssert has no multi-substring helper —
+        // do not "simplify" to a single Contains, which would lose the ordering guarantee.
+        StringAssert.Matches(ex.Message, new Regex("sunset.*future"));
     }
 
-    [Fact]
+    [TestMethod]
     public void Deprecate_throws_on_now_sunsetDate()
     {
         var app = NewActive();
-        var act = () => app.Deprecate(Now, Clock());
-        act.Should().Throw<ArgumentException>().WithMessage("*sunset*future*");
+        var ex = Assert.ThrowsExactly<ArgumentException>(() => app.Deprecate(Now, Clock()));
+        StringAssert.Matches(ex.Message, new Regex("sunset.*future"));
     }
 
-    [Fact]
+    [TestMethod]
     public void Deprecate_when_already_Deprecated_throws_InvalidLifecycleTransitionException()
     {
         var app = NewActive();
         app.Deprecate(Now.AddDays(30), Clock());
 
-        var act = () => app.Deprecate(Now.AddDays(60), Clock());
-        act.Should().Throw<InvalidLifecycleTransitionException>()
-           .Which.CurrentLifecycle.Should().Be(Lifecycle.Deprecated);
+        var ex = Assert.ThrowsExactly<InvalidLifecycleTransitionException>(
+            () => app.Deprecate(Now.AddDays(60), Clock()));
+        Assert.AreEqual(Lifecycle.Deprecated, ex.CurrentLifecycle);
     }
 
-    [Fact]
+    [TestMethod]
     public void Deprecate_when_Decommissioned_throws_InvalidLifecycleTransitionException()
     {
         var app = NewActive();
         app.Deprecate(Now.AddDays(1), Clock());
         app.Decommission(Clock(Now.AddDays(2)));
 
-        var act = () => app.Deprecate(Now.AddDays(30), Clock(Now.AddDays(3)));
-        act.Should().Throw<InvalidLifecycleTransitionException>()
-           .Which.CurrentLifecycle.Should().Be(Lifecycle.Decommissioned);
+        var ex = Assert.ThrowsExactly<InvalidLifecycleTransitionException>(
+            () => app.Deprecate(Now.AddDays(30), Clock(Now.AddDays(3))));
+        Assert.AreEqual(Lifecycle.Decommissioned, ex.CurrentLifecycle);
     }
 
-    [Fact]
+    [TestMethod]
     public void Decommission_when_Deprecated_and_after_sunsetDate_succeeds()
     {
         var app = NewActive();
@@ -173,39 +176,38 @@ public class ApplicationLifecycleTests
         app.Deprecate(sunset, Clock());
         app.Decommission(Clock(sunset));            // exact sunset — boundary uses >=
 
-        app.Lifecycle.Should().Be(Lifecycle.Decommissioned);
-        app.SunsetDate.Should().Be(sunset);         // sunset preserved on transition
+        Assert.AreEqual(Lifecycle.Decommissioned, app.Lifecycle);
+        Assert.AreEqual(sunset, app.SunsetDate);    // sunset preserved on transition
     }
 
-    [Fact]
+    [TestMethod]
     public void Decommission_when_Deprecated_and_before_sunsetDate_throws_with_reason_before_sunset_date()
     {
         var app = NewActive();
         app.Deprecate(Now.AddDays(30), Clock());
 
-        var act = () => app.Decommission(Clock(Now.AddDays(15)));
-        act.Should().Throw<InvalidLifecycleTransitionException>()
-           .Which.Reason.Should().Be("before-sunset-date");
+        var ex = Assert.ThrowsExactly<InvalidLifecycleTransitionException>(
+            () => app.Decommission(Clock(Now.AddDays(15))));
+        Assert.AreEqual("before-sunset-date", ex.Reason);
     }
 
-    [Fact]
+    [TestMethod]
     public void Decommission_when_Active_throws_InvalidLifecycleTransitionException()
     {
         var app = NewActive();
-        var act = () => app.Decommission(Clock());
-        act.Should().Throw<InvalidLifecycleTransitionException>()
-           .Which.CurrentLifecycle.Should().Be(Lifecycle.Active);
+        var ex = Assert.ThrowsExactly<InvalidLifecycleTransitionException>(() => app.Decommission(Clock()));
+        Assert.AreEqual(Lifecycle.Active, ex.CurrentLifecycle);
     }
 
-    [Fact]
+    [TestMethod]
     public void Decommission_when_already_Decommissioned_throws_InvalidLifecycleTransitionException()
     {
         var app = NewActive();
         app.Deprecate(Now.AddDays(1), Clock());
         app.Decommission(Clock(Now.AddDays(2)));
 
-        var act = () => app.Decommission(Clock(Now.AddDays(3)));
-        act.Should().Throw<InvalidLifecycleTransitionException>()
-           .Which.CurrentLifecycle.Should().Be(Lifecycle.Decommissioned);
+        var ex = Assert.ThrowsExactly<InvalidLifecycleTransitionException>(
+            () => app.Decommission(Clock(Now.AddDays(3))));
+        Assert.AreEqual(Lifecycle.Decommissioned, ex.CurrentLifecycle);
     }
 }

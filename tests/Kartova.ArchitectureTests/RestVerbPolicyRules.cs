@@ -1,10 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
-using FluentAssertions;
 using Kartova.SharedKernel.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace Kartova.ArchitectureTests;
 
@@ -22,9 +20,10 @@ namespace Kartova.ArchitectureTests;
 /// reconciled before the test can be unsuppressed.
 /// </summary>
 [ExcludeFromCodeCoverage]
+[TestClass]
 public class RestVerbPolicyRules
 {
-    [Fact]
+    [TestMethod]
     public void No_endpoint_uses_PATCH_verb()
     {
         var endpoints = MapEndpointsForArchTest();
@@ -34,10 +33,12 @@ public class RestVerbPolicyRules
             .Select(e => $"{e.HttpMethods.Single()} {e.Template}")
             .ToList();
 
-        patchEndpoints.Should().BeEmpty(
-            because: "ADR-0096 forbids PATCH endpoints. Use PUT for full-resource replacement " +
-                     "or POST /<action> for named commands. Offending routes: " +
-                     string.Join(", ", patchEndpoints));
+        Assert.AreEqual(
+            0,
+            patchEndpoints.Count,
+            "ADR-0096 forbids PATCH endpoints. Use PUT for full-resource replacement " +
+            "or POST /<action> for named commands. Offending routes: " +
+            string.Join(", ", patchEndpoints));
     }
 
     /// <summary>

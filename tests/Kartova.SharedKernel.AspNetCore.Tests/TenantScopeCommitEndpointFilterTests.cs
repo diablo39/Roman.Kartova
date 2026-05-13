@@ -1,8 +1,8 @@
-using FluentAssertions;
+using System.Text.RegularExpressions;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.AspNetCore.Http;
-using Xunit;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Kartova.SharedKernel.AspNetCore.Tests;
 
@@ -13,9 +13,10 @@ namespace Kartova.SharedKernel.AspNetCore.Tests;
 /// the failure branches were uncovered (the slice-3 coverage run flagged the filter
 /// at 60% line coverage).
 /// </summary>
+[TestClass]
 public class TenantScopeCommitEndpointFilterTests
 {
-    [Fact]
+    [TestMethod]
     public async Task Invoke_commits_active_handle_then_returns_inner_result()
     {
         var handle = new RecordingHandle();
@@ -25,12 +26,14 @@ public class TenantScopeCommitEndpointFilterTests
         var inner = Results.Ok("payload");
         var result = await sut.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(inner));
 
-        result.Should().BeSameAs(inner, because: "the IResult is returned to ASP.NET so it can ExecuteAsync " +
-                                                  "AFTER commit succeeds — preserving ADR-0090 durability");
-        handle.CommitCount.Should().Be(1, because: "exactly one commit per scoped request");
+        // The IResult is returned to ASP.NET so it can ExecuteAsync AFTER commit
+        // succeeds — preserving ADR-0090 durability.
+        Assert.AreSame(inner, result);
+        // Exactly one commit per scoped request.
+        Assert.AreEqual(1, handle.CommitCount);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Invoke_throws_InvalidOperationException_when_handle_is_missing()
     {
         // No HandleKey on HttpContext.Items → indicates begin-middleware was not wired
@@ -39,14 +42,18 @@ public class TenantScopeCommitEndpointFilterTests
         var ctx = MakeContext(handle: null);
         var sut = new TenantScopeCommitEndpointFilter();
 
-        var act = () => sut.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(Results.Ok())).AsTask();
-
-        (await act.Should().ThrowAsync<InvalidOperationException>())
-            .WithMessage("*TenantScopeCommitEndpointFilter ran without an active scope handle*")
-            .WithMessage("*TenantScopeBeginMiddleware*");
+        // Note: Assert.ThrowsExactlyAsync<InvalidOperationException> is used uniformly in this file
+        // as a translation policy. Production throws via literal `new InvalidOperationException(...)`,
+        // so there is no behavioural difference vs FluentAssertions' permissive Should().ThrowAsync<>()
+        // — but the ThrowsExactly idiom is preferred per the migration's spec §4.
+        var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => sut.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(Results.Ok())).AsTask());
+        // Both substrings must appear independently.
+        StringAssert.Matches(ex.Message, new Regex(".*TenantScopeCommitEndpointFilter ran without an active scope handle.*"));
+        StringAssert.Matches(ex.Message, new Regex(".*TenantScopeBeginMiddleware.*"));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Invoke_lets_commit_exception_bubble_to_UseExceptionHandler()
     {
         // ADR-0090 requires that a commit failure produce a 500 with no partial body —
@@ -56,10 +63,9 @@ public class TenantScopeCommitEndpointFilterTests
         var ctx = MakeContext(handle);
         var sut = new TenantScopeCommitEndpointFilter();
 
-        var act = () => sut.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(Results.Ok())).AsTask();
-
-        (await act.Should().ThrowAsync<InvalidOperationException>())
-            .WithMessage("connection lost");
+        var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => sut.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(Results.Ok())).AsTask());
+        Assert.AreEqual("connection lost", ex.Message);
     }
 
     private static FilterContextStub MakeContext(IAsyncTenantScopeHandle? handle)

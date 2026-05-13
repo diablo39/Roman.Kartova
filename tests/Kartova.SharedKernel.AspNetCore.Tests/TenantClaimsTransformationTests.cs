@@ -1,12 +1,12 @@
 using System.Security.Claims;
-using FluentAssertions;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Kartova.SharedKernel.AspNetCore.Tests;
 
+[TestClass]
 public class TenantClaimsTransformationTests
 {
     private static (ClaimsPrincipal principal, ITenantContext ctx) Setup(params Claim[] claims)
@@ -19,7 +19,7 @@ public class TenantClaimsTransformationTests
         return (principal, sp.GetRequiredService<ITenantContext>());
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Populates_tenant_id_and_roles_from_JWT_claims()
     {
         var (principal, ctx) = Setup(
@@ -30,13 +30,14 @@ public class TenantClaimsTransformationTests
 
         var result = await sut.TransformAsync(principal);
 
-        ctx.IsTenantScoped.Should().BeTrue();
-        ctx.Id.Value.Should().Be(Guid.Parse("11111111-1111-1111-1111-111111111111"));
-        ctx.Roles.Should().BeEquivalentTo(new[] { "OrgAdmin", "Member" });
-        result.IsInRole("OrgAdmin").Should().BeTrue();
+        Assert.IsTrue(ctx.IsTenantScoped);
+        Assert.AreEqual(Guid.Parse("11111111-1111-1111-1111-111111111111"), ctx.Id.Value);
+        // Per BeEquivalentTo audit (2026-05-08): order-independent → AreEquivalent.
+        CollectionAssert.AreEquivalent(new[] { "OrgAdmin", "Member" }, ctx.Roles.ToArray());
+        Assert.IsTrue(result.IsInRole("OrgAdmin"));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Missing_tenant_id_claim_leaves_context_non_tenant_scoped()
     {
         var (principal, ctx) = Setup(
@@ -46,11 +47,12 @@ public class TenantClaimsTransformationTests
 
         await sut.TransformAsync(principal);
 
-        ctx.IsTenantScoped.Should().BeFalse();
-        ctx.Roles.Should().BeEquivalentTo(new[] { "platform-admin" });
+        Assert.IsFalse(ctx.IsTenantScoped);
+        // Per BeEquivalentTo audit (2026-05-08): order-independent → AreEquivalent.
+        CollectionAssert.AreEquivalent(new[] { "platform-admin" }, ctx.Roles.ToArray());
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Invalid_tenant_id_claim_leaves_context_non_tenant_scoped()
     {
         var (principal, ctx) = Setup(new Claim("tenant_id", "not-a-guid"));
@@ -58,10 +60,10 @@ public class TenantClaimsTransformationTests
 
         await sut.TransformAsync(principal);
 
-        ctx.IsTenantScoped.Should().BeFalse();
+        Assert.IsFalse(ctx.IsTenantScoped);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Unauthenticated_principal_is_returned_unchanged()
     {
         var principal = new ClaimsPrincipal(new ClaimsIdentity()); // no auth type = not authenticated
@@ -72,8 +74,8 @@ public class TenantClaimsTransformationTests
 
         var result = await sut.TransformAsync(principal);
 
-        result.Should().BeSameAs(principal);
-        sp.GetRequiredService<ITenantContext>().IsTenantScoped.Should().BeFalse();
+        Assert.AreSame(principal, result);
+        Assert.IsFalse(sp.GetRequiredService<ITenantContext>().IsTenantScoped);
     }
 
     private static IServiceProvider ProviderFor(ITenantContext ctx)

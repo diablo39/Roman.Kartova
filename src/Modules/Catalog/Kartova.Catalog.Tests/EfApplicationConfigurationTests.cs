@@ -1,12 +1,11 @@
-using FluentAssertions;
 using Kartova.Catalog.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.InMemory.Infrastructure.Internal;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 
-// NOTE: The same alias trick as ApplicationTests.cs — `Kartova.Catalog.Application`
-// namespace wins simple-name lookup, so we alias the domain type explicitly.
+// NOTE: `Kartova.Catalog.Application` namespace wins simple-name lookup over
+// `Kartova.Catalog.Domain.Application`, so we alias the domain type explicitly.
 using DomainApplication = Kartova.Catalog.Domain.Application;
 
 namespace Kartova.Catalog.Tests;
@@ -17,6 +16,7 @@ namespace Kartova.Catalog.Tests;
 /// removing or reordering any Fluent API call in the configuration class causes an
 /// immediate failure — without requiring a live database.
 /// </summary>
+[TestClass]
 public class EfApplicationConfigurationTests
 {
     /// <summary>
@@ -53,10 +53,10 @@ public class EfApplicationConfigurationTests
     }
 
     // -----------------------------------------------------------------------
-    // Mutant-killing assertion (Statement_EfApplicationConfiguration.cs:13)
+    // Mutant-killing assertion — Statement mutator on `EfApplicationConfiguration.HasKey(IdFieldName)`.
     // -----------------------------------------------------------------------
 
-    [Fact]
+    [TestMethod]
     public void Configure_marks_Id_as_primary_key()
     {
         // Arrange — use the mutable convention model so we can read ConfigurationSource.
@@ -70,12 +70,16 @@ public class EfApplicationConfigurationTests
         // Using a backing field instead of the ApplicationId-typed property allows
         // EF Core to translate ORDER BY / WHERE on the id column without going
         // through the value converter (which EF cannot push down to SQL).
-        pk.Should().NotBeNull("a primary key must be configured");
-        pk!.Properties.Should().ContainSingle(p => p.Name == "_id",
+        Assert.IsNotNull(pk, "a primary key must be configured");
+        Assert.AreEqual(
+            1,
+            pk!.Properties.Count(p => p.Name == "_id"),
             "_id backing field must be the sole primary key property");
 
         // The strongest kill: explicit HasKey → ConfigurationSource.Explicit.
-        pk.GetConfigurationSource().Should().Be(ConfigurationSource.Explicit,
+        Assert.AreEqual(
+            ConfigurationSource.Explicit,
+            pk.GetConfigurationSource(),
             "the PK must be configured via explicit HasKey on the _id field");
     }
 
@@ -83,38 +87,40 @@ public class EfApplicationConfigurationTests
     // Complementary assertions — kill neighbouring Statement mutations
     // -----------------------------------------------------------------------
 
-    [Fact]
+    [TestMethod]
     public void Configure_maps_to_catalog_applications_table()
     {
         // Arrange / Act
         var entity = GetEntityType();
 
         // Assert
-        entity.GetTableName().Should().Be("catalog_applications");
+        Assert.AreEqual("catalog_applications", entity.GetTableName());
     }
 
-    [Fact]
+    [TestMethod]
     public void Configure_value_generation_never_on_Id()
     {
         // Arrange / Act — the PK is now the _id backing field (plain Guid)
         var idProp = GetEntityType().FindProperty("_id")!;
 
         // Assert
-        idProp.ValueGenerated.Should().Be(ValueGenerated.Never,
+        Assert.AreEqual(
+            ValueGenerated.Never,
+            idProp.ValueGenerated,
             "ApplicationId values are assigned by the domain, not the database");
     }
 
-    [Fact]
+    [TestMethod]
     public void Configure_Id_column_name_is_id()
     {
         // Arrange / Act — the PK is now the _id backing field (plain Guid)
         var idProp = GetEntityType().FindProperty("_id")!;
 
         // Assert
-        idProp.GetColumnName().Should().Be("id");
+        Assert.AreEqual("id", idProp.GetColumnName());
     }
 
-    [Fact]
+    [TestMethod]
     public void Configure_pins_required_columns_and_max_lengths()
     {
         // Arrange
@@ -122,49 +128,43 @@ public class EfApplicationConfigurationTests
 
         // Act / Assert — Name
         var name = entity.FindProperty("Name")!;
-        name.IsNullable.Should().BeFalse("Name is required");
-        name.GetMaxLength().Should().Be(256, "Name max length is 256");
-        name.GetColumnName().Should().Be("name");
+        Assert.IsFalse(name.IsNullable, "Name is required");
+        Assert.AreEqual(256, name.GetMaxLength(), "Name max length is 256");
+        Assert.AreEqual("name", name.GetColumnName());
 
         // DisplayName
         var displayName = entity.FindProperty("DisplayName")!;
-        displayName.IsNullable.Should().BeFalse("DisplayName is required");
-        displayName.GetMaxLength().Should().Be(128, "DisplayName max length is 128");
-        displayName.GetColumnName().Should().Be("display_name");
+        Assert.IsFalse(displayName.IsNullable, "DisplayName is required");
+        Assert.AreEqual(128, displayName.GetMaxLength(), "DisplayName max length is 128");
+        Assert.AreEqual("display_name", displayName.GetColumnName());
 
         // Description
         var description = entity.FindProperty("Description")!;
-        description.IsNullable.Should().BeFalse("Description is required");
-        description.GetColumnName().Should().Be("description");
+        Assert.IsFalse(description.IsNullable, "Description is required");
+        Assert.AreEqual("description", description.GetColumnName());
 
         // OwnerUserId
         var ownerUserId = entity.FindProperty("OwnerUserId")!;
-        ownerUserId.IsNullable.Should().BeFalse("OwnerUserId is required");
-        ownerUserId.GetColumnName().Should().Be("owner_user_id");
+        Assert.IsFalse(ownerUserId.IsNullable, "OwnerUserId is required");
+        Assert.AreEqual("owner_user_id", ownerUserId.GetColumnName());
 
         // TenantId
         var tenantId = entity.FindProperty("TenantId")!;
-        tenantId.IsNullable.Should().BeFalse("TenantId is required");
-        tenantId.GetColumnName().Should().Be("tenant_id");
+        Assert.IsFalse(tenantId.IsNullable, "TenantId is required");
+        Assert.AreEqual("tenant_id", tenantId.GetColumnName());
 
         // CreatedAt
         var createdAt = entity.FindProperty("CreatedAt")!;
-        createdAt.IsNullable.Should().BeFalse("CreatedAt is required");
-        createdAt.GetColumnName().Should().Be("created_at");
+        Assert.IsFalse(createdAt.IsNullable, "CreatedAt is required");
+        Assert.AreEqual("created_at", createdAt.GetColumnName());
     }
 
-    [Fact]
+    [TestMethod]
     public void Configure_ignores_domain_typed_Id_property()
     {
         // Arrange — use the convention model so we can read IgnoredMembers (which is
-        // erased once the model is finalized). Apply the configuration to a fresh
-        // ModelBuilder, then inspect the underlying convention entity type.
-        var conventionSet = InMemoryConventionSetBuilder.Build();
-        var modelBuilder = new ModelBuilder(conventionSet);
-        new EfApplicationConfiguration().Configure(modelBuilder.Entity<DomainApplication>());
-
-        var conventionEntity = (IConventionEntityType)modelBuilder.Model
-            .FindEntityType(typeof(DomainApplication))!;
+        // erased once the model is finalized).
+        var conventionEntity = BuildConventionModel();
 
         // Act
         var ignoredMembers = conventionEntity.GetIgnoredMembers();
@@ -174,18 +174,19 @@ public class EfApplicationConfigurationTests
 
         // Assert
         // Primary kill: explicit Ignore registers the member name in IgnoredMembers.
-        ignoredMembers.Should().Contain(nameof(DomainApplication.Id),
+        Assert.IsTrue(
+            ignoredMembers.Contains(nameof(DomainApplication.Id)),
             "Configure must explicitly Ignore the domain-typed Id getter so future EF " +
             "convention changes (complex/owned-type auto-mapping) cannot silently map it");
 
         // Secondary kill: the finalized model must not surface Id as a mapped property —
         // only the shadow _id backing field should appear.
-        idProperty.Should().BeNull("the domain-typed Id getter must not be mapped");
-        mappedNames.Should().NotContain(nameof(DomainApplication.Id));
-        mappedNames.Should().Contain("_id", "the backing field _id must be mapped instead");
+        Assert.IsNull(idProperty, "the domain-typed Id getter must not be mapped");
+        Assert.IsFalse(mappedNames.Contains(nameof(DomainApplication.Id)));
+        Assert.IsTrue(mappedNames.Contains("_id"), "the backing field _id must be mapped instead");
     }
 
-    [Fact]
+    [TestMethod]
     public void Configure_indexes_tenant_id_with_named_index()
     {
         // Arrange / Act
@@ -195,7 +196,7 @@ public class EfApplicationConfigurationTests
         var index = entity.GetIndexes()
             .SingleOrDefault(i => i.Properties.Any(p => p.Name == "TenantId"));
 
-        index.Should().NotBeNull("TenantId must have a dedicated index");
-        index!.GetDatabaseName().Should().Be("ix_catalog_applications_tenant_id");
+        Assert.IsNotNull(index, "TenantId must have a dedicated index");
+        Assert.AreEqual("ix_catalog_applications_tenant_id", index!.GetDatabaseName());
     }
 }

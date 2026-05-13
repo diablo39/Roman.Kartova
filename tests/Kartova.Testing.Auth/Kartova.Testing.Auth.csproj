@@ -18,7 +18,6 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
     <PackageReference Include="Testcontainers.PostgreSql" />
-    <PackageReference Include="xunit.extensibility.core" />
   </ItemGroup>
 
   <ItemGroup>

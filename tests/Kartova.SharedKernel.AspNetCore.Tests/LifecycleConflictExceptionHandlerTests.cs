@@ -1,17 +1,17 @@
-using FluentAssertions;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.AspNetCore;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
-using Xunit;
 
 namespace Kartova.SharedKernel.AspNetCore.Tests;
 
+[TestClass]
 public class LifecycleConflictExceptionHandlerTests
 {
-    [Fact]
+    [TestMethod]
     public async Task Maps_to_409_with_currentLifecycle_and_attemptedTransition_extensions()
     {
         var pds = Substitute.For<IProblemDetailsService>();
@@ -23,15 +23,15 @@ public class LifecycleConflictExceptionHandlerTests
 
         var handled = await handler.TryHandleAsync(http, ex, CancellationToken.None);
 
-        handled.Should().BeTrue();
-        http.Response.StatusCode.Should().Be(StatusCodes.Status409Conflict);
+        Assert.IsTrue(handled);
+        Assert.AreEqual(StatusCodes.Status409Conflict, http.Response.StatusCode);
         await pds.Received(1).TryWriteAsync(Arg.Is<ProblemDetailsContext>(c =>
             c.ProblemDetails.Type == ProblemTypes.LifecycleConflict &&
             (string)c.ProblemDetails.Extensions["currentLifecycle"]! == "decommissioned" &&
             (string)c.ProblemDetails.Extensions["attemptedTransition"]! == "Deprecate"));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Includes_sunsetDate_and_reason_when_provided()
     {
         var pds = Substitute.For<IProblemDetailsService>();
@@ -50,7 +50,7 @@ public class LifecycleConflictExceptionHandlerTests
             (string)c.ProblemDetails.Extensions["reason"]! == "before-sunset-date"));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Omits_sunsetDate_and_reason_when_not_provided()
     {
         // Pins the absence-path: when ILifecycleConflict.SunsetDate / Reason are null,
@@ -71,7 +71,7 @@ public class LifecycleConflictExceptionHandlerTests
             !c.ProblemDetails.Extensions.ContainsKey("reason")));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Returns_false_for_unrelated_exception()
     {
         var pds = Substitute.For<IProblemDetailsService>();
@@ -80,7 +80,7 @@ public class LifecycleConflictExceptionHandlerTests
         var handled = await handler.TryHandleAsync(new DefaultHttpContext(),
             new InvalidOperationException(), CancellationToken.None);
 
-        handled.Should().BeFalse();
+        Assert.IsFalse(handled);
         await pds.DidNotReceive().TryWriteAsync(Arg.Any<ProblemDetailsContext>());
     }
 

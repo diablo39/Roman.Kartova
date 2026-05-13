@@ -1,12 +1,12 @@
-# xUnit → MSTest v4 + Microsoft.Testing.Platform Migration Plan
+# xUnit → MSTest v4 Migration Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace xUnit + FluentAssertions with MSTest v4 + native asserts across all 10 xUnit-using test projects in the repo, adopt `MSTest.Sdk` + Microsoft.Testing.Platform (MTP) as the runner, and supersede ADR-0083.
+**Goal:** Replace xUnit + FluentAssertions with MSTest v4 + native asserts across all 10 xUnit-using test projects in the repo, and supersede ADR-0083. VSTest runner, `Microsoft.NET.Sdk`, and `coverlet.collector` all unchanged — MTP adoption is deferred (Stryker.NET does not support it at the version probed in Phase 0; see stryker-net#3094 and baseline-doc §"Stryker × MTP compatibility probe").
 
-**Architecture:** Phased per-project migration. Phase 0 lands tooling + ADR + mutation baseline. Phases 1–11 each migrate one project (xUnit and MSTest tests coexist within a project during the file-by-file translation window). Phase 8 is an *additive* contract change in `KartovaApiFixtureBase` — both `IAsyncLifetime` and `IAsyncDisposable` interfaces live there until Phase 12 removes `IAsyncLifetime`. Phase 12 flips every migrated project to `MSTest.Sdk` (for MTP) and drops xUnit/FluentAssertions packages from CPM.
+**Architecture:** Phased per-project migration. Phase 0 lands tooling + ADR + mutation baseline. Phases 1–11 each migrate one project (xUnit and MSTest tests coexist within a project during the file-by-file translation window). Phase 8 is an *additive* contract change in `KartovaApiFixtureBase` — both `IAsyncLifetime` and `IAsyncDisposable` interfaces live there until Phase 12 removes `IAsyncLifetime`. Phase 12 drops xUnit/FluentAssertions packages from CPM. Project SDK stays on `Microsoft.NET.Sdk` throughout.
 
-**Tech Stack:** .NET 10, MSTest v4 (`MSTest.TestFramework`, `MSTest.TestAdapter`, `MSTest.Analyzers`), `MSTest.Sdk` 4.x (Phase 12), Microsoft.Testing.Platform, NSubstitute (unchanged), Testcontainers (unchanged), NetArchTest (unchanged), Stryker.NET (unchanged).
+**Tech Stack:** .NET 10, MSTest v4 (`MSTest.TestFramework`, `MSTest.TestAdapter`, `MSTest.Analyzers`), `Microsoft.NET.Test.Sdk` (unchanged), VSTest (unchanged), `coverlet.collector` (unchanged), NSubstitute (unchanged), Testcontainers (unchanged), NetArchTest (unchanged), Stryker.NET (unchanged).
 
 **Source spec:** [`docs/superpowers/specs/2026-05-08-xunit-to-mstest-migration-design.md`](../specs/2026-05-08-xunit-to-mstest-migration-design.md). The plan refers to **spec §4** for the canonical translation rules and **spec §5** for fixture migration patterns. Engineers must read both sections before starting any per-file translation.
 
@@ -34,6 +34,18 @@ Expected: `working tree clean` on `master` (or your migration branch).
 
 ---
 
+## Stryker invocation note (referenced from Phase 1 / 2 / 9 / 10 / 11 mutation steps)
+
+At the Stryker version pinned during Phase 0, the root `stryker-config.json` invocation can fail at a source-generator/interceptor bug in `Microsoft.AspNetCore.OpenApi.SourceGenerators` (CS9234). The repo's working pattern is per-project orchestration via `mutation-targets.json` + the `mutation-sentinel` skill. Mutation steps in Phases 1, 2, 9, 10, 11 below explicitly use per-project Stryker configs (`src/Kartova.SharedKernel/stryker-config.json`, `src/Kartova.SharedKernel.AspNetCore/stryker-config.json`, etc.) — do NOT use the root config in those per-phase mutation steps.
+
+**Phase 12 (Task 12.6 — final mutation regression check) is the exception:** Phase 12 deliberately re-runs the full per-project orchestrator post-migration. The per-phase incremental gate captures only changed-file scope (Phases 1, 2, 9, 10, 11); Phase 12's full mode captures the complete picture across all 12 source projects. If the root `stryker-config.json` is fixable by then (CS9234 resolves upstream), Phase 12 may switch to that single invocation; otherwise the orchestrator pattern remains canonical.
+
+(See also: baseline doc §"Why not a fresh run?" for the original diagnosis.)
+
+**Phase 2+ optimisation idea (deferred):** Phase 1's mutation gate ran the per-project Stryker loop sequentially via `&&`-chained commands; on this hardware the orchestrator took ~5 hours wall-clock with most time spent on sequential test discovery across the 12 source projects. For Phases 2 / 4 / 5 / 9 / 10 / 11 / 12 — where the same orchestrator pattern repeats — consider either (a) bumping `"concurrency"` in `stryker-config.json` (default is ½ CPU cores), or (b) wrapping the per-project loop in PowerShell `ForEach-Object -Parallel -ThrottleLimit 3` so 2–3 projects run concurrently. Out of scope for Phase 1 (gate already met); track as a Phase 2 prelude opportunity.
+
+---
+
 ## Phase 0 — Tooling, ADR, baseline (no test code rewritten)
 
 After Phase 0 lands, the existing xUnit suite still runs. Plumbing only.
@@ -43,17 +55,15 @@ After Phase 0 lands, the existing xUnit suite still runs. Plumbing only.
 **Files:**
 - Modify: `Directory.Packages.props`
 
-- [ ] **Step 1: Add MSTest v4 + MTP package versions.**
+- [ ] **Step 1: Add MSTest v4 package versions.**
 
 Open `Directory.Packages.props`. In the `<ItemGroup>` under `<!-- Test dependencies -->`, add **after** the `Microsoft.NET.Test.Sdk` line:
 
 ```xml
-    <!-- MSTest v4 + Microsoft.Testing.Platform — added during xUnit→MSTest migration; xUnit lines are removed in Phase 12 -->
+    <!-- MSTest v4 — added during xUnit→MSTest migration; xUnit lines are removed in Phase 12 -->
     <PackageVersion Include="MSTest.TestFramework" Version="4.0.0" />
     <PackageVersion Include="MSTest.TestAdapter" Version="4.0.0" />
     <PackageVersion Include="MSTest.Analyzers" Version="4.0.0" />
-    <PackageVersion Include="MSTest.Sdk" Version="4.0.0" />
-    <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="17.14.1" />
 ```
 
 Verify the actual latest 4.x version from NuGet at execution time — bump to the latest patch release.
@@ -70,7 +80,7 @@ Expected: success, no version conflicts. The new packages are registered at CPM 
 
 ```
 git add Directory.Packages.props
-git commit -m "chore(test): register MSTest v4 + MTP packages in CPM"
+git commit -m "chore(test): register MSTest v4 packages in CPM"
 ```
 
 ### Task 0.2: Create root Directory.Build.props
@@ -85,11 +95,10 @@ Path: `Directory.Build.props` (repo root).
 ```xml
 <Project>
   <!-- Cross-cutting test settings. Per-project test settings live in each .csproj. -->
-  <!-- Added during xUnit→MSTest migration to host test-related defaults. -->
 </Project>
 ```
 
-Keep it minimal. Per-project MTP enablement (`<EnableMSTestRunner>true</EnableMSTestRunner>`, `<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>`) is opt-in per phase.
+Keep it minimal. The runner stays on VSTest throughout the migration; no MTP-specific properties are added at any phase.
 
 - [ ] **Step 2: Verify build still works.**
 
@@ -106,24 +115,14 @@ git add Directory.Build.props
 git commit -m "chore(build): add root Directory.Build.props for cross-cutting test settings"
 ```
 
-### Task 0.3: Verify global.json allows MSTest.Sdk 4.x
+### Task 0.3: Verify global.json (no change expected)
 
 **Files:**
 - Read: `global.json`
-- Modify only if SDK band rejects MSTest.Sdk 4.x
 
 - [ ] **Step 1: Inspect the SDK pin.**
 
-Read `global.json`. If the `sdk.version` is .NET 10 (e.g., `10.0.x`), no change is needed — `MSTest.Sdk` 4.x supports .NET 8+ and runs on the .NET 10 SDK. If `rollForward` is `disable`, switch to `latestPatch` so the project picks up MSTest analyzer fixes:
-
-```json
-{
-  "sdk": {
-    "version": "10.0.100",
-    "rollForward": "latestPatch"
-  }
-}
-```
+Read `global.json`. The runner stays on VSTest, project SDK stays on `Microsoft.NET.Sdk`, and the only new packages (`MSTest.TestFramework`/`TestAdapter`/`Analyzers` 4.x) target .NET 8+ which is satisfied by the .NET 10 SDK. No `global.json` change is expected.
 
 - [ ] **Step 2: Build verification.**
 
@@ -133,61 +132,23 @@ dotnet build Kartova.slnx -warnaserror
 ```
 Expected: success.
 
-- [ ] **Step 3: Commit if changed.**
+- [ ] **Step 3: No commit needed.**
 
-```
-git add global.json
-git commit -m "chore(sdk): allow latestPatch rollForward for MSTest.Sdk compatibility"
-```
-
-If no change was needed, skip this commit.
-
-### Task 0.3a: Inspect CI workflows for MTP compatibility
+### Task 0.3a: CI workflows (no change expected)
 
 **Files:**
-- Read: `.github/workflows/*.yml`
-- Modify only if a workflow uses VSTest-specific flags or relies on a specific exit code
+- Read-only: `.github/workflows/*.yml`
 
-- [ ] **Step 1: List workflow files.**
+Since the runner stays on VSTest, `dotnet test` invocations behave identically before and after the migration. No CI workflow changes are needed.
 
-```
-ls .github/workflows/
-```
-
-- [ ] **Step 2: Read each workflow file and search for `dotnet test` invocations.**
-
-For each `dotnet test` invocation, check:
-- Are VSTest-only flags used? (e.g., `--logger "trx;LogFileName=..."`, `--filter "TestCategory=..."`) — these may not work under MTP. If found, document the flag in the workflow comment and plan a Phase 12 follow-up to translate.
-- Is the exit code interpreted explicitly? MTP returns exit code 8 for "no tests found" rather than 0. If a workflow is structured as `dotnet test ... && next-step`, exit code 8 will short-circuit. Document any sensitive site.
-
-- [ ] **Step 3: If changes are needed, edit the workflow.**
-
-If a workflow needs `--ignore-exit-code 8` for MTP compatibility, add it with an inline comment:
-
-```yaml
-- name: Run tests
-  # MTP returns exit code 8 when a project has no tests (e.g., infra-only project in scope).
-  # `--ignore-exit-code 8` keeps CI green for those.
-  run: dotnet test Kartova.slnx --no-build --ignore-exit-code 8
-```
-
-If no changes are needed (workflows use vanilla `dotnet test` and read exit codes via standard `if: success()` rather than command chaining), document that conclusion in the commit message but make no edits.
-
-- [ ] **Step 4: Build + test sanity check (no functional change yet).**
+- [ ] **Step 1: Sanity check — full test run still green.**
 
 ```
 dotnet test Kartova.slnx
 ```
 Expected: exit code 0, all tests green.
 
-- [ ] **Step 5: Commit (only if workflow files were edited).**
-
-```
-git add .github/workflows/
-git commit -m "ci: prepare workflows for MSTest + MTP exit-code semantics"
-```
-
-If no edits were needed, skip.
+- [ ] **Step 2: No commit needed.**
 
 ### Task 0.4: Capture mutation baseline for Stryker target projects
 
@@ -223,9 +184,9 @@ Create `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-ba
 | Kartova.Catalog.Tests | TBD% | n | n | n | n |
 | Kartova.Organization.Tests | TBD% | n | n | n | n |
 
-## Regression budget
+## Mutation gate
 
-Phases 4, 5, and 12 must keep mutation score within **±1 percentage point** of the baseline above. Investigate any deviation > 1pt before merging the offending phase.
+See "Per-phase mutation-gate ownership" section below for the canonical phase-to-target mapping (Phases 1, 2, 4, 5, 9, 10, 11, 12 are gate-owners per `mutation-targets.json` orchestration). Merge gate, secondary CompileError-delta check, and ±1pt regression budget all defined in this doc.
 ```
 
 Replace `TBD%` and the counts with the actual values from the Stryker run in Step 1.
@@ -264,52 +225,22 @@ git add docs/superpowers/specs/baselines/2026-05-08-mstest-migration-beequivalen
 git commit -m "docs(test): audit BeEquivalentTo sites for MSTest migration"
 ```
 
-### Task 0.6: Verify Stryker.NET works under MTP
+### Task 0.6: Stryker × MTP compatibility probe (already executed; outcome drove MTP-drop)
 
-This is a forward-looking check. Phase 12 switches projects to `MSTest.Sdk` + MTP runner. Stryker drives tests through the test runner; if Stryker breaks on MTP, Phase 12 is gated on a workaround.
+**Status:** Already complete. Result: **FAIL** — Stryker.NET (at the version probed in Phase 0; see baseline-doc §"Stryker × MTP compatibility probe") does not support Microsoft.Testing.Platform (tracked at [stryker-mutator/stryker-net#3094](https://github.com/stryker-mutator/stryker-net/issues/3094)).
 
-**Files:**
-- Read-only verification.
+**Outcome recorded in:** `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md` §"Stryker × MTP compatibility probe".
 
-- [ ] **Step 1: Set up a throwaway MTP project to probe Stryker.**
+**Decision driven by this task:** MTP is dropped from this migration's scope entirely. All test projects stay on `Microsoft.NET.Sdk` + VSTest + `coverlet.collector` + `Microsoft.NET.Test.Sdk`. Phase 12 cleanup no longer flips any project to `MSTest.Sdk`. Tasks 12.3 (SDK flip) and 12.5 (coverlet → Microsoft.Testing.Extensions.CodeCoverage) are removed accordingly. Revisit MTP in a future migration once stryker-net#3094 closes.
 
-Create a temporary directory outside the repo (e.g., `/tmp/stryker-mtp-probe`). Initialize a tiny MSTest.Sdk project with MTP enabled, write one trivial test, then run Stryker against it:
+**Why this stub remains in the plan:** preserves task IDs (engineers reaching here via cross-reference see the rationale rather than a missing section) and records the historical sequence — the probe was the deciding factor in the migration's MTP scope.
 
-```
-dotnet new mstest -o probe
-cd probe
-# Edit probe.csproj to use Sdk="MSTest.Sdk/4.0.0" and add <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
-dotnet build
-dotnet stryker --solution probe.sln --reporter cleartext
-```
-
-Expected: Stryker runs and reports a mutation score. If it errors with "test runner unsupported" or "exit code mismatch" or similar, the probe failed — flag this and adjust Phase 12.
-
-- [ ] **Step 2: Record the result in the baseline doc.**
-
-Append to `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md`:
-
-```markdown
-## Stryker × MTP compatibility probe
-
-**Result:** PASS / FAIL (date: 2026-05-08)
-
-**Notes:**
-- (e.g., "Stryker 4.x runs against MSTest.Sdk + MTP without config changes")
-- (or: "Stryker fails with X — Phase 12 must wait on Stryker version Y")
-```
-
-- [ ] **Step 3: Commit.**
-
-```
-git add docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md
-git commit -m "docs(test): record Stryker × MTP compatibility probe result"
-```
+- [x] Already executed during Phase 0; no further action.
 
 ### Task 0.7: Write ADR-0097 superseding ADR-0083
 
 **Files:**
-- Create: `docs/architecture/decisions/ADR-0097-mstest-and-mtp-supersedes-xunit.md`
+- Create: `docs/architecture/decisions/ADR-0097-mstest-supersedes-xunit.md`
 
 - [ ] **Step 1: Verify the ADR number is free.**
 
@@ -321,73 +252,17 @@ Expected: no matches. If anything exists, take the next free integer and adjust 
 
 - [ ] **Step 2: Write the ADR.**
 
-Path: `docs/architecture/decisions/ADR-0097-mstest-and-mtp-supersedes-xunit.md`.
+Path: `docs/architecture/decisions/ADR-NNNN-mstest-supersedes-xunit.md` (use the next free integer).
 
-```markdown
-# ADR-0097: MSTest v4 + Microsoft.Testing.Platform supersedes xUnit
+Use the Michael Nygard template established by other ADRs in `docs/architecture/decisions/`. Body should follow the structure of ADR-0097 as committed (see commit `753c570` for the original draft and `55b4990` for the post-MTP-drop revision). Status `Accepted`. Supersedes `ADR-0083`.
 
-**Status:** Accepted
-**Date:** 2026-05-08
-**Deciders:** Roman Głogowski (solo developer)
-**Category:** Testing & Quality
-**Supersedes:** ADR-0083 (Testing strategy with architecture tests)
-**Related:** ADR-0028 (Clean Architecture), ADR-0080 (Wolverine mediator), ADR-0082 (Modular monolith), ADR-0084 (Playwright MCP for dev-time verification), ADR-0095 (Cursor pagination contract)
-
-## Context
-
-ADR-0083 picked xUnit + FluentAssertions for unit and integration tiers. Three forces have shifted since:
-
-1. **First-party tooling alignment.** MSTest v4 ships with stronger Visual Studio / Rider integration, MSTest analyzers (`MSTest.Analyzers`), and is maintained directly by the .NET team. Microsoft.Testing.Platform (MTP) is the canonical replacement for VSTest going forward — `dotnet test` continues to drive it transparently while MTP adds hot reload, cleaner exit-code semantics, and faster CI runs.
-2. **Skill ecosystem.** The `dotnet-test:*` skill family in this Claude Code installation has dedicated coverage for MSTest (`writing-mstest-tests`, `migrate-vstest-to-mtp`, `mtp-hot-reload`, `migrate-mstest-v3-to-v4`, `test-anti-patterns` framework-aware) but only ad-hoc coverage for xUnit. Aligning with the skill ecosystem reduces friction for AI-assisted test work — the dominant mode of work in this repo.
-3. **FluentAssertions licence trajectory.** FluentAssertions 8+ moved to a commercial licence; the repo is pinned at 6.12.0. MSTest v4 native assertions (`Assert.AreEqual`, `CollectionAssert`, `StringAssert`, `Assert.ThrowsExactly`) have closed most of the readability gap that motivated FA originally, removing a third-party dependency from every test project.
-
-## Decision
-
-Across **all xUnit-using test projects in the repository** (under `tests/` and `src/Modules/**/*Tests*`):
-
-| Layer | Choice | Notes |
-|---|---|---|
-| **Test framework** | MSTest v4 | `MSTest.TestFramework`, `MSTest.TestAdapter`, `MSTest.Analyzers` |
-| **Project SDK** | `MSTest.Sdk/4.x` | Adopted in Phase 12 of the migration; enables MTP runner |
-| **Test runner** | Microsoft.Testing.Platform (MTP) | Replaces VSTest; invoked transparently by `dotnet test` |
-| **Assertions** | MSTest v4 native | `Assert`, `CollectionAssert`, `StringAssert`, `Assert.ThrowsExactly` |
-| **Mocking** | NSubstitute | Unchanged from ADR-0083 |
-| **Containers** | Testcontainers (Postgres, Keycloak) | Unchanged from ADR-0083 |
-| **Architecture** | NetArchTest | Unchanged from ADR-0083 |
-| **Code coverage** | `Microsoft.Testing.Extensions.CodeCoverage` | Replaces `coverlet.collector` for MTP-driven projects |
-| **Mutation testing** | Stryker.NET | Unchanged tool; verified compatible with MTP in Phase 0 |
-| **Five-tier pyramid** | architecture / unit / integration / contract / E2E | Unchanged from ADR-0083 |
-
-`KartovaApiFixtureBase` (in `tests/Kartova.Testing.Auth`) drops `IAsyncLifetime` and exposes `Task InitializeAsync()` + `IAsyncDisposable.DisposeAsync()` for MSTest consumers. Per-module integration test fixtures (`Kartova.Catalog.IntegrationTests`, `Kartova.Organization.IntegrationTests`) adopt the `[ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]` pattern (semantic equivalent of xUnit's `IClassFixture<T>`). The top-level `Kartova.Api.IntegrationTests` project's shared `KeycloakContainerFixture` becomes an assembly-scoped singleton via `[AssemblyInitialize]`. Every integration assembly carries `[assembly: DoNotParallelize]` to preserve env-var-race protection that xUnit's `[Collection]` previously provided.
-
-## Consequences
-
-**Positive:**
-- One-stop test stack: framework, runner, analyzers all maintained by Microsoft.
-- MTP hot reload available for tight test-fix iteration loops (`mtp-hot-reload` skill).
-- `MSTest.Analyzers` catches mistakes that xUnit's looser convention previously let through (e.g., misnamed `[ClassInitialize]` signatures).
-- One fewer third-party dependency (FluentAssertions) per test project.
-
-**Negative:**
-- One-time migration cost paid in the slice that introduces this ADR (~64 files across 10 projects).
-- Lose xUnit's per-test class-instance isolation; test classes now reuse one instance across `[TestMethod]` invocations within a class. Field initializers behave identically; constructor side-effects are migrated to `[TestInitialize]`.
-- Lose FluentAssertions' deep-object-graph `BeEquivalentTo`. Per-property `Assert.AreEqual` is the replacement; if site count exceeds tolerable repetition, AwesomeAssertions is the documented escape hatch (community fork of FA, MIT-licensed).
-- `[assembly: DoNotParallelize]` is more conservative than the per-collection serialization xUnit used; integration test wall-time may increase modestly.
-
-**Neutral:**
-- Test taxonomy and CI gates (architecture-tests-must-pass) unchanged from ADR-0083.
-- NSubstitute and Testcontainers usage patterns are framework-agnostic and unaffected.
-
-## Migration
-
-Tracked in spec `docs/superpowers/specs/2026-05-08-xunit-to-mstest-migration-design.md` and plan `docs/superpowers/plans/2026-05-08-xunit-to-mstest-migration-plan.md`. 13 phases (Phase 0 + Phases 1–12).
-```
+(The actual body is recorded in ADR-0097 itself; do not duplicate inline here.)
 
 - [ ] **Step 3: Commit.**
 
 ```
-git add docs/architecture/decisions/ADR-0097-mstest-and-mtp-supersedes-xunit.md
-git commit -m "docs(adr): ADR-0097 — MSTest v4 + MTP supersedes xUnit"
+git add docs/architecture/decisions/ADR-0097-mstest-supersedes-xunit.md
+git commit -m "docs(adr): ADR-0097 — MSTest v4 supersedes xUnit"
 ```
 
 ### Task 0.8: Update ADR-0083 status to Superseded
@@ -406,7 +281,7 @@ In `docs/architecture/decisions/ADR-0083-testing-strategy-with-architecture-test
 to:
 
 ```
-**Status:** Superseded by ADR-0097 (test framework + assertion library + runner)
+**Status:** Superseded by ADR-0097 (test framework + assertion library)
 ```
 
 Do not edit the body — ADRs are append-only after `Accepted`.
@@ -429,7 +304,7 @@ Read `docs/architecture/decisions/README.md` to learn the row shape (typically a
 
 - [ ] **Step 2: Add ADR-0097 row.**
 
-Add a row for ADR-0097 with keywords: `test framework, MSTest, MTP, Microsoft.Testing.Platform, mutation, FluentAssertions, NSubstitute, Testcontainers`.
+Add a row for ADR-0097 with keywords: `test framework, MSTest, mutation, FluentAssertions, NSubstitute, Testcontainers`.
 
 If the README has a "Superseded" or "Replaces" column, mark the ADR-0083 row as `Superseded by 0097` and the ADR-0097 row as `Supersedes 0083`. Match whatever convention the README already uses.
 
@@ -460,14 +335,14 @@ In `CLAUDE.md`, find the "Architectural guardrails" section. Change:
 to:
 
 ```markdown
-- **Testing:** five-tier pyramid — architecture (NetArchTest, mandatory CI gate) + unit + integration (Testcontainers) + contract (Pact) + E2E (Playwright). Framework: MSTest v4 + Microsoft.Testing.Platform; assertions: MSTest v4 native (no FluentAssertions); mocks: NSubstitute (ADR-0097, supersedes ADR-0083)
+- **Testing:** five-tier pyramid — architecture (NetArchTest, mandatory CI gate) + unit + integration (Testcontainers) + contract (Pact) + E2E (Playwright). Framework: MSTest v4 (VSTest runner unchanged); assertions: MSTest v4 native (no FluentAssertions); mocks: NSubstitute (ADR-0097, supersedes ADR-0083)
 ```
 
 - [ ] **Step 2: Commit.**
 
 ```
 git add CLAUDE.md
-git commit -m "docs(claude): update testing bullet for MSTest + MTP (ADR-0097)"
+git commit -m "docs(claude): update testing bullet for MSTest (ADR-0097)"
 ```
 
 ### Task 0.11: Phase 0 verification
@@ -864,6 +739,18 @@ Expected: same total test count as Phase 0 baseline; all green.
 
 Open one of the translated test classes in IDE Test Explorer; confirm tests appear under the MSTest discovery path with green check marks after running.
 
+- [ ] **Step 4: Mutation regression — `Kartova.SharedKernel`.**
+
+Run per-project Stryker against `Kartova.SharedKernel`:
+```
+dotnet stryker -f src/Kartova.SharedKernel/stryker-config.json --since:master
+```
+Expected: mutation score within ±1pt of baseline (75.00% per `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md`). If outside ±1pt, see the merge-gate language in that doc and the per-phase ownership table.
+
+This per-project incremental run satisfies the per-phase mutation gate (~5 min wall-clock). To refresh the canonical `mutation-report-surviving.md` artifact across all 12 source projects, run the `mutation-sentinel` skill orchestrator (`bash ./.claude/skills/mutation-sentinel/scripts/ms-detect-and-run.sh`) — typically once per slice boundary, not per phase.
+
+(Per-project config used per the §Stryker invocation note at the top of this plan.)
+
 Phase 1 is complete and ready for PR review.
 
 ---
@@ -955,6 +842,18 @@ dotnet test Kartova.slnx --no-build
 git add tests/Kartova.SharedKernel.AspNetCore.Tests/Kartova.SharedKernel.AspNetCore.Tests.csproj
 git commit -m "chore(test): remove xUnit + FluentAssertions from Kartova.SharedKernel.AspNetCore.Tests"
 ```
+
+- [ ] **Step 5: Mutation regression — `Kartova.SharedKernel.AspNetCore` (interim score; Phase 11 is the official gate).**
+
+Run per-project Stryker against `Kartova.SharedKernel.AspNetCore`:
+```
+dotnet stryker -f src/Kartova.SharedKernel.AspNetCore/stryker-config.json --since:master
+```
+Phase 2 is the **primary owner** of this mutation target but **co-driven with Phase 11** (the AspNetCore Stryker config also feeds `tests/Kartova.Api.IntegrationTests`, which is still on xUnit at this point). The score captured here is an **interim diagnostic** — a >1pt drift vs the 100.00% baseline (per `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md`) flags a translation defect in this phase to investigate before Phase 11. The official gate runs at Phase 11 once both driving test suites are on MSTest.
+
+This per-project incremental run satisfies the per-phase mutation gate (~5 min wall-clock). To refresh the canonical `mutation-report-surviving.md` artifact across all 12 source projects, run the `mutation-sentinel` skill orchestrator (`bash ./.claude/skills/mutation-sentinel/scripts/ms-detect-and-run.sh`) — typically once per slice boundary, not per phase.
+
+(Per-project config used per the §Stryker invocation note at the top of this plan.)
 
 Phase 2 complete.
 
@@ -1612,6 +1511,18 @@ git add src/Modules/Catalog/Kartova.Catalog.IntegrationTests/Kartova.Catalog.Int
 git commit -m "chore(test): remove xUnit + FluentAssertions from Kartova.Catalog.IntegrationTests"
 ```
 
+- [ ] **Step 6: Mutation regression — `Kartova.SharedKernel.Postgres` (interim score; Phase 10 is the official gate).**
+
+Run per-project Stryker against `Kartova.SharedKernel.Postgres`:
+```
+dotnet stryker -f src/Kartova.SharedKernel.Postgres/stryker-config.json --since:master
+```
+Phase 9 is **co-driver** of this mutation target with Phase 10 (the Postgres Stryker config feeds both `Kartova.Catalog.IntegrationTests` and `Kartova.Organization.IntegrationTests`). Phase 10 is the second of the two co-drivers and is the official gate; this Phase-9 run captures an **interim diagnostic** score — a >1pt drift vs the 94.74% baseline (per `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md`) flags a translation defect in this phase to investigate before Phase 10.
+
+This per-project incremental run satisfies the per-phase mutation gate (~5 min wall-clock). To refresh the canonical `mutation-report-surviving.md` artifact across all 12 source projects, run the `mutation-sentinel` skill orchestrator (`bash ./.claude/skills/mutation-sentinel/scripts/ms-detect-and-run.sh`) — typically once per slice boundary, not per phase.
+
+(Per-project config used per the §Stryker invocation note at the top of this plan.)
+
 Phase 9 complete.
 
 ---
@@ -1682,6 +1593,19 @@ Same shape as Task 9.5 but two file deletions.
 ### Task 10.6: Drop xUnit references and verify
 
 Same shape as Task 9.6. Real HTTP verification step required.
+
+### Task 10.7: Mutation regression — `Kartova.SharedKernel.Postgres` (official gate)
+
+- [ ] **Step 1: Run per-project Stryker against `Kartova.SharedKernel.Postgres`.**
+
+```
+dotnet stryker -f src/Kartova.SharedKernel.Postgres/stryker-config.json --since:master
+```
+Phase 10 is the **second of the two co-drivers** for this mutation target (Phase 9 captured an interim diagnostic score). At this point both `Kartova.Catalog.IntegrationTests` and `Kartova.Organization.IntegrationTests` are on MSTest, so this run is the **official gate** for `Kartova.SharedKernel.Postgres`. Expected: mutation score within ±1pt of the 94.74% baseline (per `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md`). If outside ±1pt, see the merge-gate language in that doc and the per-phase ownership table.
+
+This per-project incremental run satisfies the per-phase mutation gate (~5 min wall-clock). To refresh the canonical `mutation-report-surviving.md` artifact across all 12 source projects, run the `mutation-sentinel` skill orchestrator (`bash ./.claude/skills/mutation-sentinel/scripts/ms-detect-and-run.sh`) — typically once per slice boundary, not per phase.
+
+(Per-project config used per the §Stryker invocation note at the top of this plan.)
 
 Phase 10 complete.
 
@@ -1970,13 +1894,25 @@ git add tests/Kartova.Api.IntegrationTests/Kartova.Api.IntegrationTests.csproj t
 git commit -m "chore(test): remove xUnit + FA from Kartova.Api.IntegrationTests"
 ```
 
+- [ ] **Step 5: Mutation regression — `Kartova.SharedKernel.AspNetCore` (official gate).**
+
+Run per-project Stryker against `Kartova.SharedKernel.AspNetCore`:
+```
+dotnet stryker -f src/Kartova.SharedKernel.AspNetCore/stryker-config.json --since:master
+```
+Phase 11 is the **second of the two co-drivers** for this mutation target (Phase 2 captured an interim diagnostic score). At this point both `tests/Kartova.SharedKernel.AspNetCore.Tests` and `tests/Kartova.Api.IntegrationTests` are on MSTest, so this run is the **official gate** for `Kartova.SharedKernel.AspNetCore`. Expected: mutation score within ±1pt of the 100.00% baseline (per `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md`). If outside ±1pt, see the merge-gate language in that doc and the per-phase ownership table.
+
+This per-project incremental run satisfies the per-phase mutation gate (~5 min wall-clock). To refresh the canonical `mutation-report-surviving.md` artifact across all 12 source projects, run the `mutation-sentinel` skill orchestrator (`bash ./.claude/skills/mutation-sentinel/scripts/ms-detect-and-run.sh`) — typically once per slice boundary, not per phase.
+
+(Per-project config used per the §Stryker invocation note at the top of this plan.)
+
 Phase 11 complete.
 
 ---
 
 ## Phase 12 — Final cleanup
 
-**Goal:** drop `IAsyncLifetime` from `KartovaApiFixtureBase`, drop xUnit/FA package versions from CPM, switch every migrated test project to `MSTest.Sdk` (enables MTP runner), verify Stryker still works.
+**Goal:** drop `IAsyncLifetime` from `KartovaApiFixtureBase`, drop xUnit/FA package versions from CPM, drop the lingering xUnit reference from `Kartova.Testing.Auth.csproj`, and run the final mutation regression check. Project SDK (`Microsoft.NET.Sdk`), runner (VSTest), and `coverlet.collector` all stay unchanged — MTP is out of scope (see plan header).
 
 ### Task 12.1: Remove `IAsyncLifetime` from `KartovaApiFixtureBase`
 
@@ -2054,84 +1990,11 @@ git add tests/Kartova.Testing.Auth/Kartova.Testing.Auth.csproj
 git commit -m "chore(test): remove xunit.extensibility.core from Kartova.Testing.Auth"
 ```
 
-### Task 12.3: Switch every migrated test project to `MSTest.Sdk`
+### Task 12.3: (Removed) — `MSTest.Sdk` flip deferred
 
-**Files (10 .csproj files):**
-- `tests/Kartova.SharedKernel.Tests/Kartova.SharedKernel.Tests.csproj`
-- `tests/Kartova.SharedKernel.AspNetCore.Tests/Kartova.SharedKernel.AspNetCore.Tests.csproj`
-- `tests/Kartova.ArchitectureTests/Kartova.ArchitectureTests.csproj`
-- `tests/Kartova.Api.IntegrationTests/Kartova.Api.IntegrationTests.csproj`
-- `src/Modules/Catalog/Kartova.Catalog.Tests/Kartova.Catalog.Tests.csproj`
-- `src/Modules/Catalog/Kartova.Catalog.Infrastructure.Tests/Kartova.Catalog.Infrastructure.Tests.csproj`
-- `src/Modules/Catalog/Kartova.Catalog.IntegrationTests/Kartova.Catalog.IntegrationTests.csproj`
-- `src/Modules/Organization/Kartova.Organization.Tests/Kartova.Organization.Tests.csproj`
-- `src/Modules/Organization/Kartova.Organization.Infrastructure.Tests/Kartova.Organization.Infrastructure.Tests.csproj`
-- `src/Modules/Organization/Kartova.Organization.IntegrationTests/Kartova.Organization.IntegrationTests.csproj`
+Originally this task switched every migrated test project from `Microsoft.NET.Sdk` to `MSTest.Sdk` to enable Microsoft.Testing.Platform. **Removed from this migration's scope.** The Phase 0 Stryker × MTP probe (recorded in `docs/superpowers/specs/baselines/2026-05-08-mstest-migration-mutation-baseline.md` §"Stryker × MTP compatibility probe", which records the exact Stryker version probed) confirmed Stryker.NET cannot drive MTP-only test projects at that version (stryker-net#3094). All test projects stay on `Microsoft.NET.Sdk` + VSTest. Revisit in a future migration once Stryker support lands.
 
-**`Kartova.Testing.Auth.csproj` stays on `Microsoft.NET.Sdk`** — it's an infra project, not a test project.
-
-For each project: change the SDK attribute, drop `Microsoft.NET.Test.Sdk` and `MSTest.TestAdapter` references (MSTest.Sdk includes them transitively), enable MTP.
-
-- [ ] **Step 1: Update each csproj.**
-
-Before (example: `Kartova.SharedKernel.Tests.csproj`):
-```xml
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    ...
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="MSTest.TestFramework" />
-    <PackageReference Include="MSTest.TestAdapter" />
-    <PackageReference Include="MSTest.Analyzers" />
-    ...
-  </ItemGroup>
-</Project>
-```
-
-After:
-```xml
-<Project Sdk="MSTest.Sdk/4.0.0">
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
-    ...
-  </PropertyGroup>
-  <ItemGroup>
-    <!-- Microsoft.NET.Test.Sdk, MSTest.TestFramework, MSTest.TestAdapter, MSTest.Analyzers
-         are bundled by MSTest.Sdk — remove explicit refs. -->
-    ...
-  </ItemGroup>
-</Project>
-```
-
-The exact 4.x SDK version should match what was added to `Directory.Packages.props` in Task 0.1.
-
-- [ ] **Step 2: Repeat for each of the 10 listed test projects.**
-
-- [ ] **Step 3: Build the full solution.**
-
-```
-dotnet restore Kartova.slnx
-dotnet build Kartova.slnx -warnaserror
-```
-Expected: success. MSTest.Sdk's bundled packages cover what was previously explicit.
-
-- [ ] **Step 4: Run the full test suite under MTP.**
-
-```
-dotnet test Kartova.slnx --no-build
-```
-Expected: same total count as Phase 11; all green. MTP exit code 0 = success; if any project returns exit code 8 ("no tests"), inspect — likely a `TestProject` flag or filter issue.
-
-- [ ] **Step 5: Commit.**
-
-```
-git add -- "**/*.csproj"
-git commit -m "chore(test): switch all test projects to MSTest.Sdk + Microsoft.Testing.Platform"
-```
+**Numbering:** Task 12.4 follows directly. The 12.3 gap is intentional — re-numbering downstream tasks would reflow many cross-references for no value.
 
 ### Task 12.4: Remove xUnit and FluentAssertions from CPM
 
@@ -2155,7 +2018,13 @@ In `Directory.Packages.props`, remove:
     <PackageVersion Include="FluentAssertions" Version="..." />
 ```
 
-- [ ] **Step 3: Build + test.**
+- [ ] **Step 3: Trim the migration-era comment in `Directory.Packages.props`.**
+
+The MSTest entries currently sit under `<!-- MSTest v4 — added during xUnit→MSTest migration; xUnit lines are removed in Phase 12 -->`. After this task removes the xUnit lines, the trailing clause becomes stale.
+
+Replace with `<!-- MSTest v4 -->` (or delete the comment entirely — git blame answers the "when added" question).
+
+- [ ] **Step 4: Build + test.**
 
 ```
 dotnet restore Kartova.slnx
@@ -2163,50 +2032,18 @@ dotnet build Kartova.slnx -warnaserror
 dotnet test Kartova.slnx --no-build
 ```
 
-- [ ] **Step 4: Commit.**
+- [ ] **Step 5: Commit.**
 
 ```
 git add Directory.Packages.props
 git commit -m "chore(test): drop xUnit + FluentAssertions package versions from CPM"
 ```
 
-### Task 12.5: Replace `coverlet.collector` with MTP code coverage
+### Task 12.5: (Removed) — coverage tool replacement deferred
 
-**Files:**
-- Modify: every test `.csproj` that referenced `coverlet.collector`
-- Modify: `Directory.Packages.props`
+Originally this task replaced `coverlet.collector` with `Microsoft.Testing.Extensions.CodeCoverage`. **Removed from scope** along with Task 12.3 — that replacement is part of the MTP runner switch, which is deferred (see Task 12.3 note). `coverlet.collector` stays as the coverage collector.
 
-This step is contingent on Phase 0 verifying `coverage-auditor` skill compatibility with `Microsoft.Testing.Extensions.CodeCoverage`. If Phase 0 found the skills incompatible, **skip this task** and leave `coverlet.collector` in place.
-
-- [ ] **Step 1: Replace per-project references.**
-
-In each test `.csproj`, replace `<PackageReference Include="coverlet.collector" />` with:
-```xml
-    <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
-```
-
-- [ ] **Step 2: Remove `coverlet.collector` from CPM.**
-
-In `Directory.Packages.props`, delete the `<PackageVersion Include="coverlet.collector" ... />` line.
-
-- [ ] **Step 3: Build + test, including a coverage run.**
-
-```
-dotnet test Kartova.slnx --no-build --collect:"XPlat Code Coverage"
-```
-Or under MTP-native invocation:
-```
-dotnet test Kartova.slnx --no-build -- --report-trx --coverage
-```
-
-Expected: coverage reports emit successfully (verify by running `coverage-auditor` skill on the output).
-
-- [ ] **Step 4: Commit.**
-
-```
-git add Directory.Packages.props "**/*.csproj"
-git commit -m "chore(test): switch from coverlet.collector to Microsoft.Testing.Extensions.CodeCoverage"
-```
+**Numbering:** Task 12.6 follows directly. The 12.5 gap is intentional — same rationale as 12.3.
 
 ### Task 12.6: Final mutation regression check
 
@@ -2251,7 +2088,7 @@ git commit -m "docs(test): final mutation regression check passes after MSTest m
 dotnet build Kartova.slnx -warnaserror
 ```
 
-- [ ] **Step 2: Full test suite with MTP runner.**
+- [ ] **Step 2: Full test suite (VSTest runner, unchanged).**
 
 ```
 dotnet test Kartova.slnx --no-build

@@ -1,11 +1,10 @@
 using System.Text.Json;
-using FluentAssertions;
 using Kartova.SharedKernel.AspNetCore;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Kartova.SharedKernel.AspNetCore.Tests;
 
@@ -14,9 +13,10 @@ namespace Kartova.SharedKernel.AspNetCore.Tests;
 /// as RFC 7807 400 via the global exception-handler chain, not per-endpoint
 /// try/catch.
 /// </summary>
+[TestClass]
 public class DomainValidationExceptionHandlerTests
 {
-    [Fact]
+    [TestMethod]
     public async Task TryHandleAsync_maps_ArgumentException_to_400_problem_details()
     {
         var (sut, ctx) = Build();
@@ -24,17 +24,17 @@ public class DomainValidationExceptionHandlerTests
         var handled = await sut.TryHandleAsync(
             ctx, new ArgumentException("name must not be empty"), CancellationToken.None);
 
-        handled.Should().BeTrue();
-        ctx.Response.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
+        Assert.IsTrue(handled);
+        Assert.AreEqual(StatusCodes.Status400BadRequest, ctx.Response.StatusCode);
 
         var body = await ReadBodyAsync(ctx);
-        body.GetProperty("type").GetString().Should().Be(ProblemTypes.ValidationFailed);
-        body.GetProperty("title").GetString().Should().Be("Invalid request");
-        body.GetProperty("status").GetInt32().Should().Be(StatusCodes.Status400BadRequest);
-        body.GetProperty("detail").GetString().Should().Be("name must not be empty");
+        Assert.AreEqual(ProblemTypes.ValidationFailed, body.GetProperty("type").GetString());
+        Assert.AreEqual("Invalid request", body.GetProperty("title").GetString());
+        Assert.AreEqual(StatusCodes.Status400BadRequest, body.GetProperty("status").GetInt32());
+        Assert.AreEqual("name must not be empty", body.GetProperty("detail").GetString());
     }
 
-    [Fact]
+    [TestMethod]
     public async Task TryHandleAsync_maps_ArgumentNullException_to_400_problem_details()
     {
         // ArgumentNullException : ArgumentException — should be caught by the same handler.
@@ -43,11 +43,11 @@ public class DomainValidationExceptionHandlerTests
         var handled = await sut.TryHandleAsync(
             ctx, new ArgumentNullException("name"), CancellationToken.None);
 
-        handled.Should().BeTrue();
-        ctx.Response.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
+        Assert.IsTrue(handled);
+        Assert.AreEqual(StatusCodes.Status400BadRequest, ctx.Response.StatusCode);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task TryHandleAsync_strips_paramName_suffix_for_ArgumentNullException()
     {
         // ArgumentNullException.Message is "Value cannot be null. (Parameter 'X')".
@@ -58,12 +58,15 @@ public class DomainValidationExceptionHandlerTests
             ctx, new ArgumentNullException("name"), CancellationToken.None);
 
         var body = await ReadBodyAsync(ctx);
-        body.GetProperty("errors").GetProperty("name")
-            .EnumerateArray().Single().GetString()
-            .Should().NotContain("(Parameter").And.Be("Value cannot be null.");
+        var nameError = body.GetProperty("errors").GetProperty("name")
+            .EnumerateArray().Single().GetString();
+        // The AreEqual subsumes the IsFalse check, but we keep the explicit absence assert
+        // for diagnostic clarity if the equality ever fails on a regression.
+        Assert.IsFalse(nameError!.Contains("(Parameter"));
+        Assert.AreEqual("Value cannot be null.", nameError);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task TryHandleAsync_returns_false_for_unrelated_exceptions()
     {
         // Non-ArgumentException must fall through so UseExceptionHandler emits 500.
@@ -72,10 +75,10 @@ public class DomainValidationExceptionHandlerTests
         var handled = await sut.TryHandleAsync(
             ctx, new InvalidOperationException("oops"), CancellationToken.None);
 
-        handled.Should().BeFalse();
+        Assert.IsFalse(handled);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task TryHandleAsync_emits_field_level_errors_when_paramName_present()
     {
         var (sut, ctx) = Build();
@@ -86,20 +89,21 @@ public class DomainValidationExceptionHandlerTests
                 "Application display name must not be empty.", "displayName"),
             CancellationToken.None);
 
-        handled.Should().BeTrue();
+        Assert.IsTrue(handled);
         var body = await ReadBodyAsync(ctx);
 
         var errors = body.GetProperty("errors");
-        errors.GetProperty("displayName").EnumerateArray().Single().GetString()
-            .Should().Be("Application display name must not be empty.");
+        Assert.AreEqual(
+            "Application display name must not be empty.",
+            errors.GetProperty("displayName").EnumerateArray().Single().GetString());
 
         // Detail still carries the legacy single-message shape (with framework suffix)
         // for non-form consumers (CLI, agents).
-        body.GetProperty("detail").GetString()
-            .Should().Contain("Application display name must not be empty.");
+        Assert.IsTrue(body.GetProperty("detail").GetString()!
+            .Contains("Application display name must not be empty."));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task TryHandleAsync_omits_errors_property_when_paramName_absent()
     {
         // ArgumentException with no paramName → no field-level mapping possible;
@@ -109,10 +113,10 @@ public class DomainValidationExceptionHandlerTests
         var handled = await sut.TryHandleAsync(
             ctx, new ArgumentException("something is off"), CancellationToken.None);
 
-        handled.Should().BeTrue();
+        Assert.IsTrue(handled);
         var body = await ReadBodyAsync(ctx);
 
-        body.TryGetProperty("errors", out _).Should().BeFalse();
+        Assert.IsFalse(body.TryGetProperty("errors", out _));
     }
 
     private static (DomainValidationExceptionHandler sut, HttpContext ctx) Build()

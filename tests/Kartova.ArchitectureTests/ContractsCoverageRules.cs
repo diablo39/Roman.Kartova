@@ -1,10 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using FluentAssertions;
 using Microsoft.EntityFrameworkCore.Design;
 using NetArchTest.Rules;
-using Xunit;
 
 namespace Kartova.ArchitectureTests;
 
@@ -17,6 +15,7 @@ namespace Kartova.ArchitectureTests;
 /// Convention: any type living in a *.Contracts assembly, or any type whose name ends in
 /// Dto / Request / Response, is treated as a pure data carrier.
 /// </summary>
+[TestClass]
 public class ContractsCoverageRules
 {
     // Compiler-emitted and tooling-injected synthetic type names: <Module>, <PrivateImplementationDetails>,
@@ -26,11 +25,11 @@ public class ContractsCoverageRules
     private const string SyntheticTypeNamePattern = @"^<.*>.*$";
 
 
-    [Fact]
+    [TestMethod]
     public void All_types_in_Contracts_assemblies_have_ExcludeFromCodeCoverage()
     {
         var contractsAssemblies = AssemblyRegistry.AllContracts().ToArray();
-        contractsAssemblies.Should().NotBeEmpty();
+        Assert.IsTrue(contractsAssemblies.Length > 0);
 
         // Enums cannot carry [ExcludeFromCodeCoverage] (the attribute's AttributeUsage
         // does not include AttributeTargets.Enum). Coverlet excludes enums from its
@@ -49,12 +48,14 @@ public class ContractsCoverageRules
             .Select(t => t.FullName ?? t.Name)
             .ToArray();
 
-        offendingNonEnumTypes.Should().BeEmpty(
-            because: "Every non-enum type in a *.Contracts assembly is a pure data carrier and must be decorated with [ExcludeFromCodeCoverage]. " +
-                     $"Offending types: {string.Join(", ", offendingNonEnumTypes)}");
+        Assert.AreEqual(
+            0,
+            offendingNonEnumTypes.Length,
+            "Every non-enum type in a *.Contracts assembly is a pure data carrier and must be decorated with [ExcludeFromCodeCoverage]. " +
+            $"Offending types: {string.Join(", ", offendingNonEnumTypes)}");
     }
 
-    [Fact]
+    [TestMethod]
     public void DTO_like_types_have_ExcludeFromCodeCoverage()
     {
         var production = AssemblyRegistry.AllProduction().ToArray();
@@ -70,11 +71,12 @@ public class ContractsCoverageRules
             .Should().HaveCustomAttribute(typeof(ExcludeFromCodeCoverageAttribute))
             .GetResult();
 
-        result.IsSuccessful.Should().BeTrue(
-            because: BuildFailureMessage(result, "Types named *Dto / *Request / *Response are pure data carriers and must be decorated with [ExcludeFromCodeCoverage]"));
+        Assert.IsTrue(
+            result.IsSuccessful,
+            BuildFailureMessage(result, "Types named *Dto / *Request / *Response are pure data carriers and must be decorated with [ExcludeFromCodeCoverage]"));
     }
 
-    [Fact]
+    [TestMethod]
     public void DesignTime_DbContext_factories_have_ExcludeFromCodeCoverage()
     {
         var production = AssemblyRegistry.AllProduction().ToArray();
@@ -91,13 +93,15 @@ public class ContractsCoverageRules
             .Select(t => t.FullName)
             .ToArray();
 
-        missing.Should().BeEmpty(
-            because: "Design-time IDesignTimeDbContextFactory<> implementations are run only by `dotnet ef`. " +
-                     "They must carry [ExcludeFromCodeCoverage] per CLAUDE.md §Coverage exclusion. " +
-                     "Offending types: " + string.Join(", ", missing));
+        Assert.AreEqual(
+            0,
+            missing.Length,
+            "Design-time IDesignTimeDbContextFactory<> implementations are run only by `dotnet ef`. " +
+            "They must carry [ExcludeFromCodeCoverage] per CLAUDE.md §Coverage exclusion. " +
+            "Offending types: " + string.Join(", ", missing));
     }
 
-    private static string BuildFailureMessage(TestResult result, string lead)
+    private static string BuildFailureMessage(NetArchTest.Rules.TestResult result, string lead)
     {
         if (result.IsSuccessful) return lead;
         var offenders = result.FailingTypeNames is null

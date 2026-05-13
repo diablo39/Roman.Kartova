@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using FluentAssertions;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
 using Kartova.SharedKernel.AspNetCore;
@@ -9,40 +8,36 @@ using Kartova.Testing.Auth;
 
 namespace Kartova.Catalog.IntegrationTests;
 
-[Collection(KartovaApiCollection.Name)]
-public class EditApplicationTests
+[TestClass]
+public class EditApplicationTests : CatalogIntegrationTestBase
 {
     private const string OrgAUser = "admin@orga.kartova.local";
     private const string OrgBUser = "admin@orgb.kartova.local";
 
-    private readonly KartovaApiFixture _fx;
-
-    public EditApplicationTests(KartovaApiFixture fx) => _fx = fx;
-
-    [Fact]
+    [TestMethod]
     public async Task PUT_with_valid_payload_returns_200_and_advances_version()
     {
-        var client = await _fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
         var registered = await RegisterAsync(client, "edit-app-1", "Edit App 1", "Desc 1.");
 
         var put = NewPut(registered.Id, registered.Version, "Edit App 1 Renamed", "Desc 1 Renamed.");
         var resp = await client.SendAsync(put);
 
-        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
         var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
-        body!.DisplayName.Should().Be("Edit App 1 Renamed");
-        body.Description.Should().Be("Desc 1 Renamed.");
-        body.Version.Should().NotBe(registered.Version, because: "xmin advances on update");
+        Assert.AreEqual("Edit App 1 Renamed", body!.DisplayName);
+        Assert.AreEqual("Desc 1 Renamed.", body.Description);
+        Assert.AreNotEqual(registered.Version, body.Version);
 
         // ETag header must match the new Version field — clients capture this for the
         // next If-Match request.
-        resp.Headers.ETag?.Tag.Should().Be($"\"{body.Version}\"");
+        Assert.AreEqual($"\"{body.Version}\"", resp.Headers.ETag?.Tag);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task PUT_without_If_Match_returns_428()
     {
-        var client = await _fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
         var registered = await RegisterAsync(client, "edit-app-2", "Edit App 2", "Desc.");
 
         var put = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/catalog/applications/{registered.Id}")
@@ -52,93 +47,93 @@ public class EditApplicationTests
         // Intentionally omit If-Match.
 
         var resp = await client.SendAsync(put);
-        resp.StatusCode.Should().Be(HttpStatusCode.PreconditionRequired);
+        Assert.AreEqual(HttpStatusCode.PreconditionRequired, resp.StatusCode);
         var problem = await resp.Content.ReadFromJsonAsync<ProblemPayload>();
-        problem!.Type.Should().Be(ProblemTypes.PreconditionRequired);
+        Assert.AreEqual(ProblemTypes.PreconditionRequired, problem!.Type);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task PUT_with_stale_If_Match_returns_412_with_currentVersion()
     {
-        var client = await _fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
         var registered = await RegisterAsync(client, "edit-app-3", "Edit App 3", "Desc.");
 
         // First PUT advances xmin.
         var firstPut = NewPut(registered.Id, registered.Version, "Edit App 3 v2", "Desc v2.");
         var firstResp = await client.SendAsync(firstPut);
-        firstResp.IsSuccessStatusCode.Should().BeTrue();
+        Assert.IsTrue(firstResp.IsSuccessStatusCode);
         var firstBody = (await firstResp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
 
         // Second PUT uses the original (now stale) version.
         var stalePut = NewPut(registered.Id, registered.Version, "Edit App 3 v3", "Desc v3.");
         var staleResp = await client.SendAsync(stalePut);
-        staleResp.StatusCode.Should().Be(HttpStatusCode.PreconditionFailed);
+        Assert.AreEqual(HttpStatusCode.PreconditionFailed, staleResp.StatusCode);
 
         var problem = await staleResp.Content.ReadFromJsonAsync<ProblemPayload>();
-        problem!.Type.Should().Be(ProblemTypes.ConcurrencyConflict);
+        Assert.AreEqual(ProblemTypes.ConcurrencyConflict, problem!.Type);
         // currentVersion must equal the version returned by the first (successful)
         // PUT — otherwise the client cannot resync without a separate GET, which
         // is the entire reason the extension exists. Asserting the value (not
         // just the key) kills mutations like Encode(0u) and Encode(stale).
-        problem.CurrentVersion.Should().Be(firstBody.Version);
+        Assert.AreEqual(firstBody.Version, problem.CurrentVersion);
     }
 
-    [Theory]
-    [InlineData("", "Desc.", "displayName")]
-    [InlineData("   ", "Desc.", "displayName")]
-    [InlineData("DisplayName", "", "description")]
-    [InlineData("DisplayName", "  ", "description")]
+    [TestMethod]
+    [DataRow("", "Desc.", "displayName")]
+    [DataRow("   ", "Desc.", "displayName")]
+    [DataRow("DisplayName", "", "description")]
+    [DataRow("DisplayName", "  ", "description")]
     public async Task PUT_with_invalid_field_returns_400_with_field_error(string displayName, string description, string expectedErrorField)
     {
-        var client = await _fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
         var registered = await RegisterAsync(client, $"edit-app-4-{Guid.NewGuid():N}", "Edit App 4", "Desc.");
 
         var put = NewPut(registered.Id, registered.Version, displayName, description);
         var resp = await client.SendAsync(put);
 
-        resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
         var problem = await resp.Content.ReadFromJsonAsync<ProblemPayload>();
-        problem!.Type.Should().Be(ProblemTypes.ValidationFailed);
-        problem.Errors.Should().ContainKey(expectedErrorField);
+        Assert.AreEqual(ProblemTypes.ValidationFailed, problem!.Type);
+        Assert.IsTrue(problem.Errors.ContainsKey(expectedErrorField));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task PUT_with_over_length_displayName_returns_400()
     {
-        var client = await _fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
         var registered = await RegisterAsync(client, "edit-app-5", "Edit App 5", "Desc.");
 
         var put = NewPut(registered.Id, registered.Version, new string('x', 129), "Desc.");
         var resp = await client.SendAsync(put);
 
-        resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
         var problem = await resp.Content.ReadFromJsonAsync<ProblemPayload>();
-        problem!.Errors.Should().ContainKey("displayName");
+        Assert.IsTrue(problem!.Errors.ContainsKey("displayName"));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task PUT_for_other_tenants_id_returns_404()
     {
-        var orgAClient = await _fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var orgAClient = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
         var orgARegistered = await RegisterAsync(orgAClient, "edit-app-6", "App", "Desc.");
 
-        var orgBClient = await _fx.CreateAuthenticatedClientAsync(OrgBUser);
+        var orgBClient = await Fx.CreateAuthenticatedClientAsync(OrgBUser);
         var put = NewPut(orgARegistered.Id, orgARegistered.Version, "Hijack", "Hijack.");
         var resp = await orgBClient.SendAsync(put);
 
-        resp.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task PUT_without_token_returns_401()
     {
-        using var anon = _fx.CreateAnonymousClient();
+        using var anon = Fx.CreateAnonymousClient();
         var put = NewPut(Guid.NewGuid(), VersionEncoding.Encode(0u), "X", "Y");
         var resp = await anon.SendAsync(put);
-        resp.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task PUT_on_Deprecated_application_returns_200()
     {
         // Spec §9.8 step 5: Deprecated still allows edit. The terminal-write
@@ -146,32 +141,32 @@ public class EditApplicationTests
         // ApplicationLifecycleTests.EditMetadata_on_Deprecated_succeeds —
         // pinned at integration tier so a mutation that flipped the guard
         // direction is caught end-to-end.
-        var client = await _fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
         var registered = await RegisterAsync(client, "edit-app-deprecated", "App", "Desc.");
 
         var deprecateResp = await client.PostAsJsonAsync(
             $"/api/v1/catalog/applications/{registered.Id}/deprecate",
             new DeprecateApplicationRequest(DateTimeOffset.UtcNow.AddDays(30)));
-        deprecateResp.IsSuccessStatusCode.Should().BeTrue();
+        Assert.IsTrue(deprecateResp.IsSuccessStatusCode);
         var deprecated = (await deprecateResp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
 
         var put = NewPut(deprecated.Id, deprecated.Version, "Renamed While Deprecated", "Updated desc.");
         var resp = await client.SendAsync(put);
 
-        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
         var body = (await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
-        body.DisplayName.Should().Be("Renamed While Deprecated");
-        body.Lifecycle.Should().Be(Lifecycle.Deprecated, because: "edit must not change lifecycle");
+        Assert.AreEqual("Renamed While Deprecated", body.DisplayName);
+        Assert.AreEqual(Lifecycle.Deprecated, body.Lifecycle);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task PUT_on_Decommissioned_application_returns_409()
     {
         // Drives an application through Active → Deprecated → Decommissioned
         // via the lifecycle endpoints, then asserts that PUT returns 409 with
         // type=lifecycle-conflict (the terminal-state guard in
         // Application.EditMetadata).
-        var client = await _fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
         var registered = await RegisterAsync(client, "edit-app-7", "App", "Desc.");
 
         var deprecate = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/catalog/applications/{registered.Id}/deprecate")
@@ -179,13 +174,13 @@ public class EditApplicationTests
             Content = JsonContent.Create(new { sunsetDate = DateTimeOffset.UtcNow.AddSeconds(1) }),
         };
         var deprecateResp = await client.SendAsync(deprecate);
-        deprecateResp.IsSuccessStatusCode.Should().BeTrue();
+        Assert.IsTrue(deprecateResp.IsSuccessStatusCode);
 
         // Wait a bit and decommission
         await Task.Delay(2000);
         var decommission = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/catalog/applications/{registered.Id}/decommission");
         var decommissionResp = await client.SendAsync(decommission);
-        decommissionResp.IsSuccessStatusCode.Should().BeTrue();
+        Assert.IsTrue(decommissionResp.IsSuccessStatusCode);
 
         var current = await decommissionResp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
 
@@ -193,11 +188,11 @@ public class EditApplicationTests
         var put = NewPut(registered.Id, current!.Version, "X", "Y");
         var resp = await client.SendAsync(put);
 
-        resp.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        Assert.AreEqual(HttpStatusCode.Conflict, resp.StatusCode);
         var problem = await resp.Content.ReadFromJsonAsync<ProblemPayload>();
-        problem!.Type.Should().Be(ProblemTypes.LifecycleConflict);
-        problem.Extensions["currentLifecycle"]!.ToString().Should().Be("decommissioned");
-        problem.Extensions["attemptedTransition"]!.ToString().Should().Be("EditMetadata");
+        Assert.AreEqual(ProblemTypes.LifecycleConflict, problem!.Type);
+        Assert.AreEqual("decommissioned", problem.Extensions["currentLifecycle"]!.ToString());
+        Assert.AreEqual("EditMetadata", problem.Extensions["attemptedTransition"]!.ToString());
     }
 
     private static async Task<ApplicationResponse> RegisterAsync(HttpClient client, string name, string displayName, string description)
@@ -205,7 +200,7 @@ public class EditApplicationTests
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
             new RegisterApplicationRequest(name, displayName, description));
-        resp.IsSuccessStatusCode.Should().BeTrue();
+        Assert.IsTrue(resp.IsSuccessStatusCode);
         return (await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
     }
 

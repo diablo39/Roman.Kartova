@@ -1,34 +1,42 @@
-using FluentAssertions;
+using System.Text.RegularExpressions;
 using Kartova.SharedKernel.AspNetCore;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
-using Xunit;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Kartova.SharedKernel.AspNetCore.Tests;
 
+[TestClass]
 public class IfMatchEndpointFilterTests
 {
-    [Fact]
+    [TestMethod]
     public async Task Throws_when_header_missing()
     {
         var ctx = MakeContext(headerValue: null);
         var filter = new IfMatchEndpointFilter();
 
-        var act = async () => await filter.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(null));
-        await act.Should().ThrowAsync<PreconditionRequiredException>().WithMessage("*required*");
+        // Note: Assert.ThrowsExactlyAsync<PreconditionRequiredException> is used uniformly throughout
+        // this file as a translation policy. Since PreconditionRequiredException is sealed, there is
+        // no behavioural difference vs FluentAssertions' permissive Should().ThrowAsync<>() — but the
+        // ThrowsExactly idiom is preferred per the migration's spec §4 to keep all exception
+        // assertions strictly typed.
+        var ex = await Assert.ThrowsExactlyAsync<PreconditionRequiredException>(
+            async () => await filter.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(null)));
+        StringAssert.Matches(ex.Message, new Regex(".*required.*"));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Throws_when_header_malformed()
     {
         var ctx = MakeContext(headerValue: "\"not-base64!\"");
         var filter = new IfMatchEndpointFilter();
 
-        var act = async () => await filter.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(null));
-        await act.Should().ThrowAsync<PreconditionRequiredException>().WithMessage("*valid version*");
+        var ex = await Assert.ThrowsExactlyAsync<PreconditionRequiredException>(
+            async () => await filter.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(null)));
+        StringAssert.Matches(ex.Message, new Regex(".*valid version.*"));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Stores_decoded_version_in_HttpContext_Items_when_header_valid()
     {
         var encoded = VersionEncoding.Encode(42u);
@@ -38,11 +46,11 @@ public class IfMatchEndpointFilterTests
 
         await filter.InvokeAsync(ctx, _ => { nextCalled = true; return ValueTask.FromResult<object?>(null); });
 
-        nextCalled.Should().BeTrue();
-        ctx.HttpContext.Items[IfMatchEndpointFilter.ExpectedVersionKey].Should().Be(42u);
+        Assert.IsTrue(nextCalled);
+        Assert.AreEqual(42u, ctx.HttpContext.Items[IfMatchEndpointFilter.ExpectedVersionKey]);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Accepts_unquoted_header_value()
     {
         var encoded = VersionEncoding.Encode(7u);
@@ -51,10 +59,10 @@ public class IfMatchEndpointFilterTests
 
         await filter.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(null));
 
-        ctx.HttpContext.Items[IfMatchEndpointFilter.ExpectedVersionKey].Should().Be(7u);
+        Assert.AreEqual(7u, ctx.HttpContext.Items[IfMatchEndpointFilter.ExpectedVersionKey]);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Throws_when_header_present_but_empty()
     {
         // Header key is present (TryGetValue=true) but the StringValues collection has Count==0.
@@ -63,49 +71,49 @@ public class IfMatchEndpointFilterTests
         var ctx = MakeContextWithEmptyHeader();
         var filter = new IfMatchEndpointFilter();
 
-        var act = async () => await filter.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(null));
-        await act.Should().ThrowAsync<PreconditionRequiredException>()
-            .WithMessage("If-Match header is required for this endpoint.");
+        var ex = await Assert.ThrowsExactlyAsync<PreconditionRequiredException>(
+            async () => await filter.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(null)));
+        Assert.AreEqual("If-Match header is required for this endpoint.", ex.Message);
     }
 
-    [Theory]
-    [InlineData("")]            // empty value
-    [InlineData("   ")]         // whitespace-only
+    [TestMethod]
+    [DataRow("")]            // empty value
+    [DataRow("   ")]         // whitespace-only
     public async Task Throws_required_for_empty_or_whitespace_value(string headerValue)
     {
         var ctx = MakeContext(headerValue);
         var filter = new IfMatchEndpointFilter();
 
-        var act = async () => await filter.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(null));
-        await act.Should().ThrowAsync<PreconditionRequiredException>()
-            .WithMessage("If-Match header is required for this endpoint.");
+        var ex = await Assert.ThrowsExactlyAsync<PreconditionRequiredException>(
+            async () => await filter.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(null)));
+        Assert.AreEqual("If-Match header is required for this endpoint.", ex.Message);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Throws_with_wildcard_specific_message_for_star()
     {
         var ctx = MakeContext("*");
         var filter = new IfMatchEndpointFilter();
 
-        var act = async () => await filter.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(null));
-        await act.Should().ThrowAsync<PreconditionRequiredException>()
-            .WithMessage("*wildcard*not supported*");
+        var ex = await Assert.ThrowsExactlyAsync<PreconditionRequiredException>(
+            async () => await filter.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(null)));
+        StringAssert.Matches(ex.Message, new Regex(".*wildcard.*not supported.*"));
     }
 
-    [Theory]
-    [InlineData("W/\"abc\"")]
-    [InlineData("W/\"\"")]
+    [TestMethod]
+    [DataRow("W/\"abc\"")]
+    [DataRow("W/\"\"")]
     public async Task Throws_with_weak_etag_specific_message(string headerValue)
     {
         var ctx = MakeContext(headerValue);
         var filter = new IfMatchEndpointFilter();
 
-        var act = async () => await filter.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(null));
-        await act.Should().ThrowAsync<PreconditionRequiredException>()
-            .WithMessage("*Weak ETags*not supported*");
+        var ex = await Assert.ThrowsExactlyAsync<PreconditionRequiredException>(
+            async () => await filter.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(null)));
+        StringAssert.Matches(ex.Message, new Regex(".*Weak ETags.*not supported.*"));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Throws_with_list_specific_message_for_comma_separated_etags()
     {
         // RFC 7232 allows If-Match: "v1", "v2" — the StringValues form joins with comma.
@@ -114,23 +122,23 @@ public class IfMatchEndpointFilterTests
         var ctx = MakeContext($"\"{v1}\", \"{v2}\"");
         var filter = new IfMatchEndpointFilter();
 
-        var act = async () => await filter.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(null));
-        await act.Should().ThrowAsync<PreconditionRequiredException>()
-            .WithMessage("*list*not supported*");
+        var ex = await Assert.ThrowsExactlyAsync<PreconditionRequiredException>(
+            async () => await filter.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(null)));
+        StringAssert.Matches(ex.Message, new Regex(".*list.*not supported.*"));
     }
 
-    [Theory]
-    [InlineData("\"abc")]    // leading-only quote
-    [InlineData("abc\"")]    // trailing-only quote
-    [InlineData("ab\"cd")]   // embedded quote
+    [TestMethod]
+    [DataRow("\"abc")]    // leading-only quote
+    [DataRow("abc\"")]    // trailing-only quote
+    [DataRow("ab\"cd")]   // embedded quote
     public async Task Throws_invalid_for_mismatched_quotes(string headerValue)
     {
         var ctx = MakeContext(headerValue);
         var filter = new IfMatchEndpointFilter();
 
-        var act = async () => await filter.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(null));
-        await act.Should().ThrowAsync<PreconditionRequiredException>()
-            .WithMessage("*valid version token*");
+        var ex = await Assert.ThrowsExactlyAsync<PreconditionRequiredException>(
+            async () => await filter.InvokeAsync(ctx, _ => ValueTask.FromResult<object?>(null)));
+        StringAssert.Matches(ex.Message, new Regex(".*valid version token.*"));
     }
 
     private static EndpointFilterInvocationContext MakeContext(string? headerValue)

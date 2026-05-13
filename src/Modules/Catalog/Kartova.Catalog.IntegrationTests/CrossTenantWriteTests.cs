@@ -1,10 +1,8 @@
-using FluentAssertions;
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Infrastructure;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace Kartova.Catalog.IntegrationTests;
 
@@ -16,20 +14,16 @@ namespace Kartova.Catalog.IntegrationTests;
 /// directly while only the scope binds the tenant; any future drift (e.g. a
 /// developer adding a "TenantHint" parameter and reading it) will fail here.
 /// </summary>
-[Collection(KartovaApiCollection.Name)]
-public sealed class CrossTenantWriteTests
+[TestClass]
+public sealed class CrossTenantWriteTests : CatalogIntegrationTestBase
 {
-    private readonly KartovaApiFixture _fx;
-
-    public CrossTenantWriteTests(KartovaApiFixture fx) => _fx = fx;
-
-    [Fact]
+    [TestMethod]
     public async Task Handler_persists_under_scopes_tenant_regardless_of_payload()
     {
-        var orgaTenant = new TenantId(await _fx.GetTenantIdClaimAsync("admin@orga.kartova.local"));
-        var orgaUserId = await _fx.GetSubClaimAsync("admin@orga.kartova.local");
+        var orgaTenant = new TenantId(await Fx.GetTenantIdClaimAsync("admin@orga.kartova.local"));
+        var orgaUserId = await Fx.GetSubClaimAsync("admin@orga.kartova.local");
 
-        using var hostScope = _fx.Services.CreateScope();
+        using var hostScope = Fx.Services.CreateScope();
         var sp = hostScope.ServiceProvider;
         var tenantScope = sp.GetRequiredService<ITenantScope>();
 
@@ -52,9 +46,8 @@ public sealed class CrossTenantWriteTests
 
         await handle.CommitAsync(default);
 
-        resp.TenantId.Should().Be(orgaTenant.Value,
-            because: "the handler must source tenant id from the ambient scope, not the payload");
-        resp.OwnerUserId.Should().Be(orgaUserId);
+        Assert.AreEqual(orgaTenant.Value, resp.TenantId);
+        Assert.AreEqual(orgaUserId, resp.OwnerUserId);
     }
 
     private sealed class StubCurrentUser : ICurrentUser

@@ -1,16 +1,16 @@
-using FluentAssertions;
 using Kartova.SharedKernel.AspNetCore;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
-using Xunit;
 
 namespace Kartova.SharedKernel.AspNetCore.Tests;
 
+[TestClass]
 public class PreconditionRequiredExceptionHandlerTests
 {
-    [Fact]
+    [TestMethod]
     public async Task Maps_PreconditionRequiredException_to_428_with_correct_type()
     {
         var pds = Substitute.For<IProblemDetailsService>();
@@ -22,14 +22,14 @@ public class PreconditionRequiredExceptionHandlerTests
             new PreconditionRequiredException("If-Match required."),
             CancellationToken.None);
 
-        handled.Should().BeTrue();
-        http.Response.StatusCode.Should().Be(StatusCodes.Status428PreconditionRequired);
+        Assert.IsTrue(handled);
+        Assert.AreEqual(StatusCodes.Status428PreconditionRequired, http.Response.StatusCode);
         await pds.Received(1).TryWriteAsync(Arg.Is<ProblemDetailsContext>(c =>
             c.ProblemDetails.Type == ProblemTypes.PreconditionRequired &&
             c.ProblemDetails.Status == 428));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Returns_false_for_unrelated_exception()
     {
         var pds = Substitute.For<IProblemDetailsService>();
@@ -38,7 +38,7 @@ public class PreconditionRequiredExceptionHandlerTests
         var handled = await handler.TryHandleAsync(new DefaultHttpContext(),
             new InvalidOperationException("nope"), CancellationToken.None);
 
-        handled.Should().BeFalse();
+        Assert.IsFalse(handled);
         await pds.DidNotReceive().TryWriteAsync(Arg.Any<ProblemDetailsContext>());
     }
 }

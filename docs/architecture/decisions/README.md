@@ -1,14 +1,14 @@
 ---
 platform: Kartova
 description: SaaS service catalog and developer portal platform (Backstage + Compass + Statuspage)
-adr_count: 96
-last_updated: 2026-05-06
+adr_count: 97
+last_updated: 2026-05-08
 architecture:
   backend: .NET 10 (LTS) / ASP.NET Core + EF Core (ADR-0027)
   backend_pattern: Modular monolith (ADR-0082) with Clean Architecture per module — Domain / Application / Infrastructure / Contracts (ADR-0028); inter-module via Wolverine mediator or Kafka events
   module_boundaries: NetArchTest fitness functions enforce no cross-module internal references; only `{Module}.Contracts` is public (ADR-0082)
 testing:
-  strategy: five-tier pyramid — architecture (NetArchTest) + unit (xUnit) + integration (Testcontainers) + contract (Pact) + E2E (Playwright) (ADR-0083)
+  strategy: five-tier pyramid — architecture (NetArchTest) + unit (MSTest v4) + integration (Testcontainers) + contract (Pact) + E2E (Playwright) (ADR-0083 superseded by ADR-0097)
   architecture_tests: mandatory CI gate, fail-fast, enforce layers + module boundaries + forbidden deps (ADR-0083)
 dev_workflow:
   frontend_verification: Playwright MCP mandatory for AI-assisted frontend changes — navigate, click, snapshot, check console errors before claiming done (ADR-0084)
@@ -115,8 +115,8 @@ open_source_strategy: fully proprietary, no OSS core / source-available (ADR-002
 # Architecture Decision Records — Kartova
 
 **Status:** Living document
-**Last updated:** 2026-05-06
-**Total accepted:** 95
+**Last updated:** 2026-05-08
+**Total accepted:** 97
 **Convention:** Michael Nygard template (Status / Context / Decision / Rationale / Alternatives / Consequences / References)
 
 ## How to use this index
@@ -209,7 +209,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0080](ADR-0080-wolverine-for-mediation-and-outbound-messaging.md) | Wolverine for In-Process Mediation and Outbound Messaging | Backend Architecture | Accepted | 0003, 0027, 0028, 0033, 0047, 0081 | Wolverine as single library for CQRS mediation, outbound Kafka publishing, transactional outbox, and future sagas. MediatR and MassTransit not used. |
 | [0081](ADR-0081-kafkaflow-for-inbound-kafka-consumers.md) | KafkaFlow for Inbound Kafka Consumers | Backend Architecture | Accepted | 0003, 0027, 0037, 0074, 0080 | KafkaFlow for all inbound consumers to get per-key parallel-within-partition workers; Wolverine (ADR-0080) handles outbound. |
 | [0082](ADR-0082-modular-monolith-architecture.md) | Modular Monolith Architecture | Backend Architecture | Accepted | 0003, 0012, 0027, 0028, 0080, 0081 | Modular monolith with one bounded-context module per domain area, Clean Architecture per module, enforced boundaries via NetArchTest; inter-module only via Wolverine or Kafka. |
-| [0083](ADR-0083-testing-strategy-with-architecture-tests.md) | Testing Strategy — Test Pyramid with Architecture Tests as CI Gate | Testing & Quality | Accepted | 0025, 0028, 0080, 0082, 0084 | Five-tier pyramid: architecture (NetArchTest, mandatory), unit (xUnit), integration (Testcontainers), contract (Pact), E2E (Playwright). Architecture tests enforce module boundaries + layering + forbidden deps. |
+| [0083](ADR-0083-testing-strategy-with-architecture-tests.md) | Testing Strategy — Test Pyramid with Architecture Tests as CI Gate | Testing & Quality | Superseded by 0097 | 0025, 0028, 0080, 0082, 0084 | Five-tier pyramid: architecture (NetArchTest, mandatory), unit (xUnit), integration (Testcontainers), contract (Pact), E2E (Playwright). Architecture tests enforce module boundaries + layering + forbidden deps. |
 | [0084](ADR-0084-playwright-mcp-for-frontend-development.md) | Playwright MCP for Frontend Development and Verification Workflow | Development Workflow | Accepted | 0039, 0079, 0083 | Playwright MCP mandatory for AI-assisted frontend verification — navigate, interact, snapshot, check console errors before declaring work done. Complementary to ADR-0083 E2E tier. |
 | [0085](ADR-0085-database-migrations-as-k8s-jobs-docker-init-containers.md) | Database Migrations as K8s Jobs and Docker Init Containers | Deployment & Operations | Accepted | 0001, 0022, 0024, 0025, 0074, 0082, 0086 | EF Core migrations run in dedicated `Kartova.Migrator` container via Helm pre-install/pre-upgrade Job (K8s) or init container (Docker); never at app startup. Per-module orchestration. |
 | [0086](ADR-0086-helm-chart-co-located-in-application-repository.md) | Helm Chart Co-located in Application Repository | Deployment & Operations | Accepted | 0022, 0024, 0025, 0043, 0082, 0085 | Helm chart lives at `deploy/helm/kartova/` in-repo, versioned with the app, published as OCI artifact to GHCR on release. Agent chart remains separate (ADR-0043). |
@@ -223,6 +223,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0094](ADR-0094-untitled-ui-component-library.md) | Untitled UI Free-Tier as Primary UI Primitive Layer | Frontend Architecture | Accepted | 0039, 0040, 0084, 0087, 0088 | Untitled UI free-tier (react-aria-components + Tailwind CSS v4) + @untitledui/icons as primary UI primitive layer; supersedes ADR-0088 (shadcn/ui). |
 | [0095](ADR-0095-cursor-pagination-contract.md) | Cursor Pagination Contract — Wire Shape, Sort Syntax, and First-Cut Mandate | API & Integration Architecture | Accepted | 0029, 0083, 0090, 0091, 0092 | List endpoints return `CursorPage<T>` envelope with opaque base64url cursor `{s,i,d}`; `?sortBy=<field>&sortOrder=asc\|desc` per-resource enum allowlist; default 50, max 200; pure cursor (no total). First-cut mandate enforced by `PaginationConventionRules` arch test; `[BoundedListResult]` opt-out for bounded lists. |
 | [0096](ADR-0096-rest-verb-policy.md) | REST Verb Policy — PUT for Full Replacement, POST for Actions, No PATCH | API & Integration Architecture | Accepted | 0029, 0073, 0091, 0092, 0095 | `PUT /resources/{id}` for idempotent full-resource replacement on small/stable DTOs; `POST /resources/{id}/<action>` for named domain commands (deprecate, decommission, restore, transfer-ownership); `PATCH` forbidden (semantics drift, missing-vs-null ambiguity, uneven codegen). Enforced by `RestVerbPolicyRules` arch test. |
+| [0097](ADR-0097-mstest-supersedes-xunit.md) | MSTest v4 supersedes xUnit | Testing & Quality | Accepted | 0028, 0080, 0082, 0083, 0084, 0095 | Replaces xUnit + FluentAssertions with MSTest v4 native assertions across all 10 xUnit-using test projects. Project SDK, VSTest runner, `coverlet.collector`, and Stryker per-module orchestration all unchanged. MTP deferred — Stryker.NET does not support it at the version probed in Phase 0 (stryker-net#3094). Migration tracked in `docs/superpowers/specs/2026-05-08-xunit-to-mstest-migration-design.md`. |
 
 ## By category (quick navigation)
 
@@ -244,7 +245,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Domain Model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073
 - **Scale & Performance**: 0074, 0075, 0076
 - **Non-Functional / Cross-Cutting**: 0077, 0078, 0079
-- **Testing & Quality**: 0083
+- **Testing & Quality**: 0083, 0097
 - **Development Workflow**: 0084, 0087
 - **Deployment & Operations**: 0085, 0086
 
@@ -256,7 +257,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Messaging / mediation / CQRS**: 0003, 0028, 0037, 0080, 0081, 0093
 - **Modular monolith / bounded contexts**: 0028, 0080, 0081, 0082, 0089
 - **Solution file format / tooling**: 0082, 0089
-- **Testing / quality gates**: 0025, 0083
+- **Testing / quality gates**: 0025, 0083, 0097
 - **Frontend workflow / dev-time verification**: 0039, 0083, 0084, 0087
 - **AI-assisted development**: 0079, 0084, 0087
 - **Design source / mockups**: 0039, 0087
@@ -335,6 +336,7 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Error envelope** → 0029
 - **Exponential backoff / retry** → 0033, 0055
 - **Federation / SSO** → 0006
+- **FluentAssertions (removed)** → 0083, 0097
 - **FluentValidation** → 0027
 - **Four-tier pricing (Free/Starter/Pro/Enterprise)** → 0061
 - **GDPR** → 0015, 0019, 0021, 0062, 0077, 0078
@@ -378,6 +380,7 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **MediatR (NOT used)** → 0027, 0080
 - **Mediator pattern** → 0028, 0080
 - **Modular monolith** → 0082
+- **MSTest v4** → 0097
 - **Solution file format / .slnx / .sln** → 0089
 - **.NET 10 SDK defaults** → 0027, 0089
 - **Module boundaries / bounded contexts** → 0082
@@ -403,7 +406,7 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Browser automation (development)** → 0084
 - **Testcontainers** → 0083
 - **Testing pyramid / test strategy** → 0083
-- **xUnit / FluentAssertions** → 0083
+- **xUnit / FluentAssertions (removed)** → 0083, 0097
 - **Per-key parallelism (Kafka consumers)** → 0081
 - **Metering (per-user)** → 0063
 - **Metrics (/metrics)** → 0036, 0059
@@ -466,6 +469,7 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Tags (taxonomy)** → 0065, 0072
 - **TanStack Query** → 0039
 - **Teams (Microsoft)** → 0048
+- **Test framework** → 0083, 0097
 - **Tenant claim (JWT)** → 0014
 - **Tenant ID / tenant_id** → 0001, 0012, 0013, 0014, 0058
 - **Tenant isolation** → 0012, 0013, 0014
@@ -489,7 +493,7 @@ _No ADRs have been deprecated or superseded yet. When an ADR is superseded by a 
 
 | ADR | Superseded By | Reason | Date |
 |-----|---------------|--------|------|
-| _(none)_ | — | — | — |
+| 0083 | 0097 | Migrated test framework + assertion library (xUnit + FluentAssertions → MSTest v4 + native asserts). Runner (VSTest) and project SDK unchanged; MTP deferred — Stryker incompatibility, see ADR-0097 Note. | 2026-05-08 |
 
 ## History
 
@@ -517,3 +521,4 @@ _No ADRs have been deprecated or superseded yet. When an ADR is superseded by a 
 | 2026-05-01 | ADR-0094 (Untitled UI free-tier as primary UI primitive layer) accepted — supersedes ADR-0088 (shadcn/ui); `react-aria-components` + Tailwind CSS v4 + `@untitledui/icons` adopted; DESIGN.md color/typography deferred to Untitled defaults. (Originally numbered ADR-0092; renumbered to ADR-0094 on 2026-05-04 after a numbering collision with the REST API URL convention ADR was discovered.) |
 | 2026-05-04 | ADR-0095 (Cursor pagination contract) accepted — concrete contract for ADR-0029's "pagination via cursors" mention; first-cut mandate + arch fitness rule; reference impl on Applications list |
 | 2026-05-06 | ADR-0096 (REST verb policy) accepted — `PUT` for full replacement, `POST /<action>` for named domain commands, `PATCH` forbidden; arch fitness rule pins the no-PATCH invariant; first instantiated by Slice 5 (Applications edit + lifecycle) |
+| 2026-05-08 | ADR-0097 (MSTest v4 supersedes xUnit) accepted — replaces xUnit + FluentAssertions with MSTest v4 native assertions across all 10 xUnit-using test projects; project SDK and VSTest runner unchanged (MTP deferred — Stryker.NET does not support it at the version probed in Phase 0, see stryker-net#3094); ADR-0083 marked superseded |

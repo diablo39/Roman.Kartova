@@ -1,10 +1,8 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using FluentAssertions;
 using Kartova.Organization.Contracts;
 using Kartova.Testing.Auth;
-using Xunit;
 
 namespace Kartova.Organization.IntegrationTests;
 
@@ -15,28 +13,24 @@ namespace Kartova.Organization.IntegrationTests;
 /// OrganizationEndpointDelegates.cs line 25. The body-shape assertion
 /// ensures the endpoint body executes; replacing it with {} causes
 /// default(IResult) semantics — the response body will be empty or null
-/// and <c>body!.Message.Should().Be("ok")</c> will fail.
+/// and <c>Assert.AreEqual("ok", body!.Message)</c> will fail.
 /// </summary>
-[Collection(KartovaApiCollection.Name)]
-public class OrganizationAdminOnlyEndpointTests
+[TestClass]
+public class OrganizationAdminOnlyEndpointTests : OrganizationIntegrationTestBase
 {
-    private readonly KartovaApiFixture _fx;
-
-    public OrganizationAdminOnlyEndpointTests(KartovaApiFixture fx) => _fx = fx;
-
-    [Fact]
+    [TestMethod]
     public async Task GetAdminOnly_returns_200_with_message_ok()
     {
         // Arrange — OrgAdmin role satisfies RequireRole(KartovaRoles.OrgAdmin).
-        var client = _fx.CreateClient();
-        var token = _fx.Signer.IssueForTenant(SeededOrgs.OrgA, new[] { "OrgAdmin" });
+        var client = Fx.CreateClient();
+        var token = Fx.Signer.IssueForTenant(SeededOrgs.OrgA, new[] { "OrgAdmin" });
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
         var response = await client.GetAsync("/api/v1/organizations/me/admin-only");
 
         // Assert status
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
 
         // Assert body shape — this is the mutant-kill assertion:
         // if the endpoint body is removed (Stryker Block removal), the method returns
@@ -44,29 +38,29 @@ public class OrganizationAdminOnlyEndpointTests
         // case ReadFromJsonAsync returns null and the Be("ok") assertion fails, killing
         // the mutant.
         var body = await response.Content.ReadFromJsonAsync<AdminOnlyResponse>();
-        body.Should().NotBeNull();
-        body!.Message.Should().Be("ok");
+        Assert.IsNotNull(body);
+        Assert.AreEqual("ok", body!.Message);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task GetAdminOnly_without_authentication_returns_401()
     {
         // Arrange — no Authorization header (anonymous client).
-        var client = _fx.CreateClient();
+        var client = Fx.CreateClient();
 
         // Act
         var response = await client.GetAsync("/api/v1/organizations/me/admin-only");
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task GetAdminOnly_with_member_role_returns_403()
     {
         // Arrange — Member does NOT have OrgAdmin role; route requires OrgAdmin.
-        var client = _fx.CreateClient();
-        var token = _fx.Signer.IssueForTenant(SeededOrgs.OrgA, new[] { "Member" });
+        var client = Fx.CreateClient();
+        var token = Fx.Signer.IssueForTenant(SeededOrgs.OrgA, new[] { "Member" });
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
@@ -74,6 +68,6 @@ public class OrganizationAdminOnlyEndpointTests
 
         // Assert — RBAC is wired via RequireRole(KartovaRoles.OrgAdmin); a Member token
         // is authenticated but not authorized, so the response must be 403 Forbidden.
-        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
     }
 }

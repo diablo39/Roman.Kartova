@@ -1,9 +1,9 @@
-using FluentAssertions;
 using Microsoft.Extensions.Time.Testing;
-using Xunit;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Kartova.Organization.Tests;
 
+[TestClass]
 public class OrganizationAggregateTests
 {
     private static readonly DateTimeOffset Now =
@@ -16,49 +16,50 @@ public class OrganizationAggregateTests
         return c;
     }
 
-    [Fact]
+    [TestMethod]
     public void Create_with_valid_name_sets_tenant_id_equal_to_id_and_uses_clock_for_CreatedAt()
     {
         var clock = Clock();
 
         var org = Domain.Organization.Create("Acme", clock);
 
-        org.Id.Value.Should().NotBeEmpty();
-        org.TenantId.Value.Should().Be(org.Id.Value);
-        org.Name.Should().Be("Acme");
-        org.CreatedAt.Should().Be(clock.GetUtcNow());
+        Assert.AreNotEqual(Guid.Empty, org.Id.Value);
+        Assert.AreEqual(org.Id.Value, org.TenantId.Value);
+        Assert.AreEqual("Acme", org.Name);
+        Assert.AreEqual(clock.GetUtcNow(), org.CreatedAt);
     }
 
-    [Fact]
+    [TestMethod]
     public void Create_with_null_clock_throws()
     {
-        var act = () => Domain.Organization.Create("Acme", clock: null!);
-        act.Should().Throw<ArgumentNullException>().WithParameterName("clock");
+        var ex = Assert.ThrowsExactly<ArgumentNullException>(
+            () => Domain.Organization.Create("Acme", clock: null!));
+        Assert.AreEqual("clock", ex.ParamName);
     }
 
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
+    [TestMethod]
+    [DataRow(null)]
+    [DataRow("")]
+    [DataRow("   ")]
     public void Create_with_empty_name_throws(string? name)
     {
-        var act = () => Domain.Organization.Create(name!, Clock());
-        act.Should().Throw<ArgumentException>();
+        Assert.ThrowsExactly<ArgumentException>(
+            () => Domain.Organization.Create(name!, Clock()));
     }
 
-    [Fact]
+    [TestMethod]
     public void Create_with_too_long_name_throws()
     {
         var name = new string('a', 101);
-        var act = () => Domain.Organization.Create(name, Clock());
-        act.Should().Throw<ArgumentException>();
+        Assert.ThrowsExactly<ArgumentException>(
+            () => Domain.Organization.Create(name, Clock()));
     }
 
-    [Fact]
+    [TestMethod]
     public void Rename_updates_name()
     {
         var org = Domain.Organization.Create("Acme", Clock());
         org.Rename("NewName");
-        org.Name.Should().Be("NewName");
+        Assert.AreEqual("NewName", org.Name);
     }
 }

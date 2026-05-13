@@ -1,6 +1,4 @@
 using System.Text.RegularExpressions;
-using FluentAssertions;
-using Xunit;
 
 namespace Kartova.ArchitectureTests;
 
@@ -17,14 +15,16 @@ namespace Kartova.ArchitectureTests;
 /// catch every shape but adds a heavy compile-time dependency. The text scan covers
 /// the realistic accident path; reviewers handle the rest.
 /// </summary>
+[TestClass]
 public class ProblemDetailsConventionRules
 {
-    [Fact]
+    [TestMethod]
     public void Source_does_not_emit_ad_hoc_error_shapes_per_ADR_0091()
     {
         var srcDir = LocateSrcDir();
-        Directory.Exists(srcDir).Should().BeTrue(
-            because: $"expected to locate the project's src directory at {srcDir}");
+        Assert.IsTrue(
+            Directory.Exists(srcDir),
+            $"expected to locate the project's src directory at {srcDir}");
 
         var offenders = new List<string>();
         foreach (var file in EnumerateProductionSources(srcDir))
@@ -39,10 +39,12 @@ public class ProblemDetailsConventionRules
             }
         }
 
-        offenders.Should().BeEmpty(
-            because: "ADR-0091 requires error responses to use Results.Problem(...) with a type from " +
-                     "ProblemTypes — not ad-hoc anonymous-error shapes. Offending source: " +
-                     string.Join("; ", offenders));
+        Assert.AreEqual(
+            0,
+            offenders.Count,
+            "ADR-0091 requires error responses to use Results.Problem(...) with a type from " +
+            "ProblemTypes — not ad-hoc anonymous-error shapes. Offending source: " +
+            string.Join("; ", offenders));
     }
 
     /// <summary>
@@ -50,35 +52,37 @@ public class ProblemDetailsConventionRules
     /// string. Without this, a regex that accidentally matches nothing would let the
     /// production scan pass while silently providing no protection.
     /// </summary>
-    [Theory]
-    [InlineData("Results.Json(new { error = \"x\" })")]
-    [InlineData("Results . Json ( new { error = \"x\" } )")]
-    [InlineData("Results.Json(new {\n            error = \"x\"\n        })")]
-    [InlineData("Results.Ok(new { error = \"x\" })")]
-    [InlineData("Results.BadRequest(new { error = \"x\" })")]
-    [InlineData("Results.Conflict(new { error = \"x\" })")]
-    [InlineData("Results.UnprocessableEntity(new { error = \"x\" })")]
+    [TestMethod]
+    [DataRow("Results.Json(new { error = \"x\" })")]
+    [DataRow("Results . Json ( new { error = \"x\" } )")]
+    [DataRow("Results.Json(new {\n            error = \"x\"\n        })")]
+    [DataRow("Results.Ok(new { error = \"x\" })")]
+    [DataRow("Results.BadRequest(new { error = \"x\" })")]
+    [DataRow("Results.Conflict(new { error = \"x\" })")]
+    [DataRow("Results.UnprocessableEntity(new { error = \"x\" })")]
     public void Forbidden_patterns_match_known_bad_shapes(string sample)
     {
         var anyMatched = ForbiddenPatterns().Any(p => p.Pattern.IsMatch(sample));
-        anyMatched.Should().BeTrue(
-            because: $"the production scan must catch this shape: '{sample}'");
+        Assert.IsTrue(
+            anyMatched,
+            $"the production scan must catch this shape: '{sample}'");
     }
 
     /// <summary>
     /// Counter-test: legitimate <c>Results.Problem(...)</c> and <c>Results.Json(dto, statusCode: 201)</c>
     /// shapes must not trigger the forbidden-shape rule.
     /// </summary>
-    [Theory]
-    [InlineData("Results.Problem(type: ProblemTypes.ValidationFailed, statusCode: 400)")]
-    [InlineData("Results.Json(org, statusCode: StatusCodes.Status201Created)")]
-    [InlineData("Results.Ok(dto)")]
-    [InlineData("Results.Created(\"/api/v1/organizations/abc\", org)")]
+    [TestMethod]
+    [DataRow("Results.Problem(type: ProblemTypes.ValidationFailed, statusCode: 400)")]
+    [DataRow("Results.Json(org, statusCode: StatusCodes.Status201Created)")]
+    [DataRow("Results.Ok(dto)")]
+    [DataRow("Results.Created(\"/api/v1/organizations/abc\", org)")]
     public void Forbidden_patterns_do_not_match_legitimate_shapes(string sample)
     {
         var anyMatched = ForbiddenPatterns().Any(p => p.Pattern.IsMatch(sample));
-        anyMatched.Should().BeFalse(
-            because: $"this shape is ADR-0091-compliant and must not flag: '{sample}'");
+        Assert.IsFalse(
+            anyMatched,
+            $"this shape is ADR-0091-compliant and must not flag: '{sample}'");
     }
 
     private static (string Description, Regex Pattern)[] ForbiddenPatterns() => new (string, Regex)[]

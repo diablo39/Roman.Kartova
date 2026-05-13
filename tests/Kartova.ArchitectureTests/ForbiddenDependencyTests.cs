@@ -1,12 +1,11 @@
-using FluentAssertions;
 using NetArchTest.Rules;
-using Xunit;
 
 namespace Kartova.ArchitectureTests;
 
+[TestClass]
 public class ForbiddenDependencyTests
 {
-    [Fact]
+    [TestMethod]
     public void No_Module_References_MediatR()
     {
         foreach (var assembly in AssemblyRegistry.AllProduction())
@@ -16,13 +15,14 @@ public class ForbiddenDependencyTests
                 .NotHaveDependencyOn("MediatR")
                 .GetResult();
 
-            result.IsSuccessful.Should().BeTrue(
+            Assert.IsTrue(
+                result.IsSuccessful,
                 $"MediatR is not used per ADR-0080; assembly {assembly.GetName().Name} should route through Wolverine IMessageBus. " +
                 $"Violating types: {string.Join(", ", result.FailingTypeNames ?? [])}");
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void No_Module_References_MassTransit()
     {
         foreach (var assembly in AssemblyRegistry.AllProduction())
@@ -32,7 +32,8 @@ public class ForbiddenDependencyTests
                 .NotHaveDependencyOn("MassTransit")
                 .GetResult();
 
-            result.IsSuccessful.Should().BeTrue(
+            Assert.IsTrue(
+                result.IsSuccessful,
                 $"MassTransit is not used per ADR-0003/ADR-0080; Kafka is Wolverine (outbound) + KafkaFlow (inbound). " +
                 $"Violating types in {assembly.GetName().Name}: {string.Join(", ", result.FailingTypeNames ?? [])}");
         }

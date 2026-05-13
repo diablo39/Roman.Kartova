@@ -1,31 +1,27 @@
-using FluentAssertions;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.Testing.Auth;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Xunit;
 
 namespace Kartova.Api.IntegrationTests;
 
-[Collection(KeycloakTestCollection.Name)]
-public class CorsTests : IAsyncLifetime
+[TestClass]
+public class CorsTests : KeycloakContainerTestBase
 {
-    private readonly KeycloakContainerFixture _fx;
     private WebApplicationFactory<Program>? _app;
 
-    public CorsTests(KeycloakContainerFixture fx) => _fx = fx;
-
-    public Task InitializeAsync()
+    [TestInitialize]
+    public void InitializeAsync()
     {
         // Env vars must be set BEFORE the WebApplicationFactory boots the host.
         Environment.SetEnvironmentVariable($"ConnectionStrings__{KartovaConnectionStrings.Main}",
-            PostgresTestBootstrap.ConnectionStringFor(_fx.Postgres.GetConnectionString(), PostgresTestBootstrap.AppRole));
+            PostgresTestBootstrap.ConnectionStringFor(Containers.Postgres.GetConnectionString(), PostgresTestBootstrap.AppRole));
         Environment.SetEnvironmentVariable($"ConnectionStrings__{KartovaConnectionStrings.Bypass}",
-            PostgresTestBootstrap.ConnectionStringFor(_fx.Postgres.GetConnectionString(), PostgresTestBootstrap.BypassRole));
-        Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Authority), _fx.KeycloakAuthority);
+            PostgresTestBootstrap.ConnectionStringFor(Containers.Postgres.GetConnectionString(), PostgresTestBootstrap.BypassRole));
+        Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Authority), Containers.KeycloakAuthority);
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.MetadataAddress),
-            $"{_fx.KeycloakAuthority}/.well-known/openid-configuration");
+            $"{Containers.KeycloakAuthority}/.well-known/openid-configuration");
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Audience), "kartova-api");
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.RequireHttpsMetadata), "false");
 
@@ -36,17 +32,15 @@ public class CorsTests : IAsyncLifetime
         {
             b.UseEnvironment("Testing");
         });
-
-        return Task.CompletedTask;
     }
 
-    public Task DisposeAsync()
+    [TestCleanup]
+    public void DisposeAsync()
     {
         _app?.Dispose();
-        return Task.CompletedTask;
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Preflight_FromConfiguredOrigin_AllowsRequest()
     {
         var client = _app!.CreateClient();
@@ -56,12 +50,13 @@ public class CorsTests : IAsyncLifetime
 
         var resp = await client.SendAsync(req);
 
-        resp.Headers.Should().ContainKey("Access-Control-Allow-Origin");
-        resp.Headers.GetValues("Access-Control-Allow-Origin")
-            .Should().ContainSingle().Which.Should().Be("http://localhost:5173");
+        Assert.IsTrue(resp.Headers.Contains("Access-Control-Allow-Origin"));
+        var origins = resp.Headers.GetValues("Access-Control-Allow-Origin").ToList();
+        Assert.AreEqual(1, origins.Count);
+        Assert.AreEqual("http://localhost:5173", origins[0]);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Preflight_FromUnknownOrigin_DoesNotEchoOrigin()
     {
         var client = _app!.CreateClient();
@@ -71,7 +66,8 @@ public class CorsTests : IAsyncLifetime
 
         var resp = await client.SendAsync(req);
 
-        resp.Headers.Contains("Access-Control-Allow-Origin").Should().BeFalse(
+        Assert.IsFalse(
+            resp.Headers.Contains("Access-Control-Allow-Origin"),
             "the API must not echo origins outside the configured allowlist.");
     }
 

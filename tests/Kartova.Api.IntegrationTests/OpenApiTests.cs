@@ -1,32 +1,28 @@
 using System.Net;
-using FluentAssertions;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.Testing.Auth;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Xunit;
 
 namespace Kartova.Api.IntegrationTests;
 
-[Collection(KeycloakTestCollection.Name)]
-public class OpenApiTests : IAsyncLifetime
+[TestClass]
+public class OpenApiTests : KeycloakContainerTestBase
 {
-    private readonly KeycloakContainerFixture _fx;
     private WebApplicationFactory<Program>? _app;
 
-    public OpenApiTests(KeycloakContainerFixture fx) => _fx = fx;
-
-    public Task InitializeAsync()
+    [TestInitialize]
+    public void InitializeAsync()
     {
         // Env vars must be set BEFORE the WebApplicationFactory boots the host.
         Environment.SetEnvironmentVariable($"ConnectionStrings__{KartovaConnectionStrings.Main}",
-            PostgresTestBootstrap.ConnectionStringFor(_fx.Postgres.GetConnectionString(), PostgresTestBootstrap.AppRole));
+            PostgresTestBootstrap.ConnectionStringFor(Containers.Postgres.GetConnectionString(), PostgresTestBootstrap.AppRole));
         Environment.SetEnvironmentVariable($"ConnectionStrings__{KartovaConnectionStrings.Bypass}",
-            PostgresTestBootstrap.ConnectionStringFor(_fx.Postgres.GetConnectionString(), PostgresTestBootstrap.BypassRole));
-        Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Authority), _fx.KeycloakAuthority);
+            PostgresTestBootstrap.ConnectionStringFor(Containers.Postgres.GetConnectionString(), PostgresTestBootstrap.BypassRole));
+        Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Authority), Containers.KeycloakAuthority);
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.MetadataAddress),
-            $"{_fx.KeycloakAuthority}/.well-known/openid-configuration");
+            $"{Containers.KeycloakAuthority}/.well-known/openid-configuration");
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Audience), "kartova-api");
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.RequireHttpsMetadata), "false");
 
@@ -37,35 +33,34 @@ public class OpenApiTests : IAsyncLifetime
         {
             b.UseEnvironment("Testing");
         });
-
-        return Task.CompletedTask;
     }
 
-    public Task DisposeAsync()
+    [TestCleanup]
+    public void DisposeAsync()
     {
         _app?.Dispose();
-        return Task.CompletedTask;
     }
 
-    [Fact]
+    [TestMethod]
     public async Task OpenApiDocument_IsReachableAndParsesAsJson()
     {
         var client = _app!.CreateClient();
         var resp = await client.GetAsync("/openapi/v1.json");
 
-        resp.StatusCode.Should().Be(HttpStatusCode.OK);
-        resp.Content.Headers.ContentType?.MediaType.Should().Be("application/json");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        Assert.AreEqual("application/json", resp.Content.Headers.ContentType?.MediaType);
 
         var body = await resp.Content.ReadAsStringAsync();
-        body.Should().NotBeNullOrWhiteSpace();
+        Assert.IsFalse(string.IsNullOrWhiteSpace(body));
         using var doc = System.Text.Json.JsonDocument.Parse(body);
-        doc.RootElement.GetProperty("openapi").GetString().Should().StartWith("3.");
-        doc.RootElement.GetProperty("paths").GetProperty("/api/v1/version")
-            .ValueKind.Should().NotBe(System.Text.Json.JsonValueKind.Undefined,
-                "the version endpoint must be advertised in the OpenAPI document.");
+        StringAssert.StartsWith(doc.RootElement.GetProperty("openapi").GetString(), "3.");
+        Assert.AreNotEqual(
+            System.Text.Json.JsonValueKind.Undefined,
+            doc.RootElement.GetProperty("paths").GetProperty("/api/v1/version").ValueKind,
+            "the version endpoint must be advertised in the OpenAPI document.");
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ListApplications_query_parameter_schemas_match_runtime_contract()
     {
         // ADR-0095 §Consequences: OpenAPI generates per-resource sort-field enums
@@ -74,7 +69,7 @@ public class OpenApiTests : IAsyncLifetime
         // codegen. Surfacing happens via CursorListQueryParameterTransformer.
         var client = _app!.CreateClient();
         var resp = await client.GetAsync("/openapi/v1.json");
-        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
 
         using var doc = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
         var parameters = doc.RootElement
@@ -84,16 +79,16 @@ public class OpenApiTests : IAsyncLifetime
             .GetProperty("parameters");
 
         var sortByEnum = ParameterEnum(parameters, "sortBy");
-        sortByEnum.Should().BeEquivalentTo(["createdAt", "name"]);
+        CollectionAssert.AreEquivalent(new[] { "createdAt", "name" }, sortByEnum.ToList());
 
         var sortOrderEnum = ParameterEnum(parameters, "sortOrder");
-        sortOrderEnum.Should().BeEquivalentTo(["asc", "desc"]);
+        CollectionAssert.AreEquivalent(new[] { "asc", "desc" }, sortOrderEnum.ToList());
 
         var limitSchema = ParameterSchema(parameters, "limit");
-        limitSchema.GetProperty("type").GetString().Should().Be("integer");
-        limitSchema.GetProperty("format").GetString().Should().Be("int32");
-        limitSchema.GetProperty("minimum").GetInt32().Should().Be(1);
-        limitSchema.GetProperty("maximum").GetInt32().Should().Be(200);
+        Assert.AreEqual("integer", limitSchema.GetProperty("type").GetString());
+        Assert.AreEqual("int32", limitSchema.GetProperty("format").GetString());
+        Assert.AreEqual(1, limitSchema.GetProperty("minimum").GetInt32());
+        Assert.AreEqual(200, limitSchema.GetProperty("maximum").GetInt32());
     }
 
     private static IReadOnlyList<string> ParameterEnum(System.Text.Json.JsonElement parameters, string name)
