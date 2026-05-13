@@ -25,6 +25,8 @@ public sealed class IntegrationTestAssemblySetup
     [AssemblyCleanup]
     public static async Task CleanupAsync()
     {
-        if (Fx is not null) await ((IAsyncDisposable)Fx).DisposeAsync();
+        // MSTest only invokes [AssemblyCleanup] if [AssemblyInitialize] completed —
+        // Fx is guaranteed non-null here.
+        await ((IAsyncDisposable)Fx).DisposeAsync();
     }
 }

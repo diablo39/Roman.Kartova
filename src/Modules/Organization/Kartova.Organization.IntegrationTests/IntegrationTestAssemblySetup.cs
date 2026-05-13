@@ -6,12 +6,10 @@ namespace Kartova.Organization.IntegrationTests;
 /// suite, and a separate pair for fault-injection tests. Created exactly once
 /// per assembly run regardless of how many test classes derive from each base.
 ///
-/// Requires <c>[assembly: DoNotParallelize]</c> (see <c>Properties/AssemblyInfo.cs</c>):
-/// integration tests serialise at the class level, so the single shared fixtures are
-/// never accessed concurrently. Phase 9 lesson learned: do NOT use
-/// <c>[ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]</c> for these
-/// fixtures — the heavyweight Postgres + API host pair would be rebuilt once per
-/// derived test class, which caused a 6× wall-clock regression.
+/// Requires <c>[assembly: DoNotParallelize]</c> (see <c>Properties/AssemblyInfo.cs</c>).
+/// Do NOT use <c>[ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]</c>
+/// for these fixtures — that rebuilds the heavyweight Postgres + API host pair once
+/// per derived class (~6× wall-clock cost).
 /// </summary>
 [TestClass]
 public sealed class IntegrationTestAssemblySetup
@@ -31,7 +29,9 @@ public sealed class IntegrationTestAssemblySetup
     [AssemblyCleanup]
     public static async Task CleanupAsync()
     {
-        if (Fx is not null) await ((IAsyncDisposable)Fx).DisposeAsync();
-        if (FaultFx is not null) await ((IAsyncDisposable)FaultFx).DisposeAsync();
+        // MSTest only invokes [AssemblyCleanup] if [AssemblyInitialize] completed —
+        // both properties are guaranteed non-null here.
+        await ((IAsyncDisposable)Fx).DisposeAsync();
+        await ((IAsyncDisposable)FaultFx).DisposeAsync();
     }
 }
