@@ -13,7 +13,7 @@ namespace Kartova.Organization.IntegrationTests;
 /// OrganizationEndpointDelegates.cs line 25. The body-shape assertion
 /// ensures the endpoint body executes; replacing it with {} causes
 /// default(IResult) semantics — the response body will be empty or null
-/// and <c>body!.Message.Should().Be("ok")</c> will fail.
+/// and <c>Assert.AreEqual("ok", body!.Message)</c> will fail.
 /// </summary>
 [TestClass]
 public class OrganizationAdminOnlyEndpointTests : OrganizationIntegrationTestBase
