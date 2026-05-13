@@ -3,7 +3,6 @@ using Kartova.SharedKernel.AspNetCore;
 using Kartova.Testing.Auth;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
 namespace Kartova.Api.IntegrationTests;
 
