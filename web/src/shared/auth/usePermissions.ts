@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useAuth } from "react-oidc-context";
 import { useQuery } from "@tanstack/react-query";
 
@@ -40,7 +41,10 @@ export function usePermissions(): UsePermissionsResult {
     retry: false,
   });
 
-  const set = new Set(query.data?.permissions ?? []);
+  const set = useMemo(
+    () => new Set(query.data?.permissions ?? []),
+    [query.data?.permissions]
+  );
 
   return {
     role: query.data?.role ?? null,

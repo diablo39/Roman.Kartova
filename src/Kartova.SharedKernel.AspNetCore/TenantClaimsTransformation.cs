@@ -48,10 +48,7 @@ public sealed class TenantClaimsTransformation : IClaimsTransformation
                 {
                     id.AddClaim(new Claim(ClaimTypes.Role, role));
                 }
-            }
 
-            foreach (var role in roles)
-            {
                 foreach (var perm in KartovaRolePermissions.ForRole(role))
                 {
                     if (!id.HasClaim(KartovaClaims.Permission, perm))
