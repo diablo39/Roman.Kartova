@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using Kartova.Catalog.Contracts;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Pagination;
 using Kartova.SharedKernel.Postgres;
 using Microsoft.AspNetCore.Builder;
@@ -28,14 +29,17 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
     {
         var tenant = app.MapTenantScopedModule(Slug);     // /api/v1/catalog
         tenant.MapPost("/applications", CatalogEndpointDelegates.RegisterApplicationAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogApplicationsRegister)
               .WithName("RegisterApplication")
               .Produces<ApplicationResponse>(StatusCodes.Status201Created)
               .ProducesProblem(StatusCodes.Status400BadRequest);
         tenant.MapGet("/applications/{id:guid}", CatalogEndpointDelegates.GetApplicationByIdAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRead)
               .WithName("GetApplicationById")
               .Produces<ApplicationResponse>(StatusCodes.Status200OK)
               .ProducesProblem(StatusCodes.Status404NotFound);
         tenant.MapGet("/applications", CatalogEndpointDelegates.ListApplicationsAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRead)
               .WithName("ListApplications")
               // CursorPage<T> envelope — ADR-0095: items + nextCursor + prevCursor.
               .Produces<CursorPage<ApplicationResponse>>(StatusCodes.Status200OK);
@@ -45,6 +49,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               // RFC 7807 envelopes (allowedFields, rawLimit) are preserved on parse failure;
               // the transformer keeps the wire schema honest for the generated TypeScript client.
         tenant.MapPut("/applications/{id:guid}", CatalogEndpointDelegates.EditApplicationAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogApplicationsEditMetadata)
               .WithName("EditApplication")
               .AddEndpointFilter<IfMatchEndpointFilter>()
               .Produces<ApplicationResponse>(StatusCodes.Status200OK)
@@ -57,6 +62,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         // take If-Match (slice 5 spec §3 Decision #7); the domain invariant "current
         // state must be Active" is the implicit version.
         tenant.MapPost("/applications/{id:guid}/deprecate", CatalogEndpointDelegates.DeprecateApplicationAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogApplicationsLifecycleForward)
               .WithName("DeprecateApplication")
               .Produces<ApplicationResponse>(StatusCodes.Status200OK)
               .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -68,6 +74,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         // reason="before-sunset-date" + a sunsetDate extension member. No 400 path:
         // the empty body has nothing to validate.
         tenant.MapPost("/applications/{id:guid}/decommission", CatalogEndpointDelegates.DecommissionApplicationAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogApplicationsLifecycleForward)
               .WithName("DecommissionApplication")
               .Produces<ApplicationResponse>(StatusCodes.Status200OK)
               .ProducesProblem(StatusCodes.Status404NotFound)
