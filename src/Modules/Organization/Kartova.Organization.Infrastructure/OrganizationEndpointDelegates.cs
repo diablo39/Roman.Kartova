@@ -28,8 +28,11 @@ internal static class OrganizationEndpointDelegates
         return Results.Ok(new AdminOnlyResponse("ok"));
     }
 
-    internal static IResult GetMePermissionsAsync(ClaimsPrincipal user)
+    internal static IResult GetMePermissions(ClaimsPrincipal user)
     {
+        // Spec §3 Decision #2: each user holds exactly one realm role.
+        // FirstOrDefault is the explicit choice — if multiple ClaimTypes.Role
+        // claims somehow arrive on the principal, only the first is surfaced.
         var role = user.FindAll(ClaimTypes.Role)
                        .Select(c => c.Value)
                        .FirstOrDefault() ?? string.Empty;
