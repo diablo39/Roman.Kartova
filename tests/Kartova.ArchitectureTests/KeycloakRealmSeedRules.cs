@@ -96,6 +96,7 @@ public class KeycloakRealmSeedRules
     [TestMethod]
     public void Realm_seed_includes_Viewer_and_TeamAdmin_roles_and_dev_users()
     {
+        Assert.IsTrue(File.Exists(SeedPath), $"realm seed not found at {SeedPath}");
         using var doc = JsonDocument.Parse(File.ReadAllText(SeedPath));
 
         var roles = doc.RootElement
