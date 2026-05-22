@@ -90,6 +90,19 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .Produces<ApplicationResponse>(StatusCodes.Status200OK)
               .ProducesProblem(StatusCodes.Status404NotFound)
               .ProducesProblem(StatusCodes.Status409Conflict);
+        // POST un-decommission — reverse lifecycle transition (Decommissioned → Deprecated).
+        // OrgAdmin only (CatalogApplicationsLifecycleReverse). Takes a new sunsetDate body —
+        // the transition re-enters Deprecated state so a future sunset is required. The domain
+        // invariant inside Application.UnDecommission() rejects non-Decommissioned sources with
+        // InvalidLifecycleTransitionException → 409, and a past sunsetDate throws
+        // ArgumentException → 400 ValidationFailed (same as Deprecate).
+        tenant.MapPost("/applications/{id:guid}/un-decommission", CatalogEndpointDelegates.UnDecommissionApplicationAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogApplicationsLifecycleReverse)
+              .WithName("UnDecommissionApplication")
+              .Produces<ApplicationResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status404NotFound)
+              .ProducesProblem(StatusCodes.Status409Conflict);
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
@@ -110,6 +123,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<DeprecateApplicationHandler>();
         services.AddScoped<DecommissionApplicationHandler>();
         services.AddScoped<ReactivateApplicationHandler>();
+        services.AddScoped<UnDecommissionApplicationHandler>();
 
         // TimeProvider is needed by Application.Deprecate / Decommission for the
         // "sunsetDate must be in the future" / "now >= sunsetDate" checks. TryAdd

@@ -35,7 +35,8 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
         (HttpMethod.Put,  "/api/v1/catalog/applications/{id}",              KartovaPermissions.CatalogApplicationsEditMetadata),
         (HttpMethod.Post, "/api/v1/catalog/applications/{id}/deprecate",    KartovaPermissions.CatalogApplicationsLifecycleForward),
         (HttpMethod.Post, "/api/v1/catalog/applications/{id}/decommission", KartovaPermissions.CatalogApplicationsLifecycleForward),
-        (HttpMethod.Post, "/api/v1/catalog/applications/{id}/reactivate",   KartovaPermissions.CatalogApplicationsLifecycleReverse),
+        (HttpMethod.Post, "/api/v1/catalog/applications/{id}/reactivate",      KartovaPermissions.CatalogApplicationsLifecycleReverse),
+        (HttpMethod.Post, "/api/v1/catalog/applications/{id}/un-decommission", KartovaPermissions.CatalogApplicationsLifecycleReverse),
     };
 
     [TestMethod]
@@ -108,6 +109,10 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
             });
         }
         else if (pathTemplate.EndsWith("/deprecate"))
+        {
+            req.Content = JsonContent.Create(new { sunsetDate = DateTimeOffset.UtcNow.AddDays(30) });
+        }
+        else if (pathTemplate.EndsWith("/un-decommission"))
         {
             req.Content = JsonContent.Create(new { sunsetDate = DateTimeOffset.UtcNow.AddDays(30) });
         }

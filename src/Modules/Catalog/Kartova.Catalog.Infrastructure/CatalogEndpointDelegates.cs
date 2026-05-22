@@ -180,4 +180,19 @@ internal static class CatalogEndpointDelegates
         if (resp is null) return EndpointResultExtensions.ApplicationNotFound();
         return Results.Ok(resp);
     }
+
+    internal static async Task<IResult> UnDecommissionApplicationAsync(
+        Guid id,
+        [FromBody] UnDecommissionApplicationRequest request,
+        UnDecommissionApplicationHandler handler,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        var resp = await handler.Handle(
+            new UnDecommissionApplicationCommand(new ApplicationId(id), request.SunsetDate),
+            db, ct);
+
+        if (resp is null) return EndpointResultExtensions.ApplicationNotFound();
+        return Results.Ok(resp);
+    }
 }
