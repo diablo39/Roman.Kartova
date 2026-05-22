@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -90,5 +90,47 @@ describe("LifecycleMenu", () => {
     expect(screen.queryByRole("button", { name: /open lifecycle menu/i })).toBeNull();
     // Badge text still rendered.
     expect(screen.getByText(/decommissioned/i)).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// canForward prop — Viewer hides forward items (Slice 7)
+// ---------------------------------------------------------------------------
+
+describe("LifecycleMenu — canForward gating", () => {
+  it("hides dropdown trigger for active app when canForward=false", () => {
+    render(
+      <LifecycleMenu
+        application={{ ...baseApp, lifecycle: "active", sunsetDate: null }}
+        canForward={false}
+      />,
+      { wrapper }
+    );
+    // No interactive trigger — items list is empty so component returns null.
+    expect(screen.queryByRole("button", { name: /open lifecycle menu/i })).toBeNull();
+  });
+
+  it("shows Deprecate item for active app when canForward=true (default)", async () => {
+    const user = userEvent.setup();
+    render(
+      <LifecycleMenu
+        application={{ ...baseApp, lifecycle: "active", sunsetDate: null }}
+        canForward={true}
+      />,
+      { wrapper }
+    );
+    await user.click(screen.getByRole("button", { name: /open lifecycle menu/i }));
+    expect(await screen.findByRole("menuitem", { name: /deprecate/i })).toBeVisible();
+  });
+
+  it("hides dropdown trigger for deprecated app when canForward=false", () => {
+    render(
+      <LifecycleMenu
+        application={{ ...baseApp, lifecycle: "deprecated", sunsetDate: PAST }}
+        canForward={false}
+      />,
+      { wrapper }
+    );
+    expect(screen.queryByRole("button", { name: /open lifecycle menu/i })).toBeNull();
   });
 });

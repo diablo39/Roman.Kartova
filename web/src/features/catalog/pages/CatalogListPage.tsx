@@ -7,6 +7,8 @@ import { useApplicationsList } from "@/features/catalog/api/applications";
 import { useListUrlState } from "@/lib/list/useListUrlState";
 import { ApplicationsTable } from "@/features/catalog/components/ApplicationsTable";
 import { RegisterApplicationDialog } from "@/features/catalog/components/RegisterApplicationDialog";
+import { usePermissions } from "@/shared/auth/usePermissions";
+import { KartovaPermissions } from "@/shared/auth/permissions";
 
 const ALLOWED_SORT_FIELDS = ["createdAt", "name"] as const;
 const BOOLEAN_FILTERS = ["includeDecommissioned"] as const;
@@ -23,6 +25,9 @@ export function CatalogListPage() {
   const list = useApplicationsList({ sortBy, sortOrder, includeDecommissioned });
   const [dialogOpen, setDialogOpen] = useState(false);
 
+  const { hasPermission } = usePermissions();
+  const canRegister = hasPermission(KartovaPermissions.CatalogApplicationsRegister);
+
   useEffect(() => {
     if (list.isError) {
       console.error("CatalogListPage list error", list.error);
@@ -33,9 +38,11 @@ export function CatalogListPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold text-primary">Catalog</h2>
-        <Button onClick={() => setDialogOpen(true)} size="sm" color="primary" iconLeading={Plus}>
-          Register Application
-        </Button>
+        {canRegister && (
+          <Button onClick={() => setDialogOpen(true)} size="sm" color="primary" iconLeading={Plus}>
+            Register Application
+          </Button>
+        )}
       </div>
 
       <div className="flex items-center justify-end">
@@ -63,7 +70,7 @@ export function CatalogListPage() {
         />
       )}
 
-      <RegisterApplicationDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      {canRegister && <RegisterApplicationDialog open={dialogOpen} onOpenChange={setDialogOpen} />}
     </div>
   );
 }

@@ -7,11 +7,18 @@ import { Button } from "@/components/base/buttons/button";
 import { useApplication } from "@/features/catalog/api/applications";
 import { LifecycleMenu } from "@/features/catalog/components/LifecycleMenu";
 import { EditApplicationDialog } from "@/features/catalog/components/EditApplicationDialog";
+import { usePermissions } from "@/shared/auth/usePermissions";
+import { KartovaPermissions } from "@/shared/auth/permissions";
 
 export function ApplicationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const query = useApplication(id ?? "");
   const [editOpen, setEditOpen] = useState(false);
+
+  const { hasPermission } = usePermissions();
+  const canEditMetadata = hasPermission(KartovaPermissions.CatalogApplicationsEditMetadata);
+  const canForwardLifecycle = hasPermission(KartovaPermissions.CatalogApplicationsLifecycleForward);
+  const canReverseLifecycle = hasPermission(KartovaPermissions.CatalogApplicationsLifecycleReverse);
 
   if (query.isLoading) {
     return (
@@ -42,9 +49,9 @@ export function ApplicationDetailPage() {
   }
 
   const app = query.data;
-  // Defense-in-depth: hide Edit when terminal. The server still returns 409
-  // LifecycleConflict if a stale client tries to PUT a Decommissioned app.
-  const canEdit = app.lifecycle !== "decommissioned";
+  // Defense-in-depth: hide Edit when terminal OR when user lacks the permission.
+  // The server still returns 409 LifecycleConflict / 403 if a stale client tries anyway.
+  const canEdit = canEditMetadata && app.lifecycle !== "decommissioned";
 
   return (
     <>
@@ -54,7 +61,13 @@ export function ApplicationDetailPage() {
             <div className="flex flex-wrap items-baseline gap-3">
               <h2 className="text-2xl font-semibold text-primary">{app.displayName}</h2>
               <Badge color="gray" type="pill-color" size="sm" className="font-mono">{app.name}</Badge>
-              <LifecycleMenu application={app} />
+              {(canForwardLifecycle || canReverseLifecycle) && (
+                <LifecycleMenu
+                  application={app}
+                  canForward={canForwardLifecycle}
+                  canReverse={canReverseLifecycle}
+                />
+              )}
             </div>
             {canEdit && (
               <Button color="secondary" size="sm" onClick={() => setEditOpen(true)}>

@@ -6,6 +6,22 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import * as clientModule from "@/features/catalog/api/client";
 import { ApplicationDetailPage } from "../ApplicationDetailPage";
 
+// Default: fully permissive — existing tests are unaffected.
+const usePermissionsMock = vi.fn();
+vi.mock("@/shared/auth/usePermissions", () => ({
+  usePermissions: () => usePermissionsMock(),
+}));
+
+import { KartovaPermissions } from "@/shared/auth/permissions";
+
+function mockPermissions(perms: string[]) {
+  usePermissionsMock.mockReturnValue({
+    role: "test",
+    hasPermission: (p: string) => perms.includes(p),
+    isLoading: false,
+  });
+}
+
 function harness(qc: QueryClient, initialPath: string) {
   return (
     <QueryClientProvider client={qc}>
@@ -21,6 +37,8 @@ function harness(qc: QueryClient, initialPath: string) {
 describe("ApplicationDetailPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    // Fully permissive default so existing tests are unaffected.
+    mockPermissions(Object.values(KartovaPermissions));
   });
 
   it("renders application metadata when query resolves", async () => {
@@ -134,5 +152,102 @@ describe("ApplicationDetailPage", () => {
     render(harness(qc, "/catalog/applications/1"));
 
     await waitFor(() => expect(screen.getByText(/no description/i)).toBeInTheDocument());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Permission gating tests (Slice 7)
+// ---------------------------------------------------------------------------
+
+const activeApp = {
+  id: "00000000-0000-0000-0000-000000000001",
+  tenantId: "t",
+  name: "payment-gateway",
+  displayName: "Payment Gateway",
+  description: "Handles charges",
+  ownerUserId: "u-1",
+  createdAt: "2026-01-01T12:34:56Z",
+  lifecycle: "active",
+  sunsetDate: null,
+  version: "v1",
+};
+
+describe("ApplicationDetailPage — Edit button gating", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("hides Edit button for Viewer (only CatalogRead)", async () => {
+    mockPermissions([KartovaPermissions.CatalogRead]);
+
+    const get = vi.fn().mockResolvedValue({ data: activeApp, error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(harness(qc, "/catalog/applications/00000000-0000-0000-0000-000000000001"));
+
+    await waitFor(() => expect(screen.getByText("Payment Gateway")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /^edit$/i })).toBeNull();
+  });
+
+  it("shows Edit button for Member (has CatalogApplicationsEditMetadata)", async () => {
+    mockPermissions([
+      KartovaPermissions.CatalogRead,
+      KartovaPermissions.CatalogApplicationsEditMetadata,
+    ]);
+
+    const get = vi.fn().mockResolvedValue({ data: activeApp, error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(harness(qc, "/catalog/applications/00000000-0000-0000-0000-000000000001"));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /^edit$/i })).toBeInTheDocument(),
+    );
+  });
+});
+
+describe("ApplicationDetailPage — LifecycleMenu gating", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("hides LifecycleMenu when user has neither forward nor reverse lifecycle permission", async () => {
+    mockPermissions([KartovaPermissions.CatalogRead]);
+
+    const get = vi.fn().mockResolvedValue({ data: activeApp, error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(harness(qc, "/catalog/applications/00000000-0000-0000-0000-000000000001"));
+
+    await waitFor(() => expect(screen.getByText("Payment Gateway")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /open lifecycle menu/i })).toBeNull();
+  });
+
+  it("shows LifecycleMenu when user has forward lifecycle permission", async () => {
+    mockPermissions([
+      KartovaPermissions.CatalogRead,
+      KartovaPermissions.CatalogApplicationsLifecycleForward,
+    ]);
+
+    const get = vi.fn().mockResolvedValue({ data: activeApp, error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(harness(qc, "/catalog/applications/00000000-0000-0000-0000-000000000001"));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /open lifecycle menu/i })).toBeInTheDocument(),
+    );
   });
 });

@@ -10,6 +10,10 @@ import type { ApplicationResponse } from "@/features/catalog/api/applications";
 
 interface Props {
   application: ApplicationResponse;
+  /** Gate forward-lifecycle items (Deprecate, Decommission). Defaults to true for back-compat. */
+  canForward?: boolean;
+  /** Reserved for reverse-lifecycle items (Reactivate, Restore). Defaults to true for back-compat. */
+  canReverse?: boolean;
 }
 
 type DialogKind = "deprecate" | "decommission" | null;
@@ -63,7 +67,7 @@ function buildItems(
  * "decommissioned") via JsonStringEnumConverter(JsonNamingPolicy.CamelCase);
  * all comparisons in this file use those literals directly.
  */
-export function LifecycleMenu({ application }: Props) {
+export function LifecycleMenu({ application, canForward = true, canReverse: _canReverse = true }: Props) {
   const [openDialog, setOpenDialog] = useState<DialogKind>(null);
 
   // Lazy `useState` keeps the impure `Date.now()` read off the render path
@@ -71,10 +75,13 @@ export function LifecycleMenu({ application }: Props) {
   // is resolved on the next cache invalidation.
   const [now] = useState(() => Date.now());
 
-  const items = useMemo(
+  const allItems = useMemo(
     () => buildItems(application.lifecycle, application.sunsetDate, now),
     [application.lifecycle, application.sunsetDate, now]
   );
+
+  // Gate forward-lifecycle items by the canForward prop.
+  const items = canForward ? allItems : [];
 
   // Decommissioned is a terminal state — render the badge alone with the
   // sunset-date subline (the badge already reads sunsetDate). No interactive
