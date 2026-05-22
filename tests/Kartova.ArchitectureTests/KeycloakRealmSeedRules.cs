@@ -92,4 +92,31 @@ public class KeycloakRealmSeedRules
             "tenant_id",
             tenantIdMapper.GetProperty("config").GetProperty("claim.name").GetString());
     }
+
+    [TestMethod]
+    public void Realm_seed_includes_Viewer_and_TeamAdmin_roles_and_dev_users()
+    {
+        using var doc = JsonDocument.Parse(File.ReadAllText(SeedPath));
+
+        var roles = doc.RootElement
+            .GetProperty("roles")
+            .GetProperty("realm")
+            .EnumerateArray()
+            .Select(r => r.GetProperty("name").GetString())
+            .ToHashSet(StringComparer.Ordinal);
+
+        Assert.IsTrue(roles.Contains("Viewer"), "Realm must include 'Viewer' role.");
+        Assert.IsTrue(roles.Contains("TeamAdmin"), "Realm must include 'TeamAdmin' role.");
+
+        var usernames = doc.RootElement
+            .GetProperty("users")
+            .EnumerateArray()
+            .Select(u => u.GetProperty("username").GetString())
+            .ToHashSet(StringComparer.Ordinal);
+
+        Assert.IsTrue(usernames.Contains("viewer@orga.kartova.local"),
+            "Realm must include a 'viewer@orga' dev user.");
+        Assert.IsTrue(usernames.Contains("team-admin@orga.kartova.local"),
+            "Realm must include a 'team-admin@orga' dev user.");
+    }
 }
