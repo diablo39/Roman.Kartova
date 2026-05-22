@@ -1,6 +1,8 @@
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
+using Kartova.SharedKernel.Multitenancy;
 
 namespace Kartova.ArchitectureTests;
 
@@ -119,5 +121,30 @@ public class KeycloakRealmSeedRules
             "Realm must include a 'viewer@orga' dev user.");
         Assert.IsTrue(usernames.Contains("team-admin@orga.kartova.local"),
             "Realm must include a 'team-admin@orga' dev user.");
+    }
+
+    [TestMethod]
+    public void Every_KartovaRoles_constant_except_ServiceAccount_appears_in_realm_seed()
+    {
+        Assert.IsTrue(File.Exists(SeedPath), $"realm seed not found at {SeedPath}");
+        using var doc = JsonDocument.Parse(File.ReadAllText(SeedPath));
+
+        var realmRoles = doc.RootElement.GetProperty("roles").GetProperty("realm")
+            .EnumerateArray()
+            .Select(r => r.GetProperty("name").GetString()!)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var constantValues = typeof(KartovaRoles)
+            .GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)
+            .Where(f => f.IsLiteral && f.FieldType == typeof(string))
+            .Select(f => (Name: f.Name, Value: (string)f.GetRawConstantValue()!))
+            .Where(t => t.Name != nameof(KartovaRoles.ServiceAccount))
+            .ToArray();
+
+        foreach (var (name, value) in constantValues)
+        {
+            Assert.IsTrue(realmRoles.Contains(value),
+                $"KartovaRoles.{name} = '{value}' has no matching entry in kartova-realm.json roles.realm.");
+        }
     }
 }
