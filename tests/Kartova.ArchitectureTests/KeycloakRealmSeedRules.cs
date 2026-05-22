@@ -7,7 +7,7 @@ using Kartova.SharedKernel.Multitenancy;
 namespace Kartova.ArchitectureTests;
 
 [TestClass]
-public class KeycloakRealmSeedRules
+public sealed class KeycloakRealmSeedRules
 {
     private static readonly string SeedPath =
         Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..",
