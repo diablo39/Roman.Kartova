@@ -92,11 +92,9 @@ public class TenantClaimsTransformationTests
         var permClaims = result.FindAll(KartovaClaims.Permission)
                                .Select(c => c.Value).ToHashSet(StringComparer.Ordinal);
 
-        foreach (var perm in KartovaRolePermissions.ForRole(KartovaRoles.Member))
-        {
-            Assert.IsTrue(permClaims.Contains(perm),
-                $"Permission '{perm}' must be present on principal after transformation.");
-        }
+        CollectionAssert.AreEquivalent(
+            KartovaRolePermissions.ForRole(KartovaRoles.Member).ToList(),
+            permClaims.ToList());
 
         Assert.IsFalse(permClaims.Contains(KartovaPermissions.CatalogApplicationsLifecycleReverse),
             "Member must not get the reverse-lifecycle permission.");
@@ -163,7 +161,8 @@ public class TenantClaimsTransformationTests
         var sut = new TenantClaimsTransformation(ProviderFor(ctx));
 
         var result = await sut.TransformAsync(principal);
-        Assert.AreEqual(0, result.FindAll(KartovaClaims.Permission).Count());
+        Assert.IsFalse(result.HasClaim(c => c.Type == KartovaClaims.Permission),
+            "Unknown role must not produce any permission claims.");
     }
 
     private static IServiceProvider ProviderFor(ITenantContext ctx)
