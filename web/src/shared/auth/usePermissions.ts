@@ -34,10 +34,19 @@ export function usePermissions(): UsePermissionsResult {
         headers.Authorization = `Bearer ${auth.user.access_token}`;
       }
       const res = await fetch("/api/v1/organizations/me/permissions", { headers });
-      if (!res.ok) throw new Error(`me/permissions returned ${res.status}`);
+      if (!res.ok) {
+        const err = Object.assign(
+          new Error(`me/permissions returned ${res.status}`),
+          { __status: res.status }
+        );
+        throw err;
+      }
       return (await res.json()) as MePermissionsResponse;
     },
     enabled,
+    // 5-minute stale window: role changes propagate on next window focus (React Query default).
+    // A user demoted mid-session may still click gated actions for up to 5 minutes; a 403 from
+    // the mutation API surfaces a toast via the existing problem-details handler (spec §8.4).
     staleTime: 5 * 60 * 1000,
     retry: false,
   });

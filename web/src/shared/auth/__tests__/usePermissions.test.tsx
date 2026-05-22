@@ -114,6 +114,20 @@ describe("usePermissions", () => {
     });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
+    expect(result.current.isError).toBe(true);
+    expect(result.current.role).toBeNull();
+    for (const p of Object.values(KartovaPermissions)) {
+      expect(result.current.hasPermission(p)).toBe(false);
+    }
+  });
+
+  it("sets isError to true on 403 response", async () => {
+    globalThis.fetch = mockFetchOnce(undefined, 403);
+
+    const { result } = renderHook(() => usePermissions(), { wrapper: makeWrapper(newQueryClient()) });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.isError).toBe(true);
     expect(result.current.role).toBeNull();
     for (const p of Object.values(KartovaPermissions)) {
       expect(result.current.hasPermission(p)).toBe(false);

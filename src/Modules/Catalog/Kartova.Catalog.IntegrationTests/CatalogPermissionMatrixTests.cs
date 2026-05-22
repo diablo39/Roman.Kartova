@@ -78,6 +78,9 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
                 }
                 else
                 {
+                    // Allowed means != 403 and != 401. The specific 2xx/4xx status (e.g. 409 for
+                    // lifecycle state mismatch on the seeded Active application) is irrelevant
+                    // here — per-endpoint integration tests cover response-shape correctness.
                     Assert.AreNotEqual(HttpStatusCode.Forbidden, resp.StatusCode,
                         $"{role} calling {method} {pathTemplate} should NOT be 403 (has {perm}). Actual: {resp.StatusCode}");
                     Assert.AreNotEqual(HttpStatusCode.Unauthorized, resp.StatusCode,

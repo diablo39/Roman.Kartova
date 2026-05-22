@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.Extensions.DependencyInjection;
@@ -163,6 +164,27 @@ public class TenantClaimsTransformationTests
         var result = await sut.TransformAsync(principal);
         Assert.IsFalse(result.HasClaim(c => c.Type == KartovaClaims.Permission),
             "Unknown role must not produce any permission claims.");
+    }
+
+    [TestMethod]
+    public async Task Duplicate_role_does_not_produce_duplicate_permission_claims()
+    {
+        var realmAccess = JsonSerializer.Serialize(new { roles = new[] { KartovaRoles.Member, KartovaRoles.Member } });
+        var (principal, ctx) = Setup(
+            new Claim(KartovaClaims.TenantId, "11111111-1111-1111-1111-111111111111"),
+            new Claim(KartovaClaims.RealmAccess, realmAccess));
+
+        var sut = new TenantClaimsTransformation(ProviderFor(ctx));
+        var result = await sut.TransformAsync(principal);
+
+        var permClaims = result.FindAll(KartovaClaims.Permission).Select(c => c.Value).ToList();
+        var distinctCount = permClaims.Distinct(StringComparer.Ordinal).Count();
+
+        Assert.AreEqual(distinctCount, permClaims.Count,
+            "Duplicate role in realm_access must not produce duplicate permission claims.");
+        CollectionAssert.AreEquivalent(
+            KartovaRolePermissions.ForRole(KartovaRoles.Member).ToList(),
+            permClaims);
     }
 
     private static IServiceProvider ProviderFor(ITenantContext ctx)

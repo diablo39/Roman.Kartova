@@ -294,6 +294,8 @@ public void UnDecommission(DateTimeOffset newSunsetDate, TimeProvider clock)
 | `src/Modules/Catalog/Kartova.Catalog.Contracts/UnDecommissionApplicationRequest.cs` | `{ SunsetDate }` with `[ExcludeFromCodeCoverage]` |
 | `src/Modules/Catalog/Kartova.Catalog.Infrastructure/CatalogEndpointDelegates.cs` | adds `ReactivateApplicationAsync`, `UnDecommissionApplicationAsync` |
 
+> **Implementation note:** Handlers are placed in `Kartova.Catalog.Infrastructure`, not `Kartova.Catalog.Application`, per the established repo convention (ADR-0093 direct-dispatch). The spec table above kept the Application project for symmetry with commands/DTOs, but `DeprecateApplicationHandler` and `DecommissionApplicationHandler` precedent place handlers in Infrastructure. Slice 7 follows precedent.
+
 No migration — schema is unchanged. Reverse transitions only flip the existing `lifecycle smallint` column and the existing `sunset_date timestamptz` column.
 
 `InvalidLifecycleTransitionException` is reused as-is — it already carries `currentLifecycle` + `attemptedTransition` + optional `sunsetDate` + `reason`.
