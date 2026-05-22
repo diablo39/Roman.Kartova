@@ -50,6 +50,7 @@ public static class JwtAuthenticationExtensions
             });
 
         services.AddAuthorization();
+        services.AddAuthorizationBuilder().AddKartovaPermissionPolicies();
 
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
