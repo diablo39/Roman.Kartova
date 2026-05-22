@@ -1,4 +1,6 @@
+using System.IO;
 using System.Reflection;
+using System.Text.Json;
 using Kartova.SharedKernel.Multitenancy;
 
 namespace Kartova.ArchitectureTests;
@@ -68,5 +70,34 @@ public sealed class KartovaPermissionsRules
             Assert.IsTrue(declaredRoles.Contains(role),
                 $"Map key '{role}' is not declared in KartovaRoles.");
         }
+    }
+
+    [TestMethod]
+    public void Ts_snapshot_equals_csharp_KartovaPermissions_All()
+    {
+        var snapshotPath = FindRepoFile("web/src/shared/auth/permissions.snapshot.json");
+        Assert.IsTrue(File.Exists(snapshotPath),
+            $"Drift sentinel missing: {snapshotPath}. The TS side must commit a JSON list of permission names.");
+
+        using var doc = JsonDocument.Parse(File.ReadAllText(snapshotPath));
+        var snapshot = doc.RootElement.EnumerateArray()
+                                      .Select(e => e.GetString()!)
+                                      .ToHashSet(StringComparer.Ordinal);
+
+        CollectionAssert.AreEquivalent(
+            KartovaPermissions.All.ToList(),
+            snapshot.ToList(),
+            "TS permissions.snapshot.json must match C# KartovaPermissions.All exactly.");
+    }
+
+    private static string FindRepoFile(string relativePath)
+    {
+        var dir = new DirectoryInfo(Directory.GetCurrentDirectory());
+        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Kartova.slnx")))
+        {
+            dir = dir.Parent;
+        }
+        if (dir is null) throw new InvalidOperationException("Kartova.slnx not found walking up from current directory.");
+        return Path.Combine(dir.FullName, relativePath.Replace('/', Path.DirectorySeparatorChar));
     }
 }

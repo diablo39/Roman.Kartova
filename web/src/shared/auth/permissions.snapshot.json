@@ -1,0 +1,7 @@
+[
+  "catalog.read",
+  "catalog.applications.register",
+  "catalog.applications.edit-metadata",
+  "catalog.applications.lifecycle.forward",
+  "catalog.applications.lifecycle.reverse"
+]
