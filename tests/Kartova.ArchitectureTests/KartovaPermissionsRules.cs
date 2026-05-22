@@ -24,4 +24,33 @@ public sealed class KartovaPermissionsRules
         Assert.AreEqual(declared.Count, KartovaPermissions.All.Count,
             "KartovaPermissions.All must not contain entries that are not declared as constants.");
     }
+
+    [TestMethod]
+    public void Every_permission_appears_in_at_least_one_role_set()
+    {
+        var permissionsInUse = KartovaRolePermissions.Map
+            .SelectMany(kvp => kvp.Value)
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var perm in KartovaPermissions.All)
+        {
+            Assert.IsTrue(permissionsInUse.Contains(perm),
+                $"Orphan permission '{perm}' — not granted to any role in KartovaRolePermissions.Map.");
+        }
+    }
+
+    [TestMethod]
+    public void Every_mapped_value_is_a_known_permission()
+    {
+        var declared = new HashSet<string>(KartovaPermissions.All, StringComparer.Ordinal);
+
+        foreach (var (role, perms) in KartovaRolePermissions.Map)
+        {
+            foreach (var perm in perms)
+            {
+                Assert.IsTrue(declared.Contains(perm),
+                    $"Role {role} grants unknown permission '{perm}' — not declared in KartovaPermissions.");
+            }
+        }
+    }
 }
