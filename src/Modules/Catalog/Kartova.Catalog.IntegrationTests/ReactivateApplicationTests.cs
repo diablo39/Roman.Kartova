@@ -36,6 +36,40 @@ public sealed class ReactivateApplicationTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
+    public async Task POST_reactivate_from_Decommissioned_returns_200_with_Active_state_and_no_sunsetDate()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAdminEmail, new[] { KartovaRoles.OrgAdmin });
+        var registered = await RegisterAsync(client, "react-app-decom-1", "Reactivate Decommissioned 1", "Desc.");
+
+        // Deprecate with sunsetDate ~2 seconds in the future.
+        var sunset = DateTimeOffset.UtcNow.AddSeconds(2);
+        var dep = await client.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{registered.Id}/deprecate",
+            new { sunsetDate = sunset });
+        Assert.IsTrue(dep.IsSuccessStatusCode, $"Deprecate must succeed (was {dep.StatusCode}).");
+
+        // Wait until past the sunsetDate so Decommission's "now >= sunsetDate" guard passes.
+        await Task.Delay(3000);
+
+        // Drive to Decommissioned.
+        var decomResp = await client.PostAsync(
+            $"/api/v1/catalog/applications/{registered.Id}/decommission",
+            content: null);
+        Assert.AreEqual(HttpStatusCode.OK, decomResp.StatusCode, "Decommission must succeed.");
+        var decomBody = await decomResp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(Lifecycle.Decommissioned, decomBody!.Lifecycle, "State must be Decommissioned before reactivate.");
+
+        // Reactivate from Decommissioned.
+        var resp = await client.PostAsync(
+            $"/api/v1/catalog/applications/{registered.Id}/reactivate", content: null);
+
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(Lifecycle.Active, body!.Lifecycle);
+        Assert.IsNull(body.SunsetDate);
+    }
+
+    [TestMethod]
     public async Task POST_reactivate_from_Active_returns_409_lifecycle_conflict()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAdminEmail, new[] { KartovaRoles.OrgAdmin });
