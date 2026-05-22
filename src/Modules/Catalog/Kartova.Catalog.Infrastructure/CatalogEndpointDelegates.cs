@@ -167,4 +167,17 @@ internal static class CatalogEndpointDelegates
         if (resp is null) return EndpointResultExtensions.ApplicationNotFound();
         return Results.Ok(resp);
     }
+
+    internal static async Task<IResult> ReactivateApplicationAsync(
+        Guid id,
+        ReactivateApplicationHandler handler,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        var resp = await handler.Handle(
+            new ReactivateApplicationCommand(new ApplicationId(id)), db, ct);
+
+        if (resp is null) return EndpointResultExtensions.ApplicationNotFound();
+        return Results.Ok(resp);
+    }
 }

@@ -79,6 +79,17 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .Produces<ApplicationResponse>(StatusCodes.Status200OK)
               .ProducesProblem(StatusCodes.Status404NotFound)
               .ProducesProblem(StatusCodes.Status409Conflict);
+        // POST reactivate — reverse lifecycle transition (Deprecated/Decommissioned → Active).
+        // OrgAdmin only (CatalogApplicationsLifecycleReverse). Empty body, no If-Match —
+        // same rationale as deprecate/decommission. The domain invariant inside
+        // Application.Reactivate() rejects non-Deprecated/Decommissioned sources with
+        // InvalidLifecycleTransitionException → 409 LifecycleConflict.
+        tenant.MapPost("/applications/{id:guid}/reactivate", CatalogEndpointDelegates.ReactivateApplicationAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogApplicationsLifecycleReverse)
+              .WithName("ReactivateApplication")
+              .Produces<ApplicationResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status404NotFound)
+              .ProducesProblem(StatusCodes.Status409Conflict);
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
@@ -98,6 +109,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<EditApplicationHandler>();
         services.AddScoped<DeprecateApplicationHandler>();
         services.AddScoped<DecommissionApplicationHandler>();
+        services.AddScoped<ReactivateApplicationHandler>();
 
         // TimeProvider is needed by Application.Deprecate / Decommission for the
         // "sunsetDate must be in the future" / "now >= sunsetDate" checks. TryAdd
