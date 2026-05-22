@@ -78,6 +78,94 @@ public class TenantClaimsTransformationTests
         Assert.IsFalse(sp.GetRequiredService<ITenantContext>().IsTenantScoped);
     }
 
+    [TestMethod]
+    public async Task Expands_role_claims_into_permission_claims_for_Member()
+    {
+        var (principal, ctx) = Setup(
+            new Claim(KartovaClaims.TenantId, "11111111-1111-1111-1111-111111111111"),
+            new Claim(KartovaClaims.RealmAccess, """{"roles":["Member"]}""")
+        );
+        var sut = new TenantClaimsTransformation(ProviderFor(ctx));
+
+        var result = await sut.TransformAsync(principal);
+
+        var permClaims = result.FindAll(KartovaClaims.Permission)
+                               .Select(c => c.Value).ToHashSet(StringComparer.Ordinal);
+
+        foreach (var perm in KartovaRolePermissions.ForRole(KartovaRoles.Member))
+        {
+            Assert.IsTrue(permClaims.Contains(perm),
+                $"Permission '{perm}' must be present on principal after transformation.");
+        }
+
+        Assert.IsFalse(permClaims.Contains(KartovaPermissions.CatalogApplicationsLifecycleReverse),
+            "Member must not get the reverse-lifecycle permission.");
+    }
+
+    [TestMethod]
+    public async Task Expands_role_claims_into_permission_claims_for_Viewer()
+    {
+        var (principal, ctx) = Setup(
+            new Claim(KartovaClaims.TenantId, "11111111-1111-1111-1111-111111111111"),
+            new Claim(KartovaClaims.RealmAccess, """{"roles":["Viewer"]}""")
+        );
+        var sut = new TenantClaimsTransformation(ProviderFor(ctx));
+
+        var result = await sut.TransformAsync(principal);
+        var permClaims = result.FindAll(KartovaClaims.Permission).Select(c => c.Value).ToHashSet(StringComparer.Ordinal);
+
+        CollectionAssert.AreEquivalent(
+            KartovaRolePermissions.ForRole(KartovaRoles.Viewer).ToList(),
+            permClaims.ToList());
+    }
+
+    [TestMethod]
+    public async Task Expands_role_claims_into_permission_claims_for_TeamAdmin()
+    {
+        var (principal, ctx) = Setup(
+            new Claim(KartovaClaims.TenantId, "11111111-1111-1111-1111-111111111111"),
+            new Claim(KartovaClaims.RealmAccess, """{"roles":["TeamAdmin"]}""")
+        );
+        var sut = new TenantClaimsTransformation(ProviderFor(ctx));
+
+        var result = await sut.TransformAsync(principal);
+        var permClaims = result.FindAll(KartovaClaims.Permission).Select(c => c.Value).ToHashSet(StringComparer.Ordinal);
+
+        CollectionAssert.AreEquivalent(
+            KartovaRolePermissions.ForRole(KartovaRoles.TeamAdmin).ToList(),
+            permClaims.ToList());
+    }
+
+    [TestMethod]
+    public async Task Expands_role_claims_into_permission_claims_for_OrgAdmin()
+    {
+        var (principal, ctx) = Setup(
+            new Claim(KartovaClaims.TenantId, "11111111-1111-1111-1111-111111111111"),
+            new Claim(KartovaClaims.RealmAccess, """{"roles":["OrgAdmin"]}""")
+        );
+        var sut = new TenantClaimsTransformation(ProviderFor(ctx));
+
+        var result = await sut.TransformAsync(principal);
+        var permClaims = result.FindAll(KartovaClaims.Permission).Select(c => c.Value).ToHashSet(StringComparer.Ordinal);
+
+        CollectionAssert.AreEquivalent(
+            KartovaRolePermissions.ForRole(KartovaRoles.OrgAdmin).ToList(),
+            permClaims.ToList());
+    }
+
+    [TestMethod]
+    public async Task Unknown_role_yields_no_permission_claims()
+    {
+        var (principal, ctx) = Setup(
+            new Claim(KartovaClaims.TenantId, "11111111-1111-1111-1111-111111111111"),
+            new Claim(KartovaClaims.RealmAccess, """{"roles":["not-a-real-role"]}""")
+        );
+        var sut = new TenantClaimsTransformation(ProviderFor(ctx));
+
+        var result = await sut.TransformAsync(principal);
+        Assert.AreEqual(0, result.FindAll(KartovaClaims.Permission).Count());
+    }
+
     private static IServiceProvider ProviderFor(ITenantContext ctx)
     {
         var services = new ServiceCollection();
