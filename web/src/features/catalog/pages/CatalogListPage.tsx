@@ -25,8 +25,8 @@ export function CatalogListPage() {
   const list = useApplicationsList({ sortBy, sortOrder, includeDecommissioned });
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const { hasPermission } = usePermissions();
-  const canRegister = hasPermission(KartovaPermissions.CatalogApplicationsRegister);
+  const { hasPermission, isLoading: permissionsLoading } = usePermissions();
+  const canRegister = !permissionsLoading && hasPermission(KartovaPermissions.CatalogApplicationsRegister);
 
   useEffect(() => {
     if (list.isError) {

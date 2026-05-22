@@ -15,7 +15,7 @@ export function ApplicationDetailPage() {
   const query = useApplication(id ?? "");
   const [editOpen, setEditOpen] = useState(false);
 
-  const { hasPermission } = usePermissions();
+  const { hasPermission, isLoading: permissionsLoading } = usePermissions();
   const canEditMetadata = hasPermission(KartovaPermissions.CatalogApplicationsEditMetadata);
   const canForwardLifecycle = hasPermission(KartovaPermissions.CatalogApplicationsLifecycleForward);
   const canReverseLifecycle = hasPermission(KartovaPermissions.CatalogApplicationsLifecycleReverse);
@@ -51,7 +51,7 @@ export function ApplicationDetailPage() {
   const app = query.data;
   // Defense-in-depth: hide Edit when terminal OR when user lacks the permission.
   // The server still returns 409 LifecycleConflict / 403 if a stale client tries anyway.
-  const canEdit = canEditMetadata && app.lifecycle !== "decommissioned";
+  const canEdit = !permissionsLoading && canEditMetadata && app.lifecycle !== "decommissioned";
 
   return (
     <>
@@ -61,7 +61,7 @@ export function ApplicationDetailPage() {
             <div className="flex flex-wrap items-baseline gap-3">
               <h2 className="text-2xl font-semibold text-primary">{app.displayName}</h2>
               <Badge color="gray" type="pill-color" size="sm" className="font-mono">{app.name}</Badge>
-              {(canForwardLifecycle || canReverseLifecycle) && (
+              {!permissionsLoading && (canForwardLifecycle || canReverseLifecycle) && (
                 <LifecycleMenu
                   application={app}
                   canForward={canForwardLifecycle}

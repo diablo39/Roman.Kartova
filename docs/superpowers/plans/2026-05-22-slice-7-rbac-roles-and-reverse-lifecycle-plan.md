@@ -61,7 +61,7 @@
 |---|---|
 | `web/src/shared/auth/permissions.snapshot.json` | Committed list of permission names — drift sentinel. |
 | `web/src/shared/auth/permissions.ts` | `KartovaPermissions` constants typed from snapshot. |
-| `web/src/shared/auth/usePermissions.ts` | React Query hook calling `GET /api/v1/organization/me/permissions`. |
+| `web/src/shared/auth/usePermissions.ts` | React Query hook calling `GET /api/v1/organizations/me/permissions`. |
 | `web/src/shared/auth/__tests__/usePermissions.test.tsx` | Per-role permission set; loading; 401 handling. |
 | `web/src/features/catalog/components/ReactivateConfirmDialog.tsx` | Empty-body confirm. |
 | `web/src/features/catalog/components/UnDecommissionConfirmDialog.tsx` | Sunset-date picker (mirrors `DeprecateConfirmDialog`). |
@@ -773,7 +773,7 @@ public sealed class GetMePermissionsTests : OrganizationIntegrationTestBase
     public async Task GET_me_permissions_returns_OrgAdmin_set()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var resp = await client.GetAsync("/api/v1/organization/me/permissions");
+        var resp = await client.GetAsync("/api/v1/organizations/me/permissions");
 
         Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
         var body = await resp.Content.ReadFromJsonAsync<MePermissionsResponse>();
@@ -789,7 +789,7 @@ public sealed class GetMePermissionsTests : OrganizationIntegrationTestBase
     public async Task GET_me_permissions_returns_Member_set()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAMember);
-        var resp = await client.GetAsync("/api/v1/organization/me/permissions");
+        var resp = await client.GetAsync("/api/v1/organizations/me/permissions");
 
         Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
         var body = await resp.Content.ReadFromJsonAsync<MePermissionsResponse>();
@@ -803,7 +803,7 @@ public sealed class GetMePermissionsTests : OrganizationIntegrationTestBase
     public async Task GET_me_permissions_returns_Viewer_set()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAViewer);
-        var resp = await client.GetAsync("/api/v1/organization/me/permissions");
+        var resp = await client.GetAsync("/api/v1/organizations/me/permissions");
 
         Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
         var body = await resp.Content.ReadFromJsonAsync<MePermissionsResponse>();
@@ -817,7 +817,7 @@ public sealed class GetMePermissionsTests : OrganizationIntegrationTestBase
     public async Task GET_me_permissions_returns_TeamAdmin_set()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgATeam);
-        var resp = await client.GetAsync("/api/v1/organization/me/permissions");
+        var resp = await client.GetAsync("/api/v1/organizations/me/permissions");
 
         Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
         var body = await resp.Content.ReadFromJsonAsync<MePermissionsResponse>();
@@ -831,7 +831,7 @@ public sealed class GetMePermissionsTests : OrganizationIntegrationTestBase
     public async Task GET_me_permissions_returns_401_when_unauthenticated()
     {
         var client = Fx.CreateUnauthenticatedClient();
-        var resp = await client.GetAsync("/api/v1/organization/me/permissions");
+        var resp = await client.GetAsync("/api/v1/organizations/me/permissions");
 
         Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
     }
@@ -904,7 +904,7 @@ Expected: 5 passed (or 4 if the 401 case was dropped due to fixture limits).
 
 ```bash
 git add src/Modules/Organization/Kartova.Organization.Contracts/MePermissionsResponse.cs src/Modules/Organization/Kartova.Organization.Infrastructure/OrganizationEndpointDelegates.cs src/Modules/Organization/Kartova.Organization.Infrastructure/OrganizationModule.cs src/Modules/Organization/Kartova.Organization.IntegrationTests/GetMePermissionsTests.cs
-git commit -m "feat(api): GET /organization/me/permissions returns role and permission set"
+git commit -m "feat(api): GET /organizations/me/permissions returns role and permission set"
 ```
 
 ---
@@ -1845,7 +1845,7 @@ function wrap() {
 describe("usePermissions", () => {
   it("returns Viewer set when API returns Viewer role", async () => {
     server.use(
-      http.get("*/api/v1/organization/me/permissions", () =>
+      http.get("*/api/v1/organizations/me/permissions", () =>
         HttpResponse.json({ role: "Viewer", permissions: ["catalog.read"] })),
     );
 
@@ -1859,7 +1859,7 @@ describe("usePermissions", () => {
 
   it("returns OrgAdmin set with all five permissions", async () => {
     server.use(
-      http.get("*/api/v1/organization/me/permissions", () =>
+      http.get("*/api/v1/organizations/me/permissions", () =>
         HttpResponse.json({
           role: "OrgAdmin",
           permissions: [
@@ -1883,7 +1883,7 @@ describe("usePermissions", () => {
 
   it("isLoading is true initially", () => {
     server.use(
-      http.get("*/api/v1/organization/me/permissions", () =>
+      http.get("*/api/v1/organizations/me/permissions", () =>
         HttpResponse.json({ role: "Member", permissions: ["catalog.read"] }),
       { once: true }),
     );
@@ -1895,7 +1895,7 @@ describe("usePermissions", () => {
 
   it("returns false for all permissions on 401", async () => {
     server.use(
-      http.get("*/api/v1/organization/me/permissions", () => new HttpResponse(null, { status: 401 })),
+      http.get("*/api/v1/organizations/me/permissions", () => new HttpResponse(null, { status: 401 })),
     );
 
     const { result } = renderHook(() => usePermissions(), { wrapper: wrap() });
@@ -1945,7 +1945,7 @@ export function usePermissions(): UsePermissionsResult {
   const query = useQuery<MePermissionsResponse>({
     queryKey: QUERY_KEY,
     queryFn: async () => {
-      const res = await fetch("/api/v1/organization/me/permissions", {
+      const res = await fetch("/api/v1/organizations/me/permissions", {
         headers: { Authorization: `Bearer ${auth.user?.access_token}` },
       });
       if (!res.ok) throw new Error(`me/permissions returned ${res.status}`);

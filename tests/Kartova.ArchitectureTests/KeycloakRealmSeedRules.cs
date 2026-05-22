@@ -147,4 +147,36 @@ public sealed class KeycloakRealmSeedRules
                 $"KartovaRoles.{name} = '{value}' has no matching entry in kartova-realm.json roles.realm.");
         }
     }
+
+    [TestMethod]
+    public void Every_role_in_KartovaRolePermissions_Map_has_at_least_one_dev_user()
+    {
+        Assert.IsTrue(File.Exists(SeedPath), $"realm seed not found at {SeedPath}");
+        using var doc = JsonDocument.Parse(File.ReadAllText(SeedPath));
+
+        // Group dev users by the roles they hold.
+        var usersByRole = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (var user in doc.RootElement.GetProperty("users").EnumerateArray())
+        {
+            var username = user.GetProperty("username").GetString()!;
+            if (!user.TryGetProperty("realmRoles", out var rolesProp)) continue;
+            foreach (var roleElem in rolesProp.EnumerateArray())
+            {
+                var role = roleElem.GetString();
+                if (string.IsNullOrEmpty(role)) continue;
+                if (!usersByRole.TryGetValue(role, out var list))
+                {
+                    list = new List<string>();
+                    usersByRole[role] = list;
+                }
+                list.Add(username);
+            }
+        }
+
+        foreach (var role in KartovaRolePermissions.Map.Keys)
+        {
+            Assert.IsTrue(usersByRole.ContainsKey(role) && usersByRole[role].Count > 0,
+                $"Role '{role}' in KartovaRolePermissions.Map must have at least one dev user in kartova-realm.json.");
+        }
+    }
 }
