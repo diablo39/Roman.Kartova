@@ -53,4 +53,20 @@ public sealed class KartovaPermissionsRules
             }
         }
     }
+
+    [TestMethod]
+    public void Every_map_key_is_a_known_role()
+    {
+        var declaredRoles = typeof(KartovaRoles)
+            .GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)
+            .Where(f => f.IsLiteral && f.FieldType == typeof(string))
+            .Select(f => (string)f.GetRawConstantValue()!)
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var role in KartovaRolePermissions.Map.Keys)
+        {
+            Assert.IsTrue(declaredRoles.Contains(role),
+                $"Map key '{role}' is not declared in KartovaRoles.");
+        }
+    }
 }
