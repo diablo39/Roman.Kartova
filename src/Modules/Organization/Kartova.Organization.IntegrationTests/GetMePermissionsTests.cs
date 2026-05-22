@@ -79,4 +79,19 @@ public sealed class GetMePermissionsTests : OrganizationIntegrationTestBase
 
         Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
     }
+
+    [TestMethod]
+    public async Task GET_me_permissions_returns_null_role_when_principal_has_no_realm_role()
+    {
+        // Issue token with empty roles array — principal authenticates but no ClaimTypes.Role claim
+        // is added by TenantClaimsTransformation (roles.Count == 0 skips the flattening loop).
+        var client = await Fx.CreateAuthenticatedClientAsync(EmailOrgA, Array.Empty<string>());
+        var resp = await client.GetAsync("/api/v1/organizations/me/permissions");
+
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var body = await resp.Content.ReadFromJsonAsync<MePermissionsResponse>();
+        Assert.IsNotNull(body);
+        Assert.IsNull(body!.Role);
+        Assert.AreEqual(0, body.Permissions.Count);
+    }
 }

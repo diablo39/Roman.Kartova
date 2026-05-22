@@ -110,6 +110,26 @@ public sealed class ReactivateApplicationTests : CatalogIntegrationTestBase
         Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
     }
 
+    [TestMethod]
+    public async Task POST_reactivate_for_other_tenants_id_returns_404()
+    {
+        // Register and deprecate as OrgB so the app is in a reactivatable state.
+        var orgBClient = await Fx.CreateAuthenticatedClientAsync("admin@orgb.kartova.local", new[] { KartovaRoles.OrgAdmin });
+        var otherTenantApp = await RegisterAsync(orgBClient, "reactivate-cross-tenant-1", "Cross Tenant Reactivate", "Desc.");
+
+        var deprecateResp = await orgBClient.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{otherTenantApp.Id}/deprecate",
+            new { sunsetDate = DateTimeOffset.UtcNow.AddDays(30) });
+        Assert.IsTrue(deprecateResp.IsSuccessStatusCode, $"OrgB deprecate must succeed (was {deprecateResp.StatusCode}).");
+
+        // Attempt to reactivate OrgB's app as OrgA — RLS filters the cross-tenant row → 404.
+        var orgAClient = await Fx.CreateAuthenticatedClientAsync(OrgAdminEmail, new[] { KartovaRoles.OrgAdmin });
+        var resp = await orgAClient.PostAsync(
+            $"/api/v1/catalog/applications/{otherTenantApp.Id}/reactivate", content: null);
+
+        Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
+    }
+
     private static async Task<ApplicationResponse> RegisterAsync(HttpClient client, string name, string displayName, string description)
     {
         var resp = await client.PostAsJsonAsync(

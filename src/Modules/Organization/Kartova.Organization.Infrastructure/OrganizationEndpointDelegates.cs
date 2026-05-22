@@ -35,7 +35,7 @@ internal static class OrganizationEndpointDelegates
         // claims somehow arrive on the principal, only the first is surfaced.
         var role = user.FindAll(ClaimTypes.Role)
                        .Select(c => c.Value)
-                       .FirstOrDefault() ?? string.Empty;
+                       .FirstOrDefault();
 
         var permissions = user.FindAll(KartovaClaims.Permission)
                               .Select(c => c.Value)

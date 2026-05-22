@@ -42,6 +42,7 @@ describe("AppLayout", () => {
       role: "viewer",
       hasPermission: (p: string) => p === KartovaPermissions.CatalogRead,
       isLoading: false,
+      isError: false,
     });
 
     render(<AppLayout />, { wrapper });
@@ -56,6 +57,7 @@ describe("AppLayout", () => {
       role: null,
       hasPermission: () => false,
       isLoading: false,
+      isError: false,
     });
 
     render(<AppLayout />, { wrapper });
@@ -70,12 +72,29 @@ describe("AppLayout", () => {
       role: null,
       hasPermission: () => false,
       isLoading: true,
+      isError: false,
     });
 
     render(<AppLayout />, { wrapper });
 
     expect(screen.getByText(/loading/i)).toBeInTheDocument();
     expect(screen.queryByTestId("sidebar")).toBeNull();
+    expect(screen.queryByText(/no access/i)).toBeNull();
+  });
+
+  it("renders error placeholder when permissions fetch errors", () => {
+    usePermissionsMock.mockReturnValue({
+      role: null,
+      hasPermission: () => false,
+      isLoading: false,
+      isError: true,
+    });
+
+    render(<AppLayout />, { wrapper });
+
+    expect(screen.getByText(/couldn.t load your permissions/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("sidebar")).toBeNull();
+    expect(screen.queryByTestId("topbar")).toBeNull();
     expect(screen.queryByText(/no access/i)).toBeNull();
   });
 });

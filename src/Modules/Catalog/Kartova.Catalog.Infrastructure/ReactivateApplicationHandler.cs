@@ -10,7 +10,10 @@ namespace Kartova.Catalog.Infrastructure;
 /// (RLS auto-filters cross-tenant rows). Lifecycle endpoints take no
 /// <c>If-Match</c> — the "current state must be Deprecated or Decommissioned"
 /// invariant inside <see cref="Kartova.Catalog.Domain.Application.Reactivate"/>
-/// serializes concurrent transitions.
+/// converts an invalid concurrent transition into a 409 on the second writer,
+/// but does not prevent lost-updates under READ COMMITTED isolation. If the
+/// conflict rate proves material, a future slice may add <c>SELECT FOR UPDATE</c>
+/// or a concurrency token.
 /// </summary>
 public sealed class ReactivateApplicationHandler
 {

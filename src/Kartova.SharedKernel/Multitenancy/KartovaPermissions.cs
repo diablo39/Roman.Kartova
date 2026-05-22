@@ -1,3 +1,5 @@
+using System.Collections.Frozen;
+
 namespace Kartova.SharedKernel.Multitenancy;
 
 public static class KartovaPermissions
@@ -8,12 +10,12 @@ public static class KartovaPermissions
     public const string CatalogApplicationsLifecycleForward = "catalog.applications.lifecycle.forward";
     public const string CatalogApplicationsLifecycleReverse = "catalog.applications.lifecycle.reverse";
 
-    public static IReadOnlyCollection<string> All { get; } = new[]
+    public static FrozenSet<string> All { get; } = new[]
     {
         CatalogRead,
         CatalogApplicationsRegister,
         CatalogApplicationsEditMetadata,
         CatalogApplicationsLifecycleForward,
         CatalogApplicationsLifecycleReverse,
-    };
+    }.ToFrozenSet(StringComparer.Ordinal);
 }

@@ -195,7 +195,7 @@ export function useDecommissionApplication(id: string) {
  * POST /applications/{id}/reactivate — Deprecated|Decommissioned → Active.
  * OrgAdmin only. Empty body.
  *
- * TODO(slice-7): migrate to `apiClient.POST("/api/v1/catalog/applications/{id}/reactivate")`
+ * TODO(api-codegen): migrate to `apiClient.POST("/api/v1/catalog/applications/{id}/reactivate")`
  * once the Docker-running API container is rebuilt with slice-7 changes and
  * `pnpm codegen` picks up the new endpoint. For now we use raw fetch so this
  * hook can land without depending on codegen ordering.
@@ -231,7 +231,7 @@ export function useReactivateApplication(id: string) {
  * POST /applications/{id}/un-decommission — Decommissioned → Deprecated.
  * OrgAdmin only. Body: `{ sunsetDate }`.
  *
- * TODO(slice-7): migrate to `apiClient.POST` once codegen catches up (see useReactivateApplication).
+ * TODO(api-codegen): migrate to `apiClient.POST` once codegen catches up (see useReactivateApplication).
  */
 export function useUnDecommissionApplication(id: string) {
   const qc = useQueryClient();

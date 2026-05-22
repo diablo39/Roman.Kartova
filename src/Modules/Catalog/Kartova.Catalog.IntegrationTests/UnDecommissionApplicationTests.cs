@@ -152,6 +152,35 @@ public sealed class UnDecommissionApplicationTests : CatalogIntegrationTestBase
         Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
     }
 
+    [TestMethod]
+    public async Task POST_un_decommission_for_other_tenants_id_returns_404()
+    {
+        // Register, deprecate, and decommission as OrgB so the app is in an un-decommissionable state.
+        var orgBClient = await Fx.CreateAuthenticatedClientAsync("admin@orgb.kartova.local", new[] { KartovaRoles.OrgAdmin });
+        var otherTenantApp = await RegisterAsync(orgBClient, "undecommission-cross-tenant-1", "Cross Tenant UnDecommission", "Desc.");
+
+        var sunset = DateTimeOffset.UtcNow.AddSeconds(1);
+        var deprecateResp = await orgBClient.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{otherTenantApp.Id}/deprecate",
+            new DeprecateApplicationRequest(sunset));
+        Assert.IsTrue(deprecateResp.IsSuccessStatusCode, $"OrgB deprecate must succeed (was {deprecateResp.StatusCode}).");
+
+        await Task.Delay(2000);
+
+        var decommissionResp = await orgBClient.PostAsync(
+            $"/api/v1/catalog/applications/{otherTenantApp.Id}/decommission",
+            content: null);
+        Assert.IsTrue(decommissionResp.IsSuccessStatusCode, $"OrgB decommission must succeed (was {decommissionResp.StatusCode}).");
+
+        // Attempt to un-decommission OrgB's app as OrgA — RLS filters the cross-tenant row → 404.
+        var orgAClient = await Fx.CreateAuthenticatedClientAsync(OrgAdminEmail, new[] { KartovaRoles.OrgAdmin });
+        var resp = await orgAClient.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{otherTenantApp.Id}/un-decommission",
+            new { sunsetDate = DateTimeOffset.UtcNow.AddDays(30) });
+
+        Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
+    }
+
     private static async Task<ApplicationResponse> RegisterAsync(HttpClient client, string name, string displayName, string description)
     {
         var resp = await client.PostAsJsonAsync(

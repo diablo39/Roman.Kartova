@@ -7,9 +7,9 @@ using Kartova.Testing.Auth;
 namespace Kartova.Catalog.IntegrationTests;
 
 /// <summary>
-/// Asserts the (role × catalog-endpoint) authorization matrix. Data-driven: each cell
-/// looks up the required permission for the endpoint and checks the role's permission
-/// set in <see cref="KartovaRolePermissions"/>. Includes reverse endpoints (reactivate, un-decommission) added in slice 7.
+/// Asserts the (role × catalog-endpoint) authorization matrix. Data-driven: each cell looks up
+/// the required permission for the endpoint and checks the role's permission set in
+/// <see cref="KartovaRolePermissions"/>.
 /// </summary>
 [TestClass]
 public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase

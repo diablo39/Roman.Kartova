@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { KartovaPermission } from "./permissions";
 
 interface MePermissionsResponse {
-  role: string;
+  role: string | null;
   permissions: readonly string[];
 }
 
@@ -15,9 +15,10 @@ export interface UsePermissionsResult {
   role: string | null;
   hasPermission: (perm: KartovaPermission) => boolean;
   isLoading: boolean;
+  isError: boolean;
 }
 
-// TODO(slice-7): migrate to `apiClient.GET("/api/v1/organizations/me/permissions")` once the
+// TODO(api-codegen): migrate to `apiClient.GET("/api/v1/organizations/me/permissions")` once the
 // Docker-running API container is rebuilt with slice-7 changes and `pnpm codegen` picks up
 // the new endpoint. For now we use raw fetch so this hook can land without depending on
 // codegen ordering.
@@ -50,5 +51,6 @@ export function usePermissions(): UsePermissionsResult {
     role: query.data?.role ?? null,
     hasPermission: (perm) => set.has(perm),
     isLoading: enabled && query.isLoading,
+    isError: query.isError,
   };
 }
