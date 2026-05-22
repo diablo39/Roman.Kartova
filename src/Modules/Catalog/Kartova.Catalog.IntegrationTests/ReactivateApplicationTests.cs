@@ -33,6 +33,15 @@ public sealed class ReactivateApplicationTests : CatalogIntegrationTestBase
         var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
         Assert.AreEqual(Lifecycle.Active, body!.Lifecycle);
         Assert.IsNull(body.SunsetDate);
+
+        // Follow-up GET — confirms the lifecycle change persisted across the request boundary
+        // (kills the SaveChangesAsync-removed mutation: without persistence the in-memory state
+        // would be lost on a second request).
+        var followUp = await client.GetAsync($"/api/v1/catalog/applications/{registered.Id}");
+        Assert.AreEqual(HttpStatusCode.OK, followUp.StatusCode);
+        var persisted = await followUp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(Lifecycle.Active, persisted!.Lifecycle);
+        Assert.IsNull(persisted.SunsetDate);
     }
 
     [TestMethod]
@@ -67,6 +76,15 @@ public sealed class ReactivateApplicationTests : CatalogIntegrationTestBase
         var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
         Assert.AreEqual(Lifecycle.Active, body!.Lifecycle);
         Assert.IsNull(body.SunsetDate);
+
+        // Follow-up GET — confirms the lifecycle change persisted across the request boundary
+        // (kills the SaveChangesAsync-removed mutation: without persistence the in-memory state
+        // would be lost on a second request).
+        var followUp = await client.GetAsync($"/api/v1/catalog/applications/{registered.Id}");
+        Assert.AreEqual(HttpStatusCode.OK, followUp.StatusCode);
+        var persisted = await followUp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(Lifecycle.Active, persisted!.Lifecycle);
+        Assert.IsNull(persisted.SunsetDate);
     }
 
     [TestMethod]

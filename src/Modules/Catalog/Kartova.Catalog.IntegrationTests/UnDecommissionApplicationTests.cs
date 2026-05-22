@@ -46,6 +46,17 @@ public sealed class UnDecommissionApplicationTests : CatalogIntegrationTestBase
         Assert.IsNotNull(body.SunsetDate);
         var diff = (body.SunsetDate!.Value - newSunset).Duration();
         Assert.IsTrue(diff <= TimeSpan.FromSeconds(1));
+
+        // Follow-up GET — confirms the lifecycle change persisted across the request boundary
+        // (kills the SaveChangesAsync-removed mutation: without persistence the in-memory state
+        // would be lost on a second request).
+        var followUp = await client.GetAsync($"/api/v1/catalog/applications/{registered.Id}");
+        Assert.AreEqual(HttpStatusCode.OK, followUp.StatusCode);
+        var persisted = await followUp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(Lifecycle.Deprecated, persisted!.Lifecycle);
+        Assert.IsNotNull(persisted.SunsetDate);
+        var persistedDiff = (persisted.SunsetDate!.Value - newSunset).Duration();
+        Assert.IsTrue(persistedDiff <= TimeSpan.FromSeconds(1));
     }
 
     [TestMethod]
