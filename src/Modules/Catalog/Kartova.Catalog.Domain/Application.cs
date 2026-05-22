@@ -129,6 +129,17 @@ public sealed partial class Application : ITenantOwned
         Lifecycle = Lifecycle.Decommissioned;
     }
 
+    public void Reactivate()
+    {
+        if (Lifecycle != Lifecycle.Deprecated && Lifecycle != Lifecycle.Decommissioned)
+        {
+            throw new InvalidLifecycleTransitionException(Lifecycle, nameof(Reactivate));
+        }
+
+        Lifecycle = Lifecycle.Active;
+        SunsetDate = null;
+    }
+
     // Mirrors the SPA's zod rule so the SPA check is UX-only and the server is the source of truth.
     [GeneratedRegex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")]
     private static partial Regex KebabCase();
