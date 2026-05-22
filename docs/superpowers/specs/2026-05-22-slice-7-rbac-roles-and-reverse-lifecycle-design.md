@@ -48,7 +48,7 @@ This slice ships **no new entity surface** — the work is foundational. It is t
 | 6 | TeamAdmin is forward-compat in this slice: realm role + dev user + C# constant + included in `KartovaRolePermissions.Map` with the same permission set as Member. No team-scoped enforcement (teams don't exist — E-03.F-02). | Avoids re-touching realm/JWT/policies when teams ship. TeamAdmin diverges from Member only when team-aggregate authorization lands. |
 | 7 | Two new OrgAdmin-only endpoints: `POST /applications/{id}/reactivate` (empty body) and `POST /applications/{id}/un-decommission` (`{ sunsetDate }` body). `Reactivate` accepts Deprecated→Active and Decommissioned→Active. `UnDecommission` accepts only Decommissioned→Deprecated. | Endpoint-per-transition convention from slice 5 §3 Decision #7. Reverse skipping allowed (no migration window needed backward). |
 | 8 | `Reactivate` clears `SunsetDate`. `UnDecommission` requires a strictly-future `sunsetDate` (mirrors `/deprecate` invariant). Past sunsetDate → 400. | Active never carries sunsetDate; Deprecated must always carry a future one (ADR-0073). |
-| 9 | All lifecycle methods (forward + reverse) bump `Version`. No `If-Match` on lifecycle endpoints — the state precondition (`Lifecycle == X`) is the implicit version (preserves slice-5 §3 Decision #7). | Reverse transition invalidates any cached version held by other clients. |
+| 9 | Lifecycle methods (forward + reverse) mutate aggregate state and rely on Postgres `xmin` (mapped to `Application.Version` via `IsConcurrencyToken()` — see `EfApplicationConfiguration.cs:67-71`) to advance automatically on the resulting EF UPDATE. The C# code never assigns `Version`. No `If-Match` on lifecycle endpoints — the state precondition (`Lifecycle == X`) is the implicit version (preserves slice-5 §3 Decision #7). | Same pattern as `Deprecate` / `Decommission` today. Reverse transition causes a row write, so `xmin` advances; any cached version held by other clients is implicitly stale. |
 | 10 | Sunset-date admin override on `/deprecate` is **not in scope**. `/deprecate` and `/decommission` keep strict-future / pre-sunset checks for everyone. Slice-5 §13.6 residual: "sunset override only" remains a registered follow-up. | Per user choice. Cleaner — no role-conditional branching inside handlers. |
 | 11 | `KartovaRoles.PlatformAdmin` endpoints (`/admin/organizations` POST + `/organization/me/admin-only` GET) stay on `RequireRole(KartovaRoles.PlatformAdmin/OrgAdmin)`. They are not migrated to the permission model in this slice. | PlatformAdmin operates outside tenant scope (no `tenant_id` claim) and the `/me/admin-only` smoke is slice-2 infrastructure with intentional minimal surface. Tracked as §15.3 follow-up. |
 | 12 | SPA `useCurrentUser()` stays as-is. Permissions come only from `usePermissions()` (separate hook calling `/me/permissions`). | One axis of authorization information per hook; smaller blast radius if the hook signature changes later. |
@@ -243,28 +243,26 @@ No status banner change.
 public void Reactivate()
 {
     if (Lifecycle != Lifecycle.Deprecated && Lifecycle != Lifecycle.Decommissioned)
-        throw new InvalidLifecycleTransitionException(Lifecycle, "Reactivate");
+        throw new InvalidLifecycleTransitionException(Lifecycle, nameof(Reactivate));
 
     Lifecycle  = Lifecycle.Active;
     SunsetDate = null;
-    Version++;
 }
 
 public void UnDecommission(DateTimeOffset newSunsetDate, TimeProvider clock)
 {
     if (Lifecycle != Lifecycle.Decommissioned)
-        throw new InvalidLifecycleTransitionException(Lifecycle, "UnDecommission");
+        throw new InvalidLifecycleTransitionException(Lifecycle, nameof(UnDecommission), SunsetDate);
 
     if (newSunsetDate <= clock.GetUtcNow())
-        throw new ArgumentException("sunsetDate must be strictly in the future", nameof(newSunsetDate));
+        throw new ArgumentException("sunsetDate must be in the future.", nameof(newSunsetDate));
 
     Lifecycle  = Lifecycle.Deprecated;
     SunsetDate = newSunsetDate;
-    Version++;
 }
 ```
 
-`Application` carries `CreatedAt` but **no `UpdatedAt` field** (verified by codelens against the current aggregate). The `Version` bump is the only mutation marker; an `UpdatedAt` field is registered as §15.9 if it ever becomes necessary. `Reactivate` takes no parameters because the operation has no time-dependent check.
+`Application` carries `CreatedAt` but **no `UpdatedAt` field** (verified by codelens against the current aggregate). `Version` is the Postgres `xmin` rowversion (mapped via `IsConcurrencyToken()` in `EfApplicationConfiguration.cs:67-71`) — it advances automatically on the EF UPDATE produced by any property mutation. Neither domain method assigns `Version` (consistent with existing `Deprecate` / `Decommission`). `Reactivate` takes no parameters because the operation has no time-dependent check. Naming pattern (`nameof(...)` + signature on `InvalidLifecycleTransitionException`) mirrors slice 5 (`Application.Deprecate` at line 103, `Application.Decommission` at line 120). An `UpdatedAt` field would only be needed if we surface "last modified" — registered as §15.8.
 
 ### 6.2 Invariant table (extends slice-5 §4.2)
 
@@ -410,8 +408,8 @@ Unchanged from slice 5. `RequireAuth` redirects unauthenticated users to KeyCloa
 
 | Layer | Project | File / scope |
 |---|---|---|
-| Unit (domain) | `Kartova.Catalog.Tests` | `ApplicationReactivateTests.cs` — Deprecated→Active clears SunsetDate; Decommissioned→Active clears SunsetDate; Active→Active 409; Version bumps. |
-| Unit (domain) | `Kartova.Catalog.Tests` | `ApplicationUnDecommissionTests.cs` — Decommissioned→Deprecated sets SunsetDate; non-Decommissioned 409; past sunsetDate 400; strict-greater-than boundary; Version bumps. |
+| Unit (domain) | `Kartova.Catalog.Tests` | `ApplicationReactivateTests.cs` — Deprecated→Active clears SunsetDate; Decommissioned→Active clears SunsetDate; Active throws `InvalidLifecycleTransitionException("Reactivate")`. |
+| Unit (domain) | `Kartova.Catalog.Tests` | `ApplicationUnDecommissionTests.cs` — Decommissioned→Deprecated sets SunsetDate; non-Decommissioned throws `InvalidLifecycleTransitionException("UnDecommission")`; past sunsetDate throws `ArgumentException(nameof(newSunsetDate))`; strict-greater-than boundary (`newSunsetDate == now` rejects). |
 | Unit (claims) | `Kartova.SharedKernel.AspNetCore.Tests` | `TenantClaimsTransformationTests.cs` — extend 4 existing tests + add `Expands_role_claims_into_permission_claims` per role. |
 | Unit (map) | `Kartova.SharedKernel.Tests` (new project iff absent, else colocate in `Kartova.SharedKernel.AspNetCore.Tests`) | `KartovaRolePermissionsTests.cs` — every role's expansion is non-empty (except PlatformAdmin/ServiceAccount); Viewer ⊂ Member; Member set equals TeamAdmin set; OrgAdmin uniquely owns `CatalogApplicationsLifecycleReverse`. |
 | Architecture | `Kartova.ArchitectureTests` | `KeycloakRealmSeedRules.cs` — every `KartovaRoles.*` (except `ServiceAccount`) appears in `kartova-realm.json`; every role has ≥1 dev user. |
