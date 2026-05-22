@@ -140,6 +140,22 @@ public sealed partial class Application : ITenantOwned
         SunsetDate = null;
     }
 
+    public void UnDecommission(DateTimeOffset newSunsetDate, TimeProvider clock)
+    {
+        if (Lifecycle != Lifecycle.Decommissioned)
+        {
+            throw new InvalidLifecycleTransitionException(Lifecycle, nameof(UnDecommission), SunsetDate);
+        }
+
+        if (newSunsetDate <= clock.GetUtcNow())
+        {
+            throw new ArgumentException("sunsetDate must be in the future.", nameof(newSunsetDate));
+        }
+
+        Lifecycle = Lifecycle.Deprecated;
+        SunsetDate = newSunsetDate;
+    }
+
     // Mirrors the SPA's zod rule so the SPA check is UX-only and the server is the source of truth.
     [GeneratedRegex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")]
     private static partial Regex KebabCase();
