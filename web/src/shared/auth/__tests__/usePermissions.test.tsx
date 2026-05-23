@@ -24,13 +24,13 @@ function newQueryClient(): QueryClient {
   });
 }
 
-function mockFetchOnce(body: unknown, status = 200): ReturnType<typeof vi.fn> {
+function mockFetchOnce(body: unknown, status = 200): typeof fetch {
   return vi.fn(async () =>
     new Response(JSON.stringify(body), {
       status,
       headers: { "Content-Type": "application/json" },
     }),
-  );
+  ) as typeof fetch;
 }
 
 describe("usePermissions", () => {
@@ -97,7 +97,7 @@ describe("usePermissions", () => {
         new Promise(() => {
           /* never resolves */
         }),
-    );
+    ) as typeof fetch;
 
     const { result } = renderHook(() => usePermissions(), {
       wrapper: makeWrapper(newQueryClient()),

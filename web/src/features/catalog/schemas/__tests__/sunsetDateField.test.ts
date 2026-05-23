@@ -12,7 +12,8 @@ describe("sunsetDateField", () => {
     const result = sunsetDateField.safeParse(past);
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0].message).toMatch(/in the future/i);
+      expect(result.error.issues.length).toBeGreaterThan(0);
+      expect(result.error.issues[0]!.message).toMatch(/in the future/i);
     }
   });
 
