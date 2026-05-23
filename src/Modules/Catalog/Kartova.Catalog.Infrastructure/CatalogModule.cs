@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using Kartova.Catalog.Contracts;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Pagination;
 using Kartova.SharedKernel.Postgres;
 using Microsoft.AspNetCore.Builder;
@@ -28,14 +29,17 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
     {
         var tenant = app.MapTenantScopedModule(Slug);     // /api/v1/catalog
         tenant.MapPost("/applications", CatalogEndpointDelegates.RegisterApplicationAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogApplicationsRegister)
               .WithName("RegisterApplication")
               .Produces<ApplicationResponse>(StatusCodes.Status201Created)
               .ProducesProblem(StatusCodes.Status400BadRequest);
         tenant.MapGet("/applications/{id:guid}", CatalogEndpointDelegates.GetApplicationByIdAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRead)
               .WithName("GetApplicationById")
               .Produces<ApplicationResponse>(StatusCodes.Status200OK)
               .ProducesProblem(StatusCodes.Status404NotFound);
         tenant.MapGet("/applications", CatalogEndpointDelegates.ListApplicationsAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRead)
               .WithName("ListApplications")
               // CursorPage<T> envelope — ADR-0095: items + nextCursor + prevCursor.
               .Produces<CursorPage<ApplicationResponse>>(StatusCodes.Status200OK);
@@ -45,6 +49,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               // RFC 7807 envelopes (allowedFields, rawLimit) are preserved on parse failure;
               // the transformer keeps the wire schema honest for the generated TypeScript client.
         tenant.MapPut("/applications/{id:guid}", CatalogEndpointDelegates.EditApplicationAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogApplicationsEditMetadata)
               .WithName("EditApplication")
               .AddEndpointFilter<IfMatchEndpointFilter>()
               .Produces<ApplicationResponse>(StatusCodes.Status200OK)
@@ -57,6 +62,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         // take If-Match (slice 5 spec §3 Decision #7); the domain invariant "current
         // state must be Active" is the implicit version.
         tenant.MapPost("/applications/{id:guid}/deprecate", CatalogEndpointDelegates.DeprecateApplicationAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogApplicationsLifecycleForward)
               .WithName("DeprecateApplication")
               .Produces<ApplicationResponse>(StatusCodes.Status200OK)
               .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -68,8 +74,33 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         // reason="before-sunset-date" + a sunsetDate extension member. No 400 path:
         // the empty body has nothing to validate.
         tenant.MapPost("/applications/{id:guid}/decommission", CatalogEndpointDelegates.DecommissionApplicationAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogApplicationsLifecycleForward)
               .WithName("DecommissionApplication")
               .Produces<ApplicationResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status404NotFound)
+              .ProducesProblem(StatusCodes.Status409Conflict);
+        // POST reactivate — reverse lifecycle transition (Deprecated/Decommissioned → Active).
+        // OrgAdmin only (CatalogApplicationsLifecycleReverse). Empty body, no If-Match —
+        // same rationale as deprecate/decommission. The domain invariant inside
+        // Application.Reactivate() rejects non-Deprecated/Decommissioned sources with
+        // InvalidLifecycleTransitionException → 409 LifecycleConflict.
+        tenant.MapPost("/applications/{id:guid}/reactivate", CatalogEndpointDelegates.ReactivateApplicationAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogApplicationsLifecycleReverse)
+              .WithName("ReactivateApplication")
+              .Produces<ApplicationResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status404NotFound)
+              .ProducesProblem(StatusCodes.Status409Conflict);
+        // POST un-decommission — reverse lifecycle transition (Decommissioned → Deprecated).
+        // OrgAdmin only (CatalogApplicationsLifecycleReverse). Takes a new sunsetDate body —
+        // the transition re-enters Deprecated state so a future sunset is required. The domain
+        // invariant inside Application.UnDecommission() rejects non-Decommissioned sources with
+        // InvalidLifecycleTransitionException → 409, and a past sunsetDate throws
+        // ArgumentException → 400 ValidationFailed (same as Deprecate).
+        tenant.MapPost("/applications/{id:guid}/un-decommission", CatalogEndpointDelegates.UnDecommissionApplicationAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogApplicationsLifecycleReverse)
+              .WithName("UnDecommissionApplication")
+              .Produces<ApplicationResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status400BadRequest)
               .ProducesProblem(StatusCodes.Status404NotFound)
               .ProducesProblem(StatusCodes.Status409Conflict);
     }
@@ -91,6 +122,8 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<EditApplicationHandler>();
         services.AddScoped<DeprecateApplicationHandler>();
         services.AddScoped<DecommissionApplicationHandler>();
+        services.AddScoped<ReactivateApplicationHandler>();
+        services.AddScoped<UnDecommissionApplicationHandler>();
 
         // TimeProvider is needed by Application.Deprecate / Decommission for the
         // "sunsetDate must be in the future" / "now >= sunsetDate" checks. TryAdd

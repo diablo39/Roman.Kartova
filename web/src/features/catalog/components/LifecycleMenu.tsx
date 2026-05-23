@@ -6,16 +6,22 @@ import { Dropdown } from "@/components/base/dropdown/dropdown";
 import { LifecycleBadge } from "./LifecycleBadge";
 import { DeprecateConfirmDialog } from "./DeprecateConfirmDialog";
 import { DecommissionConfirmDialog } from "./DecommissionConfirmDialog";
+import { ReactivateConfirmDialog } from "./ReactivateConfirmDialog";
+import { UnDecommissionConfirmDialog } from "./UnDecommissionConfirmDialog";
 import type { ApplicationResponse } from "@/features/catalog/api/applications";
 
 interface Props {
   application: ApplicationResponse;
+  /** Gate forward-lifecycle items (Deprecate, Decommission). Defaults to true for back-compat. */
+  canForward?: boolean;
+  /** Gate reverse-lifecycle items (Reactivate, Restore to Deprecated). Defaults to true for back-compat. */
+  canReverse?: boolean;
 }
 
-type DialogKind = "deprecate" | "decommission" | null;
+type DialogKind = "deprecate" | "decommission" | "reactivate" | "unDecommission" | null;
 
 interface MenuItem {
-  key: "deprecate" | "decommission";
+  key: "deprecate" | "decommission" | "reactivate" | "unDecommission";
   label: string;
   isDisabled: boolean;
   addon?: string;
@@ -27,43 +33,56 @@ interface MenuItem {
  * Pure, plain-arg signature so the impure `Date.now()` read can live in the
  * hook layer (in `useMemo`) instead of leaking into the JSX render path
  * (which the `react-hooks/purity` rule forbids).
+ *
+ * Forward items are gated by `canForward`; reverse items are gated by `canReverse`.
  */
 function buildItems(
   lifecycle: ApplicationResponse["lifecycle"],
   sunsetDate: string | null,
-  now: number
+  now: number,
+  canForward: boolean,
+  canReverse: boolean,
 ): MenuItem[] {
-  if (lifecycle === "active") {
-    return [{ key: "deprecate", label: "Deprecate…", isDisabled: false }];
+  const items: MenuItem[] = [];
+
+  if (lifecycle === "active" && canForward) {
+    items.push({ key: "deprecate", label: "Deprecate…", isDisabled: false });
   }
-  if (lifecycle === "deprecated") {
+  if (lifecycle === "deprecated" && canForward) {
     const sunset = sunsetDate ? new Date(sunsetDate) : null;
     const beforeSunset = sunset !== null && now < sunset.getTime();
-    return [{
+    items.push({
       key: "decommission",
       label: "Decommission",
       isDisabled: beforeSunset,
-      addon: beforeSunset && sunset
-        ? `After ${sunset.toLocaleDateString()}`
-        : undefined,
-    }];
+      addon: beforeSunset && sunset ? `After ${sunset.toLocaleDateString()}` : undefined,
+    });
   }
-  return [];
+  // Reverse items — OrgAdmin only.
+  if ((lifecycle === "deprecated" || lifecycle === "decommissioned") && canReverse) {
+    items.push({ key: "reactivate", label: "Reactivate…", isDisabled: false });
+  }
+  if (lifecycle === "decommissioned" && canReverse) {
+    items.push({ key: "unDecommission", label: "Restore to Deprecated…", isDisabled: false });
+  }
+
+  return items;
 }
 
 /**
  * State-aware dropdown anchored on the lifecycle Badge.
  *
- *  - `active`        → "Deprecate…" item (opens DeprecateConfirmDialog).
- *  - `deprecated`    → "Decommission" item; disabled until sunset date has
- *                      passed, with explanatory hint when disabled.
- *  - `decommissioned`→ no menu — terminal state, badge only.
+ *  - `active`        → "Deprecate…" item (opens DeprecateConfirmDialog) when canForward.
+ *  - `deprecated`    → "Decommission" item (disabled until sunset date passes) when canForward;
+ *                      "Reactivate…" when canReverse.
+ *  - `decommissioned`→ "Reactivate…" + "Restore to Deprecated…" when canReverse;
+ *                      otherwise badge only (no interactive trigger).
  *
  * Lifecycle wire shape is lowercase ("active" | "deprecated" |
  * "decommissioned") via JsonStringEnumConverter(JsonNamingPolicy.CamelCase);
  * all comparisons in this file use those literals directly.
  */
-export function LifecycleMenu({ application }: Props) {
+export function LifecycleMenu({ application, canForward = true, canReverse = true }: Props) {
   const [openDialog, setOpenDialog] = useState<DialogKind>(null);
 
   // Lazy `useState` keeps the impure `Date.now()` read off the render path
@@ -72,14 +91,13 @@ export function LifecycleMenu({ application }: Props) {
   const [now] = useState(() => Date.now());
 
   const items = useMemo(
-    () => buildItems(application.lifecycle, application.sunsetDate, now),
-    [application.lifecycle, application.sunsetDate, now]
+    () => buildItems(application.lifecycle, application.sunsetDate, now, canForward, canReverse),
+    [application.lifecycle, application.sunsetDate, now, canForward, canReverse]
   );
 
-  // Decommissioned is a terminal state — render the badge alone with the
-  // sunset-date subline (the badge already reads sunsetDate). No interactive
-  // trigger.
-  if (application.lifecycle === "decommissioned") {
+  // No items available (e.g. decommissioned with no reverse permission, or active
+  // viewer with no forward permission) — render the badge alone, no interactive trigger.
+  if (items.length === 0) {
     return (
       <LifecycleBadge
         lifecycle={application.lifecycle}
@@ -88,8 +106,6 @@ export function LifecycleMenu({ application }: Props) {
       />
     );
   }
-
-  if (items.length === 0) return null;
 
   return (
     <>
@@ -132,6 +148,20 @@ export function LifecycleMenu({ application }: Props) {
           application={application}
           open
           onOpenChange={(o) => setOpenDialog(o ? "decommission" : null)}
+        />
+      )}
+      {openDialog === "reactivate" && (
+        <ReactivateConfirmDialog
+          application={application}
+          open
+          onOpenChange={(o) => setOpenDialog(o ? "reactivate" : null)}
+        />
+      )}
+      {openDialog === "unDecommission" && (
+        <UnDecommissionConfirmDialog
+          application={application}
+          open
+          onOpenChange={(o) => setOpenDialog(o ? "unDecommission" : null)}
         />
       )}
     </>

@@ -10,6 +10,8 @@
     "realm": [
       { "name": "OrgAdmin" },
       { "name": "Member" },
+      { "name": "TeamAdmin" },
+      { "name": "Viewer" },
       { "name": "platform-admin" }
     ]
   },
@@ -145,6 +147,36 @@
         { "type": "password", "value": "dev_pass", "temporary": false }
       ],
       "realmRoles": ["OrgAdmin"]
+    },
+    {
+      "username": "team-admin@orga.kartova.local",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "team-admin@orga.kartova.local",
+      "firstName": "Tanya",
+      "lastName": "TeamAdmin",
+      "attributes": {
+        "tenant_id": ["11111111-1111-1111-1111-111111111111"]
+      },
+      "credentials": [
+        { "type": "password", "value": "dev_pass", "temporary": false }
+      ],
+      "realmRoles": ["TeamAdmin"]
+    },
+    {
+      "username": "viewer@orga.kartova.local",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "viewer@orga.kartova.local",
+      "firstName": "Vera",
+      "lastName": "Viewer",
+      "attributes": {
+        "tenant_id": ["11111111-1111-1111-1111-111111111111"]
+      },
+      "credentials": [
+        { "type": "password", "value": "dev_pass", "temporary": false }
+      ],
+      "realmRoles": ["Viewer"]
     },
     {
       "username": "platform-admin@kartova.local",

@@ -9,11 +9,11 @@ import { Input } from "@/components/base/input/input";
 import { Button } from "@/components/base/buttons/button";
 
 import {
-  deprecateApplicationSchema,
-  type DeprecateApplicationInput,
-} from "@/features/catalog/schemas/deprecateApplication";
+  unDecommissionApplicationSchema,
+  type UnDecommissionApplicationInput,
+} from "@/features/catalog/schemas/unDecommissionApplication";
 import {
-  useDeprecateApplication,
+  useUnDecommissionApplication,
   type ApplicationResponse,
 } from "@/features/catalog/api/applications";
 import { isLifecycle, lifecycleLabel } from "@/features/catalog/lifecycle";
@@ -34,13 +34,9 @@ interface Props {
 }
 
 /**
- * Deprecate confirmation modal — mirrors EditApplicationDialog shape.
+ * Un-decommission confirmation modal — reverse-lifecycle action (OrgAdmin only).
  *
- * Pre-fills `sunsetDate` to today + 30 days at UTC midnight. The schema's
- * "must be in the future" `refine` is the authoritative client-side guard;
- * the project's Untitled UI Input wrapper does not forward `min` through to
- * the underlying date input, so a leading-zero past entry triggers a field
- * error at submit rather than being suppressed by browser UI.
+ * Transitions: Decommissioned → Deprecated. Requires a new future sunset date.
  *
  * Server-error UX:
  *  - 400 ProblemDetails with `errors` map → field errors via
@@ -49,15 +45,14 @@ interface Props {
  *    `currentLifecycle`, then close.
  *  - Anything else → fallback toast; dialog stays open for retry.
  */
-export function DeprecateConfirmDialog({ application, open, onOpenChange }: Props) {
-  const mutation = useDeprecateApplication(application.id);
+export function UnDecommissionConfirmDialog({ application, open, onOpenChange }: Props) {
+  const mutation = useUnDecommissionApplication(application.id);
 
-  // Lazy `useState` keeps the impure `Date.now()` read off the render path
-  // (react-hooks/purity). Parent remounts on open, so the seed stays current.
+  // Lazy `useState` keeps the impure `Date.now()` read off the render path.
   const [initialSunset] = useState(() => isoDateAtMidnight(Date.now(), 30));
 
-  const form = useForm<DeprecateApplicationInput>({
-    resolver: zodResolver(deprecateApplicationSchema),
+  const form = useForm<UnDecommissionApplicationInput>({
+    resolver: zodResolver(unDecommissionApplicationSchema),
     defaultValues: { sunsetDate: initialSunset },
   });
 
@@ -65,7 +60,7 @@ export function DeprecateConfirmDialog({ application, open, onOpenChange }: Prop
     try {
       await mutation.mutateAsync(values);
       const dateLabel = new Date(values.sunsetDate).toLocaleDateString();
-      toast.success(`Application deprecated. Sunset on ${dateLabel}.`);
+      toast.success(`${application.displayName} restored to Deprecated. Sunset on ${dateLabel}.`);
       onOpenChange(false);
     } catch (err) {
       const problem = err as ProblemDetails & {
@@ -83,12 +78,12 @@ export function DeprecateConfirmDialog({ application, open, onOpenChange }: Prop
         const current = isLifecycle(problem.currentLifecycle)
           ? lifecycleLabel(problem.currentLifecycle)
           : "an unexpected state";
-        toast.error(`Cannot deprecate — current state is ${current}.`);
+        toast.error(`Cannot restore to deprecated — current state is ${current}.`);
         onOpenChange(false);
         return;
       }
 
-      const detail = problem.detail ?? problem.title ?? "Could not deprecate application";
+      const detail = problem.detail ?? problem.title ?? "Could not restore application to deprecated";
       toast.error(detail);
     }
   });
@@ -96,11 +91,12 @@ export function DeprecateConfirmDialog({ application, open, onOpenChange }: Prop
   return (
     <ModalOverlay isOpen={open} onOpenChange={onOpenChange} isDismissable={!mutation.isPending}>
       <Modal className="max-w-[480px]">
-        <Dialog aria-label="Deprecate Application" className="bg-primary rounded-xl shadow-xl p-6 outline-none">
+        <Dialog aria-label="Restore to Deprecated" className="bg-primary rounded-xl shadow-xl p-6 outline-none">
           <div className="space-y-1 mb-4">
-            <h2 className="text-lg font-semibold text-primary">Deprecate {application.displayName}</h2>
+            <h2 className="text-lg font-semibold text-primary">Restore {application.displayName} to Deprecated?</h2>
             <p className="text-sm text-tertiary">
-              Mark this application as deprecated. After the sunset date, you'll be able to decommission it. The application will continue to function until then.
+              Restore <strong>{application.displayName}</strong> to <strong>Deprecated</strong>?{" "}
+              Provide a new future sunset date.
             </p>
           </div>
 
@@ -110,7 +106,7 @@ export function DeprecateConfirmDialog({ application, open, onOpenChange }: Prop
                 <Input
                   type="date"
                   label="Sunset date"
-                  hint={fieldState.error?.message ?? "Must be in the future. Decommission becomes available after this date."}
+                  hint={fieldState.error?.message ?? "Must be in the future."}
                   isInvalid={!!fieldState.error}
                   isRequired
                   name={field.name}
@@ -126,7 +122,7 @@ export function DeprecateConfirmDialog({ application, open, onOpenChange }: Prop
                 Cancel
               </Button>
               <Button type="submit" color="primary" size="sm" isLoading={mutation.isPending}>
-                Deprecate
+                Restore to Deprecated
               </Button>
             </div>
           </HookForm>

@@ -44,11 +44,11 @@ This slice ships **no new entity surface** — the work is foundational. It is t
 | 2 | Single source of truth for the role↔permission relationship is a static C# map `KartovaRolePermissions.Map: Role → Set<Permission>`. Each user has exactly one realm role; the map expands it into a permission set at JWT-validation time. `KartovaRoles.AtLeast(...)` does **not** exist — there is no role-hierarchy helper, only the explicit per-role map. | Hierarchy is data, not behavior. KeyCloak realm config stays role-only. Adding a new role = one map entry. |
 | 3 | Authorization expressed as named *permissions* — string constants (`catalog.applications.register`, ...). Each permission is also the name of an ASP.NET policy whose body is `RequireClaim(KartovaClaims.Permission, "<permission>")`. Endpoints reference permissions by name (`RequireAuthorization(KartovaPermissions.CatalogApplicationsRegister)`). Policy name == permission name. | One concept, not two. Policies are uniform plumbing — adding a permission = one map-entry update + one endpoint binding. |
 | 4 | `TenantClaimsTransformation` expands role claims → permission claims server-side at validation time. JWT stays role-only; the principal carries derived permission claims after the transformation. KeyCloak realm config never sees the permission catalog. | Future-proof — when permissions become per-entity (ownership/team-scoped), the expansion logic stays in C# and the JWT shape doesn't change. |
-| 5 | SPA learns its permission set from `GET /api/v1/organization/me/permissions` (React Query cached for the active token's lifetime). SPA mirrors only the permission-name string constants — never the role→permission map. UI is hide-by-default (render only after `usePermissions()` resolves). | Single source of truth; no SPA drift on the *map*. The constant mirror is ~5 string literals + a committed JSON snapshot acting as drift sentinel. |
+| 5 | SPA learns its permission set from `GET /api/v1/organizations/me/permissions` (React Query cached for the active token's lifetime). SPA mirrors only the permission-name string constants — never the role→permission map. UI is hide-by-default (render only after `usePermissions()` resolves). | Single source of truth; no SPA drift on the *map*. The constant mirror is ~5 string literals + a committed JSON snapshot acting as drift sentinel. |
 | 6 | TeamAdmin is forward-compat in this slice: realm role + dev user + C# constant + included in `KartovaRolePermissions.Map` with the same permission set as Member. No team-scoped enforcement (teams don't exist — E-03.F-02). | Avoids re-touching realm/JWT/policies when teams ship. TeamAdmin diverges from Member only when team-aggregate authorization lands. |
 | 7 | Two new OrgAdmin-only endpoints: `POST /applications/{id}/reactivate` (empty body) and `POST /applications/{id}/un-decommission` (`{ sunsetDate }` body). `Reactivate` accepts Deprecated→Active and Decommissioned→Active. `UnDecommission` accepts only Decommissioned→Deprecated. | Endpoint-per-transition convention from slice 5 §3 Decision #7. Reverse skipping allowed (no migration window needed backward). |
 | 8 | `Reactivate` clears `SunsetDate`. `UnDecommission` requires a strictly-future `sunsetDate` (mirrors `/deprecate` invariant). Past sunsetDate → 400. | Active never carries sunsetDate; Deprecated must always carry a future one (ADR-0073). |
-| 9 | All lifecycle methods (forward + reverse) bump `Version`. No `If-Match` on lifecycle endpoints — the state precondition (`Lifecycle == X`) is the implicit version (preserves slice-5 §3 Decision #7). | Reverse transition invalidates any cached version held by other clients. |
+| 9 | Lifecycle methods (forward + reverse) mutate aggregate state and rely on Postgres `xmin` (mapped to `Application.Version` via `IsConcurrencyToken()` — see `EfApplicationConfiguration.cs:67-71`) to advance automatically on the resulting EF UPDATE. The C# code never assigns `Version`. No `If-Match` on lifecycle endpoints — the state precondition (`Lifecycle == X`) is the implicit version (preserves slice-5 §3 Decision #7). | Same pattern as `Deprecate` / `Decommission` today. Reverse transition causes a row write, so `xmin` advances; any cached version held by other clients is implicitly stale. |
 | 10 | Sunset-date admin override on `/deprecate` is **not in scope**. `/deprecate` and `/decommission` keep strict-future / pre-sunset checks for everyone. Slice-5 §13.6 residual: "sunset override only" remains a registered follow-up. | Per user choice. Cleaner — no role-conditional branching inside handlers. |
 | 11 | `KartovaRoles.PlatformAdmin` endpoints (`/admin/organizations` POST + `/organization/me/admin-only` GET) stay on `RequireRole(KartovaRoles.PlatformAdmin/OrgAdmin)`. They are not migrated to the permission model in this slice. | PlatformAdmin operates outside tenant scope (no `tenant_id` claim) and the `/me/admin-only` smoke is slice-2 infrastructure with intentional minimal surface. Tracked as §15.3 follow-up. |
 | 12 | SPA `useCurrentUser()` stays as-is. Permissions come only from `usePermissions()` (separate hook calling `/me/permissions`). | One axis of authorization information per hook; smaller blast radius if the hook signature changes later. |
@@ -217,7 +217,7 @@ Each `MapPost/Get/Put` call appends `.RequireAuthorization(KartovaPermissions.<.
 
 ```
 GET    /api/v1/organization/me                  (authenticated-only — unchanged)
-GET    /api/v1/organization/me/permissions      (authenticated-only — NEW)
+GET    /api/v1/organizations/me/permissions      (authenticated-only — NEW)
 GET    /api/v1/organization/me/admin-only       RequireRole(KartovaRoles.OrgAdmin)  (unchanged)
 ```
 
@@ -243,28 +243,26 @@ No status banner change.
 public void Reactivate()
 {
     if (Lifecycle != Lifecycle.Deprecated && Lifecycle != Lifecycle.Decommissioned)
-        throw new InvalidLifecycleTransitionException(Lifecycle, "Reactivate");
+        throw new InvalidLifecycleTransitionException(Lifecycle, nameof(Reactivate));
 
     Lifecycle  = Lifecycle.Active;
     SunsetDate = null;
-    Version++;
 }
 
 public void UnDecommission(DateTimeOffset newSunsetDate, TimeProvider clock)
 {
     if (Lifecycle != Lifecycle.Decommissioned)
-        throw new InvalidLifecycleTransitionException(Lifecycle, "UnDecommission");
+        throw new InvalidLifecycleTransitionException(Lifecycle, nameof(UnDecommission), SunsetDate);
 
     if (newSunsetDate <= clock.GetUtcNow())
-        throw new ArgumentException("sunsetDate must be strictly in the future", nameof(newSunsetDate));
+        throw new ArgumentException("sunsetDate must be in the future.", nameof(newSunsetDate));
 
     Lifecycle  = Lifecycle.Deprecated;
     SunsetDate = newSunsetDate;
-    Version++;
 }
 ```
 
-`Application` carries `CreatedAt` but **no `UpdatedAt` field** (verified by codelens against the current aggregate). The `Version` bump is the only mutation marker; an `UpdatedAt` field is registered as §15.9 if it ever becomes necessary. `Reactivate` takes no parameters because the operation has no time-dependent check.
+`Application` carries `CreatedAt` but **no `UpdatedAt` field** (verified by codelens against the current aggregate). `Version` is the Postgres `xmin` rowversion (mapped via `IsConcurrencyToken()` in `EfApplicationConfiguration.cs:67-71`) — it advances automatically on the EF UPDATE produced by any property mutation. Neither domain method assigns `Version` (consistent with existing `Deprecate` / `Decommission`). `Reactivate` takes no parameters because the operation has no time-dependent check. Naming pattern (`nameof(...)` + signature on `InvalidLifecycleTransitionException`) mirrors slice 5 (`Application.Deprecate` at line 103, `Application.Decommission` at line 120). An `UpdatedAt` field would only be needed if we surface "last modified" — registered as §15.8.
 
 ### 6.2 Invariant table (extends slice-5 §4.2)
 
@@ -295,6 +293,8 @@ public void UnDecommission(DateTimeOffset newSunsetDate, TimeProvider clock)
 | `src/Modules/Catalog/Kartova.Catalog.Application/UnDecommissionApplicationCommand.cs` + handler | `(ApplicationId Id, DateTimeOffset SunsetDate)` |
 | `src/Modules/Catalog/Kartova.Catalog.Contracts/UnDecommissionApplicationRequest.cs` | `{ SunsetDate }` with `[ExcludeFromCodeCoverage]` |
 | `src/Modules/Catalog/Kartova.Catalog.Infrastructure/CatalogEndpointDelegates.cs` | adds `ReactivateApplicationAsync`, `UnDecommissionApplicationAsync` |
+
+> **Implementation note:** Handlers are placed in `Kartova.Catalog.Infrastructure`, not `Kartova.Catalog.Application`, per the established repo convention (ADR-0093 direct-dispatch). The spec table above kept the Application project for symmetry with commands/DTOs, but `DeprecateApplicationHandler` and `DecommissionApplicationHandler` precedent place handlers in Infrastructure. Slice 7 follows precedent.
 
 No migration — schema is unchanged. Reverse transitions only flip the existing `lifecycle smallint` column and the existing `sunset_date timestamptz` column.
 
@@ -344,7 +344,7 @@ Both share `tenant_id = 11111…` with Alice (OrgAdmin) and Mike (Member) so rol
 |---|---|
 | `web/src/shared/auth/permissions.ts` | String-literal constants mirroring `KartovaPermissions`. Type `KartovaPermission = typeof KartovaPermissions[keyof typeof KartovaPermissions]`. Imports drift-snapshot. |
 | `web/src/shared/auth/permissions.snapshot.json` | Committed JSON list of permission names — drift sentinel. |
-| `web/src/shared/auth/usePermissions.ts` | React Query hook calling `GET /api/v1/organization/me/permissions`. Returns `{ role: string \| null, hasPermission: (p: KartovaPermission) => boolean, isLoading: boolean }`. |
+| `web/src/shared/auth/usePermissions.ts` | React Query hook calling `GET /api/v1/organizations/me/permissions`. Returns `{ role: string \| null, hasPermission: (p: KartovaPermission) => boolean, isLoading: boolean }`. |
 | `web/src/shared/auth/__tests__/usePermissions.test.tsx` | Per-role behavior, loading state, 401 handling. |
 | `web/src/features/catalog/components/ReactivateConfirmDialog.tsx` | Plain confirm (empty body). |
 | `web/src/features/catalog/components/UnDecommissionConfirmDialog.tsx` | Sunset-date picker (mirrors `DeprecateConfirmDialog`). |
@@ -410,8 +410,8 @@ Unchanged from slice 5. `RequireAuth` redirects unauthenticated users to KeyCloa
 
 | Layer | Project | File / scope |
 |---|---|---|
-| Unit (domain) | `Kartova.Catalog.Tests` | `ApplicationReactivateTests.cs` — Deprecated→Active clears SunsetDate; Decommissioned→Active clears SunsetDate; Active→Active 409; Version bumps. |
-| Unit (domain) | `Kartova.Catalog.Tests` | `ApplicationUnDecommissionTests.cs` — Decommissioned→Deprecated sets SunsetDate; non-Decommissioned 409; past sunsetDate 400; strict-greater-than boundary; Version bumps. |
+| Unit (domain) | `Kartova.Catalog.Tests` | `ApplicationReactivateTests.cs` — Deprecated→Active clears SunsetDate; Decommissioned→Active clears SunsetDate; Active throws `InvalidLifecycleTransitionException("Reactivate")`. |
+| Unit (domain) | `Kartova.Catalog.Tests` | `ApplicationUnDecommissionTests.cs` — Decommissioned→Deprecated sets SunsetDate; non-Decommissioned throws `InvalidLifecycleTransitionException("UnDecommission")`; past sunsetDate throws `ArgumentException(nameof(newSunsetDate))`; strict-greater-than boundary (`newSunsetDate == now` rejects). |
 | Unit (claims) | `Kartova.SharedKernel.AspNetCore.Tests` | `TenantClaimsTransformationTests.cs` — extend 4 existing tests + add `Expands_role_claims_into_permission_claims` per role. |
 | Unit (map) | `Kartova.SharedKernel.Tests` (new project iff absent, else colocate in `Kartova.SharedKernel.AspNetCore.Tests`) | `KartovaRolePermissionsTests.cs` — every role's expansion is non-empty (except PlatformAdmin/ServiceAccount); Viewer ⊂ Member; Member set equals TeamAdmin set; OrgAdmin uniquely owns `CatalogApplicationsLifecycleReverse`. |
 | Architecture | `Kartova.ArchitectureTests` | `KeycloakRealmSeedRules.cs` — every `KartovaRoles.*` (except `ServiceAccount`) appears in `kartova-realm.json`; every role has ≥1 dev user. |
@@ -453,7 +453,7 @@ Until all nine green, status is "implementation staged, verification pending" �
 - ✅ KeyCloak realm carries all five ADR-0008 roles (minus ServiceAccount, intentionally deferred). Dev users exist for each org-A role.
 - ✅ `KartovaPermissions` defines 5 constants; `KartovaRolePermissions.Map` covers Viewer / Member / TeamAdmin / OrgAdmin with correct sets.
 - ✅ `TenantClaimsTransformation` expands role claims into permission claims; existing tests pass; new per-role test cases assert exact expansion.
-- ✅ `GET /api/v1/organization/me/permissions` returns the right shape per role.
+- ✅ `GET /api/v1/organizations/me/permissions` returns the right shape per role.
 - ✅ Catalog endpoints require named-permission policies; Viewer gets 403 on POST / PUT / lifecycle; Member gets 200/201 on forward + 403 on reverse; OrgAdmin gets 200 on all.
 - ✅ `POST /applications/{id}/reactivate` and `POST /applications/{id}/un-decommission` exist and obey the §6.2 invariants.
 - ✅ SPA hides Register/Edit/Lifecycle buttons by default; renders them only after `usePermissions()` resolves and the permission is present. 403s surface as toast + inline alert.

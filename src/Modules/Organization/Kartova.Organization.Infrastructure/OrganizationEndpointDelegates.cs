@@ -1,6 +1,8 @@
+using System.Security.Claims;
 using Kartova.Organization.Application;
 using Kartova.Organization.Contracts;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Multitenancy;
 using Microsoft.AspNetCore.Http;
 
 namespace Kartova.Organization.Infrastructure;
@@ -24,5 +26,21 @@ internal static class OrganizationEndpointDelegates
     internal static IResult GetAdminOnlyAsync()
     {
         return Results.Ok(new AdminOnlyResponse("ok"));
+    }
+
+    internal static IResult GetMePermissions(ClaimsPrincipal user)
+    {
+        // Spec §3 Decision #2: each user holds exactly one realm role.
+        // FirstOrDefault is the explicit choice — if multiple ClaimTypes.Role
+        // claims somehow arrive on the principal, only the first is surfaced.
+        var role = user.FindAll(ClaimTypes.Role)
+                       .Select(c => c.Value)
+                       .FirstOrDefault();
+
+        var permissions = user.FindAll(KartovaClaims.Permission)
+                              .Select(c => c.Value)
+                              .ToArray();
+
+        return Results.Ok(new MePermissionsResponse(role, permissions));
     }
 }

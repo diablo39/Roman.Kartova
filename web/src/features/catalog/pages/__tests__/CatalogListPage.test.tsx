@@ -19,6 +19,23 @@ vi.mock("react-oidc-context", () => ({
   }),
 }));
 
+// Default: fully permissive — existing tests are unaffected.
+// Individual tests can call mockPermissions() to scope down.
+const usePermissionsMock = vi.fn();
+vi.mock("@/shared/auth/usePermissions", () => ({
+  usePermissions: () => usePermissionsMock(),
+}));
+
+import { KartovaPermissions } from "@/shared/auth/permissions";
+
+function mockPermissions(perms: string[]) {
+  usePermissionsMock.mockReturnValue({
+    role: "test",
+    hasPermission: (p: string) => perms.includes(p),
+    isLoading: false,
+  });
+}
+
 function harness(qc: QueryClient) {
   return ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={qc}>
@@ -35,6 +52,8 @@ function pageOf<T>(items: T[]) {
 describe("CatalogListPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    // Fully permissive default so existing tests are unaffected.
+    mockPermissions(Object.values(KartovaPermissions));
   });
 
   it("renders heading and Register Application button", () => {
@@ -193,6 +212,7 @@ function harnessWithApp(initialEntries: string[] = ["/"]) {
 describe("CatalogListPage — Show decommissioned checkbox", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    mockPermissions(Object.values(KartovaPermissions));
   });
 
   it("is unchecked by default and URL has no includeDecommissioned param", () => {
@@ -257,6 +277,7 @@ describe("CatalogListPage — API hook receives correct query params", () => {
   let useApplicationsListSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    mockPermissions(Object.values(KartovaPermissions));
     useApplicationsListSpy = vi
       .spyOn(applicationsModule, "useApplicationsList")
       .mockReturnValue(stubListResult);
@@ -278,5 +299,46 @@ describe("CatalogListPage — API hook receives correct query params", () => {
     expect(useApplicationsListSpy).toHaveBeenCalledWith(
       expect.objectContaining({ includeDecommissioned: false }),
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Register button permission gating (Slice 7)
+// ---------------------------------------------------------------------------
+
+describe("CatalogListPage — Register button gating", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("hides Register button for Viewer (only CatalogRead)", () => {
+    mockPermissions([KartovaPermissions.CatalogRead]);
+
+    const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CatalogListPage />, { wrapper: harness(qc) });
+
+    expect(screen.queryByRole("button", { name: /register application/i })).toBeNull();
+  });
+
+  it("shows Register button for Member (has CatalogApplicationsRegister)", async () => {
+    mockPermissions([
+      KartovaPermissions.CatalogRead,
+      KartovaPermissions.CatalogApplicationsRegister,
+    ]);
+
+    const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CatalogListPage />, { wrapper: harness(qc) });
+
+    expect(screen.getByRole("button", { name: /register application/i })).toBeInTheDocument();
   });
 });

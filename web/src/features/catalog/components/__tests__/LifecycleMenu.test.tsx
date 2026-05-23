@@ -80,15 +80,121 @@ describe("LifecycleMenu", () => {
     expect(item).not.toHaveAttribute("aria-disabled", "true");
   });
 
-  it("Decommissioned does not render a dropdown trigger (badge only)", () => {
+  it("Decommissioned + canReverse=false does not render a dropdown trigger (badge only)", () => {
     render(
       <LifecycleMenu
         application={{ ...baseApp, lifecycle: "decommissioned", sunsetDate: PAST }}
+        canReverse={false}
       />,
       { wrapper }
     );
     expect(screen.queryByRole("button", { name: /open lifecycle menu/i })).toBeNull();
     // Badge text still rendered.
+    expect(screen.getByText(/decommissioned/i)).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// canForward prop — Viewer hides forward items (Slice 7)
+// ---------------------------------------------------------------------------
+
+describe("LifecycleMenu — canForward gating", () => {
+  it("hides dropdown trigger for active app when canForward=false (canReverse defaults true but no reverse items for active)", () => {
+    render(
+      <LifecycleMenu
+        application={{ ...baseApp, lifecycle: "active", sunsetDate: null }}
+        canForward={false}
+      />,
+      { wrapper }
+    );
+    // Active lifecycle has no reverse items, so items list is empty — badge only, no trigger.
+    expect(screen.queryByRole("button", { name: /open lifecycle menu/i })).toBeNull();
+  });
+
+  it("shows Deprecate item for active app when canForward=true (default)", async () => {
+    const user = userEvent.setup();
+    render(
+      <LifecycleMenu
+        application={{ ...baseApp, lifecycle: "active", sunsetDate: null }}
+        canForward={true}
+      />,
+      { wrapper }
+    );
+    await user.click(screen.getByRole("button", { name: /open lifecycle menu/i }));
+    expect(await screen.findByRole("menuitem", { name: /deprecate/i })).toBeVisible();
+  });
+
+  it("hides dropdown trigger for deprecated app when canForward=false and canReverse=false", () => {
+    render(
+      <LifecycleMenu
+        application={{ ...baseApp, lifecycle: "deprecated", sunsetDate: PAST }}
+        canForward={false}
+        canReverse={false}
+      />,
+      { wrapper }
+    );
+    expect(screen.queryByRole("button", { name: /open lifecycle menu/i })).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// canReverse prop — OrgAdmin reverse-lifecycle items (Slice 7)
+// ---------------------------------------------------------------------------
+
+describe("LifecycleMenu — canReverse gating", () => {
+  it("canReverse=true + lifecycle=deprecated shows Reactivate item", async () => {
+    const user = userEvent.setup();
+    render(
+      <LifecycleMenu
+        application={{ ...baseApp, lifecycle: "deprecated", sunsetDate: FAR_FUTURE }}
+        canReverse={true}
+        canForward={false}
+      />,
+      { wrapper }
+    );
+    await user.click(screen.getByRole("button", { name: /open lifecycle menu/i }));
+    expect(await screen.findByRole("menuitem", { name: /reactivate/i })).toBeVisible();
+  });
+
+  it("canReverse=true + lifecycle=decommissioned shows both Reactivate and Restore to Deprecated", async () => {
+    const user = userEvent.setup();
+    render(
+      <LifecycleMenu
+        application={{ ...baseApp, lifecycle: "decommissioned", sunsetDate: PAST }}
+        canReverse={true}
+        canForward={false}
+      />,
+      { wrapper }
+    );
+    await user.click(screen.getByRole("button", { name: /open lifecycle menu/i }));
+    expect(await screen.findByRole("menuitem", { name: /reactivate/i })).toBeVisible();
+    expect(await screen.findByRole("menuitem", { name: /restore to deprecated/i })).toBeVisible();
+  });
+
+  it("canReverse=true + lifecycle=active shows no reverse items (reverse only valid from Deprecated/Decommissioned)", () => {
+    render(
+      <LifecycleMenu
+        application={{ ...baseApp, lifecycle: "active", sunsetDate: null }}
+        canReverse={true}
+        canForward={false}
+      />,
+      { wrapper }
+    );
+    // Active + canForward=false + canReverse=true → no items → badge only, no trigger.
+    expect(screen.queryByRole("button", { name: /open lifecycle menu/i })).toBeNull();
+  });
+
+  it("canReverse=false + lifecycle=decommissioned shows no reverse items and no dropdown trigger", () => {
+    render(
+      <LifecycleMenu
+        application={{ ...baseApp, lifecycle: "decommissioned", sunsetDate: PAST }}
+        canReverse={false}
+        canForward={false}
+      />,
+      { wrapper }
+    );
+    expect(screen.queryByRole("button", { name: /open lifecycle menu/i })).toBeNull();
+    // Badge is still rendered.
     expect(screen.getByText(/decommissioned/i)).toBeInTheDocument();
   });
 });

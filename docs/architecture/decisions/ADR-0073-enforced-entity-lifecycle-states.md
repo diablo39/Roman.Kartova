@@ -59,6 +59,10 @@ Notifications fire automatically on state transitions (ADR-0047) to dependents d
 
 The "filtered out of default views" rule lands on `GET /api/v1/catalog/applications` as a default-false `?includeDecommissioned=true` query parameter (slice 6, PR #22). Filter state is encoded in the cursor JSON (`CursorCodec.ic`); cursor with mismatched filter returns 400 `cursor-filter-mismatch`. Legacy cursors lacking the field decode as `false` for backward-compatibility with in-flight clients. SPA `ApplicationsTable` exposes a "Show decommissioned" checkbox in the toolbar wired through `useListUrlState`. The pattern carries forward to every future entity list (Service, API, Infrastructure, Broker) — captured as slice-6 spec §13.8.
 
+### Implementation note (slice 7, 2026-05-22)
+
+Backward transitions land as two OrgAdmin-only endpoints: `POST /api/v1/catalog/applications/{id}/reactivate` (empty body; Deprecated→Active OR Decommissioned→Active; clears `sunsetDate`) and `POST /api/v1/catalog/applications/{id}/un-decommission` (`{sunsetDate}` body; Decommissioned→Deprecated; requires strictly-future sunsetDate). Authorization is enforced by the named permission `catalog.applications.lifecycle.reverse` (granted to OrgAdmin only via `KartovaRolePermissions.Map`). Forward transitions remain Member-or-higher. The "may not occur before sunset_date unless an admin overrides" exception on forward `Decommission` is **not** implemented in this slice — sunset-date admin override stays as a registered follow-up (slice 7 §15.1).
+
 ## References
 
 - PRD §4.1.1
