@@ -4,11 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 
-// Mock react-oidc-context before importing components that use useAuth.
-const useAuthMock = vi.fn();
-vi.mock("react-oidc-context", () => ({
-  useAuth: () => useAuthMock(),
-}));
+import * as clientModule from "@/features/catalog/api/client";
 
 import { ReactivateConfirmDialog } from "../ReactivateConfirmDialog";
 import type { ApplicationResponse } from "@/features/catalog/api/applications";
@@ -27,17 +23,19 @@ const baseApp: ApplicationResponse = {
 };
 
 function setup({
-  fetchImpl,
+  post,
   application = baseApp,
   open = true,
   onOpenChange = vi.fn(),
 }: {
-  fetchImpl: typeof globalThis.fetch;
+  post: ReturnType<typeof vi.fn>;
   application?: ApplicationResponse;
   open?: boolean;
   onOpenChange?: (b: boolean) => void;
 }) {
-  globalThis.fetch = fetchImpl;
+  vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+    GET: vi.fn(), POST: post,
+  } as never);
 
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
@@ -50,24 +48,16 @@ function setup({
 }
 
 describe("ReactivateConfirmDialog", () => {
-  let originalFetch: typeof globalThis.fetch;
-
   beforeEach(() => {
-    originalFetch = globalThis.fetch;
-    useAuthMock.mockReturnValue({
-      isAuthenticated: true,
-      user: { access_token: "test-token" },
-    });
+    vi.restoreAllMocks();
   });
 
   afterEach(() => {
-    globalThis.fetch = originalFetch;
     vi.restoreAllMocks();
-    useAuthMock.mockReset();
   });
 
   it("renders the reactivate confirmation copy", () => {
-    setup({ fetchImpl: vi.fn() });
+    setup({ post: vi.fn() });
     expect(screen.getByText(/returns to/i)).toBeInTheDocument();
     expect(screen.getByText(/active/i)).toBeInTheDocument();
     expect(screen.getByText(/sunset date is cleared/i)).toBeInTheDocument();
@@ -75,67 +65,47 @@ describe("ReactivateConfirmDialog", () => {
 
   it("calls POST /reactivate on confirm and closes on success", async () => {
     const successApp = { ...baseApp, lifecycle: "active" as const, sunsetDate: null };
-    const fetchImpl = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(successApp), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      })
-    );
+    const post = vi.fn().mockResolvedValue({
+      data: successApp,
+      error: undefined,
+      response: { status: 200 },
+    });
     const onOpenChange = vi.fn();
-    setup({ fetchImpl, onOpenChange });
+    setup({ post, onOpenChange });
 
     await userEvent.click(screen.getByRole("button", { name: /^reactivate$/i }));
 
-    await waitFor(() => expect(fetchImpl).toHaveBeenCalled());
-    const [url, opts] = fetchImpl.mock.calls[0] as [string, RequestInit];
+    await waitFor(() => expect(post).toHaveBeenCalled());
+    const [url] = post.mock.calls[0] as [string, unknown];
     expect(url).toContain(`/reactivate`);
-    expect(opts.method).toBe("POST");
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
   });
 
-  it("includes Authorization header with bearer token", async () => {
-    const successApp = { ...baseApp, lifecycle: "active" as const, sunsetDate: null };
-    const fetchImpl = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(successApp), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      })
-    );
-    setup({ fetchImpl });
-
-    await userEvent.click(screen.getByRole("button", { name: /^reactivate$/i }));
-
-    await waitFor(() => expect(fetchImpl).toHaveBeenCalled());
-    const [, opts] = fetchImpl.mock.calls[0] as [string, RequestInit];
-    const headers = opts.headers as Record<string, string>;
-    expect(headers.Authorization).toBe("Bearer test-token");
-  });
-
-  it("Cancel closes the dialog without calling fetch", async () => {
-    const fetchImpl = vi.fn();
+  it("Cancel closes the dialog without calling POST", async () => {
+    const post = vi.fn();
     const onOpenChange = vi.fn();
-    setup({ fetchImpl, onOpenChange });
+    setup({ post, onOpenChange });
 
     await userEvent.click(screen.getByRole("button", { name: /cancel/i }));
 
-    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
   it("on 409 LifecycleConflict toasts the friendly current state label and closes", async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          type: "https://kartova.io/problems/lifecycle-conflict",
-          title: "Lifecycle transition not allowed",
-          currentLifecycle: "active",
-          attemptedTransition: "Reactivate",
-        }),
-        { status: 409, headers: { "Content-Type": "application/json" } }
-      )
-    );
+    const problem = {
+      type: "https://kartova.io/problems/lifecycle-conflict",
+      title: "Lifecycle transition not allowed",
+      currentLifecycle: "active",
+      attemptedTransition: "Reactivate",
+    };
+    const post = vi.fn().mockResolvedValue({
+      data: undefined,
+      error: problem,
+      response: { status: 409 },
+    });
     const onOpenChange = vi.fn();
-    setup({ fetchImpl, onOpenChange });
+    setup({ post, onOpenChange });
 
     await userEvent.click(screen.getByRole("button", { name: /^reactivate$/i }));
 
@@ -146,14 +116,14 @@ describe("ReactivateConfirmDialog", () => {
   });
 
   it("falls back to a toast when the error is unrecognised and dialog stays open", async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({ status: 500, title: "Bang", detail: "Server exploded." }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      )
-    );
+    const problem = { status: 500, title: "Bang", detail: "Server exploded." };
+    const post = vi.fn().mockResolvedValue({
+      data: undefined,
+      error: problem,
+      response: { status: 500 },
+    });
     const onOpenChange = vi.fn();
-    setup({ fetchImpl, onOpenChange });
+    setup({ post, onOpenChange });
 
     await userEvent.click(screen.getByRole("button", { name: /^reactivate$/i }));
 

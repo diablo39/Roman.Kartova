@@ -1,13 +1,12 @@
 import { useMemo } from "react";
-import { useAuth } from "react-oidc-context";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "react-oidc-context";
 
+import { apiClient } from "@/features/catalog/api/client";
+import type { components } from "@/generated/openapi";
 import type { KartovaPermission } from "./permissions";
 
-interface MePermissionsResponse {
-  role: string | null;
-  permissions: readonly string[];
-}
+type MePermissionsResponse = components["schemas"]["MePermissionsResponse"];
 
 const QUERY_KEY = ["me", "permissions"] as const;
 
@@ -18,10 +17,6 @@ export interface UsePermissionsResult {
   isError: boolean;
 }
 
-// TODO(api-codegen): migrate to `apiClient.GET("/api/v1/organizations/me/permissions")` once the
-// Docker-running API container is rebuilt with slice-7 changes and `pnpm codegen` picks up
-// the new endpoint. For now we use raw fetch so this hook can land without depending on
-// codegen ordering.
 export function usePermissions(): UsePermissionsResult {
   const auth = useAuth();
   const enabled = auth.isAuthenticated;
@@ -29,19 +24,10 @@ export function usePermissions(): UsePermissionsResult {
   const query = useQuery<MePermissionsResponse>({
     queryKey: QUERY_KEY,
     queryFn: async () => {
-      const headers: Record<string, string> = { Accept: "application/json" };
-      if (auth.user?.access_token) {
-        headers.Authorization = `Bearer ${auth.user.access_token}`;
-      }
-      const res = await fetch("/api/v1/organizations/me/permissions", { headers });
-      if (!res.ok) {
-        const err = Object.assign(
-          new Error(`me/permissions returned ${res.status}`),
-          { __status: res.status }
-        );
-        throw err;
-      }
-      return (await res.json()) as MePermissionsResponse;
+      const { data, error } = await apiClient.GET("/api/v1/organizations/me/permissions");
+      if (error) throw error;
+      if (!data) throw new Error("me/permissions returned neither data nor error");
+      return data;
     },
     enabled,
     // 5-minute stale window: role changes propagate on next window focus (React Query default).
