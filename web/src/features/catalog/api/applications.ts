@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "react-oidc-context";
 import { apiClient } from "./client";
 import { useCursorList } from "@/lib/list/useCursorList";
 import type { RegisterApplicationInput } from "../schemas/registerApplication";
@@ -194,31 +193,17 @@ export function useDecommissionApplication(id: string) {
 /**
  * POST /applications/{id}/reactivate — Deprecated|Decommissioned → Active.
  * OrgAdmin only. Empty body.
- *
- * TODO(api-codegen): migrate to `apiClient.POST("/api/v1/catalog/applications/{id}/reactivate")`
- * once the Docker-running API container is rebuilt with slice-7 changes and
- * `pnpm codegen` picks up the new endpoint. For now we use raw fetch so this
- * hook can land without depending on codegen ordering.
  */
 export function useReactivateApplication(id: string) {
   const qc = useQueryClient();
-  const auth = useAuth();
   return useMutation({
     mutationFn: async () => {
-      const headers: Record<string, string> = { Accept: "application/json" };
-      if (auth.user?.access_token) {
-        headers.Authorization = `Bearer ${auth.user.access_token}`;
-      }
-      const resp = await fetch(`/api/v1/catalog/applications/${id}/reactivate`, {
-        method: "POST",
-        headers,
-      });
-      if (!resp.ok) {
-        const problem = (await resp.json().catch(() => ({}))) as Record<string, unknown>;
-        problem.__status = resp.status;
-        throw problem;
-      }
-      return (await resp.json()) as ApplicationResponse;
+      const { data, error, response } = await apiClient.POST(
+        "/api/v1/catalog/applications/{id}/reactivate",
+        { params: { path: { id } } }
+      );
+      if (error) throwWithStatus(error, response);
+      return unwrapData(data);
     },
     onSuccess: (data) => {
       qc.setQueryData(applicationKeys.detail(id), data);
@@ -229,33 +214,18 @@ export function useReactivateApplication(id: string) {
 
 /**
  * POST /applications/{id}/un-decommission — Decommissioned → Deprecated.
- * OrgAdmin only. Body: `{ sunsetDate }`.
- *
- * TODO(api-codegen): migrate to `apiClient.POST` once codegen catches up (see useReactivateApplication).
+ * OrgAdmin only. Body: { sunsetDate }.
  */
 export function useUnDecommissionApplication(id: string) {
   const qc = useQueryClient();
-  const auth = useAuth();
   return useMutation({
     mutationFn: async (input: { sunsetDate: string }) => {
-      const headers: Record<string, string> = {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      };
-      if (auth.user?.access_token) {
-        headers.Authorization = `Bearer ${auth.user.access_token}`;
-      }
-      const resp = await fetch(`/api/v1/catalog/applications/${id}/un-decommission`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(input),
-      });
-      if (!resp.ok) {
-        const problem = (await resp.json().catch(() => ({}))) as Record<string, unknown>;
-        problem.__status = resp.status;
-        throw problem;
-      }
-      return (await resp.json()) as ApplicationResponse;
+      const { data, error, response } = await apiClient.POST(
+        "/api/v1/catalog/applications/{id}/un-decommission",
+        { params: { path: { id } }, body: input }
+      );
+      if (error) throwWithStatus(error, response);
+      return unwrapData(data);
     },
     onSuccess: (data) => {
       qc.setQueryData(applicationKeys.detail(id), data);

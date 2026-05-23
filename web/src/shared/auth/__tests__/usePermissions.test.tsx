@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+import * as clientModule from "@/features/catalog/api/client";
+
 const useAuthMock = vi.fn();
 
 vi.mock("react-oidc-context", () => ({
@@ -24,20 +26,8 @@ function newQueryClient(): QueryClient {
   });
 }
 
-function mockFetchOnce(body: unknown, status = 200): typeof fetch {
-  return vi.fn(async () =>
-    new Response(JSON.stringify(body), {
-      status,
-      headers: { "Content-Type": "application/json" },
-    }),
-  ) as typeof fetch;
-}
-
 describe("usePermissions", () => {
-  let originalFetch: typeof globalThis.fetch;
-
   beforeEach(() => {
-    originalFetch = globalThis.fetch;
     useAuthMock.mockReturnValue({
       isAuthenticated: true,
       user: { access_token: "test-token" },
@@ -45,16 +35,18 @@ describe("usePermissions", () => {
   });
 
   afterEach(() => {
-    globalThis.fetch = originalFetch;
     vi.restoreAllMocks();
     useAuthMock.mockReset();
   });
 
   it("returns Viewer set when API returns Viewer role", async () => {
-    globalThis.fetch = mockFetchOnce({
-      role: "Viewer",
-      permissions: ["catalog.read"],
+    const get = vi.fn().mockResolvedValue({
+      data: { role: "Viewer", permissions: ["catalog.read"] },
+      error: undefined,
     });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
 
     const { result } = renderHook(() => usePermissions(), {
       wrapper: makeWrapper(newQueryClient()),
@@ -69,16 +61,22 @@ describe("usePermissions", () => {
   });
 
   it("returns OrgAdmin set with all five permissions", async () => {
-    globalThis.fetch = mockFetchOnce({
-      role: "OrgAdmin",
-      permissions: [
-        "catalog.read",
-        "catalog.applications.register",
-        "catalog.applications.edit-metadata",
-        "catalog.applications.lifecycle.forward",
-        "catalog.applications.lifecycle.reverse",
-      ],
+    const get = vi.fn().mockResolvedValue({
+      data: {
+        role: "OrgAdmin",
+        permissions: [
+          "catalog.read",
+          "catalog.applications.register",
+          "catalog.applications.edit-metadata",
+          "catalog.applications.lifecycle.forward",
+          "catalog.applications.lifecycle.reverse",
+        ],
+      },
+      error: undefined,
     });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
 
     const { result } = renderHook(() => usePermissions(), {
       wrapper: makeWrapper(newQueryClient()),
@@ -92,12 +90,10 @@ describe("usePermissions", () => {
   });
 
   it("isLoading is true initially before the fetch resolves", () => {
-    globalThis.fetch = vi.fn(
-      () =>
-        new Promise(() => {
-          /* never resolves */
-        }),
-    ) as typeof fetch;
+    const get = vi.fn(() => new Promise(() => { /* never resolves */ }));
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
 
     const { result } = renderHook(() => usePermissions(), {
       wrapper: makeWrapper(newQueryClient()),
@@ -107,7 +103,13 @@ describe("usePermissions", () => {
   });
 
   it("returns false for all permissions on 401", async () => {
-    globalThis.fetch = mockFetchOnce(undefined, 401);
+    const get = vi.fn().mockResolvedValue({
+      data: undefined,
+      error: { status: 401, title: "Unauthorized" },
+    });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
 
     const { result } = renderHook(() => usePermissions(), {
       wrapper: makeWrapper(newQueryClient()),
@@ -122,7 +124,13 @@ describe("usePermissions", () => {
   });
 
   it("sets isError to true on 403 response", async () => {
-    globalThis.fetch = mockFetchOnce(undefined, 403);
+    const get = vi.fn().mockResolvedValue({
+      data: undefined,
+      error: { status: 403, title: "Forbidden" },
+    });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
 
     const { result } = renderHook(() => usePermissions(), { wrapper: makeWrapper(newQueryClient()) });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
