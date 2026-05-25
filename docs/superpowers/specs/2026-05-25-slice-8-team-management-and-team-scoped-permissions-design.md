@@ -48,7 +48,7 @@ The slice is intentionally bundle-sized (~5–6 days). The Application.Name retr
 | 4 | `Application.TeamId` is a nullable `Guid` (not a typed value object) on the Catalog aggregate. Catalog module does NOT reference `Kartova.Organization.Domain.TeamId`. No cross-schema DB FK constraint. Referential integrity enforced by the assign-team endpoint handler. | Per ADR-0082 modules don't share domain types. Mirrors the existing `Application.OwnerUserId` (Guid → Identity, no FK). |
 | 5 | `Application.OwnerUserId` retained as point-of-contact / creator audit. Not used for authorization. | Clean separation: identity vs authorization vs operational POC. |
 | 6 | **Authorization pattern: Microsoft resource-based** via `IAuthorizationService.AuthorizeAsync(user, resource, policyName)`. One `ApplicationTeamScopedHandler : AuthorizationHandler<ApplicationTeamScopedRequirement, Application>` carries the rule for Application-scoped operations. Analogous `TeamAdminOfThisHandler : AuthorizationHandler<TeamAdminOfThisRequirement, Team>` for Team-scoped operations. Two-layer auth: binding `.RequireAuthorization(KartovaPermissions.X)` gates the claim (Viewer/anon fail here, no DB hit); endpoint `AuthorizeAsync(user, resource, …)` gates the team scope after the row is loaded. | Canonical .NET pattern (Microsoft Learn). Centralizes the rule; keeps domain pure; uses framework machinery. |
-| 7 | New permissions in `KartovaPermissions`: `team.read`, `team.create`, `team.metadata.edit`, `team.members.manage`. New entries in `KartovaRolePermissions.Map`: OrgAdmin gets all 4; TeamAdmin gets `team.metadata.edit` + `team.members.manage` + `team.read` (the first two gated to own team via resource auth); Member + Viewer get only `team.read`. | Mirrors slice 7's permission catalog pattern. "Own team" scoping enforced via resource-based auth, not via more permissions. |
+| 7 | New permissions in `KartovaPermissions`: `team.read`, `team.create`, `team.metadata.edit`, `team.delete`, `team.members.manage` (5 total). New entries in `KartovaRolePermissions.Map`: OrgAdmin gets all 5; TeamAdmin gets `team.metadata.edit` + `team.delete` + `team.members.manage` + `team.read` (the first three gated to own team via resource auth); Member + Viewer get only `team.read`. **`team.delete` is split from `team.metadata.edit`** so a destructive operation doesn't share a permission name with non-destructive metadata edits (resolves critic finding C1). | Mirrors slice 7's permission catalog pattern. "Own team" scoping enforced via resource-based auth, not via more permissions. |
 | 8 | New `ITeamMembershipReader` abstraction in `Kartova.SharedKernel.AspNetCore` (interface only). Implementation `OrganizationTeamMembershipReader` in `Kartova.Organization.Infrastructure` (reads from the Organization DbContext's `team_members` table; RLS-scoped). `TenantClaimsTransformation` calls it after role-claim expansion so `ICurrentUser.TeamMemberships` is populated for handler use. One DB hit per authenticated request; cached for the request lifetime via `ITenantContext`. | Cross-module access without coupling: abstraction in shared, impl in owning module. Same pattern as existing `ICurrentUser` / `ITenantContext`. |
 | 9 | Team-scope predicate (in `ApplicationTeamScopedHandler`): `OrgAdmin → always allow`; otherwise allow iff `currentUser.TeamIds.Contains(app.TeamId.Value)`. If `app.TeamId == null` (unassigned): only OrgAdmin can mutate; Members/TeamAdmins of any team can `read` but not mutate unassigned apps. | "Unassigned" is a deliberately-restricted state — pushes OrgAdmin to assign promptly. Read access stays permissive so the unassigned app shows up in lists. |
 | 10 | New endpoints under the existing Organization module group `/api/v1/organizations`: `GET /teams` (list, cursor-paginated per ADR-0095), `GET /teams/{id:guid}` (detail with members + app IDs), `POST /teams` (create), `PUT /teams/{id:guid}` (rename + description), `DELETE /teams/{id:guid}`, `POST /teams/{id:guid}/members` (add user), `DELETE /teams/{id:guid}/members/{userId:guid}` (remove), `PUT /teams/{id:guid}/members/{userId:guid}` (promote/demote). New endpoint on Catalog module: `PUT /api/v1/catalog/applications/{id:guid}/team` (body `{ teamId: Guid? }` — null unassigns). | Endpoints live in the module that owns the data. Team endpoints under `/organizations`, app-team assignment under `/catalog`. All URLs use `{id:guid}` per ADR-0098. |
@@ -141,6 +141,8 @@ public sealed class TeamMembership
 
 **Design choice:** `Team` aggregate covers metadata only. `TeamMembership` is a separate entity (not a child of Team aggregate). Membership operations don't load Team — they insert/update/delete rows directly. No "team must have at least one admin" invariant initially; OrgAdmin can delete the last admin if they want (SPA warns but doesn't block). Invariant can be added later without restructuring.
 
+**ADR-0065 partial wiring:** ADR-0065's full hierarchy is `Org → Team → System → Component`. This slice wires Team → Application directly without the System mid-layer. Systems are deferred to §15.4 (E-03.F-03). The flat Team-to-Application assignment is intentional for MVP — when System grouping ships, `Application.TeamId` will be supplemented by an optional `Application.SystemId` (where the System is itself owned by a Team).
+
 ### 4.2 Tables
 
 **`teams`** (Organization module):
@@ -201,12 +203,18 @@ The `EXISTS` subquery on `team_members` is cheap given the PK and `teams.id` ind
 
 ### 4.5 Migrations
 
-Four migrations, sequenced (three Organization, one Catalog):
+Four migrations, sequenced. RLS pattern per the actual slice 3/5 precedents (verified against `InitialOrganization.cs`, `AddApplications.cs`, `AddApplicationDisplayName.cs`):
 
-1. **`AddTeamsTable`** (Organization) — creates `teams` + RLS + index. RLS toggle dance.
-2. **`AddTeamMembersTable`** (Organization) — creates `team_members` + RLS + index. RLS toggle dance.
-3. **`AddApplicationTeamId`** (Catalog) — adds `team_id` column + index. RLS toggle dance.
-4. **`DropApplicationName`** (Catalog) — drops `name` column. RLS toggle dance. Per Decision #17.
+- **New tables:** single SQL block — `ENABLE ROW LEVEL SECURITY; FORCE ROW LEVEL SECURITY; CREATE POLICY ...`. No toggling. Matches `AddApplications` slice-3 migration.
+- **Existing-table data backfill:** `NO FORCE` only when a maintenance UPDATE must run as table owner (FORCE applies policies to owner too). Matches `AddApplicationDisplayName` slice-4 migration.
+- **Existing-table pure DDL (column add/drop with no backfill):** plain `ALTER TABLE`. DDL doesn't require FORCE toggling.
+
+The migrations:
+
+1. **`AddTeamsTable`** (Organization) — new table. `CREATE TABLE teams (...); CREATE INDEX idx_teams_tenant ON teams(tenant_id); ALTER TABLE teams ENABLE ROW LEVEL SECURITY; ALTER TABLE teams FORCE ROW LEVEL SECURITY; CREATE POLICY tenant_isolation ...`.
+2. **`AddTeamMembersTable`** (Organization) — new table. Same pattern. PK on `(team_id, user_id)`, index on `user_id`, RLS policy uses team-join `EXISTS` subquery (§4.4).
+3. **`AddApplicationTeamId`** (Catalog) — pure column add. `ALTER TABLE catalog_applications ADD COLUMN team_id uuid NULL; CREATE INDEX idx_catalog_applications_team ON catalog_applications(team_id);`. No FORCE toggle needed (no backfill).
+4. **`DropApplicationName`** (Catalog) — pure column drop. `ALTER TABLE catalog_applications DROP COLUMN name;`. No FORCE toggle needed.
 
 ### 4.6 EF configurations
 
@@ -229,27 +237,28 @@ Append to `KartovaPermissions`:
 public const string TeamRead          = "team.read";
 public const string TeamCreate        = "team.create";
 public const string TeamMetadataEdit  = "team.metadata.edit";
+public const string TeamDelete        = "team.delete";
 public const string TeamMembersManage = "team.members.manage";
 ```
 
-The `All` collection + drift-snapshot JSON pick these up automatically (slice 7's arch tests are data-driven over reflection).
+The `All` collection + drift-snapshot JSON pick these up automatically (slice 7's arch tests are data-driven over reflection). `team.delete` is split from `team.metadata.edit` so a destructive op doesn't share a non-destructive permission name.
 
 ### 5.2 Role → permission map update
 
-`KartovaRolePermissions.Map` gains:
+`KartovaRolePermissions.Map` is the existing `FrozenDictionary<string, FrozenSet<string>>` (slice 7 introduced `FrozenDictionary` + `FrozenSet` per slice 7 PR-review findings). The map gains:
 
-| Role | `team.read` | `team.create` | `team.metadata.edit` | `team.members.manage` |
-|---|---|---|---|---|
-| Viewer | ✓ | — | — | — |
-| Member | ✓ | — | — | — |
-| TeamAdmin | ✓ | — | ✓ (own team only) | ✓ (own team only) |
-| OrgAdmin | ✓ | ✓ | ✓ | ✓ |
+| Role | `team.read` | `team.create` | `team.metadata.edit` | `team.delete` | `team.members.manage` |
+|---|---|---|---|---|---|
+| Viewer | ✓ | — | — | — | — |
+| Member | ✓ | — | — | — | — |
+| TeamAdmin | ✓ | — | ✓ (own team only) | ✓ (own team only) | ✓ (own team only) |
+| OrgAdmin | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 The "own team only" qualifier is enforced via `TeamAdminOfThisHandler` resource auth — NOT via separate permission constants.
 
 ### 5.3 Carrying team membership on the principal
 
-**New abstraction** in `Kartova.SharedKernel.AspNetCore`:
+**New abstraction** in `Kartova.SharedKernel` (NOT `Kartova.SharedKernel.AspNetCore` — see layering note below):
 
 ```csharp
 public interface ITeamMembershipReader
@@ -261,7 +270,7 @@ public sealed record TeamMembershipInfo(Guid TeamId, TeamRoleKind Role);
 public enum TeamRoleKind : byte { Member = 1, Admin = 2 }
 ```
 
-`TeamRoleKind` lives in SharedKernel (no cross-module domain reference). The Organization-module `TeamRole` enum maps 1:1.
+**Layering rationale (resolves critic finding C5):** `ITenantContext` lives in `Kartova.SharedKernel` and is extended in §5.4 to expose `IReadOnlyList<TeamMembershipInfo>`. Since `Kartova.SharedKernel` cannot reference `Kartova.SharedKernel.AspNetCore` (one-way dependency), the membership types MUST live in `Kartova.SharedKernel`. The Organization-module `TeamRole` enum maps 1:1 to `TeamRoleKind` via a small mapper in `Kartova.Organization.Infrastructure`.
 
 **Implementation** in `Kartova.Organization.Infrastructure`:
 
@@ -282,25 +291,37 @@ Registered scoped via `OrganizationModule.RegisterServices`.
 
 ### 5.4 `ITenantContext` + `ICurrentUser` extension
 
-`ITenantContext` gains:
+`ITenantContext` gains BOTH new read-only properties AND a new mutator method:
 
 ```csharp
+// New read-only properties:
 public IReadOnlyList<TeamMembershipInfo> TeamMemberships { get; }
 public IReadOnlySet<Guid> TeamIds { get; }   // shortcut: just the team ids
+
+// New mutator:
+void PopulateTeamMemberships(IReadOnlyList<TeamMembershipInfo> memberships);
 ```
 
-`ICurrentUser` exposes the same `TeamIds` shortcut.
+`TenantContextAccessor` implements the new method (sets the backing field; `Clear()` resets both the existing tenant-id/roles and the new team-memberships).
 
-Populated by `TenantClaimsTransformation` after the existing role-claim flatten + permission-claim expansion:
+`ICurrentUser` exposes the same `TeamMemberships` + `TeamIds` shortcuts.
+
+**`TenantClaimsTransformation` signature change:** the method becomes genuinely `async` (today returns via `Task.FromResult`). The new shape:
 
 ```csharp
-// after existing permission-claim expansion
-var sub = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-if (Guid.TryParse(sub, out var userId))
+public async Task<ClaimsPrincipal> TransformAsync(ClaimsPrincipal principal)
 {
-    var reader = _services.GetRequiredService<ITeamMembershipReader>();
-    var memberships = await reader.GetForUserAsync(userId, CancellationToken.None);
-    context.PopulateTeamMemberships(memberships);
+    // ... existing tenant-id + role-claim flatten + permission-claim expansion (unchanged) ...
+
+    var sub = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if (Guid.TryParse(sub, out var userId))
+    {
+        var reader = _services.GetRequiredService<ITeamMembershipReader>();
+        var memberships = await reader.GetForUserAsync(userId, CancellationToken.None);
+        context.PopulateTeamMemberships(memberships);
+    }
+
+    return principal;
 }
 ```
 
@@ -381,27 +402,41 @@ public sealed class TeamAdminOfThisHandler(ICurrentUser currentUser)
 
 ### 5.8 Policy registration
 
-`Kartova.SharedKernel.AspNetCore.AuthorizationExtensions.AddKartovaPermissionPolicies` extended:
+`AddKartovaPermissionPolicies` keeps its single responsibility — registering one policy per permission-claim. A NEW sibling method handles resource-based policies:
 
 ```csharp
-foreach (var perm in KartovaPermissions.All)
+// Kartova.SharedKernel.AspNetCore.AuthorizationExtensions (existing — UNCHANGED behavior)
+public static AuthorizationBuilder AddKartovaPermissionPolicies(this AuthorizationBuilder builder)
 {
-    builder.AddPolicy(perm, p => p.RequireClaim(KartovaClaims.Permission, perm));
+    foreach (var perm in KartovaPermissions.All)
+    {
+        builder.AddPolicy(perm, p => p.RequireClaim(KartovaClaims.Permission, perm));
+    }
+    return builder;
 }
 
-// Resource-based policies (consumed via IAuthorizationService.AuthorizeAsync)
-builder.AddPolicy(KartovaTeamPolicies.ApplicationTeamScoped, p =>
-    p.Requirements.Add(new ApplicationTeamScopedRequirement()));
-builder.AddPolicy(KartovaTeamPolicies.TeamAdminOfThis, p =>
-    p.Requirements.Add(new TeamAdminOfThisRequirement()));
+// NEW method (slice 8)
+public static AuthorizationBuilder AddKartovaResourcePolicies(this AuthorizationBuilder builder)
+{
+    builder.AddPolicy(KartovaTeamPolicies.ApplicationTeamScoped, p =>
+        p.Requirements.Add(new ApplicationTeamScopedRequirement()));
+    builder.AddPolicy(KartovaTeamPolicies.TeamAdminOfThis, p =>
+        p.Requirements.Add(new TeamAdminOfThisRequirement()));
+    return builder;
+}
 ```
 
-Handler registrations land in `AddKartovaJwtAuth`:
+`AddKartovaJwtAuth` calls both:
 
 ```csharp
+services.AddAuthorizationBuilder()
+        .AddKartovaPermissionPolicies()
+        .AddKartovaResourcePolicies();
 services.AddScoped<IAuthorizationHandler, ApplicationTeamScopedHandler>();
 services.AddScoped<IAuthorizationHandler, TeamAdminOfThisHandler>();
 ```
+
+Separation keeps each method's contract focused: permission-claim policies vs resource-based policies.
 
 ### 5.9 Endpoint usage pattern
 
@@ -429,7 +464,7 @@ internal static async Task<IResult> DeprecateApplicationAsync(
 }
 ```
 
-Read endpoints (`GET /applications`, `GET /applications/{id}`) DON'T get this gate — `catalog.read` already permits any authenticated tenant user; unassigned apps remain visible.
+Read endpoints (`GET /applications`, `GET /applications/{id}`) DON'T get this gate — `catalog.read` already permits any authenticated tenant user; unassigned apps remain visible. **Deliberate non-decision (resolves critic finding C2):** reads are tenant-scoped via RLS but NOT team-scoped within a tenant. A Member of team A can read apps assigned to team B. This matches Backstage / Compass conventions where the catalog is generally tenant-readable and team-scoping applies to mutations. If a future product requirement demands per-team read isolation, it lands as a follow-up via a `Read` resource-policy variant — out of scope for this slice.
 
 Team module endpoints follow the same pattern, gating on `KartovaTeamPolicies.TeamAdminOfThis` after loading the Team.
 
@@ -449,10 +484,12 @@ Team module endpoints follow the same pattern, gating on `KartovaTeamPolicies.Te
 | `GET` | `/teams/{id:guid}` | `team.read` | — | Returns `TeamDetailResponse` (team + members + assigned application IDs). |
 | `POST` | `/teams` | `team.create` | — | Body `{ displayName, description? }`. 201 + `Location` + `TeamResponse`. |
 | `PUT` | `/teams/{id:guid}` | `team.metadata.edit` | `TeamAdminOfThis` | Body `{ displayName, description? }`. |
-| `DELETE` | `/teams/{id:guid}` | `team.metadata.edit` | `TeamAdminOfThis` | 409 `team-has-applications` with `applicationCount` extension if assigned apps exist. |
+| `DELETE` | `/teams/{id:guid}` | `team.delete` | `TeamAdminOfThis` | 409 `team-has-applications` with `applicationCount` extension if assigned apps exist. |
 | `POST` | `/teams/{id:guid}/members` | `team.members.manage` | `TeamAdminOfThis` | Body `{ userId, role }`. 409 on duplicate `(team_id, user_id)`. |
 | `DELETE` | `/teams/{id:guid}/members/{userId:guid}` | `team.members.manage` | `TeamAdminOfThis` | 204 on success. 404 if membership doesn't exist. |
 | `PUT` | `/teams/{id:guid}/members/{userId:guid}` | `team.members.manage` | `TeamAdminOfThis` | Body `{ role }`. Promote/demote. |
+
+**Note on ADR-0092:** the ADR's example table (line 93) shows `(future) /api/v1/organization/teams` using the *singular* `organization`. The actual `OrganizationModule.Slug = "organizations"` (plural) per the primary-collection skip rule (ADR-0092 rule 3), so the live URLs use `/api/v1/organizations/...`. The ADR-0092 example is a stale draft typo; spec §6.1 uses the correct plural form throughout.
 
 ### 6.2 New endpoint under `/api/v1/catalog`
 
@@ -512,7 +549,7 @@ Existing `ResourceNotFound`, `ValidationFailed`, `ConcurrencyConflict` reused.
 
 Per Decision #17, the following endpoints lose the `name` field from their request/response shapes:
 
-- `POST /api/v1/catalog/applications` — `RegisterApplicationRequest` drops `Name`. Body becomes `{ displayName, description, ownerUserId }`. Response `ApplicationResponse` drops `Name`.
+- `POST /api/v1/catalog/applications` — `RegisterApplicationRequest` drops `Name`. Body becomes `{ displayName, description }`. (`OwnerUserId` is sourced server-side from the JWT `sub` claim inside the handler, never the body — pre-existing slice-3 behaviour.) Response `ApplicationResponse` drops `Name`.
 - `GET /api/v1/catalog/applications` — `ApplicationResponse` rows lose `Name`.
 - `GET /api/v1/catalog/applications/{id}` — same.
 - `PUT /api/v1/catalog/applications/{id}` — `EditApplicationRequest` is already `{ displayName, description }`, no change. Response loses `Name`.
@@ -633,22 +670,24 @@ All typed via `apiClient.{GET,POST,PUT,DELETE}` (codegen will pick up the new pa
 
 ### 8.1 Migration
 
-`DropApplicationName` migration (Catalog module). RLS toggle dance:
+`DropApplicationName` migration (Catalog module). Pure DDL — no FORCE toggle needed (§4.5):
 
 ```sql
-ALTER TABLE catalog_applications NO FORCE ROW LEVEL SECURITY;
 ALTER TABLE catalog_applications DROP COLUMN name;
-ALTER TABLE catalog_applications FORCE ROW LEVEL SECURITY;
 ```
 
-### 8.2 Domain code changes
+### 8.2 Domain + infrastructure code changes
 
 - `Application.cs`: drop `Name` property + backing field. Drop `ValidateName` + `KebabCase` regex. `Create` factory signature loses `name` parameter.
 - `RegisterApplicationCommand`: drop `Name` field.
 - `RegisterApplicationHandler`: drop `name` from command construction.
-- `RegisterApplicationRequest`: drop `Name` field.
-- `RegisterApplicationDelegate`: drop `name` from binding.
-- `ApplicationResponse`: drop `Name` field.
+- `RegisterApplicationRequest` (Contracts): drop `Name` field.
+- `CatalogEndpointDelegates.RegisterApplicationAsync`: drop `request.Name` from the `RegisterApplicationCommand` construction.
+- `ApplicationResponse` (Contracts): drop `Name` field.
+- `EfApplicationConfiguration`: remove the `Name` column mapping (`HasColumnName("name").HasMaxLength(256).IsRequired()` and `HasIndex(x => new { x.TenantId, x.Name })` if present).
+- **`ApplicationSortSpecs.cs`**: remove `Name` sort spec; update `AllowedFieldNames` to drop the `Name` entry. Any caller iterating allowed fields will lose the `Name` option.
+- **`ApplicationSortField`** (Contracts enum): remove the `Name` value. Update any explicit lookups (e.g., `CursorListQueryParameterTransformer` OpenAPI annotation if it references the enum's members).
+- **`Kartova.ArchitectureTests`**: any reflection-based test that enumerates `Application` properties (e.g., a "must have Name" rule, if it exists) updates.
 
 ### 8.3 Test updates
 
@@ -830,6 +869,21 @@ ADR-0098 created at `docs/architecture/decisions/ADR-0098-uuid-only-entity-ident
 - Decision #9 (unassigned-app rule) is consistent with §5.6 (`ApplicationTeamScopedHandler` falls through for `TeamId == null` unless OrgAdmin).
 
 **Scope compared to other slices:** Largest slice yet (~5–6 days vs slice 7's ~3 days). Justified by bundle (team + retrofit + ADR). Could split into two PRs (team in PR-A, retrofit + ADR in PR-B) if review burden becomes a concern, but the retrofit + ADR justify each other — landing them separately weakens both.
+
+**Critic cross-validation (2026-05-25):** A dedicated critic subagent cross-validated the spec against existing implementation, ADRs, and other repo documents. 3 Criticals, 4 Inaccuracies, 5 Gaps, and 3 Internal contradictions were found and resolved inline in this revision:
+
+- §6.6 `RegisterApplicationRequest` body corrected (no `ownerUserId` — sourced from JWT).
+- §4.5 / §8.1 RLS migration pattern corrected (no universal "toggle dance" — pure DDL where applicable).
+- §5.3 `ITeamMembershipReader` + `TeamMembershipInfo` + `TeamRoleKind` moved to `Kartova.SharedKernel` (was incorrectly placed in `Kartova.SharedKernel.AspNetCore`, which would violate layering against `ITenantContext`).
+- §5.4 `ITenantContext.PopulateTeamMemberships` listed as a new interface method.
+- §5.4 `TenantClaimsTransformation` async-signature change explicitly called out.
+- §5.8 resource-based policies split into a separate `AddKartovaResourcePolicies` method.
+- §5.9 deliberate non-decision on team-scoped reads documented (reads are tenant-scoped via RLS but not team-scoped).
+- §8.2 `ApplicationSortSpecs.Name` + `ApplicationSortField.Name` added to retrofit scope (compile-time blocker).
+- §8.2 `CatalogEndpointDelegates.RegisterApplicationAsync` named as the actual binding location (was "RegisterApplicationDelegate").
+- §5.2 + Decision #7 added `team.delete` permission separate from `team.metadata.edit` (destructive vs non-destructive).
+- §6.1 footnote added for ADR-0092 line-93 singular/plural typo.
+- §4.1 ADR-0065 partial-wiring (System layer deferred to §15.4) made explicit.
 
 ## 15. Follow-ups (registered for future planning, not in scope)
 
