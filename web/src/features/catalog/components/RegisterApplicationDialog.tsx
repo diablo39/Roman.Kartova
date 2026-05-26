@@ -33,14 +33,14 @@ export function RegisterApplicationDialog({ open, onOpenChange }: Props) {
   const mutation = useRegisterApplication();
   const form = useForm<RegisterApplicationInput>({
     resolver: zodResolver(registerApplicationSchema),
-    defaultValues: { name: "", displayName: "", description: "" },
+    defaultValues: { displayName: "", description: "" },
   });
 
   // useForm lives above <ModalOverlay>, so the form state survives the modal
   // unmount and this reset fires reliably on close.
   useEffect(() => {
     if (!open) {
-      form.reset({ name: "", displayName: "", description: "" });
+      form.reset({ displayName: "", description: "" });
     }
   }, [open, form]);
 
@@ -76,18 +76,6 @@ export function RegisterApplicationDialog({ open, onOpenChange }: Props) {
             </div>
 
             <HookForm form={form} onSubmit={onSubmit} className="space-y-5">
-              <FormField name="name" control={form.control}>
-                {({ field, fieldState }) => (
-                  <Input
-                    label="Name"
-                    placeholder="payment-gateway"
-                    hint={fieldState.error?.message ?? "Lowercase, kebab-case. Used in URLs and CLI."}
-                    isInvalid={!!fieldState.error}
-                    isRequired
-                    {...field}
-                  />
-                )}
-              </FormField>
               <FormField name="displayName" control={form.control}>
                 {({ field, fieldState }) => (
                   <Input

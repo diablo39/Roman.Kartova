@@ -10,9 +10,9 @@ type ApplicationResponse = components["schemas"]["ApplicationResponse"];
 type Lifecycle = ApplicationResponse["lifecycle"];
 
 // Derive sort-param types from the generated OpenAPI operation so the wire
-// allowlist (createdAt|name, asc|desc) is a single source of truth — adding
-// a new sort field on the backend (ADR-0095 §4.1) flows through codegen
-// without requiring a hand edit here.
+// allowlist (currently createdAt, asc|desc) is a single source of truth —
+// adding a new sort field on the backend (ADR-0095 §4.1) flows through
+// codegen without requiring a hand edit here.
 type ListApplicationsQuery = NonNullable<operations["ListApplications"]["parameters"]["query"]>;
 
 type ApplicationsListParams = {

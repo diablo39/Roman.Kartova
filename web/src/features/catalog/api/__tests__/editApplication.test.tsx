@@ -27,13 +27,13 @@ function mockApiClient(impl: {
 const successResponse = {
   id: "abc",
   tenantId: "t",
-  name: "x",
   displayName: "X",
   description: "Y",
   ownerUserId: "u",
   createdAt: "2026-01-01T00:00:00Z",
   lifecycle: "active",
   sunsetDate: null,
+  teamId: null,
   version: "v2",
 };
 

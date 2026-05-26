@@ -10,7 +10,7 @@ import { RegisterApplicationDialog } from "@/features/catalog/components/Registe
 import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
 
-const ALLOWED_SORT_FIELDS = ["createdAt", "name"] as const;
+const ALLOWED_SORT_FIELDS = ["createdAt"] as const;
 const BOOLEAN_FILTERS = ["includeDecommissioned"] as const;
 
 export function CatalogListPage() {

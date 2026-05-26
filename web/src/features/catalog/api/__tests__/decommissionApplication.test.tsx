@@ -27,13 +27,13 @@ function mockApiClient(impl: {
 const decommissionedResponse = {
   id: "abc",
   tenantId: "t",
-  name: "x",
   displayName: "X",
   description: "Y",
   ownerUserId: "u",
   createdAt: "2026-01-01T00:00:00Z",
   lifecycle: "decommissioned",
   sunsetDate: "2026-04-01T00:00:00Z",
+  teamId: null,
   version: "v4",
 };
 

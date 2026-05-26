@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "@/components/base/card/card";
-import { Badge } from "@/components/base/badges/badges";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
 import { Button } from "@/components/base/buttons/button";
 import { useApplication } from "@/features/catalog/api/applications";
@@ -61,7 +60,6 @@ export function ApplicationDetailPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-baseline gap-3">
               <h2 className="text-2xl font-semibold text-primary">{app.displayName}</h2>
-              <Badge color="gray" type="pill-color" size="sm" className="font-mono">{app.name}</Badge>
               {!permissionsLoading && (canForwardLifecycle || canReverseLifecycle) && (
                 <LifecycleMenu
                   application={app}

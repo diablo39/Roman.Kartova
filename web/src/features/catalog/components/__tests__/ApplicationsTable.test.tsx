@@ -12,7 +12,6 @@ function withRouter(ui: React.ReactNode) {
 
 const a1: ApplicationRow = {
   id: "00000000-0000-0000-0000-000000000001",
-  name: "n1",
   displayName: "App One",
   description: "first app",
   ownerUserId: "u",
@@ -20,7 +19,7 @@ const a1: ApplicationRow = {
   lifecycle: "active",
   sunsetDate: null,
 };
-const a2: ApplicationRow = { ...a1, id: "00000000-0000-0000-0000-000000000002", name: "n2", displayName: "App Two", description: "second" };
+const a2: ApplicationRow = { ...a1, id: "00000000-0000-0000-0000-000000000002", displayName: "App Two", description: "second" };
 
 function makeList(overrides: Partial<CursorListResult<ApplicationRow>>): CursorListResult<ApplicationRow> {
   return {
@@ -41,7 +40,7 @@ function makeList(overrides: Partial<CursorListResult<ApplicationRow>>): CursorL
 const noop = () => {};
 
 describe("ApplicationsTable", () => {
-  it("renders rows with displayName and name", () => {
+  it("renders rows with displayName", () => {
     render(withRouter(
       <ApplicationsTable
         list={makeList({ items: [a1, a2] })}
@@ -52,8 +51,6 @@ describe("ApplicationsTable", () => {
     ));
     expect(screen.getByText("App One")).toBeInTheDocument();
     expect(screen.getByText("App Two")).toBeInTheDocument();
-    expect(screen.getByText("n1")).toBeInTheDocument();
-    expect(screen.getByText("n2")).toBeInTheDocument();
   });
 
   it("each row links to /catalog/applications/{id}", () => {

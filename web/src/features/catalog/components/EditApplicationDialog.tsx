@@ -92,7 +92,7 @@ export function EditApplicationDialog({ application, open, onOpenChange }: Props
           <div className="space-y-1 mb-4">
             <h2 className="text-lg font-semibold text-primary">Edit Application</h2>
             <p className="text-sm text-tertiary">
-              Update the display name and description. Name (slug) and ownership cannot be changed here.
+              Update the display name and description. Ownership cannot be changed here.
             </p>
           </div>
 

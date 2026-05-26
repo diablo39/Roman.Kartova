@@ -11,7 +11,6 @@ import type { Lifecycle } from "@/features/catalog/api/applications";
 
 export interface ApplicationRow {
   id: string;
-  name: string;
   displayName: string;
   description: string;
   ownerUserId?: string;
@@ -20,7 +19,7 @@ export interface ApplicationRow {
   sunsetDate: string | null;
 }
 
-type SortField = "createdAt" | "name";
+type SortField = "createdAt";
 
 interface Props {
   list: CursorListResult<ApplicationRow>;
@@ -59,7 +58,7 @@ export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange }: Pro
 
   const handleSortChange = (descriptor: Parameters<typeof toSort>[0]) => {
     const { field, order } = toSort(descriptor);
-    if (field === "createdAt" || field === "name") {
+    if (field === "createdAt") {
       onSortChange(field, order);
     }
   };
@@ -72,7 +71,7 @@ export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange }: Pro
         onSortChange={handleSortChange}
       >
         <Table.Header>
-          <SortableHead id="name" isRowHeader>Name</SortableHead>
+          <Table.Head id="name" isRowHeader>Name</Table.Head>
           <Table.Head id="lifecycle">Lifecycle</Table.Head>
           <Table.Head id="description">Description</Table.Head>
           <SortableHead id="createdAt">Created</SortableHead>
@@ -87,7 +86,6 @@ export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange }: Pro
                 >
                   {app.displayName}
                 </Link>
-                <span className="font-mono text-xs text-tertiary">{app.name}</span>
               </Table.Cell>
               <Table.Cell>
                 <LifecycleBadge lifecycle={app.lifecycle} sunsetDate={app.sunsetDate} />

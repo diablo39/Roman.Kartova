@@ -25,13 +25,13 @@ function wrapper({ children }: { children: ReactNode }) {
 const baseApp: ApplicationResponse = {
   id: "00000000-0000-0000-0000-000000000abc",
   tenantId: "t",
-  name: "n",
   displayName: "App",
   description: "d",
   ownerUserId: "u",
   createdAt: "2026-04-30T00:00:00Z",
   lifecycle: "active",
   sunsetDate: null,
+  teamId: null,
   version: "v1",
 };
 

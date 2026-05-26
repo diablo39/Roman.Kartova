@@ -48,7 +48,7 @@ describe("catalog hooks", () => {
 
   describe("useApplicationsList", () => {
     it("calls GET /api/v1/catalog/applications with query params and exposes items", async () => {
-      const page = { items: [{ id: "a1", name: "x", displayName: "X", tenantId: "t", description: "", ownerUserId: "u", createdAt: "2026-01-01T00:00:00Z" }], nextCursor: null, prevCursor: null };
+      const page = { items: [{ id: "a1", displayName: "X", tenantId: "t", description: "", ownerUserId: "u", createdAt: "2026-01-01T00:00:00Z" }], nextCursor: null, prevCursor: null };
       const get = vi.fn().mockResolvedValue({ data: page, error: undefined });
       mockApiClient({ GET: get });
 
@@ -81,7 +81,7 @@ describe("catalog hooks", () => {
   describe("useApplication", () => {
     it("calls GET /api/v1/catalog/applications/{id} with the path param", async () => {
       const get = vi.fn().mockResolvedValue({
-        data: { id: "a1", name: "x", displayName: "X" },
+        data: { id: "a1", displayName: "X" },
         error: undefined,
       });
       mockApiClient({ GET: get });
@@ -110,7 +110,7 @@ describe("catalog hooks", () => {
   describe("useRegisterApplication", () => {
     it("posts the body and invalidates the all applications prefix on success", async () => {
       const post = vi.fn().mockResolvedValue({
-        data: { id: "a2", name: "n", displayName: "N" },
+        data: { id: "a2", displayName: "N" },
         error: undefined,
       });
       mockApiClient({ POST: post });
@@ -122,11 +122,11 @@ describe("catalog hooks", () => {
         wrapper: makeWrapper(qc),
       });
 
-      await result.current.mutateAsync({ name: "n", displayName: "N", description: "" });
+      await result.current.mutateAsync({ displayName: "N", description: "" });
 
       expect(post).toHaveBeenCalledWith(
         "/api/v1/catalog/applications",
-        { body: { name: "n", displayName: "N", description: "" } }
+        { body: { displayName: "N", description: "" } }
       );
       // Invalidation uses applicationKeys.all (prefix), covering all parameterized list keys.
       expect(invalidate).toHaveBeenCalledWith({ queryKey: applicationKeys.all });
@@ -135,7 +135,7 @@ describe("catalog hooks", () => {
     it("rejects and surfaces the api error to the mutation state", async () => {
       const post = vi.fn().mockResolvedValue({
         data: undefined,
-        error: { status: 400, errors: { name: ["bad"] } },
+        error: { status: 400, errors: { displayName: ["bad"] } },
       });
       mockApiClient({ POST: post });
 
@@ -145,7 +145,7 @@ describe("catalog hooks", () => {
       });
 
       await expect(
-        result.current.mutateAsync({ name: "n", displayName: "N", description: "" })
+        result.current.mutateAsync({ displayName: "N", description: "" })
       ).rejects.toMatchObject({ status: 400 });
     });
   });
