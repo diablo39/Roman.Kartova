@@ -1,6 +1,7 @@
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Kartova.SharedKernel.AspNetCore;
 
@@ -32,10 +33,12 @@ public sealed class TenantScopeBeginMiddleware
     internal const string HandleKey = "Kartova.TenantScope.Handle";
 
     private readonly RequestDelegate _next;
+    private readonly ILogger<TenantScopeBeginMiddleware> _logger;
 
-    public TenantScopeBeginMiddleware(RequestDelegate next)
+    public TenantScopeBeginMiddleware(RequestDelegate next, ILogger<TenantScopeBeginMiddleware> logger)
     {
         _next = next;
+        _logger = logger;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -86,19 +89,27 @@ public sealed class TenantScopeBeginMiddleware
             // — the team_members RLS policy cannot evaluate otherwise. Resolved from
             // RequestServices (not the root provider) so the reader's DbContext shares the
             // same DI scope as the connection the membership query will run on.
-            // Falls back silently if the reader isn't registered (e.g., Organization module
-            // not loaded) — downstream code sees an empty memberships collection.
+            // ITeamMembershipReader is unconditionally registered by OrganizationModule, so
+            // a missing registration is a misconfiguration — GetRequiredService surfaces it
+            // instead of silently denying team-scoped operations.
+            // A missing or non-Guid 'sub' claim leaves memberships empty (Member with no
+            // team affiliation, equivalent to the OrgAdmin happy path that ignores them)
+            // but emits a Warning so misconfigured IdP / claim mapping surfaces in
+            // observability rather than manifesting as inexplicable 403s downstream.
             // Population runs inside the try block so a reader exception triggers the
             // finally's DisposeAsync, releasing the NpgsqlConnection + transaction.
             var sub = context.User.FindFirst("sub")?.Value;
             if (Guid.TryParse(sub, out var userId))
             {
-                var reader = context.RequestServices.GetService<ITeamMembershipReader>();
-                if (reader is not null)
-                {
-                    var memberships = await reader.GetForUserAsync(userId, ct);
-                    tenantContext.PopulateTeamMemberships(memberships);
-                }
+                var reader = context.RequestServices.GetRequiredService<ITeamMembershipReader>();
+                var memberships = await reader.GetForUserAsync(userId, ct);
+                tenantContext.PopulateTeamMemberships(memberships);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Tenant-scope middleware: 'sub' claim missing or not a Guid (raw='{Sub}'); team memberships will be empty.",
+                    sub);
             }
 
             await _next(context);   // parameter binding + filter chain + handler + IResult.ExecuteAsync

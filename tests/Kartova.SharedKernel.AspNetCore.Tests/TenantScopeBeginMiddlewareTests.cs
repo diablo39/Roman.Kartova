@@ -3,6 +3,7 @@ using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
@@ -15,9 +16,11 @@ namespace Kartova.SharedKernel.AspNetCore.Tests;
 /// <c>SET LOCAL app.current_tenant_id</c> has executed — otherwise the
 /// <c>team_members</c> RLS policy cannot evaluate.
 ///
-/// Happy path only — negative paths (no sub claim, no reader registered, reader
-/// throws) acceptably default to no membership population without breaking the
-/// middleware. Those are covered by integration tests at a higher layer.
+/// Missing-reader is a configuration error (the reader is unconditionally
+/// registered in production by OrganizationModule), surfaced through
+/// <c>GetRequiredService</c>. Missing-or-non-Guid <c>sub</c> claim is the only
+/// path that legitimately leaves memberships empty — and even then the middleware
+/// emits a warning so the failure is visible in observability.
 /// </summary>
 [TestClass]
 public sealed class TenantScopeBeginMiddlewareTests
@@ -65,7 +68,7 @@ public sealed class TenantScopeBeginMiddlewareTests
             displayName: "test-endpoint");
         httpContext.SetEndpoint(endpoint);
 
-        var sut = new TenantScopeBeginMiddleware(_ => Task.CompletedTask);
+        var sut = new TenantScopeBeginMiddleware(_ => Task.CompletedTask, Substitute.For<ILogger<TenantScopeBeginMiddleware>>());
 
         // Act
         await sut.InvokeAsync(httpContext);
@@ -111,12 +114,65 @@ public sealed class TenantScopeBeginMiddlewareTests
             displayName: "test-endpoint");
         httpContext.SetEndpoint(endpoint);
 
-        var sut = new TenantScopeBeginMiddleware(_ => Task.CompletedTask);
+        var sut = new TenantScopeBeginMiddleware(_ => Task.CompletedTask, Substitute.For<ILogger<TenantScopeBeginMiddleware>>());
 
         // Act + Assert: reader throws → middleware propagates, BUT handle.DisposeAsync MUST have run.
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(
             () => sut.InvokeAsync(httpContext));
 
         await handle.Received(1).DisposeAsync();
+    }
+
+    [TestMethod]
+    public async Task Middleware_logs_warning_when_sub_claim_missing()
+    {
+        // Arrange — no 'sub' claim on the principal. Middleware must skip membership
+        // population (legitimately: token without a subject identifier carries no
+        // membership context) but emit a Warning so the misconfiguration surfaces.
+        var tenantId = new TenantId(Guid.NewGuid());
+
+        var reader = Substitute.For<ITeamMembershipReader>();
+        var handle = Substitute.For<IAsyncTenantScopeHandle>();
+        handle.DisposeAsync().Returns(ValueTask.CompletedTask);
+
+        var scope = Substitute.For<ITenantScope>();
+        scope.BeginAsync(Arg.Any<TenantId>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(handle));
+
+        var tenantContext = new TenantContextAccessor();
+        tenantContext.Populate(tenantId, new[] { "OrgAdmin" });
+
+        var services = new ServiceCollection();
+        services.AddSingleton<ITenantContext>(tenantContext);
+        services.AddSingleton(scope);
+        services.AddSingleton(reader);
+        var sp = services.BuildServiceProvider();
+
+        var httpContext = new DefaultHttpContext { RequestServices = sp };
+        // Empty identity — no 'sub' claim.
+        httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(Array.Empty<Claim>(), "test"));
+
+        var endpoint = new Endpoint(
+            requestDelegate: _ => Task.CompletedTask,
+            metadata: new EndpointMetadataCollection(new RequireTenantScopeMarker()),
+            displayName: "test-endpoint");
+        httpContext.SetEndpoint(endpoint);
+
+        var logger = Substitute.For<ILogger<TenantScopeBeginMiddleware>>();
+        var sut = new TenantScopeBeginMiddleware(_ => Task.CompletedTask, logger);
+
+        // Act
+        await sut.InvokeAsync(httpContext);
+
+        // Assert: reader was NOT called (no sub → skip), memberships remain empty,
+        // and the warning fired exactly once.
+        await reader.DidNotReceive().GetForUserAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        Assert.AreEqual(0, tenantContext.TeamMemberships.Count);
+        logger.Received(1).Log(
+            LogLevel.Warning,
+            Arg.Any<EventId>(),
+            Arg.Any<object>(),
+            Arg.Any<Exception?>(),
+            Arg.Any<Func<object, Exception?, string>>());
     }
 }
