@@ -147,6 +147,12 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
         // Invoked from TenantScopeBeginMiddleware after BeginAsync (slice 8 / ADR-0098).
         services.AddScoped<ITeamMembershipReader, OrganizationTeamMembershipReader>();
 
+        // Cross-module team-existence checker (slice 8). Consumed by Catalog's
+        // AssignApplicationTeamHandler — Catalog never references Organization
+        // directly, only the IOrganizationTeamExistenceChecker port in
+        // Kartova.SharedKernel.Multitenancy.
+        services.AddScoped<IOrganizationTeamExistenceChecker, OrganizationTeamExistenceChecker>();
+
         // Team CRUD + member handlers (slice 8). Handlers are invoked directly
         // from the endpoint delegate (synchronous, in-process) — same dispatch
         // pattern as CatalogModule, see CatalogEndpointDelegates' class comment.

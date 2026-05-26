@@ -1,11 +1,14 @@
+using System.Security.Claims;
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Pagination;
 using Kartova.SharedKernel.Postgres.Pagination;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 // ApplicationId is aliased rather than imported via `using Kartova.Catalog.Domain`
 // because that would clash with `System.ApplicationId` in the BCL — same trick
 // ApplicationSortSpecs uses for `DomainApplication`.
@@ -194,5 +197,56 @@ internal static class CatalogEndpointDelegates
 
         if (resp is null) return EndpointResultExtensions.ApplicationNotFound();
         return Results.Ok(resp);
+    }
+
+    /// <summary>
+    /// PUT /applications/{id}/team — assigns (or unassigns) the team that owns
+    /// the application. Slice 8 / ADR-0098 §6.4.
+    /// <para>
+    /// Two-gate authorization: the claim gate
+    /// (<c>KartovaPermissions.CatalogApplicationsEditMetadata</c>) is applied
+    /// at the route level via <c>.RequireAuthorization</c>; the resource gate
+    /// (<see cref="KartovaTeamPolicies.ApplicationTeamScoped"/> — OrgAdmin OR
+    /// member of the app's current team) runs here against the pre-loaded app
+    /// so we can return 403 without leaking team-id existence.
+    /// </para>
+    /// <para>
+    /// Pre-load + handler-reload mirrors <c>UpdateTeamAsync</c>: the pre-load
+    /// is needed to evaluate the resource policy; the handler reload defends
+    /// against a concurrent delete between the two reads (defensive 404).
+    /// Invalid team (non-null id that does not exist in the tenant) surfaces
+    /// as 422 <c>invalid-team</c> per spec §6.4; a Decommissioned target app
+    /// throws <c>InvalidLifecycleTransitionException</c> inside the domain
+    /// method and the shared lifecycle handler maps it to 409.
+    /// </para>
+    /// </summary>
+    internal static async Task<IResult> AssignApplicationTeamAsync(
+        Guid id,
+        [FromBody] AssignTeamRequest request,
+        AssignApplicationTeamHandler handler,
+        CatalogDbContext db,
+        IAuthorizationService auth,
+        ClaimsPrincipal user,
+        CancellationToken ct)
+    {
+        var app = await db.Applications
+            .FirstOrDefaultAsync(ApplicationSortSpecs.IdEquals(id), ct);
+        if (app is null) return EndpointResultExtensions.ApplicationNotFound();
+
+        var authResult = await auth.AuthorizeAsync(user, app, KartovaTeamPolicies.ApplicationTeamScoped);
+        if (!authResult.Succeeded) return Results.Forbid();
+
+        var result = await handler.Handle(
+            new AssignApplicationTeamCommand(id, request.TeamId), db, ct);
+
+        if (result.IsNotFound) return EndpointResultExtensions.ApplicationNotFound();
+        if (result.IsInvalidTeam)
+            return Results.Problem(
+                type: ProblemTypes.InvalidTeam,
+                title: "Invalid team",
+                detail: "The target team does not exist in the current tenant.",
+                statusCode: StatusCodes.Status422UnprocessableEntity);
+
+        return Results.Ok(result.App!.ToResponse());
     }
 }

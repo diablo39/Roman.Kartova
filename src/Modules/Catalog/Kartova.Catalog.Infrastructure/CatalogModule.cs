@@ -103,6 +103,18 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .ProducesProblem(StatusCodes.Status400BadRequest)
               .ProducesProblem(StatusCodes.Status404NotFound)
               .ProducesProblem(StatusCodes.Status409Conflict);
+        // PUT assign-team — set or clear Application.TeamId. Claim gate stops
+        // Viewer/anon; the resource gate (ApplicationTeamScoped — OrgAdmin OR
+        // member of the app's current team) runs inside the delegate against
+        // the pre-loaded app. 422 invalid-team surfaces when the target team
+        // does not exist in the active tenant scope (slice 8 / ADR-0098 §6.4).
+        tenant.MapPut("/applications/{id:guid}/team", CatalogEndpointDelegates.AssignApplicationTeamAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogApplicationsEditMetadata)
+              .WithName("AssignApplicationTeam")
+              .Produces<ApplicationResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
+              .ProducesProblem(StatusCodes.Status404NotFound)
+              .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
@@ -124,6 +136,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<DecommissionApplicationHandler>();
         services.AddScoped<ReactivateApplicationHandler>();
         services.AddScoped<UnDecommissionApplicationHandler>();
+        services.AddScoped<AssignApplicationTeamHandler>();
 
         // TimeProvider is needed by Application.Deprecate / Decommission for the
         // "sunsetDate must be in the future" / "now >= sunsetDate" checks. TryAdd
