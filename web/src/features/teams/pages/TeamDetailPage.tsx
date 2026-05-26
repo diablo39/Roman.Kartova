@@ -1,8 +1,20 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Button } from "@/components/base/buttons/button";
 import { Card, CardContent } from "@/components/base/card/card";
 import { useTeam } from "@/features/teams/api/teams";
+import { RenameTeamDialog } from "@/features/teams/components/RenameTeamDialog";
+import { DeleteTeamConfirmDialog } from "@/features/teams/components/DeleteTeamConfirmDialog";
+import { AddMemberDialog } from "@/features/teams/components/AddMemberDialog";
+import { RemoveMemberConfirmDialog } from "@/features/teams/components/RemoveMemberConfirmDialog";
+import { ChangeRoleDialog } from "@/features/teams/components/ChangeRoleDialog";
 import { usePermissions } from "@/shared/auth/usePermissions";
+
+// Dialog wiring overview (Task 30):
+//   - Rename / Delete / Add member: simple boolean state
+//   - Remove member / Change role: also track which user is being acted on
+//
+// Still stubbed: AssignTeamPicker on application detail pages — Task 31.
 
 export function TeamDetailPage() {
   const { id = "" } = useParams<{ id: string }>();
@@ -10,6 +22,12 @@ export function TeamDetailPage() {
   const { role, teamAdminTeamIds } = usePermissions();
 
   const isAdmin = role === "OrgAdmin" || teamAdminTeamIds.includes(id);
+
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [addMemberOpen, setAddMemberOpen] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<string | null>(null);
+  const [roleTarget, setRoleTarget] = useState<{ userId: string; role: string } | null>(null);
 
   if (teamQuery.isLoading) {
     return (
@@ -46,10 +64,12 @@ export function TeamDetailPage() {
         </div>
         {isAdmin && (
           <div className="flex gap-2">
-            {/* TODO Task 30: wire RenameTeamDialog */}
-            <Button size="sm" color="secondary">Rename</Button>
-            {/* TODO Task 30: wire DeleteTeamDialog */}
-            <Button size="sm" color="primary-destructive">Delete</Button>
+            <Button size="sm" color="secondary" onClick={() => setRenameOpen(true)}>
+              Rename
+            </Button>
+            <Button size="sm" color="primary-destructive" onClick={() => setDeleteOpen(true)}>
+              Delete
+            </Button>
           </div>
         )}
       </div>
@@ -58,8 +78,9 @@ export function TeamDetailPage() {
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-primary">Members</h3>
           {isAdmin && (
-            // TODO Task 30: wire AddTeamMemberDialog
-            <Button size="sm" color="secondary">Add member</Button>
+            <Button size="sm" color="secondary" onClick={() => setAddMemberOpen(true)}>
+              Add member
+            </Button>
           )}
         </div>
         {team.members.length === 0 ? (
@@ -85,8 +106,22 @@ export function TeamDetailPage() {
                     </td>
                     {isAdmin && (
                       <td className="px-4 py-3 text-right">
-                        {/* TODO Task 30: wire RemoveMemberDialog */}
-                        <Button size="sm" color="secondary">Remove</Button>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            color="secondary"
+                            onClick={() => setRoleTarget({ userId: m.userId, role: m.role })}
+                          >
+                            Change role
+                          </Button>
+                          <Button
+                            size="sm"
+                            color="secondary"
+                            onClick={() => setRemoveTarget(m.userId)}
+                          >
+                            Remove
+                          </Button>
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -116,6 +151,27 @@ export function TeamDetailPage() {
           </ul>
         )}
       </section>
+
+      <RenameTeamDialog team={team} open={renameOpen} onOpenChange={setRenameOpen} />
+      <DeleteTeamConfirmDialog team={team} open={deleteOpen} onOpenChange={setDeleteOpen} />
+      <AddMemberDialog teamId={team.id} open={addMemberOpen} onOpenChange={setAddMemberOpen} />
+      <RemoveMemberConfirmDialog
+        teamId={team.id}
+        userId={removeTarget ?? ""}
+        open={removeTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setRemoveTarget(null);
+        }}
+      />
+      <ChangeRoleDialog
+        teamId={team.id}
+        userId={roleTarget?.userId ?? ""}
+        currentRole={roleTarget?.role ?? "Member"}
+        open={roleTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setRoleTarget(null);
+        }}
+      />
     </div>
   );
 }

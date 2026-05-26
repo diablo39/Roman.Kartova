@@ -4,6 +4,7 @@ import { Plus } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { Card, CardContent } from "@/components/base/card/card";
 import { useTeamsList } from "@/features/teams/api/teams";
+import { CreateTeamDialog } from "@/features/teams/components/CreateTeamDialog";
 import { useListUrlState } from "@/lib/list/useListUrlState";
 import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
@@ -18,8 +19,7 @@ export function TeamsListPage() {
   });
 
   const list = useTeamsList({ sortBy, sortOrder });
-  // TODO Task 30: wire CreateTeamDialog
-  const [, setDialogOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const { hasPermission, isLoading: permissionsLoading } = usePermissions();
   const canCreate = !permissionsLoading && hasPermission(KartovaPermissions.TeamCreate);
@@ -90,6 +90,8 @@ export function TeamsListPage() {
           </table>
         </div>
       )}
+
+      <CreateTeamDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
 }
