@@ -210,4 +210,81 @@ public class ApplicationLifecycleTests
             () => app.Decommission(Clock(Now.AddDays(3))));
         Assert.AreEqual(Lifecycle.Decommissioned, ex.CurrentLifecycle);
     }
+
+    // ---------------------------------------------------------------------
+    // AssignTeam (slice 8). Note: the Decommissioned-blocks-assign invariant
+    // is a deliberate addition on top of the original spec — mirrors the
+    // EditMetadata terminal-write guard. Tracked for spec amendment post-merge.
+    // ---------------------------------------------------------------------
+
+    [TestMethod]
+    public void New_application_has_null_TeamId()
+    {
+        var app = NewActive();
+        Assert.IsNull(app.TeamId);
+    }
+
+    [TestMethod]
+    public void AssignTeam_on_Active_sets_TeamId()
+    {
+        var app = NewActive();
+        var teamId = Guid.NewGuid();
+
+        app.AssignTeam(teamId);
+
+        Assert.AreEqual(teamId, app.TeamId);
+    }
+
+    [TestMethod]
+    public void AssignTeam_on_Deprecated_succeeds()
+    {
+        // Deprecated is not a terminal state for assignment — only Decommissioned
+        // blocks the operation (consistent with EditMetadata).
+        var app = NewActive();
+        app.Deprecate(Now.AddDays(30), Clock());
+        var teamId = Guid.NewGuid();
+
+        app.AssignTeam(teamId);
+
+        Assert.AreEqual(Lifecycle.Deprecated, app.Lifecycle);
+        Assert.AreEqual(teamId, app.TeamId);
+    }
+
+    [TestMethod]
+    public void AssignTeam_with_null_unassigns()
+    {
+        // Passing null is how OrgAdmin removes a team assignment. Distinct from
+        // "blocked by lifecycle" — the guard checks state, not the argument.
+        var app = NewActive();
+        app.AssignTeam(Guid.NewGuid());
+
+        app.AssignTeam(null);
+
+        Assert.IsNull(app.TeamId);
+    }
+
+    [TestMethod]
+    public void AssignTeam_when_Decommissioned_throws_InvalidLifecycleTransitionException()
+    {
+        var app = NewActive();
+        app.Deprecate(Now.AddDays(1), Clock());
+        app.Decommission(Clock(Now.AddDays(2)));
+
+        var ex = Assert.ThrowsExactly<InvalidLifecycleTransitionException>(
+            () => app.AssignTeam(Guid.NewGuid()));
+        Assert.AreEqual(Lifecycle.Decommissioned, ex.CurrentLifecycle);
+    }
+
+    [TestMethod]
+    public void AssignTeam_with_null_when_Decommissioned_also_throws()
+    {
+        // Terminal-write guard fires on state, not on the argument — even a
+        // "remove assignment" must be rejected on Decommissioned. Catches a
+        // would-be `teamId is not null` short-circuit in the guard.
+        var app = NewActive();
+        app.Deprecate(Now.AddDays(1), Clock());
+        app.Decommission(Clock(Now.AddDays(2)));
+
+        Assert.ThrowsExactly<InvalidLifecycleTransitionException>(() => app.AssignTeam(null));
+    }
 }

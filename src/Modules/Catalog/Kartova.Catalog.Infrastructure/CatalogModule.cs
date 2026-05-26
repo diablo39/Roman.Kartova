@@ -131,6 +131,13 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         // registered TimeProvider, this is a no-op so tests can swap in
         // FakeTimeProvider without losing the production default.
         services.TryAddSingleton(TimeProvider.System);
+
+        // Cross-module readers exposed to Organization via SharedKernel ports
+        // (slice 8). The Organization module never references Catalog directly —
+        // it depends on IApplicationCountByTeamReader / IApplicationIdsByTeamReader,
+        // implemented here against the Catalog DbContext.
+        services.AddScoped<IApplicationCountByTeamReader, ApplicationCountByTeamReader>();
+        services.AddScoped<IApplicationIdsByTeamReader, ApplicationIdsByTeamReader>();
     }
 
     public void RegisterForMigrator(IServiceCollection services, IConfiguration configuration)

@@ -3,7 +3,7 @@ using Kartova.SharedKernel.Multitenancy;
 
 namespace Kartova.Catalog.Domain;
 
-public sealed partial class Application : ITenantOwned
+public sealed partial class Application : ITenantOwned, ITeamScopedResource
 {
     // Backing field for the primary key — stored as a plain Guid so EF Core can
     // translate ORDER BY / WHERE expressions without going through the value
@@ -22,7 +22,10 @@ public sealed partial class Application : ITenantOwned
     public DateTimeOffset CreatedAt { get; private set; }
     public Lifecycle Lifecycle { get; private set; } = Lifecycle.Active;
     public DateTimeOffset? SunsetDate { get; private set; }
+    public Guid? TeamId { get; private set; }
     public uint Version { get; private set; }
+
+    Guid? ITeamScopedResource.TeamId => TeamId;
 
     private Application(
         ApplicationId id,
@@ -138,6 +141,20 @@ public sealed partial class Application : ITenantOwned
 
         Lifecycle = Lifecycle.Active;
         SunsetDate = null;
+    }
+
+    /// <summary>
+    /// Assigns this application to a team (or unassigns when <paramref name="teamId"/> is null).
+    /// Blocked on Decommissioned (terminal-write guard, consistent with EditMetadata).
+    /// </summary>
+    public void AssignTeam(Guid? teamId)
+    {
+        if (Lifecycle == Lifecycle.Decommissioned)
+        {
+            throw new InvalidLifecycleTransitionException(Lifecycle, nameof(AssignTeam));
+        }
+
+        TeamId = teamId;
     }
 
     public void UnDecommission(DateTimeOffset newSunsetDate, TimeProvider clock)
