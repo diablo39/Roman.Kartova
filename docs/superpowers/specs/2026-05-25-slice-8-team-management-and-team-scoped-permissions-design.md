@@ -495,7 +495,7 @@ Team module endpoints follow the same pattern, gating on `KartovaTeamPolicies.Te
 
 | Method | Path | Claim policy | Resource policy | Notes |
 |---|---|---|---|---|
-| `PUT` | `/applications/{id:guid}/team` | `catalog.applications.edit-metadata` | `ApplicationTeamScoped` | Body `{ teamId: Guid? }` (`null` unassigns). Handler verifies the target `teamId` exists in current tenant (RLS-scoped query → 422 `invalid-team` if not). |
+| `PUT` | `/applications/{id:guid}/team` | `catalog.applications.edit-metadata` | `ApplicationTeamScoped` | Body `{ teamId: Guid? }` (`null` unassigns). Handler verifies the target `teamId` exists in current tenant (RLS-scoped query → 422 `invalid-team` if not). **Target-team membership is required for non-OrgAdmin callers (slice-8 boundary-review fix SF-2). 403 returned otherwise** — prevents a non-OrgAdmin member from reassigning the app to a team they don't belong to, which would orphan them on the very next request. OrgAdmin and null-teamId (unassign) are unaffected. |
 
 ### 6.3 New DTOs in `Kartova.Organization.Contracts`
 

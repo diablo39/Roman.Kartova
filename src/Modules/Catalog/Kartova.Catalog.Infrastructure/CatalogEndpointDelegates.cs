@@ -247,6 +247,15 @@ internal static class CatalogEndpointDelegates
     /// a team before deleting it). The shared lifecycle handler maps the
     /// non-null Decommissioned throw to 409.
     /// </para>
+    /// <para>
+    /// Slice-8 boundary-review fix SF-2: a target-team membership check runs
+    /// between the source-team gate (above) and the handler dispatch. A
+    /// non-OrgAdmin caller cannot reassign the app to a team they do not
+    /// belong to — that would orphan them from the app on the very next
+    /// request. The SPA picker already hides such targets; this is the
+    /// server-side enforcement so non-SPA clients cannot bypass it. OrgAdmin
+    /// and null-teamId (unassign) paths are unaffected.
+    /// </para>
     /// </summary>
     internal static async Task<IResult> AssignApplicationTeamAsync(
         Guid id,
@@ -255,10 +264,22 @@ internal static class CatalogEndpointDelegates
         CatalogDbContext db,
         IAuthorizationService auth,
         ClaimsPrincipal user,
+        ICurrentUser currentUser,
         CancellationToken ct)
     {
         var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
         if (gate is not null) return gate;
+
+        // Target-team check (SF-2): block non-OrgAdmin callers from moving the
+        // app to a team they aren't a member of. OrgAdmin always allowed;
+        // null teamId (unassign) always allowed for callers who already passed
+        // the source-team gate above.
+        if (request.TeamId is { } targetTeamId
+            && !user.IsInRole(KartovaRoles.OrgAdmin)
+            && !currentUser.TeamIds.Contains(targetTeamId))
+        {
+            return Results.Forbid();
+        }
 
         var result = await handler.Handle(
             new AssignApplicationTeamCommand(id, request.TeamId), db, ct);

@@ -186,4 +186,117 @@ public sealed class AssignApplicationTeamTests : CatalogIntegrationTestBase
             await Fx.DeleteTeamsForTenantAsync(Tenant.Value);
         }
     }
+
+    [TestMethod]
+    public async Task Member_in_team_A_reassigning_app_to_team_B_they_do_not_belong_to_returns_403()
+    {
+        // Slice-8 boundary-review fix SF-2: caller is a Member of teamA only.
+        // App is in teamA, so the source-team gate (ApplicationTeamScoped) passes.
+        // Target is teamB — caller isn't in teamB, so the target-team check must
+        // 403 before the handler reassigns and orphans the caller from the app.
+        var tenant = new TenantId(Guid.Parse("aaaaaaaa-0030-0030-0030-000000000001"));
+        var teamA = await Fx.SeedTeamInOrganizationAsync(tenant, "Team A");
+        var teamB = await Fx.SeedTeamInOrganizationAsync(tenant, "Team B");
+
+        var memberId = Guid.NewGuid();
+        await Fx.SeedTeamMembershipAsync(teamA, memberId, MemberRole);
+
+        var appId = await Fx.SeedSingleApplicationAsync(tenant, Guid.NewGuid(), teamId: teamA,
+            namePrefix: "sf2-cross");
+        try
+        {
+            var client = Fx.CreateClient();
+            var token = Fx.Signer.IssueForTenant(
+                tenant,
+                new[] { KartovaRoles.Member },
+                subject: memberId.ToString());
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var resp = await client.PutAsJsonAsync(
+                $"/api/v1/catalog/applications/{appId}/team",
+                new AssignTeamRequest(teamB));
+
+            Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
+        }
+        finally
+        {
+            await Fx.DeleteApplicationsByPrefixAsync(tenant, "sf2-cross");
+            await Fx.DeleteTeamsForTenantAsync(tenant.Value);
+        }
+    }
+
+    [TestMethod]
+    public async Task Member_in_both_teams_reassigning_app_to_team_they_belong_to_succeeds()
+    {
+        // Control case for SF-2: caller is a Member of teamA1 AND teamA2.
+        // App is in teamA1. Reassign to teamA2 — both source and target gates
+        // pass and the handler runs. Verifies the SF-2 check doesn't over-block.
+        var tenant = new TenantId(Guid.Parse("aaaaaaaa-0030-0030-0030-000000000002"));
+        var teamA1 = await Fx.SeedTeamInOrganizationAsync(tenant, "Team A1");
+        var teamA2 = await Fx.SeedTeamInOrganizationAsync(tenant, "Team A2");
+
+        var memberId = Guid.NewGuid();
+        await Fx.SeedTeamMembershipAsync(teamA1, memberId, MemberRole);
+        await Fx.SeedTeamMembershipAsync(teamA2, memberId, MemberRole);
+
+        var appId = await Fx.SeedSingleApplicationAsync(tenant, Guid.NewGuid(), teamId: teamA1,
+            namePrefix: "sf2-ok");
+        try
+        {
+            var client = Fx.CreateClient();
+            var token = Fx.Signer.IssueForTenant(
+                tenant,
+                new[] { KartovaRoles.Member },
+                subject: memberId.ToString());
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var resp = await client.PutAsJsonAsync(
+                $"/api/v1/catalog/applications/{appId}/team",
+                new AssignTeamRequest(teamA2));
+
+            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        }
+        finally
+        {
+            await Fx.DeleteApplicationsByPrefixAsync(tenant, "sf2-ok");
+            await Fx.DeleteTeamsForTenantAsync(tenant.Value);
+        }
+    }
+
+    [TestMethod]
+    public async Task Member_in_team_A_unassigning_app_succeeds_even_if_caller_only_in_source_team()
+    {
+        // SF-2 boundary: null teamId (unassign) is always allowed for callers
+        // who pass the source-team gate, regardless of target-team membership
+        // (there is no target team). Otherwise a team Member could never release
+        // an app from their team without being a Member of "nothing".
+        var tenant = new TenantId(Guid.Parse("aaaaaaaa-0030-0030-0030-000000000003"));
+        var teamA = await Fx.SeedTeamInOrganizationAsync(tenant, "Team A only");
+
+        var memberId = Guid.NewGuid();
+        await Fx.SeedTeamMembershipAsync(teamA, memberId, MemberRole);
+
+        var appId = await Fx.SeedSingleApplicationAsync(tenant, Guid.NewGuid(), teamId: teamA,
+            namePrefix: "sf2-unassign");
+        try
+        {
+            var client = Fx.CreateClient();
+            var token = Fx.Signer.IssueForTenant(
+                tenant,
+                new[] { KartovaRoles.Member },
+                subject: memberId.ToString());
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var resp = await client.PutAsJsonAsync(
+                $"/api/v1/catalog/applications/{appId}/team",
+                new AssignTeamRequest(null));
+
+            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        }
+        finally
+        {
+            await Fx.DeleteApplicationsByPrefixAsync(tenant, "sf2-unassign");
+            await Fx.DeleteTeamsForTenantAsync(tenant.Value);
+        }
+    }
 }
