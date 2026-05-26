@@ -28,6 +28,10 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\Kartova.Api\Kartova.Api.csproj" />
     <ProjectReference Include="..\Kartova.Catalog.Infrastructure\Kartova.Catalog.Infrastructure.csproj" />
+    <!-- Slice 8: integration tests need to migrate the Organization schema too so
+         AssignApplicationTeam's cross-module IOrganizationTeamExistenceChecker query
+         can resolve. Test-only dependency — architecture rules target src/ assemblies. -->
+    <ProjectReference Include="..\..\Organization\Kartova.Organization.Infrastructure\Kartova.Organization.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\..\tests\Kartova.Testing.Auth\Kartova.Testing.Auth.csproj" />
   </ItemGroup>
 

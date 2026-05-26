@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Net.Http.Headers;
 using Kartova.Catalog.Domain;
 using Kartova.Catalog.Infrastructure;
+using Kartova.Organization.Infrastructure;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.Testing.Auth;
 using Microsoft.EntityFrameworkCore;
@@ -14,15 +15,26 @@ namespace Kartova.Catalog.IntegrationTests;
 /// Catalog-specific fixture. All cross-module plumbing (Postgres container,
 /// role bootstrap, JWT signer wiring, env-var wiring of the Kartova.Api host,
 /// JWT minting helpers) lives in <see cref="KartovaApiFixtureBase"/>; this
-/// type only declares which DbContext to migrate.
+/// type only declares which DbContexts to migrate.
+///
+/// Slice 8 — migrates the Organization schema too: the Catalog module's
+/// <c>AssignApplicationTeamHandler</c> resolves the cross-module
+/// <c>IOrganizationTeamExistenceChecker</c>, which queries <c>teams</c>.
+/// Without that table the PUT /applications/{id}/team endpoint would throw on
+/// a missing relation rather than evaluate the 422 invalid-team branch.
 /// </summary>
 [ExcludeFromCodeCoverage]
 public class KartovaApiFixture : KartovaApiFixtureBase
 {
-    protected override Task RunModuleMigrationsAsync(string migratorConnectionString) =>
-        PostgresTestBootstrap.RunMigrationsAsync<CatalogDbContext>(
+    protected override async Task RunModuleMigrationsAsync(string migratorConnectionString)
+    {
+        await PostgresTestBootstrap.RunMigrationsAsync<CatalogDbContext>(
             migratorConnectionString,
             opts => new CatalogDbContext(opts));
+        await PostgresTestBootstrap.RunMigrationsAsync<OrganizationDbContext>(
+            migratorConnectionString,
+            opts => new OrganizationDbContext(opts));
+    }
 
     /// <summary>
     /// Creates an HTTP client with a bearer token scoped to OrgA
@@ -170,4 +182,88 @@ public class KartovaApiFixture : KartovaApiFixtureBase
             tenantId.Value, namePrefix);
     }
 
+    /// <summary>
+    /// Seeds a single Catalog application for a tenant and returns its id.
+    /// Used by slice-8 assign-team tests that need exactly one row, optionally
+    /// pre-assigned to a team. Bypass-RLS so RLS does not block the insert.
+    /// </summary>
+    public async Task<Guid> SeedSingleApplicationAsync(
+        TenantId tenantId, Guid ownerUserId, Guid? teamId, string? namePrefix = null)
+    {
+        var opts = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseNpgsql(BypassConnectionString)
+            .Options;
+        await using var db = new CatalogDbContext(opts);
+
+        var name = (namePrefix ?? "assign-app") + "-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+        var app = DomainApplication.Create(
+            name: name,
+            displayName: name,
+            description: "seeded for assign-team tests",
+            ownerUserId: ownerUserId,
+            tenantId: tenantId,
+            createdAt: DateTimeOffset.UtcNow);
+        if (teamId is { } tid) app.AssignTeam(tid);
+
+        db.Applications.Add(app);
+        await db.SaveChangesAsync();
+        return app.Id.Value;
+    }
+
+    /// <summary>
+    /// Inserts a team row directly into the Organization schema via BYPASSRLS so
+    /// the Catalog AssignApplicationTeam endpoint's cross-module existence check
+    /// (<c>IOrganizationTeamExistenceChecker</c>) finds a real row in the active
+    /// tenant. Returns the new team's id. Slice 8.
+    /// </summary>
+    public async Task<Guid> SeedTeamInOrganizationAsync(TenantId tenantId, string displayName)
+    {
+        var teamId = Guid.NewGuid();
+        await using var conn = new Npgsql.NpgsqlConnection(BypassConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO teams (id, tenant_id, display_name, description, created_at)
+            VALUES ($1, $2, $3, NULL, NOW())
+            """;
+        cmd.Parameters.AddWithValue(teamId);
+        cmd.Parameters.AddWithValue(tenantId.Value);
+        cmd.Parameters.AddWithValue(displayName);
+        await cmd.ExecuteNonQueryAsync();
+        return teamId;
+    }
+
+    /// <summary>
+    /// Seeds a team_members row directly via BYPASSRLS. <paramref name="roleByte"/>
+    /// matches <c>TeamRole</c> (1 = Member, 2 = Admin). Idempotent.
+    /// </summary>
+    public async Task SeedTeamMembershipAsync(Guid teamId, Guid userId, byte roleByte)
+    {
+        var opts = new DbContextOptionsBuilder<OrganizationDbContext>()
+            .UseNpgsql(BypassConnectionString)
+            .Options;
+        await using var db = new OrganizationDbContext(opts);
+        await db.Database.ExecuteSqlRawAsync(
+            "INSERT INTO team_members (team_id, user_id, role, added_at) VALUES ({0}, {1}, {2}, NOW()) ON CONFLICT (team_id, user_id) DO NOTHING",
+            teamId, userId, (int)roleByte);
+    }
+
+    /// <summary>
+    /// Removes every team + team_members row for a tenant. Two-step because the
+    /// slice-8 migration does NOT add a FK between <c>team_members.team_id</c>
+    /// and <c>teams.id</c>, so cascade does not fire.
+    /// </summary>
+    public async Task DeleteTeamsForTenantAsync(Guid tenantId)
+    {
+        var opts = new DbContextOptionsBuilder<OrganizationDbContext>()
+            .UseNpgsql(BypassConnectionString)
+            .Options;
+        await using var db = new OrganizationDbContext(opts);
+        await db.Database.ExecuteSqlRawAsync(
+            "DELETE FROM team_members WHERE team_id IN (SELECT id FROM teams WHERE tenant_id = {0})",
+            tenantId);
+        await db.Database.ExecuteSqlRawAsync(
+            "DELETE FROM teams WHERE tenant_id = {0}",
+            tenantId);
+    }
 }

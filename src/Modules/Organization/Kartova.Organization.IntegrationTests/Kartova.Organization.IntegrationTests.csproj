@@ -24,6 +24,10 @@
     <ProjectReference Include="..\..\..\..\src\Kartova.Api\Kartova.Api.csproj" />
     <ProjectReference Include="..\Kartova.Organization.Infrastructure\Kartova.Organization.Infrastructure.csproj" />
     <ProjectReference Include="..\Kartova.Organization.Infrastructure.Admin\Kartova.Organization.Infrastructure.Admin.csproj" />
+    <!-- Slice 8: integration tests need to migrate the Catalog schema too so DeleteTeamHandler's
+         cross-module IApplicationCountByTeamReader query can resolve. Test-only dependency —
+         architecture rules target src/ assemblies, not test assemblies. -->
+    <ProjectReference Include="..\..\Catalog\Kartova.Catalog.Infrastructure\Kartova.Catalog.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\..\tests\Kartova.Testing.Auth\Kartova.Testing.Auth.csproj" />
   </ItemGroup>
 </Project>
