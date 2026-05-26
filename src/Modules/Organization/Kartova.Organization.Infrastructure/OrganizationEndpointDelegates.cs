@@ -156,11 +156,8 @@ internal static class OrganizationEndpointDelegates
         ClaimsPrincipal user,
         CancellationToken ct)
     {
-        var team = await db.Teams.FirstOrDefaultAsync(TeamSortSpecs.IdEquals(id), ct);
-        if (team is null) return TeamNotFound();
-
-        var authResult = await auth.AuthorizeAsync(user, team, KartovaTeamPolicies.TeamAdminOfThis);
-        if (!authResult.Succeeded) return Results.Forbid();
+        var gate = await LoadAndAuthorizeTeamAsync(id, db, auth, user, ct);
+        if (gate is not null) return gate;
 
         var resp = await handler.Handle(
             new UpdateTeamCommand(id, request.DisplayName, request.Description), db, ct);
@@ -179,11 +176,8 @@ internal static class OrganizationEndpointDelegates
         ClaimsPrincipal user,
         CancellationToken ct)
     {
-        var team = await db.Teams.FirstOrDefaultAsync(TeamSortSpecs.IdEquals(id), ct);
-        if (team is null) return TeamNotFound();
-
-        var authResult = await auth.AuthorizeAsync(user, team, KartovaTeamPolicies.TeamAdminOfThis);
-        if (!authResult.Succeeded) return Results.Forbid();
+        var gate = await LoadAndAuthorizeTeamAsync(id, db, auth, user, ct);
+        if (gate is not null) return gate;
 
         var result = await handler.Handle(new DeleteTeamCommand(id), db, ct);
         if (result.NotFound) return TeamNotFound();
@@ -212,21 +206,10 @@ internal static class OrganizationEndpointDelegates
         ClaimsPrincipal user,
         CancellationToken ct)
     {
-        var team = await db.Teams.FirstOrDefaultAsync(TeamSortSpecs.IdEquals(id), ct);
-        if (team is null) return TeamNotFound();
+        var gate = await LoadAndAuthorizeTeamAsync(id, db, auth, user, ct);
+        if (gate is not null) return gate;
 
-        var authResult = await auth.AuthorizeAsync(user, team, KartovaTeamPolicies.TeamAdminOfThis);
-        if (!authResult.Succeeded) return Results.Forbid();
-
-        if (!Enum.TryParse<TeamRole>(request.Role, ignoreCase: true, out var role)
-            || !Enum.IsDefined(role))
-        {
-            return Results.Problem(
-                type: ProblemTypes.ValidationFailed,
-                title: "Invalid role",
-                detail: $"'{request.Role}' must be 'Admin' or 'Member'.",
-                statusCode: StatusCodes.Status400BadRequest);
-        }
+        if (!TryParseRole(request.Role, out var role, out var roleError)) return roleError;
 
         var result = await handler.Handle(new AddTeamMemberCommand(id, request.UserId, role), db, ct);
         if (result.TeamNotFound) return TeamNotFound();
@@ -257,11 +240,8 @@ internal static class OrganizationEndpointDelegates
         ClaimsPrincipal user,
         CancellationToken ct)
     {
-        var team = await db.Teams.FirstOrDefaultAsync(TeamSortSpecs.IdEquals(id), ct);
-        if (team is null) return TeamNotFound();
-
-        var authResult = await auth.AuthorizeAsync(user, team, KartovaTeamPolicies.TeamAdminOfThis);
-        if (!authResult.Succeeded) return Results.Forbid();
+        var gate = await LoadAndAuthorizeTeamAsync(id, db, auth, user, ct);
+        if (gate is not null) return gate;
 
         var result = await handler.Handle(new RemoveTeamMemberCommand(id, userId), db, ct);
         if (result.TeamNotFound) return TeamNotFound();
@@ -286,21 +266,10 @@ internal static class OrganizationEndpointDelegates
         ClaimsPrincipal user,
         CancellationToken ct)
     {
-        var team = await db.Teams.FirstOrDefaultAsync(TeamSortSpecs.IdEquals(id), ct);
-        if (team is null) return TeamNotFound();
+        var gate = await LoadAndAuthorizeTeamAsync(id, db, auth, user, ct);
+        if (gate is not null) return gate;
 
-        var authResult = await auth.AuthorizeAsync(user, team, KartovaTeamPolicies.TeamAdminOfThis);
-        if (!authResult.Succeeded) return Results.Forbid();
-
-        if (!Enum.TryParse<TeamRole>(request.Role, ignoreCase: true, out var role)
-            || !Enum.IsDefined(role))
-        {
-            return Results.Problem(
-                type: ProblemTypes.ValidationFailed,
-                title: "Invalid role",
-                detail: $"'{request.Role}' must be 'Admin' or 'Member'.",
-                statusCode: StatusCodes.Status400BadRequest);
-        }
+        if (!TryParseRole(request.Role, out var role, out var roleError)) return roleError;
 
         var result = await handler.Handle(new UpdateTeamMemberCommand(id, userId, role), db, ct);
         if (result.TeamNotFound) return TeamNotFound();
@@ -316,6 +285,53 @@ internal static class OrganizationEndpointDelegates
     }
 
     // ----- shared helpers -----------------------------------------------
+
+    /// <summary>
+    /// Loads the team by id (RLS-scoped to the current tenant) and runs the
+    /// <see cref="KartovaTeamPolicies.TeamAdminOfThis"/> resource gate against
+    /// it. Returns <c>null</c> on success; otherwise returns the response to
+    /// short-circuit with (404 if the team is not visible, 403 if the caller
+    /// is not a team admin of it). Used by every mutation endpoint on
+    /// <c>/teams/{id}</c> and <c>/teams/{id}/members/...</c>.
+    /// </summary>
+    private static async Task<IResult?> LoadAndAuthorizeTeamAsync(
+        Guid id,
+        OrganizationDbContext db,
+        IAuthorizationService auth,
+        ClaimsPrincipal user,
+        CancellationToken ct)
+    {
+        var team = await db.Teams.FirstOrDefaultAsync(TeamSortSpecs.IdEquals(id), ct);
+        if (team is null) return TeamNotFound();
+
+        var authResult = await auth.AuthorizeAsync(user, team, KartovaTeamPolicies.TeamAdminOfThis);
+        if (!authResult.Succeeded) return Results.Forbid();
+
+        return null;
+    }
+
+    /// <summary>
+    /// Parses a wire-format role string ("Admin" / "Member", case-insensitive)
+    /// into the strongly-typed <see cref="TeamRole"/>. Returns <c>true</c> on
+    /// success; on failure sets <paramref name="error"/> to the RFC 7807 400
+    /// envelope clients receive and returns <c>false</c>. Shared by AddMember
+    /// and UpdateMember which both bind <c>request.Role</c> as a string.
+    /// </summary>
+    private static bool TryParseRole(string raw, out TeamRole role, out IResult error)
+    {
+        if (Enum.TryParse(raw, ignoreCase: true, out role) && Enum.IsDefined(role))
+        {
+            error = null!;
+            return true;
+        }
+
+        error = Results.Problem(
+            type: ProblemTypes.ValidationFailed,
+            title: "Invalid role",
+            detail: $"'{raw}' must be 'Admin' or 'Member'.",
+            statusCode: StatusCodes.Status400BadRequest);
+        return false;
+    }
 
     /// <summary>
     /// RFC 7807 404 envelope shared by every Team endpoint that resolves a
