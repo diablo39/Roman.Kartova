@@ -12,7 +12,7 @@
 | Phase | Status | Progress |
 |-------|--------|----------|
 | Phase 0: Foundation | In Progress | 10/33 |
-| Phase 1: Core Catalog & Notifications | In Progress | 7/55 |
+| Phase 1: Core Catalog & Notifications | In Progress | 10/55 |
 | Phase 2: Auto-Import | Not Started | 0/36 |
 | Phase 3: Documentation | Not Started | 0/15 |
 | Phase 4: Status Page | Not Started | 0/16 |
@@ -124,9 +124,9 @@
 - [ ] E-03.F-01.S-02 — Invite users with specific roles
 
 **E-03.F-02: Team Management**
-- [ ] E-03.F-02.S-01 — Create and manage team profile
-- [ ] E-03.F-02.S-02 — Assign components to team
-- [ ] E-03.F-02.S-03 — Team page with components and scorecard
+- [x] E-03.F-02.S-01 — Create and manage team profile (slice 8 — PR #TBD, 2026-05-26; `teams` table + `DisplayName`/`Description`; OrgAdmin creates, TeamAdmin renames own team)
+- [x] E-03.F-02.S-02 — Assign components to team (slice 8 — PR #TBD, 2026-05-26; `PUT /applications/{id}/team`; team-scoped Catalog mutations via `KartovaTeamPolicies.ApplicationTeamScoped` resource handler)
+- [~] E-03.F-02.S-03 — Team page with components and scorecard (slice 8 — PR #TBD, 2026-05-26; team detail page with members + assigned application IDs; scorecard deferred to E-10)
 
 **E-03.F-03: System Grouping**
 - [ ] E-03.F-03.S-01 — Create System and assign components
