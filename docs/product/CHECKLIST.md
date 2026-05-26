@@ -12,7 +12,7 @@
 | Phase | Status | Progress |
 |-------|--------|----------|
 | Phase 0: Foundation | In Progress | 10/33 |
-| Phase 1: Core Catalog & Notifications | In Progress | 10/55 |
+| Phase 1: Core Catalog & Notifications | In Progress | 10/57 |
 | Phase 2: Auto-Import | Not Started | 0/36 |
 | Phase 3: Documentation | Not Started | 0/15 |
 | Phase 4: Status Page | Not Started | 0/16 |
@@ -21,7 +21,7 @@
 | Phase 7: Intelligence | Not Started | 0/13 |
 | Phase 8: Analytics | Not Started | 0/14 |
 | Phase 9: Advanced | Not Started | 0/0 |
-| **Total** | | **17/209** |
+| **Total** | | **17/211** |
 
 ---
 
@@ -86,7 +86,7 @@
 
 ---
 
-## Phase 1: Core Catalog & Notifications (52 stories)
+## Phase 1: Core Catalog & Notifications (54 stories)
 
 ### E-02: Entity Registry
 
@@ -122,6 +122,8 @@
 **E-03.F-01: Organization Management**
 - [ ] E-03.F-01.S-01 — Configure organization profile
 - [ ] E-03.F-01.S-02 — Invite users with specific roles
+- [ ] E-03.F-01.S-03 — View user details (owner/member name + click-through)
+- [ ] E-03.F-01.S-04 — User search for team-member add
 
 **E-03.F-02: Team Management**
 - [x] E-03.F-02.S-01 — Create and manage team profile (slice 8 — PR #TBD, 2026-05-26; `teams` table + `DisplayName`/`Description`; OrgAdmin creates, TeamAdmin renames own team)
