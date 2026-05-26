@@ -6,6 +6,11 @@ export const KartovaPermissions = {
   CatalogApplicationsEditMetadata: "catalog.applications.edit-metadata",
   CatalogApplicationsLifecycleForward: "catalog.applications.lifecycle.forward",
   CatalogApplicationsLifecycleReverse: "catalog.applications.lifecycle.reverse",
+  TeamRead: "team.read",
+  TeamCreate: "team.create",
+  TeamMetadataEdit: "team.metadata.edit",
+  TeamDelete: "team.delete",
+  TeamMembersManage: "team.members.manage",
 } as const;
 
 export type KartovaPermission = (typeof KartovaPermissions)[keyof typeof KartovaPermissions];
