@@ -135,11 +135,8 @@ internal static class CatalogEndpointDelegates
         HttpContext http,
         CancellationToken ct)
     {
-        var app = await db.Applications.FirstOrDefaultAsync(ApplicationSortSpecs.IdEquals(id), ct);
-        if (app is null) return EndpointResultExtensions.ApplicationNotFound();
-
-        var authResult = await auth.AuthorizeAsync(user, app, KartovaTeamPolicies.ApplicationTeamScoped);
-        if (!authResult.Succeeded) return Results.Forbid();
+        var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
+        if (gate is not null) return gate;
 
         var expected = (uint)http.Items[IfMatchEndpointFilter.ExpectedVersionKey]!;
 
@@ -160,11 +157,8 @@ internal static class CatalogEndpointDelegates
         ClaimsPrincipal user,
         CancellationToken ct)
     {
-        var app = await db.Applications.FirstOrDefaultAsync(ApplicationSortSpecs.IdEquals(id), ct);
-        if (app is null) return EndpointResultExtensions.ApplicationNotFound();
-
-        var authResult = await auth.AuthorizeAsync(user, app, KartovaTeamPolicies.ApplicationTeamScoped);
-        if (!authResult.Succeeded) return Results.Forbid();
+        var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
+        if (gate is not null) return gate;
 
         var resp = await handler.Handle(
             new DeprecateApplicationCommand(new ApplicationId(id), request.SunsetDate),
@@ -182,11 +176,8 @@ internal static class CatalogEndpointDelegates
         ClaimsPrincipal user,
         CancellationToken ct)
     {
-        var app = await db.Applications.FirstOrDefaultAsync(ApplicationSortSpecs.IdEquals(id), ct);
-        if (app is null) return EndpointResultExtensions.ApplicationNotFound();
-
-        var authResult = await auth.AuthorizeAsync(user, app, KartovaTeamPolicies.ApplicationTeamScoped);
-        if (!authResult.Succeeded) return Results.Forbid();
+        var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
+        if (gate is not null) return gate;
 
         var resp = await handler.Handle(
             new DecommissionApplicationCommand(new ApplicationId(id)), db, ct);
@@ -203,11 +194,8 @@ internal static class CatalogEndpointDelegates
         ClaimsPrincipal user,
         CancellationToken ct)
     {
-        var app = await db.Applications.FirstOrDefaultAsync(ApplicationSortSpecs.IdEquals(id), ct);
-        if (app is null) return EndpointResultExtensions.ApplicationNotFound();
-
-        var authResult = await auth.AuthorizeAsync(user, app, KartovaTeamPolicies.ApplicationTeamScoped);
-        if (!authResult.Succeeded) return Results.Forbid();
+        var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
+        if (gate is not null) return gate;
 
         var resp = await handler.Handle(
             new ReactivateApplicationCommand(new ApplicationId(id)), db, ct);
@@ -225,11 +213,8 @@ internal static class CatalogEndpointDelegates
         ClaimsPrincipal user,
         CancellationToken ct)
     {
-        var app = await db.Applications.FirstOrDefaultAsync(ApplicationSortSpecs.IdEquals(id), ct);
-        if (app is null) return EndpointResultExtensions.ApplicationNotFound();
-
-        var authResult = await auth.AuthorizeAsync(user, app, KartovaTeamPolicies.ApplicationTeamScoped);
-        if (!authResult.Succeeded) return Results.Forbid();
+        var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
+        if (gate is not null) return gate;
 
         var resp = await handler.Handle(
             new UnDecommissionApplicationCommand(new ApplicationId(id), request.SunsetDate),
@@ -269,12 +254,8 @@ internal static class CatalogEndpointDelegates
         ClaimsPrincipal user,
         CancellationToken ct)
     {
-        var app = await db.Applications
-            .FirstOrDefaultAsync(ApplicationSortSpecs.IdEquals(id), ct);
-        if (app is null) return EndpointResultExtensions.ApplicationNotFound();
-
-        var authResult = await auth.AuthorizeAsync(user, app, KartovaTeamPolicies.ApplicationTeamScoped);
-        if (!authResult.Succeeded) return Results.Forbid();
+        var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
+        if (gate is not null) return gate;
 
         var result = await handler.Handle(
             new AssignApplicationTeamCommand(id, request.TeamId), db, ct);
@@ -288,5 +269,32 @@ internal static class CatalogEndpointDelegates
                 statusCode: StatusCodes.Status422UnprocessableEntity);
 
         return Results.Ok(result.App!.ToResponse());
+    }
+
+    // ----- shared helpers -----------------------------------------------
+
+    /// <summary>
+    /// Loads the application by id (RLS-scoped to the current tenant) and runs
+    /// the <see cref="KartovaTeamPolicies.ApplicationTeamScoped"/> resource gate
+    /// against it. Returns <c>null</c> on success; otherwise returns the response
+    /// to short-circuit with (404 if the app is not visible, 403 if the caller
+    /// is neither OrgAdmin nor a member of the app's owning team). Used by every
+    /// mutation endpoint on <c>/applications/{id}</c> — Edit, Deprecate,
+    /// Decommission, Reactivate, UnDecommission, and AssignTeam (slice 8).
+    /// </summary>
+    private static async Task<IResult?> LoadAndAuthorizeApplicationAsync(
+        Guid id,
+        CatalogDbContext db,
+        IAuthorizationService auth,
+        ClaimsPrincipal user,
+        CancellationToken ct)
+    {
+        var app = await db.Applications.FirstOrDefaultAsync(ApplicationSortSpecs.IdEquals(id), ct);
+        if (app is null) return EndpointResultExtensions.ApplicationNotFound();
+
+        var authResult = await auth.AuthorizeAsync(user, app, KartovaTeamPolicies.ApplicationTeamScoped);
+        if (!authResult.Succeeded) return Results.Forbid();
+
+        return null;
     }
 }
