@@ -1,9 +1,15 @@
 using System.Security.Claims;
 using Kartova.Organization.Application;
 using Kartova.Organization.Contracts;
+using Kartova.Organization.Domain;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Multitenancy;
+using Kartova.SharedKernel.Pagination;
+using Kartova.SharedKernel.Postgres.Pagination;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Kartova.Organization.Infrastructure;
 
@@ -43,4 +49,275 @@ internal static class OrganizationEndpointDelegates
 
         return Results.Ok(new MePermissionsResponse(role, permissions));
     }
+
+    // ----- Teams: list / get / create -----------------------------------
+
+    /// <summary>
+    /// Mirrors <c>CatalogEndpointDelegates.ListApplicationsAsync</c>: <c>sortBy</c>
+    /// / <c>sortOrder</c> bind as nullable strings, are parsed via
+    /// <c>Enum.TryParse(ignoreCase: true)</c> + <c>Enum.IsDefined</c>, and invalid
+    /// inputs throw the same paging exceptions the shared <c>PagingExceptionHandler</c>
+    /// converts to RFC 7807 400s. Keeps the wire envelope identical across
+    /// resources (ADR-0095 §4.3).
+    /// </summary>
+    internal static async Task<IResult> ListTeamsAsync(
+        [FromQuery] string? sortBy,
+        [FromQuery] string? sortOrder,
+        [FromQuery] string? cursor,
+        [FromQuery] string? limit,
+        ListTeamsHandler handler,
+        OrganizationDbContext db,
+        CancellationToken ct)
+    {
+        TeamSortField? parsedSortBy = null;
+        if (sortBy is not null)
+        {
+            if (!Enum.TryParse<TeamSortField>(sortBy, ignoreCase: true, out var sf)
+                || !Enum.IsDefined(sf))
+            {
+                throw new InvalidSortFieldException(sortBy, TeamSortSpecs.AllowedFieldNames);
+            }
+            parsedSortBy = sf;
+        }
+
+        SortOrder? parsedSortOrder = null;
+        if (sortOrder is not null)
+        {
+            if (!Enum.TryParse<SortOrder>(sortOrder, ignoreCase: true, out var so)
+                || !Enum.IsDefined(so))
+            {
+                throw new InvalidSortOrderException(sortOrder);
+            }
+            parsedSortOrder = so;
+        }
+
+        int effectiveLimit;
+        if (limit is null)
+        {
+            effectiveLimit = QueryablePagingExtensions.DefaultLimit;
+        }
+        else if (!int.TryParse(limit, System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out effectiveLimit))
+        {
+            throw new InvalidLimitException(
+                limit,
+                QueryablePagingExtensions.MinLimit,
+                QueryablePagingExtensions.MaxLimit);
+        }
+
+        var query = new ListTeamsQuery(
+            SortBy: parsedSortBy ?? TeamSortField.CreatedAt,
+            SortOrder: parsedSortOrder ?? SortOrder.Desc,
+            Cursor: cursor,
+            Limit: effectiveLimit);
+
+        var page = await handler.Handle(query, db, ct);
+        return Results.Ok(page);
+    }
+
+    internal static async Task<IResult> GetTeamAsync(
+        Guid id,
+        GetTeamHandler handler,
+        OrganizationDbContext db,
+        CancellationToken ct)
+    {
+        var resp = await handler.Handle(new GetTeamQuery(id), db, ct);
+        if (resp is null) return TeamNotFound();
+        return Results.Ok(resp);
+    }
+
+    internal static async Task<IResult> CreateTeamAsync(
+        [FromBody] CreateTeamRequest request,
+        CreateTeamHandler handler,
+        OrganizationDbContext db,
+        CancellationToken ct)
+    {
+        var resp = await handler.Handle(
+            new CreateTeamCommand(request.DisplayName, request.Description), db, ct);
+        return Results.Created($"/api/v1/organizations/teams/{resp.Id}", resp);
+    }
+
+    // ----- Teams: mutate (team-admin-of-this gated) ---------------------
+
+    internal static async Task<IResult> UpdateTeamAsync(
+        Guid id,
+        [FromBody] UpdateTeamRequest request,
+        UpdateTeamHandler handler,
+        OrganizationDbContext db,
+        IAuthorizationService auth,
+        ClaimsPrincipal user,
+        CancellationToken ct)
+    {
+        var team = await db.Teams.FirstOrDefaultAsync(TeamSortSpecs.IdEquals(id), ct);
+        if (team is null) return TeamNotFound();
+
+        var authResult = await auth.AuthorizeAsync(user, team, KartovaTeamPolicies.TeamAdminOfThis);
+        if (!authResult.Succeeded) return Results.Forbid();
+
+        var resp = await handler.Handle(
+            new UpdateTeamCommand(id, request.DisplayName, request.Description), db, ct);
+        // Defensive 404: handler returns null only on missing team, but we already
+        // loaded and authorized above — if it slips through (e.g. concurrent delete),
+        // surface the same 404 envelope clients expect.
+        if (resp is null) return TeamNotFound();
+        return Results.Ok(resp);
+    }
+
+    internal static async Task<IResult> DeleteTeamAsync(
+        Guid id,
+        DeleteTeamHandler handler,
+        OrganizationDbContext db,
+        IAuthorizationService auth,
+        ClaimsPrincipal user,
+        CancellationToken ct)
+    {
+        var team = await db.Teams.FirstOrDefaultAsync(TeamSortSpecs.IdEquals(id), ct);
+        if (team is null) return TeamNotFound();
+
+        var authResult = await auth.AuthorizeAsync(user, team, KartovaTeamPolicies.TeamAdminOfThis);
+        if (!authResult.Succeeded) return Results.Forbid();
+
+        var result = await handler.Handle(new DeleteTeamCommand(id), db, ct);
+        if (result.NotFound) return TeamNotFound();
+        if (result.ApplicationsAssigned is > 0)
+        {
+            // 409 with applicationCount extension — the SPA renders
+            // "{N} applications still assigned" in its toast (spec §6.5 / §6.x).
+            return Results.Problem(
+                type: ProblemTypes.TeamHasApplications,
+                title: "Team has assigned applications",
+                detail: $"Cannot delete team: {result.ApplicationsAssigned} application(s) are still assigned. Reassign or unassign them first.",
+                statusCode: StatusCodes.Status409Conflict,
+                extensions: new Dictionary<string, object?> { ["applicationCount"] = result.ApplicationsAssigned });
+        }
+        return Results.NoContent();
+    }
+
+    // ----- Team members (team-admin-of-this gated) ----------------------
+
+    internal static async Task<IResult> AddTeamMemberAsync(
+        Guid id,
+        [FromBody] AddTeamMemberRequest request,
+        AddTeamMemberHandler handler,
+        OrganizationDbContext db,
+        IAuthorizationService auth,
+        ClaimsPrincipal user,
+        TimeProvider clock,
+        CancellationToken ct)
+    {
+        var team = await db.Teams.FirstOrDefaultAsync(TeamSortSpecs.IdEquals(id), ct);
+        if (team is null) return TeamNotFound();
+
+        var authResult = await auth.AuthorizeAsync(user, team, KartovaTeamPolicies.TeamAdminOfThis);
+        if (!authResult.Succeeded) return Results.Forbid();
+
+        if (!Enum.TryParse<TeamRole>(request.Role, ignoreCase: true, out var role)
+            || !Enum.IsDefined(role))
+        {
+            return Results.Problem(
+                type: ProblemTypes.ValidationFailed,
+                title: "Invalid role",
+                detail: $"'{request.Role}' must be 'Admin' or 'Member'.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var result = await handler.Handle(new AddTeamMemberCommand(id, request.UserId, role), db, ct);
+        if (result.TeamNotFound) return TeamNotFound();
+        if (result.AlreadyMember)
+        {
+            return Results.Problem(
+                type: ProblemTypes.ValidationFailed,
+                title: "Duplicate membership",
+                detail: "User is already a member of this team.",
+                statusCode: StatusCodes.Status409Conflict);
+        }
+
+        // Spec §critic-revision item 7: AddTeamMember returns 201 + TeamMemberResponse,
+        // NOT 204. AddedAt is sourced from the injected TimeProvider — this is a wall-
+        // clock snapshot from the endpoint, not the DB value the handler wrote; the
+        // delta is sub-millisecond in practice (handler ran inline immediately above).
+        var resp = new TeamMemberResponse(request.UserId, role.ToString(), clock.GetUtcNow());
+        return Results.Created($"/api/v1/organizations/teams/{id}/members/{request.UserId}", resp);
+    }
+
+    internal static async Task<IResult> RemoveTeamMemberAsync(
+        Guid id,
+        Guid userId,
+        RemoveTeamMemberHandler handler,
+        OrganizationDbContext db,
+        IAuthorizationService auth,
+        ClaimsPrincipal user,
+        CancellationToken ct)
+    {
+        var team = await db.Teams.FirstOrDefaultAsync(TeamSortSpecs.IdEquals(id), ct);
+        if (team is null) return TeamNotFound();
+
+        var authResult = await auth.AuthorizeAsync(user, team, KartovaTeamPolicies.TeamAdminOfThis);
+        if (!authResult.Succeeded) return Results.Forbid();
+
+        var result = await handler.Handle(new RemoveTeamMemberCommand(id, userId), db, ct);
+        if (result.TeamNotFound) return TeamNotFound();
+        if (result.MemberNotFound)
+        {
+            return Results.Problem(
+                type: ProblemTypes.ResourceNotFound,
+                title: "Membership not found",
+                detail: "No membership exists for this user on this team.",
+                statusCode: StatusCodes.Status404NotFound);
+        }
+        return Results.NoContent();
+    }
+
+    internal static async Task<IResult> UpdateTeamMemberAsync(
+        Guid id,
+        Guid userId,
+        [FromBody] UpdateTeamMemberRequest request,
+        UpdateTeamMemberHandler handler,
+        OrganizationDbContext db,
+        IAuthorizationService auth,
+        ClaimsPrincipal user,
+        CancellationToken ct)
+    {
+        var team = await db.Teams.FirstOrDefaultAsync(TeamSortSpecs.IdEquals(id), ct);
+        if (team is null) return TeamNotFound();
+
+        var authResult = await auth.AuthorizeAsync(user, team, KartovaTeamPolicies.TeamAdminOfThis);
+        if (!authResult.Succeeded) return Results.Forbid();
+
+        if (!Enum.TryParse<TeamRole>(request.Role, ignoreCase: true, out var role)
+            || !Enum.IsDefined(role))
+        {
+            return Results.Problem(
+                type: ProblemTypes.ValidationFailed,
+                title: "Invalid role",
+                detail: $"'{request.Role}' must be 'Admin' or 'Member'.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var result = await handler.Handle(new UpdateTeamMemberCommand(id, userId, role), db, ct);
+        if (result.TeamNotFound) return TeamNotFound();
+        if (result.MemberNotFound)
+        {
+            return Results.Problem(
+                type: ProblemTypes.ResourceNotFound,
+                title: "Membership not found",
+                detail: "No membership exists for this user on this team.",
+                statusCode: StatusCodes.Status404NotFound);
+        }
+        return Results.NoContent();
+    }
+
+    // ----- shared helpers -----------------------------------------------
+
+    /// <summary>
+    /// RFC 7807 404 envelope shared by every Team endpoint that resolves a
+    /// team by id. RLS hides cross-tenant rows so unknown id and cross-tenant
+    /// id surface identically (intentional, ADR-0090). Mirrors
+    /// <c>EndpointResultExtensions.ApplicationNotFound</c> in the Catalog module.
+    /// </summary>
+    private static IResult TeamNotFound() => Results.Problem(
+        type: ProblemTypes.ResourceNotFound,
+        title: "Team not found",
+        detail: "No team with that id is visible in the current tenant.",
+        statusCode: StatusCodes.Status404NotFound);
 }
