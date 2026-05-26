@@ -30,4 +30,8 @@ public static class ProblemTypes
 
     // Lifecycle transitions — ADR-0073, slice 5.
     public const string LifecycleConflict      = Base + "lifecycle-conflict";
+
+    // Team management — slice 8 (ADR-0098 spec §6.5).
+    public const string TeamHasApplications    = Base + "team-has-applications";
+    public const string InvalidTeam            = Base + "invalid-team";
 }
