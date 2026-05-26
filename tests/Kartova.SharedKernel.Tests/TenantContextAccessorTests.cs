@@ -237,4 +237,38 @@ public class TenantContextAccessorTests
         CollectionAssert.DoesNotContain(sut.Roles.ToArray(), "old-role");
         Assert.IsTrue(sut.IsTenantScoped);
     }
+
+    [TestMethod]
+    public void PopulateTeamMemberships_sets_collections_and_TeamIds_shortcut()
+    {
+        var ctx = new TenantContextAccessor();
+        var memberships = new List<TeamMembershipInfo>
+        {
+            new(Guid.Parse("11111111-1111-1111-1111-111111111111"), TeamRoleKind.Member),
+            new(Guid.Parse("22222222-2222-2222-2222-222222222222"), TeamRoleKind.Admin),
+        };
+
+        ctx.PopulateTeamMemberships(memberships);
+
+        CollectionAssert.AreEquivalent(memberships, ctx.TeamMemberships.ToList());
+        CollectionAssert.AreEquivalent(memberships.Select(m => m.TeamId).ToList(), ctx.TeamIds.ToList());
+    }
+
+    [TestMethod]
+    public void Clear_resets_team_memberships()
+    {
+        var ctx = new TenantContextAccessor();
+        ctx.PopulateTeamMemberships(new[] { new TeamMembershipInfo(Guid.NewGuid(), TeamRoleKind.Admin) });
+        ctx.Clear();
+        Assert.AreEqual(0, ctx.TeamMemberships.Count);
+        Assert.AreEqual(0, ctx.TeamIds.Count);
+    }
+
+    [TestMethod]
+    public void TeamMemberships_default_is_empty()
+    {
+        var ctx = new TenantContextAccessor();
+        Assert.AreEqual(0, ctx.TeamMemberships.Count);
+        Assert.AreEqual(0, ctx.TeamIds.Count);
+    }
 }
