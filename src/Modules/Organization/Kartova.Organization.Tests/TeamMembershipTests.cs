@@ -37,4 +37,14 @@ public sealed class TeamMembershipTests
         m.ChangeRole(TeamRole.Admin);
         Assert.AreEqual(TeamRole.Admin, m.Role);
     }
+
+    [TestMethod]
+    public void Create_with_null_clock_throws_ArgumentNullException()
+    {
+        // Kills Statement mutation on `ArgumentNullException.ThrowIfNull(clock)`
+        // in TeamMembership.Create — without this assertion the throw can be
+        // suppressed and the test suite still passes.
+        Assert.ThrowsExactly<ArgumentNullException>(() =>
+            TeamMembership.Create(TeamId.New(), Guid.NewGuid(), TeamRole.Admin, clock: null!));
+    }
 }
