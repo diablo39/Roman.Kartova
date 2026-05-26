@@ -14,9 +14,11 @@ namespace Kartova.Catalog.Infrastructure;
 /// → 422 (spec §6.4). TOCTOU between the existence check and the assignment is
 /// accepted as best-effort for slice 8, same as <c>DeleteTeamHandler</c>'s
 /// count-check (Task 14). <see cref="Kartova.Catalog.Domain.Application.AssignTeam"/>
-/// throws <c>InvalidLifecycleTransitionException</c> on Decommissioned apps —
-/// the shared <c>LifecycleConflictExceptionHandler</c> maps that to 409, so the
-/// handler does not catch it.
+/// throws <c>InvalidLifecycleTransitionException</c> on Decommissioned apps only
+/// when <c>teamId</c> is non-null; null-unassign succeeds on any lifecycle by
+/// design (slice-8 boundary-review fix — lets OrgAdmin release a team before
+/// deleting it). The shared <c>LifecycleConflictExceptionHandler</c> maps the
+/// non-null Decommissioned throw to 409, so the handler does not catch it.
 /// </summary>
 public sealed class AssignApplicationTeamHandler(IOrganizationTeamExistenceChecker teamChecker)
 {

@@ -184,6 +184,7 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
     public void ConfigureWolverine(WolverineOptions options)
     {
         options.Discovery.IncludeAssembly(typeof(OrganizationModule).Assembly);
-        // Handlers and publish routes arrive in later slices.
+        // Bus-routed handlers and publish routes arrive in later slices; slice 8
+        // handlers use direct dispatch per ADR-0093.
     }
 }

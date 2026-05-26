@@ -64,7 +64,7 @@ internal static class DevSeed
                         INSERT INTO catalog_applications (id, tenant_id, display_name, description, owner_user_id, created_at)
                         VALUES (gen_random_uuid(), $1, $2, $3, gen_random_uuid(), $4);
                         """;
-                    // Reverse-alphabetical displayName relative to insertion order so name-asc != createdAt-asc.
+                    // Varied display names so the docker-compose smoke renders aren't all-identical.
                     var letter = (char)('a' + ((119 - i) % 26));
                     var displayName = char.ToUpper(letter) + $" App {i:D3}";
                     insertCmd.Parameters.AddWithValue(OrgATenantId);

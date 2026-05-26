@@ -210,9 +210,9 @@ public class ApplicationLifecycleTests
     }
 
     // ---------------------------------------------------------------------
-    // AssignTeam (slice 8). Note: the Decommissioned-blocks-assign invariant
-    // is a deliberate addition on top of the original spec — mirrors the
-    // EditMetadata terminal-write guard. Tracked for spec amendment post-merge.
+    // AssignTeam (slice 8). Decommissioned blocks non-null reassign (mirrors
+    // EditMetadata terminal-write guard) but permits null-unassign so OrgAdmin
+    // can release a team before deleting it — see slice-8 boundary-review fix.
     // ---------------------------------------------------------------------
 
     [TestMethod]

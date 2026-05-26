@@ -240,9 +240,12 @@ internal static class CatalogEndpointDelegates
     /// is needed to evaluate the resource policy; the handler reload defends
     /// against a concurrent delete between the two reads (defensive 404).
     /// Invalid team (non-null id that does not exist in the tenant) surfaces
-    /// as 422 <c>invalid-team</c> per spec §6.4; a Decommissioned target app
+    /// as 422 <c>invalid-team</c> per spec §6.4. A Decommissioned target app
     /// throws <c>InvalidLifecycleTransitionException</c> inside the domain
-    /// method and the shared lifecycle handler maps it to 409.
+    /// method ONLY when <c>teamId</c> is non-null — null-unassign succeeds on
+    /// any lifecycle (slice-8 boundary-review carve-out so OrgAdmin can release
+    /// a team before deleting it). The shared lifecycle handler maps the
+    /// non-null Decommissioned throw to 409.
     /// </para>
     /// </summary>
     internal static async Task<IResult> AssignApplicationTeamAsync(
