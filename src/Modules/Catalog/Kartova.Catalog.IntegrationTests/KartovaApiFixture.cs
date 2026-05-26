@@ -72,7 +72,8 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     /// Seeds <paramref name="count"/> applications for the given tenant, with
     /// spread-apart <c>createdAt</c> timestamps so sort-by-createdAt tests are
     /// deterministic. Uses the bypass-RLS connection so rows can be inserted
-    /// without an active tenant scope.
+    /// without an active tenant scope. <paramref name="namePrefix"/> drives the
+    /// <c>displayName</c> column (ADR-0098: the kebab <c>name</c> column was dropped).
     /// </summary>
     public async Task SeedApplicationsAsync(TenantId tenantId, int count, string namePrefix)
     {
@@ -85,8 +86,7 @@ public class KartovaApiFixture : KartovaApiFixtureBase
         for (var i = 0; i < count; i++)
         {
             db.Applications.Add(DomainApplication.Create(
-                name: $"{namePrefix}{i:D3}",
-                displayName: $"{namePrefix.ToUpperInvariant()}{i:D3}",
+                displayName: $"{namePrefix}{i:D3}",
                 description: "seeded for pagination tests",
                 ownerUserId: Guid.NewGuid(),
                 tenantId: tenantId,
@@ -132,8 +132,7 @@ public class KartovaApiFixture : KartovaApiFixtureBase
         for (var i = 0; i < count; i++)
         {
             var app = DomainApplication.Create(
-                name: $"{namePrefix}{i:D3}",
-                displayName: $"{namePrefix.ToUpperInvariant()}{i:D3}",
+                displayName: $"{namePrefix}{i:D3}",
                 description: "seeded for filter tests",
                 ownerUserId: Guid.NewGuid(),
                 tenantId: tenantId,
@@ -165,10 +164,16 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     }
 
     /// <summary>
-    /// Deletes application rows for a tenant whose <c>Name</c> starts with
+    /// Deletes application rows for a tenant whose <c>DisplayName</c> starts with
     /// <paramref name="namePrefix"/>. Use in test teardown when the test seeded
     /// rows with a unique (e.g., Guid-suffixed) prefix — preserves rows seeded
     /// by other tests in the same class fixture. Slice 6.
+    /// <para>
+    /// ADR-0098 / slice 8: previously this filtered on the <c>name</c> column;
+    /// after the kebab slug was retired, callers pass display-name-prefix strings
+    /// (via <see cref="SeedApplicationsAsync"/> / <see cref="SeedApplicationsWithLifecycleAsync"/>
+    /// which now write to <c>display_name</c>), so we filter on <c>display_name</c>.
+    /// </para>
     /// </summary>
     public async Task DeleteApplicationsByPrefixAsync(TenantId tenantId, string namePrefix)
     {
@@ -178,7 +183,7 @@ public class KartovaApiFixture : KartovaApiFixtureBase
 
         await using var db = new CatalogDbContext(opts);
         await db.Database.ExecuteSqlRawAsync(
-            "DELETE FROM catalog_applications WHERE tenant_id = {0} AND name LIKE {1} || '%'",
+            "DELETE FROM catalog_applications WHERE tenant_id = {0} AND display_name LIKE {1} || '%'",
             tenantId.Value, namePrefix);
     }
 
@@ -197,7 +202,6 @@ public class KartovaApiFixture : KartovaApiFixtureBase
 
         var name = (namePrefix ?? "assign-app") + "-" + Guid.NewGuid().ToString("N").Substring(0, 8);
         var app = DomainApplication.Create(
-            name: name,
             displayName: name,
             description: "seeded for assign-team tests",
             ownerUserId: ownerUserId,

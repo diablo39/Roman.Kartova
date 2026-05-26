@@ -21,7 +21,7 @@ public class ApplicationLifecycleTests
     private static FakeTimeProvider Clock(DateTimeOffset? now = null) => TestClocks.At(now ?? Now);
 
     private static DomainApplication NewActive() =>
-        DomainApplication.Create("payments-api", "Payments API", "Description.", Owner, Tenant, Clock());
+        DomainApplication.Create("Payments API", "Description.", Owner, Tenant, Clock());
 
     [TestMethod]
     public void New_application_starts_in_Active_state_with_null_sunsetDate()
@@ -70,17 +70,15 @@ public class ApplicationLifecycleTests
     }
 
     [TestMethod]
-    public void EditMetadata_does_not_change_Name_or_OwnerUserId_or_TenantId_or_CreatedAt()
+    public void EditMetadata_does_not_change_OwnerUserId_or_TenantId_or_CreatedAt()
     {
         var app = NewActive();
-        var origName = app.Name;
         var origOwner = app.OwnerUserId;
         var origTenant = app.TenantId;
         var origCreated = app.CreatedAt;
 
         app.EditMetadata("Different", "Different.");
 
-        Assert.AreEqual(origName, app.Name);
         Assert.AreEqual(origOwner, app.OwnerUserId);
         Assert.AreEqual(origTenant, app.TenantId);
         Assert.AreEqual(origCreated, app.CreatedAt);

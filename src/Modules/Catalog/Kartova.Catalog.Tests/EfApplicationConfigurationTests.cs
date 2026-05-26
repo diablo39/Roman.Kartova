@@ -126,13 +126,7 @@ public class EfApplicationConfigurationTests
         // Arrange
         var entity = GetEntityType();
 
-        // Act / Assert — Name
-        var name = entity.FindProperty("Name")!;
-        Assert.IsFalse(name.IsNullable, "Name is required");
-        Assert.AreEqual(256, name.GetMaxLength(), "Name max length is 256");
-        Assert.AreEqual("name", name.GetColumnName());
-
-        // DisplayName
+        // Act / Assert — DisplayName
         var displayName = entity.FindProperty("DisplayName")!;
         Assert.IsFalse(displayName.IsNullable, "DisplayName is required");
         Assert.AreEqual(128, displayName.GetMaxLength(), "DisplayName max length is 128");

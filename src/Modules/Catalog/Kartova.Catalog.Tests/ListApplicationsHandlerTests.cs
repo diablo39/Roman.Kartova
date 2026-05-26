@@ -25,15 +25,6 @@ public class ListApplicationsHandlerTests
     }
 
     [TestMethod]
-    public void Resolve_Name_returns_Name_sort_spec()
-    {
-        var spec = ApplicationSortSpecs.Resolve(ApplicationSortField.Name);
-
-        Assert.AreSame(ApplicationSortSpecs.Name, spec);
-        Assert.AreEqual("name", spec.FieldName);
-    }
-
-    [TestMethod]
     public void Resolve_undefined_enum_value_throws_InvalidSortFieldException_with_allowlist()
     {
         // (ApplicationSortField)999 is the exact path Enum.TryParse takes when given a
@@ -43,14 +34,14 @@ public class ListApplicationsHandlerTests
         // cannot fall through to a default sort silently.
         var ex = Assert.ThrowsExactly<InvalidSortFieldException>(
             () => ApplicationSortSpecs.Resolve((ApplicationSortField)999));
-        CollectionAssert.AreEquivalent(new[] { "createdAt", "name" }, ex.AllowedFields.ToArray());
+        CollectionAssert.AreEquivalent(new[] { "createdAt" }, ex.AllowedFields.ToArray());
     }
 
     [TestMethod]
     public void AllowedFieldNames_lists_only_supported_fields()
     {
         CollectionAssert.AreEquivalent(
-            new[] { "createdAt", "name" },
+            new[] { "createdAt" },
             ApplicationSortSpecs.AllowedFieldNames.ToArray());
     }
 }

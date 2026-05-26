@@ -7,11 +7,11 @@ namespace Kartova.Catalog.Contracts;
 public sealed record ApplicationResponse(
     Guid Id,
     Guid TenantId,
-    string Name,
     string DisplayName,
     string Description,
     Guid OwnerUserId,
     DateTimeOffset CreatedAt,
     Lifecycle Lifecycle,
     DateTimeOffset? SunsetDate,
+    Guid? TeamId,
     string Version);

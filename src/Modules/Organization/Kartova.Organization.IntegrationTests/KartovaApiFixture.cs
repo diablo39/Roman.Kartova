@@ -136,7 +136,6 @@ public class KartovaApiFixture : KartovaApiFixtureBase
         await using var db = new CatalogDbContext(opts);
 
         var app = DomainApplication.Create(
-            name: name,
             displayName: name,
             description: "seeded for DeleteTeam 409 path",
             ownerUserId: Guid.NewGuid(),

@@ -17,15 +17,14 @@ public class RegisterApplicationTests : CatalogIntegrationTestBase
         var client = await Fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest("payments-api", "Payments API", "Payments REST surface."));
+            new RegisterApplicationRequest("Payments API", "Payments REST surface."));
 
         Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode);
         StringAssert.StartsWith(resp.Headers.Location!.ToString(), "/api/v1/catalog/applications/");
 
         var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
         Assert.IsNotNull(body);
-        Assert.AreEqual("payments-api", body!.Name);
-        Assert.AreEqual("Payments API", body.DisplayName);
+        Assert.AreEqual("Payments API", body!.DisplayName);
         Assert.AreEqual("Payments REST surface.", body.Description);
         Assert.AreNotEqual(Guid.Empty, body.Id);
 
@@ -45,7 +44,7 @@ public class RegisterApplicationTests : CatalogIntegrationTestBase
 
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest("svc-x", "Svc X", "x"));
+            new RegisterApplicationRequest("Svc X", "x"));
         Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode);
 
         var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
@@ -60,7 +59,7 @@ public class RegisterApplicationTests : CatalogIntegrationTestBase
 
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest("svc-y", "Svc Y", "y"));
+            new RegisterApplicationRequest("Svc Y", "y"));
         Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode);
 
         var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
@@ -68,22 +67,16 @@ public class RegisterApplicationTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
-    [DataRow("", "Display", "desc")]
-    [DataRow("   ", "Display", "desc")]
-    [DataRow("name", "", "desc")]
-    [DataRow("name", "  ", "desc")]
-    [DataRow("name", "Display", "")]
-    [DataRow("name", "Display", "  ")]
-    [DataRow("BadName", "Display", "desc")]      // kebab-case: uppercase
-    [DataRow("bad_name", "Display", "desc")]     // underscore
-    [DataRow("bad name", "Display", "desc")]     // space
-    [DataRow("9digit", "Display", "desc")]       // leading digit
-    public async Task POST_with_invalid_payload_returns_400(string name, string displayName, string description)
+    [DataRow("", "desc")]
+    [DataRow("  ", "desc")]
+    [DataRow("Display", "")]
+    [DataRow("Display", "  ")]
+    public async Task POST_with_invalid_payload_returns_400(string displayName, string description)
     {
         var client = await Fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest(name, displayName, description));
+            new RegisterApplicationRequest(displayName, description));
 
         Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
         Assert.AreEqual("application/problem+json", resp.Content.Headers.ContentType!.MediaType);
@@ -95,14 +88,14 @@ public class RegisterApplicationTests : CatalogIntegrationTestBase
         var client = await Fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
         var post = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest("svc-z", "Svc Z", "z"));
+            new RegisterApplicationRequest("Svc Z", "z"));
         var created = await post.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
 
         var get = await client.GetAsync($"/api/v1/catalog/applications/{created!.Id}");
         Assert.AreEqual(HttpStatusCode.OK, get.StatusCode);
         var fetched = await get.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
         Assert.AreEqual(created.Id, fetched!.Id);
-        Assert.AreEqual("svc-z", fetched.Name);
+        Assert.AreEqual("Svc Z", fetched.DisplayName);
     }
 
     [TestMethod]
@@ -154,7 +147,7 @@ public class RegisterApplicationTests : CatalogIntegrationTestBase
     {
         var post = await c.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest(name, name, $"desc for {name}"));
+            new RegisterApplicationRequest(name, $"desc for {name}"));
         return (await post.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
     }
 
@@ -164,7 +157,7 @@ public class RegisterApplicationTests : CatalogIntegrationTestBase
         var client = await Fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest("svc-fl", "", "desc"));
+            new RegisterApplicationRequest("", "desc"));
 
         Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
         var doc = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
@@ -180,7 +173,7 @@ public class RegisterApplicationTests : CatalogIntegrationTestBase
         using var client = Fx.CreateAnonymousClient();
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest("name", "Name", "desc"));
+            new RegisterApplicationRequest("Name", "desc"));
 
         Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
     }
@@ -193,7 +186,7 @@ public class RegisterApplicationTests : CatalogIntegrationTestBase
         var clientA = await Fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
         var post = await clientA.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest("orga-private", "Orga Private", "owned by orga"));
+            new RegisterApplicationRequest("Orga Private", "owned by orga"));
         Assert.AreEqual(HttpStatusCode.Created, post.StatusCode);
         var orgaApp = await post.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
 

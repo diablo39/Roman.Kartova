@@ -11,12 +11,12 @@ public static class ApplicationResponseExtensions
         new(
             app.Id.Value,
             app.TenantId.Value,
-            app.Name,
             app.DisplayName,
             app.Description,
             app.OwnerUserId,
             app.CreatedAt,
             app.Lifecycle,
             app.SunsetDate,
+            app.TeamId,
             VersionEncoding.Encode(app.Version));
 }
