@@ -7,11 +7,12 @@ namespace Kartova.SharedKernel.Tests;
 public sealed class KartovaRolePermissionsTests
 {
     [TestMethod]
-    public void Viewer_can_read_catalog_only()
+    public void Viewer_can_read_catalog_and_teams()
     {
         var perms = KartovaRolePermissions.ForRole(KartovaRoles.Viewer);
-        Assert.AreEqual(1, perms.Count);
+        Assert.AreEqual(2, perms.Count);
         Assert.IsTrue(perms.Contains(KartovaPermissions.CatalogRead));
+        Assert.IsTrue(perms.Contains(KartovaPermissions.TeamRead));
     }
 
     [TestMethod]
@@ -26,12 +27,20 @@ public sealed class KartovaRolePermissionsTests
     }
 
     [TestMethod]
-    public void TeamAdmin_set_equals_Member_set_in_slice_7()
+    public void TeamAdmin_is_superset_of_Member_with_team_management_perms()
     {
+        // Slice 8 (ADR-0098): TeamAdmin diverges from Member by gaining
+        // team metadata edit / delete / members manage. Still gated to own team
+        // via resource auth at the handler layer.
         var member = KartovaRolePermissions.ForRole(KartovaRoles.Member);
         var teamAdmin = KartovaRolePermissions.ForRole(KartovaRoles.TeamAdmin);
-        CollectionAssert.AreEquivalent(member.ToList(), teamAdmin.ToList(),
-            "TeamAdmin is forward-compat in slice 7; should match Member.");
+        Assert.IsTrue(member.IsSubsetOf(teamAdmin),
+            "TeamAdmin must retain everything Member has.");
+        Assert.IsTrue(teamAdmin.Contains(KartovaPermissions.TeamMetadataEdit));
+        Assert.IsTrue(teamAdmin.Contains(KartovaPermissions.TeamDelete));
+        Assert.IsTrue(teamAdmin.Contains(KartovaPermissions.TeamMembersManage));
+        Assert.IsFalse(teamAdmin.Contains(KartovaPermissions.TeamCreate),
+            "team.create is OrgAdmin-only — TeamAdmin cannot create new teams.");
     }
 
     [TestMethod]

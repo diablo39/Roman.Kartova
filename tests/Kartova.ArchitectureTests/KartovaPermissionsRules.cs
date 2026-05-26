@@ -90,6 +90,26 @@ public sealed class KartovaPermissionsRules
             "TS permissions.snapshot.json must match C# KartovaPermissions.All exactly.");
     }
 
+    [TestMethod]
+    public void Team_permissions_are_present_in_KartovaPermissions_All()
+    {
+        string[] expected = ["team.read", "team.create", "team.metadata.edit", "team.delete", "team.members.manage"];
+        foreach (var perm in expected)
+            Assert.IsTrue(KartovaPermissions.All.Contains(perm), $"missing: {perm}");
+    }
+
+    [TestMethod]
+    [DataRow(KartovaRoles.Viewer,   new[] { "team.read" })]
+    [DataRow(KartovaRoles.Member,   new[] { "team.read" })]
+    [DataRow(KartovaRoles.TeamAdmin, new[] { "team.read", "team.metadata.edit", "team.delete", "team.members.manage" })]
+    [DataRow(KartovaRoles.OrgAdmin, new[] { "team.read", "team.create", "team.metadata.edit", "team.delete", "team.members.manage" })]
+    public void Role_permissions_include_team_perms(string role, string[] requiredPerms)
+    {
+        Assert.IsTrue(KartovaRolePermissions.Map.TryGetValue(role, out var perms), $"role missing: {role}");
+        foreach (var p in requiredPerms)
+            Assert.IsTrue(perms.Contains(p), $"role {role} missing perm {p}");
+    }
+
     private static string FindRepoFile(string relativePath)
     {
         var dir = new DirectoryInfo(Directory.GetCurrentDirectory());

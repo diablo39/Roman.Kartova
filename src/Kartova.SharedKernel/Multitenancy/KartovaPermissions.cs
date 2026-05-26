@@ -10,6 +10,12 @@ public static class KartovaPermissions
     public const string CatalogApplicationsLifecycleForward = "catalog.applications.lifecycle.forward";
     public const string CatalogApplicationsLifecycleReverse = "catalog.applications.lifecycle.reverse";
 
+    public const string TeamRead          = "team.read";
+    public const string TeamCreate        = "team.create";
+    public const string TeamMetadataEdit  = "team.metadata.edit";
+    public const string TeamDelete        = "team.delete";
+    public const string TeamMembersManage = "team.members.manage";
+
     public static FrozenSet<string> All { get; } = new[]
     {
         CatalogRead,
@@ -17,5 +23,10 @@ public static class KartovaPermissions
         CatalogApplicationsEditMetadata,
         CatalogApplicationsLifecycleForward,
         CatalogApplicationsLifecycleReverse,
+        TeamRead,
+        TeamCreate,
+        TeamMetadataEdit,
+        TeamDelete,
+        TeamMembersManage,
     }.ToFrozenSet(StringComparer.Ordinal);
 }
