@@ -71,6 +71,10 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
         // no-op so tests can swap in FakeTimeProvider without losing the
         // production default. Mirrors CatalogModule.RegisterServices.
         services.TryAddSingleton(TimeProvider.System);
+
+        // Team-membership reader: populates ICurrentUser.TeamMemberships from team_members.
+        // Invoked from TenantScopeBeginMiddleware after BeginAsync (slice 8 / ADR-0098).
+        services.AddScoped<ITeamMembershipReader, OrganizationTeamMembershipReader>();
     }
 
     /// <summary>
