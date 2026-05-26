@@ -7,6 +7,7 @@ import { Button } from "@/components/base/buttons/button";
 import { useApplication } from "@/features/catalog/api/applications";
 import { LifecycleMenu } from "@/features/catalog/components/LifecycleMenu";
 import { EditApplicationDialog } from "@/features/catalog/components/EditApplicationDialog";
+import { AssignTeamPicker } from "@/features/teams/components/AssignTeamPicker";
 import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
 
@@ -68,6 +69,7 @@ export function ApplicationDetailPage() {
                   canReverse={canReverseLifecycle}
                 />
               )}
+              <AssignTeamPicker applicationId={app.id} currentTeamId={app.teamId} />
             </div>
             {canEdit && (
               <Button color="secondary" size="sm" onClick={() => setEditOpen(true)}>

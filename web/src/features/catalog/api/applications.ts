@@ -234,4 +234,28 @@ export function useUnDecommissionApplication(id: string) {
   });
 }
 
+/**
+ * PUT /applications/{id}/team — assign or unassign team. Slice 8 (ADR-0098 §6.4).
+ * Passing `teamId: null` unassigns. Server returns 422 invalid-team when teamId
+ * is non-null and the team doesn't exist in the tenant; 403 when caller lacks
+ * the resource-auth gate (Member/TeamAdmin trying to assign across teams).
+ */
+export function useAssignApplicationTeam(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (teamId: string | null) => {
+      const { data, error, response } = await apiClient.PUT(
+        "/api/v1/catalog/applications/{id}/team",
+        { params: { path: { id } }, body: { teamId } }
+      );
+      if (error) throwWithStatus(error, response);
+      return unwrapData(data);
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(applicationKeys.detail(id), data);
+      qc.invalidateQueries({ queryKey: applicationKeys.list() });
+    },
+  });
+}
+
 export type { ApplicationResponse, Lifecycle };
