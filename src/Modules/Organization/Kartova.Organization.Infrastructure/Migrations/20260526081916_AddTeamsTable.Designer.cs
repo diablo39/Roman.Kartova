@@ -3,6 +3,7 @@ using System;
 using Kartova.Organization.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Kartova.Organization.Infrastructure.Migrations
 {
     [DbContext(typeof(OrganizationDbContext))]
-    partial class OrganizationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260526081916_AddTeamsTable")]
+    partial class AddTeamsTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -82,32 +85,6 @@ namespace Kartova.Organization.Infrastructure.Migrations
                         .HasDatabaseName("idx_teams_tenant");
 
                     b.ToTable("teams", (string)null);
-                });
-
-            modelBuilder.Entity("Kartova.Organization.Domain.TeamMembership", b =>
-                {
-                    b.Property<Guid>("TeamId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("team_id");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.Property<DateTimeOffset>("AddedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("added_at");
-
-                    b.Property<byte>("Role")
-                        .HasColumnType("smallint")
-                        .HasColumnName("role");
-
-                    b.HasKey("TeamId", "UserId");
-
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("idx_team_members_user");
-
-                    b.ToTable("team_members", (string)null);
                 });
 #pragma warning restore 612, 618
         }
