@@ -1,5 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { cx } from "@/lib/utils/cx";
+import { usePermissions } from "@/shared/auth/usePermissions";
+import { KartovaPermissions } from "@/shared/auth/permissions";
 
 interface NavItem {
   to: string;
@@ -7,15 +9,19 @@ interface NavItem {
   enabled: boolean;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { to: "/catalog", label: "Catalog", enabled: true },
-  { to: "/services", label: "Services", enabled: false },
-  { to: "/infrastructure", label: "Infrastructure", enabled: false },
-  { to: "/docs", label: "Docs", enabled: false },
-  { to: "/settings", label: "Settings", enabled: false },
-];
-
 export function Sidebar() {
+  const { hasPermission } = usePermissions();
+  const canSeeTeams = hasPermission(KartovaPermissions.TeamRead);
+
+  const items: NavItem[] = [
+    { to: "/catalog", label: "Catalog", enabled: true },
+    ...(canSeeTeams ? [{ to: "/teams", label: "Teams", enabled: true }] : []),
+    { to: "/services", label: "Services", enabled: false },
+    { to: "/infrastructure", label: "Infrastructure", enabled: false },
+    { to: "/docs", label: "Docs", enabled: false },
+    { to: "/settings", label: "Settings", enabled: false },
+  ];
+
   return (
     <aside className="flex h-full w-[260px] flex-col border-r border-secondary bg-secondary">
       <div className="flex h-14 items-center border-b border-secondary px-4">
@@ -23,7 +29,7 @@ export function Sidebar() {
       </div>
       <nav className="flex-1 overflow-y-auto p-3">
         <ul className="space-y-1">
-          {NAV_ITEMS.map(item => (
+          {items.map(item => (
             <li key={item.to}>
               {item.enabled ? (
                 <NavLink
