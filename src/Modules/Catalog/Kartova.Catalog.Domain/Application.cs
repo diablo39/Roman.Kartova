@@ -188,5 +188,9 @@ public sealed class Application : ITenantOwned, ITeamScopedResource
         {
             throw new ArgumentException("Application description must not be empty.", nameof(description));
         }
+        if (description.Length > 4096)
+        {
+            throw new ArgumentException("Application description must be <= 4096 characters.", nameof(description));
+        }
     }
 }

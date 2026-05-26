@@ -69,6 +69,39 @@ public class ApplicationTests
     }
 
     [TestMethod]
+    public void Create_succeeds_on_description_at_4096_chars()
+    {
+        // SF-3 boundary: domain validator allows exactly 4096 chars. Mirrors the
+        // SPA's zod cap so any non-SPA client (CLI, direct API) sees the same
+        // ceiling.
+        var description = new string('d', 4096);
+        var app = DomainApplication.Create("Display Name", description, Owner, Tenant, Clock());
+        Assert.AreEqual(4096, app.Description.Length);
+    }
+
+    [TestMethod]
+    public void Create_throws_on_description_over_4096_chars()
+    {
+        // SF-3 boundary: 4097 chars must throw. ArgumentException is the contract
+        // (ProblemTypes.ValidationFailed at the endpoint layer).
+        var description = new string('d', 4097);
+        var ex = Assert.ThrowsExactly<ArgumentException>(
+            () => DomainApplication.Create("Display Name", description, Owner, Tenant, Clock()));
+        StringAssert.Contains(ex.Message, "4096");
+    }
+
+    [TestMethod]
+    public void EditMetadata_throws_on_description_over_4096_chars()
+    {
+        // Same SF-3 cap applies to the edit path (both call ValidateDescription).
+        var app = DomainApplication.Create("Display Name", "ok", Owner, Tenant, Clock());
+        var description = new string('d', 4097);
+        var ex = Assert.ThrowsExactly<ArgumentException>(
+            () => app.EditMetadata("Display Name", description));
+        StringAssert.Contains(ex.Message, "4096");
+    }
+
+    [TestMethod]
     public void Create_throws_on_empty_owner_user_id()
     {
         var ex = Assert.ThrowsExactly<ArgumentException>(
