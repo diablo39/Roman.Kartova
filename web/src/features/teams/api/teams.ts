@@ -56,9 +56,7 @@ export function useTeamsList(params: TeamsListParams) {
           query: {
             sortBy: params.sortBy,
             sortOrder: params.sortOrder,
-            // The teams OpenAPI operation currently types `limit` as string
-            // (vs. catalog's number) — coerce here so callers stay numeric.
-            limit: String(params.limit ?? 50),
+            limit: params.limit ?? 50,
             cursor,
           },
         },

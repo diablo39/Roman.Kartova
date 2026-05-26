@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Kartova.Catalog.Contracts;
+using Kartova.Organization.Contracts;
 using Kartova.SharedKernel.Pagination;
 using Kartova.SharedKernel.Postgres.Pagination;
 using Microsoft.AspNetCore.OpenApi;
@@ -35,6 +36,8 @@ internal sealed class CursorListQueryParameterTransformer : IOpenApiOperationTra
     {
         [("ListApplications", "sortBy")] = typeof(ApplicationSortField),
         [("ListApplications", "sortOrder")] = typeof(SortOrder),
+        [("ListTeams", "sortBy")] = typeof(TeamSortField),
+        [("ListTeams", "sortOrder")] = typeof(SortOrder),
     };
 
     /// <summary>
@@ -45,6 +48,7 @@ internal sealed class CursorListQueryParameterTransformer : IOpenApiOperationTra
     private static readonly HashSet<string> OperationsWithLimitParameter = new()
     {
         "ListApplications",
+        "ListTeams",
     };
 
     public Task TransformAsync(
