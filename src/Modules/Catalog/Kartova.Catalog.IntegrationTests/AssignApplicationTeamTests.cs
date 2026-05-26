@@ -76,6 +76,42 @@ public sealed class AssignApplicationTeamTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
+    public async Task PUT_with_other_tenant_team_id_returns_422_invalid_team()
+    {
+        // Slice-boundary review fix #4: cross-tenant safety — assigning tenant-A's
+        // app to a team that exists only in tenant-B must surface the same
+        // 422 invalid-team envelope as an unknown team uuid. RLS hides team-B from
+        // tenant-A's lookup, so the cross-module existence check
+        // (IOrganizationTeamExistenceChecker) sees no row and returns false.
+        var tenantA = new TenantId(Guid.Parse("aaaaaaaa-0019-0019-0019-000000000001"));
+        var tenantB = new TenantId(Guid.Parse("aaaaaaaa-0019-0019-0019-000000000002"));
+
+        var teamInB = await Fx.SeedTeamInOrganizationAsync(tenantB, "Team in OrgB");
+        var appInA  = await Fx.SeedSingleApplicationAsync(tenantA, Guid.NewGuid(), teamId: null,
+            namePrefix: "xtenant-app");
+        try
+        {
+            var client = Fx.CreateClient();
+            var token = Fx.Signer.IssueForTenant(tenantA, new[] { KartovaRoles.OrgAdmin });
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var resp = await client.PutAsJsonAsync(
+                $"/api/v1/catalog/applications/{appInA}/team",
+                new AssignTeamRequest(teamInB));
+
+            Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
+            Assert.AreEqual("application/problem+json", resp.Content.Headers.ContentType?.MediaType);
+            var body = await resp.Content.ReadAsStringAsync();
+            StringAssert.Contains(body, ProblemTypes.InvalidTeam);
+        }
+        finally
+        {
+            await Fx.DeleteApplicationsByPrefixAsync(tenantA, "xtenant-app");
+            await Fx.DeleteTeamsForTenantAsync(tenantB.Value);
+        }
+    }
+
+    [TestMethod]
     public async Task Member_not_in_apps_current_team_returns_403()
     {
         // App is assigned to teamA; caller is a Member of NO team. The resource

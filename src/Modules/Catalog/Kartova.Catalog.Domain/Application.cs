@@ -138,11 +138,15 @@ public sealed class Application : ITenantOwned, ITeamScopedResource
 
     /// <summary>
     /// Assigns this application to a team (or unassigns when <paramref name="teamId"/> is null).
-    /// Blocked on Decommissioned (terminal-write guard, consistent with EditMetadata).
+    /// Reassigning to a non-null team is blocked on Decommissioned (terminal-write guard,
+    /// consistent with EditMetadata). Unassigning (null) is allowed on any lifecycle so
+    /// OrgAdmin can release Decommissioned apps from a team before deleting the team —
+    /// without this carve-out, a team that ever owned an app since-decommissioned would
+    /// be undeletable forever (slice-8 boundary-review fix).
     /// </summary>
     public void AssignTeam(Guid? teamId)
     {
-        if (Lifecycle == Lifecycle.Decommissioned)
+        if (teamId is not null && Lifecycle == Lifecycle.Decommissioned)
         {
             throw new InvalidLifecycleTransitionException(Lifecycle, nameof(AssignTeam));
         }

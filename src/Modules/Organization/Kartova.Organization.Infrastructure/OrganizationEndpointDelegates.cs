@@ -210,7 +210,6 @@ internal static class OrganizationEndpointDelegates
         OrganizationDbContext db,
         IAuthorizationService auth,
         ClaimsPrincipal user,
-        TimeProvider clock,
         CancellationToken ct)
     {
         var team = await db.Teams.FirstOrDefaultAsync(TeamSortSpecs.IdEquals(id), ct);
@@ -241,10 +240,11 @@ internal static class OrganizationEndpointDelegates
         }
 
         // Spec §critic-revision item 7: AddTeamMember returns 201 + TeamMemberResponse,
-        // NOT 204. AddedAt is sourced from the injected TimeProvider — this is a wall-
-        // clock snapshot from the endpoint, not the DB value the handler wrote; the
-        // delta is sub-millisecond in practice (handler ran inline immediately above).
-        var resp = new TeamMemberResponse(request.UserId, role.ToString(), clock.GetUtcNow());
+        // NOT 204. AddedAt is the canonical value the handler persisted on the
+        // aggregate — surfaced via AddTeamMemberResult — so clients see exactly
+        // the timestamp the DB sees, not a re-clocked wall-clock snapshot taken
+        // here (slice-boundary review fix item 6).
+        var resp = new TeamMemberResponse(request.UserId, role.ToString(), result.AddedAt!.Value);
         return Results.Created($"/api/v1/organizations/teams/{id}/members/{request.UserId}", resp);
     }
 

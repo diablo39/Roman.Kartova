@@ -272,9 +272,9 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     }
 
     /// <summary>
-    /// Removes every team + team_members row for a tenant. Two-step because the
-    /// slice-8 migration does NOT add a FK between <c>team_members.team_id</c>
-    /// and <c>teams.id</c>, so cascade does not fire.
+    /// Removes every team + team_members row for a tenant. Two-step is defensive
+    /// (a follow-up FK migration adds <c>ON DELETE CASCADE</c>, so the explicit
+    /// <c>team_members</c> wipe is redundant but harmless and remains explicit).
     /// </summary>
     public async Task DeleteTeamsForTenantAsync(Guid tenantId)
     {

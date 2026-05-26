@@ -22,16 +22,20 @@ public sealed class AddTeamMemberHandler
         CancellationToken ct)
     {
         var team = await db.Teams.FirstOrDefaultAsync(TeamSortSpecs.IdEquals(cmd.TeamId), ct);
-        if (team is null) return new AddTeamMemberResult(false, true, false);
+        if (team is null) return new AddTeamMemberResult(false, true, false, null);
 
         var teamId = new TeamId(cmd.TeamId);
         var existing = await db.TeamMembers
             .FirstOrDefaultAsync(m => m.TeamId == teamId && m.UserId == cmd.UserId, ct);
-        if (existing is not null) return new AddTeamMemberResult(false, false, true);
+        if (existing is not null) return new AddTeamMemberResult(false, false, true, null);
 
         var membership = TeamMembership.Create(teamId, cmd.UserId, cmd.Role, _clock);
         db.TeamMembers.Add(membership);
         await db.SaveChangesAsync(ct);
-        return new AddTeamMemberResult(true, false, false);
+        // Surface the canonical AddedAt the aggregate set — the endpoint mirrors
+        // this to the wire so clients see the value the DB persisted, not a
+        // separately-clocked wall-clock snapshot taken in the endpoint delegate
+        // (slice-boundary review fix).
+        return new AddTeamMemberResult(true, false, false, membership.AddedAt);
     }
 }

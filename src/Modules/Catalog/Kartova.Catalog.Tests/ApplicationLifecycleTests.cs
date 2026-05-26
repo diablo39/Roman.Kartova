@@ -274,15 +274,23 @@ public class ApplicationLifecycleTests
     }
 
     [TestMethod]
-    public void AssignTeam_with_null_when_Decommissioned_also_throws()
+    public void AssignTeam_with_null_when_Decommissioned_unassigns()
     {
-        // Terminal-write guard fires on state, not on the argument — even a
-        // "remove assignment" must be rejected on Decommissioned. Catches a
-        // would-be `teamId is not null` short-circuit in the guard.
+        // Slice-8 boundary-review fix: unassign (null) is the deliberate carve-out
+        // on Decommissioned — OrgAdmin must be able to release a Decommissioned
+        // app from a team before deleting that team, otherwise a team that ever
+        // owned an app since-decommissioned would be permanently undeletable.
+        // The reassign-to-non-null case remains blocked (see prior test).
         var app = NewActive();
+        var initialTeamId = Guid.NewGuid();
+        app.AssignTeam(initialTeamId);
         app.Deprecate(Now.AddDays(1), Clock());
         app.Decommission(Clock(Now.AddDays(2)));
+        Assert.AreEqual(Lifecycle.Decommissioned, app.Lifecycle);
+        Assert.AreEqual(initialTeamId, app.TeamId);
 
-        Assert.ThrowsExactly<InvalidLifecycleTransitionException>(() => app.AssignTeam(null));
+        app.AssignTeam(null);
+
+        Assert.IsNull(app.TeamId);
     }
 }

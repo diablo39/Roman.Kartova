@@ -59,7 +59,6 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
             "/api/v1/catalog/applications",
             new
             {
-                name = "matrix-app-" + Guid.NewGuid().ToString("N").Substring(0, 8),
                 displayName = "Matrix App",
                 description = "Seed for permission matrix test.",
             });
@@ -209,10 +208,12 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
     {
         if (method == HttpMethod.Post && pathTemplate == "/api/v1/catalog/applications")
         {
-            // Unique kebab name per request to avoid collisions across cells.
+            // ADR-0098: the kebab `name` column was retired — register bodies carry
+            // only displayName + description. Per-cell uniqueness is no longer needed
+            // because nothing on the register path enforces global uniqueness on
+            // displayName for the matrix's purposes.
             req.Content = JsonContent.Create(new
             {
-                name = "matrix-write-" + Guid.NewGuid().ToString("N").Substring(0, 12),
                 displayName = "Matrix Write",
                 description = "Matrix shape body.",
             });

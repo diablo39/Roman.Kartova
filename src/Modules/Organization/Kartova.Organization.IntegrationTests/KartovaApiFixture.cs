@@ -101,9 +101,9 @@ public class KartovaApiFixture : KartovaApiFixtureBase
 
     /// <summary>
     /// Cleans up every team and team_members row for <paramref name="tenantId"/>.
-    /// Two-step delete because the slice-8 migration does NOT add a FK between
-    /// <c>team_members.team_id</c> and <c>teams.id</c> — only an RLS policy that
-    /// joins on the parent — so cascade does not fire.
+    /// Two-step is defensive — a follow-up migration adds the
+    /// <c>team_members.team_id -> teams.id ON DELETE CASCADE</c> FK so the
+    /// explicit child-row wipe is redundant but harmless.
     /// </summary>
     public async Task DeleteTeamsForTenantAsync(Guid tenantId)
     {
