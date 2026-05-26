@@ -15,6 +15,8 @@ export interface UsePermissionsResult {
   hasPermission: (perm: KartovaPermission) => boolean;
   isLoading: boolean;
   isError: boolean;
+  teamIds: string[];
+  teamAdminTeamIds: string[];
 }
 
 export function usePermissions(): UsePermissionsResult {
@@ -42,10 +44,25 @@ export function usePermissions(): UsePermissionsResult {
     [query.data?.permissions]
   );
 
+  const teamIds = useMemo(
+    () => (query.data?.teamMemberships ?? []).map((m) => m.teamId),
+    [query.data?.teamMemberships]
+  );
+
+  const teamAdminTeamIds = useMemo(
+    () =>
+      (query.data?.teamMemberships ?? [])
+        .filter((m) => m.role === "Admin")
+        .map((m) => m.teamId),
+    [query.data?.teamMemberships]
+  );
+
   return {
     role: query.data?.role ?? null,
     hasPermission: (perm) => set.has(perm),
     isLoading: enabled && query.isLoading,
     isError: query.isError,
+    teamIds,
+    teamAdminTeamIds,
   };
 }

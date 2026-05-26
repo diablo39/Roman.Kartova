@@ -41,7 +41,7 @@ describe("usePermissions", () => {
 
   it("returns Viewer set when API returns Viewer role", async () => {
     const get = vi.fn().mockResolvedValue({
-      data: { role: "Viewer", permissions: ["catalog.read"] },
+      data: { role: "Viewer", permissions: ["catalog.read"], teamMemberships: [] },
       error: undefined,
     });
     vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
@@ -60,7 +60,7 @@ describe("usePermissions", () => {
     );
   });
 
-  it("returns OrgAdmin set with all five permissions", async () => {
+  it("returns OrgAdmin set with all permissions", async () => {
     const get = vi.fn().mockResolvedValue({
       data: {
         role: "OrgAdmin",
@@ -70,7 +70,13 @@ describe("usePermissions", () => {
           "catalog.applications.edit-metadata",
           "catalog.applications.lifecycle.forward",
           "catalog.applications.lifecycle.reverse",
+          "team.read",
+          "team.create",
+          "team.metadata.edit",
+          "team.delete",
+          "team.members.manage",
         ],
+        teamMemberships: [],
       },
       error: undefined,
     });
@@ -140,5 +146,53 @@ describe("usePermissions", () => {
     for (const p of Object.values(KartovaPermissions)) {
       expect(result.current.hasPermission(p)).toBe(false);
     }
+  });
+
+  it("returns teamIds and teamAdminTeamIds from /me/permissions", async () => {
+    const get = vi.fn().mockResolvedValue({
+      data: {
+        role: "TeamAdmin",
+        permissions: ["catalog.read", "team.read"],
+        teamMemberships: [
+          { teamId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", role: "Admin" },
+          { teamId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", role: "Member" },
+        ],
+      },
+      error: undefined,
+    });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
+
+    const { result } = renderHook(() => usePermissions(), {
+      wrapper: makeWrapper(newQueryClient()),
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.teamIds).toEqual([
+      "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+    ]);
+    expect(result.current.teamAdminTeamIds).toEqual([
+      "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    ]);
+  });
+
+  it("returns empty teamIds and teamAdminTeamIds when user has no memberships", async () => {
+    const get = vi.fn().mockResolvedValue({
+      data: { role: "Viewer", permissions: ["catalog.read"], teamMemberships: [] },
+      error: undefined,
+    });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
+
+    const { result } = renderHook(() => usePermissions(), {
+      wrapper: makeWrapper(newQueryClient()),
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.teamIds).toEqual([]);
+    expect(result.current.teamAdminTeamIds).toEqual([]);
   });
 });
