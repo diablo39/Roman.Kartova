@@ -61,15 +61,13 @@ internal static class DevSeed
                 {
                     await using var insertCmd = conn.CreateCommand();
                     insertCmd.CommandText = """
-                        INSERT INTO catalog_applications (id, tenant_id, name, display_name, description, owner_user_id, created_at)
-                        VALUES (gen_random_uuid(), $1, $2, $3, $4, gen_random_uuid(), $5);
+                        INSERT INTO catalog_applications (id, tenant_id, display_name, description, owner_user_id, created_at)
+                        VALUES (gen_random_uuid(), $1, $2, $3, gen_random_uuid(), $4);
                         """;
-                    // Reverse-alphabetical name relative to insertion order so name-asc != createdAt-asc.
+                    // Reverse-alphabetical displayName relative to insertion order so name-asc != createdAt-asc.
                     var letter = (char)('a' + ((119 - i) % 26));
-                    var name = $"{letter}-app-{i:D3}";
                     var displayName = char.ToUpper(letter) + $" App {i:D3}";
                     insertCmd.Parameters.AddWithValue(OrgATenantId);
-                    insertCmd.Parameters.AddWithValue(name);
                     insertCmd.Parameters.AddWithValue(displayName);
                     insertCmd.Parameters.AddWithValue($"Seeded application #{i + 1}");
                     insertCmd.Parameters.AddWithValue(origin.AddMinutes(i));
