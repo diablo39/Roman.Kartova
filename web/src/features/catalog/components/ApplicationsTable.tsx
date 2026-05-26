@@ -17,6 +17,7 @@ export interface ApplicationRow {
   createdAt?: string;
   lifecycle: Lifecycle;
   sunsetDate: string | null;
+  teamId?: string | null;
 }
 
 type SortField = "createdAt";
@@ -26,19 +27,26 @@ interface Props {
   sortBy: SortField;
   sortOrder: SortDirection;
   onSortChange: (field: SortField, order: SortDirection) => void;
+  /**
+   * Resolves a teamId to its displayName for the Team column. Provided by
+   * the parent (CatalogListPage) so a single useTeamsList call covers every
+   * row; missing entries fall back to "Unknown team" (e.g. stale cache).
+   */
+  teamNameById: Map<string, string>;
 }
 
-export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange }: Props) {
+export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange, teamNameById }: Props) {
   if (list.isLoading) {
     return (
       <Table aria-label="Applications">
         <Table.Header>
           <Table.Head id="name" isRowHeader>Name</Table.Head>
           <Table.Head id="lifecycle">Lifecycle</Table.Head>
+          <Table.Head id="team">Team</Table.Head>
           <Table.Head id="description">Description</Table.Head>
           <Table.Head id="createdAt">Created</Table.Head>
         </Table.Header>
-        <TableSkeleton rows={5} cells={4} />
+        <TableSkeleton rows={5} cells={5} />
       </Table>
     );
   }
@@ -73,6 +81,7 @@ export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange }: Pro
         <Table.Header>
           <Table.Head id="name" isRowHeader>Name</Table.Head>
           <Table.Head id="lifecycle">Lifecycle</Table.Head>
+          <Table.Head id="team">Team</Table.Head>
           <Table.Head id="description">Description</Table.Head>
           <SortableHead id="createdAt">Created</SortableHead>
         </Table.Header>
@@ -89,6 +98,18 @@ export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange }: Pro
               </Table.Cell>
               <Table.Cell>
                 <LifecycleBadge lifecycle={app.lifecycle} sunsetDate={app.sunsetDate} />
+              </Table.Cell>
+              <Table.Cell className="text-sm">
+                {app.teamId == null ? (
+                  <span className="italic text-tertiary">Unassigned</span>
+                ) : (
+                  <Link
+                    to={`/teams/${app.teamId}`}
+                    className="text-primary hover:underline"
+                  >
+                    {teamNameById.get(app.teamId) ?? "Unknown team"}
+                  </Link>
+                )}
               </Table.Cell>
               <Table.Cell className="text-sm text-tertiary">
                 {app.description || <span className="italic">No description</span>}

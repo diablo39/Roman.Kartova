@@ -38,6 +38,7 @@ function makeList(overrides: Partial<CursorListResult<ApplicationRow>>): CursorL
 }
 
 const noop = () => {};
+const emptyTeamMap = new Map<string, string>();
 
 describe("ApplicationsTable", () => {
   it("renders rows with displayName", () => {
@@ -47,6 +48,7 @@ describe("ApplicationsTable", () => {
         sortBy="createdAt"
         sortOrder="desc"
         onSortChange={noop}
+        teamNameById={emptyTeamMap}
       />
     ));
     expect(screen.getByText("App One")).toBeInTheDocument();
@@ -60,6 +62,7 @@ describe("ApplicationsTable", () => {
         sortBy="createdAt"
         sortOrder="desc"
         onSortChange={noop}
+        teamNameById={emptyTeamMap}
       />
     ));
     const link = screen.getByRole("link", { name: /app one/i });
@@ -73,6 +76,7 @@ describe("ApplicationsTable", () => {
         sortBy="createdAt"
         sortOrder="desc"
         onSortChange={noop}
+        teamNameById={emptyTeamMap}
       />
     ));
     expect(screen.getByText(/no applications yet/i)).toBeInTheDocument();
@@ -86,6 +90,7 @@ describe("ApplicationsTable", () => {
           sortBy="createdAt"
           sortOrder="desc"
           onSortChange={noop}
+          teamNameById={emptyTeamMap}
         />
       )
     );
@@ -100,8 +105,52 @@ describe("ApplicationsTable", () => {
         sortBy="createdAt"
         sortOrder="desc"
         onSortChange={noop}
+        teamNameById={emptyTeamMap}
       />
     ));
     expect(screen.queryByText(/no applications yet/i)).not.toBeInTheDocument();
+  });
+
+  it("renders 'Unassigned' for rows with no teamId", () => {
+    render(withRouter(
+      <ApplicationsTable
+        list={makeList({ items: [a1] })}
+        sortBy="createdAt"
+        sortOrder="desc"
+        onSortChange={noop}
+        teamNameById={emptyTeamMap}
+      />
+    ));
+    expect(screen.getByText(/unassigned/i)).toBeInTheDocument();
+  });
+
+  it("renders team displayName as a link when teamId resolves", () => {
+    const teamed: ApplicationRow = { ...a1, teamId: "team-xyz" };
+    const names = new Map<string, string>([["team-xyz", "Platform"]]);
+    render(withRouter(
+      <ApplicationsTable
+        list={makeList({ items: [teamed] })}
+        sortBy="createdAt"
+        sortOrder="desc"
+        onSortChange={noop}
+        teamNameById={names}
+      />
+    ));
+    const link = screen.getByRole("link", { name: /^platform$/i });
+    expect(link).toHaveAttribute("href", "/teams/team-xyz");
+  });
+
+  it("falls back to 'Unknown team' when teamId is not in the resolver map", () => {
+    const teamed: ApplicationRow = { ...a1, teamId: "ghost" };
+    render(withRouter(
+      <ApplicationsTable
+        list={makeList({ items: [teamed] })}
+        sortBy="createdAt"
+        sortOrder="desc"
+        onSortChange={noop}
+        teamNameById={emptyTeamMap}
+      />
+    ));
+    expect(screen.getByText(/unknown team/i)).toBeInTheDocument();
   });
 });
