@@ -141,6 +141,45 @@ public sealed class UpdateTeamTests : OrganizationIntegrationTestBase
     }
 
     [TestMethod]
+    public async Task Cross_tenant_TeamAdmin_returns_404()
+    {
+        // Fills the cross-tenant, non-OrgAdmin cell in the auth matrix: existing
+        // tests cover cross-tenant 404 with OrgAdmin and same-tenant 403 with
+        // TeamAdmin-of-other-team. A TeamAdmin from tenant A hitting tenant-B's
+        // team URL passes the claim gate (TeamAdmin has team.metadata.edit) but
+        // LoadAndAuthorizeTeam's RLS-scoped read finds no row under tenant A's
+        // tenant_id — gate returns 404 before any resource-gate 403, preventing
+        // existence-leak of tenant B's teams.
+        //
+        // Plain Member is blocked earlier by the claim gate (no TeamMetadataEdit),
+        // so the 404-vs-403 ordering only manifests for callers who clear the
+        // claim policy.
+        var tenantA = new TenantId(Guid.Parse("aaaaaaaa-0005-0005-0005-000000000001"));
+        var tenantB = new TenantId(Guid.Parse("aaaaaaaa-0005-0005-0005-000000000002"));
+        await Fx.SeedOrganizationAsync(tenantA.Value, "OrgA-XT");
+        await Fx.SeedOrganizationAsync(tenantB.Value, "OrgB-XT");
+        var teamInB = await Fx.SeedTeamAsync(tenantB.Value, "TeamInB", null);
+        try
+        {
+            var client = Fx.CreateClient();
+            var token = Fx.Signer.IssueForTenant(tenantA, new[] { KartovaRoles.TeamAdmin });
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var resp = await client.PutAsJsonAsync(
+                $"/api/v1/organizations/teams/{teamInB}",
+                new UpdateTeamRequest("Hijacked", null));
+
+            // 404 (RLS-hidden) before 403 — info-leak protection.
+            Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
+        }
+        finally
+        {
+            await Fx.DeleteTeamsForTenantAsync(tenantA.Value);
+            await Fx.DeleteTeamsForTenantAsync(tenantB.Value);
+        }
+    }
+
+    [TestMethod]
     public async Task Empty_displayName_returns_400()
     {
         await Fx.SeedOrganizationAsync(Tenant.Value, "OrgA-Update");

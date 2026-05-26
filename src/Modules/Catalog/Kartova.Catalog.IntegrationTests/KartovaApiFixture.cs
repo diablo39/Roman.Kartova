@@ -272,6 +272,23 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     }
 
     /// <summary>
+    /// Forces an application's lifecycle column directly via BYPASSRLS, skipping
+    /// domain transition guards. Slice 8 — used by the assign-team endpoint
+    /// tests to put a freshly-seeded app into Decommissioned without driving
+    /// through Active → Deprecated → Decommissioned via the HTTP endpoints.
+    /// </summary>
+    public async Task SetApplicationLifecycleAsync(Guid applicationId, Lifecycle lifecycle)
+    {
+        var opts = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseNpgsql(BypassConnectionString)
+            .Options;
+        await using var db = new CatalogDbContext(opts);
+        await db.Database.ExecuteSqlRawAsync(
+            "UPDATE catalog_applications SET lifecycle = {0} WHERE id = {1}",
+            (short)lifecycle, applicationId);
+    }
+
+    /// <summary>
     /// Removes every team + team_members row for a tenant. Two-step is defensive
     /// (a follow-up FK migration adds <c>ON DELETE CASCADE</c>, so the explicit
     /// <c>team_members</c> wipe is redundant but harmless and remains explicit).

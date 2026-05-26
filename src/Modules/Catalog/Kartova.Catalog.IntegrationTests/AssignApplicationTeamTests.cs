@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Kartova.Catalog.Contracts;
+using Kartova.Catalog.Domain;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.Testing.Auth;
@@ -23,7 +24,7 @@ public sealed class AssignApplicationTeamTests : CatalogIntegrationTestBase
         new(Guid.Parse("cccccccc-0001-0001-0001-000000000001"));
 
     [TestMethod]
-    public async Task OrgAdmin_assigns_app_to_team_returns_200()
+    public async Task OrgAdmin_assigns_app_to_team_returns_200_and_GET_reflects_teamId()
     {
         var teamId = await Fx.SeedTeamInOrganizationAsync(Tenant, "Platform");
         var appId = await Fx.SeedSingleApplicationAsync(Tenant, Guid.NewGuid(), teamId: null);
@@ -38,11 +39,55 @@ public sealed class AssignApplicationTeamTests : CatalogIntegrationTestBase
                 new AssignTeamRequest(teamId));
 
             Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+
+            // GET-after-PUT roundtrip pins SaveChangesAsync side-effect — guards
+            // against a regression where the handler returns 200 without persisting.
+            var getResp = await client.GetAsync($"/api/v1/catalog/applications/{appId}");
+            Assert.AreEqual(HttpStatusCode.OK, getResp.StatusCode);
+            var body = await getResp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
+            Assert.AreEqual(teamId, body!.TeamId);
         }
         finally
         {
             await Fx.DeleteApplicationsByPrefixAsync(Tenant, "assign-app");
             await Fx.DeleteTeamsForTenantAsync(Tenant.Value);
+        }
+    }
+
+    [TestMethod]
+    public async Task OrgAdmin_unassigns_Decommissioned_app_team_returns_200()
+    {
+        // Slice-8 boundary-review carve-out: AssignTeam(null) is allowed on any
+        // lifecycle, including Decommissioned, so OrgAdmin can release a team
+        // before deleting it. This endpoint-level test mirrors the domain unit
+        // test (Application.AssignTeam_null_when_Decommissioned_does_not_throw).
+        var tenant = new TenantId(Guid.Parse("aaaaaaaa-0020-0020-0020-000000000001"));
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenant, "TeamForDecomm");
+        var appId = await Fx.SeedSingleApplicationAsync(tenant, Guid.NewGuid(), teamId,
+            namePrefix: "decomm-unassign");
+        await Fx.SetApplicationLifecycleAsync(appId, Lifecycle.Decommissioned);
+        try
+        {
+            var client = Fx.CreateClient();
+            var token = Fx.Signer.IssueForTenant(tenant, new[] { KartovaRoles.OrgAdmin });
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var resp = await client.PutAsJsonAsync(
+                $"/api/v1/catalog/applications/{appId}/team",
+                new AssignTeamRequest(null));
+
+            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+
+            // Confirm persistence: GET reflects teamId=null.
+            var getResp = await client.GetAsync($"/api/v1/catalog/applications/{appId}");
+            Assert.AreEqual(HttpStatusCode.OK, getResp.StatusCode);
+            var body = await getResp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
+            Assert.IsNull(body!.TeamId);
+        }
+        finally
+        {
+            await Fx.DeleteApplicationsByPrefixAsync(tenant, "decomm-unassign");
+            await Fx.DeleteTeamsForTenantAsync(tenant.Value);
         }
     }
 
