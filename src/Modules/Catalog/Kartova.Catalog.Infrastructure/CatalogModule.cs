@@ -54,6 +54,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .AddEndpointFilter<IfMatchEndpointFilter>()
               .Produces<ApplicationResponse>(StatusCodes.Status200OK)
               .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
               .ProducesProblem(StatusCodes.Status404NotFound)
               .ProducesProblem(StatusCodes.Status409Conflict)
               .ProducesProblem(StatusCodes.Status412PreconditionFailed)
@@ -66,6 +67,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .WithName("DeprecateApplication")
               .Produces<ApplicationResponse>(StatusCodes.Status200OK)
               .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
               .ProducesProblem(StatusCodes.Status404NotFound)
               .ProducesProblem(StatusCodes.Status409Conflict);
         // POST decommission — Deprecated → Decommissioned transition. Empty body, no
@@ -77,6 +79,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .RequireAuthorization(KartovaPermissions.CatalogApplicationsLifecycleForward)
               .WithName("DecommissionApplication")
               .Produces<ApplicationResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
               .ProducesProblem(StatusCodes.Status404NotFound)
               .ProducesProblem(StatusCodes.Status409Conflict);
         // POST reactivate — reverse lifecycle transition (Deprecated/Decommissioned → Active).
@@ -88,6 +91,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .RequireAuthorization(KartovaPermissions.CatalogApplicationsLifecycleReverse)
               .WithName("ReactivateApplication")
               .Produces<ApplicationResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
               .ProducesProblem(StatusCodes.Status404NotFound)
               .ProducesProblem(StatusCodes.Status409Conflict);
         // POST un-decommission — reverse lifecycle transition (Decommissioned → Deprecated).
@@ -101,6 +105,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .WithName("UnDecommissionApplication")
               .Produces<ApplicationResponse>(StatusCodes.Status200OK)
               .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
               .ProducesProblem(StatusCodes.Status404NotFound)
               .ProducesProblem(StatusCodes.Status409Conflict);
         // PUT assign-team — set or clear Application.TeamId. Claim gate stops

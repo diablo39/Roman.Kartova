@@ -130,9 +130,17 @@ internal static class CatalogEndpointDelegates
         [FromBody] EditApplicationRequest request,
         EditApplicationHandler handler,
         CatalogDbContext db,
+        IAuthorizationService auth,
+        ClaimsPrincipal user,
         HttpContext http,
         CancellationToken ct)
     {
+        var app = await db.Applications.FirstOrDefaultAsync(ApplicationSortSpecs.IdEquals(id), ct);
+        if (app is null) return EndpointResultExtensions.ApplicationNotFound();
+
+        var authResult = await auth.AuthorizeAsync(user, app, KartovaTeamPolicies.ApplicationTeamScoped);
+        if (!authResult.Succeeded) return Results.Forbid();
+
         var expected = (uint)http.Items[IfMatchEndpointFilter.ExpectedVersionKey]!;
 
         var resp = await handler.Handle(
@@ -148,8 +156,16 @@ internal static class CatalogEndpointDelegates
         [FromBody] DeprecateApplicationRequest request,
         DeprecateApplicationHandler handler,
         CatalogDbContext db,
+        IAuthorizationService auth,
+        ClaimsPrincipal user,
         CancellationToken ct)
     {
+        var app = await db.Applications.FirstOrDefaultAsync(ApplicationSortSpecs.IdEquals(id), ct);
+        if (app is null) return EndpointResultExtensions.ApplicationNotFound();
+
+        var authResult = await auth.AuthorizeAsync(user, app, KartovaTeamPolicies.ApplicationTeamScoped);
+        if (!authResult.Succeeded) return Results.Forbid();
+
         var resp = await handler.Handle(
             new DeprecateApplicationCommand(new ApplicationId(id), request.SunsetDate),
             db, ct);
@@ -162,8 +178,16 @@ internal static class CatalogEndpointDelegates
         Guid id,
         DecommissionApplicationHandler handler,
         CatalogDbContext db,
+        IAuthorizationService auth,
+        ClaimsPrincipal user,
         CancellationToken ct)
     {
+        var app = await db.Applications.FirstOrDefaultAsync(ApplicationSortSpecs.IdEquals(id), ct);
+        if (app is null) return EndpointResultExtensions.ApplicationNotFound();
+
+        var authResult = await auth.AuthorizeAsync(user, app, KartovaTeamPolicies.ApplicationTeamScoped);
+        if (!authResult.Succeeded) return Results.Forbid();
+
         var resp = await handler.Handle(
             new DecommissionApplicationCommand(new ApplicationId(id)), db, ct);
 
@@ -175,8 +199,16 @@ internal static class CatalogEndpointDelegates
         Guid id,
         ReactivateApplicationHandler handler,
         CatalogDbContext db,
+        IAuthorizationService auth,
+        ClaimsPrincipal user,
         CancellationToken ct)
     {
+        var app = await db.Applications.FirstOrDefaultAsync(ApplicationSortSpecs.IdEquals(id), ct);
+        if (app is null) return EndpointResultExtensions.ApplicationNotFound();
+
+        var authResult = await auth.AuthorizeAsync(user, app, KartovaTeamPolicies.ApplicationTeamScoped);
+        if (!authResult.Succeeded) return Results.Forbid();
+
         var resp = await handler.Handle(
             new ReactivateApplicationCommand(new ApplicationId(id)), db, ct);
 
@@ -189,8 +221,16 @@ internal static class CatalogEndpointDelegates
         [FromBody] UnDecommissionApplicationRequest request,
         UnDecommissionApplicationHandler handler,
         CatalogDbContext db,
+        IAuthorizationService auth,
+        ClaimsPrincipal user,
         CancellationToken ct)
     {
+        var app = await db.Applications.FirstOrDefaultAsync(ApplicationSortSpecs.IdEquals(id), ct);
+        if (app is null) return EndpointResultExtensions.ApplicationNotFound();
+
+        var authResult = await auth.AuthorizeAsync(user, app, KartovaTeamPolicies.ApplicationTeamScoped);
+        if (!authResult.Succeeded) return Results.Forbid();
+
         var resp = await handler.Handle(
             new UnDecommissionApplicationCommand(new ApplicationId(id), request.SunsetDate),
             db, ct);
