@@ -34,7 +34,7 @@ internal static class OrganizationEndpointDelegates
         return Results.Ok(new AdminOnlyResponse("ok"));
     }
 
-    internal static IResult GetMePermissions(ClaimsPrincipal user)
+    internal static IResult GetMePermissions(ICurrentUser currentUser, ClaimsPrincipal user)
     {
         // Spec §3 Decision #2: each user holds exactly one realm role.
         // FirstOrDefault is the explicit choice — if multiple ClaimTypes.Role
@@ -47,7 +47,15 @@ internal static class OrganizationEndpointDelegates
                               .Select(c => c.Value)
                               .ToArray();
 
-        return Results.Ok(new MePermissionsResponse(role, permissions));
+        // Slice 8 §7.2: surface the caller's team memberships so the SPA can
+        // gate team-admin-of-this UI without a second round-trip. Role is the
+        // string form of TeamRoleKind ("Admin" | "Member"), matching the
+        // TeamMemberResponse wire shape.
+        var memberships = currentUser.TeamMemberships
+            .Select(m => new MeTeamMembership(m.TeamId, m.Role.ToString()))
+            .ToArray();
+
+        return Results.Ok(new MePermissionsResponse(role, permissions, memberships));
     }
 
     // ----- Teams: list / get / create -----------------------------------
