@@ -172,6 +172,42 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
+    public async Task SortBy_displayName_asc_orders_rows_lexicographically()
+    {
+        // Positive case for the new ADR-0095 displayName sortable column: seed three rows
+        // with deterministic display names (suffixed by index, padded to D3 so lexicographic
+        // == numeric), then assert ?sortBy=displayName&sortOrder=asc returns them in order.
+        // A unique prefix isolates this test from other rows in the shared tenant database.
+        var unique = $"dn-asc-{Guid.NewGuid():N}";
+        var prefix = $"{unique}-";
+        var tenantId = Fx.TenantIdForEmail("admin@orga.kartova.local");
+        await Fx.SeedApplicationsAsync(tenantId, count: 3, namePrefix: prefix);
+
+        try
+        {
+            var client = Fx.CreateClientForOrgA();
+            var resp = await client.GetAsync(
+                $"/api/v1/catalog/applications?sortBy=displayName&sortOrder=asc&limit=200");
+
+            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+            var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
+            var ours = page!.Items
+                .Where(i => i.DisplayName.StartsWith(unique, StringComparison.Ordinal))
+                .Select(i => i.DisplayName)
+                .ToList();
+
+            CollectionAssert.AreEqual(
+                new[] { $"{prefix}000", $"{prefix}001", $"{prefix}002" },
+                ours,
+                "rows must be returned in ascending displayName order");
+        }
+        finally
+        {
+            await Fx.DeleteApplicationsByPrefixAsync(tenantId, prefix);
+        }
+    }
+
+    [TestMethod]
     public async Task DefaultParams_match_explicit_createdAt_desc_50()
     {
         await Fx.SeedApplicationsAsync(OrgATenant, count: 5, namePrefix: "def-");

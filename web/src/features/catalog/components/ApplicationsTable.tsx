@@ -20,7 +20,7 @@ export interface ApplicationRow {
   teamId?: string | null;
 }
 
-type SortField = "createdAt";
+type SortField = "createdAt" | "displayName";
 
 interface Props {
   list: CursorListResult<ApplicationRow>;
@@ -40,7 +40,7 @@ export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange, teamN
     return (
       <Table aria-label="Applications">
         <Table.Header>
-          <Table.Head id="name" isRowHeader>Name</Table.Head>
+          <SortableHead id="displayName" isRowHeader>Name</SortableHead>
           <Table.Head id="lifecycle">Lifecycle</Table.Head>
           <Table.Head id="team">Team</Table.Head>
           <Table.Head id="description">Description</Table.Head>
@@ -66,7 +66,7 @@ export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange, teamN
 
   const handleSortChange = (descriptor: Parameters<typeof toSort>[0]) => {
     const { field, order } = toSort(descriptor);
-    if (field === "createdAt") {
+    if (field === "createdAt" || field === "displayName") {
       onSortChange(field, order);
     }
   };
@@ -79,7 +79,7 @@ export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange, teamN
         onSortChange={handleSortChange}
       >
         <Table.Header>
-          <Table.Head id="name" isRowHeader>Name</Table.Head>
+          <SortableHead id="displayName" isRowHeader>Name</SortableHead>
           <Table.Head id="lifecycle">Lifecycle</Table.Head>
           <Table.Head id="team">Team</Table.Head>
           <Table.Head id="description">Description</Table.Head>

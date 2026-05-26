@@ -72,7 +72,8 @@
             "in": "query",
             "schema": {
               "enum": [
-                "createdAt"
+                "createdAt",
+                "displayName"
               ],
               "type": "string"
             }
