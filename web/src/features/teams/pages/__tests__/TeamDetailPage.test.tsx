@@ -39,7 +39,9 @@ const baseTeam = {
     { userId: "u-1", role: "Admin", addedAt: "2026-01-02T00:00:00Z" },
     { userId: "u-2", role: "Member", addedAt: "2026-01-03T00:00:00Z" },
   ],
-  applicationIds: ["app-1"],
+  applications: [
+    { id: "app-1", displayName: "Billing API", lifecycle: "Active" },
+  ],
 };
 
 function harness(qc: QueryClient) {
@@ -77,6 +79,7 @@ describe("TeamDetailPage", () => {
     expect(screen.getByText(/owns shared infra/i)).toBeInTheDocument();
     expect(screen.getByText("u-1")).toBeInTheDocument();
     expect(screen.getByText("u-2")).toBeInTheDocument();
+    expect(screen.getByText("Billing API")).toBeInTheDocument();
     expect(screen.getByText("app-1")).toBeInTheDocument();
   });
 

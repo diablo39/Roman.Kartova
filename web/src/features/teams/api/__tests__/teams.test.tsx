@@ -68,7 +68,7 @@ describe("teams hooks", () => {
   describe("useTeam", () => {
     it("calls GET /api/v1/organizations/teams/{id} with the path param", async () => {
       const get = vi.fn().mockResolvedValue({
-        data: { id: "t1", displayName: "Platform", description: "", createdAt: "2026-01-01T00:00:00Z", members: [], applicationIds: [] },
+        data: { id: "t1", displayName: "Platform", description: "", createdAt: "2026-01-01T00:00:00Z", members: [], applications: [] },
         error: undefined,
       });
       mockApiClient({ GET: get });

@@ -134,21 +134,36 @@ export function TeamDetailPage() {
 
       <section className="space-y-3">
         <h3 className="text-lg font-semibold text-primary">Applications</h3>
-        {team.applicationIds.length === 0 ? (
+        {team.applications.length === 0 ? (
           <p className="text-sm text-tertiary">No applications linked to this team.</p>
         ) : (
-          <ul className="space-y-1 text-sm">
-            {team.applicationIds.map(appId => (
-              <li key={appId}>
-                <Link
-                  to={`/catalog/applications/${appId}`}
-                  className="font-mono text-xs text-primary hover:underline"
-                >
-                  {appId}
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <div className="overflow-hidden rounded-xl bg-primary shadow-xs ring-1 ring-secondary">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-secondary text-xs uppercase tracking-wide text-tertiary">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Name</th>
+                  <th className="px-4 py-3 font-medium">Lifecycle</th>
+                  <th className="px-4 py-3 font-medium">Id</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-secondary">
+                {team.applications.map(app => (
+                  <tr key={app.id} className="hover:bg-primary_hover">
+                    <td className="px-4 py-3">
+                      <Link
+                        to={`/catalog/applications/${app.id}`}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        {app.displayName}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-primary">{app.lifecycle}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-tertiary">{app.id}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 

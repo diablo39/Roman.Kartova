@@ -1547,6 +1547,26 @@
           }
         }
       },
+      "TeamApplicationSummary": {
+        "required": [
+          "id",
+          "displayName",
+          "lifecycle"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "lifecycle": {
+            "type": "string"
+          }
+        }
+      },
       "TeamDetailResponse": {
         "required": [
           "id",
@@ -1554,7 +1574,7 @@
           "description",
           "createdAt",
           "members",
-          "applicationIds"
+          "applications"
         ],
         "type": "object",
         "properties": {
@@ -1581,11 +1601,10 @@
               "$ref": "#/components/schemas/TeamMemberResponse"
             }
           },
-          "applicationIds": {
+          "applications": {
             "type": "array",
             "items": {
-              "type": "string",
-              "format": "uuid"
+              "$ref": "#/components/schemas/TeamApplicationSummary"
             }
           }
         }
