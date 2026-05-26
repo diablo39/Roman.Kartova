@@ -249,6 +249,25 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     }
 
     /// <summary>
+    /// Reassigns an existing catalog application to a team (or unassigns when
+    /// <paramref name="teamId"/> is null). Bypass-RLS so the update is not
+    /// filtered by the missing tenant scope. Slice 8 — used by the permission
+    /// matrix test to bind a freshly-registered seed app to a team without
+    /// going through the assign-team HTTP endpoint (which would itself require
+    /// team membership for non-OrgAdmin callers).
+    /// </summary>
+    public async Task SetApplicationTeamAsync(Guid applicationId, Guid? teamId)
+    {
+        var opts = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseNpgsql(BypassConnectionString)
+            .Options;
+        await using var db = new CatalogDbContext(opts);
+        await db.Database.ExecuteSqlRawAsync(
+            "UPDATE catalog_applications SET team_id = {0} WHERE id = {1}",
+            (object?)teamId ?? DBNull.Value, applicationId);
+    }
+
+    /// <summary>
     /// Removes every team + team_members row for a tenant. Two-step because the
     /// slice-8 migration does NOT add a FK between <c>team_members.team_id</c>
     /// and <c>teams.id</c>, so cascade does not fire.
