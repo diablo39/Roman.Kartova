@@ -62,6 +62,28 @@ public sealed class TeamTests
     }
 
     [TestMethod]
+    public void Create_with_empty_description_normalizes_to_null()
+    {
+        var team = Team.Create("Platform", "", Tenant, new FakeTimeProvider(DateTimeOffset.UtcNow));
+        Assert.IsNull(team.Description);
+    }
+
+    [TestMethod]
+    public void Create_with_whitespace_description_normalizes_to_null()
+    {
+        var team = Team.Create("Platform", "   ", Tenant, new FakeTimeProvider(DateTimeOffset.UtcNow));
+        Assert.IsNull(team.Description);
+    }
+
+    [TestMethod]
+    public void Rename_with_empty_description_normalizes_to_null()
+    {
+        var team = Team.Create("Platform", "had a desc", Tenant, new FakeTimeProvider(DateTimeOffset.UtcNow));
+        team.Rename("Platform v2", "");
+        Assert.IsNull(team.Description);
+    }
+
+    [TestMethod]
     public void Team_implements_ITenantOwned_and_ITeamOwnedResource()
     {
         var team = Team.Create("Platform", null, Tenant, new FakeTimeProvider(DateTimeOffset.UtcNow));

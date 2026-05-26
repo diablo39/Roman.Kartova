@@ -8,7 +8,7 @@ namespace Kartova.Organization.Infrastructure;
 /// Wolverine handler for <see cref="UpdateTeamMemberCommand"/>. Returns an
 /// <see cref="UpdateTeamMemberResult"/> distinguishing success (<c>Updated</c>),
 /// missing team (<c>TeamNotFound</c>), and missing membership row
-/// (<c>MemberNotFound</c>). The endpoint delegate maps these to 200 / 404 / 404.
+/// (<c>MemberNotFound</c>). The endpoint delegate maps these to 204 / 404 / 404.
 /// </summary>
 public sealed class UpdateTeamMemberHandler
 {

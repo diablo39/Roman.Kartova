@@ -20,13 +20,14 @@ public sealed partial class Team : ITenantOwned, ITeamOwnedResource
     {
         ArgumentNullException.ThrowIfNull(clock);
         ValidateDisplayName(displayName);
-        ValidateDescription(description);
+        var normalizedDescription = NormalizeDescription(description);
+        ValidateDescription(normalizedDescription);
         return new Team
         {
             _id = Guid.NewGuid(),
             TenantId = tenantId,
             DisplayName = displayName,
-            Description = description,
+            Description = normalizedDescription,
             CreatedAt = clock.GetUtcNow(),
         };
     }
@@ -34,9 +35,10 @@ public sealed partial class Team : ITenantOwned, ITeamOwnedResource
     public void Rename(string newDisplayName, string? newDescription)
     {
         ValidateDisplayName(newDisplayName);
-        ValidateDescription(newDescription);
+        var normalizedDescription = NormalizeDescription(newDescription);
+        ValidateDescription(normalizedDescription);
         DisplayName = newDisplayName;
-        Description = newDescription;
+        Description = normalizedDescription;
     }
 
     private static void ValidateDisplayName(string s)
@@ -52,4 +54,11 @@ public sealed partial class Team : ITenantOwned, ITeamOwnedResource
         if (s is { Length: > 512 })
             throw new ArgumentException("Team description must be <= 512 characters.", nameof(s));
     }
+
+    // Canonical normalization for Description: empty or whitespace-only strings
+    // collapse to null so the DB sees a single representation regardless of which
+    // creation path (SPA dialog, API consumer, test seed) populates the field.
+    // Addresses deep-review SF-4.
+    private static string? NormalizeDescription(string? s) =>
+        string.IsNullOrWhiteSpace(s) ? null : s;
 }
