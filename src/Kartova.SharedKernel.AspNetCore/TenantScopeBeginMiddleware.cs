@@ -75,29 +75,32 @@ public sealed class TenantScopeBeginMiddleware
             return;
         }
 
-        // Populate team memberships AFTER BeginAsync so the request-scoped DbContext
-        // resolves against a connection where SET LOCAL app.current_tenant_id has executed
-        // — the team_members RLS policy cannot evaluate otherwise. Resolved from
-        // RequestServices (not the root provider) so the reader's DbContext shares the
-        // same DI scope as the connection the membership query will run on.
-        // Falls back silently if the reader isn't registered (e.g., Organization module
-        // not loaded) — downstream code sees an empty memberships collection.
-        var sub = context.User.FindFirst("sub")?.Value;
-        if (Guid.TryParse(sub, out var userId))
-        {
-            var reader = context.RequestServices.GetService<ITeamMembershipReader>();
-            if (reader is not null)
-            {
-                var memberships = await reader.GetForUserAsync(userId, ct);
-                tenantContext.PopulateTeamMemberships(memberships);
-            }
-        }
-
         // Hand off to the commit filter via Items; middleware retains DisposeAsync ownership
-        // so rollback fires on any non-committed exit (handler exception, commit failure, cancel).
+        // so rollback fires on any non-committed exit (handler exception, commit failure, cancel,
+        // OR membership-population failure).
         context.Items[HandleKey] = handle;
         try
         {
+            // Populate team memberships AFTER BeginAsync so the request-scoped DbContext
+            // resolves against a connection where SET LOCAL app.current_tenant_id has executed
+            // — the team_members RLS policy cannot evaluate otherwise. Resolved from
+            // RequestServices (not the root provider) so the reader's DbContext shares the
+            // same DI scope as the connection the membership query will run on.
+            // Falls back silently if the reader isn't registered (e.g., Organization module
+            // not loaded) — downstream code sees an empty memberships collection.
+            // Population runs inside the try block so a reader exception triggers the
+            // finally's DisposeAsync, releasing the NpgsqlConnection + transaction.
+            var sub = context.User.FindFirst("sub")?.Value;
+            if (Guid.TryParse(sub, out var userId))
+            {
+                var reader = context.RequestServices.GetService<ITeamMembershipReader>();
+                if (reader is not null)
+                {
+                    var memberships = await reader.GetForUserAsync(userId, ct);
+                    tenantContext.PopulateTeamMemberships(memberships);
+                }
+            }
+
             await _next(context);   // parameter binding + filter chain + handler + IResult.ExecuteAsync
         }
         finally
