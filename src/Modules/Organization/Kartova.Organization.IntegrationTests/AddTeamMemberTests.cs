@@ -105,6 +105,40 @@ public sealed class AddTeamMemberTests : OrganizationIntegrationTestBase
     }
 
     [TestMethod]
+    public async Task TeamAdmin_of_other_team_returns_403()
+    {
+        // Caller is TeamAdmin of team B (passes claim gate — TeamAdmin has
+        // team.members.manage) but is NOT an admin of team A. The resource gate
+        // (TeamAdminOfThis) must short-circuit with 403 before any membership
+        // mutation. Proves the resource gate is wired, not just the claim gate.
+        // Addresses deep-review MT-2.
+        await Fx.SeedOrganizationAsync(Tenant.Value, "OrgA-Add-OtherTeam-403");
+        var teamA = await Fx.SeedTeamAsync(Tenant.Value, "Team A");
+        var teamB = await Fx.SeedTeamAsync(Tenant.Value, "Team B");
+        var teamAdminUserId = Guid.NewGuid();
+        await Fx.SeedTeamMembershipAsync(teamB, teamAdminUserId, AdminRole);
+        try
+        {
+            var client = Fx.CreateClient();
+            var token = Fx.Signer.IssueForTenant(
+                Tenant,
+                new[] { KartovaRoles.TeamAdmin },
+                subject: teamAdminUserId.ToString());
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var resp = await client.PostAsJsonAsync(
+                $"/api/v1/organizations/teams/{teamA}/members",
+                new AddTeamMemberRequest(Guid.NewGuid(), "Member"));
+
+            Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
+        }
+        finally
+        {
+            await Fx.DeleteTeamsForTenantAsync(Tenant.Value);
+        }
+    }
+
+    [TestMethod]
     public async Task Invalid_role_string_returns_400()
     {
         await Fx.SeedOrganizationAsync(Tenant.Value, "OrgA-Add-400");

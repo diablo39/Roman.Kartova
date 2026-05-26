@@ -13,6 +13,7 @@ namespace Kartova.Organization.IntegrationTests;
 public sealed class RemoveTeamMemberTests : OrganizationIntegrationTestBase
 {
     private const byte MemberRole = 1;
+    private const byte AdminRole = 2;
 
     private static readonly TenantId Tenant =
         new(Guid.Parse("aaaaaaaa-0007-0007-0007-000000000007"));
@@ -56,6 +57,41 @@ public sealed class RemoveTeamMemberTests : OrganizationIntegrationTestBase
                 $"/api/v1/organizations/teams/{teamId}/members/{Guid.NewGuid()}");
 
             Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
+        }
+        finally
+        {
+            await Fx.DeleteTeamsForTenantAsync(Tenant.Value);
+        }
+    }
+
+    [TestMethod]
+    public async Task TeamAdmin_of_other_team_removing_member_returns_403()
+    {
+        // Caller is TeamAdmin of team B (passes claim gate — TeamAdmin has
+        // team.members.manage) but is NOT an admin of team A. The resource gate
+        // (TeamAdminOfThis) must short-circuit with 403 before the membership row
+        // is touched. We seed a real member in team A so the path exercised is the
+        // resource gate, not "member doesn't exist". Addresses deep-review MT-2.
+        await Fx.SeedOrganizationAsync(Tenant.Value, "OrgA-Remove-OtherTeam-403");
+        var teamA = await Fx.SeedTeamAsync(Tenant.Value, "Team A");
+        var teamB = await Fx.SeedTeamAsync(Tenant.Value, "Team B");
+        var memberInA = Guid.NewGuid();
+        await Fx.SeedTeamMembershipAsync(teamA, memberInA, MemberRole);
+        var teamAdminUserId = Guid.NewGuid();
+        await Fx.SeedTeamMembershipAsync(teamB, teamAdminUserId, AdminRole);
+        try
+        {
+            var client = Fx.CreateClient();
+            var token = Fx.Signer.IssueForTenant(
+                Tenant,
+                new[] { KartovaRoles.TeamAdmin },
+                subject: teamAdminUserId.ToString());
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var resp = await client.DeleteAsync(
+                $"/api/v1/organizations/teams/{teamA}/members/{memberInA}");
+
+            Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
         }
         finally
         {
