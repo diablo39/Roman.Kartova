@@ -23,7 +23,7 @@ public sealed class GetTeamTests : OrganizationIntegrationTestBase
         new(Guid.Parse("bbbbbbbb-0003-0003-0003-000000000003"));
 
     [TestMethod]
-    public async Task Returns_team_detail_with_members_and_applicationIds()
+    public async Task Returns_team_detail_with_members_and_applications()
     {
         await Fx.SeedOrganizationAsync(Tenant.Value, "OrgA-Get");
         var teamId = await Fx.SeedTeamAsync(Tenant.Value, "Platform", "desc");
@@ -43,8 +43,8 @@ public sealed class GetTeamTests : OrganizationIntegrationTestBase
             Assert.AreEqual("desc", body.Description);
             Assert.IsNotNull(body.Members);
             Assert.AreEqual(0, body.Members.Count);
-            Assert.IsNotNull(body.ApplicationIds);
-            Assert.AreEqual(0, body.ApplicationIds.Count);
+            Assert.IsNotNull(body.Applications);
+            Assert.AreEqual(0, body.Applications.Count);
         }
         finally
         {

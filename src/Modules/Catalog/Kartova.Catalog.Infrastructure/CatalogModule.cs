@@ -152,10 +152,10 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
 
         // Cross-module readers exposed to Organization via SharedKernel ports
         // (slice 8). The Organization module never references Catalog directly —
-        // it depends on IApplicationCountByTeamReader / IApplicationIdsByTeamReader,
+        // it depends on IApplicationCountByTeamReader / IApplicationsByTeamReader,
         // implemented here against the Catalog DbContext.
         services.AddScoped<IApplicationCountByTeamReader, ApplicationCountByTeamReader>();
-        services.AddScoped<IApplicationIdsByTeamReader, ApplicationIdsByTeamReader>();
+        services.AddScoped<IApplicationsByTeamReader, ApplicationsByTeamReader>();
     }
 
     public void RegisterForMigrator(IServiceCollection services, IConfiguration configuration)

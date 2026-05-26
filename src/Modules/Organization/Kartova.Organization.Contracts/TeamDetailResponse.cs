@@ -9,4 +9,7 @@ public sealed record TeamDetailResponse(
     string? Description,
     DateTimeOffset CreatedAt,
     IReadOnlyCollection<TeamMemberResponse> Members,
-    IReadOnlyCollection<Guid> ApplicationIds);
+    IReadOnlyCollection<TeamApplicationSummary> Applications);
+
+[ExcludeFromCodeCoverage]
+public sealed record TeamApplicationSummary(Guid Id, string DisplayName, string Lifecycle);

@@ -8,20 +8,23 @@ namespace Kartova.Organization.Infrastructure;
 
 /// <summary>
 /// Wolverine handler for <see cref="GetTeamQuery"/>. Returns the team's
-/// detail view (members + assigned application ids) or <see langword="null"/>
+/// detail view (members + assigned application summaries) or <see langword="null"/>
 /// when the team does not exist within the current tenant scope (RLS,
 /// ADR-0090). The endpoint delegate translates the null to 404.
 ///
-/// The application id list is supplied by <see cref="IApplicationIdsByTeamReader"/>,
+/// The application list is supplied by <see cref="IApplicationsByTeamReader"/>,
 /// a cross-module port implemented by Catalog. This keeps the Organization
-/// module from referencing Catalog directly.
+/// module from referencing Catalog directly. The cross-module port shape
+/// <see cref="ApplicationByTeamSummary"/> is mapped 1:1 onto the wire-shape
+/// <see cref="TeamApplicationSummary"/>; the projection makes the layering
+/// explicit even though the fields happen to match.
 /// </summary>
 public sealed class GetTeamHandler
 {
-    private readonly IApplicationIdsByTeamReader _appIdsReader;
+    private readonly IApplicationsByTeamReader _appsReader;
 
-    public GetTeamHandler(IApplicationIdsByTeamReader appIdsReader)
-        => _appIdsReader = appIdsReader;
+    public GetTeamHandler(IApplicationsByTeamReader appsReader)
+        => _appsReader = appsReader;
 
     public async Task<TeamDetailResponse?> Handle(
         GetTeamQuery q,
@@ -37,7 +40,10 @@ public sealed class GetTeamHandler
             .Select(m => new TeamMemberResponse(m.UserId, m.Role.ToString(), m.AddedAt))
             .ToListAsync(ct);
 
-        var appIds = await _appIdsReader.GetIdsByTeamAsync(q.Id, ct);
+        var apps = await _appsReader.GetByTeamAsync(q.Id, ct);
+        var summaries = apps
+            .Select(a => new TeamApplicationSummary(a.Id, a.DisplayName, a.Lifecycle))
+            .ToList();
 
         return new TeamDetailResponse(
             team.Id.Value,
@@ -45,6 +51,6 @@ public sealed class GetTeamHandler
             team.Description,
             team.CreatedAt,
             members,
-            appIds);
+            summaries);
     }
 }
