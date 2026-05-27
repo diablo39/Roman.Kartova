@@ -12,6 +12,12 @@ GRANT CONNECT ON DATABASE kartova TO kartova_app;
 ALTER SCHEMA public OWNER TO migrator;
 GRANT USAGE ON SCHEMA public TO kartova_app;
 
+-- Database-level CREATE so the migrator can install trusted extensions
+-- (e.g. pg_trgm for the users.display_name trigram index — slice 9 / ADR-0090).
+-- PG 13+ allows non-superusers to CREATE EXTENSION for trusted extensions
+-- provided they hold CREATE on the database.
+GRANT CREATE ON DATABASE kartova TO migrator;
+
 -- Wolverine Postgres persistence is deferred until a slice publishes domain events
 -- (see docs/superpowers/specs/2026-04-24-defer-wolverine-persistence-design.md and ADR-0085).
 -- When persistence is reintroduced, the wolverine.* schema must be created by Kartova.Migrator,
