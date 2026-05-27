@@ -10,11 +10,22 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Net.Http.Headers;
 
 namespace Kartova.Organization.Infrastructure;
 
 internal static class OrganizationEndpointDelegates
 {
+    // Must match the OrgLogo.Create invariant
+    // (src/Modules/Organization/Kartova.Organization.Domain/OrgLogo.cs:22).
+    // The aggregate enforces <= 256 KiB; the endpoint enforces the same limit
+    // early so a hostile uploader can't stream gigabytes before the domain
+    // validation kicks in.
+    private const int LogoMaxBytes = 256 * 1024;
+
+    // Read buffer for the upload stream. 8 KiB matches Kestrel's default
+    // request-body buffer and is well below the LogoMaxBytes ceiling.
+    private const int LogoUploadReadBuffer = 8192;
     internal static async Task<IResult> GetMeAsync(OrgProfileQueries queries, CancellationToken ct)
     {
         var profile = await queries.GetMyOrgAsync(ct);
@@ -317,6 +328,132 @@ internal static class OrganizationEndpointDelegates
                 statusCode: StatusCodes.Status404NotFound);
         }
         return Results.NoContent();
+    }
+
+    // ----- Logo upload / clear / serve (slice 9 spec §6.4) --------------
+
+    /// <summary>
+    /// PUT <c>/me/logo</c>: streams the request body (capped at
+    /// <see cref="LogoMaxBytes"/>), validates content-type + magic bytes,
+    /// sanitizes SVG, and persists via <see cref="LogoCommands.UploadAsync"/>.
+    /// Returns 200 + <see cref="UploadLogoResponse"/> on success, RFC 7807
+    /// envelopes for 413/415/422/404. Content-Type is parsed via
+    /// <see cref="MediaTypeHeaderValue"/> so <c>image/PNG</c> and
+    /// <c>image/png; charset=utf-8</c> both normalize correctly.
+    /// </summary>
+    internal static async Task<IResult> UploadLogoAsync(
+        HttpRequest req,
+        LogoCommands cmds,
+        CancellationToken ct)
+    {
+        var rawContentType = req.Headers.ContentType.ToString();
+        string? mediaType = null;
+        if (MediaTypeHeaderValue.TryParse(rawContentType, out var mt))
+        {
+            mediaType = mt.MediaType.Value?.ToLowerInvariant();
+        }
+
+        if (mediaType is not ("image/png" or "image/jpeg" or "image/svg+xml"))
+        {
+            return Results.Problem(
+                type: ProblemTypes.UnsupportedLogoMedia,
+                title: "Unsupported logo media type",
+                detail: "Content-Type must be image/png, image/jpeg, or image/svg+xml.",
+                statusCode: StatusCodes.Status415UnsupportedMediaType);
+        }
+
+        // Stream the body with an explicit size ceiling rather than trusting
+        // Content-Length (which a hostile client can spoof or omit).
+        using var ms = new MemoryStream();
+        var buffer = new byte[LogoUploadReadBuffer];
+        int read;
+        while ((read = await req.Body.ReadAsync(buffer.AsMemory(0, buffer.Length), ct)) > 0)
+        {
+            ms.Write(buffer, 0, read);
+            if (ms.Length > LogoMaxBytes)
+            {
+                return Results.Problem(
+                    type: ProblemTypes.UnsupportedLogoMedia,
+                    title: "Logo too large",
+                    detail: $"Logo bytes must be <= {LogoMaxBytes:N0} bytes.",
+                    statusCode: StatusCodes.Status413PayloadTooLarge);
+            }
+        }
+        var bytes = ms.ToArray();
+
+        var result = await cmds.UploadAsync(bytes, mediaType, ct);
+        return result switch
+        {
+            UploadLogoResult.Accepted a => Results.Ok(new UploadLogoResponse(a.Etag, a.MimeType)),
+            UploadLogoResult.Rejected r => Results.Problem(
+                type: ProblemTypes.UnsupportedLogoMedia,
+                title: "Logo rejected",
+                detail: r.Reason,
+                statusCode: StatusCodes.Status422UnprocessableEntity),
+            UploadLogoResult.NotFound => Results.Problem(
+                type: ProblemTypes.ResourceNotFound,
+                title: "Organization not found",
+                detail: "The current tenant has no visible Organization row.",
+                statusCode: StatusCodes.Status404NotFound),
+            _ => Results.StatusCode(StatusCodes.Status500InternalServerError),
+        };
+    }
+
+    /// <summary>
+    /// DELETE <c>/me/logo</c>: clears the logo on the current tenant's
+    /// Organization aggregate. 204 on success, RFC 7807 404 when no
+    /// Organization is visible (RLS or missing row).
+    /// </summary>
+    internal static async Task<IResult> DeleteLogoAsync(
+        LogoCommands cmds,
+        CancellationToken ct)
+    {
+        var ok = await cmds.ClearAsync(ct);
+        if (!ok)
+        {
+            return Results.Problem(
+                type: ProblemTypes.ResourceNotFound,
+                title: "Organization not found",
+                detail: "The current tenant has no visible Organization row.",
+                statusCode: StatusCodes.Status404NotFound);
+        }
+        return Results.NoContent();
+    }
+
+    /// <summary>
+    /// GET <c>/me/logo</c>: serves the raw logo bytes with a strong ETag
+    /// (SHA-256 hex of the bytes) and <c>Cache-Control: private, max-age=300</c>.
+    /// Honors <c>If-None-Match</c> for 304 short-circuit. This is the cache-
+    /// validation header (RFC 7232 §3.2), distinct from <c>If-Match</c> which
+    /// is used for optimistic concurrency on the profile PUT.
+    /// </summary>
+    internal static async Task<IResult> GetLogoAsync(
+        LogoCommands cmds,
+        HttpContext http,
+        CancellationToken ct)
+    {
+        var data = await cmds.GetServeDataAsync(ct);
+        if (data is null)
+        {
+            return Results.Problem(
+                type: ProblemTypes.ResourceNotFound,
+                title: "Organization logo not found",
+                detail: "No logo is set on the current tenant's Organization.",
+                statusCode: StatusCodes.Status404NotFound);
+        }
+
+        var ifNone = http.Request.Headers.IfNoneMatch.FirstOrDefault()?.Trim('"');
+        if (ifNone == data.ContentHash)
+        {
+            // 304 is success-shape; do NOT wrap in Problem. ETag must still be
+            // emitted so a downstream cache can refresh its TTL.
+            http.Response.Headers.ETag = $"\"{data.ContentHash}\"";
+            return Results.StatusCode(StatusCodes.Status304NotModified);
+        }
+
+        http.Response.Headers.ETag = $"\"{data.ContentHash}\"";
+        http.Response.Headers.CacheControl = "private, max-age=300";
+        return Results.File(data.Bytes, data.MimeType);
     }
 
     // ----- shared helpers -----------------------------------------------

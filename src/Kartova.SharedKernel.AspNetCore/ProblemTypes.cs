@@ -34,4 +34,7 @@ public static class ProblemTypes
     // Team management — slice 8 (ADR-0098 spec §6.5).
     public const string TeamHasApplications    = Base + "team-has-applications";
     public const string InvalidTeam            = Base + "invalid-team";
+
+    // Logo upload validation — slice 9 (spec §6.4).
+    public const string UnsupportedLogoMedia   = Base + "unsupported-logo-media";
 }

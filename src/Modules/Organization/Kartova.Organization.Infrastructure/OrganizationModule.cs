@@ -55,6 +55,31 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status412PreconditionFailed);
+
+        // Logo upload / clear / serve — slice 9 spec §6.4. The upload endpoint
+        // accepts raw image/png|jpeg|svg+xml bodies (NOT multipart/form-data)
+        // and is capped server-side at 256 KiB to match the OrgLogo invariant.
+        tenant.MapPut("/me/logo", OrganizationEndpointDelegates.UploadLogoAsync)
+            .RequireAuthorization(KartovaPermissions.OrgProfileEdit)
+            .WithName("UploadOrganizationLogo")
+            .Produces<UploadLogoResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status413PayloadTooLarge)
+            .ProducesProblem(StatusCodes.Status415UnsupportedMediaType)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+        tenant.MapDelete("/me/logo", OrganizationEndpointDelegates.DeleteLogoAsync)
+            .RequireAuthorization(KartovaPermissions.OrgProfileEdit)
+            .WithName("DeleteOrganizationLogo")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+        tenant.MapGet("/me/logo", OrganizationEndpointDelegates.GetLogoAsync)
+            .RequireAuthorization(KartovaPermissions.OrgProfileRead)
+            .WithName("GetOrganizationLogo")
+            // 200 streams the raw bytes — content type comes from the stored MIME.
+            // 304 is the cache-revalidation path (If-None-Match match).
+            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status304NotModified)
+            .ProducesProblem(StatusCodes.Status404NotFound);
         tenant.MapGet("/me/permissions", OrganizationEndpointDelegates.GetMePermissions)
             .WithName("GetMePermissions")
             .Produces<MePermissionsResponse>(StatusCodes.Status200OK);
@@ -170,6 +195,10 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
         // same placement as the slice-8 team handlers above.
         services.AddScoped<OrgProfileQueries>();
         services.AddScoped<UpdateOrgProfileHandler>();
+
+        // Logo upload/clear/serve handler (slice-9 spec §6.4) — same Infrastructure
+        // placement as the sibling profile handlers above.
+        services.AddScoped<LogoCommands>();
 
         services.AddScoped<CreateTeamHandler>();
         services.AddScoped<UpdateTeamHandler>();
