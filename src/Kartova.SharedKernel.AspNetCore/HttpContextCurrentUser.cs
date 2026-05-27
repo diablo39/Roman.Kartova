@@ -28,4 +28,6 @@ public sealed class HttpContextCurrentUser : ICurrentUser
     public IReadOnlyList<TeamMembershipInfo> TeamMemberships => _tenantContext.TeamMemberships;
 
     public IReadOnlySet<Guid> TeamIds => _tenantContext.TeamIds;
+
+    public Guid? JustAcceptedInvitationId => _tenantContext.JustAcceptedInvitationId;
 }

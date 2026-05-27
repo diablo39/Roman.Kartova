@@ -41,6 +41,24 @@ public class HttpContextCurrentUserTests
         Assert.ThrowsExactly<FormatException>(() => _ = sut.UserId);
     }
 
+    [TestMethod]
+    public void JustAcceptedInvitationId_delegates_to_tenant_context()
+    {
+        // Arrange
+        var tenantContext = new TenantContextAccessor();
+        var invitationId = Guid.Parse("ffffffff-ffff-ffff-ffff-ffffffffffff");
+        tenantContext.SetJustAcceptedInvitation(invitationId);
+        var ctx = new DefaultHttpContext();
+        var accessor = new HttpContextAccessor { HttpContext = ctx };
+        var sut = new HttpContextCurrentUser(accessor, tenantContext);
+
+        // Act
+        var actual = sut.JustAcceptedInvitationId;
+
+        // Assert
+        Assert.AreEqual(invitationId, actual);
+    }
+
     private static HttpContextCurrentUser CreateSut(params (string Type, string Value)[] claims)
     {
         var ctx = new DefaultHttpContext

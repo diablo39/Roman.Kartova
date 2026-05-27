@@ -271,4 +271,44 @@ public class TenantContextAccessorTests
         Assert.AreEqual(0, ctx.TeamMemberships.Count);
         Assert.AreEqual(0, ctx.TeamIds.Count);
     }
+
+    // ---- JustAcceptedInvitationId ----
+
+    [TestMethod]
+    public void JustAcceptedInvitationId_is_null_on_fresh_instance()
+    {
+        // Arrange
+        var sut = new TenantContextAccessor();
+
+        // Act / Assert
+        Assert.IsNull(sut.JustAcceptedInvitationId);
+    }
+
+    [TestMethod]
+    public void SetJustAcceptedInvitation_stores_value()
+    {
+        // Arrange
+        var sut = new TenantContextAccessor();
+        var invitationId = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
+
+        // Act
+        sut.SetJustAcceptedInvitation(invitationId);
+
+        // Assert
+        Assert.AreEqual(invitationId, sut.JustAcceptedInvitationId);
+    }
+
+    [TestMethod]
+    public void Clear_resets_JustAcceptedInvitationId_to_null()
+    {
+        // Arrange
+        var sut = new TenantContextAccessor();
+        sut.SetJustAcceptedInvitation(Guid.NewGuid());
+
+        // Act
+        sut.Clear();
+
+        // Assert
+        Assert.IsNull(sut.JustAcceptedInvitationId);
+    }
 }

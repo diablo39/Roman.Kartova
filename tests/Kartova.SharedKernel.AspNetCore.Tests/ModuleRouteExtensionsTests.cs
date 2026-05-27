@@ -84,13 +84,15 @@ public class ModuleRouteExtensionsTests
         public IReadOnlyCollection<string> Roles { get; private set; } = Array.Empty<string>();
         public IReadOnlyList<TeamMembershipInfo> TeamMemberships { get; private set; } = Array.Empty<TeamMembershipInfo>();
         public IReadOnlySet<Guid> TeamIds { get; private set; } = new HashSet<Guid>();
+        public Guid? JustAcceptedInvitationId { get; private set; }
         public void Populate(TenantId id, IReadOnlyCollection<string> roles) { Id = id; Roles = roles; }
         public void PopulateTeamMemberships(IReadOnlyList<TeamMembershipInfo> memberships)
         {
             TeamMemberships = memberships;
             TeamIds = memberships.Select(m => m.TeamId).ToHashSet();
         }
-        public void Clear() { Id = TenantId.Empty; Roles = Array.Empty<string>(); TeamMemberships = Array.Empty<TeamMembershipInfo>(); TeamIds = new HashSet<Guid>(); }
+        public void SetJustAcceptedInvitation(Guid invitationId) => JustAcceptedInvitationId = invitationId;
+        public void Clear() { Id = TenantId.Empty; Roles = Array.Empty<string>(); TeamMemberships = Array.Empty<TeamMembershipInfo>(); TeamIds = new HashSet<Guid>(); JustAcceptedInvitationId = null; }
     }
 
     private sealed class FakeTenantScope : ITenantScope
