@@ -18,6 +18,6 @@ internal sealed class OrganizationQueries : IOrganizationQueries
         // RLS filters rows to the current tenant. Expect 0 or 1 row for the current tenant.
         var row = await _db.Organizations.AsNoTracking().FirstOrDefaultAsync(ct);
         if (row is null) return null;
-        return new OrganizationDto(row.Id.Value, row.TenantId.Value, row.Name, row.CreatedAt);
+        return new OrganizationDto(row.Id.Value, row.TenantId.Value, row.DisplayName, row.CreatedAt);
     }
 }

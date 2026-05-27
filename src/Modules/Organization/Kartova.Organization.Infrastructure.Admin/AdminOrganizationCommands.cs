@@ -23,6 +23,6 @@ internal sealed class AdminOrganizationCommands : IAdminOrganizationCommands
         // forward to next Organization slice. (slice-6 mutation report 2026-05-07)
         _db.Organizations.Add(org);
         await _db.SaveChangesAsync(ct);
-        return new OrganizationDto(org.Id.Value, org.TenantId.Value, org.Name, org.CreatedAt);
+        return new OrganizationDto(org.Id.Value, org.TenantId.Value, org.DisplayName, org.CreatedAt);
     }
 }
