@@ -479,7 +479,7 @@ src/Kartova.SharedKernel.Identity/
   ServiceCollectionExtensions.cs
 ```
 
-NuGet deps: `IdentityModel` (12.x), `System.Net.Http.Json`.
+NuGet deps: `Duende.IdentityModel` (8.x — the legacy `IdentityModel` package was renamed to `Duende.IdentityModel` after v7; the `IdentityModel.Client.TokenClient` namespace is preserved across the rename). `System.Net.Http.Json` is NOT added explicitly — it ships with the `net10.0` shared framework, and adding it triggers NU1510 under `TreatWarningsAsErrors`.
 Project references: `Kartova.SharedKernel` only (no ASP.NET coupling).
 
 ### 7.2 `IKeycloakAdminClient`

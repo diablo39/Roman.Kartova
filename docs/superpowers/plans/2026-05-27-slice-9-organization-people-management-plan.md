@@ -46,19 +46,24 @@ Expected: new worktree at `../slice-9` on branch `feat/slice-9-organization-peop
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="IdentityModel" Version="12.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.0" />
-    <PackageReference Include="System.Net.Http.Json" Version="10.0.0" />
+    <PackageReference Include="Duende.IdentityModel" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Kartova.SharedKernel\Kartova.SharedKernel.csproj" />
   </ItemGroup>
 </Project>
 ```
+
+**Notes:**
+- The repo uses **Central Package Management** (`Directory.Packages.props`) — package versions are pinned there, not on `PackageReference` elements. Add these versions to `Directory.Packages.props`: `Duende.IdentityModel` 8.1.0, `Microsoft.Extensions.Http` 10.0.0, `Microsoft.Extensions.Options.ConfigurationExtensions` 10.0.0.
+- The legacy `IdentityModel` NuGet was renamed to `Duende.IdentityModel` after v7; the `IdentityModel.Client.TokenClient` namespace is preserved.
+- `System.Net.Http.Json` is intentionally **not** referenced — it ships with the `net10.0` shared framework, and an explicit reference triggers `NU1510` under `TreatWarningsAsErrors`.
 
 - [ ] **Step 2: Add `UserDisplayInfo` to base SharedKernel**
 
