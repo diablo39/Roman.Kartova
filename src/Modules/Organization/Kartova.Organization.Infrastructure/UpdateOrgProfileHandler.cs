@@ -22,7 +22,7 @@ public sealed class UpdateOrgProfileHandler
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage(
         "Style", "IDE0060:Remove unused parameter",
-        Justification = "ifMatch is part of the optimistic-concurrency wire contract reserved per slice-9 spec §4. It will become live once the Organization aggregate carries an xmin/rowversion mapping; keeping the parameter now avoids changing the handler/endpoint surface later.")]
+        Justification = "ifMatch is reserved on the wire contract per slice-9 spec §4 + ADR-0096. The Organization aggregate does not carry an EF concurrency token yet, so this argument is currently unused. Both the delegate (which passes null) and this handler will be wired to IfMatchEndpointFilter when xmin mapping lands.")]
     public async Task<UpdateOrgProfileResult> HandleAsync(
         UpdateOrgProfileRequest request,
         byte[]? ifMatch,

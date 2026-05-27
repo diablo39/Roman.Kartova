@@ -31,25 +31,22 @@ internal static class OrganizationEndpointDelegates
 
     /// <summary>
     /// Slice-9 spec §4: applies the supplied <see cref="UpdateOrgProfileRequest"/>
-    /// to the current tenant's <c>Organization</c>. The If-Match header carries
-    /// the optimistic-concurrency token; a malformed value is treated as absent
-    /// (not a 500) so adversarial input never leaks an internal error.
+    /// to the current tenant's <c>Organization</c>. The If-Match header is
+    /// reserved on the wire contract but not parsed here — see the inline note
+    /// inside the body for the deferral rationale.
     /// </summary>
     internal static async Task<IResult> UpdateMeAsync(
         [FromBody] UpdateOrgProfileRequest body,
         UpdateOrgProfileHandler handler,
-        HttpContext http,
         CancellationToken ct)
     {
-        var ifMatch = http.Request.Headers.IfMatch.FirstOrDefault();
-        byte[]? token = null;
-        if (ifMatch is not null)
-        {
-            try { token = Convert.FromHexString(ifMatch.Trim('"')); }
-            catch (FormatException) { /* malformed If-Match -> treat as missing */ }
-        }
-
-        var result = await handler.HandleAsync(body, token, ct);
+        // If-Match wire contract reserved per slice-9 spec §4 + ADR-0096.
+        // The Organization aggregate does not carry an EF concurrency token yet,
+        // so the header would be a no-op even if parsed. When xmin mapping lands,
+        // wire IfMatchEndpointFilter (already used by CatalogModule) onto this
+        // endpoint and pull the expected token from HttpContext.Items rather than
+        // re-implementing header parsing in the delegate.
+        var result = await handler.HandleAsync(body, ifMatch: null, ct);
         return result switch
         {
             UpdateOrgProfileResult.Ok => Results.NoContent(),
