@@ -4,6 +4,7 @@
     <Project Path="src/Kartova.Migrator/Kartova.Migrator.csproj" />
     <Project Path="src/Kartova.SharedKernel/Kartova.SharedKernel.csproj" />
     <Project Path="src/Kartova.SharedKernel.AspNetCore/Kartova.SharedKernel.AspNetCore.csproj" />
+    <Project Path="src/Kartova.SharedKernel.Identity/Kartova.SharedKernel.Identity.csproj" />
     <Project Path="src/Kartova.SharedKernel.Postgres/Kartova.SharedKernel.Postgres.csproj" />
     <Project Path="src/Kartova.SharedKernel.Wolverine/Kartova.SharedKernel.Wolverine.csproj" />
   </Folder>
