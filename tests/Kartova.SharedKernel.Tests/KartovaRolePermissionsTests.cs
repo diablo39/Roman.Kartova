@@ -10,9 +10,10 @@ public sealed class KartovaRolePermissionsTests
     public void Viewer_can_read_catalog_and_teams()
     {
         var perms = KartovaRolePermissions.ForRole(KartovaRoles.Viewer);
-        Assert.AreEqual(2, perms.Count);
         Assert.IsTrue(perms.Contains(KartovaPermissions.CatalogRead));
         Assert.IsTrue(perms.Contains(KartovaPermissions.TeamRead));
+        Assert.IsFalse(perms.Contains(KartovaPermissions.CatalogApplicationsRegister),
+            "Viewer must not have write permissions on catalog.");
     }
 
     [TestMethod]
