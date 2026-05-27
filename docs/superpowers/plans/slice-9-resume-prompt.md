@@ -12,103 +12,88 @@ I'm continuing execution of slice 9 (organization & people management). Context:
 **Plan:** `docs/superpowers/plans/2026-05-27-slice-9-organization-people-management-plan.md`
 **Branch:** `feat/slice-9-organization-people-management` (already checked out)
 
-**Status: Phases A + B complete (22 commits since branch start).** Full-solution build: 0 warnings, 0 errors. Full unit + architecture pass: green across all suites (Kartova.Organization.Tests 67 + Kartova.Organization.Infrastructure.Tests 3 + Kartova.SharedKernel.Identity.Tests 5 + Kartova.SharedKernel.AspNetCore.Tests 91 + Kartova.Catalog.Infrastructure.Tests 3 + Kartova.Catalog.Tests 72 + Kartova.SharedKernel.Tests 103 + Kartova.ArchitectureTests 62 = 406/406 unit + arch passing). Both Phase A and Phase B Docker-dependent verifications **have been run and passed**:
-- A8 `PostgresAdvisoryLock` Testcontainers integration tests → 3/3 PASS against `postgres:18-alpine` (4s).
-- B4 migrator smoke-test → all 4 new migrations applied to local docker-compose postgres; DB state verified end-to-end (8 tables, 6 forced-RLS `tenant_isolation` policies, `pg_trgm 1.6` installed, GIN trigram + filtered-partial indexes present, `chk_logo_complete` check constraint on `organizations`).
+**Status: Phases A + B + C complete (28 commits since branch start).** Full-solution build: 0 warnings, 0 errors. Full unit + architecture pass: green across all suites (Kartova.Organization.Tests 67 + Kartova.Organization.Infrastructure.Tests 9 + Kartova.SharedKernel.Identity.Tests 5 + Kartova.SharedKernel.AspNetCore.Tests 95 + Kartova.Catalog.Infrastructure.Tests 3 + Kartova.Catalog.Tests 72 + Kartova.SharedKernel.Tests 106 + Kartova.ArchitectureTests 63 = 420/420 unit + arch passing). Phase A's Docker-dependent A8 PostgresAdvisoryLock Testcontainers integration tests + Phase B's B4 migrator smoke-test against local docker-compose postgres were both verified at end-of-Phase-B and **still hold** — no DB-layer changes in Phase C. Phase C is pure C#/EF code + tests, no Docker dependency.
 
-**Phase B commit log:**
+**Phase C commit log:**
 
 | Commit | Task | Notes |
 |---|---|---|
-| `d11b641` | B1: Organization aggregate ext (`Description`, `OrgLogo`, `DefaultTimeZone`) | Full two-stage review. Spec-mandated `Name`→`DisplayName` rename was applied as part of B1 (plan assumed it was already done from slice-2; it wasn't). Production callers in `OrganizationQueries.cs`, `AdminOrganizationCommands.cs`, and `OrganizationAggregateTests.cs` updated. DB column stays `"name"` (B4 didn't rename it either — spec §4.4 only adds new columns). |
-| `0957344` | B1 fix-up: tighten `OrgLogo` VO invariant + descriptive validator param names + boundary tests | Code-quality review surfaced two should-fix items: (1) `OrgLogo.Create` aliased the caller's byte[] (defensive-copy added via `(byte[])bytes.Clone()`); (2) `ValidateDescription(string? s)` had `nameof(s)` leaking; renamed parameter to `description`. Also `ValidateDisplayName(string name)`→`(string displayName)` for symmetry. Boundary tests added at exactly `256*1024` bytes and exactly `1024` chars; `ParamName` assertions on rejection tests. |
-| `1851158` | B2: `Invitation` aggregate (status machine: Pending/Accepted/Revoked/Expired, 7-day expiry, role validation) + 9 domain tests + boundary/ParamName tests | Full two-stage review. **`KartovaRoles.All` was added in this commit** — the plan assumed slice-7 added it but slice 7 never did. Contents: `{Viewer, Member, TeamAdmin, OrgAdmin}` only — `PlatformAdmin` excluded (orthogonal to tenants) and `ServiceAccount` excluded (no realm role yet per ADR-0009). `FrozenSet<string>` with `StringComparer.Ordinal`, mirroring `KartovaRolePermissions.Map` keying. |
-| `0ba570d` | B3: `User` projection POCO | Self-verified pure declaration (`User` is a projection per spec §4.3 — pure read model, source-of-truth = KeyCloak). Includes the static `User.ComputeDisplayName(given, family, email)` helper that C3's `UserProjectionUpdater` will consume. `[ExcludeFromCodeCoverage]` per spec. |
-| `fde7230` | B4: EF migrations (pg_trgm + organizations profile columns + users + invitations) + EF configs | Full two-stage review. 4 new migrations: `20260527182222_EnablePgTrgmExtension`, `20260527182257_AddOrganizationProfileColumns`, `20260527182349_AddUsersTable`, `20260527182445_AddInvitationsTable`. 2 new EF configs (`InvitationEntityTypeConfiguration.cs`, `UserEntityTypeConfiguration.cs`) named per Organization-module convention (NOT `Ef*Configuration.cs` — the plan's filename was wrong). `OrganizationEntityTypeConfiguration.cs` extended (B1's `builder.Ignore` placeholders removed; real wiring + `OwnsOne(OrgLogo)` added). Both `OrganizationDbContext` and `AdminOrganizationDbContext` got `DbSet<User>` + `DbSet<Invitation>` (spec §4.8). |
-| `cc52d5a` | fix: grant CREATE on db to migrator role for pg_trgm extension | **Real prod-relevant bug surfaced during B4 smoke-test.** The migrator role lacked `CREATE ON DATABASE kartova` privilege; `CREATE EXTENSION pg_trgm` failed with SQLSTATE 42501. PG 13+ allows non-superusers to install trusted extensions if they hold CREATE on the DB. Fixed in `docker/postgres/init.sql`. **Production environments must mirror this via Helm Secrets.** Future onboarding gets the fix from init.sql; the running container also got the same GRANT manually for the smoke-test. |
+| `f76dc68` | C1: 7 org permission constants + role map + matrix test + TS snapshot | Full two-stage review. **Plan claimed `KartovaPermissions.All` is "reflection-driven" — it is NOT.** `All` is a hand-maintained array; reflection enforcement lives in `KartovaPermissionsRules.All_collection_contains_every_public_string_constant` (arch test). Adding a constant requires editing the `All` array too. Order: catalog.* → team.* → org.* mirrors declaration order. Drift sentinel `Ts_snapshot_equals_csharp_KartovaPermissions_All` covered by updating `web/src/shared/auth/permissions.snapshot.json` (now 17 entries) in the same commit. |
+| `44893c2` | fix: Viewer perm-count assertion broken by C1 | **Real C1 regression my spec reviewer missed.** `KartovaRolePermissionsTests.Viewer_can_read_catalog_and_teams` had `Assert.AreEqual(2, perms.Count)`; C1 raised Viewer to 4 perms. Replaced the brittle count assertion with contain-only style (matching the convention in adjacent role tests like `Member_can_read_register_edit_forward_lifecycle`) + a negative containment guard against Viewer gaining write perms. Hotfix committed separately, NOT amended into `f76dc68` (clean linear history for slice-boundary `requesting-code-review`). |
+| `674463f` | C2: `JustAcceptedInvitationId` on `ICurrentUser` + `ITenantContext` + `TenantContextAccessor` + `HttpContextCurrentUser` + 4 new tests | Full two-stage review. **Plan said all three files were in `Kartova.SharedKernel.AspNetCore` — that was wrong.** `ITenantContext` + `TenantContextAccessor` actually live in `src/Kartova.SharedKernel/Multitenancy/`; only `ICurrentUser` is in AspNetCore. The mutator `SetJustAcceptedInvitation(Guid)` is the only call-site addition; `Clear()` resets to null. **Production stub plumbing flagged but unplanned:** `FakeTenantContext` in `tests/Kartova.SharedKernel.AspNetCore.Tests/ModuleRouteExtensionsTests.cs` and `StubCurrentUser` in `src/Modules/Catalog/Kartova.Catalog.IntegrationTests/CrossTenantWriteTests.cs` both implement these interfaces in test code and must get the new member (build-break otherwise). 2 extra files beyond the plan's 6. |
+| `120957f` | C3: `UserProjectionUpdater` + 3 unit tests | Full two-stage review. **Plan placed production code in `Kartova.Organization.Application` — Clean-Architecture violation.** The class directly takes `OrganizationDbContext` as a parameter; putting it in Application would force Application → Infrastructure. Moved to `Kartova.Organization.Infrastructure` (matches existing repo pattern: all handlers/queries that touch DbContext live in Infrastructure). Tests landed in existing `Kartova.Organization.Infrastructure.Tests` (NOT a new `Application.Tests` project — would have violated the resume-prompt-pinned no-new-test-projects rule). Csproj added `Microsoft.EntityFrameworkCore.InMemory` + `Microsoft.Extensions.TimeProvider.Testing` (both already in `Directory.Packages.props`, no version pin needed). |
+| `4cc5fa7` | C4: `IPostAuthSyncHook` + `OrganizationPostAuthSyncHook` + `TenantClaimsTransformation` extension + `OrganizationModule` DI + 2 transformer tests + 3 hook tests | Full two-stage review. **Three plan-vs-reality compile bugs surfaced:** (1) `tenantContext.TenantId is not { } tenantId` — won't compile against the value-type `TenantId` struct; fixed to `if (!tenantContext.IsTenantScoped) return; var tenantId = tenantContext.Id;`. (2) Plan referenced `tenantContext.TenantId`; actual property is `tenantContext.Id`. (3) `pending.Id.Value` works as plan says — `InvitationId` is `readonly record struct InvitationId(Guid Value)`. **Architectural choice:** plan said "inject hooks via constructor" into `TenantClaimsTransformation`; kept the existing `IServiceProvider _services` lazy-resolution pattern (`_services.GetServices<IPostAuthSyncHook>()`). The existing pattern handles the singleton/scoped registration boundary correctly. **Tests beyond plan:** plan specified ZERO tests for C4; added 2 transformer tests (hook invoked + hook skipped for unauthenticated) and 3 hook tests (pending-accepted, no-pending-skip, expired-skip) per CLAUDE.md DoD requirements. `OrganizationPostAuthSyncHook` is `internal sealed`; reached from tests via new `<InternalsVisibleTo Include="Kartova.Organization.Infrastructure.Tests" />` on Infrastructure csproj. |
+| `1b7834d` | docs: TenantClaimsTransformation XML doc note | One-line addition to the class summary noting the new `IPostAuthSyncHook` fan-out (code-quality reviewer flagged the stale doc as Should-fix). Separate doc commit, not amended. |
 
-**Reconciliations made during Phase B (worth remembering for later phases):**
+**Reconciliations made during Phase C (worth remembering for D/E/F):**
 
-1. **Plan-spec drift on `Organization.Name` vs `DisplayName`.** Slice 2's baseline used `Name`; spec §1 + §13 explicitly call out `DisplayName` as canonical for slice 9. Rename applied in B1. **Future C/D/E/F code that references the org's display name should use `DisplayName`** (DB column is still `"name"`).
-2. **Plan's `tests/Kartova.Organization.Domain.Tests/` path doesn't exist.** Org module's test project lives at `src/Modules/Organization/Kartova.Organization.Tests/` (namespace `Kartova.Organization.Tests`). All slice-9 domain tests land there; do **NOT** scaffold a new test project. Same applies to C3 if the plan tries to use a similar wrong path.
-3. **EF config filename convention varies by module.** Organization module uses `*EntityTypeConfiguration.cs` (existing pattern: `Organization`, `Team`, `TeamMembership`). Catalog module uses `Ef*Configuration.cs` (`EfApplicationConfiguration`). Plan templates lean on the Catalog idiom. **In the Organization module, always use `*EntityTypeConfiguration.cs`.**
-4. **`OrganizationDbContext.OnModelCreating` already calls `ApplyConfigurationsFromAssembly`** — new `IEntityTypeConfiguration<T>` types are auto-discovered. The plan's "add explicit `mb.ApplyConfiguration(new ...)` calls" instruction is unnecessary and would supersede the assembly scan. Same applies to `AdminOrganizationDbContext`.
-5. **`KartovaRoles.All` is now defined** in `src/Kartova.SharedKernel/Multitenancy/KartovaRoles.cs` and contains the four tenant-scoped invitable roles. C1+ can reference it without re-defining.
-6. **`OrgLogo` is mapped as `OwnsOne` on `Organization`** with column names `logo_bytes`, `logo_mime_type`, `logo_content_hash`. `MimeType` capped at 32 chars; `ContentHash` at 64 (SHA-256 hex). The DB check constraint `chk_logo_complete` enforces all-three-null-or-all-three-set.
-7. **`Invitation` uses backing-field strategy** (`private Guid _id; public InvitationId Id => new(_id);`) mirroring slice-8 `Team`. EF config uses `b.Property<Guid>("_id").HasColumnName("id"); b.HasKey("_id");`. Future invitation handlers should be aware: `inv.Id` is a record-struct over `_id`, not a settable property.
-8. **`Invitation.Email` is normalized at construction** (`Trim().ToLowerInvariant()`). Reading queries don't need to re-normalize.
-9. **`Invitation.MarkExpired` does NOT set an `ExpiredAt` timestamp** — only `Status = Expired`. Per spec. If C-phase or D-phase tests expect a timestamp, they're wrong; the design omits it intentionally.
-10. **`User.Id` does not call `.ValueGeneratedNever()`** (EF defaults to `ValueGeneratedOnAdd` for Guid PKs). Works correctly because `UserProjectionUpdater` (C3) assigns `Id = userId` from JWT `sub` before adding — non-default Guid means EF respects the assignment. If a future caller forgets to set `Id`, EF generates a random one and the projection drifts from KeyCloak. **C3 implementer: be explicit about assigning Id from the JWT `sub` claim.**
+1. **`KartovaPermissions.All` is hand-maintained array, not reflection-driven.** Future D/E/F constants must edit both the constant block AND the `All` array; `KartovaPermissionsRules.All_collection_contains_every_public_string_constant` will fail otherwise.
+2. **`web/src/shared/auth/permissions.snapshot.json` has 17 entries** (10 catalog/team + 7 org). The drift sentinel `Ts_snapshot_equals_csharp_KartovaPermissions_All` passes. **BUT** `web/src/shared/auth/permissions.ts` const object still has only 10 entries — the SPA's runtime drift-guard in `permissions.ts` will throw on boot when F1 lands and someone runs the SPA. **F1 must update `permissions.ts` to match `permissions.snapshot.json` (17 entries) in the same commit.** No SPA work in Phase C, so this is forward-flagged, not a current bug.
+3. **`ITenantContext` / `TenantContextAccessor` live in `Kartova.SharedKernel/Multitenancy/`**, not in `Kartova.SharedKernel.AspNetCore` (where the plan claimed). Only `ICurrentUser` + `HttpContextCurrentUser` are in AspNetCore. D-phase work touching tenant-context mutators (e.g., D7 session bootstrap) — work from this corrected file layout.
+4. **`UserProjectionUpdater` lives in `Kartova.Organization.Infrastructure`** (NOT Application). D-phase handlers can DI-inject it. It's `public sealed class UserProjectionUpdater(TimeProvider clock)` — `UpsertAsync(OrganizationDbContext db, Guid userId, string email, string? givenName, string? familyName, TenantId tenantId, CancellationToken ct)`. The update path **does not touch CreatedAt or TenantId** (load-bearing: the (TenantId, Email) unique index would corrupt if tenant changed).
+5. **`OrganizationPostAuthSyncHook` is `internal sealed`** and registered as `AddScoped<IPostAuthSyncHook, OrganizationPostAuthSyncHook>()` in `OrganizationModule.RegisterServices`. D-phase handlers that need to know "did the caller just accept an invitation?" should read `ICurrentUser.JustAcceptedInvitationId` (one-shot value, populated by this hook, reset on next request via `TenantContextAccessor.Clear()`).
+6. **`User.Id` does NOT call `.ValueGeneratedNever()`** (EF defaults to `ValueGeneratedOnAdd` for Guid PKs). It works in practice because `UserProjectionUpdater.UpsertAsync` always assigns `Id = userId` from JWT `sub` explicitly. **Defensive carryover:** any new D-phase code path that inserts `User` rows must also explicitly assign `Id`. Same applies to `Invitation._id` (assigned by `Invitation.Create` via `Guid.NewGuid()`). The C-phase nits list suggested adding `.ValueGeneratedNever()` defensively in a later cleanup — still on the table for Phase H if mutation testing flags it.
+7. **`Microsoft.EntityFrameworkCore.InMemory` is now in `Kartova.Organization.Infrastructure.Tests.csproj`.** D-phase tests can reuse the `NewInMemory()` factory pattern from `UserProjectionUpdaterTests.cs` (each test gets a unique `Guid.NewGuid()`-suffixed DB name to avoid cross-test pollution).
+8. **`<InternalsVisibleTo Include="Kartova.Organization.Infrastructure.Tests" />` is on the Infrastructure csproj.** D-phase handlers, endpoint delegates, and DI helpers in Infrastructure can stay `internal sealed` and still be unit-testable from the same project. Mirror this pattern when adding new internal types.
+9. **C-phase verification:** all 420 unit + arch tests green at HEAD (`Kartova.Organization.Tests` 67 + `Kartova.Organization.Infrastructure.Tests` 9 + `Kartova.SharedKernel.Identity.Tests` 5 + `Kartova.SharedKernel.AspNetCore.Tests` 95 + `Kartova.Catalog.Infrastructure.Tests` 3 + `Kartova.Catalog.Tests` 72 + `Kartova.SharedKernel.Tests` 106 + `Kartova.ArchitectureTests` 63). No regressions introduced into other modules.
+10. **CLAUDE.md DoD #2 was strictly followed in Phase C** — every task got per-task spec-compliance + code-quality subagent reviews; the C1 regression hotfix (`44893c2`) only surfaced because C2's verification run exposed it. **Lesson for D-phase:** when a subagent reports "DONE" after running only the focused-filter tests, also run the full module test suite (or at least the sibling test classes that share the SUT) — focused filters can hide hard-coded-count regressions in sibling tests.
 
-**Next task: C1 (7 new permission constants + role map + 28-cell matrix test).** Plan file `docs/superpowers/plans/2026-05-27-slice-9-organization-people-management-plan.md` §"Task C1: New permission constants + role map update" has the verbatim text.
+**Next task: D1 (`OrganizationUserDirectory` impl + DI + 4 unit tests).** Plan file `docs/superpowers/plans/2026-05-27-slice-9-organization-people-management-plan.md` §"Task D1: `OrganizationUserDirectory` implementation + DI" starting at line 2375 has the verbatim text.
 
-**Workflow:** Use `superpowers:subagent-driven-development`. One implementer subagent per task. Full two-stage review (spec compliance + code quality) for tasks with behavior/tests/handlers/migrations. For pure-declaration tasks (interfaces, DTO records, enum types, ADR docs) self-verify by reading the committed file.
+**Workflow:** Use `superpowers:subagent-driven-development`. One implementer subagent per task. Full two-stage review (spec compliance + code quality) for tasks with behavior/tests/handlers/migrations. For pure-declaration tasks (interfaces, DTO records, enum types, ADR docs) self-verify by reading the committed file. **After each implementer reports DONE on a focused-filter test pass, also run the full module test suite to catch sibling regressions** (C1→KartovaRolePermissionsTests was the C-phase example).
 
 **Conventions worth re-loading from CLAUDE.md before dispatching:**
 
-- **Central Package Management** — versions in `Directory.Packages.props`, not in csproj `Version=`. Phase A+B added: `Duende.IdentityModel 8.1.0`, `Microsoft.Extensions.Http 10.0.0`, `Microsoft.Extensions.Options.ConfigurationExtensions 10.0.0`, `Microsoft.Extensions.Hosting 10.0.0`, `Microsoft.Extensions.TimeProvider.Testing 10.5.0`, `Microsoft.Extensions.DependencyInjection 10.0.2`, `NSubstitute 5.3.0`, `Testcontainers* 4.0.0`. `System.Net.Http.Json` is **NOT** explicitly referenced (`net10.0` shared framework; NU1510 under `TreatWarningsAsErrors`).
+- **Central Package Management** — versions in `Directory.Packages.props`, not in csproj `Version=`. Phase A+B added: `Duende.IdentityModel 8.1.0`, `Microsoft.Extensions.Http 10.0.0`, `Microsoft.Extensions.Options.ConfigurationExtensions 10.0.0`, `Microsoft.Extensions.Hosting 10.0.0`, `Microsoft.Extensions.TimeProvider.Testing 10.5.0`, `Microsoft.Extensions.DependencyInjection 10.0.2`, `NSubstitute 5.3.0`, `Testcontainers* 4.0.0`. Phase C csproj edits used existing-pinned packages only (`Microsoft.EntityFrameworkCore.InMemory 10.0.7`, `Microsoft.Extensions.TimeProvider.Testing 10.5.0` already pinned). `System.Net.Http.Json` is **NOT** explicitly referenced (`net10.0` shared framework; NU1510 under `TreatWarningsAsErrors`).
 - Solution: `Kartova.slnx` (XML). New csprojs via `dotnet sln Kartova.slnx add <path>`.
 - `TreatWarningsAsErrors=true` everywhere; zero warnings.
 - `[ExcludeFromCodeCoverage]` on Contracts assemblies + `*Dto`/`*Request`/`*Response` types + design-time factories + `IModule` composition classes (enforced by `ContractsCoverageRules`). NOT on interfaces/exceptions/aggregates/value types/enums.
 - DI extensions live in `Add<Subject>Extensions.cs` (per `AddModuleDbContextExtensions.cs` convention).
-- Internal types tested directly via `<InternalsVisibleTo Include="…Tests" />` on the SUT csproj.
+- Internal types tested directly via `<InternalsVisibleTo Include="…Tests" />` on the SUT csproj. **Organization.Infrastructure now has this attribute** — internal types from D-phase work can stay internal.
 - Test csproj idiom: `Microsoft.NET.Sdk` + explicit MSTest 4.x packages + `coverlet.collector` + `Microsoft.NET.Test.Sdk` (NOT `MSTest.Sdk/3.10.0` — plan templates lean on that, repo doesn't).
-- Test files import `Microsoft.VisualStudio.TestTools.UnitTesting` **explicitly** per file (no GlobalUsings.cs in `Kartova.Organization.Tests`).
-- Organization module's domain test project is `src/Modules/Organization/Kartova.Organization.Tests/` (namespace `Kartova.Organization.Tests`) — not `tests/`.
+- Test files: `Kartova.SharedKernel.Tests` + `Kartova.SharedKernel.AspNetCore.Tests` + `Kartova.Organization.Tests` use **explicit per-file `using Microsoft.VisualStudio.TestTools.UnitTesting;`** (no GlobalUsings). `Kartova.Organization.Infrastructure.Tests` + `Kartova.ArchitectureTests` use **csproj-level `<Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />`** — no per-file using. Check the destination test project's csproj before deciding.
+- Organization module's domain test project is `src/Modules/Organization/Kartova.Organization.Tests/`. Infrastructure-layer tests (including anything touching `OrganizationDbContext`, even via InMemory) go in `src/Modules/Organization/Kartova.Organization.Infrastructure.Tests/`. **Do NOT scaffold new test projects** for slice 9.
 - Organization module's EF config filename convention is `*EntityTypeConfiguration.cs`.
 - Windows PowerShell preferred for `dotnet`/`docker` commands; Git Bash lacks `grep -P` (use `-E` or `Select-String`).
 - Use `roslyn-codelens` MCP for impact analysis before extending hot methods or renaming widely-used members.
 
-**Docker availability:** As of this session, Docker daemon is running and the local `romangig2-postgres-1` / `romangig2-keycloak-1` / `romangig2-keycloak-db-1` / `romangig2-api-1` containers are all healthy. Phase C tasks don't need Docker (pure C# + tests). Phase D's integration tests will need it (Testcontainers). Phase H's DoD verifications need it (docker compose HTTP).
+**Docker availability:** Phase D tasks D1-D8 are pure C# (handlers + endpoints + DI). D9's appsettings + KeyCloak realm config is config-only. Docker is needed for Phase H integration tests (H1-H4) and DoD verification (H3). As of last session, Docker daemon was running and local containers (`romangig2-postgres-1` / `romangig2-keycloak-1` / `romangig2-keycloak-db-1` / `romangig2-api-1`) were healthy — re-verify with `docker ps` before Phase H.
 
 **Remaining task ledger** (mark each `[x]` as you ship):
 
-### Phase A — Shared infrastructure foundation ✅ COMPLETE
-- [x] A1: Scaffold Identity csproj + UserDisplayInfo (`9d95dd5`)
-- [x] A2: IUserDirectory interface (`7127ee5`)
-- [x] A3: IKeycloakAdminClient + DTOs + exception (`230038e`)
-- [x] A4: KeycloakAdminClient impl + DI helper + 5 unit tests (`e86f06b` + `ba48a76`)
-- [x] A5: IDistributedLock interface (`acd2a00`)
-- [x] A6: PostgresAdvisoryLock impl + DI (`c8e1164`)
-- [x] A7: LeaderElectedPeriodicService base + 3 unit tests (`688d8f9` + `615e353`)
-- [x] A8: PostgresAdvisoryLock integration tests — **verified PASS** (3/3) against docker postgres:18-alpine (`7b25943`)
-- [x] A9: ADR-0099 distributed locking (`bc89251`)
+### Phase A — Shared infrastructure foundation ✅ COMPLETE (9 tasks, 11 commits)
 
-### Phase B — Database + domain ✅ COMPLETE
-- [x] B1: Organization aggregate ext (Description, OrgLogo, DefaultTimeZone) + Name→DisplayName rename (`d11b641` + `0957344`)
-- [x] B2: Invitation aggregate + 9 domain tests + `KartovaRoles.All` (`1851158`)
-- [x] B3: User projection POCO (`0ba570d`)
-- [x] B4: EF migrations + EF configs — **migrator smoke-test verified PASS** end-to-end on local docker postgres (`fde7230` + `cc52d5a`)
+### Phase B — Database + domain ✅ COMPLETE (4 tasks, 6 commits)
 
-### Phase C — JWT-claim sync + permissions ← **START HERE**
-- [ ] C1: 7 new permission constants + role map + 28-cell matrix test
-- [ ] C2: Extend ICurrentUser with `JustAcceptedInvitationId`
-- [ ] C3: UserProjectionUpdater + 3 unit tests
-- [ ] C4: IPostAuthSyncHook + OrganizationPostAuthSyncHook wiring into TenantClaimsTransformation
+### Phase C — JWT-claim sync + permissions ✅ COMPLETE (4 tasks, 6 commits)
+- [x] C1: 7 new permission constants + role map + 28-cell matrix test (`f76dc68` + `44893c2`)
+- [x] C2: Extend `ICurrentUser` with `JustAcceptedInvitationId` (`674463f`)
+- [x] C3: `UserProjectionUpdater` + 3 unit tests (`120957f`)
+- [x] C4: `IPostAuthSyncHook` + `OrganizationPostAuthSyncHook` wiring into `TenantClaimsTransformation` + 5 tests (`4cc5fa7` + `1b7834d`)
 
-### Phase D — Backend endpoints
-- [ ] D1: OrganizationUserDirectory impl + DI + 4 unit tests
+### Phase D — Backend endpoints ← **START HERE**
+- [ ] D1: `OrganizationUserDirectory` impl + DI + 4 unit tests
 - [ ] D2: Org profile DTOs + GET/PUT /me endpoints
 - [ ] D3: SVG sanitization + magic-byte helper + 7 unit tests
 - [ ] D4: Logo upload/delete/serve endpoints with ETag/304
 - [ ] D5: Invitation handlers + endpoints (create/list/revoke) + 5 unit tests
 - [ ] D6: User search + detail endpoints
 - [ ] D7: Session bootstrap endpoint POST /api/v1/auth/session
-- [ ] D8: ExpireInvitationsHostedService + 2 unit tests
+- [ ] D8: `ExpireInvitationsHostedService` + 2 unit tests
 - [ ] D9: Program.cs wiring + appsettings + KeyCloak realm config
 
 ### Phase E — Catalog/Team integration
-- [ ] E1: ApplicationResponse.Owner enrichment via IUserDirectory
+- [ ] E1: `ApplicationResponse.Owner` enrichment via `IUserDirectory`
 - [ ] E2: `?ownerUserId=` filter on /catalog/applications + 422 validation
-- [ ] E3: TeamMemberResponse display info enrichment
+- [ ] E3: `TeamMemberResponse` display info enrichment
 
 ### Phase F — SPA
-- [ ] F1: permissions.snapshot.json (may already be done — verify; C1 also touches this)
+- [ ] F1: permissions.snapshot.json **AND `permissions.ts` const object** (C1 only updated the snapshot; the SPA-side const object lag is documented above — F1 must close it)
 - [ ] F2: organization API hooks
 - [ ] F3: OrganizationSettingsPage + LogoUploader + zod schema
 - [ ] F4: invitations API hooks + InvitationsPage + InviteUserDialog + CopyInviteLinkBox
 - [ ] F5: users API hooks + UserDetailPage + UserSearchCombobox + OwnerLink
-- [ ] F6: auth/session API + OidcCallbackHandler + WelcomePage
+- [ ] F6: auth/session API + OidcCallbackHandler + WelcomePage (reads `JustAcceptedInvitationId` from session-bootstrap response)
 - [ ] F7: Router + Sidebar + Header updates
 - [ ] F8: AddMemberDialog upgrade + Application table OwnerLink
 
@@ -116,34 +101,38 @@ I'm continuing execution of slice 9 (organization & people management). Context:
 - [ ] G1: Write ADR-0100 (strict one-email-per-tenant)
 
 ### Phase H — Verification + DoD
-- [ ] H1: Integration tests for Phase D endpoints (16 scenarios)
+- [ ] H1: Integration tests for Phase D endpoints (16 scenarios) + `KeycloakAdminClient` Testcontainers integration test (spec §11.3) — A-phase deferred it to H1
 - [ ] H2: Architecture tests for slice-9 boundaries
-- [ ] H3: docker compose HTTP verification (happy + negative paths captured) — A8 + B4 smoke already covered the DB layer; D-phase HTTP paths land here
+- [ ] H3: docker compose HTTP verification (happy + negative paths captured) — A8 + B4 smoke covered the DB layer; D-phase endpoints + happy-path JWT round-trip land here
 - [ ] H4: SPA E2E via Playwright MCP with screenshots
 - [ ] H5: /simplify, /misc:mutation-sentinel, /misc:test-generator, /superpowers:requesting-code-review, /pr-review-toolkit:review-pr, /deep-review
 - [ ] H6: Update CHECKLIST.md + push + open PR
 
 **Please start by:**
 1. Invoking `superpowers:subagent-driven-development` (the skill).
-2. Reading the plan at the path above to lift the verbatim Task C1 text.
-3. Reading `src/Kartova.SharedKernel/Multitenancy/KartovaPermissions.cs` to confirm the slice-7 baseline shape of the constants + the data-driven `All` collection (slice 7 made it reflection-driven; new constants picked up automatically).
-4. Also reading `src/Kartova.SharedKernel/Multitenancy/KartovaRolePermissions.cs` to confirm the existing map shape (you've already extended `KartovaRoles` in B2; the map structure uses `FrozenDictionary<string, FrozenSet<string>>` keyed on role name).
-5. Checking whether `tests/Kartova.ArchitectureTests/` has a `Ts_snapshot_equals_csharp_KartovaPermissions_All` test that needs updating in lockstep with `web/src/shared/auth/permissions.snapshot.json` (C1 Step 4 mentions this; the implementer needs both edits to land in the same commit or the drift sentinel fails).
-6. Dispatching the C1 implementer with the verbatim task text + the conventions block above + the slice-7 baseline shape as scene-setting context.
+2. Reading the plan at the path above to lift the verbatim Task D1 text (starts at line ~2375).
+3. Reading `src/Kartova.SharedKernel.Identity/IUserDirectory.cs` to confirm the A2 contract D1 must implement.
+4. Reading `src/Kartova.SharedKernel.Identity/IKeycloakAdminClient.cs` and the `SearchUsersAsync(string query, int limit, CancellationToken)` shape — D1's `OrganizationUserDirectory` will combine the local `users` projection (created by C3) with KeyCloak search results per spec §6.5.
+5. Reading `src/Modules/Organization/Kartova.Organization.Infrastructure/OrganizationDbContext.cs` to confirm `DbSet<User> Users` is available + the `User` POCO shape from `src/Modules/Organization/Kartova.Organization.Domain/User.cs`.
+6. Dispatching the D1 implementer with the verbatim task text + the conventions block above + the C-phase reconciliations as scene-setting context.
 
-Continue until you hit a natural checkpoint. End of Phase C (after C4 — `OrganizationPostAuthSyncHook` wiring into `TenantClaimsTransformation`) is the obvious next stop. C4 is the most architecturally novel task in Phase C (it touches `SharedKernel.AspNetCore` middleware infrastructure that other modules will eventually consume), so it deserves attentive scene-setting. At your stopping point, update this resume file's progress ledger and write a new resume prompt for the next session.
+Continue until you hit a natural checkpoint. **End of Phase D is the obvious next stop, but D is 9 tasks** — fresh sessions can realistically complete 6-9 tasks before context budget gets tight. D5 (invitations: handler + 3 endpoints + 5 tests + DI) and D7 (session bootstrap) are the most complex; consider checkpointing after D5 if context is tight. D2 + D3 + D4 (logo upload — SVG sanitization + magic-byte sniffing + ETag serving) are tightly coupled and should land in the same session if possible. At your stopping point, update this resume file's progress ledger and write a new resume prompt for the next session.
 
 ---
 
 ## Notes for future sessions
 
-- **Each fresh session can realistically complete ~7-10 tasks** before context budget gets tight. Plan A (9 tasks) + reconciliations ran in one session; Plan B (4 tasks but B4 was complex) also ran in one session with one reconciliation commit. Plan C is 4 tasks of varying complexity; doable in one session.
+- **Each fresh session can realistically complete ~7-10 tasks** before context budget gets tight. Phase A (9 tasks) + Phase B (4 tasks) + Phase C (4 tasks) each ran in one session. Phase D's 9 tasks are bigger on average (handlers + endpoints + tests + Wolverine wiring); plan for 1-2 sessions.
 - **Update this file at every checkpoint** so the next session sees the latest progress.
-- **Spec/plan reconciliations** should always commit on the feature branch with message prefix `docs(slice-9):` for spec/plan docs, or `fix(slice-9):` for infrastructure/code fixes. See `cc52d5a` (init.sql privilege) and `06b215e` (Duende namespace).
-- **If a subagent surfaces a real architectural question**, the controller (you) makes the call — do not push the question down into another subagent.
-- **If `git show <SHA>` makes a deviation visible during review, fix it in a new commit** — never amend or rewrite (clean linear history preserved for `requesting-code-review` at slice boundary).
-- **CLAUDE.md DoD #5 requires Docker happy + negative HTTP paths captured** for HTTP/auth/DB/middleware slices. This slice is all three. H3 (Phase H) is non-negotiable. A8 + B4 smoke-tests already covered the DB layer; D-phase endpoints + happy-path JWT round-trip land in H3.
-- **Mutation testing target 80%** per `stryker-config.json`. H5's mutation-sentinel + test-generator loop is non-optional. B2 + B4 added boundary tests + ParamName assertions preemptively to kill obvious mutants; B1's fix-up added defensive-copy + boundary tests for the same reason. C-phase tasks should continue this pattern (boundary tests + ParamName assertions on every new validator).
+- **Spec/plan reconciliations** should always commit on the feature branch with message prefix `docs(slice-9):` for spec/plan docs, or `fix(slice-9):` for infrastructure/code fixes. See `cc52d5a` (init.sql privilege), `06b215e` (Duende namespace), `44893c2` (Viewer count regression), `1b7834d` (TenantClaimsTransformation doc).
+- **If a subagent surfaces a real architectural question**, the controller (you) makes the call — do not push the question down into another subagent. Examples this session: (a) C3 plan placed `UserProjectionUpdater` in Application (Clean-Arch violation) — controller redirected to Infrastructure before dispatching; (b) C4 plan used `is not { }` on a struct + wrong property name `TenantId` — controller surfaced the compile bugs in the dispatch prompt; (c) C4 plan said inject hooks via constructor — controller preserved the existing `IServiceProvider` lazy-resolution pattern.
+- **If `git show <SHA>` makes a deviation visible during review, fix it in a new commit** — never amend or rewrite (clean linear history preserved for `requesting-code-review` at slice boundary). `44893c2` and `1b7834d` are good examples.
+- **CLAUDE.md DoD #5 requires Docker happy + negative HTTP paths captured** for HTTP/auth/DB/middleware slices. This slice is all three. H3 (Phase H) is non-negotiable. A8 + B4 smoke-tests covered the DB layer; D-phase endpoints + happy-path JWT round-trip land in H3.
+- **Mutation testing target 80%** per `stryker-config.json`. H5's mutation-sentinel + test-generator loop is non-optional. C-phase tasks added boundary tests + ParamName assertions preemptively to kill obvious mutants; B2 + B4 followed the same pattern. **D-phase tasks should continue this** — every new validator gets a boundary test + a ParamName assertion on the rejection path.
 - **Phase A's `KeycloakAdminClient` doesn't have an integration test against a real KeyCloak container yet** — the spec §11.3 mentions `Invitation_create_persists_keycloak_user_and_db_row` etc., but those land in Phase H (H1) alongside the endpoints in Phase D. Don't accidentally schedule them earlier.
-- **`OrganizationDbContextModelSnapshot.cs` is now sensitive** — adding new Domain entities in C/D will regenerate it. The B4 snapshot diff was bounded to the explicit B4 additions; any unexplained snapshot churn in subsequent migrations should be investigated before committing.
-- **C-phase Nits carried forward:** (1) consider adding `.ValueGeneratedNever()` on `User.Id` and `Invitation._id` when C3 lands (defensive). (2) Document the `WHERE status = 1` filter in `AddInvitationsTable` with a SQL-side comment (`/* InvitationStatus.Pending */`) when the next migration touches that file — not worth a standalone commit.
+- **`OrganizationDbContextModelSnapshot.cs` is now sensitive** — adding new Domain entities in D will regenerate it. The B4 snapshot diff was bounded to the explicit B4 additions; any unexplained snapshot churn in subsequent migrations should be investigated before committing. D-phase doesn't add new tables (B4 already added users + invitations + organization profile columns), so the snapshot should NOT change in Phase D — if it does, investigate.
+- **C-phase Nits carried forward** (consider in Phase H mutation-sentinel pass, not Phase D scope):
+  1. Add `.ValueGeneratedNever()` on `User.Id` and `Invitation._id` defensively. C3 + C4 both rely on explicit Id assignment; mutation testing may not catch a future caller that forgets.
+  2. Document the `WHERE status = 1` filter in `AddInvitationsTable` migration with a SQL-side comment (`/* InvitationStatus.Pending */`) — not worth a standalone commit, fold into the next migration touching that file.
+  3. `OrganizationPostAuthSyncHook` claim names (`"email"`, `"sub"`, `"given_name"`, `"family_name"`) are hardcoded. `KartovaClaims` only defines `TenantId`/`RealmAccess`/`Permission`. If multiple D-phase callers ever read these OIDC standard claims, add `KartovaClaims.Sub`/`Email`/`GivenName`/`FamilyName` constants. No callers in scope today, so deferred.
+  4. `OrganizationPostAuthSyncHook.cs` filename is the plan's `PostAuthHook.cs` (class is `OrganizationPostAuthSyncHook`). One-file-per-type convention would call for the filename to match. Cosmetic — defer unless Phase H touches the file for another reason.
