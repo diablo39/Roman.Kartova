@@ -23,7 +23,8 @@ public sealed class OrganizationProfileTests
     public void UpdateProfile_rejects_empty_display_name()
     {
         var org = Make();
-        Assert.ThrowsExactly<ArgumentException>(() => org.UpdateProfile("", null, "UTC"));
+        var ex = Assert.ThrowsExactly<ArgumentException>(() => org.UpdateProfile("", null, "UTC"));
+        Assert.AreEqual("displayName", ex.ParamName);
     }
 
     [TestMethod]
@@ -31,14 +32,25 @@ public sealed class OrganizationProfileTests
     {
         var org = Make();
         var tooLong = new string('x', 1025);
-        Assert.ThrowsExactly<ArgumentException>(() => org.UpdateProfile("Org A", tooLong, "UTC"));
+        var ex = Assert.ThrowsExactly<ArgumentException>(() => org.UpdateProfile("Org A", tooLong, "UTC"));
+        Assert.AreEqual("description", ex.ParamName);
     }
 
     [TestMethod]
     public void UpdateProfile_rejects_unknown_timezone()
     {
         var org = Make();
-        Assert.ThrowsExactly<ArgumentException>(() => org.UpdateProfile("Org A", null, "Mars/Olympus"));
+        var ex = Assert.ThrowsExactly<ArgumentException>(() => org.UpdateProfile("Org A", null, "Mars/Olympus"));
+        Assert.AreEqual("tz", ex.ParamName);
+    }
+
+    [TestMethod]
+    public void UpdateProfile_accepts_description_at_max_length()
+    {
+        var org = Make();
+        var maxDescription = new string('x', 1024);
+        org.UpdateProfile("Org A", maxDescription, "UTC");
+        Assert.AreEqual(maxDescription, org.Description);
     }
 
     [TestMethod]

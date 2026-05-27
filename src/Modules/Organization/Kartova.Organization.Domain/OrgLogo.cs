@@ -25,7 +25,7 @@ public sealed class OrgLogo
             throw new ArgumentException("Unsupported logo mime-type.", nameof(mimeType));
         return new OrgLogo
         {
-            Bytes = bytes,
+            Bytes = (byte[])bytes.Clone(),
             MimeType = mimeType,
             ContentHash = Convert.ToHexString(SHA256.HashData(bytes)),
         };

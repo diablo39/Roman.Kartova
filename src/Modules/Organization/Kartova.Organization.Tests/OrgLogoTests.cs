@@ -36,4 +36,23 @@ public sealed class OrgLogoTests
     {
         Assert.ThrowsExactly<ArgumentException>(() => OrgLogo.Create(new byte[16], mime));
     }
+
+    [TestMethod]
+    public void Create_accepts_max_size_bytes()
+    {
+        var bytes = new byte[256 * 1024];
+        var logo = OrgLogo.Create(bytes, "image/png");
+        Assert.AreEqual(256 * 1024, logo.Bytes.Length);
+        Assert.AreEqual(64, logo.ContentHash.Length);
+    }
+
+    [TestMethod]
+    public void Create_makes_defensive_copy_so_caller_mutations_dont_leak()
+    {
+        var bytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0xDE, 0xAD };
+        var logo = OrgLogo.Create(bytes, "image/png");
+        var originalFirst = logo.Bytes[0];
+        bytes[0] = 0xFF;   // mutate caller's array
+        Assert.AreEqual(originalFirst, logo.Bytes[0]);
+    }
 }

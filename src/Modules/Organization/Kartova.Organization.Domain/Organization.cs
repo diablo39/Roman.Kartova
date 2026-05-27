@@ -62,21 +62,21 @@ public sealed class Organization : ITenantOwned
 
     public void ClearLogo() => Logo = null;
 
-    private static void ValidateDisplayName(string name)
+    private static void ValidateDisplayName(string displayName)
     {
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrWhiteSpace(displayName))
         {
-            throw new ArgumentException("Organization name must not be empty.", nameof(name));
+            throw new ArgumentException("Organization name must not be empty.", nameof(displayName));
         }
-        if (name.Length > 100)
+        if (displayName.Length > 100)
         {
-            throw new ArgumentException("Organization name must be <= 100 characters.", nameof(name));
+            throw new ArgumentException("Organization name must be <= 100 characters.", nameof(displayName));
         }
     }
 
-    private static void ValidateDescription(string? s)
+    private static void ValidateDescription(string? description)
     {
-        if (s is { Length: > 1024 }) throw new ArgumentException("Description must be <= 1024 characters.", nameof(s));
+        if (description is { Length: > 1024 }) throw new ArgumentException("Description must be <= 1024 characters.", nameof(description));
     }
 
     private static void ValidateTimeZone(string tz)
