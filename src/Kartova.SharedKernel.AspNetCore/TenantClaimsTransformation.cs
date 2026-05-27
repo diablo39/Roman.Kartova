@@ -10,6 +10,9 @@ namespace Kartova.SharedKernel.AspNetCore;
 /// IClaimsTransformation that reads <c>tenant_id</c> and realm roles from the validated JWT
 /// and populates the scoped <see cref="ITenantContext"/>.
 /// Realm roles live in the JSON claim <c>realm_access</c> with shape <c>{"roles": [...]}</c>.
+/// After populating the context, fans out to all registered <see cref="IPostAuthSyncHook"/>
+/// implementations so modules can perform post-auth sync work (e.g. user-projection upsert,
+/// invitation acceptance detection) inside the same request scope.
 /// </summary>
 public sealed class TenantClaimsTransformation : IClaimsTransformation
 {
