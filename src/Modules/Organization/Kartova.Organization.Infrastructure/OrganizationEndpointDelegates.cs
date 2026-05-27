@@ -464,6 +464,20 @@ internal static class OrganizationEndpointDelegates
         http.Response.Headers.ETag = $"\"{data.ContentHash}\"";
         http.Response.Headers.CacheControl = "private, max-age=300";
 
+        // Defence-in-depth on the SVG render path. D3's allow-list sanitizer is the
+        // primary defence (no <script>, no event handlers, no http(s) hrefs, only
+        // data: scheme). These two headers cover the case where an attacker bypasses
+        // the sanitizer AND a user opens /me/logo directly in a browser tab (where
+        // SVG renders as a *document* and inline JS would execute — unlike <img src>
+        // usage which never executes SVG scripts).
+        //   • CSP sandbox + default-src 'none' blocks JS execution regardless of
+        //     load mode; style-src 'unsafe-inline' keeps inline SVG presentation
+        //     attributes working.
+        //   • X-Content-Type-Options: nosniff prevents content-type sniffing from
+        //     reinterpreting the response as HTML/JS.
+        http.Response.Headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
+        http.Response.Headers.XContentTypeOptions = "nosniff";
+
         if (ifNoneMatch is not null && ifNoneMatch == data.ContentHash)
         {
             return Results.StatusCode(StatusCodes.Status304NotModified);
