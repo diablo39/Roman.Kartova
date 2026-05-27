@@ -3,6 +3,7 @@ using Kartova.Organization.Application;
 using Kartova.Organization.Contracts;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Pagination;
 using Kartova.SharedKernel.Postgres;
@@ -170,6 +171,11 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
         // TenantClaimsTransformation via IEnumerable<IPostAuthSyncHook>.
         services.AddScoped<UserProjectionUpdater>();
         services.AddScoped<IPostAuthSyncHook, OrganizationPostAuthSyncHook>();
+
+        // Cross-module port (ADR-0098 + slice-9 spec §3): exposes the local users
+        // projection so Catalog/Team responses can attach display names + emails
+        // without referencing Organization internals.
+        services.AddScoped<IUserDirectory, OrganizationUserDirectory>();
     }
 
     /// <summary>
