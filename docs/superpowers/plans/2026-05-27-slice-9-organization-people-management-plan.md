@@ -6,7 +6,7 @@
 
 **Architecture:** New shared project `Kartova.SharedKernel.Identity` houses `IKeycloakAdminClient` + `IUserDirectory`. Distributed locking primitives live in `Kartova.SharedKernel` (`IDistributedLock`, `LeaderElectedPeriodicService`) + `Kartova.SharedKernel.Postgres` (`PostgresAdvisoryLock`). Organization module owns Invitation aggregate + `users` projection + Org profile extensions. JWT-claim sync hooks into existing `TenantClaimsTransformation`. Session bootstrap endpoint + welcome UX wraps the SPA login flow. MinIO + email infrastructure deferred per spec §12.
 
-**Tech Stack:** .NET 10 / ASP.NET Core minimal APIs · EF Core + Npgsql · Wolverine (in-process only) · IdentityModel.Client (KeyCloak token caching) · Ganss.Xss (SVG sanitization) · MSTest v4 + NSubstitute · Testcontainers (KeyCloak + PostgreSQL) · React 18 + TypeScript + React Query · Vite · zod · Playwright (E2E).
+**Tech Stack:** .NET 10 / ASP.NET Core minimal APIs · EF Core + Npgsql · Wolverine (in-process only) · Duende.IdentityModel.Client (KeyCloak token caching) · Ganss.Xss (SVG sanitization) · MSTest v4 + NSubstitute · Testcontainers (KeyCloak + PostgreSQL) · React 18 + TypeScript + React Query · Vite · zod · Playwright (E2E).
 
 **Spec:** `docs/superpowers/specs/2026-05-27-slice-9-organization-people-management-design.md`
 
@@ -62,7 +62,7 @@ Expected: new worktree at `../slice-9` on branch `feat/slice-9-organization-peop
 
 **Notes:**
 - The repo uses **Central Package Management** (`Directory.Packages.props`) — package versions are pinned there, not on `PackageReference` elements. Add these versions to `Directory.Packages.props`: `Duende.IdentityModel` 8.1.0, `Microsoft.Extensions.Http` 10.0.0, `Microsoft.Extensions.Options.ConfigurationExtensions` 10.0.0.
-- The legacy `IdentityModel` NuGet was renamed to `Duende.IdentityModel` after v7; the `IdentityModel.Client.TokenClient` namespace is preserved.
+- The legacy `IdentityModel` NuGet was renamed to `Duende.IdentityModel` after v7; the `TokenClient` namespace was renamed to `Duende.IdentityModel.Client` in the rebrand (the assembly's actual namespace in 8.x — the initial A1 reconciliation commit `abbc169` incorrectly claimed the legacy `IdentityModel.Client` namespace was preserved; corrected when A4 implementation surfaced the resolution failure).
 - `System.Net.Http.Json` is intentionally **not** referenced — it ships with the `net10.0` shared framework, and an explicit reference triggers `NU1510` under `TreatWarningsAsErrors`.
 
 - [ ] **Step 2: Add `UserDisplayInfo` to base SharedKernel**
@@ -322,7 +322,7 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
 ```csharp
 using System.Net;
 using System.Net.Http.Headers;
-using IdentityModel.Client;
+using Duende.IdentityModel.Client;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -392,7 +392,7 @@ Expected: COMPILE FAIL — `KeycloakAdminClient` not defined.
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using IdentityModel.Client;
+using Duende.IdentityModel.Client;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -607,7 +607,7 @@ Expected: 4 PASS.
 `src/Kartova.SharedKernel.Identity/ServiceCollectionExtensions.cs`:
 
 ```csharp
-using IdentityModel.Client;
+using Duende.IdentityModel.Client;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;

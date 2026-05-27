@@ -17,7 +17,7 @@ I'm continuing execution of slice 9 (organization & people management). Context:
 | Commit | Task | Notes |
 |---|---|---|
 | `9d95dd5` | A1: Scaffold `Kartova.SharedKernel.Identity` csproj + `UserDisplayInfo` in base SharedKernel | Full two-stage review passed |
-| `abbc169` | A1 doc reconciliation | Spec + plan updated to use `Duende.IdentityModel 8.1.0` (the original `IdentityModel 12.0.0` was a fabricated version — legacy package was rebranded to Duende after v7; `IdentityModel.Client.TokenClient` namespace preserved) |
+| `abbc169` | A1 doc reconciliation | Spec + plan updated to use `Duende.IdentityModel 8.1.0` (the original `IdentityModel 12.0.0` was a fabricated version — legacy package was rebranded to Duende after v7). NOTE: the original reconciliation claim that `IdentityModel.Client.TokenClient` namespace was preserved turned out wrong — actual namespace in 8.x is `Duende.IdentityModel.Client.TokenClient`; corrected during A4 implementation (see follow-up `docs(slice-9):` commit). |
 | `7127ee5` | A2: `IUserDirectory` interface | Self-verified (pure declaration file, no behavior) |
 
 **Next task: A3 (`IKeycloakAdminClient` + DTOs + `KeycloakAdminException`).** See plan §Phase A Task A3 for the verbatim spec — 3 new files in `src/Kartova.SharedKernel.Identity/`.

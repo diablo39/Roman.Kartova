@@ -56,7 +56,7 @@ Estimated size: ~10 working days. Larger than slice 7/8 (~5-6 each) because four
 | 12 | **`<OwnerLink>` receives embedded `UserDisplayInfo` as a prop** — no per-row `useUser(id)` fetch. ApplicationResponse + TeamMemberResponse extended to include owner/member display info; backend handlers batch-fetch via `IUserDirectory.GetManyAsync(ids)`. | Eliminates N+1 client-side fetches; one DB query per page; ~1.6 KB payload growth for 20 rows is negligible. |
 | 13 | **`Organization` profile fields landing in slice 9: DisplayName + Description + Logo + DefaultTimeZone.** | BrandColor (E-12), DefaultLocale (no i18n consumer), data residency (E-01.F-05.S-08), notification policy (E-06a.F-02) all deferred to their owning slices — no knobs ahead of consumers. |
 | 14 | **`VERIFY_EMAIL` required-action is NOT set on invited KeyCloak users in slice 9.** | We have no SMTP; KeyCloak would prompt the user to verify an email it can't send. Re-enabled when E-06a notification infrastructure lands. |
-| 15 | **Token cache for the KeyCloak Admin client** — via `IdentityModel.Client.TokenClient` with built-in refresh ~30s before expiry. | Avoids 2× round-trips per Admin API call; trivial implementation; matches standard OAuth client patterns. User-confirmed despite low slice-9 volume because we know Admin API surface area will grow. |
+| 15 | **Token cache for the KeyCloak Admin client** — via `Duende.IdentityModel.Client.TokenClient` with built-in refresh ~30s before expiry. | Avoids 2× round-trips per Admin API call; trivial implementation; matches standard OAuth client patterns. User-confirmed despite low slice-9 volume because we know Admin API surface area will grow. |
 | 16 | **One PR, sequenced commits per task.** Closes E-03.F-01 in full. | Slice-8 precedent. |
 
 ## 4. Domain model
@@ -479,7 +479,7 @@ src/Kartova.SharedKernel.Identity/
   ServiceCollectionExtensions.cs
 ```
 
-NuGet deps: `Duende.IdentityModel` (8.x — the legacy `IdentityModel` package was renamed to `Duende.IdentityModel` after v7; the `IdentityModel.Client.TokenClient` namespace is preserved across the rename). `System.Net.Http.Json` is NOT added explicitly — it ships with the `net10.0` shared framework, and adding it triggers NU1510 under `TreatWarningsAsErrors`.
+NuGet deps: `Duende.IdentityModel` (8.x — the legacy `IdentityModel` package was renamed to `Duende.IdentityModel` after v7; the `TokenClient` namespace was renamed to `Duende.IdentityModel.Client` in the rebrand — earlier reconciliation note that claimed the legacy `IdentityModel.Client` namespace was preserved was wrong and has been corrected). `System.Net.Http.Json` is NOT added explicitly — it ships with the `net10.0` shared framework, and adding it triggers NU1510 under `TreatWarningsAsErrors`.
 Project references: `Kartova.SharedKernel` only (no ASP.NET coupling).
 
 ### 7.2 `IKeycloakAdminClient`
@@ -520,7 +520,7 @@ Interface deliberately narrow — no generic admin-request escape hatch.
 
 ### 7.3 `KeycloakAdminClient` (implementation)
 
-- Uses `IdentityModel.Client.TokenClient` for `client_credentials` grant with built-in cache + ~30s pre-expiry refresh.
+- Uses `Duende.IdentityModel.Client.TokenClient` for `client_credentials` grant with built-in cache + ~30s pre-expiry refresh.
 - `HttpClient` injected via `IHttpClientFactory`; base address = realm root.
 - Returns 409 from KC's create-user → throws `KeycloakAdminException(EmailAlreadyExists, ...)`.
 - 401/403 → `Unauthorized` (backend config issue, surfaced as 502 from the calling endpoint).
