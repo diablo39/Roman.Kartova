@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Duende.IdentityModel.Client;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -13,6 +14,8 @@ internal sealed class KeycloakAdminClient(
     TokenClient tokenClient,
     ILogger<KeycloakAdminClient> logger) : IKeycloakAdminClient
 {
+    private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
+
     private readonly string _realm = options.Value.Realm;
 
     public async Task<Guid> CreateUserAsync(CreateKeycloakUserRequest request, CancellationToken ct)
@@ -29,7 +32,7 @@ internal sealed class KeycloakAdminClient(
                 emailVerified = false,
                 requiredActions = request.RequiredActions,
                 attributes = new { tenantId = new[] { request.TenantId } },
-            }),
+            }, options: JsonOpts),
         };
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -43,8 +46,10 @@ internal sealed class KeycloakAdminClient(
 
         var loc = resp.Headers.Location ?? throw new KeycloakAdminException(KeycloakAdminError.Unexpected, "Missing Location header on KeyCloak create-user response.");
         var idSegment = loc.Segments[^1].TrimEnd('/');
-        logger.LogInformation("Created KeyCloak user {UserId} in realm {Realm}.", idSegment, _realm);
-        return Guid.Parse(idSegment);
+        if (!Guid.TryParse(idSegment, out var newId))
+            throw new KeycloakAdminException(KeycloakAdminError.Unexpected, "KeyCloak create-user Location header did not contain a valid GUID segment.");
+        logger.LogInformation("Created KeyCloak user {UserId} in realm {Realm}.", newId, _realm);
+        return newId;
     }
 
     public async Task<KeycloakUser?> GetUserAsync(Guid userId, CancellationToken ct)
@@ -58,7 +63,7 @@ internal sealed class KeycloakAdminClient(
         if (!resp.IsSuccessStatusCode)
             throw new KeycloakAdminException(KeycloakAdminError.Unexpected, $"KeyCloak get-user returned {(int)resp.StatusCode}.");
 
-        var raw = await resp.Content.ReadFromJsonAsync<KeycloakUserRaw>(cancellationToken: ct)
+        var raw = await resp.Content.ReadFromJsonAsync<KeycloakUserRaw>(JsonOpts, ct)
                   ?? throw new KeycloakAdminException(KeycloakAdminError.Unexpected, "Empty KeyCloak get-user response.");
         return raw.ToDomain();
     }
@@ -74,12 +79,12 @@ internal sealed class KeycloakAdminClient(
             throw new KeycloakAdminException(KeycloakAdminError.NotFound, $"Realm role '{roleName}' not found.");
         if (!roleResp.IsSuccessStatusCode)
             throw new KeycloakAdminException(KeycloakAdminError.Unexpected, $"KeyCloak get-role returned {(int)roleResp.StatusCode}.");
-        var role = await roleResp.Content.ReadFromJsonAsync<RealmRole>(cancellationToken: ct)
+        var role = await roleResp.Content.ReadFromJsonAsync<RealmRole>(JsonOpts, ct)
                    ?? throw new KeycloakAdminException(KeycloakAdminError.Unexpected, "Empty KeyCloak get-role response.");
 
         using var assignReq = new HttpRequestMessage(HttpMethod.Post, $"/admin/realms/{_realm}/users/{userId}/role-mappings/realm")
         {
-            Content = JsonContent.Create(new[] { role }),
+            Content = JsonContent.Create(new[] { role }, options: JsonOpts),
         };
         assignReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using var assignResp = await http.SendAsync(assignReq, ct);
@@ -98,7 +103,7 @@ internal sealed class KeycloakAdminClient(
         using var resp = await http.SendAsync(req, ct);
         if (!resp.IsSuccessStatusCode)
             throw new KeycloakAdminException(KeycloakAdminError.Unexpected, $"KeyCloak search-users returned {(int)resp.StatusCode}.");
-        var raws = await resp.Content.ReadFromJsonAsync<List<KeycloakUserRaw>>(cancellationToken: ct) ?? new();
+        var raws = await resp.Content.ReadFromJsonAsync<List<KeycloakUserRaw>>(JsonOpts, ct) ?? new();
         return raws.Select(r => r.ToDomain()).ToList();
     }
 
