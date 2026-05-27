@@ -29,12 +29,12 @@ public sealed class LeaderElectedPeriodicServiceTests
         var handle = Substitute.For<IAsyncDisposable>();
         locks.TryAcquireAsync("test", Arg.Any<CancellationToken>()).Returns(handle);
         var clock = new FakeTimeProvider();
-        var sp = new ServiceCollection().BuildServiceProvider();
+        await using var sp = new ServiceCollection().BuildServiceProvider();
         var ran = 0;
         var sut = new TestService(sp.GetRequiredService<IServiceScopeFactory>(), locks, clock, _ => ran++);
 
         using var cts = new CancellationTokenSource();
-        var task = sut.StartAsync(cts.Token);
+        await sut.StartAsync(cts.Token);
         await Task.Delay(100);
         clock.Advance(TimeSpan.FromMinutes(1));
         await Task.Delay(100);
@@ -50,12 +50,12 @@ public sealed class LeaderElectedPeriodicServiceTests
         var locks = Substitute.For<IDistributedLock>();
         locks.TryAcquireAsync("test", Arg.Any<CancellationToken>()).Returns((IAsyncDisposable?)null);
         var clock = new FakeTimeProvider();
-        var sp = new ServiceCollection().BuildServiceProvider();
+        await using var sp = new ServiceCollection().BuildServiceProvider();
         var ran = 0;
         var sut = new TestService(sp.GetRequiredService<IServiceScopeFactory>(), locks, clock, _ => ran++);
 
         using var cts = new CancellationTokenSource();
-        var task = sut.StartAsync(cts.Token);
+        await sut.StartAsync(cts.Token);
         await Task.Delay(100);
         clock.Advance(TimeSpan.FromMinutes(1));
         await Task.Delay(100);
@@ -72,13 +72,13 @@ public sealed class LeaderElectedPeriodicServiceTests
         var handle = Substitute.For<IAsyncDisposable>();
         locks.TryAcquireAsync("test", Arg.Any<CancellationToken>()).Returns(handle);
         var clock = new FakeTimeProvider();
-        var sp = new ServiceCollection().BuildServiceProvider();
+        await using var sp = new ServiceCollection().BuildServiceProvider();
         var calls = 0;
         var sut = new TestService(sp.GetRequiredService<IServiceScopeFactory>(), locks, clock,
             _ => { calls++; if (calls == 1) throw new InvalidOperationException("boom"); });
 
         using var cts = new CancellationTokenSource();
-        var task = sut.StartAsync(cts.Token);
+        await sut.StartAsync(cts.Token);
         await Task.Delay(100);
         clock.Advance(TimeSpan.FromMinutes(1));
         await Task.Delay(100);
