@@ -34,6 +34,17 @@ public sealed class LogoCommands
             return new UploadLogoResult.Rejected("magic-byte mismatch");
         }
 
+        // Load the aggregate BEFORE the SVG sanitizer runs. On a misconfigured
+        // tenant with no Organization row, returning NotFound here avoids
+        // allocating a string for, and running Ganss.Xss over, attacker-supplied
+        // bytes that we have nowhere to persist anyway — smaller attack surface
+        // and no wasted CPU on hostile payloads.
+        var org = await _db.Organizations.FirstOrDefaultAsync(ct);
+        if (org is null)
+        {
+            return new UploadLogoResult.NotFound();
+        }
+
         var processed = bytes;
         if (mimeType == "image/svg+xml")
         {
@@ -45,12 +56,6 @@ public sealed class LogoCommands
                 return new UploadLogoResult.Rejected("SVG contained disallowed content");
             }
             processed = Encoding.UTF8.GetBytes(clean);
-        }
-
-        var org = await _db.Organizations.FirstOrDefaultAsync(ct);
-        if (org is null)
-        {
-            return new UploadLogoResult.NotFound();
         }
 
         org.SetLogo(OrgLogo.Create(processed, mimeType));

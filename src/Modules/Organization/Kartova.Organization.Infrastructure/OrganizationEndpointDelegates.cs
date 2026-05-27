@@ -442,17 +442,33 @@ internal static class OrganizationEndpointDelegates
                 statusCode: StatusCodes.Status404NotFound);
         }
 
-        var ifNone = http.Request.Headers.IfNoneMatch.FirstOrDefault()?.Trim('"');
-        if (ifNone == data.ContentHash)
+        // RFC 7232: parse If-None-Match via EntityTagHeaderValue so we correctly
+        // handle quoted strong validators ("hash") and reject weak validators
+        // (W/"hash"). The server only emits strong ETags, so a weak If-None-Match
+        // cannot match anything we store and must fall through to a 200.
+        string? ifNoneMatch = null;
+        var rawIfNoneMatch = http.Request.Headers.IfNoneMatch.FirstOrDefault();
+        if (!string.IsNullOrEmpty(rawIfNoneMatch)
+            && EntityTagHeaderValue.TryParse(rawIfNoneMatch, out var etag)
+            && !etag.IsWeak)
         {
-            // 304 is success-shape; do NOT wrap in Problem. ETag must still be
-            // emitted so a downstream cache can refresh its TTL.
-            http.Response.Headers.ETag = $"\"{data.ContentHash}\"";
+            // EntityTagHeaderValue.Tag includes the surrounding quotes
+            // (e.g. "abc123"); strip them to match the raw ContentHash hex.
+            ifNoneMatch = etag.Tag.Value?.Trim('"');
+        }
+
+        // ETag is the validator; Cache-Control gives downstream caches freshness.
+        // Both must be present on 304 and 200 per RFC 7232 §4.1, otherwise an
+        // intermediate cache won't extend its freshness window after a successful
+        // revalidation. Set both before branching so neither path can forget one.
+        http.Response.Headers.ETag = $"\"{data.ContentHash}\"";
+        http.Response.Headers.CacheControl = "private, max-age=300";
+
+        if (ifNoneMatch is not null && ifNoneMatch == data.ContentHash)
+        {
             return Results.StatusCode(StatusCodes.Status304NotModified);
         }
 
-        http.Response.Headers.ETag = $"\"{data.ContentHash}\"";
-        http.Response.Headers.CacheControl = "private, max-age=300";
         return Results.File(data.Bytes, data.MimeType);
     }
 
