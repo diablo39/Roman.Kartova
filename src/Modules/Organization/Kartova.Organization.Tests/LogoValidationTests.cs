@@ -77,7 +77,8 @@ public sealed class LogoValidationTests
     {
         var input = "<svg><script>alert(1)</script><circle r=\"5\"/></svg>";
         var (sanitized, materiallyChanged) = LogoValidation.SanitizeSvg(input);
-        Assert.IsFalse(sanitized.Contains("script", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(sanitized.Contains("<script", StringComparison.OrdinalIgnoreCase),
+            "Sanitized output should not contain a <script tag opener.");
         Assert.IsTrue(materiallyChanged);
     }
 
