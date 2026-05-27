@@ -164,6 +164,12 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
         services.AddScoped<UpdateTeamMemberHandler>();
         services.AddScoped<GetTeamHandler>();
         services.AddScoped<ListTeamsHandler>();
+
+        // Post-auth hook: upserts `users` projection from JWT claims + detects invitation
+        // acceptance for the current request (spec §4.3, §5.2). Resolved by
+        // TenantClaimsTransformation via IEnumerable<IPostAuthSyncHook>.
+        services.AddScoped<UserProjectionUpdater>();
+        services.AddScoped<IPostAuthSyncHook, OrganizationPostAuthSyncHook>();
     }
 
     /// <summary>

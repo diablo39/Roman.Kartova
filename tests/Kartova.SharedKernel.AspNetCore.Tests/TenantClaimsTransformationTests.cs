@@ -193,4 +193,62 @@ public class TenantClaimsTransformationTests
         services.AddSingleton(ctx);
         return services.BuildServiceProvider();
     }
+
+    private static IServiceProvider ProviderFor(ITenantContext ctx, params IPostAuthSyncHook[] hooks)
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(ctx);
+        foreach (var hook in hooks)
+        {
+            services.AddSingleton(hook);
+        }
+        return services.BuildServiceProvider();
+    }
+
+    [TestMethod]
+    public async Task Invokes_registered_post_auth_sync_hooks()
+    {
+        var (principal, ctx) = Setup(
+            new Claim(KartovaClaims.TenantId, "11111111-1111-1111-1111-111111111111"),
+            new Claim(KartovaClaims.RealmAccess, """{"roles":["Member"]}""")
+        );
+        var spy = new SpyHook();
+        var sut = new TenantClaimsTransformation(ProviderFor(ctx, spy));
+
+        var result = await sut.TransformAsync(principal);
+
+        Assert.AreEqual(1, spy.Invocations, "Hook must be invoked exactly once.");
+        Assert.AreSame(principal, spy.CapturedPrincipal, "Hook must receive the transformed principal.");
+        Assert.IsTrue(result.IsInRole("Member"));
+    }
+
+    [TestMethod]
+    public async Task Skips_hooks_when_principal_is_unauthenticated()
+    {
+        var principal = new ClaimsPrincipal(new ClaimsIdentity()); // not authenticated
+        var services = new ServiceCollection();
+        services.AddSingleton<ITenantContext, TenantContextAccessor>();
+        var spy = new SpyHook();
+        services.AddSingleton<IPostAuthSyncHook>(spy);
+        var sp = services.BuildServiceProvider();
+        var sut = new TenantClaimsTransformation(sp);
+
+        await sut.TransformAsync(principal);
+
+        Assert.AreEqual(0, spy.Invocations,
+            "Hooks must not run for unauthenticated principals — the transform short-circuits before claim flattening.");
+    }
+
+    private sealed class SpyHook : IPostAuthSyncHook
+    {
+        public int Invocations { get; private set; }
+        public ClaimsPrincipal? CapturedPrincipal { get; private set; }
+
+        public Task ExecuteAsync(ClaimsPrincipal principal, CancellationToken ct)
+        {
+            Invocations++;
+            CapturedPrincipal = principal;
+            return Task.CompletedTask;
+        }
+    }
 }

@@ -20,11 +20,11 @@ public sealed class TenantClaimsTransformation : IClaimsTransformation
         _services = services;
     }
 
-    public Task<ClaimsPrincipal> TransformAsync(ClaimsPrincipal principal)
+    public async Task<ClaimsPrincipal> TransformAsync(ClaimsPrincipal principal)
     {
         if (principal?.Identity?.IsAuthenticated != true)
         {
-            return Task.FromResult(principal!);
+            return principal!;
         }
 
         var context = _services.GetRequiredService<ITenantContext>();
@@ -59,7 +59,16 @@ public sealed class TenantClaimsTransformation : IClaimsTransformation
             }
         }
 
-        return Task.FromResult(principal);
+        // Post-auth hooks: per-module sync work (user-projection upsert, invitation
+        // acceptance, etc.) that needs to run inside the request scope AFTER the
+        // tenant + role claims have been populated. Resolved from the current
+        // scope; foreach is a no-op when no hooks are registered.
+        foreach (var hook in _services.GetServices<IPostAuthSyncHook>())
+        {
+            await hook.ExecuteAsync(principal, CancellationToken.None);
+        }
+
+        return principal;
     }
 
     private static IReadOnlyCollection<string> ExtractRealmRoles(ClaimsPrincipal principal)
