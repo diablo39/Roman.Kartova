@@ -21,7 +21,7 @@ public class ApplicationLifecycleTests
     private static FakeTimeProvider Clock(DateTimeOffset? now = null) => TestClocks.At(now ?? Now);
 
     private static DomainApplication NewActive() =>
-        DomainApplication.Create("payments-api", "Payments API", "Description.", Owner, Tenant, Clock());
+        DomainApplication.Create("Payments API", "Description.", Owner, Tenant, Clock());
 
     [TestMethod]
     public void New_application_starts_in_Active_state_with_null_sunsetDate()
@@ -70,17 +70,15 @@ public class ApplicationLifecycleTests
     }
 
     [TestMethod]
-    public void EditMetadata_does_not_change_Name_or_OwnerUserId_or_TenantId_or_CreatedAt()
+    public void EditMetadata_does_not_change_OwnerUserId_or_TenantId_or_CreatedAt()
     {
         var app = NewActive();
-        var origName = app.Name;
         var origOwner = app.OwnerUserId;
         var origTenant = app.TenantId;
         var origCreated = app.CreatedAt;
 
         app.EditMetadata("Different", "Different.");
 
-        Assert.AreEqual(origName, app.Name);
         Assert.AreEqual(origOwner, app.OwnerUserId);
         Assert.AreEqual(origTenant, app.TenantId);
         Assert.AreEqual(origCreated, app.CreatedAt);
@@ -209,5 +207,90 @@ public class ApplicationLifecycleTests
         var ex = Assert.ThrowsExactly<InvalidLifecycleTransitionException>(
             () => app.Decommission(Clock(Now.AddDays(3))));
         Assert.AreEqual(Lifecycle.Decommissioned, ex.CurrentLifecycle);
+    }
+
+    // ---------------------------------------------------------------------
+    // AssignTeam (slice 8). Decommissioned blocks non-null reassign (mirrors
+    // EditMetadata terminal-write guard) but permits null-unassign so OrgAdmin
+    // can release a team before deleting it — see slice-8 boundary-review fix.
+    // ---------------------------------------------------------------------
+
+    [TestMethod]
+    public void New_application_has_null_TeamId()
+    {
+        var app = NewActive();
+        Assert.IsNull(app.TeamId);
+    }
+
+    [TestMethod]
+    public void AssignTeam_on_Active_sets_TeamId()
+    {
+        var app = NewActive();
+        var teamId = Guid.NewGuid();
+
+        app.AssignTeam(teamId);
+
+        Assert.AreEqual(teamId, app.TeamId);
+    }
+
+    [TestMethod]
+    public void AssignTeam_on_Deprecated_succeeds()
+    {
+        // Deprecated is not a terminal state for assignment — only Decommissioned
+        // blocks the operation (consistent with EditMetadata).
+        var app = NewActive();
+        app.Deprecate(Now.AddDays(30), Clock());
+        var teamId = Guid.NewGuid();
+
+        app.AssignTeam(teamId);
+
+        Assert.AreEqual(Lifecycle.Deprecated, app.Lifecycle);
+        Assert.AreEqual(teamId, app.TeamId);
+    }
+
+    [TestMethod]
+    public void AssignTeam_with_null_unassigns()
+    {
+        // Passing null is how OrgAdmin removes a team assignment. Distinct from
+        // "blocked by lifecycle" — the guard checks state, not the argument.
+        var app = NewActive();
+        app.AssignTeam(Guid.NewGuid());
+
+        app.AssignTeam(null);
+
+        Assert.IsNull(app.TeamId);
+    }
+
+    [TestMethod]
+    public void AssignTeam_when_Decommissioned_throws_InvalidLifecycleTransitionException()
+    {
+        var app = NewActive();
+        app.Deprecate(Now.AddDays(1), Clock());
+        app.Decommission(Clock(Now.AddDays(2)));
+
+        var ex = Assert.ThrowsExactly<InvalidLifecycleTransitionException>(
+            () => app.AssignTeam(Guid.NewGuid()));
+        Assert.AreEqual(Lifecycle.Decommissioned, ex.CurrentLifecycle);
+    }
+
+    [TestMethod]
+    public void AssignTeam_with_null_when_Decommissioned_unassigns()
+    {
+        // Slice-8 boundary-review fix: unassign (null) is the deliberate carve-out
+        // on Decommissioned — OrgAdmin must be able to release a Decommissioned
+        // app from a team before deleting that team, otherwise a team that ever
+        // owned an app since-decommissioned would be permanently undeletable.
+        // The reassign-to-non-null case remains blocked (see prior test).
+        var app = NewActive();
+        var initialTeamId = Guid.NewGuid();
+        app.AssignTeam(initialTeamId);
+        app.Deprecate(Now.AddDays(1), Clock());
+        app.Decommission(Clock(Now.AddDays(2)));
+        Assert.AreEqual(Lifecycle.Decommissioned, app.Lifecycle);
+        Assert.AreEqual(initialTeamId, app.TeamId);
+
+        app.AssignTeam(null);
+
+        Assert.IsNull(app.TeamId);
     }
 }

@@ -11,35 +11,46 @@ import type { Lifecycle } from "@/features/catalog/api/applications";
 
 export interface ApplicationRow {
   id: string;
-  name: string;
   displayName: string;
   description: string;
   ownerUserId?: string;
   createdAt?: string;
   lifecycle: Lifecycle;
   sunsetDate: string | null;
+  teamId?: string | null;
 }
 
-type SortField = "createdAt" | "name";
+type SortField = "createdAt" | "displayName";
 
 interface Props {
   list: CursorListResult<ApplicationRow>;
   sortBy: SortField;
   sortOrder: SortDirection;
   onSortChange: (field: SortField, order: SortDirection) => void;
+  /**
+   * Resolves a teamId to its displayName for the Team column. Provided by
+   * the parent (CatalogListPage) so a single useTeamsList call covers every
+   * row; missing entries fall back to "Unknown team" (e.g. stale cache).
+   */
+  teamNameById: Map<string, string>;
 }
 
-export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange }: Props) {
+export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange, teamNameById }: Props) {
   if (list.isLoading) {
+    // No sortDescriptor/onSortChange wired on the loading <Table>, so render
+    // plain heads here — a SortableHead without sort wiring presents an
+    // interactive sort affordance with no behavior and a misleading a11y
+    // signal during the skeleton state.
     return (
       <Table aria-label="Applications">
         <Table.Header>
-          <Table.Head id="name" isRowHeader>Name</Table.Head>
+          <Table.Head id="displayName" isRowHeader>Name</Table.Head>
           <Table.Head id="lifecycle">Lifecycle</Table.Head>
+          <Table.Head id="team">Team</Table.Head>
           <Table.Head id="description">Description</Table.Head>
           <Table.Head id="createdAt">Created</Table.Head>
         </Table.Header>
-        <TableSkeleton rows={5} cells={4} />
+        <TableSkeleton rows={5} cells={5} />
       </Table>
     );
   }
@@ -59,7 +70,7 @@ export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange }: Pro
 
   const handleSortChange = (descriptor: Parameters<typeof toSort>[0]) => {
     const { field, order } = toSort(descriptor);
-    if (field === "createdAt" || field === "name") {
+    if (field === "createdAt" || field === "displayName") {
       onSortChange(field, order);
     }
   };
@@ -72,8 +83,9 @@ export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange }: Pro
         onSortChange={handleSortChange}
       >
         <Table.Header>
-          <SortableHead id="name" isRowHeader>Name</SortableHead>
+          <SortableHead id="displayName" isRowHeader>Name</SortableHead>
           <Table.Head id="lifecycle">Lifecycle</Table.Head>
+          <Table.Head id="team">Team</Table.Head>
           <Table.Head id="description">Description</Table.Head>
           <SortableHead id="createdAt">Created</SortableHead>
         </Table.Header>
@@ -87,10 +99,21 @@ export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange }: Pro
                 >
                   {app.displayName}
                 </Link>
-                <span className="font-mono text-xs text-tertiary">{app.name}</span>
               </Table.Cell>
               <Table.Cell>
                 <LifecycleBadge lifecycle={app.lifecycle} sunsetDate={app.sunsetDate} />
+              </Table.Cell>
+              <Table.Cell className="text-sm">
+                {app.teamId == null ? (
+                  <span className="italic text-tertiary">Unassigned</span>
+                ) : (
+                  <Link
+                    to={`/teams/${app.teamId}`}
+                    className="text-primary hover:underline"
+                  >
+                    {teamNameById.get(app.teamId) ?? "Unknown team"}
+                  </Link>
+                )}
               </Table.Cell>
               <Table.Cell className="text-sm text-tertiary">
                 {app.description || <span className="italic">No description</span>}

@@ -46,10 +46,18 @@ public sealed class EfApplicationConfiguration : IEntityTypeConfiguration<Kartov
             .HasColumnName("tenant_id")
             .IsRequired();
         b.HasIndex(x => x.TenantId).HasDatabaseName("ix_catalog_applications_tenant_id");
-        b.Property(x => x.Name).HasColumnName("name").HasMaxLength(256).IsRequired();
         b.Property(x => x.DisplayName).HasColumnName("display_name").HasMaxLength(128).IsRequired();
-        b.Property(x => x.Description).HasColumnName("description").IsRequired();
+        // Composite index supporting ORDER BY display_name keyset pagination scoped per tenant
+        // (ADR-0095 §sortable column). Mirrors ix_catalog_applications_tenant_id but with
+        // display_name as the second key so PostgreSQL can stream a sorted result without sort.
+        b.HasIndex(x => new { x.TenantId, x.DisplayName })
+            .HasDatabaseName("ix_catalog_applications_tenant_id_display_name");
+        b.Property(x => x.Description).HasColumnName("description").HasMaxLength(4096).IsRequired();
         b.Property(x => x.OwnerUserId).HasColumnName("owner_user_id").IsRequired();
+        // Optional team assignment (slice 8). Guid? maps to PostgreSQL uuid NULL.
+        // Indexed for ApplicationCountByTeamReader / ApplicationsByTeamReader hot paths.
+        b.Property(x => x.TeamId).HasColumnName("team_id");
+        b.HasIndex(x => x.TeamId).HasDatabaseName("idx_catalog_applications_team");
         b.Property(x => x.CreatedAt).HasColumnName("created_at").IsRequired();
 
         b.Property(x => x.Lifecycle)

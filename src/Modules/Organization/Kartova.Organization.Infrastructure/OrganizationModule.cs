@@ -4,6 +4,7 @@ using Kartova.Organization.Contracts;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Multitenancy;
+using Kartova.SharedKernel.Pagination;
 using Kartova.SharedKernel.Postgres;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -54,6 +55,76 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
             .Produces<AdminOnlyResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden);
+
+        // ---- Team management (slice 8, ADR-0098 / spec §6) -----------------
+        // Claim-policy gate via .RequireAuthorization stops Viewer/anon.
+        // Resource-auth gate (TeamAdminOfThis) is enforced inside the delegate
+        // via IAuthorizationService — applied ONLY to mutation endpoints. The
+        // bare GETs and POST /teams rely on the claim gate alone: CreateTeam
+        // has no target team yet, and the read-list / read-detail surfaces are
+        // visible to any tenant member with team.read.
+
+        tenant.MapGet("/teams", OrganizationEndpointDelegates.ListTeamsAsync)
+            .RequireAuthorization(KartovaPermissions.TeamRead)
+            .WithName("ListTeams")
+            // CursorPage<T> envelope — ADR-0095: items + nextCursor + prevCursor.
+            // sortBy/sortOrder enum schemas + bounded-integer limit schema are emitted
+            // by the OpenAPI transformer wired in Program.cs (same path as catalog).
+            .Produces<CursorPage<TeamResponse>>(StatusCodes.Status200OK);
+
+        tenant.MapGet("/teams/{id:guid}", OrganizationEndpointDelegates.GetTeamAsync)
+            .RequireAuthorization(KartovaPermissions.TeamRead)
+            .WithName("GetTeam")
+            .Produces<TeamDetailResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        tenant.MapPost("/teams", OrganizationEndpointDelegates.CreateTeamAsync)
+            .RequireAuthorization(KartovaPermissions.TeamCreate)
+            .WithName("CreateTeam")
+            .Produces<TeamResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status400BadRequest);
+
+        tenant.MapPut("/teams/{id:guid}", OrganizationEndpointDelegates.UpdateTeamAsync)
+            .RequireAuthorization(KartovaPermissions.TeamMetadataEdit)
+            .WithName("UpdateTeam")
+            .Produces<TeamResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        tenant.MapDelete("/teams/{id:guid}", OrganizationEndpointDelegates.DeleteTeamAsync)
+            .RequireAuthorization(KartovaPermissions.TeamDelete)
+            .WithName("DeleteTeam")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            // 409 team-has-applications with applicationCount extension — spec §6.5.
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        tenant.MapPost("/teams/{id:guid}/members", OrganizationEndpointDelegates.AddTeamMemberAsync)
+            .RequireAuthorization(KartovaPermissions.TeamMembersManage)
+            .WithName("AddTeamMember")
+            // 201 + TeamMemberResponse body (spec critic-revision §7 — NOT 204).
+            .Produces<TeamMemberResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        tenant.MapDelete("/teams/{id:guid}/members/{userId:guid}", OrganizationEndpointDelegates.RemoveTeamMemberAsync)
+            .RequireAuthorization(KartovaPermissions.TeamMembersManage)
+            .WithName("RemoveTeamMember")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        tenant.MapPut("/teams/{id:guid}/members/{userId:guid}", OrganizationEndpointDelegates.UpdateTeamMemberAsync)
+            .RequireAuthorization(KartovaPermissions.TeamMembersManage)
+            .WithName("UpdateTeamMember")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
@@ -71,6 +142,28 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
         // no-op so tests can swap in FakeTimeProvider without losing the
         // production default. Mirrors CatalogModule.RegisterServices.
         services.TryAddSingleton(TimeProvider.System);
+
+        // Team-membership reader: populates ICurrentUser.TeamMemberships from team_members.
+        // Invoked from TenantScopeBeginMiddleware after BeginAsync (slice 8 / ADR-0098).
+        services.AddScoped<ITeamMembershipReader, OrganizationTeamMembershipReader>();
+
+        // Cross-module team-existence checker (slice 8). Consumed by Catalog's
+        // AssignApplicationTeamHandler — Catalog never references Organization
+        // directly, only the IOrganizationTeamExistenceChecker port in
+        // Kartova.SharedKernel.Multitenancy.
+        services.AddScoped<IOrganizationTeamExistenceChecker, OrganizationTeamExistenceChecker>();
+
+        // Team CRUD + member handlers (slice 8). Handlers are invoked directly
+        // from the endpoint delegate (synchronous, in-process) — same dispatch
+        // pattern as CatalogModule, see CatalogEndpointDelegates' class comment.
+        services.AddScoped<CreateTeamHandler>();
+        services.AddScoped<UpdateTeamHandler>();
+        services.AddScoped<DeleteTeamHandler>();
+        services.AddScoped<AddTeamMemberHandler>();
+        services.AddScoped<RemoveTeamMemberHandler>();
+        services.AddScoped<UpdateTeamMemberHandler>();
+        services.AddScoped<GetTeamHandler>();
+        services.AddScoped<ListTeamsHandler>();
     }
 
     /// <summary>
@@ -91,6 +184,7 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
     public void ConfigureWolverine(WolverineOptions options)
     {
         options.Discovery.IncludeAssembly(typeof(OrganizationModule).Assembly);
-        // Handlers and publish routes arrive in later slices.
+        // Bus-routed handlers and publish routes arrive in later slices; slice 8
+        // handlers use direct dispatch per ADR-0093.
     }
 }

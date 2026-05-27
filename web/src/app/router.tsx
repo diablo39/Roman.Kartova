@@ -3,6 +3,8 @@ import { RequireAuth } from "@/shared/auth/RequireAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { CatalogListPage } from "@/features/catalog/pages/CatalogListPage";
 import { ApplicationDetailPage } from "@/features/catalog/pages/ApplicationDetailPage";
+import { TeamsListPage } from "@/features/teams/pages/TeamsListPage";
+import { TeamDetailPage } from "@/features/teams/pages/TeamDetailPage";
 import { CallbackPage } from "./CallbackPage";
 
 function ProtectedShell() {
@@ -24,6 +26,8 @@ export function AppRoutes() {
           path="/catalog/applications/:id"
           element={<ApplicationDetailPage />}
         />
+        <Route path="/teams" element={<TeamsListPage />} />
+        <Route path="/teams/:id" element={<TeamDetailPage />} />
       </Route>
       <Route path="*" element={<div className="p-8 text-sm">Not found</div>} />
     </Routes>

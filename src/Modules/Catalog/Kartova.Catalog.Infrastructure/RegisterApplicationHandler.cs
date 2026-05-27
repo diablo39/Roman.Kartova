@@ -32,7 +32,7 @@ public sealed class RegisterApplicationHandler
         CancellationToken ct)
     {
         var app = Kartova.Catalog.Domain.Application.Create(
-            cmd.Name, cmd.DisplayName, cmd.Description, user.UserId, tenant.Id, _clock);
+            cmd.DisplayName, cmd.Description, user.UserId, tenant.Id, _clock);
         db.Applications.Add(app);
         await db.SaveChangesAsync(ct);
         return app.ToResponse();

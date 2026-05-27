@@ -18,7 +18,7 @@ public class EditApplicationTests : CatalogIntegrationTestBase
     public async Task PUT_with_valid_payload_returns_200_and_advances_version()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var registered = await RegisterAsync(client, "edit-app-1", "Edit App 1", "Desc 1.");
+        var registered = await RegisterAsync(client, "Edit App 1", "Desc 1.");
 
         var put = NewPut(registered.Id, registered.Version, "Edit App 1 Renamed", "Desc 1 Renamed.");
         var resp = await client.SendAsync(put);
@@ -38,7 +38,7 @@ public class EditApplicationTests : CatalogIntegrationTestBase
     public async Task PUT_without_If_Match_returns_428()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var registered = await RegisterAsync(client, "edit-app-2", "Edit App 2", "Desc.");
+        var registered = await RegisterAsync(client, "Edit App 2", "Desc.");
 
         var put = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/catalog/applications/{registered.Id}")
         {
@@ -56,7 +56,7 @@ public class EditApplicationTests : CatalogIntegrationTestBase
     public async Task PUT_with_stale_If_Match_returns_412_with_currentVersion()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var registered = await RegisterAsync(client, "edit-app-3", "Edit App 3", "Desc.");
+        var registered = await RegisterAsync(client, "Edit App 3", "Desc.");
 
         // First PUT advances xmin.
         var firstPut = NewPut(registered.Id, registered.Version, "Edit App 3 v2", "Desc v2.");
@@ -86,7 +86,7 @@ public class EditApplicationTests : CatalogIntegrationTestBase
     public async Task PUT_with_invalid_field_returns_400_with_field_error(string displayName, string description, string expectedErrorField)
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var registered = await RegisterAsync(client, $"edit-app-4-{Guid.NewGuid():N}", "Edit App 4", "Desc.");
+        var registered = await RegisterAsync(client, "Edit App 4", "Desc.");
 
         var put = NewPut(registered.Id, registered.Version, displayName, description);
         var resp = await client.SendAsync(put);
@@ -101,7 +101,7 @@ public class EditApplicationTests : CatalogIntegrationTestBase
     public async Task PUT_with_over_length_displayName_returns_400()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var registered = await RegisterAsync(client, "edit-app-5", "Edit App 5", "Desc.");
+        var registered = await RegisterAsync(client, "Edit App 5", "Desc.");
 
         var put = NewPut(registered.Id, registered.Version, new string('x', 129), "Desc.");
         var resp = await client.SendAsync(put);
@@ -115,7 +115,7 @@ public class EditApplicationTests : CatalogIntegrationTestBase
     public async Task PUT_for_other_tenants_id_returns_404()
     {
         var orgAClient = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var orgARegistered = await RegisterAsync(orgAClient, "edit-app-6", "App", "Desc.");
+        var orgARegistered = await RegisterAsync(orgAClient, "App", "Desc.");
 
         var orgBClient = await Fx.CreateAuthenticatedClientAsync(OrgBUser);
         var put = NewPut(orgARegistered.Id, orgARegistered.Version, "Hijack", "Hijack.");
@@ -142,7 +142,7 @@ public class EditApplicationTests : CatalogIntegrationTestBase
         // pinned at integration tier so a mutation that flipped the guard
         // direction is caught end-to-end.
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var registered = await RegisterAsync(client, "edit-app-deprecated", "App", "Desc.");
+        var registered = await RegisterAsync(client, "App", "Desc.");
 
         var deprecateResp = await client.PostAsJsonAsync(
             $"/api/v1/catalog/applications/{registered.Id}/deprecate",
@@ -167,7 +167,7 @@ public class EditApplicationTests : CatalogIntegrationTestBase
         // type=lifecycle-conflict (the terminal-state guard in
         // Application.EditMetadata).
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var registered = await RegisterAsync(client, "edit-app-7", "App", "Desc.");
+        var registered = await RegisterAsync(client, "App", "Desc.");
 
         var deprecate = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/catalog/applications/{registered.Id}/deprecate")
         {
@@ -195,11 +195,11 @@ public class EditApplicationTests : CatalogIntegrationTestBase
         Assert.AreEqual("EditMetadata", problem.Extensions["attemptedTransition"]!.ToString());
     }
 
-    private static async Task<ApplicationResponse> RegisterAsync(HttpClient client, string name, string displayName, string description)
+    private static async Task<ApplicationResponse> RegisterAsync(HttpClient client, string displayName, string description)
     {
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest(name, displayName, description));
+            new RegisterApplicationRequest(displayName, description));
         Assert.IsTrue(resp.IsSuccessStatusCode);
         return (await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
     }

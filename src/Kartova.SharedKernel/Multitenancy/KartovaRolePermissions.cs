@@ -9,21 +9,31 @@ public static class KartovaRolePermissions
     public static readonly FrozenDictionary<string, FrozenSet<string>> Map =
         new Dictionary<string, FrozenSet<string>>(StringComparer.Ordinal)
         {
-            [KartovaRoles.Viewer] = new[] { KartovaPermissions.CatalogRead }.ToFrozenSet(StringComparer.Ordinal),
+            [KartovaRoles.Viewer] = new[]
+            {
+                KartovaPermissions.CatalogRead,
+                KartovaPermissions.TeamRead,
+            }.ToFrozenSet(StringComparer.Ordinal),
             [KartovaRoles.Member] = new[]
             {
                 KartovaPermissions.CatalogRead,
                 KartovaPermissions.CatalogApplicationsRegister,
                 KartovaPermissions.CatalogApplicationsEditMetadata,
                 KartovaPermissions.CatalogApplicationsLifecycleForward,
+                KartovaPermissions.TeamRead,
             }.ToFrozenSet(StringComparer.Ordinal),
             [KartovaRoles.TeamAdmin] = new[]
             {
-                // Forward-compat: same set as Member. Diverges when teams ship (E-03.F-02).
+                // Diverges from Member: gains team metadata/delete/members permissions
+                // (gated to own team via resource auth, ADR-0098 slice 8).
                 KartovaPermissions.CatalogRead,
                 KartovaPermissions.CatalogApplicationsRegister,
                 KartovaPermissions.CatalogApplicationsEditMetadata,
                 KartovaPermissions.CatalogApplicationsLifecycleForward,
+                KartovaPermissions.TeamRead,
+                KartovaPermissions.TeamMetadataEdit,
+                KartovaPermissions.TeamDelete,
+                KartovaPermissions.TeamMembersManage,
             }.ToFrozenSet(StringComparer.Ordinal),
             [KartovaRoles.OrgAdmin] = new[]
             {
@@ -32,6 +42,11 @@ public static class KartovaRolePermissions
                 KartovaPermissions.CatalogApplicationsEditMetadata,
                 KartovaPermissions.CatalogApplicationsLifecycleForward,
                 KartovaPermissions.CatalogApplicationsLifecycleReverse,
+                KartovaPermissions.TeamRead,
+                KartovaPermissions.TeamCreate,
+                KartovaPermissions.TeamMetadataEdit,
+                KartovaPermissions.TeamDelete,
+                KartovaPermissions.TeamMembersManage,
             }.ToFrozenSet(StringComparer.Ordinal),
             // PlatformAdmin: orthogonal — operates outside tenant scope. No entry.
             // ServiceAccount: no realm role yet (ADR-0009). No entry.

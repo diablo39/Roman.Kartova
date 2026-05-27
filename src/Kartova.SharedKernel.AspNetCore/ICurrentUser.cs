@@ -1,3 +1,4 @@
+using Kartova.SharedKernel.Multitenancy;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Kartova.SharedKernel.AspNetCore;
@@ -14,4 +15,16 @@ public interface ICurrentUser
     /// Guid form of the JWT 'sub' claim. KeyCloak issues UUIDs for user IDs.
     /// </summary>
     Guid UserId { get; }
+
+    /// <summary>
+    /// Team memberships for the current user within the current tenant scope.
+    /// Sourced from <see cref="ITenantContext"/> and populated by the auth
+    /// pipeline. Empty when no memberships exist.
+    /// </summary>
+    IReadOnlyList<TeamMembershipInfo> TeamMemberships { get; }
+
+    /// <summary>
+    /// Convenience projection of <see cref="TeamMemberships"/> to a set of team ids.
+    /// </summary>
+    IReadOnlySet<Guid> TeamIds { get; }
 }

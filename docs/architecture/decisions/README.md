@@ -224,6 +224,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0095](ADR-0095-cursor-pagination-contract.md) | Cursor Pagination Contract — Wire Shape, Sort Syntax, and First-Cut Mandate | API & Integration Architecture | Accepted | 0029, 0083, 0090, 0091, 0092 | List endpoints return `CursorPage<T>` envelope with opaque base64url cursor `{s,i,d}`; `?sortBy=<field>&sortOrder=asc\|desc` per-resource enum allowlist; default 50, max 200; pure cursor (no total). First-cut mandate enforced by `PaginationConventionRules` arch test; `[BoundedListResult]` opt-out for bounded lists. |
 | [0096](ADR-0096-rest-verb-policy.md) | REST Verb Policy — PUT for Full Replacement, POST for Actions, No PATCH | API & Integration Architecture | Accepted | 0029, 0073, 0091, 0092, 0095 | `PUT /resources/{id}` for idempotent full-resource replacement on small/stable DTOs; `POST /resources/{id}/<action>` for named domain commands (deprecate, decommission, restore, transfer-ownership); `PATCH` forbidden (semantics drift, missing-vs-null ambiguity, uneven codegen). Enforced by `RestVerbPolicyRules` arch test. |
 | [0097](ADR-0097-mstest-supersedes-xunit.md) | MSTest v4 supersedes xUnit | Testing & Quality | Accepted | 0028, 0080, 0082, 0083, 0084, 0095 | Replaces xUnit + FluentAssertions with MSTest v4 native assertions across all 10 xUnit-using test projects. Project SDK, VSTest runner, `coverlet.collector`, and Stryker per-module orchestration all unchanged. MTP deferred — Stryker.NET does not support it at the version probed in Phase 0 (stryker-net#3094). Migration tracked in `docs/superpowers/specs/2026-05-08-xunit-to-mstest-migration-design.md`. |
+| [0098](ADR-0098-uuid-only-entity-identifier.md) | UUIDs as the Canonical and Only Entity Identifier | API & Integration Architecture | Accepted | 0001, 0011, 0029, 0082, 0092 | UUIDs are the canonical and only entity identifier across Kartova. URLs use `{id:guid}` exclusively; no slugs anywhere. |
 
 ## By category (quick navigation)
 
@@ -232,7 +233,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Multi-Tenancy**: 0011, 0012, 0013, 0014, 0090
 - **Compliance & Retention**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050
 - **Platform Infrastructure**: 0022, 0023, 0024, 0025, 0026
-- **API & Integration Architecture**: 0027, 0028, 0029, 0030, 0031, 0032, 0033, 0034, 0035, 0036, 0037, 0038, 0091, 0092, 0095, 0096
+- **API & Integration Architecture**: 0027, 0028, 0029, 0030, 0031, 0032, 0033, 0034, 0035, 0036, 0037, 0038, 0091, 0092, 0095, 0096, 0098
 - **Backend Architecture**: 0080, 0081, 0082, 0089, 0093
 - **Frontend Architecture**: 0039, 0040, 0088
 - **Agent Architecture**: 0041, 0042, 0043, 0044, 0045
@@ -264,6 +265,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Agent architecture**: 0041, 0042, 0043, 0044, 0045, 0067
 - **API contract**: 0029, 0030, 0031, 0032, 0033, 0034
 - **Compliance (GDPR / MiFID II)**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050, 0078
+- **Resource identifier / entity ID format**: 0092, 0098
 - **Retention / archival / deletion**: 0017, 0019, 0020, 0073
 - **Audit & logging**: 0018, 0050, 0058
 - **Domain model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073
@@ -436,6 +438,7 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Relationship vocabulary (7 types)** → 0068
 - **Relationship origin** → 0067
 - **Required minimum fields** → 0069
+- **Resource identifier (UUID-only)** → 0098
 - **Residency region** → 0021
 - **REST API** → 0029, 0030, 0031, 0032, 0034, 0092, 0096
 - **HTTP verbs / PUT / POST / PATCH** → 0096

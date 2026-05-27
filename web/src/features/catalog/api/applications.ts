@@ -10,9 +10,9 @@ type ApplicationResponse = components["schemas"]["ApplicationResponse"];
 type Lifecycle = ApplicationResponse["lifecycle"];
 
 // Derive sort-param types from the generated OpenAPI operation so the wire
-// allowlist (createdAt|name, asc|desc) is a single source of truth — adding
-// a new sort field on the backend (ADR-0095 §4.1) flows through codegen
-// without requiring a hand edit here.
+// allowlist (currently createdAt, asc|desc) is a single source of truth —
+// adding a new sort field on the backend (ADR-0095 §4.1) flows through
+// codegen without requiring a hand edit here.
 type ListApplicationsQuery = NonNullable<operations["ListApplications"]["parameters"]["query"]>;
 
 type ApplicationsListParams = {
@@ -223,6 +223,30 @@ export function useUnDecommissionApplication(id: string) {
       const { data, error, response } = await apiClient.POST(
         "/api/v1/catalog/applications/{id}/un-decommission",
         { params: { path: { id } }, body: input }
+      );
+      if (error) throwWithStatus(error, response);
+      return unwrapData(data);
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(applicationKeys.detail(id), data);
+      qc.invalidateQueries({ queryKey: applicationKeys.list() });
+    },
+  });
+}
+
+/**
+ * PUT /applications/{id}/team — assign or unassign team. Slice 8 (ADR-0098 §6.4).
+ * Passing `teamId: null` unassigns. Server returns 422 invalid-team when teamId
+ * is non-null and the team doesn't exist in the tenant; 403 when caller lacks
+ * the resource-auth gate (Member/TeamAdmin trying to assign across teams).
+ */
+export function useAssignApplicationTeam(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (teamId: string | null) => {
+      const { data, error, response } = await apiClient.PUT(
+        "/api/v1/catalog/applications/{id}/team",
+        { params: { path: { id } }, body: { teamId } }
       );
       if (error) throwWithStatus(error, response);
       return unwrapData(data);

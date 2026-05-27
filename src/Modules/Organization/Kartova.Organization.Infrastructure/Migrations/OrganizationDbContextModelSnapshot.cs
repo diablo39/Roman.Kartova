@@ -17,7 +17,7 @@ namespace Kartova.Organization.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.0")
+                .HasAnnotation("ProductVersion", "10.0.2")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -48,6 +48,66 @@ namespace Kartova.Organization.Infrastructure.Migrations
                         .HasDatabaseName("idx_organizations_tenant");
 
                     b.ToTable("organizations", (string)null);
+                });
+
+            modelBuilder.Entity("Kartova.Organization.Domain.Team", b =>
+                {
+                    b.Property<Guid>("_id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("display_name");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("idx_teams_tenant");
+
+                    b.ToTable("teams", (string)null);
+                });
+
+            modelBuilder.Entity("Kartova.Organization.Domain.TeamMembership", b =>
+                {
+                    b.Property<Guid>("TeamId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("team_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<DateTimeOffset>("AddedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("added_at");
+
+                    b.Property<byte>("Role")
+                        .HasColumnType("smallint")
+                        .HasColumnName("role");
+
+                    b.HasKey("TeamId", "UserId");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("idx_team_members_user");
+
+                    b.ToTable("team_members", (string)null);
                 });
 #pragma warning restore 612, 618
         }

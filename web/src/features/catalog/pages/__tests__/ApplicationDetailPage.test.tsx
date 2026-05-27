@@ -46,13 +46,13 @@ describe("ApplicationDetailPage", () => {
       data: {
         id: "00000000-0000-0000-0000-000000000001",
         tenantId: "t",
-        name: "payment-gateway",
         displayName: "Payment Gateway",
         description: "Handles charges",
         ownerUserId: "u-1",
         createdAt: "2026-01-01T12:34:56Z",
         lifecycle: "active",
         sunsetDate: null,
+        teamId: null,
         version: "v1",
       },
       error: undefined,
@@ -65,7 +65,6 @@ describe("ApplicationDetailPage", () => {
     render(harness(qc, "/catalog/applications/00000000-0000-0000-0000-000000000001"));
 
     await waitFor(() => expect(screen.getByText("Payment Gateway")).toBeInTheDocument());
-    expect(screen.getByText("payment-gateway")).toBeInTheDocument();
     expect(screen.getByText("Handles charges")).toBeInTheDocument();
     expect(screen.getByText(/active/i)).toBeInTheDocument();
   });
@@ -75,13 +74,13 @@ describe("ApplicationDetailPage", () => {
       data: {
         id: "abc",
         tenantId: "t",
-        name: "x",
         displayName: "X",
         description: "d",
         ownerUserId: "u",
         createdAt: "2026-01-01T00:00:00Z",
         lifecycle: "active",
         sunsetDate: null,
+        teamId: null,
         version: "v1",
       },
       error: undefined,
@@ -133,13 +132,13 @@ describe("ApplicationDetailPage", () => {
       data: {
         id: "1",
         tenantId: "t",
-        name: "n",
         displayName: "N",
         description: "",
         ownerUserId: "u",
         createdAt: "2026-01-01T00:00:00Z",
         lifecycle: "active",
         sunsetDate: null,
+        teamId: null,
         version: "v1",
       },
       error: undefined,
@@ -162,13 +161,13 @@ describe("ApplicationDetailPage", () => {
 const activeApp = {
   id: "00000000-0000-0000-0000-000000000001",
   tenantId: "t",
-  name: "payment-gateway",
   displayName: "Payment Gateway",
   description: "Handles charges",
   ownerUserId: "u-1",
   createdAt: "2026-01-01T12:34:56Z",
   lifecycle: "active",
   sunsetDate: null,
+  teamId: null,
   version: "v1",
 };
 

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text.RegularExpressions;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Multitenancy;
 using Microsoft.AspNetCore.Http;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -49,6 +50,6 @@ public class HttpContextCurrentUserTests
                 "test")),
         };
         var accessor = new HttpContextAccessor { HttpContext = ctx };
-        return new HttpContextCurrentUser(accessor);
+        return new HttpContextCurrentUser(accessor, new TenantContextAccessor());
     }
 }

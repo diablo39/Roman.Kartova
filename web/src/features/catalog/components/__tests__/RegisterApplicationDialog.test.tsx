@@ -55,9 +55,8 @@ describe("RegisterApplicationDialog", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders Name, Display Name, Description fields and the Owner pill", () => {
+  it("renders Display Name, Description fields and the Owner pill", () => {
     setup({ post: vi.fn() });
-    expect(screen.getByLabelText(/^name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/display name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
     expect(screen.getByText(/alice admin/i)).toBeInTheDocument();
@@ -68,30 +67,18 @@ describe("RegisterApplicationDialog", () => {
     const post = vi.fn();
     setup({ post });
     await userEvent.click(screen.getByRole("button", { name: /register application/i }));
-    expect(await screen.findByText(/name is required/i)).toBeInTheDocument();
-    expect(post).not.toHaveBeenCalled();
-  });
-
-  it("rejects invalid kebab-case Name with the schema's helper", async () => {
-    const post = vi.fn();
-    setup({ post });
-    await userEvent.type(screen.getByLabelText(/^name/i), "PaymentGateway");
-    await userEvent.type(screen.getByLabelText(/display name/i), "Payment Gateway");
-    await userEvent.type(screen.getByLabelText(/description/i), "Handles charges");
-    await userEvent.click(screen.getByRole("button", { name: /register application/i }));
-    expect(await screen.findByText(/lowercase kebab-case/i)).toBeInTheDocument();
+    expect(await screen.findByText(/display name must not be empty/i)).toBeInTheDocument();
     expect(post).not.toHaveBeenCalled();
   });
 
   it("submits valid input and closes on 201", async () => {
     const post = vi.fn().mockResolvedValue({
-      data: { id: "00000000-0000-0000-0000-000000000001", name: "p", displayName: "P", description: "d" },
+      data: { id: "00000000-0000-0000-0000-000000000001", displayName: "P", description: "d" },
       error: undefined,
     });
     const onOpenChange = vi.fn();
     setup({ post, onOpenChange });
 
-    await userEvent.type(screen.getByLabelText(/^name/i), "payment-gateway");
     await userEvent.type(screen.getByLabelText(/display name/i), "Payment Gateway");
     await userEvent.type(screen.getByLabelText(/description/i), "Handles charges");
     await userEvent.click(screen.getByRole("button", { name: /register application/i }));
@@ -103,34 +90,32 @@ describe("RegisterApplicationDialog", () => {
   it("maps ProblemDetails 400 errors to fields when payload has errors map", async () => {
     const post = vi.fn().mockResolvedValue({
       data: undefined,
-      error: { status: 400, errors: { name: ["Name already taken"] } },
+      error: { status: 400, errors: { displayName: ["Display name already taken"] } },
     });
     setup({ post });
 
-    await userEvent.type(screen.getByLabelText(/^name/i), "payment-gateway");
     await userEvent.type(screen.getByLabelText(/display name/i), "Payment Gateway");
     await userEvent.type(screen.getByLabelText(/description/i), "Handles charges");
     await userEvent.click(screen.getByRole("button", { name: /register application/i }));
 
-    expect(await screen.findByText(/name already taken/i)).toBeInTheDocument();
+    expect(await screen.findByText(/display name already taken/i)).toBeInTheDocument();
   });
 
   it("falls back to a toast when 400 has no errors map (flat ProblemDetails)", async () => {
     const post = vi.fn().mockResolvedValue({
       data: undefined,
-      error: { status: 400, title: "Validation failed", detail: "Application name must not be empty." },
+      error: { status: 400, title: "Validation failed", detail: "Application display name must not be empty." },
     });
     const onOpenChange = vi.fn();
     setup({ post, onOpenChange });
 
-    await userEvent.type(screen.getByLabelText(/^name/i), "payment-gateway");
     await userEvent.type(screen.getByLabelText(/display name/i), "Payment Gateway");
     await userEvent.type(screen.getByLabelText(/description/i), "Handles charges");
     await userEvent.click(screen.getByRole("button", { name: /register application/i }));
 
     // Toast renders via sonner — assert detail text appears anywhere on screen.
     await waitFor(() =>
-      expect(screen.getByText(/Application name must not be empty/i)).toBeInTheDocument()
+      expect(screen.getByText(/Application display name must not be empty/i)).toBeInTheDocument()
     );
     // Dialog should remain open for retry on flat-ProblemDetails errors.
     expect(onOpenChange).not.toHaveBeenCalledWith(false);

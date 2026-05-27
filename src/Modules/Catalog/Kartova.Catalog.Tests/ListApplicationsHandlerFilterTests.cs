@@ -45,7 +45,6 @@ public class ListApplicationsHandlerFilterTests
 
         var activeClock = Clock(BaseTime);
         var active = DomainApplication.Create(
-            name: "active-app",
             displayName: "Active App",
             description: "An active application.",
             ownerUserId: Owner,
@@ -56,7 +55,6 @@ public class ListApplicationsHandlerFilterTests
         var sunsetClock = Clock(BaseTime.AddMinutes(10));
         var decommClock = Clock(BaseTime.AddMinutes(20));
         var decomm = DomainApplication.Create(
-            name: "decomm-app",
             displayName: "Decomm App",
             description: "A decommissioned application.",
             ownerUserId: Owner,
@@ -90,7 +88,7 @@ public class ListApplicationsHandlerFilterTests
         var page = await handler.Handle(query, db, CancellationToken.None);
 
         Assert.AreEqual(1, page.Items.Count, "only Active rows are visible when IncludeDecommissioned=false");
-        Assert.AreEqual("active-app", page.Items.Single().Name);
+        Assert.AreEqual("Active App", page.Items.Single().DisplayName);
     }
 
     [TestMethod]
@@ -110,7 +108,7 @@ public class ListApplicationsHandlerFilterTests
 
         Assert.AreEqual(2, page.Items.Count, "both Active and Decommissioned rows are returned when IncludeDecommissioned=true");
         CollectionAssert.AreEquivalent(
-            new[] { "active-app", "decomm-app" },
-            page.Items.Select(i => i.Name).ToArray());
+            new[] { "Active App", "Decomm App" },
+            page.Items.Select(i => i.DisplayName).ToArray());
     }
 }

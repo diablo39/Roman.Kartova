@@ -28,10 +28,10 @@ internal static class ApplicationSortSpecs
     public static readonly SortSpec<DomainApplication> CreatedAt =
         new("createdAt", x => x.CreatedAt);
 
-    public static readonly SortSpec<DomainApplication> Name =
-        new("name", x => x.Name);
+    public static readonly SortSpec<DomainApplication> DisplayName =
+        new("displayName", x => x.DisplayName);
 
-    public static readonly IReadOnlyList<string> AllowedFieldNames = [CreatedAt.FieldName, Name.FieldName];
+    public static readonly IReadOnlyList<string> AllowedFieldNames = [CreatedAt.FieldName, DisplayName.FieldName];
 
     /// <summary>
     /// Returns an EF-translatable predicate that matches the application with the
@@ -44,7 +44,7 @@ internal static class ApplicationSortSpecs
     public static SortSpec<DomainApplication> Resolve(ApplicationSortField field) => field switch
     {
         Contracts.ApplicationSortField.CreatedAt => CreatedAt,
-        Contracts.ApplicationSortField.Name => Name,
+        Contracts.ApplicationSortField.DisplayName => DisplayName,
         _ => throw new InvalidSortFieldException(field.ToString(), AllowedFieldNames),
     };
 }

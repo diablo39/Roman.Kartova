@@ -27,13 +27,13 @@ function mockApiClient(impl: {
 const deprecatedResponse = {
   id: "abc",
   tenantId: "t",
-  name: "x",
   displayName: "X",
   description: "Y",
   ownerUserId: "u",
   createdAt: "2026-01-01T00:00:00Z",
   lifecycle: "deprecated",
   sunsetDate: "2026-12-01T00:00:00Z",
+  teamId: null,
   version: "v3",
 };
 

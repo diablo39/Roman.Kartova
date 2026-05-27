@@ -17,7 +17,7 @@ namespace Kartova.Catalog.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.0")
+                .HasAnnotation("ProductVersion", "10.0.2")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -34,7 +34,8 @@ namespace Kartova.Catalog.Infrastructure.Migrations
 
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
                         .HasColumnName("description");
 
                     b.Property<string>("DisplayName")
@@ -49,12 +50,6 @@ namespace Kartova.Catalog.Infrastructure.Migrations
                         .HasDefaultValue((short)1)
                         .HasColumnName("lifecycle");
 
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("name");
-
                     b.Property<Guid>("OwnerUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("owner_user_id");
@@ -62,6 +57,10 @@ namespace Kartova.Catalog.Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("SunsetDate")
                         .HasColumnType("timestamptz")
                         .HasColumnName("sunset_date");
+
+                    b.Property<Guid?>("TeamId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("team_id");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
@@ -75,8 +74,14 @@ namespace Kartova.Catalog.Infrastructure.Migrations
 
                     b.HasKey("_id");
 
+                    b.HasIndex("TeamId")
+                        .HasDatabaseName("idx_catalog_applications_team");
+
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_catalog_applications_tenant_id");
+
+                    b.HasIndex("TenantId", "DisplayName")
+                        .HasDatabaseName("ix_catalog_applications_tenant_id_display_name");
 
                     b.ToTable("catalog_applications", (string)null);
                 });

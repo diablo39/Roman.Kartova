@@ -17,7 +17,7 @@ public class DecommissionApplicationTests : CatalogIntegrationTestBase
     public async Task POST_decommission_when_Deprecated_and_past_sunsetDate_returns_200_and_sets_lifecycle_to_Decommissioned()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var registered = await RegisterAsync(client, "decommission-app-1", "Decommission App 1", "Desc.");
+        var registered = await RegisterAsync(client, "Decommission App 1", "Desc.");
 
         // Deprecate with sunsetDate one second in the future, then sleep past it.
         // The Task.Delay(2000) crosses the boundary so Application.Decommission's
@@ -49,7 +49,7 @@ public class DecommissionApplicationTests : CatalogIntegrationTestBase
     public async Task POST_decommission_when_Deprecated_and_before_sunsetDate_returns_409_with_reason_before_sunset_date()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var registered = await RegisterAsync(client, "decommission-app-2", "Decommission App 2", "Desc.");
+        var registered = await RegisterAsync(client, "Decommission App 2", "Desc.");
 
         // Deprecate with a far-future sunsetDate, then immediately try to decommission
         // — the "now < sunsetDate" branch of Application.Decommission throws
@@ -83,7 +83,7 @@ public class DecommissionApplicationTests : CatalogIntegrationTestBase
     public async Task POST_decommission_when_Active_returns_409()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var registered = await RegisterAsync(client, "decommission-app-3", "Decommission App 3", "Desc.");
+        var registered = await RegisterAsync(client, "Decommission App 3", "Desc.");
 
         // Skip the deprecate step — the freshly-registered app is Active. The
         // "current state must be Deprecated" invariant rejects with no reason
@@ -104,7 +104,7 @@ public class DecommissionApplicationTests : CatalogIntegrationTestBase
     public async Task POST_decommission_when_already_Decommissioned_returns_409()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var registered = await RegisterAsync(client, "decommission-app-4", "Decommission App 4", "Desc.");
+        var registered = await RegisterAsync(client, "Decommission App 4", "Desc.");
 
         // Drive through Active → Deprecated → Decommissioned, then try one more
         // decommission to land on the wrong-source-state branch.
@@ -135,7 +135,7 @@ public class DecommissionApplicationTests : CatalogIntegrationTestBase
     public async Task POST_decommission_for_other_tenants_id_returns_404()
     {
         var orgAClient = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var orgARegistered = await RegisterAsync(orgAClient, "decommission-app-5", "App", "Desc.");
+        var orgARegistered = await RegisterAsync(orgAClient, "App", "Desc.");
         // Deprecate as OrgA so the row is in the right state for the (different) tenant
         // to attempt decommission. RLS hides the row from OrgB so the handler returns
         // null → 404, identical to "no such row".
@@ -152,11 +152,11 @@ public class DecommissionApplicationTests : CatalogIntegrationTestBase
         Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
     }
 
-    private static async Task<ApplicationResponse> RegisterAsync(HttpClient client, string name, string displayName, string description)
+    private static async Task<ApplicationResponse> RegisterAsync(HttpClient client, string displayName, string description)
     {
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest(name, displayName, description));
+            new RegisterApplicationRequest(displayName, description));
         Assert.IsTrue(resp.IsSuccessStatusCode);
         return (await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
     }

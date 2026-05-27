@@ -12,7 +12,6 @@ function withRouter(ui: React.ReactNode) {
 
 const a1: ApplicationRow = {
   id: "00000000-0000-0000-0000-000000000001",
-  name: "n1",
   displayName: "App One",
   description: "first app",
   ownerUserId: "u",
@@ -20,7 +19,7 @@ const a1: ApplicationRow = {
   lifecycle: "active",
   sunsetDate: null,
 };
-const a2: ApplicationRow = { ...a1, id: "00000000-0000-0000-0000-000000000002", name: "n2", displayName: "App Two", description: "second" };
+const a2: ApplicationRow = { ...a1, id: "00000000-0000-0000-0000-000000000002", displayName: "App Two", description: "second" };
 
 function makeList(overrides: Partial<CursorListResult<ApplicationRow>>): CursorListResult<ApplicationRow> {
   return {
@@ -39,21 +38,21 @@ function makeList(overrides: Partial<CursorListResult<ApplicationRow>>): CursorL
 }
 
 const noop = () => {};
+const emptyTeamMap = new Map<string, string>();
 
 describe("ApplicationsTable", () => {
-  it("renders rows with displayName and name", () => {
+  it("renders rows with displayName", () => {
     render(withRouter(
       <ApplicationsTable
         list={makeList({ items: [a1, a2] })}
         sortBy="createdAt"
         sortOrder="desc"
         onSortChange={noop}
+        teamNameById={emptyTeamMap}
       />
     ));
     expect(screen.getByText("App One")).toBeInTheDocument();
     expect(screen.getByText("App Two")).toBeInTheDocument();
-    expect(screen.getByText("n1")).toBeInTheDocument();
-    expect(screen.getByText("n2")).toBeInTheDocument();
   });
 
   it("each row links to /catalog/applications/{id}", () => {
@@ -63,6 +62,7 @@ describe("ApplicationsTable", () => {
         sortBy="createdAt"
         sortOrder="desc"
         onSortChange={noop}
+        teamNameById={emptyTeamMap}
       />
     ));
     const link = screen.getByRole("link", { name: /app one/i });
@@ -76,6 +76,7 @@ describe("ApplicationsTable", () => {
         sortBy="createdAt"
         sortOrder="desc"
         onSortChange={noop}
+        teamNameById={emptyTeamMap}
       />
     ));
     expect(screen.getByText(/no applications yet/i)).toBeInTheDocument();
@@ -89,6 +90,7 @@ describe("ApplicationsTable", () => {
           sortBy="createdAt"
           sortOrder="desc"
           onSortChange={noop}
+          teamNameById={emptyTeamMap}
         />
       )
     );
@@ -103,8 +105,52 @@ describe("ApplicationsTable", () => {
         sortBy="createdAt"
         sortOrder="desc"
         onSortChange={noop}
+        teamNameById={emptyTeamMap}
       />
     ));
     expect(screen.queryByText(/no applications yet/i)).not.toBeInTheDocument();
+  });
+
+  it("renders 'Unassigned' for rows with no teamId", () => {
+    render(withRouter(
+      <ApplicationsTable
+        list={makeList({ items: [a1] })}
+        sortBy="createdAt"
+        sortOrder="desc"
+        onSortChange={noop}
+        teamNameById={emptyTeamMap}
+      />
+    ));
+    expect(screen.getByText(/unassigned/i)).toBeInTheDocument();
+  });
+
+  it("renders team displayName as a link when teamId resolves", () => {
+    const teamed: ApplicationRow = { ...a1, teamId: "team-xyz" };
+    const names = new Map<string, string>([["team-xyz", "Platform"]]);
+    render(withRouter(
+      <ApplicationsTable
+        list={makeList({ items: [teamed] })}
+        sortBy="createdAt"
+        sortOrder="desc"
+        onSortChange={noop}
+        teamNameById={names}
+      />
+    ));
+    const link = screen.getByRole("link", { name: /^platform$/i });
+    expect(link).toHaveAttribute("href", "/teams/team-xyz");
+  });
+
+  it("falls back to 'Unknown team' when teamId is not in the resolver map", () => {
+    const teamed: ApplicationRow = { ...a1, teamId: "ghost" };
+    render(withRouter(
+      <ApplicationsTable
+        list={makeList({ items: [teamed] })}
+        sortBy="createdAt"
+        sortOrder="desc"
+        onSortChange={noop}
+        teamNameById={emptyTeamMap}
+      />
+    ));
+    expect(screen.getByText(/unknown team/i)).toBeInTheDocument();
   });
 });

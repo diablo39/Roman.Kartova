@@ -54,6 +54,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .AddEndpointFilter<IfMatchEndpointFilter>()
               .Produces<ApplicationResponse>(StatusCodes.Status200OK)
               .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
               .ProducesProblem(StatusCodes.Status404NotFound)
               .ProducesProblem(StatusCodes.Status409Conflict)
               .ProducesProblem(StatusCodes.Status412PreconditionFailed)
@@ -66,6 +67,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .WithName("DeprecateApplication")
               .Produces<ApplicationResponse>(StatusCodes.Status200OK)
               .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
               .ProducesProblem(StatusCodes.Status404NotFound)
               .ProducesProblem(StatusCodes.Status409Conflict);
         // POST decommission — Deprecated → Decommissioned transition. Empty body, no
@@ -77,6 +79,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .RequireAuthorization(KartovaPermissions.CatalogApplicationsLifecycleForward)
               .WithName("DecommissionApplication")
               .Produces<ApplicationResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
               .ProducesProblem(StatusCodes.Status404NotFound)
               .ProducesProblem(StatusCodes.Status409Conflict);
         // POST reactivate — reverse lifecycle transition (Deprecated/Decommissioned → Active).
@@ -88,6 +91,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .RequireAuthorization(KartovaPermissions.CatalogApplicationsLifecycleReverse)
               .WithName("ReactivateApplication")
               .Produces<ApplicationResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
               .ProducesProblem(StatusCodes.Status404NotFound)
               .ProducesProblem(StatusCodes.Status409Conflict);
         // POST un-decommission — reverse lifecycle transition (Decommissioned → Deprecated).
@@ -101,8 +105,21 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .WithName("UnDecommissionApplication")
               .Produces<ApplicationResponse>(StatusCodes.Status200OK)
               .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
               .ProducesProblem(StatusCodes.Status404NotFound)
               .ProducesProblem(StatusCodes.Status409Conflict);
+        // PUT assign-team — set or clear Application.TeamId. Claim gate stops
+        // Viewer/anon; the resource gate (ApplicationTeamScoped — OrgAdmin OR
+        // member of the app's current team) runs inside the delegate against
+        // the pre-loaded app. 422 invalid-team surfaces when the target team
+        // does not exist in the active tenant scope (slice 8 / ADR-0098 §6.4).
+        tenant.MapPut("/applications/{id:guid}/team", CatalogEndpointDelegates.AssignApplicationTeamAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogApplicationsEditMetadata)
+              .WithName("AssignApplicationTeam")
+              .Produces<ApplicationResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
+              .ProducesProblem(StatusCodes.Status404NotFound)
+              .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
@@ -124,6 +141,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<DecommissionApplicationHandler>();
         services.AddScoped<ReactivateApplicationHandler>();
         services.AddScoped<UnDecommissionApplicationHandler>();
+        services.AddScoped<AssignApplicationTeamHandler>();
 
         // TimeProvider is needed by Application.Deprecate / Decommission for the
         // "sunsetDate must be in the future" / "now >= sunsetDate" checks. TryAdd
@@ -131,6 +149,13 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         // registered TimeProvider, this is a no-op so tests can swap in
         // FakeTimeProvider without losing the production default.
         services.TryAddSingleton(TimeProvider.System);
+
+        // Cross-module readers exposed to Organization via SharedKernel ports
+        // (slice 8). The Organization module never references Catalog directly —
+        // it depends on IApplicationCountByTeamReader / IApplicationsByTeamReader,
+        // implemented here against the Catalog DbContext.
+        services.AddScoped<IApplicationCountByTeamReader, ApplicationCountByTeamReader>();
+        services.AddScoped<IApplicationsByTeamReader, ApplicationsByTeamReader>();
     }
 
     public void RegisterForMigrator(IServiceCollection services, IConfiguration configuration)

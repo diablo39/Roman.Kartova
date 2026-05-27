@@ -23,9 +23,8 @@ public class ApplicationTests
     [TestMethod]
     public void Create_with_valid_args_returns_application()
     {
-        var app = DomainApplication.Create("payments-api", "Payments API", "Payments REST surface.", Owner, Tenant, Clock());
+        var app = DomainApplication.Create("Payments API", "Payments REST surface.", Owner, Tenant, Clock());
 
-        Assert.AreEqual("payments-api", app.Name);
         Assert.AreEqual("Payments API", app.DisplayName);
         Assert.AreEqual("Payments REST surface.", app.Description);
         Assert.AreEqual(Owner, app.OwnerUserId);
@@ -35,85 +34,10 @@ public class ApplicationTests
     [TestMethod]
     [DataRow("")]
     [DataRow("   ")]
-    [DataRow("\t\n")]
-    public void Create_throws_on_empty_or_whitespace_name(string name)
-    {
-        var ex = Assert.ThrowsExactly<ArgumentException>(
-            () => DomainApplication.Create(name, "Display Name", "desc", Owner, Tenant, Clock()));
-        StringAssert.Contains(ex.Message, "name");
-    }
-
-    [TestMethod]
-    [DataRow("")]
-    [DataRow("   ")]
-    [DataRow("\t")]
-    public void Create_throws_ArgumentException_with_empty_message_for_blank_name(string emptyName)
-    {
-        // Kills the Statement mutator that erases `throw new ArgumentException("...empty.", ...)`
-        // in `Application.ValidateName`. With the throw removed, empty/whitespace names fall through
-        // to the kebab-case check which throws a DIFFERENT message ("kebab-case"). Asserting on
-        // "empty" in the message pins the specific guard.
-        var ex = Assert.ThrowsExactly<ArgumentException>(
-            () => DomainApplication.Create(emptyName, "Display Name", "desc", Owner, Tenant, Clock()));
-        StringAssert.Contains(ex.Message, "empty");
-    }
-
-    [TestMethod]
-    public void Create_throws_on_name_over_256_chars()
-    {
-        var name = new string('x', 257);
-        var ex = Assert.ThrowsExactly<ArgumentException>(
-            () => DomainApplication.Create(name, "Display Name", "desc", Owner, Tenant, Clock()));
-        StringAssert.Contains(ex.Message, "256");
-    }
-
-    [TestMethod]
-    [DataRow("BadName")]            // uppercase
-    [DataRow("bad name")]           // space
-    [DataRow("bad_name")]           // underscore
-    [DataRow("bad--name")]          // double dash
-    [DataRow("-leading")]           // leading dash
-    [DataRow("trailing-")]          // trailing dash
-    [DataRow("9digit")]             // leading digit
-    [DataRow("Mixed-Case")]         // mixed case
-    [DataRow("kebab.with.dot")]     // dot
-    public void Create_throws_on_non_kebab_case_name(string name)
-    {
-        var ex = Assert.ThrowsExactly<ArgumentException>(
-            () => DomainApplication.Create(name, "Display Name", "desc", Owner, Tenant, Clock()));
-        StringAssert.Contains(ex.Message, "kebab-case");
-    }
-
-    [TestMethod]
-    [DataRow("a")]                  // single letter
-    [DataRow("abc")]                // single segment
-    [DataRow("payment-gateway")]    // canonical form
-    [DataRow("a1")]                 // letter + digit
-    [DataRow("a-b-c-d")]            // many segments
-    [DataRow("v2-api")]             // segment with digit
-    public void Create_succeeds_with_kebab_case_name(string name)
-    {
-        var app = DomainApplication.Create(name, "Display Name", "desc", Owner, Tenant, Clock());
-        Assert.AreEqual(name, app.Name);
-    }
-
-    [TestMethod]
-    public void Create_succeeds_with_name_at_exactly_256_chars()
-    {
-        // Boundary pin — the invariant is `length > 256 throws`, so 256 must succeed.
-        // Without this test the off-by-one mutation `length >= 256` survives.
-        var name = new string('x', 256);
-        var app = DomainApplication.Create(name, "Display Name", "desc", Owner, Tenant, Clock());
-        Assert.AreEqual(256, app.Name.Length);
-    }
-
-    [TestMethod]
-    [DataRow("")]
-    [DataRow("   ")]
     public void Create_throws_on_empty_or_whitespace_displayName(string displayName)
     {
         var ex = Assert.ThrowsExactly<ArgumentException>(
-            () => DomainApplication.Create("name", displayName, "desc", Owner, Tenant, Clock()));
+            () => DomainApplication.Create(displayName, "desc", Owner, Tenant, Clock()));
         StringAssert.Contains(ex.Message, "display name");
     }
 
@@ -122,7 +46,7 @@ public class ApplicationTests
     {
         var displayName = new string('x', 129);
         var ex = Assert.ThrowsExactly<ArgumentException>(
-            () => DomainApplication.Create("name", displayName, "desc", Owner, Tenant, Clock()));
+            () => DomainApplication.Create(displayName, "desc", Owner, Tenant, Clock()));
         StringAssert.Contains(ex.Message, "128");
     }
 
@@ -130,7 +54,7 @@ public class ApplicationTests
     public void Create_succeeds_on_displayName_at_128_chars()
     {
         var displayName = new string('x', 128);
-        var app = DomainApplication.Create("name", displayName, "desc", Owner, Tenant, Clock());
+        var app = DomainApplication.Create(displayName, "desc", Owner, Tenant, Clock());
         Assert.AreEqual(displayName, app.DisplayName);
     }
 
@@ -140,23 +64,56 @@ public class ApplicationTests
     public void Create_throws_on_empty_or_whitespace_description(string description)
     {
         var ex = Assert.ThrowsExactly<ArgumentException>(
-            () => DomainApplication.Create("name", "Display Name", description, Owner, Tenant, Clock()));
+            () => DomainApplication.Create("Display Name", description, Owner, Tenant, Clock()));
         StringAssert.Contains(ex.Message, "description");
+    }
+
+    [TestMethod]
+    public void Create_succeeds_on_description_at_4096_chars()
+    {
+        // SF-3 boundary: domain validator allows exactly 4096 chars. Mirrors the
+        // SPA's zod cap so any non-SPA client (CLI, direct API) sees the same
+        // ceiling.
+        var description = new string('d', 4096);
+        var app = DomainApplication.Create("Display Name", description, Owner, Tenant, Clock());
+        Assert.AreEqual(4096, app.Description.Length);
+    }
+
+    [TestMethod]
+    public void Create_throws_on_description_over_4096_chars()
+    {
+        // SF-3 boundary: 4097 chars must throw. ArgumentException is the contract
+        // (ProblemTypes.ValidationFailed at the endpoint layer).
+        var description = new string('d', 4097);
+        var ex = Assert.ThrowsExactly<ArgumentException>(
+            () => DomainApplication.Create("Display Name", description, Owner, Tenant, Clock()));
+        StringAssert.Contains(ex.Message, "4096");
+    }
+
+    [TestMethod]
+    public void EditMetadata_throws_on_description_over_4096_chars()
+    {
+        // Same SF-3 cap applies to the edit path (both call ValidateDescription).
+        var app = DomainApplication.Create("Display Name", "ok", Owner, Tenant, Clock());
+        var description = new string('d', 4097);
+        var ex = Assert.ThrowsExactly<ArgumentException>(
+            () => app.EditMetadata("Display Name", description));
+        StringAssert.Contains(ex.Message, "4096");
     }
 
     [TestMethod]
     public void Create_throws_on_empty_owner_user_id()
     {
         var ex = Assert.ThrowsExactly<ArgumentException>(
-            () => DomainApplication.Create("name", "Display Name", "desc", Guid.Empty, Tenant, Clock()));
+            () => DomainApplication.Create("Display Name", "desc", Guid.Empty, Tenant, Clock()));
         StringAssert.Contains(ex.Message, "ownerUserId");
     }
 
     [TestMethod]
     public void Create_assigns_fresh_id_each_call()
     {
-        var a = DomainApplication.Create("name", "Display Name", "desc", Owner, Tenant, Clock());
-        var b = DomainApplication.Create("name", "Display Name", "desc", Owner, Tenant, Clock());
+        var a = DomainApplication.Create("Display Name", "desc", Owner, Tenant, Clock());
+        var b = DomainApplication.Create("Display Name", "desc", Owner, Tenant, Clock());
         Assert.AreNotEqual(b.Id, a.Id);
         Assert.AreNotEqual(Guid.Empty, a.Id.Value);
     }
@@ -166,7 +123,7 @@ public class ApplicationTests
     {
         var clock = Clock();
 
-        var app = DomainApplication.Create("name", "Display Name", "desc", Owner, Tenant, clock);
+        var app = DomainApplication.Create("Display Name", "desc", Owner, Tenant, clock);
 
         Assert.AreEqual(clock.GetUtcNow(), app.CreatedAt);
         Assert.AreEqual(TimeSpan.Zero, app.CreatedAt.Offset);
@@ -176,7 +133,7 @@ public class ApplicationTests
     public void Create_with_null_clock_throws()
     {
         var ex = Assert.ThrowsExactly<ArgumentNullException>(
-            () => DomainApplication.Create("name", "Display Name", "desc", Owner, Tenant, clock: null!));
+            () => DomainApplication.Create("Display Name", "desc", Owner, Tenant, clock: null!));
         Assert.AreEqual("clock", ex.ParamName);
     }
 }

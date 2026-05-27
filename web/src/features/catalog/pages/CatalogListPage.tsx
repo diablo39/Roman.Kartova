@@ -1,16 +1,17 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Plus } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { Card, CardContent } from "@/components/base/card/card";
 import { Checkbox } from "@/components/base/checkbox/checkbox";
 import { useApplicationsList } from "@/features/catalog/api/applications";
+import { useTeamsList } from "@/features/teams/api/teams";
 import { useListUrlState } from "@/lib/list/useListUrlState";
 import { ApplicationsTable } from "@/features/catalog/components/ApplicationsTable";
 import { RegisterApplicationDialog } from "@/features/catalog/components/RegisterApplicationDialog";
 import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
 
-const ALLOWED_SORT_FIELDS = ["createdAt", "name"] as const;
+const ALLOWED_SORT_FIELDS = ["createdAt", "displayName"] as const;
 const BOOLEAN_FILTERS = ["includeDecommissioned"] as const;
 
 export function CatalogListPage() {
@@ -23,6 +24,15 @@ export function CatalogListPage() {
   const includeDecommissioned = booleanFilters.includeDecommissioned;
 
   const list = useApplicationsList({ sortBy, sortOrder, includeDecommissioned });
+  // Single fetch of all teams in the tenant so the catalog list can show
+  // displayName next to every row instead of bare teamId GUIDs. Matches the
+  // AssignTeamPicker 200-item cap — sufficient for an MVP tenant; a search-
+  // based resolver follows in slice 9 if/when a tenant breaches that bound.
+  const teamsList = useTeamsList({ sortBy: "displayName", sortOrder: "asc", limit: 200 });
+  const teamNameById = useMemo(
+    () => new Map<string, string>((teamsList.items ?? []).map(t => [t.id, t.displayName])),
+    [teamsList.items],
+  );
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const { hasPermission, isLoading: permissionsLoading } = usePermissions();
@@ -67,6 +77,7 @@ export function CatalogListPage() {
           sortBy={sortBy}
           sortOrder={sortOrder}
           onSortChange={setSort}
+          teamNameById={teamNameById}
         />
       )}
 

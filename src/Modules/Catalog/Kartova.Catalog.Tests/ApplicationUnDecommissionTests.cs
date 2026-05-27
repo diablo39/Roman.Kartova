@@ -22,7 +22,7 @@ public sealed class ApplicationUnDecommissionTests
     private static (DomainApplication app, FakeTimeProvider clock) NewDecommissioned()
     {
         var clock = new FakeTimeProvider(Now);
-        var app = DomainApplication.Create("my-app", "My App", "Desc.", Owner, Tenant, clock);
+        var app = DomainApplication.Create("My App", "Desc.", Owner, Tenant, clock);
         app.Deprecate(Now.AddDays(7), clock);
         clock.SetUtcNow(Now.AddDays(8));
         app.Decommission(clock);
@@ -44,7 +44,7 @@ public sealed class ApplicationUnDecommissionTests
     [TestMethod]
     public void UnDecommission_from_Active_throws_InvalidLifecycleTransitionException()
     {
-        var app = DomainApplication.Create("my-app", "My App", "Desc.", Owner, Tenant, Clock());
+        var app = DomainApplication.Create("My App", "Desc.", Owner, Tenant, Clock());
 
         var ex = Assert.ThrowsExactly<InvalidLifecycleTransitionException>(
             () => app.UnDecommission(Now.AddDays(30), Clock()));
@@ -56,7 +56,7 @@ public sealed class ApplicationUnDecommissionTests
     [TestMethod]
     public void UnDecommission_from_Deprecated_throws_InvalidLifecycleTransitionException()
     {
-        var app = DomainApplication.Create("my-app", "My App", "Desc.", Owner, Tenant, Clock());
+        var app = DomainApplication.Create("My App", "Desc.", Owner, Tenant, Clock());
         app.Deprecate(Now.AddDays(7), Clock());
 
         var ex = Assert.ThrowsExactly<InvalidLifecycleTransitionException>(

@@ -21,14 +21,14 @@ public sealed class ApplicationReactivateTests
 
     private static DomainApplication NewDeprecated(DateTimeOffset sunsetDate)
     {
-        var app = DomainApplication.Create("my-app", "My App", "Desc.", Owner, Tenant, Clock());
+        var app = DomainApplication.Create("My App", "Desc.", Owner, Tenant, Clock());
         app.Deprecate(sunsetDate, Clock());
         return app;
     }
 
     private static DomainApplication NewDecommissioned()
     {
-        var app = DomainApplication.Create("my-app", "My App", "Desc.", Owner, Tenant, Clock());
+        var app = DomainApplication.Create("My App", "Desc.", Owner, Tenant, Clock());
         app.Deprecate(Now.AddDays(7), Clock());
         app.Decommission(Clock(Now.AddDays(8)));
         return app;
@@ -59,7 +59,7 @@ public sealed class ApplicationReactivateTests
     [TestMethod]
     public void Reactivate_from_Active_throws_InvalidLifecycleTransitionException()
     {
-        var app = DomainApplication.Create("my-app", "My App", "Desc.", Owner, Tenant, Clock());
+        var app = DomainApplication.Create("My App", "Desc.", Owner, Tenant, Clock());
 
         var ex = Assert.ThrowsExactly<InvalidLifecycleTransitionException>(() => app.Reactivate());
         Assert.AreEqual(Lifecycle.Active, ex.CurrentLifecycle);

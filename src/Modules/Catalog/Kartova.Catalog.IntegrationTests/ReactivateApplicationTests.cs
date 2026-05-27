@@ -18,7 +18,7 @@ public sealed class ReactivateApplicationTests : CatalogIntegrationTestBase
     public async Task POST_reactivate_from_Deprecated_returns_200_with_Active_state_and_no_sunsetDate()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAdminEmail, new[] { KartovaRoles.OrgAdmin });
-        var registered = await RegisterAsync(client, "react-app-1", "Reactivate 1", "Desc.");
+        var registered = await RegisterAsync(client, "Reactivate 1", "Desc.");
 
         // Deprecate first.
         var dep = await client.PostAsJsonAsync(
@@ -48,7 +48,7 @@ public sealed class ReactivateApplicationTests : CatalogIntegrationTestBase
     public async Task POST_reactivate_from_Decommissioned_returns_200_with_Active_state_and_no_sunsetDate()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAdminEmail, new[] { KartovaRoles.OrgAdmin });
-        var registered = await RegisterAsync(client, "react-app-decom-1", "Reactivate Decommissioned 1", "Desc.");
+        var registered = await RegisterAsync(client, "Reactivate Decommissioned 1", "Desc.");
 
         // Deprecate with sunsetDate ~2 seconds in the future.
         var sunset = DateTimeOffset.UtcNow.AddSeconds(2);
@@ -91,7 +91,7 @@ public sealed class ReactivateApplicationTests : CatalogIntegrationTestBase
     public async Task POST_reactivate_from_Active_returns_409_lifecycle_conflict()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAdminEmail, new[] { KartovaRoles.OrgAdmin });
-        var registered = await RegisterAsync(client, "react-app-2", "Reactivate 2", "Desc.");
+        var registered = await RegisterAsync(client, "Reactivate 2", "Desc.");
 
         var resp = await client.PostAsync(
             $"/api/v1/catalog/applications/{registered.Id}/reactivate", content: null);
@@ -105,7 +105,7 @@ public sealed class ReactivateApplicationTests : CatalogIntegrationTestBase
     public async Task POST_reactivate_as_Member_returns_403()
     {
         var orgAdminClient = await Fx.CreateAuthenticatedClientAsync(OrgAdminEmail, new[] { KartovaRoles.OrgAdmin });
-        var registered = await RegisterAsync(orgAdminClient, "react-app-3", "Reactivate 3", "Desc.");
+        var registered = await RegisterAsync(orgAdminClient, "Reactivate 3", "Desc.");
 
         await orgAdminClient.PostAsJsonAsync(
             $"/api/v1/catalog/applications/{registered.Id}/deprecate",
@@ -133,7 +133,7 @@ public sealed class ReactivateApplicationTests : CatalogIntegrationTestBase
     {
         // Register and deprecate as OrgB so the app is in a reactivatable state.
         var orgBClient = await Fx.CreateAuthenticatedClientAsync("admin@orgb.kartova.local", new[] { KartovaRoles.OrgAdmin });
-        var otherTenantApp = await RegisterAsync(orgBClient, "reactivate-cross-tenant-1", "Cross Tenant Reactivate", "Desc.");
+        var otherTenantApp = await RegisterAsync(orgBClient, "Cross Tenant Reactivate", "Desc.");
 
         var deprecateResp = await orgBClient.PostAsJsonAsync(
             $"/api/v1/catalog/applications/{otherTenantApp.Id}/deprecate",
@@ -148,11 +148,11 @@ public sealed class ReactivateApplicationTests : CatalogIntegrationTestBase
         Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
     }
 
-    private static async Task<ApplicationResponse> RegisterAsync(HttpClient client, string name, string displayName, string description)
+    private static async Task<ApplicationResponse> RegisterAsync(HttpClient client, string displayName, string description)
     {
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest(name, displayName, description));
+            new RegisterApplicationRequest(displayName, description));
         Assert.IsTrue(resp.IsSuccessStatusCode);
         return (await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
     }

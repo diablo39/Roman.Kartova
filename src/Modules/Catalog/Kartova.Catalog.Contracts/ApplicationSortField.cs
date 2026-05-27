@@ -7,5 +7,5 @@ namespace Kartova.Catalog.Contracts;
 public enum ApplicationSortField
 {
     CreatedAt,
-    Name
+    DisplayName,
 }

@@ -25,12 +25,12 @@ public class ListApplicationsHandlerTests
     }
 
     [TestMethod]
-    public void Resolve_Name_returns_Name_sort_spec()
+    public void Resolve_DisplayName_returns_DisplayName_sort_spec()
     {
-        var spec = ApplicationSortSpecs.Resolve(ApplicationSortField.Name);
+        var spec = ApplicationSortSpecs.Resolve(ApplicationSortField.DisplayName);
 
-        Assert.AreSame(ApplicationSortSpecs.Name, spec);
-        Assert.AreEqual("name", spec.FieldName);
+        Assert.AreSame(ApplicationSortSpecs.DisplayName, spec);
+        Assert.AreEqual("displayName", spec.FieldName);
     }
 
     [TestMethod]
@@ -43,14 +43,14 @@ public class ListApplicationsHandlerTests
         // cannot fall through to a default sort silently.
         var ex = Assert.ThrowsExactly<InvalidSortFieldException>(
             () => ApplicationSortSpecs.Resolve((ApplicationSortField)999));
-        CollectionAssert.AreEquivalent(new[] { "createdAt", "name" }, ex.AllowedFields.ToArray());
+        CollectionAssert.AreEquivalent(new[] { "createdAt", "displayName" }, ex.AllowedFields.ToArray());
     }
 
     [TestMethod]
     public void AllowedFieldNames_lists_only_supported_fields()
     {
         CollectionAssert.AreEquivalent(
-            new[] { "createdAt", "name" },
+            new[] { "createdAt", "displayName" },
             ApplicationSortSpecs.AllowedFieldNames.ToArray());
     }
 }

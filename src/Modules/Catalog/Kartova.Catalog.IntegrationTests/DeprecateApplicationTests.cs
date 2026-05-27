@@ -17,7 +17,7 @@ public class DeprecateApplicationTests : CatalogIntegrationTestBase
     public async Task POST_deprecate_with_future_sunsetDate_returns_200_and_sets_lifecycle_and_sunsetDate()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var registered = await RegisterAsync(client, "deprecate-app-1", "Deprecate App 1", "Desc.");
+        var registered = await RegisterAsync(client, "Deprecate App 1", "Desc.");
 
         var sunset = DateTimeOffset.UtcNow.AddDays(30);
         var resp = await client.PostAsJsonAsync(
@@ -39,7 +39,7 @@ public class DeprecateApplicationTests : CatalogIntegrationTestBase
     public async Task POST_deprecate_with_past_sunsetDate_returns_400_with_field_error()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var registered = await RegisterAsync(client, "deprecate-app-2", "Deprecate App 2", "Desc.");
+        var registered = await RegisterAsync(client, "Deprecate App 2", "Desc.");
 
         var past = DateTimeOffset.UtcNow.AddDays(-1);
         var resp = await client.PostAsJsonAsync(
@@ -56,7 +56,7 @@ public class DeprecateApplicationTests : CatalogIntegrationTestBase
     public async Task POST_deprecate_already_Deprecated_returns_409()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var registered = await RegisterAsync(client, "deprecate-app-3", "Deprecate App 3", "Desc.");
+        var registered = await RegisterAsync(client, "Deprecate App 3", "Desc.");
 
         // First deprecate succeeds.
         var firstSunset = DateTimeOffset.UtcNow.AddDays(30);
@@ -83,7 +83,7 @@ public class DeprecateApplicationTests : CatalogIntegrationTestBase
     public async Task POST_deprecate_for_other_tenants_id_returns_404()
     {
         var orgAClient = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var orgARegistered = await RegisterAsync(orgAClient, "deprecate-app-4", "App", "Desc.");
+        var orgARegistered = await RegisterAsync(orgAClient, "App", "Desc.");
 
         var orgBClient = await Fx.CreateAuthenticatedClientAsync(OrgBUser);
         var resp = await orgBClient.PostAsJsonAsync(
@@ -103,11 +103,11 @@ public class DeprecateApplicationTests : CatalogIntegrationTestBase
         Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
     }
 
-    private static async Task<ApplicationResponse> RegisterAsync(HttpClient client, string name, string displayName, string description)
+    private static async Task<ApplicationResponse> RegisterAsync(HttpClient client, string displayName, string description)
     {
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest(name, displayName, description));
+            new RegisterApplicationRequest(displayName, description));
         Assert.IsTrue(resp.IsSuccessStatusCode);
         return (await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
     }

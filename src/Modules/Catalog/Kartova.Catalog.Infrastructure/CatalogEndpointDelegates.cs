@@ -1,11 +1,14 @@
+using System.Security.Claims;
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Pagination;
 using Kartova.SharedKernel.Postgres.Pagination;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 // ApplicationId is aliased rather than imported via `using Kartova.Catalog.Domain`
 // because that would clash with `System.ApplicationId` in the BCL — same trick
 // ApplicationSortSpecs uses for `DomainApplication`.
@@ -30,7 +33,7 @@ internal static class CatalogEndpointDelegates
         CancellationToken ct)
     {
         var response = await handler.Handle(
-            new RegisterApplicationCommand(request.Name, request.DisplayName, request.Description),
+            new RegisterApplicationCommand(request.DisplayName, request.Description),
             db, tenant, user, ct);
 
         return Results.Created($"/api/v1/catalog/applications/{response.Id}", response);
@@ -127,9 +130,14 @@ internal static class CatalogEndpointDelegates
         [FromBody] EditApplicationRequest request,
         EditApplicationHandler handler,
         CatalogDbContext db,
+        IAuthorizationService auth,
+        ClaimsPrincipal user,
         HttpContext http,
         CancellationToken ct)
     {
+        var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
+        if (gate is not null) return gate;
+
         var expected = (uint)http.Items[IfMatchEndpointFilter.ExpectedVersionKey]!;
 
         var resp = await handler.Handle(
@@ -145,8 +153,13 @@ internal static class CatalogEndpointDelegates
         [FromBody] DeprecateApplicationRequest request,
         DeprecateApplicationHandler handler,
         CatalogDbContext db,
+        IAuthorizationService auth,
+        ClaimsPrincipal user,
         CancellationToken ct)
     {
+        var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
+        if (gate is not null) return gate;
+
         var resp = await handler.Handle(
             new DeprecateApplicationCommand(new ApplicationId(id), request.SunsetDate),
             db, ct);
@@ -159,8 +172,13 @@ internal static class CatalogEndpointDelegates
         Guid id,
         DecommissionApplicationHandler handler,
         CatalogDbContext db,
+        IAuthorizationService auth,
+        ClaimsPrincipal user,
         CancellationToken ct)
     {
+        var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
+        if (gate is not null) return gate;
+
         var resp = await handler.Handle(
             new DecommissionApplicationCommand(new ApplicationId(id)), db, ct);
 
@@ -172,8 +190,13 @@ internal static class CatalogEndpointDelegates
         Guid id,
         ReactivateApplicationHandler handler,
         CatalogDbContext db,
+        IAuthorizationService auth,
+        ClaimsPrincipal user,
         CancellationToken ct)
     {
+        var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
+        if (gate is not null) return gate;
+
         var resp = await handler.Handle(
             new ReactivateApplicationCommand(new ApplicationId(id)), db, ct);
 
@@ -186,13 +209,116 @@ internal static class CatalogEndpointDelegates
         [FromBody] UnDecommissionApplicationRequest request,
         UnDecommissionApplicationHandler handler,
         CatalogDbContext db,
+        IAuthorizationService auth,
+        ClaimsPrincipal user,
         CancellationToken ct)
     {
+        var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
+        if (gate is not null) return gate;
+
         var resp = await handler.Handle(
             new UnDecommissionApplicationCommand(new ApplicationId(id), request.SunsetDate),
             db, ct);
 
         if (resp is null) return EndpointResultExtensions.ApplicationNotFound();
         return Results.Ok(resp);
+    }
+
+    /// <summary>
+    /// PUT /applications/{id}/team — assigns (or unassigns) the team that owns
+    /// the application. Slice 8 / ADR-0098 §6.4.
+    /// <para>
+    /// Two-gate authorization: the claim gate
+    /// (<c>KartovaPermissions.CatalogApplicationsEditMetadata</c>) is applied
+    /// at the route level via <c>.RequireAuthorization</c>; the resource gate
+    /// (<see cref="KartovaTeamPolicies.ApplicationTeamScoped"/> — OrgAdmin OR
+    /// member of the app's current team) runs here against the pre-loaded app
+    /// so we can return 403 without leaking team-id existence.
+    /// </para>
+    /// <para>
+    /// Pre-load + handler-reload mirrors <c>UpdateTeamAsync</c>: the pre-load
+    /// is needed to evaluate the resource policy; the handler reload defends
+    /// against a concurrent delete between the two reads (defensive 404).
+    /// Invalid team (non-null id that does not exist in the tenant) surfaces
+    /// as 422 <c>invalid-team</c> per spec §6.4. A Decommissioned target app
+    /// throws <c>InvalidLifecycleTransitionException</c> inside the domain
+    /// method ONLY when <c>teamId</c> is non-null — null-unassign succeeds on
+    /// any lifecycle (slice-8 boundary-review carve-out so OrgAdmin can release
+    /// a team before deleting it). The shared lifecycle handler maps the
+    /// non-null Decommissioned throw to 409.
+    /// </para>
+    /// <para>
+    /// Slice-8 boundary-review fix SF-2: a target-team membership check runs
+    /// between the source-team gate (above) and the handler dispatch. A
+    /// non-OrgAdmin caller cannot reassign the app to a team they do not
+    /// belong to — that would orphan them from the app on the very next
+    /// request. The SPA picker already hides such targets; this is the
+    /// server-side enforcement so non-SPA clients cannot bypass it. OrgAdmin
+    /// and null-teamId (unassign) paths are unaffected.
+    /// </para>
+    /// </summary>
+    internal static async Task<IResult> AssignApplicationTeamAsync(
+        Guid id,
+        [FromBody] AssignTeamRequest request,
+        AssignApplicationTeamHandler handler,
+        CatalogDbContext db,
+        IAuthorizationService auth,
+        ClaimsPrincipal user,
+        ICurrentUser currentUser,
+        CancellationToken ct)
+    {
+        var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
+        if (gate is not null) return gate;
+
+        // Target-team check (SF-2): block non-OrgAdmin callers from moving the
+        // app to a team they aren't a member of. OrgAdmin always allowed;
+        // null teamId (unassign) always allowed for callers who already passed
+        // the source-team gate above.
+        if (request.TeamId is { } targetTeamId
+            && !user.IsInRole(KartovaRoles.OrgAdmin)
+            && !currentUser.TeamIds.Contains(targetTeamId))
+        {
+            return Results.Forbid();
+        }
+
+        var result = await handler.Handle(
+            new AssignApplicationTeamCommand(id, request.TeamId), db, ct);
+
+        if (result.IsNotFound) return EndpointResultExtensions.ApplicationNotFound();
+        if (result.IsInvalidTeam)
+            return Results.Problem(
+                type: ProblemTypes.InvalidTeam,
+                title: "Invalid team",
+                detail: "The target team does not exist in the current tenant.",
+                statusCode: StatusCodes.Status422UnprocessableEntity);
+
+        return Results.Ok(result.App!.ToResponse());
+    }
+
+    // ----- shared helpers -----------------------------------------------
+
+    /// <summary>
+    /// Loads the application by id (RLS-scoped to the current tenant) and runs
+    /// the <see cref="KartovaTeamPolicies.ApplicationTeamScoped"/> resource gate
+    /// against it. Returns <c>null</c> on success; otherwise returns the response
+    /// to short-circuit with (404 if the app is not visible, 403 if the caller
+    /// is neither OrgAdmin nor a member of the app's owning team). Used by every
+    /// mutation endpoint on <c>/applications/{id}</c> — Edit, Deprecate,
+    /// Decommission, Reactivate, UnDecommission, and AssignTeam (slice 8).
+    /// </summary>
+    private static async Task<IResult?> LoadAndAuthorizeApplicationAsync(
+        Guid id,
+        CatalogDbContext db,
+        IAuthorizationService auth,
+        ClaimsPrincipal user,
+        CancellationToken ct)
+    {
+        var app = await db.Applications.FirstOrDefaultAsync(ApplicationSortSpecs.IdEquals(id), ct);
+        if (app is null) return EndpointResultExtensions.ApplicationNotFound();
+
+        var authResult = await auth.AuthorizeAsync(user, app, KartovaTeamPolicies.ApplicationTeamScoped);
+        if (!authResult.Succeeded) return Results.Forbid();
+
+        return null;
     }
 }

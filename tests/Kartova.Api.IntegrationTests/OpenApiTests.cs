@@ -79,7 +79,7 @@ public class OpenApiTests : KeycloakContainerTestBase
             .GetProperty("parameters");
 
         var sortByEnum = ParameterEnum(parameters, "sortBy");
-        CollectionAssert.AreEquivalent(new[] { "createdAt", "name" }, sortByEnum.ToList());
+        CollectionAssert.AreEquivalent(new[] { "createdAt", "displayName" }, sortByEnum.ToList());
 
         var sortOrderEnum = ParameterEnum(parameters, "sortOrder");
         CollectionAssert.AreEquivalent(new[] { "asc", "desc" }, sortOrderEnum.ToList());

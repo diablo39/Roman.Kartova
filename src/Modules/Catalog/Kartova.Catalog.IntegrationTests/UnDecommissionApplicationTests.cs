@@ -18,7 +18,7 @@ public sealed class UnDecommissionApplicationTests : CatalogIntegrationTestBase
     public async Task POST_un_decommission_from_Decommissioned_returns_200_with_Deprecated_state_and_new_sunsetDate()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAdminEmail, new[] { KartovaRoles.OrgAdmin });
-        var registered = await RegisterAsync(client, "undecommission-app-1", "UnDecommission App 1", "Desc.");
+        var registered = await RegisterAsync(client, "UnDecommission App 1", "Desc.");
 
         // Active → Deprecated (with near-future sunset) → Decommissioned (wait past sunset).
         var sunset = DateTimeOffset.UtcNow.AddSeconds(1);
@@ -63,7 +63,7 @@ public sealed class UnDecommissionApplicationTests : CatalogIntegrationTestBase
     public async Task POST_un_decommission_from_Deprecated_returns_409_lifecycle_conflict()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAdminEmail, new[] { KartovaRoles.OrgAdmin });
-        var registered = await RegisterAsync(client, "undecommission-app-2", "UnDecommission App 2", "Desc.");
+        var registered = await RegisterAsync(client, "UnDecommission App 2", "Desc.");
 
         // Deprecate (Active → Deprecated), then immediately try un-decommission.
         var deprecateResp = await client.PostAsJsonAsync(
@@ -84,7 +84,7 @@ public sealed class UnDecommissionApplicationTests : CatalogIntegrationTestBase
     public async Task POST_un_decommission_from_Active_returns_409_lifecycle_conflict()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAdminEmail, new[] { KartovaRoles.OrgAdmin });
-        var registered = await RegisterAsync(client, "undecommission-app-3", "UnDecommission App 3", "Desc.");
+        var registered = await RegisterAsync(client, "UnDecommission App 3", "Desc.");
 
         // Freshly-registered app is Active — wrong source state.
         var resp = await client.PostAsJsonAsync(
@@ -100,7 +100,7 @@ public sealed class UnDecommissionApplicationTests : CatalogIntegrationTestBase
     public async Task POST_un_decommission_with_past_sunsetDate_returns_400_validation_failed()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAdminEmail, new[] { KartovaRoles.OrgAdmin });
-        var registered = await RegisterAsync(client, "undecommission-app-4", "UnDecommission App 4", "Desc.");
+        var registered = await RegisterAsync(client, "UnDecommission App 4", "Desc.");
 
         // Drive to Decommissioned state first.
         var sunset = DateTimeOffset.UtcNow.AddSeconds(1);
@@ -132,7 +132,7 @@ public sealed class UnDecommissionApplicationTests : CatalogIntegrationTestBase
     public async Task POST_un_decommission_as_Member_returns_403()
     {
         var orgAdminClient = await Fx.CreateAuthenticatedClientAsync(OrgAdminEmail, new[] { KartovaRoles.OrgAdmin });
-        var registered = await RegisterAsync(orgAdminClient, "undecommission-app-5", "UnDecommission App 5", "Desc.");
+        var registered = await RegisterAsync(orgAdminClient, "UnDecommission App 5", "Desc.");
 
         // Drive to Decommissioned.
         var sunset = DateTimeOffset.UtcNow.AddSeconds(1);
@@ -168,7 +168,7 @@ public sealed class UnDecommissionApplicationTests : CatalogIntegrationTestBase
     {
         // Register, deprecate, and decommission as OrgB so the app is in an un-decommissionable state.
         var orgBClient = await Fx.CreateAuthenticatedClientAsync("admin@orgb.kartova.local", new[] { KartovaRoles.OrgAdmin });
-        var otherTenantApp = await RegisterAsync(orgBClient, "undecommission-cross-tenant-1", "Cross Tenant UnDecommission", "Desc.");
+        var otherTenantApp = await RegisterAsync(orgBClient, "Cross Tenant UnDecommission", "Desc.");
 
         var sunset = DateTimeOffset.UtcNow.AddSeconds(1);
         var deprecateResp = await orgBClient.PostAsJsonAsync(
@@ -192,11 +192,11 @@ public sealed class UnDecommissionApplicationTests : CatalogIntegrationTestBase
         Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
     }
 
-    private static async Task<ApplicationResponse> RegisterAsync(HttpClient client, string name, string displayName, string description)
+    private static async Task<ApplicationResponse> RegisterAsync(HttpClient client, string displayName, string description)
     {
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest(name, displayName, description));
+            new RegisterApplicationRequest(displayName, description));
         Assert.IsTrue(resp.IsSuccessStatusCode);
         return (await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
     }

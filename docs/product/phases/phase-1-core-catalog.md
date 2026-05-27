@@ -65,6 +65,8 @@
 |----------|-----------|-------------------|
 | E-03.F-01.S-01 | As an org admin, I want to configure my organization's profile (name, logo, settings) so that the platform reflects our identity | Org profile editable; logo uploadable; settings persisted per tenant |
 | E-03.F-01.S-02 | As an org admin, I want to invite users to my organization with specific roles so that access is controlled | Invitation sent via email; role assigned on acceptance; invitation expires after 7 days |
+| E-03.F-01.S-03 | As a user, I want owner / member identities surfaced by display name (not GUID), with a click-through to a user-detail page showing their teams + owned applications, so ownership is human-readable | User display names resolved from KeyCloak (firstName + lastName + email); owner Guid renders as a clickable link on ApplicationDetailPage / TeamDetailPage; clicking opens `/users/{id}` showing teams + owned applications; cross-tenant users not visible (filtered by realm + tenant claim) |
+| E-03.F-01.S-04 | As a team admin, I want to search for users by name/email when adding a team member so that I don't have to know GUIDs | `AddMemberDialog` replaces UUID input with typeahead search; backend exposes `GET /api/v1/organizations/users?q=...&limit=...` returning matching users; minimum 2 chars to trigger search; results filtered to current tenant via KeyCloak Admin API + tenant attribute; selected user fills the userId field |
 
 #### Feature E-03.F-02: Team Management
 

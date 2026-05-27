@@ -1,4 +1,6 @@
+using Kartova.SharedKernel.AspNetCore.AuthorizationHandlers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -51,10 +53,14 @@ public static class JwtAuthenticationExtensions
 
         // mutation-survivor: AddAuthorizationBuilder() already registers the core authorization services; this AddAuthorization() call is kept for explicit API-surface intent. Mutation tooling reports this as a survivor because removing it doesn't change observable behaviour for our tests.
         services.AddAuthorization();
-        services.AddAuthorizationBuilder().AddKartovaPermissionPolicies();
+        services.AddAuthorizationBuilder()
+                .AddKartovaPermissionPolicies()
+                .AddKartovaResourcePolicies();
 
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
+        services.AddScoped<IAuthorizationHandler, ApplicationTeamScopedHandler>();
+        services.AddScoped<IAuthorizationHandler, TeamAdminOfThisHandler>();
 
         return services;
     }

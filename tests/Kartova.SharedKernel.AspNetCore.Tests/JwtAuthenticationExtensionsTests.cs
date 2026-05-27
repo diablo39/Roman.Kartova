@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Multitenancy;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -240,6 +241,11 @@ public class JwtAuthenticationExtensionsTests
             .Build();
         var services = new ServiceCollection();
         services.AddLogging();
+        // ITenantContext is a transitive dependency of HttpContextCurrentUser, which the
+        // slice-8 resource-based authz handlers (registered by AddKartovaJwtAuth) consume.
+        // Resolving IAuthorizationService walks IEnumerable<IAuthorizationHandler> and
+        // therefore needs the full graph satisfied.
+        services.AddSingleton<ITenantContext, TenantContextAccessor>();
 
         // Act
         services.AddKartovaJwtAuth(cfg);

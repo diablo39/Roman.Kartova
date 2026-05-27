@@ -1,9 +1,8 @@
-using System.Text.RegularExpressions;
 using Kartova.SharedKernel.Multitenancy;
 
 namespace Kartova.Catalog.Domain;
 
-public sealed partial class Application : ITenantOwned
+public sealed class Application : ITenantOwned, ITeamScopedResource
 {
     // Backing field for the primary key — stored as a plain Guid so EF Core can
     // translate ORDER BY / WHERE expressions without going through the value
@@ -15,19 +14,20 @@ public sealed partial class Application : ITenantOwned
     /// <summary>Domain-typed identifier. EF maps the <c>_id</c> backing field.</summary>
     public ApplicationId Id => new(_id);
     public TenantId TenantId { get; private set; }
-    public string Name { get; private set; } = string.Empty;
     public string DisplayName { get; private set; } = string.Empty;
     public string Description { get; private set; } = string.Empty;
     public Guid OwnerUserId { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public Lifecycle Lifecycle { get; private set; } = Lifecycle.Active;
     public DateTimeOffset? SunsetDate { get; private set; }
+    public Guid? TeamId { get; private set; }
     public uint Version { get; private set; }
+
+    Guid? ITeamScopedResource.TeamId => TeamId;
 
     private Application(
         ApplicationId id,
         TenantId tenantId,
-        string name,
         string displayName,
         string description,
         Guid ownerUserId,
@@ -35,7 +35,6 @@ public sealed partial class Application : ITenantOwned
     {
         _id = id.Value;
         TenantId = tenantId;
-        Name = name;
         DisplayName = displayName;
         Description = description;
         OwnerUserId = ownerUserId;
@@ -45,10 +44,10 @@ public sealed partial class Application : ITenantOwned
     // EF constructor
     private Application() { }
 
-    public static Application Create(string name, string displayName, string description, Guid ownerUserId, TenantId tenantId, TimeProvider clock)
+    public static Application Create(string displayName, string description, Guid ownerUserId, TenantId tenantId, TimeProvider clock)
     {
         ArgumentNullException.ThrowIfNull(clock);
-        return Create(name, displayName, description, ownerUserId, tenantId, clock.GetUtcNow());
+        return Create(displayName, description, ownerUserId, tenantId, clock.GetUtcNow());
     }
 
     /// <summary>
@@ -57,14 +56,12 @@ public sealed partial class Application : ITenantOwned
     /// deterministic ordering without sleeping between inserts.
     /// </summary>
     public static Application Create(
-        string name,
         string displayName,
         string description,
         Guid ownerUserId,
         TenantId tenantId,
         DateTimeOffset createdAt)
     {
-        ValidateName(name);
         ValidateDisplayName(displayName);
         ValidateDescription(description);
         if (ownerUserId == Guid.Empty)
@@ -75,7 +72,6 @@ public sealed partial class Application : ITenantOwned
         return new Application(
             ApplicationId.New(),
             tenantId,
-            name,
             displayName,
             description,
             ownerUserId,
@@ -140,6 +136,24 @@ public sealed partial class Application : ITenantOwned
         SunsetDate = null;
     }
 
+    /// <summary>
+    /// Assigns this application to a team (or unassigns when <paramref name="teamId"/> is null).
+    /// Reassigning to a non-null team is blocked on Decommissioned (terminal-write guard,
+    /// consistent with EditMetadata). Unassigning (null) is allowed on any lifecycle so
+    /// OrgAdmin can release Decommissioned apps from a team before deleting the team —
+    /// without this carve-out, a team that ever owned an app since-decommissioned would
+    /// be undeletable forever (slice-8 boundary-review fix).
+    /// </summary>
+    public void AssignTeam(Guid? teamId)
+    {
+        if (teamId is not null && Lifecycle == Lifecycle.Decommissioned)
+        {
+            throw new InvalidLifecycleTransitionException(Lifecycle, nameof(AssignTeam));
+        }
+
+        TeamId = teamId;
+    }
+
     public void UnDecommission(DateTimeOffset newSunsetDate, TimeProvider clock)
     {
         if (Lifecycle != Lifecycle.Decommissioned)
@@ -154,28 +168,6 @@ public sealed partial class Application : ITenantOwned
 
         Lifecycle = Lifecycle.Deprecated;
         SunsetDate = newSunsetDate;
-    }
-
-    // Mirrors the SPA's zod rule so the SPA check is UX-only and the server is the source of truth.
-    [GeneratedRegex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")]
-    private static partial Regex KebabCase();
-
-    private static void ValidateName(string name)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            throw new ArgumentException("Application name must not be empty.", nameof(name));
-        }
-        if (name.Length > 256)
-        {
-            throw new ArgumentException("Application name must be <= 256 characters.", nameof(name));
-        }
-        if (!KebabCase().IsMatch(name))
-        {
-            throw new ArgumentException(
-                "Application name must be lowercase kebab-case (e.g. payment-gateway).",
-                nameof(name));
-        }
     }
 
     private static void ValidateDisplayName(string displayName)
@@ -195,6 +187,10 @@ public sealed partial class Application : ITenantOwned
         if (string.IsNullOrWhiteSpace(description))
         {
             throw new ArgumentException("Application description must not be empty.", nameof(description));
+        }
+        if (description.Length > 4096)
+        {
+            throw new ArgumentException("Application description must be <= 4096 characters.", nameof(description));
         }
     }
 }

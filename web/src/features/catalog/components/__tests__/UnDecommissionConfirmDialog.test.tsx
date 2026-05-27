@@ -12,13 +12,13 @@ import type { ApplicationResponse } from "@/features/catalog/api/applications";
 const baseApp: ApplicationResponse = {
   id: "00000000-0000-0000-0000-000000000abc",
   tenantId: "t1",
-  name: "payments",
   displayName: "Payments",
   description: "Payments service.",
   ownerUserId: "u1",
   createdAt: "2026-04-30T00:00:00Z",
   lifecycle: "decommissioned",
   sunsetDate: "2026-01-01T00:00:00Z",
+  teamId: null,
   version: "v1",
 };
 

@@ -2,14 +2,11 @@ using System.Net;
 using System.Net.Http.Json;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
-using Kartova.Catalog.Infrastructure;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Pagination;
 using Kartova.Testing.Auth;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using DomainApplication = Kartova.Catalog.Domain.Application;
 
 namespace Kartova.Catalog.IntegrationTests;
 
@@ -87,7 +84,6 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
         var body = await resp.Content.ReadAsStringAsync();
         StringAssert.Contains(body, "invalid-sort-field");
         StringAssert.Contains(body, "createdAt");
-        StringAssert.Contains(body, "name");
     }
 
     [TestMethod]
@@ -176,6 +172,42 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
+    public async Task SortBy_displayName_asc_orders_rows_lexicographically()
+    {
+        // Positive case for the new ADR-0095 displayName sortable column: seed three rows
+        // with deterministic display names (suffixed by index, padded to D3 so lexicographic
+        // == numeric), then assert ?sortBy=displayName&sortOrder=asc returns them in order.
+        // A unique prefix isolates this test from other rows in the shared tenant database.
+        var unique = $"dn-asc-{Guid.NewGuid():N}";
+        var prefix = $"{unique}-";
+        var tenantId = Fx.TenantIdForEmail("admin@orga.kartova.local");
+        await Fx.SeedApplicationsAsync(tenantId, count: 3, namePrefix: prefix);
+
+        try
+        {
+            var client = Fx.CreateClientForOrgA();
+            var resp = await client.GetAsync(
+                $"/api/v1/catalog/applications?sortBy=displayName&sortOrder=asc&limit=200");
+
+            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+            var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
+            var ours = page!.Items
+                .Where(i => i.DisplayName.StartsWith(unique, StringComparison.Ordinal))
+                .Select(i => i.DisplayName)
+                .ToList();
+
+            CollectionAssert.AreEqual(
+                new[] { $"{prefix}000", $"{prefix}001", $"{prefix}002" },
+                ours,
+                "rows must be returned in ascending displayName order");
+        }
+        finally
+        {
+            await Fx.DeleteApplicationsByPrefixAsync(tenantId, prefix);
+        }
+    }
+
+    [TestMethod]
     public async Task DefaultParams_match_explicit_createdAt_desc_50()
     {
         await Fx.SeedApplicationsAsync(OrgATenant, count: 5, namePrefix: "def-");
@@ -221,36 +253,6 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
-    public async Task Pages_through_25_apps_sorted_by_name_yields_no_duplicates_no_skips()
-    {
-        await Fx.SeedApplicationsAsync(OrgATenant, count: 25, namePrefix: "n-");
-
-        var client = Fx.CreateClientForOrgA();
-
-        var allIds = new HashSet<Guid>();
-        string? cursor = null;
-        var pageCount = 0;
-        do
-        {
-            var url = "/api/v1/catalog/applications?sortBy=name&sortOrder=asc&limit=10"
-                + (cursor is null ? "" : $"&cursor={Uri.EscapeDataString(cursor)}");
-            var resp = await client.GetAsync(url);
-            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
-            var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
-            Assert.IsNotNull(page);
-            foreach (var item in page!.Items)
-            {
-                Assert.IsTrue(allIds.Add(item.Id), "each id must appear exactly once");
-            }
-            cursor = page.NextCursor;
-            pageCount++;
-        } while (cursor is not null && pageCount < 5);
-
-        // Filter to just our seeded prefix-25; other tests may have left rows on the same tenant.
-        Assert.IsTrue(allIds.Count >= 25, "all 25 prefix-n- rows should be visible");
-    }
-
-    [TestMethod]
     public async Task Cursor_issued_for_asc_replayed_with_desc_returns_400_invalid_cursor()
     {
         await Fx.SeedApplicationsAsync(OrgATenant, count: 5, namePrefix: "dir-");
@@ -291,60 +293,6 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
         StringAssert.Contains(body, "\"rawLimit\":\"abc\"");
     }
 
-    [TestMethod]
-    public async Task SortBy_name_asc_overrides_default_createdAt_ordering()
-    {
-        // Mutation-killing test for the `parsedSortBy ?? ApplicationSortField.CreatedAt` expression:
-        // if the null-coalesce is mutated and always returns CreatedAt, user-supplied sortBy=name is silently
-        // ignored. To distinguish, we seed rows with names in REVERSE alpha order vs creation
-        // order: created first = "zzz-mut-c-...", created last = "zzz-mut-a-...". Asking for
-        // sortBy=name&sortOrder=asc must return alpha-first ("a..." then "b..." then "c...").
-        // With the mutant (sortBy collapses to createdAt asc), the first item would be the
-        // earliest-created row, i.e. the "c..." prefix.
-        var tenant = OrgATenant;
-        var unique = $"zzz-mut-{Guid.NewGuid():N}";
-        var aName = $"{unique}-a";
-        var bName = $"{unique}-b";
-        var cName = $"{unique}-c";
-
-        var opts = new DbContextOptionsBuilder<CatalogDbContext>()
-            .UseNpgsql(Fx.BypassConnectionString)
-            .Options;
-        await using (var db = new CatalogDbContext(opts))
-        {
-            // Created in REVERSE-alpha order: c first (oldest), then b, then a (newest).
-            var origin = DateTimeOffset.UtcNow.AddMinutes(-5);
-            db.Applications.Add(DomainApplication.Create(
-                name: cName, displayName: cName, description: "mut-test",
-                ownerUserId: Guid.NewGuid(), tenantId: tenant,
-                createdAt: origin));
-            db.Applications.Add(DomainApplication.Create(
-                name: bName, displayName: bName, description: "mut-test",
-                ownerUserId: Guid.NewGuid(), tenantId: tenant,
-                createdAt: origin.AddMinutes(1)));
-            db.Applications.Add(DomainApplication.Create(
-                name: aName, displayName: aName, description: "mut-test",
-                ownerUserId: Guid.NewGuid(), tenantId: tenant,
-                createdAt: origin.AddMinutes(2)));
-            await db.SaveChangesAsync();
-        }
-
-        var client = Fx.CreateClientForOrgA();
-        var page = await client.GetFromJsonAsync<CursorPage<ApplicationResponse>>(
-            "/api/v1/catalog/applications?sortBy=name&sortOrder=asc&limit=200",
-            KartovaApiFixtureBase.WireJson);
-
-        Assert.IsNotNull(page);
-        var ours = page!.Items
-            .Where(i => i.Name.StartsWith(unique, StringComparison.Ordinal))
-            .Select(i => i.Name)
-            .ToList();
-        CollectionAssert.AreEqual(
-            new[] { aName, bName, cName },
-            ours,
-            "sortBy=name&sortOrder=asc must order by Name (alpha), not by CreatedAt");
-    }
-
     // -----------------------------------------------------------------------
     // Slice-6 filter tests — ?includeDecommissioned wire contract (ADR-0073)
     // -----------------------------------------------------------------------
@@ -371,12 +319,12 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
 
             Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
             var page = await response.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
-            var ours = page!.Items.Where(i => i.Name.StartsWith(unique, StringComparison.Ordinal)).ToList();
+            var ours = page!.Items.Where(i => i.DisplayName.StartsWith(unique, StringComparison.Ordinal)).ToList();
 
             // All 3 active-prefix rows must be visible.
-            Assert.AreEqual(3, ours.Where(i => i.Name.StartsWith(activePrefix)).Count(), "active rows must not be filtered");
+            Assert.AreEqual(3, ours.Where(i => i.DisplayName.StartsWith(activePrefix)).Count(), "active rows must not be filtered");
             // No decomm-prefix rows must appear (default view excludes Decommissioned).
-            Assert.AreEqual(0, ours.Where(i => i.Name.StartsWith(decommPrefix)).Count(), "Decommissioned rows must be excluded by default");
+            Assert.AreEqual(0, ours.Where(i => i.DisplayName.StartsWith(decommPrefix)).Count(), "Decommissioned rows must be excluded by default");
         }
         finally
         {
@@ -403,7 +351,7 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
 
             Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
             var page = await response.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
-            var ours = page!.Items.Where(i => i.Name.StartsWith(unique, StringComparison.Ordinal)).ToList();
+            var ours = page!.Items.Where(i => i.DisplayName.StartsWith(unique, StringComparison.Ordinal)).ToList();
 
             // Both active and decommissioned rows must be visible.
             Assert.AreEqual(5, ours.Count, "?includeDecommissioned=true must return all 5 seeded rows");
@@ -437,8 +385,8 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
             var defaultPage = await defaultResp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
             var explicitPage = await explicitResp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
             // Both queries must return the same row set. Compare filtered to our unique prefix.
-            var defaultOurs = defaultPage!.Items.Where(i => i.Name.StartsWith(unique, StringComparison.Ordinal)).Select(i => i.Id).ToList();
-            var explicitOurs = explicitPage!.Items.Where(i => i.Name.StartsWith(unique, StringComparison.Ordinal)).Select(i => i.Id).ToList();
+            var defaultOurs = defaultPage!.Items.Where(i => i.DisplayName.StartsWith(unique, StringComparison.Ordinal)).Select(i => i.Id).ToList();
+            var explicitOurs = explicitPage!.Items.Where(i => i.DisplayName.StartsWith(unique, StringComparison.Ordinal)).Select(i => i.Id).ToList();
             CollectionAssert.AreEquivalent(
                 defaultOurs,
                 explicitOurs,

@@ -126,13 +126,7 @@ public class EfApplicationConfigurationTests
         // Arrange
         var entity = GetEntityType();
 
-        // Act / Assert — Name
-        var name = entity.FindProperty("Name")!;
-        Assert.IsFalse(name.IsNullable, "Name is required");
-        Assert.AreEqual(256, name.GetMaxLength(), "Name max length is 256");
-        Assert.AreEqual("name", name.GetColumnName());
-
-        // DisplayName
+        // Act / Assert — DisplayName
         var displayName = entity.FindProperty("DisplayName")!;
         Assert.IsFalse(displayName.IsNullable, "DisplayName is required");
         Assert.AreEqual(128, displayName.GetMaxLength(), "DisplayName max length is 128");
@@ -193,10 +187,29 @@ public class EfApplicationConfigurationTests
         var entity = GetEntityType();
 
         // Assert
+        // Specifically the single-column TenantId index (multiple composite indexes
+        // also start with TenantId — e.g. ix_catalog_applications_tenant_id_display_name).
         var index = entity.GetIndexes()
-            .SingleOrDefault(i => i.Properties.Any(p => p.Name == "TenantId"));
+            .SingleOrDefault(i => i.Properties.Count == 1 && i.Properties[0].Name == "TenantId");
 
-        Assert.IsNotNull(index, "TenantId must have a dedicated index");
+        Assert.IsNotNull(index, "TenantId must have a dedicated single-column index");
         Assert.AreEqual("ix_catalog_applications_tenant_id", index!.GetDatabaseName());
+    }
+
+    [TestMethod]
+    public void Configure_indexes_tenant_id_and_display_name_with_named_composite_index()
+    {
+        // ADR-0095: composite (tenant_id, display_name) supports ORDER BY display_name
+        // keyset pagination scoped per tenant without an extra sort step.
+        var entity = GetEntityType();
+
+        var index = entity.GetIndexes()
+            .SingleOrDefault(i =>
+                i.Properties.Count == 2 &&
+                i.Properties[0].Name == "TenantId" &&
+                i.Properties[1].Name == "DisplayName");
+
+        Assert.IsNotNull(index, "composite (TenantId, DisplayName) index must exist for displayName sort");
+        Assert.AreEqual("ix_catalog_applications_tenant_id_display_name", index!.GetDatabaseName());
     }
 }

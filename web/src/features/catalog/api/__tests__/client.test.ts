@@ -81,7 +81,7 @@ describe("api client middleware", () => {
 
     // POST with body — openapi-fetch sets Content-Type: application/json automatically.
     await client.POST("/api/v1/catalog/applications", {
-      body: { name: "x", displayName: "X" } as never,
+      body: { displayName: "X", description: "d" } as never,
     });
 
     const headers = lastRequestHeaders();

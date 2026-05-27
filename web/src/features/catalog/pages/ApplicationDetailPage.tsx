@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "@/components/base/card/card";
-import { Badge } from "@/components/base/badges/badges";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
 import { Button } from "@/components/base/buttons/button";
 import { useApplication } from "@/features/catalog/api/applications";
 import { LifecycleMenu } from "@/features/catalog/components/LifecycleMenu";
 import { EditApplicationDialog } from "@/features/catalog/components/EditApplicationDialog";
+import { AssignTeamPicker } from "@/features/teams/components/AssignTeamPicker";
 import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
 
@@ -60,7 +60,6 @@ export function ApplicationDetailPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-baseline gap-3">
               <h2 className="text-2xl font-semibold text-primary">{app.displayName}</h2>
-              <Badge color="gray" type="pill-color" size="sm" className="font-mono">{app.name}</Badge>
               {!permissionsLoading && (canForwardLifecycle || canReverseLifecycle) && (
                 <LifecycleMenu
                   application={app}
@@ -68,6 +67,7 @@ export function ApplicationDetailPage() {
                   canReverse={canReverseLifecycle}
                 />
               )}
+              <AssignTeamPicker applicationId={app.id} currentTeamId={app.teamId} />
             </div>
             {canEdit && (
               <Button color="secondary" size="sm" onClick={() => setEditOpen(true)}>

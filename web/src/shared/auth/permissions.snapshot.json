@@ -3,5 +3,10 @@
   "catalog.applications.register",
   "catalog.applications.edit-metadata",
   "catalog.applications.lifecycle.forward",
-  "catalog.applications.lifecycle.reverse"
+  "catalog.applications.lifecycle.reverse",
+  "team.read",
+  "team.create",
+  "team.metadata.edit",
+  "team.delete",
+  "team.members.manage"
 ]
