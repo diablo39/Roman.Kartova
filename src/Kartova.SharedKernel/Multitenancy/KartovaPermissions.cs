@@ -16,6 +16,14 @@ public static class KartovaPermissions
     public const string TeamDelete        = "team.delete";
     public const string TeamMembersManage = "team.members.manage";
 
+    public const string OrgProfileRead         = "org.profile.read";
+    public const string OrgProfileEdit         = "org.profile.edit";
+    public const string OrgInvitationsRead     = "org.invitations.read";
+    public const string OrgInvitationsCreate   = "org.invitations.create";
+    public const string OrgInvitationsRevoke   = "org.invitations.revoke";
+    public const string OrgUsersRead           = "org.users.read";
+    public const string OrgUsersSearch         = "org.users.search";
+
     public static FrozenSet<string> All { get; } = new[]
     {
         CatalogRead,
@@ -28,5 +36,12 @@ public static class KartovaPermissions
         TeamMetadataEdit,
         TeamDelete,
         TeamMembersManage,
+        OrgProfileRead,
+        OrgProfileEdit,
+        OrgInvitationsRead,
+        OrgInvitationsCreate,
+        OrgInvitationsRevoke,
+        OrgUsersRead,
+        OrgUsersSearch,
     }.ToFrozenSet(StringComparer.Ordinal);
 }

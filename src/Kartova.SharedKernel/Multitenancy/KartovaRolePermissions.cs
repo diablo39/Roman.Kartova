@@ -13,6 +13,8 @@ public static class KartovaRolePermissions
             {
                 KartovaPermissions.CatalogRead,
                 KartovaPermissions.TeamRead,
+                KartovaPermissions.OrgProfileRead,
+                KartovaPermissions.OrgUsersRead,
             }.ToFrozenSet(StringComparer.Ordinal),
             [KartovaRoles.Member] = new[]
             {
@@ -21,6 +23,9 @@ public static class KartovaRolePermissions
                 KartovaPermissions.CatalogApplicationsEditMetadata,
                 KartovaPermissions.CatalogApplicationsLifecycleForward,
                 KartovaPermissions.TeamRead,
+                KartovaPermissions.OrgProfileRead,
+                KartovaPermissions.OrgUsersRead,
+                KartovaPermissions.OrgUsersSearch,
             }.ToFrozenSet(StringComparer.Ordinal),
             [KartovaRoles.TeamAdmin] = new[]
             {
@@ -34,6 +39,9 @@ public static class KartovaRolePermissions
                 KartovaPermissions.TeamMetadataEdit,
                 KartovaPermissions.TeamDelete,
                 KartovaPermissions.TeamMembersManage,
+                KartovaPermissions.OrgProfileRead,
+                KartovaPermissions.OrgUsersRead,
+                KartovaPermissions.OrgUsersSearch,
             }.ToFrozenSet(StringComparer.Ordinal),
             [KartovaRoles.OrgAdmin] = new[]
             {
@@ -47,6 +55,13 @@ public static class KartovaRolePermissions
                 KartovaPermissions.TeamMetadataEdit,
                 KartovaPermissions.TeamDelete,
                 KartovaPermissions.TeamMembersManage,
+                KartovaPermissions.OrgProfileRead,
+                KartovaPermissions.OrgProfileEdit,
+                KartovaPermissions.OrgInvitationsRead,
+                KartovaPermissions.OrgInvitationsCreate,
+                KartovaPermissions.OrgInvitationsRevoke,
+                KartovaPermissions.OrgUsersRead,
+                KartovaPermissions.OrgUsersSearch,
             }.ToFrozenSet(StringComparer.Ordinal),
             // PlatformAdmin: orthogonal — operates outside tenant scope. No entry.
             // ServiceAccount: no realm role yet (ADR-0009). No entry.
