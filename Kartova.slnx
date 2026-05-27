@@ -33,6 +33,7 @@
     <Project Path="tests/Kartova.ArchitectureTests/Kartova.ArchitectureTests.csproj" />
     <Project Path="tests/Kartova.SharedKernel.AspNetCore.Tests/Kartova.SharedKernel.AspNetCore.Tests.csproj" />
     <Project Path="tests/Kartova.SharedKernel.Identity.Tests/Kartova.SharedKernel.Identity.Tests.csproj" />
+    <Project Path="tests/Kartova.SharedKernel.Postgres.IntegrationTests/Kartova.SharedKernel.Postgres.IntegrationTests.csproj" />
     <Project Path="tests/Kartova.SharedKernel.Tests/Kartova.SharedKernel.Tests.csproj" />
     <Project Path="tests/Kartova.Testing.Auth/Kartova.Testing.Auth.csproj" />
   </Folder>

@@ -22,4 +22,8 @@
     <ProjectReference Include="..\Kartova.SharedKernel\Kartova.SharedKernel.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Kartova.SharedKernel.Postgres.IntegrationTests" />
+  </ItemGroup>
+
 </Project>
