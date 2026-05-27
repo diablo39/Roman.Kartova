@@ -18,4 +18,8 @@
     <ProjectReference Include="..\Kartova.SharedKernel\Kartova.SharedKernel.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Kartova.SharedKernel.Identity.Tests" />
+  </ItemGroup>
+
 </Project>
