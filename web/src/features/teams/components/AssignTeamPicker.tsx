@@ -27,7 +27,23 @@ export function AssignTeamPicker({ applicationId, currentTeamId, disabled = fals
     ? allTeams.find((t) => t.id === currentTeamId)?.displayName ?? "Unknown team"
     : "Unassigned";
 
-  const canEdit = !disabled && perms.hasPermission(KartovaPermissions.CatalogApplicationsEditMetadata);
+  // Mirror ApplicationTeamScopedHandler: only OrgAdmin OR a member of the
+  // application's current team can change the assignment. Disabling here
+  // avoids a deterministic 403 round-trip and keeps the affordance honest.
+  const isMemberOfCurrentTeam =
+    currentTeamId != null && perms.teamIds.includes(currentTeamId);
+  const canEdit =
+    !disabled &&
+    perms.hasPermission(KartovaPermissions.CatalogApplicationsEditMetadata) &&
+    (isOrgAdmin || isMemberOfCurrentTeam);
+
+  // If the application's current team isn't in the rendered option set
+  // (OrgAdmin tenant with >200 teams, or a member viewing a team they don't
+  // belong to), inject a synthetic option so the controlled <select>'s value
+  // always has a matching <option>; otherwise React warns and the selection
+  // visually blanks.
+  const needsSyntheticCurrentOption =
+    currentTeamId != null && !visibleTeams.some((t) => t.id === currentTeamId);
 
   const onChange = async (value: string) => {
     const newTeamId = value === "__unassigned__" ? null : value;
@@ -61,6 +77,9 @@ export function AssignTeamPicker({ applicationId, currentTeamId, disabled = fals
         disabled={!canEdit || mutation.isPending}
       >
         <option value="__unassigned__">Unassigned</option>
+        {needsSyntheticCurrentOption && currentTeamId && (
+          <option value={currentTeamId}>{currentTeamName}</option>
+        )}
         {visibleTeams.map((t) => (
           <option key={t.id} value={t.id}>{t.displayName}</option>
         ))}

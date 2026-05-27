@@ -37,10 +37,14 @@ interface Props {
 
 export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange, teamNameById }: Props) {
   if (list.isLoading) {
+    // No sortDescriptor/onSortChange wired on the loading <Table>, so render
+    // plain heads here — a SortableHead without sort wiring presents an
+    // interactive sort affordance with no behavior and a misleading a11y
+    // signal during the skeleton state.
     return (
       <Table aria-label="Applications">
         <Table.Header>
-          <SortableHead id="displayName" isRowHeader>Name</SortableHead>
+          <Table.Head id="displayName" isRowHeader>Name</Table.Head>
           <Table.Head id="lifecycle">Lifecycle</Table.Head>
           <Table.Head id="team">Team</Table.Head>
           <Table.Head id="description">Description</Table.Head>
