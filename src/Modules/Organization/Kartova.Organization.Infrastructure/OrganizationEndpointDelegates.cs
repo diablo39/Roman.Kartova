@@ -15,10 +15,10 @@ namespace Kartova.Organization.Infrastructure;
 
 internal static class OrganizationEndpointDelegates
 {
-    internal static async Task<IResult> GetMeAsync(IOrganizationQueries queries, CancellationToken ct)
+    internal static async Task<IResult> GetMeAsync(OrgProfileQueries queries, CancellationToken ct)
     {
-        var org = await queries.GetCurrentAsync(ct);
-        if (org is null)
+        var profile = await queries.GetMyOrgAsync(ct);
+        if (profile is null)
         {
             return Results.Problem(
                 type: ProblemTypes.ResourceNotFound,
@@ -26,7 +26,45 @@ internal static class OrganizationEndpointDelegates
                 detail: "The current tenant has no visible Organization row.",
                 statusCode: StatusCodes.Status404NotFound);
         }
-        return Results.Ok(org);
+        return Results.Ok(profile);
+    }
+
+    /// <summary>
+    /// Slice-9 spec §4: applies the supplied <see cref="UpdateOrgProfileRequest"/>
+    /// to the current tenant's <c>Organization</c>. The If-Match header carries
+    /// the optimistic-concurrency token; a malformed value is treated as absent
+    /// (not a 500) so adversarial input never leaks an internal error.
+    /// </summary>
+    internal static async Task<IResult> UpdateMeAsync(
+        [FromBody] UpdateOrgProfileRequest body,
+        UpdateOrgProfileHandler handler,
+        HttpContext http,
+        CancellationToken ct)
+    {
+        var ifMatch = http.Request.Headers.IfMatch.FirstOrDefault();
+        byte[]? token = null;
+        if (ifMatch is not null)
+        {
+            try { token = Convert.FromHexString(ifMatch.Trim('"')); }
+            catch (FormatException) { /* malformed If-Match -> treat as missing */ }
+        }
+
+        var result = await handler.HandleAsync(body, token, ct);
+        return result switch
+        {
+            UpdateOrgProfileResult.Ok => Results.NoContent(),
+            UpdateOrgProfileResult.NotFound => Results.Problem(
+                type: ProblemTypes.ResourceNotFound,
+                title: "Organization not found",
+                detail: "The current tenant has no visible Organization row.",
+                statusCode: StatusCodes.Status404NotFound),
+            UpdateOrgProfileResult.ConcurrencyConflict => Results.Problem(
+                type: ProblemTypes.ConcurrencyConflict,
+                title: "Concurrency conflict",
+                detail: "The Organization row was modified by a concurrent request.",
+                statusCode: StatusCodes.Status412PreconditionFailed),
+            _ => Results.StatusCode(500),
+        };
     }
 
     internal static IResult GetAdminOnlyAsync()

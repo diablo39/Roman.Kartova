@@ -22,13 +22,13 @@ public class TenantIsolationTests : OrganizationIntegrationTestBase
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenA);
         var respA = await client.GetAsync("/api/v1/organizations/me");
         Assert.AreEqual(HttpStatusCode.OK, respA.StatusCode);
-        Assert.AreEqual("Org A", (await respA.Content.ReadFromJsonAsync<OrganizationDto>())!.Name);
+        Assert.AreEqual("Org A", (await respA.Content.ReadFromJsonAsync<OrgProfileResponse>())!.DisplayName);
 
         var tokenB = Fx.Signer.IssueForTenant(SeededOrgs.OrgB, new[] { "OrgAdmin" });
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenB);
         var respB = await client.GetAsync("/api/v1/organizations/me");
         Assert.AreEqual(HttpStatusCode.OK, respB.StatusCode);
-        Assert.AreEqual("Org B", (await respB.Content.ReadFromJsonAsync<OrganizationDto>())!.Name);
+        Assert.AreEqual("Org B", (await respB.Content.ReadFromJsonAsync<OrgProfileResponse>())!.DisplayName);
     }
 
     [TestMethod]

@@ -22,9 +22,9 @@ public class OrganizationEndpointHappyPathTests : OrganizationIntegrationTestBas
         var response = await client.GetAsync("/api/v1/organizations/me");
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
 
-        var dto = await response.Content.ReadFromJsonAsync<OrganizationDto>();
+        var dto = await response.Content.ReadFromJsonAsync<OrgProfileResponse>();
         Assert.IsNotNull(dto);
         Assert.AreEqual(SeededOrgs.OrgA.Value, dto!.Id);
-        Assert.AreEqual("Org A", dto.Name);
+        Assert.AreEqual("Org A", dto.DisplayName);
     }
 }

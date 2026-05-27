@@ -1,0 +1,63 @@
+using Kartova.Organization.Contracts;
+using Microsoft.EntityFrameworkCore;
+
+namespace Kartova.Organization.Infrastructure;
+
+/// <summary>
+/// Applies an <see cref="UpdateOrgProfileRequest"/> to the current tenant's
+/// <c>Organization</c> aggregate (slice-9 spec §4). Domain invariants
+/// (display name length, description length, IANA timezone) are enforced by
+/// <c>Organization.UpdateProfile</c>; the resulting <see cref="ArgumentException"/>
+/// is caught by <c>DomainValidationExceptionHandler</c> upstream and rendered
+/// as RFC 7807 400 — handlers deliberately do not catch it.
+/// </summary>
+public sealed class UpdateOrgProfileHandler
+{
+    private readonly OrganizationDbContext _db;
+
+    public UpdateOrgProfileHandler(OrganizationDbContext db)
+    {
+        _db = db;
+    }
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Style", "IDE0060:Remove unused parameter",
+        Justification = "ifMatch is part of the optimistic-concurrency wire contract reserved per slice-9 spec §4. It will become live once the Organization aggregate carries an xmin/rowversion mapping; keeping the parameter now avoids changing the handler/endpoint surface later.")]
+    public async Task<UpdateOrgProfileResult> HandleAsync(
+        UpdateOrgProfileRequest request,
+        byte[]? ifMatch,
+        CancellationToken ct)
+    {
+        var org = await _db.Organizations.FirstOrDefaultAsync(ct);
+        if (org is null) return UpdateOrgProfileResult.NotFound;
+
+        org.UpdateProfile(request.DisplayName, request.Description, request.DefaultTimeZone);
+
+        // Optimistic concurrency wire contract reserved per slice-9 spec §4. The
+        // Organization aggregate does not carry an EF concurrency token yet, so this
+        // catch is currently unreachable — a follow-up will add xmin mapping without
+        // changing the handler/endpoint surface.
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return UpdateOrgProfileResult.ConcurrencyConflict;
+        }
+        return UpdateOrgProfileResult.Ok;
+    }
+}
+
+/// <summary>
+/// Outcome of <see cref="UpdateOrgProfileHandler.HandleAsync"/>. Lives in the
+/// same file as the handler — the slice-8 convention (e.g.
+/// <c>AddTeamMemberResult</c>) keeps tightly-coupled result enums next to
+/// their owning handler.
+/// </summary>
+public enum UpdateOrgProfileResult
+{
+    Ok,
+    NotFound,
+    ConcurrencyConflict,
+}

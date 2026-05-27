@@ -44,9 +44,17 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
     {
         var tenant = app.MapTenantScopedModule(Slug);     // /api/v1/organizations
         tenant.MapGet("/me", OrganizationEndpointDelegates.GetMeAsync)
+            .RequireAuthorization(KartovaPermissions.OrgProfileRead)
             .WithName("GetOrganizationMe")
-            .Produces<OrganizationDto>(StatusCodes.Status200OK)
+            .Produces<OrgProfileResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound);
+        tenant.MapPut("/me", OrganizationEndpointDelegates.UpdateMeAsync)
+            .RequireAuthorization(KartovaPermissions.OrgProfileEdit)
+            .WithName("UpdateOrganizationMe")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status412PreconditionFailed);
         tenant.MapGet("/me/permissions", OrganizationEndpointDelegates.GetMePermissions)
             .WithName("GetMePermissions")
             .Produces<MePermissionsResponse>(StatusCodes.Status200OK);
@@ -157,6 +165,12 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
         // Team CRUD + member handlers (slice 8). Handlers are invoked directly
         // from the endpoint delegate (synchronous, in-process) — same dispatch
         // pattern as CatalogModule, see CatalogEndpointDelegates' class comment.
+        // Org profile read/write (slice-9 spec §4). Lives in Infrastructure
+        // (not Application) because both classes depend on OrganizationDbContext —
+        // same placement as the slice-8 team handlers above.
+        services.AddScoped<OrgProfileQueries>();
+        services.AddScoped<UpdateOrgProfileHandler>();
+
         services.AddScoped<CreateTeamHandler>();
         services.AddScoped<UpdateTeamHandler>();
         services.AddScoped<DeleteTeamHandler>();
