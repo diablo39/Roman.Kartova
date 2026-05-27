@@ -56,14 +56,29 @@ public sealed class OrganizationUserDirectoryTests
         Assert.IsTrue(result.ContainsKey(id1));
         Assert.IsTrue(result.ContainsKey(id2));
         Assert.IsFalse(result.ContainsKey(id3));
+        Assert.AreEqual("One", result[id1].DisplayName);
+        Assert.AreEqual("1@x", result[id1].Email);
+        Assert.AreEqual("Two", result[id2].DisplayName);
+        Assert.AreEqual("2@x", result[id2].Email);
     }
 
     [TestMethod]
     public async Task GetManyAsync_returns_empty_for_empty_input()
     {
-        await using var db = NewInMemory(out _);
+        await using var db = NewInMemory(out var tenant);
+        db.Users.Add(new User
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenant,
+            Email = "noise@x",
+            DisplayName = "Noise",
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+
         var sut = new OrganizationUserDirectory(db);
         var result = await sut.GetManyAsync(Array.Empty<Guid>(), CancellationToken.None);
+
         Assert.AreEqual(0, result.Count);
     }
 }
