@@ -12,7 +12,15 @@ public static class ServiceCollectionExtensions
         IConfiguration config,
         string sectionName = "KartovaIdentity:Keycloak")
     {
-        services.AddOptions<KeycloakAdminOptions>().Bind(config.GetSection(sectionName)).ValidateOnStart();
+        services.AddOptions<KeycloakAdminOptions>()
+            .Bind(config.GetSection(sectionName))
+            .ValidateDataAnnotations()
+            .Validate(
+                o => !string.Equals(o.AdminClientSecret, "OVERRIDE_VIA_ENV", StringComparison.Ordinal),
+                $"{sectionName}:AdminClientSecret is still the placeholder 'OVERRIDE_VIA_ENV' — " +
+                "override it via the environment variable 'KartovaIdentity__Keycloak__AdminClientSecret' " +
+                "at deploy time. Production configs intentionally do not carry the real secret in source.")
+            .ValidateOnStart();
 
         services.AddHttpClient<IKeycloakAdminClient, KeycloakAdminClient>((sp, http) =>
         {
