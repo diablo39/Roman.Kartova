@@ -3,20 +3,20 @@ applyTo: "**/*Tests.cs,**/*Tests/**/*.cs,web/src/**/*.{test,spec}.{ts,tsx}"
 ---
 
 ## Don't comment on
-- Test method naming when the file is internally consistent
+- Test method naming style
 - Mocking-library swaps (one lib per assembly)
 - "Extract a helper" when existing fixtures cover the case
 - Mutation score, coverage %, `[ExcludeFromCodeCoverage]` placement — other gates own these
 - The `Tests` vs `IntegrationTests` project split — intentional
-- Missing `await` on `*Async()` calls — CS4014 covers it
 
-## Backend tests (xUnit)
-- Use `[Fact]`, `[Theory]`, `[InlineData]`, `[MemberData]`. Flag NUnit `[Test]`/`[TestCase]` and MSTest `[TestMethod]`/`[TestClass]`.
-- NetArchTest assertions live in the architecture-tests project. Flag `Types.InAssembly(...)` / `TypesThat()...Should()` in unit or integration test files.
+## Backend tests (MSTest v4 — ADR-0097)
+- Use `[TestClass]` + `[TestMethod]` + `[DataRow]`. Flag xUnit `[Fact]`/`[Theory]`/`[InlineData]`/`[MemberData]` and NUnit `[Test]`/`[TestCase]`.
+- Assertions are MSTest native: `Assert.AreEqual`, `Assert.IsNotNull`, `Assert.ThrowsExactly<T>`, `StringAssert.*`, `CollectionAssert.*`. Flag `FluentAssertions` and `Assert.That`.
+- NetArchTest assertions live in the architecture-tests project. Flag `Types.InAssembly(...)` / `TypesThat()...Should()` in unit/integration files.
 - Integration tests run on real Postgres via Testcontainers. Flag `UseInMemoryDatabase`, `UseSqlite("Data Source=:memory:")`, `Microsoft.EntityFrameworkCore.InMemory`.
-- Tenant-scoped tests derive from `KartovaApiFixtureBase` (or `KeycloakContainerFixture`). Flag `new XyzDbContext(...)` inline or `GetRequiredService<XyzDbContext>()` outside fixture scope.
+- Tenant-scoped tests derive from `KartovaApiFixtureBase`. Flag `new XyzDbContext(...)` inline or `GetRequiredService<XyzDbContext>()` outside fixture scope.
 - No `.Result` / `.Wait()` in async test bodies.
-- List-endpoint integration tests assert the `CursorPage<T>` envelope. Flag bare `Should().HaveCount(...)` or array-shape on paginated endpoints.
+- List-endpoint integration tests assert the `CursorPage<T>` envelope. Flag bare count checks on paginated endpoints.
 - Error-path integration tests assert `problem+json` (`type`, `title`, `status`, `traceId`). Flag status-code-only or string-body matching on errors.
 
 ## Frontend tests (Vitest + Testing Library)
@@ -27,18 +27,20 @@ applyTo: "**/*Tests.cs,**/*Tests/**/*.cs,web/src/**/*.{test,spec}.{ts,tsx}"
 - Async UI: `await screen.findBy*` or `await waitFor(...)`. Flag synchronous `getBy*` against async state.
 
 ## Assertions
-- Flag tests whose only assertion is `Should().NotBeNull()`, `Should().NotBeEmpty()`, `expect(x).toBeDefined()`, `expect(x).toBeTruthy()`, or `not.toThrow()`.
+- Flag tests whose only assertion is `Assert.IsNotNull(...)`, `Assert.IsTrue(...)`, `expect(x).toBeDefined()`, or `expect(x).toBeTruthy()`.
 - Flag value comparisons checking only `.GetType()`, `typeof`, `instanceof`, or property existence without reading the value.
 
 ## Quick reference
 | Don't                                         | Do                                              |
 |-----------------------------------------------|-------------------------------------------------|
-| `[Test]` / `[TestMethod]`                     | `[Fact]` / `[Theory]`                           |
+| `[Fact]` / `[Theory]` / `[Test]`              | `[TestMethod]` / `[DataRow]`                    |
+| `obj.Should().Be(x)`                          | `Assert.AreEqual(x, obj)`                       |
+| `act.Should().Throw<T>()`                     | `Assert.ThrowsExactly<T>(() => act())`          |
 | `UseInMemoryDatabase` in integration test     | Testcontainers Postgres via fixture             |
 | `new XyzDbContext(opts)` in test body         | resolve via `KartovaApiFixtureBase` scope       |
 | `Types.InAssembly(...)` in `*.Tests` project  | move to architecture-tests project              |
-| `Should().NotBeNull()` alone                  | assert specific field values                    |
-| `Should().HaveCount(...)` on paginated        | assert `CursorPage<T>` envelope                 |
-| `StatusCode.Should().Be(400)` only            | assert `problem+json` shape too                 |
+| `Assert.IsNotNull(x)` alone                   | assert specific field values                    |
+| count-only check on paginated                 | assert `CursorPage<T>` envelope                 |
+| status-code-only on errors                    | assert `problem+json` shape                     |
 | `fireEvent.click(btn)`                        | `await user.click(btn)`                         |
 | `vi.spyOn(globalThis, "fetch")`               | `vi.mock` of typed client                       |

@@ -36,6 +36,9 @@ applyTo: "web/src/**/*.{ts,tsx}"
 - List screens compose `useCursorList` + `useListUrlState` + `<DataTable>`. Cursor pagination is non-optional.
 - Queries use `?sortBy=&sortOrder=asc|desc&cursor=&limit=` (max 200). Flag `?page=`, `?offset=`, `?perPage=`.
 
+## Entity IDs
+- Routes and entity links use `{id:guid}` only — no slug-based URLs (`/teams/:slug`, `/orgs/:orgSlug/...`). Flag kebab-case `name`/`slug` form fields and any namespace-in-URL pattern; display names are free text, not identifiers.
+
 ## TypeScript
 - Strict mode. Prefer `unknown` + narrowing over `any`. Flag new `any`. Replace `@ts-ignore` with `@ts-expect-error` + reason.
 
