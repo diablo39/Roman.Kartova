@@ -2,10 +2,13 @@ using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
 using Kartova.Catalog.Infrastructure;
+using Kartova.SharedKernel;
+using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Pagination;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Time.Testing;
+using NSubstitute;
 
 // NOTE: Alias needed — the enclosing `Kartova.Catalog` namespace contains a sibling child
 // namespace `Kartova.Catalog.Application` which wins simple-name lookup for `Application`.
@@ -72,12 +75,26 @@ public class ListApplicationsHandlerFilterTests
         return new CatalogDbContext(options);
     }
 
+    /// <summary>
+    /// Returns an <see cref="IUserDirectory"/> stub whose <c>GetManyAsync</c> always
+    /// resolves to an empty dictionary. The filter tests intentionally exercise the
+    /// IncludeDecommissioned predicate path only — Owner-enrichment branch coverage
+    /// lives in <see cref="ListApplicationsHandlerOwnerEnrichmentTests"/>.
+    /// </summary>
+    private static IUserDirectory NoOpDirectory()
+    {
+        var directory = Substitute.For<IUserDirectory>();
+        directory.GetManyAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<Guid, UserDisplayInfo>());
+        return directory;
+    }
+
     [TestMethod]
     public async Task Handle_with_IncludeDecommissioned_false_excludes_Decommissioned_rows()
     {
         await using var db = await BuildDbWithBothLifecyclesAsync();
 
-        var handler = new ListApplicationsHandler();
+        var handler = new ListApplicationsHandler(NoOpDirectory());
         var query = new ListApplicationsQuery(
             ApplicationSortField.CreatedAt,
             SortOrder.Desc,
@@ -96,7 +113,7 @@ public class ListApplicationsHandlerFilterTests
     {
         await using var db = await BuildDbWithBothLifecyclesAsync();
 
-        var handler = new ListApplicationsHandler();
+        var handler = new ListApplicationsHandler(NoOpDirectory());
         var query = new ListApplicationsQuery(
             ApplicationSortField.CreatedAt,
             SortOrder.Desc,

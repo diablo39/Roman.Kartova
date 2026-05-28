@@ -15,6 +15,9 @@
     <PackageReference Include="MSTest.TestFramework" />
     <PackageReference Include="MSTest.TestAdapter" />
     <PackageReference Include="MSTest.Analyzers" />
+    <!-- Slice 9 / E1: handler unit tests stub the IUserDirectory port via NSubstitute,
+         matching the pattern in Kartova.Organization.Infrastructure.Tests. -->
+    <PackageReference Include="NSubstitute" />
   </ItemGroup>
 
   <ItemGroup>
@@ -26,6 +29,8 @@
     <ProjectReference Include="..\Kartova.Catalog.Application\Kartova.Catalog.Application.csproj" />
     <ProjectReference Include="..\Kartova.Catalog.Infrastructure\Kartova.Catalog.Infrastructure.csproj" />
     <ProjectReference Include="..\Kartova.Catalog.Contracts\Kartova.Catalog.Contracts.csproj" />
+    <!-- Slice 9 / E1: handler tests reference the IUserDirectory port abstraction. -->
+    <ProjectReference Include="..\..\..\Kartova.SharedKernel.Identity\Kartova.SharedKernel.Identity.csproj" />
   </ItemGroup>
 
 </Project>
