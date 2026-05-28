@@ -7,12 +7,27 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Kartova.SharedKernel.AspNetCore;
 
 /// <summary>
-/// IClaimsTransformation that reads <c>tenant_id</c> and realm roles from the validated JWT
-/// and populates the scoped <see cref="ITenantContext"/>.
+/// <see cref="IClaimsTransformation"/> that reads <c>tenant_id</c> and realm roles from
+/// the validated JWT and populates the scoped <see cref="ITenantContext"/>.
 /// Realm roles live in the JSON claim <c>realm_access</c> with shape <c>{"roles": [...]}</c>.
-/// After populating the context, fans out to all registered <see cref="IPostAuthSyncHook"/>
-/// implementations so modules can perform post-auth sync work (e.g. user-projection upsert,
-/// invitation acceptance detection) inside the same request scope.
+/// <para>
+/// This transformation does claims-only work: it MUST NOT touch any service that
+/// depends on an active <see cref="ITenantScope"/>. ASP.NET runs
+/// <see cref="IClaimsTransformation"/> implementations inside the
+/// <c>UseAuthentication</c> middleware, which fires BEFORE
+/// <see cref="TenantScopeBeginMiddleware"/> opens the per-request connection +
+/// transaction. Resolving (e.g.) a module DbContext from here throws
+/// "TenantScope is not active" because the DbContext options factory calls
+/// <see cref="INpgsqlTenantScope.Connection"/> at materialization
+/// (see <c>AddModuleDbContextExtensions</c>).
+/// </para>
+/// <para>
+/// Post-auth sync work (user-projection upsert, invitation acceptance, etc.) is
+/// instead performed by <see cref="TenantScopeBeginMiddleware"/> which fans out
+/// to all registered <see cref="IPostAuthSyncHook"/> implementations AFTER
+/// <see cref="ITenantScope.BeginAsync"/> succeeds — the scope is then active and
+/// module DbContexts resolve correctly.
+/// </para>
 /// </summary>
 public sealed class TenantClaimsTransformation : IClaimsTransformation
 {
@@ -23,11 +38,11 @@ public sealed class TenantClaimsTransformation : IClaimsTransformation
         _services = services;
     }
 
-    public async Task<ClaimsPrincipal> TransformAsync(ClaimsPrincipal principal)
+    public Task<ClaimsPrincipal> TransformAsync(ClaimsPrincipal principal)
     {
         if (principal?.Identity?.IsAuthenticated != true)
         {
-            return principal!;
+            return Task.FromResult(principal!);
         }
 
         var context = _services.GetRequiredService<ITenantContext>();
@@ -62,16 +77,7 @@ public sealed class TenantClaimsTransformation : IClaimsTransformation
             }
         }
 
-        // Post-auth hooks: per-module sync work (user-projection upsert, invitation
-        // acceptance, etc.) that needs to run inside the request scope AFTER the
-        // tenant + role claims have been populated. Resolved from the current
-        // scope; foreach is a no-op when no hooks are registered.
-        foreach (var hook in _services.GetServices<IPostAuthSyncHook>())
-        {
-            await hook.ExecuteAsync(principal, CancellationToken.None);
-        }
-
-        return principal;
+        return Task.FromResult(principal);
     }
 
     private static IReadOnlyCollection<string> ExtractRealmRoles(ClaimsPrincipal principal)

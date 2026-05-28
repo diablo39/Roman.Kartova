@@ -124,6 +124,176 @@ public sealed class TenantScopeBeginMiddlewareTests
     }
 
     [TestMethod]
+    public async Task Middleware_invokes_post_auth_sync_hooks_after_BeginAsync_succeeds()
+    {
+        // Regression test for slice-9 Phase D: hooks were originally fanned out
+        // from TenantClaimsTransformation, which runs INSIDE UseAuthentication
+        // — BEFORE this middleware opens the per-request connection. A hook that
+        // resolved any AddModuleDbContext-registered DbContext therefore threw
+        // "TenantScope is not active" at materialization (the options factory
+        // calls scope.Connection). The fix moved the fan-out here, AFTER
+        // BeginAsync returns its handle.
+        var userId = Guid.NewGuid();
+        var tenantId = new TenantId(Guid.NewGuid());
+
+        var reader = Substitute.For<ITeamMembershipReader>();
+        reader.GetForUserAsync(userId, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<TeamMembershipInfo>>(Array.Empty<TeamMembershipInfo>()));
+
+        var handle = Substitute.For<IAsyncTenantScopeHandle>();
+        handle.DisposeAsync().Returns(ValueTask.CompletedTask);
+
+        var beginCalledAt = 0;
+        var hookCalledAt = 0;
+        var counter = 0;
+
+        var scope = Substitute.For<ITenantScope>();
+        scope.BeginAsync(Arg.Any<TenantId>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                beginCalledAt = ++counter;
+                return Task.FromResult(handle);
+            });
+
+        var spy = new OrderedSpyHook(() => hookCalledAt = ++counter);
+
+        var tenantContext = new TenantContextAccessor();
+        tenantContext.Populate(tenantId, new[] { "OrgAdmin" });
+
+        var services = new ServiceCollection();
+        services.AddSingleton<ITenantContext>(tenantContext);
+        services.AddSingleton(scope);
+        services.AddSingleton(reader);
+        services.AddSingleton<IPostAuthSyncHook>(spy);
+        var sp = services.BuildServiceProvider();
+
+        var httpContext = new DefaultHttpContext { RequestServices = sp };
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+            new[] { new Claim("sub", userId.ToString()) }, "test"));
+        httpContext.User = principal;
+
+        var endpoint = new Endpoint(
+            requestDelegate: _ => Task.CompletedTask,
+            metadata: new EndpointMetadataCollection(new RequireTenantScopeMarker()),
+            displayName: "test-endpoint");
+        httpContext.SetEndpoint(endpoint);
+
+        var sut = new TenantScopeBeginMiddleware(_ => Task.CompletedTask, Substitute.For<ILogger<TenantScopeBeginMiddleware>>());
+
+        await sut.InvokeAsync(httpContext);
+
+        Assert.AreEqual(1, spy.Invocations, "Hook must be invoked exactly once per request.");
+        Assert.AreSame(principal, spy.CapturedPrincipal,
+            "Hook must receive the request's ClaimsPrincipal so it can read sub/email/given_name/family_name.");
+        Assert.IsTrue(beginCalledAt > 0 && hookCalledAt > 0, "Both observers must have fired.");
+        Assert.IsTrue(beginCalledAt < hookCalledAt,
+            "Hook must run AFTER ITenantScope.BeginAsync so any DbContext it resolves sees an active scope.");
+        await handle.Received(1).DisposeAsync();
+    }
+
+    [TestMethod]
+    public async Task Middleware_disposes_handle_when_post_auth_sync_hook_throws()
+    {
+        // Hook failure must NOT leak the per-request connection — the finally
+        // block owns DisposeAsync regardless of where in the try body the throw
+        // came from (membership-reader, hook, or downstream pipeline).
+        var userId = Guid.NewGuid();
+        var tenantId = new TenantId(Guid.NewGuid());
+
+        var reader = Substitute.For<ITeamMembershipReader>();
+        reader.GetForUserAsync(userId, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<TeamMembershipInfo>>(Array.Empty<TeamMembershipInfo>()));
+
+        var handle = Substitute.For<IAsyncTenantScopeHandle>();
+        handle.DisposeAsync().Returns(ValueTask.CompletedTask);
+
+        var scope = Substitute.For<ITenantScope>();
+        scope.BeginAsync(Arg.Any<TenantId>(), Arg.Any<CancellationToken>()).Returns(handle);
+
+        var throwing = new ThrowingHook();
+
+        var tenantContext = new TenantContextAccessor();
+        tenantContext.Populate(tenantId, new[] { "OrgAdmin" });
+
+        var services = new ServiceCollection();
+        services.AddSingleton<ITenantContext>(tenantContext);
+        services.AddSingleton(scope);
+        services.AddSingleton(reader);
+        services.AddSingleton<IPostAuthSyncHook>(throwing);
+        var sp = services.BuildServiceProvider();
+
+        var httpContext = new DefaultHttpContext { RequestServices = sp };
+        httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(
+            new[] { new Claim("sub", userId.ToString()) }, "test"));
+
+        var endpoint = new Endpoint(
+            requestDelegate: _ => Task.CompletedTask,
+            metadata: new EndpointMetadataCollection(new RequireTenantScopeMarker()),
+            displayName: "test-endpoint");
+        httpContext.SetEndpoint(endpoint);
+
+        var sut = new TenantScopeBeginMiddleware(_ => Task.CompletedTask, Substitute.For<ILogger<TenantScopeBeginMiddleware>>());
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => sut.InvokeAsync(httpContext));
+
+        await handle.Received(1).DisposeAsync();
+    }
+
+    [TestMethod]
+    public async Task Middleware_skips_hook_fanout_when_endpoint_lacks_RequireTenantScopeMarker()
+    {
+        // Endpoints without the marker (anonymous, admin) do not open a scope,
+        // and therefore must NOT invoke the hooks — the hooks rely on an active
+        // scope to materialize their DbContexts.
+        var spy = new OrderedSpyHook(() => { });
+
+        var services = new ServiceCollection();
+        services.AddSingleton<ITenantContext, TenantContextAccessor>();
+        services.AddSingleton<IPostAuthSyncHook>(spy);
+        var sp = services.BuildServiceProvider();
+
+        var httpContext = new DefaultHttpContext { RequestServices = sp };
+        // Endpoint with NO RequireTenantScopeMarker.
+        var endpoint = new Endpoint(
+            requestDelegate: _ => Task.CompletedTask,
+            metadata: new EndpointMetadataCollection(),
+            displayName: "anonymous-endpoint");
+        httpContext.SetEndpoint(endpoint);
+
+        var sut = new TenantScopeBeginMiddleware(_ => Task.CompletedTask, Substitute.For<ILogger<TenantScopeBeginMiddleware>>());
+
+        await sut.InvokeAsync(httpContext);
+
+        Assert.AreEqual(0, spy.Invocations,
+            "Hooks must not run when the endpoint does not require a tenant scope — there is no active scope for them to use.");
+    }
+
+    private sealed class OrderedSpyHook : IPostAuthSyncHook
+    {
+        private readonly Action _onInvoke;
+
+        public OrderedSpyHook(Action onInvoke) { _onInvoke = onInvoke; }
+
+        public int Invocations { get; private set; }
+        public ClaimsPrincipal? CapturedPrincipal { get; private set; }
+
+        public Task ExecuteAsync(ClaimsPrincipal principal, CancellationToken ct)
+        {
+            Invocations++;
+            CapturedPrincipal = principal;
+            _onInvoke();
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class ThrowingHook : IPostAuthSyncHook
+    {
+        public Task ExecuteAsync(ClaimsPrincipal principal, CancellationToken ct)
+            => throw new InvalidOperationException("simulated hook failure");
+    }
+
+    [TestMethod]
     public async Task Middleware_logs_warning_when_sub_claim_missing()
     {
         // Arrange — no 'sub' claim on the principal. Middleware must skip membership

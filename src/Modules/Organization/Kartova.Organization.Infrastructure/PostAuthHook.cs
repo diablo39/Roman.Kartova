@@ -7,9 +7,10 @@ using Microsoft.EntityFrameworkCore;
 namespace Kartova.Organization.Infrastructure;
 
 /// <summary>
-/// Organization-module post-auth hook (spec §4.3, §5.2). Runs after
-/// <see cref="TenantClaimsTransformation"/> has populated the tenant + role claims
-/// and:
+/// Organization-module post-auth hook (spec §4.3, §5.2). Runs inside
+/// <c>TenantScopeBeginMiddleware</c> AFTER <see cref="ITenantScope"/> is active
+/// (and AFTER <see cref="TenantClaimsTransformation"/> has populated the tenant +
+/// role claims and the membership reader has filled team memberships) and:
 /// <list type="number">
 ///   <item>upserts the <c>users</c> projection from JWT claims (sub/email/given_name/family_name);</item>
 ///   <item>if a <see cref="Invitation"/> exists for the caller's KeyCloak user id in
@@ -19,7 +20,7 @@ namespace Kartova.Organization.Infrastructure;
 ///   request can react to it.</item>
 /// </list>
 /// Idempotent: the upsert merges by user id and the pending-status guard prevents
-/// double-acceptance if the transformation runs more than once per request.
+/// double-acceptance if the hook runs more than once per request.
 /// Consumed only via <see cref="IPostAuthSyncHook"/> DI — the concrete type is
 /// internal by design.
 /// </summary>

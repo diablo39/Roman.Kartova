@@ -112,6 +112,20 @@ public sealed class TenantScopeBeginMiddleware
                     sub);
             }
 
+            // Post-auth sync hooks — module-supplied work that needs an active
+            // tenant scope (e.g. user-projection upsert via OrganizationDbContext,
+            // invitation-acceptance detection). Originally fanned out from
+            // TenantClaimsTransformation but moved here because IClaimsTransformation
+            // runs INSIDE UseAuthentication, BEFORE this middleware opens the scope —
+            // any DbContext-using hook would throw "TenantScope is not active" at
+            // DbContext materialization (see AddModuleDbContextExtensions: the
+            // options factory calls scope.Connection).
+            // foreach is a no-op when no hooks are registered.
+            foreach (var hook in context.RequestServices.GetServices<IPostAuthSyncHook>())
+            {
+                await hook.ExecuteAsync(context.User, ct);
+            }
+
             await _next(context);   // parameter binding + filter chain + handler + IResult.ExecuteAsync
         }
         finally

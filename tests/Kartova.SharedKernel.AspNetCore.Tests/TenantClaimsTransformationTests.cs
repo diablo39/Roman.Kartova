@@ -187,6 +187,35 @@ public class TenantClaimsTransformationTests
             permClaims);
     }
 
+    [TestMethod]
+    public async Task Does_not_resolve_post_auth_sync_hooks()
+    {
+        // Regression test: IClaimsTransformation runs INSIDE UseAuthentication,
+        // BEFORE TenantScopeBeginMiddleware opens the per-request connection.
+        // Resolving any IPostAuthSyncHook here would (transitively) materialize
+        // module DbContexts whose options factory calls ITenantScope.Connection
+        // and throws "TenantScope is not active". The hook fan-out lives in
+        // TenantScopeBeginMiddleware instead — this test pins that boundary.
+        var (principal, ctx) = Setup(
+            new Claim(KartovaClaims.TenantId, "11111111-1111-1111-1111-111111111111"),
+            new Claim(KartovaClaims.RealmAccess, """{"roles":["Member"]}""")
+        );
+        var probe = new ThrowingHookProbe();
+        var services = new ServiceCollection();
+        services.AddSingleton(ctx);
+        services.AddSingleton<IPostAuthSyncHook>(probe);
+        var sp = services.BuildServiceProvider();
+        var sut = new TenantClaimsTransformation(sp);
+
+        // If the transformation tried to resolve and invoke the hook the probe
+        // would throw, failing the test. A successful call proves the fan-out
+        // has been moved out of this transformation.
+        await sut.TransformAsync(principal);
+
+        Assert.AreEqual(0, probe.ExecuteInvocations,
+            "TenantClaimsTransformation must NOT invoke IPostAuthSyncHook implementations — that fan-out belongs to TenantScopeBeginMiddleware.");
+    }
+
     private static IServiceProvider ProviderFor(ITenantContext ctx)
     {
         var services = new ServiceCollection();
@@ -194,61 +223,18 @@ public class TenantClaimsTransformationTests
         return services.BuildServiceProvider();
     }
 
-    private static IServiceProvider ProviderFor(ITenantContext ctx, params IPostAuthSyncHook[] hooks)
+    private sealed class ThrowingHookProbe : IPostAuthSyncHook
     {
-        var services = new ServiceCollection();
-        services.AddSingleton(ctx);
-        foreach (var hook in hooks)
-        {
-            services.AddSingleton(hook);
-        }
-        return services.BuildServiceProvider();
-    }
-
-    [TestMethod]
-    public async Task Invokes_registered_post_auth_sync_hooks()
-    {
-        var (principal, ctx) = Setup(
-            new Claim(KartovaClaims.TenantId, "11111111-1111-1111-1111-111111111111"),
-            new Claim(KartovaClaims.RealmAccess, """{"roles":["Member"]}""")
-        );
-        var spy = new SpyHook();
-        var sut = new TenantClaimsTransformation(ProviderFor(ctx, spy));
-
-        var result = await sut.TransformAsync(principal);
-
-        Assert.AreEqual(1, spy.Invocations, "Hook must be invoked exactly once.");
-        Assert.AreSame(principal, spy.CapturedPrincipal, "Hook must receive the transformed principal.");
-        Assert.IsTrue(result.IsInRole("Member"));
-    }
-
-    [TestMethod]
-    public async Task Skips_hooks_when_principal_is_unauthenticated()
-    {
-        var principal = new ClaimsPrincipal(new ClaimsIdentity()); // not authenticated
-        var services = new ServiceCollection();
-        services.AddSingleton<ITenantContext, TenantContextAccessor>();
-        var spy = new SpyHook();
-        services.AddSingleton<IPostAuthSyncHook>(spy);
-        var sp = services.BuildServiceProvider();
-        var sut = new TenantClaimsTransformation(sp);
-
-        await sut.TransformAsync(principal);
-
-        Assert.AreEqual(0, spy.Invocations,
-            "Hooks must not run for unauthenticated principals — the transform short-circuits before claim flattening.");
-    }
-
-    private sealed class SpyHook : IPostAuthSyncHook
-    {
-        public int Invocations { get; private set; }
-        public ClaimsPrincipal? CapturedPrincipal { get; private set; }
+        public int ExecuteInvocations { get; private set; }
 
         public Task ExecuteAsync(ClaimsPrincipal principal, CancellationToken ct)
         {
-            Invocations++;
-            CapturedPrincipal = principal;
-            return Task.CompletedTask;
+            ExecuteInvocations++;
+            // Simulates the production failure mode: any DbContext-using hook would
+            // throw at materialization because TenantScope is not yet active when
+            // IClaimsTransformation runs.
+            throw new InvalidOperationException(
+                "Hook must not be invoked from TenantClaimsTransformation — scope is not active here.");
         }
     }
 }
