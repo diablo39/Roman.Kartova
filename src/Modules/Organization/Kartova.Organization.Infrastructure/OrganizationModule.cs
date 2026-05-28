@@ -159,6 +159,31 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // ---- Invitations (slice 9 spec §6.7) -------------------------------
+        // Create / Revoke gate on the corresponding permissions. Three-way
+        // 409 model (already-in-tenant / already-invited / already-on-platform)
+        // surfaces via dedicated ProblemTypes constants.
+        tenant.MapGet("/invitations", OrganizationEndpointDelegates.ListInvitationsAsync)
+            .RequireAuthorization(KartovaPermissions.OrgInvitationsRead)
+            .WithName("ListInvitations")
+            .Produces<CursorPage<InvitationResponse>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest);
+
+        tenant.MapPost("/invitations", OrganizationEndpointDelegates.CreateInvitationAsync)
+            .RequireAuthorization(KartovaPermissions.OrgInvitationsCreate)
+            .WithName("CreateInvitation")
+            .Produces<CreateInvitationResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .ProducesProblem(StatusCodes.Status502BadGateway);
+
+        tenant.MapPost("/invitations/{id:guid}/revoke", OrganizationEndpointDelegates.RevokeInvitationAsync)
+            .RequireAuthorization(KartovaPermissions.OrgInvitationsRevoke)
+            .WithName("RevokeInvitation")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
@@ -208,6 +233,12 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
         services.AddScoped<UpdateTeamMemberHandler>();
         services.AddScoped<GetTeamHandler>();
         services.AddScoped<ListTeamsHandler>();
+
+        // Invitation lifecycle handlers (slice 9 spec §6.7) — same direct-
+        // dispatch pattern as the Team handlers above.
+        services.AddScoped<CreateInvitationHandler>();
+        services.AddScoped<RevokeInvitationHandler>();
+        services.AddScoped<ListInvitationsHandler>();
 
         // Post-auth hook: upserts `users` projection from JWT claims + detects invitation
         // acceptance for the current request (spec §4.3, §5.2). Resolved by

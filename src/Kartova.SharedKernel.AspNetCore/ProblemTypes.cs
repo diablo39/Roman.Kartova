@@ -37,4 +37,10 @@ public static class ProblemTypes
 
     // Logo upload validation — slice 9 (spec §6.4).
     public const string UnsupportedLogoMedia   = Base + "unsupported-logo-media";
+
+    // Invitation lifecycle conflicts — slice 9 (spec §6.7).
+    public const string EmailAlreadyInTenant   = Base + "email-already-in-tenant";
+    public const string EmailAlreadyInvited    = Base + "email-already-invited";
+    public const string EmailAlreadyOnPlatform = Base + "email-already-on-platform";
+    public const string InvitationNotPending   = Base + "invitation-not-pending";
 }
