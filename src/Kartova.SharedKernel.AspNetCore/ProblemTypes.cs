@@ -35,6 +35,9 @@ public static class ProblemTypes
     public const string TeamHasApplications    = Base + "team-has-applications";
     public const string InvalidTeam            = Base + "invalid-team";
 
+    // Catalog ?ownerUserId= filter — slice 9 / E2 (spec §6.5).
+    public const string InvalidOwner           = Base + "invalid-owner";
+
     // Logo upload validation — slice 9 (spec §6.4).
     public const string UnsupportedLogoMedia   = Base + "unsupported-logo-media";
 

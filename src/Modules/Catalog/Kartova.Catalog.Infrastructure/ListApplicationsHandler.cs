@@ -52,6 +52,21 @@ public sealed class ListApplicationsHandler(IUserDirectory directory)
             source = source.Where(a => a.Lifecycle != Lifecycle.Decommissioned);
         }
 
+        // Slice 9 / E2 (spec §6.5): optional ownerUserId filter. Endpoint-level
+        // IUserDirectory validation guarantees that, if non-null, the supplied
+        // id resolves to a user in the current tenant — so by the time we get
+        // here the predicate is safe to apply. RLS still scopes the row set, so
+        // a leak-by-construction (e.g., owner row from another tenant) would
+        // still produce an empty page rather than expose cross-tenant data.
+        // TODO: Phase H — encode ownerUserId in the cursor for filter-mismatch
+        // detection symmetric to IncludeDecommissioned. Out of scope for E2
+        // per the slice-9 plan; the SPA does not change filters mid-pagination
+        // and there is no security implication (RLS still bounds the result set).
+        if (q.OwnerUserId is { } ownerUserId)
+        {
+            source = source.Where(a => a.OwnerUserId == ownerUserId);
+        }
+
         var page = await source
             .ToCursorPagedAsync(
                 spec, q.SortOrder, q.Cursor, q.Limit,
