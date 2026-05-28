@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -68,12 +68,17 @@ export function InviteUserDialog({ open, onOpenChange }: Props) {
     defaultValues: DEFAULT_VALUES,
   });
 
-  useEffect(() => {
-    if (!open) {
+  // Drive the reset off the open-change callback rather than a useEffect.
+  // This avoids `react-hooks/set-state-in-effect` (setSuccess inside an effect)
+  // and guarantees the reset runs synchronously as the dialog closes — so the
+  // next open always shows a clean form view.
+  const handleOpenChange = (next: boolean) => {
+    if (!next) {
       form.reset(DEFAULT_VALUES);
       setSuccess(null);
     }
-  }, [open, form]);
+    onOpenChange(next);
+  };
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
@@ -128,7 +133,7 @@ export function InviteUserDialog({ open, onOpenChange }: Props) {
   return (
     <ModalOverlay
       isOpen={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={handleOpenChange}
       isDismissable={!mutation.isPending}
     >
       <Modal className="max-w-[560px]">
@@ -155,7 +160,7 @@ export function InviteUserDialog({ open, onOpenChange }: Props) {
                   type="button"
                   color="primary"
                   size="sm"
-                  onClick={() => onOpenChange(false)}
+                  onClick={() => handleOpenChange(false)}
                 >
                   Done
                 </Button>
@@ -236,7 +241,7 @@ export function InviteUserDialog({ open, onOpenChange }: Props) {
                     type="button"
                     color="secondary"
                     size="sm"
-                    onClick={() => onOpenChange(false)}
+                    onClick={() => handleOpenChange(false)}
                     isDisabled={mutation.isPending}
                   >
                     Cancel

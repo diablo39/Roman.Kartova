@@ -163,8 +163,9 @@ describe("InvitationsPage", () => {
     expect(screen.getByText("alice@example.com")).toBeInTheDocument();
     expect(screen.getByText("bob@example.com")).toBeInTheDocument();
     // "Pending" appears twice — as the active tab label AND the badge for the
-    // pending row. Use getAllByText to assert at least one match (the badge).
-    expect(screen.getAllByText("Pending").length).toBeGreaterThan(0);
+    // pending row. Require BOTH occurrences so a regression that drops the
+    // status badge (leaving only the tab label) still fails the test.
+    expect(screen.getAllByText("Pending").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText("Accepted")).toBeInTheDocument();
   });
 
