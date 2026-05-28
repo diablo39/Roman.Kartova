@@ -9,6 +9,7 @@ using Kartova.Organization.Infrastructure;
 using Kartova.Organization.Infrastructure.Admin;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Postgres;
 using Microsoft.AspNetCore.Authentication;
@@ -48,6 +49,11 @@ public class Program
         // JWT authentication — ADR-0006/0007/0014 + claims transformation populates ITenantContext.
         builder.Services.AddKartovaJwtAuth(builder.Configuration);
         builder.Services.AddScoped<IClaimsTransformation, TenantClaimsTransformation>();
+
+        // Slice 9 D9: KeyCloak Admin client (service-account flow) for the kartova-admin
+        // realm client. Used by CreateInvitationHandler/RevokeInvitationHandler/ExpireInvitations
+        // to provision and clean up KC users. Reads from KartovaIdentity:Keycloak section.
+        builder.Services.AddKeycloakAdminClient(builder.Configuration);
 
         // RFC 7807 problem details — ADR-0091.
         builder.Services.AddProblemDetails(options =>

@@ -100,6 +100,20 @@
           }
         }
       ]
+    },
+    {
+      "clientId": "kartova-admin",
+      "name": "Kartova Admin API Client (slice 9)",
+      "description": "Service-account flow for invitation provisioning and KC user cleanup. ADR-0009 + slice-9 spec §6.7.",
+      "enabled": true,
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "secret": "admin-dev-secret",
+      "attributes": {
+        "use.refresh.tokens": "false"
+      }
     }
   ],
   "users": [
@@ -189,6 +203,18 @@
         { "type": "password", "value": "dev_pass", "temporary": false }
       ],
       "realmRoles": ["platform-admin"]
+    },
+    {
+      "username": "service-account-kartova-admin",
+      "enabled": true,
+      "serviceAccountClientId": "kartova-admin",
+      "clientRoles": {
+        "realm-management": [
+          "manage-users",
+          "view-users",
+          "view-realm"
+        ]
+      }
     }
   ]
 }
