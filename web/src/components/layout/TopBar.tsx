@@ -1,7 +1,7 @@
 import { SearchSm, ChevronDown, LogOut01 } from "@untitledui/icons";
 import { Button as AriaButton } from "react-aria-components";
 import { useAuth } from "react-oidc-context";
-import { useOrgProfile } from "@/features/organization/api/organization";
+import { useOrgProfile, useLogoUrl } from "@/features/organization/api/organization";
 import { useCurrentUser } from "@/shared/auth/useCurrentUser";
 import { initialsOf } from "@/shared/auth/initials";
 import { Avatar } from "@/components/base/avatar/avatar";
@@ -11,6 +11,7 @@ import { Dropdown } from "@/components/base/dropdown/dropdown";
 
 export function TopBar() {
   const orgQuery = useOrgProfile();
+  const logoUrl = useLogoUrl();
   const user = useCurrentUser();
   const auth = useAuth();
 
@@ -18,14 +19,24 @@ export function TopBar() {
 
   return (
     <header className="flex h-14 items-center gap-4 border-b border-secondary bg-primary px-6">
-      {/* Tenant pill */}
-      <div data-testid="tenant-pill" className="flex items-center">
+      {/* Tenant identity — renders the uploaded logo when available (Slice-9 F2/F7),
+          else falls back to the org displayName as a gray pill. */}
+      <div data-testid="tenant-pill" className="flex items-center gap-2">
         {orgQuery.isLoading ? (
-          <Skeleton className="h-6 w-32" data-testid="tenant-skeleton" />
+          <Skeleton className="h-8 w-32" data-testid="tenant-skeleton" />
         ) : orgQuery.isSuccess ? (
-          <Badge color="gray" type="pill-color" size="sm" className="uppercase tracking-wide">
-            {orgQuery.data.displayName}
-          </Badge>
+          logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={orgQuery.data.displayName}
+              className="h-8 w-8 rounded object-contain"
+              data-testid="tenant-logo"
+            />
+          ) : (
+            <Badge color="gray" type="pill-color" size="sm" className="uppercase tracking-wide">
+              {orgQuery.data.displayName}
+            </Badge>
+          )
         ) : null}
       </div>
 

@@ -3,24 +3,61 @@ import { cx } from "@/lib/utils/cx";
 import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
 
-interface NavItem {
-  to: string;
-  label: string;
-  enabled: boolean;
+/**
+ * Visual section header inside the sidebar. Renders a small uppercase title
+ * above a stack of `NavItemLink`s — used by Slice-9 F7 to group the
+ * permission-gated "Settings" sub-navigation under a dedicated heading so it
+ * reads as a distinct section instead of a fourth top-level link.
+ */
+function NavGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mt-4 space-y-1" data-testid={`nav-group-${title.toLowerCase()}`}>
+      <div className="px-3 pt-3 pb-1 text-xs font-medium uppercase tracking-wide text-tertiary">
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Active-aware navigation link styled to match the existing top-level entries.
+ * Extracted so the Settings group can render sub-items with identical chrome.
+ */
+function NavItemLink({ to, label }: { to: string; label: string }) {
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        cx(
+          "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+          isActive
+            ? "bg-brand-solid text-white"
+            : "text-secondary hover:bg-primary_hover",
+        )
+      }
+    >
+      {label}
+    </NavLink>
+  );
+}
+
+function DisabledItem({ label }: { label: string }) {
+  return (
+    <span
+      className="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm text-tertiary opacity-50"
+      data-disabled="true"
+    >
+      {label}
+    </span>
+  );
 }
 
 export function Sidebar() {
   const { hasPermission } = usePermissions();
   const canSeeTeams = hasPermission(KartovaPermissions.TeamRead);
-
-  const items: NavItem[] = [
-    { to: "/catalog", label: "Catalog", enabled: true },
-    ...(canSeeTeams ? [{ to: "/teams", label: "Teams", enabled: true }] : []),
-    { to: "/services", label: "Services", enabled: false },
-    { to: "/infrastructure", label: "Infrastructure", enabled: false },
-    { to: "/docs", label: "Docs", enabled: false },
-    { to: "/settings", label: "Settings", enabled: false },
-  ];
+  const canSeeOrgSettings = hasPermission(KartovaPermissions.OrgProfileRead);
+  const canSeeInvitations = hasPermission(KartovaPermissions.OrgInvitationsRead);
 
   return (
     <aside className="flex h-full w-[260px] flex-col border-r border-secondary bg-secondary">
@@ -29,33 +66,38 @@ export function Sidebar() {
       </div>
       <nav className="flex-1 overflow-y-auto p-3">
         <ul className="space-y-1">
-          {items.map(item => (
-            <li key={item.to}>
-              {item.enabled ? (
-                <NavLink
-                  to={item.to}
-                  className={({ isActive }) =>
-                    cx(
-                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-                      isActive
-                        ? "bg-brand-solid text-white"
-                        : "text-secondary hover:bg-primary_hover",
-                    )
-                  }
-                >
-                  {item.label}
-                </NavLink>
-              ) : (
-                <span
-                  className="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm text-tertiary opacity-50"
-                  data-disabled="true"
-                >
-                  {item.label}
-                </span>
-              )}
+          <li>
+            <NavItemLink to="/catalog" label="Catalog" />
+          </li>
+          {canSeeTeams && (
+            <li>
+              <NavItemLink to="/teams" label="Teams" />
             </li>
-          ))}
+          )}
+          <li>
+            <DisabledItem label="Services" />
+          </li>
+          <li>
+            <DisabledItem label="Infrastructure" />
+          </li>
+          <li>
+            <DisabledItem label="Docs" />
+          </li>
         </ul>
+        {canSeeOrgSettings && (
+          <NavGroup title="Settings">
+            <ul className="space-y-1">
+              <li>
+                <NavItemLink to="/settings/organization" label="Organization" />
+              </li>
+              {canSeeInvitations && (
+                <li>
+                  <NavItemLink to="/settings/invitations" label="Invitations" />
+                </li>
+              )}
+            </ul>
+          </NavGroup>
+        )}
       </nav>
     </aside>
   );
