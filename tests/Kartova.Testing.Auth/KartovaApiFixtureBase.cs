@@ -133,6 +133,14 @@ public abstract class KartovaApiFixtureBase
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Authority), TestJwtSigner.Issuer);
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Audience), TestJwtSigner.Audience);
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.RequireHttpsMetadata), "false");
+        // Slice 9 / Phase D: Kartova.SharedKernel.Identity.AddKeycloakAdminClient runs
+        // .ValidateOnStart() and rejects the appsettings.json placeholder verbatim.
+        // Integration tests do not actually exercise the KC admin client, but the
+        // options validation runs at host startup unconditionally — supply a test-only
+        // secret so the host boots. Production overrides this via secret store.
+        Environment.SetEnvironmentVariable(
+            "KartovaIdentity__Keycloak__AdminClientSecret",
+            "test-only-secret-not-used-by-any-real-call");
         return base.CreateHost(builder);
     }
 
