@@ -21,6 +21,8 @@ type ApplicationsListParams = {
   limit?: number;
   /** ADR-0073 default-view rule: false (the default) hides Decommissioned rows. Slice 6. */
   includeDecommissioned?: boolean;
+  /** When set, server filters to applications owned by this user (slice-9 E2). */
+  ownerUserId?: string;
 };
 
 export const applicationKeys = {
@@ -60,6 +62,9 @@ export function useApplicationsList(params: ApplicationsListParams) {
             limit: params.limit ?? 50,
             cursor,
             includeDecommissioned: params.includeDecommissioned ?? false,
+            // Only thread `ownerUserId` when set so the wire stays clean for the
+            // default list view (server treats omitted == "no filter").
+            ...(params.ownerUserId ? { ownerUserId: params.ownerUserId } : {}),
           },
         },
       });
