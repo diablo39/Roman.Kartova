@@ -78,11 +78,15 @@ public sealed class ListApplicationsOwnerFilterTests : CatalogIntegrationTestBas
         }
         finally
         {
-            // Clean rows the test owns. Order: catalog rows first (cheap prefix
-            // sweep), then user rows (no prefix sweep, more leak-prone if left).
-            await Fx.DeleteApplicationsByPrefixAsync(tenantId, unique);
+            // Order: user-row deletes first so the more leak-prone cleanup
+            // (Organization schema, no prefix-based sweep) runs even if the
+            // catalog cleanup is the one that throws. Catalog rows can be
+            // recovered by DeleteApplicationsByPrefixAsync. Mirrors the E1
+            // convention established in commit e5aaf73 +
+            // ApplicationOwnerEnrichmentTests.cs.
             await Fx.DeleteUserInOrganizationAsync(ownerA);
             await Fx.DeleteUserInOrganizationAsync(ownerB);
+            await Fx.DeleteApplicationsByPrefixAsync(tenantId, unique);
         }
     }
 
@@ -173,9 +177,12 @@ public sealed class ListApplicationsOwnerFilterTests : CatalogIntegrationTestBas
         }
         finally
         {
-            await Fx.DeleteApplicationsByPrefixAsync(tenantId, unique);
+            // Order: user-row deletes first (Organization schema, no prefix
+            // sweep, more leak-prone) then catalog rows. Mirrors E1's e5aaf73
+            // convention and ApplicationOwnerEnrichmentTests.cs.
             await Fx.DeleteUserInOrganizationAsync(ownerA);
             await Fx.DeleteUserInOrganizationAsync(ownerB);
+            await Fx.DeleteApplicationsByPrefixAsync(tenantId, unique);
         }
     }
 }
