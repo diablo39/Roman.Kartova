@@ -12,6 +12,7 @@ COPY Directory.Packages.props ./
 COPY NuGet.Config ./
 COPY src/Kartova.SharedKernel/*.csproj src/Kartova.SharedKernel/
 COPY src/Kartova.SharedKernel.AspNetCore/*.csproj src/Kartova.SharedKernel.AspNetCore/
+COPY src/Kartova.SharedKernel.Identity/*.csproj src/Kartova.SharedKernel.Identity/
 COPY src/Kartova.SharedKernel.Postgres/*.csproj src/Kartova.SharedKernel.Postgres/
 COPY src/Kartova.SharedKernel.Wolverine/*.csproj src/Kartova.SharedKernel.Wolverine/
 COPY src/Kartova.Api/*.csproj src/Kartova.Api/
