@@ -202,6 +202,25 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
             .WithName("GetUserDetail")
             .Produces<UserDetailResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // ---- Session bootstrap (slice 9 spec §6.7 / §9.8) ------------------
+        // POST /api/v1/auth/session sits OUTSIDE the /organizations slug — it's
+        // a per-request bootstrap, not an organization resource. The endpoint
+        // still needs RequireTenantScope so OrganizationDbContext resolves
+        // against an open ITenantScope (spec §9.8 step 3). Mapped here rather
+        // than in a dedicated auth module because the handler is module-owned
+        // (Invitation lookup + org-profile join).
+        //
+        // Auth gate: RequireAuthorization() with no policy = any valid JWT.
+        // Permission-level gating would defeat the bootstrap's purpose — we
+        // need EVERY authenticated tenant member (incl. fresh invitees on
+        // first login) to be able to call this.
+        var authGroup = app.MapGroup("/api/v1/auth").RequireTenantScope();
+        authGroup.MapPost("/session", OrganizationEndpointDelegates.StartSessionAsync)
+            .RequireAuthorization()
+            .WithName("StartSession")
+            .Produces<SessionStartResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized);
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
@@ -246,6 +265,12 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
         // Logo upload/clear/serve handler (slice-9 spec §6.4) — same Infrastructure
         // placement as the sibling profile handlers above.
         services.AddScoped<LogoCommands>();
+
+        // Session bootstrap handler (slice 9 spec §6.7 / §9.8) — composes the
+        // org-profile read with the invitation lookup so the SPA can hydrate a
+        // fresh session in one round-trip. Same Infrastructure placement as the
+        // queries it composes — depends on OrganizationDbContext.
+        services.AddScoped<SessionStartHandler>();
 
         services.AddScoped<CreateTeamHandler>();
         services.AddScoped<UpdateTeamHandler>();

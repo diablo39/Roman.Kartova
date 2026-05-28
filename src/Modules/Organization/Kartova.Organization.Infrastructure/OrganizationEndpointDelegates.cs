@@ -717,6 +717,25 @@ internal static class OrganizationEndpointDelegates
         return Results.Ok(user);
     }
 
+    // ----- Session bootstrap (slice 9 spec §6.7 / §9.8) ------------------
+
+    /// <summary>
+    /// <c>POST /api/v1/auth/session</c>: single-shot post-login payload. Returns
+    /// caller identity + role + permission set + team memberships + org profile
+    /// + (optionally) the just-accepted-invitation block used to drive the
+    /// SPA's one-time welcome screen. Lives inside the Organization module
+    /// because the handler owns the Invitation read and the org-profile join —
+    /// the URL diverges from <c>/api/v1/organizations</c> only because "session"
+    /// isn't an organization resource (it's a per-request bootstrap).
+    /// </summary>
+    internal static async Task<IResult> StartSessionAsync(
+        SessionStartHandler handler,
+        CancellationToken ct)
+    {
+        var response = await handler.HandleAsync(ct);
+        return Results.Ok(response);
+    }
+
     // ----- shared helpers -----------------------------------------------
 
     /// <summary>
