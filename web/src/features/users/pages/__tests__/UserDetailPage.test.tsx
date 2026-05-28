@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
@@ -74,7 +74,15 @@ function userQuery(state: Partial<{ isLoading: boolean; isError: boolean; data: 
   });
 }
 
-function appsQuery(state: Partial<{ isLoading: boolean; isError: boolean; items: unknown[]; error: unknown }>) {
+function appsQuery(
+  state: Partial<{
+    isLoading: boolean;
+    isError: boolean;
+    items: unknown[];
+    error: unknown;
+    refetch: ReturnType<typeof vi.fn>;
+  }>,
+) {
   useApplicationsListMock.mockReturnValue({
     isLoading: false,
     isError: false,
@@ -86,6 +94,7 @@ function appsQuery(state: Partial<{ isLoading: boolean; isError: boolean; items:
     goNext: vi.fn(),
     goPrev: vi.fn(),
     reset: vi.fn(),
+    refetch: vi.fn(),
     ...state,
   });
 }
@@ -197,6 +206,23 @@ describe("UserDetailPage", () => {
     expect(screen.getAllByText("alice@example.com").length).toBeGreaterThanOrEqual(1);
     // Apps card shows its own error state.
     expect(screen.getByText(/failed to load applications/i)).toBeInTheDocument();
+  });
+
+  it("'Try again' on the apps error invokes useApplicationsList.refetch (regression: reset is a no-op for first-page error)", () => {
+    permissions(true);
+    userQuery({ data: baseUser });
+    const refetch = vi.fn();
+    appsQuery({ isError: true, error: new Error("apps boom"), refetch });
+    render(harness());
+
+    // The apps card surfaces its own retry button — distinct from the user
+    // card's "Try again". Scope the button query to the apps error region.
+    const appsError = screen.getByText(/failed to load applications/i).parentElement!;
+    const button = appsError.querySelector("button")!;
+    expect(button).toHaveTextContent(/try again/i);
+    fireEvent.click(button);
+
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 
   it("threads ownerUserId into useApplicationsList for the owned-apps query", () => {

@@ -33,6 +33,7 @@ function makeList(overrides: Partial<CursorListResult<ApplicationRow>>): CursorL
     goNext: () => {},
     goPrev: () => {},
     reset: () => {},
+    refetch: () => {},
     ...overrides,
   };
 }

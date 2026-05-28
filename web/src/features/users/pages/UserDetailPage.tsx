@@ -179,7 +179,7 @@ export function UserDetailPage() {
               <p className="text-sm text-error-primary">Failed to load applications.</p>
               <button
                 type="button"
-                onClick={() => appsList.reset()}
+                onClick={() => appsList.refetch()}
                 className="text-sm text-primary hover:underline"
               >
                 Try again

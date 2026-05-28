@@ -96,6 +96,32 @@ describe("useCursorList", () => {
     expect(result.current.hasPrev).toBe(false);
   });
 
+  it("refetch re-runs the current page query without mutating the cursor stack", async () => {
+    // Regression: a first-page failure leaves the stack as [undefined]. Calling
+    // `reset()` is a no-op in that case (assigning the same stack identity
+    // doesn't change the queryKey), so React Query never re-runs the failed
+    // query. `refetch` explicitly re-invokes the active query.
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const fetchPage = fetchPageMock([
+      { items: [{ id: "a", name: "A" }], nextCursor: null, prevCursor: null },
+    ]);
+
+    const { result } = renderHook(
+      () => useCursorList<Row>({ queryKey: ["t"], fetchPage }),
+      { wrapper: wrapper(qc) }
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(fetchPage).toHaveBeenCalledTimes(1);
+    expect(result.current.hasPrev).toBe(false);
+
+    act(() => { result.current.refetch(); });
+
+    await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(2));
+    // Same page, same cursor — refetch must not mutate the cursor stack.
+    expect(fetchPage.mock.calls[1]![0]).toBeUndefined();
+    expect(result.current.hasPrev).toBe(false);
+  });
+
   it("reset clears the cursor stack and refetches first page", async () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const fetchPage = fetchPageMock([

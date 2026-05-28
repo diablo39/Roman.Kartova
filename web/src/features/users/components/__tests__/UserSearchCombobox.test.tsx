@@ -150,4 +150,111 @@ describe("UserSearchCombobox", () => {
     expect(screen.queryByRole("listbox")).toBeNull();
     document.body.removeChild(outside);
   });
+
+  // ------------------------------------------------------------------
+  // Keyboard navigation (WAI-ARIA APG 1.2 combobox pattern).
+  // ------------------------------------------------------------------
+
+  /**
+   * Waits for the listbox to render `expected` options. The combobox's debounce
+   * + React Query roundtrip means options arrive on a microtask, so direct
+   * synchronous reads can race the render.
+   */
+  async function openWithResults(): Promise<{
+    input: HTMLInputElement;
+    options: HTMLElement[];
+  }> {
+    const input = screen.getByRole("combobox") as HTMLInputElement;
+    typeInto(input, "al");
+    await screen.findByRole("option", { name: /Alice/ }, { timeout: 2000 });
+    const options = screen.getAllByRole("option");
+    return { input, options };
+  }
+
+  it("ArrowDown from the input activates the first option, then advances", async () => {
+    const get = vi.fn().mockResolvedValue({ data: USERS, error: undefined });
+    mockApiClient(get);
+    renderHarness();
+
+    const { input, options } = await openWithResults();
+    expect(input.getAttribute("aria-activedescendant")).toBeNull();
+
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    expect(input.getAttribute("aria-activedescendant")).toBe(options[0]!.id);
+    expect(options[0]).toHaveAttribute("aria-selected", "true");
+    expect(options[1]).toHaveAttribute("aria-selected", "false");
+
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    expect(input.getAttribute("aria-activedescendant")).toBe(options[1]!.id);
+    expect(options[1]).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("ArrowDown past the last result clamps to the last option (no wrap)", async () => {
+    const get = vi.fn().mockResolvedValue({ data: USERS, error: undefined });
+    mockApiClient(get);
+    renderHarness();
+
+    const { input, options } = await openWithResults();
+
+    fireEvent.keyDown(input, { key: "ArrowDown" }); // -> 0
+    fireEvent.keyDown(input, { key: "ArrowDown" }); // -> 1 (last)
+    fireEvent.keyDown(input, { key: "ArrowDown" }); // would-be 2, clamped to 1
+
+    expect(input.getAttribute("aria-activedescendant")).toBe(options[1]!.id);
+  });
+
+  it("ArrowUp from the first option stays at index 0 (no wrap to bottom)", async () => {
+    const get = vi.fn().mockResolvedValue({ data: USERS, error: undefined });
+    mockApiClient(get);
+    renderHarness();
+
+    const { input, options } = await openWithResults();
+
+    fireEvent.keyDown(input, { key: "ArrowDown" }); // -> 0
+    fireEvent.keyDown(input, { key: "ArrowUp" }); // would-be -1, clamped to 0
+
+    expect(input.getAttribute("aria-activedescendant")).toBe(options[0]!.id);
+  });
+
+  it("Enter on the active option fires onSelect and clears the input", async () => {
+    const get = vi.fn().mockResolvedValue({ data: USERS, error: undefined });
+    mockApiClient(get);
+    const { onSelect } = renderHarness();
+
+    const { input } = await openWithResults();
+
+    fireEvent.keyDown(input, { key: "ArrowDown" }); // -> 0 (Alice)
+    fireEvent.keyDown(input, { key: "ArrowDown" }); // -> 1 (Alex)
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith(USERS[1]);
+    expect(input.value).toBe("");
+    // Listbox closes after selection.
+    expect(screen.queryByRole("listbox")).toBeNull();
+  });
+
+  it("typing a new query resets the active descendant (no stale highlight across searches)", async () => {
+    const get = vi
+      .fn()
+      // First search: both Alice + Alex.
+      .mockResolvedValueOnce({ data: USERS, error: undefined })
+      // Second search: only Alex (different identity).
+      .mockResolvedValueOnce({ data: [USERS[1]], error: undefined });
+    mockApiClient(get);
+    renderHarness();
+
+    const { input } = await openWithResults();
+
+    fireEvent.keyDown(input, { key: "ArrowDown" }); // -> 0
+    fireEvent.keyDown(input, { key: "ArrowDown" }); // -> 1
+    expect(input.getAttribute("aria-activedescendant")).not.toBeNull();
+
+    // Type a new query — clearing the active index is the regression.
+    fireEvent.change(input, { target: { value: "alex" } });
+    await waitFor(() =>
+      expect(input.getAttribute("aria-activedescendant")).toBeNull(),
+      { timeout: 2000 },
+    );
+  });
 });

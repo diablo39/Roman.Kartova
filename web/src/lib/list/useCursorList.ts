@@ -60,6 +60,14 @@ export function useCursorList<TItem>(
 
   const reset = useCallback(() => setStack([undefined]), []);
 
+  // Surface React Query's refetch so callers can retry after a first-page
+  // error. `reset()` alone is a no-op in that case — the stack is already
+  // `[undefined]`, so React Query has no reason to re-run.
+  const { refetch: queryRefetch } = query;
+  const refetch = useCallback(() => {
+    void queryRefetch();
+  }, [queryRefetch]);
+
   return {
     items: query.data?.items ?? [],
     isLoading: query.isLoading,
@@ -71,5 +79,6 @@ export function useCursorList<TItem>(
     goNext,
     goPrev,
     reset,
+    refetch,
   };
 }
