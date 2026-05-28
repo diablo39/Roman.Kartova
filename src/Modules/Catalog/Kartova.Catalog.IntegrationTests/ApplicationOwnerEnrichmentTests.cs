@@ -47,8 +47,11 @@ public sealed class ApplicationOwnerEnrichmentTests : CatalogIntegrationTestBase
         }
         finally
         {
-            await Fx.DeleteApplicationAsync(tenantId, appId);
+            // Order: user-row delete first so the more leak-prone cleanup (Organization
+            // schema, no prefix-based sweep) runs even if the catalog cleanup is the one
+            // that throws. Catalog rows can be recovered by DeleteApplicationsByPrefixAsync.
             await Fx.DeleteUserInOrganizationAsync(ownerUserId);
+            await Fx.DeleteApplicationAsync(tenantId, appId);
         }
     }
 
@@ -109,8 +112,11 @@ public sealed class ApplicationOwnerEnrichmentTests : CatalogIntegrationTestBase
         }
         finally
         {
-            await Fx.DeleteApplicationAsync(tenantId, appId);
+            // Order: user-row delete first so the more leak-prone cleanup (Organization
+            // schema, no prefix-based sweep) runs even if the catalog cleanup is the one
+            // that throws. Catalog rows can be recovered by DeleteApplicationsByPrefixAsync.
             await Fx.DeleteUserInOrganizationAsync(ownerUserId);
+            await Fx.DeleteApplicationAsync(tenantId, appId);
         }
     }
 

@@ -58,13 +58,10 @@ public sealed class ListApplicationsHandler(IUserDirectory directory)
                 ApplicationSortSpecs.IdSelector, IdExtractor, ct,
                 expectedIncludeDecommissioned: q.IncludeDecommissioned);
 
-        // Batch-fetch owners for the entire page in a single round trip. Distinct
-        // is cheap and avoids redundant lookups when the page has multiple apps
-        // owned by the same user.
-        var ownerIds = page.Items
-            .Select(a => a.OwnerUserId)
-            .Distinct()
-            .ToList();
+        // Batch-fetch owners for the entire page in a single round trip. HashSet
+        // de-duplicates in one allocation so multiple apps owned by the same user
+        // cost only one entry in the lookup payload.
+        var ownerIds = new HashSet<Guid>(page.Items.Select(a => a.OwnerUserId));
         var owners = await directory.GetManyAsync(ownerIds, ct);
 
         var items = page.Items
