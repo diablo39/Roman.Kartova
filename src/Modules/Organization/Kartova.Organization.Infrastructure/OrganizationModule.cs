@@ -185,6 +185,23 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status502BadGateway);
+
+        // ---- Users: search + detail (slice 9 spec §6.7) --------------------
+        // Typeahead search is a bounded list (no cursor envelope) — limit is
+        // clamped at 20 inside UserQueries.SearchAsync. Detail surfaces team
+        // memberships joined from the team_members table so the SPA can render
+        // the user's team list without a second round-trip.
+        tenant.MapGet("/users", OrganizationEndpointDelegates.SearchUsersAsync)
+            .RequireAuthorization(KartovaPermissions.OrgUsersSearch)
+            .WithName("SearchUsers")
+            .Produces<IReadOnlyList<UserSummaryResponse>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        tenant.MapGet("/users/{id:guid}", OrganizationEndpointDelegates.GetUserDetailAsync)
+            .RequireAuthorization(KartovaPermissions.OrgUsersRead)
+            .WithName("GetUserDetail")
+            .Produces<UserDetailResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound);
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
@@ -221,6 +238,10 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
         // same placement as the slice-8 team handlers above.
         services.AddScoped<OrgProfileQueries>();
         services.AddScoped<UpdateOrgProfileHandler>();
+
+        // User typeahead search + detail (slice-9 spec §6.7) — read-only
+        // queries against the local users projection joined with team_members.
+        services.AddScoped<UserQueries>();
 
         // Logo upload/clear/serve handler (slice-9 spec §6.4) — same Infrastructure
         // placement as the sibling profile handlers above.

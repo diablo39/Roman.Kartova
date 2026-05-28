@@ -651,6 +651,68 @@ internal static class OrganizationEndpointDelegates
         };
     }
 
+    // ----- Users: typeahead search + detail (slice 9 spec §6.7) ----------
+
+    /// <summary>
+    /// <c>GET /users?q=...&amp;limit=...</c>: typeahead search across the
+    /// current tenant's users projection. <c>q</c> must be at least 2
+    /// characters — body-shape validation surfaces a 422 envelope. <c>limit</c>
+    /// is clamped to [1, 20] inside <see cref="UserQueries.SearchAsync"/>.
+    /// Returns a bounded list (no cursor envelope) — see CLAUDE.md "bounded
+    /// list" rule; the underlying query class is not a <c>List*Handler</c>,
+    /// so <c>PaginationConventionRules</c> does not require
+    /// <c>[BoundedListResult]</c>.
+    /// </summary>
+    internal static async Task<IResult> SearchUsersAsync(
+        [FromQuery] string? q,
+        [FromQuery] int? limit,
+        UserQueries queries,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(q))
+        {
+            return Results.Problem(
+                type: ProblemTypes.ValidationFailed,
+                title: "Invalid search query",
+                detail: "Query 'q' is required.",
+                statusCode: StatusCodes.Status422UnprocessableEntity);
+        }
+        if (q.Length < 2)
+        {
+            return Results.Problem(
+                type: ProblemTypes.ValidationFailed,
+                title: "Invalid search query",
+                detail: "Query 'q' must be at least 2 characters.",
+                statusCode: StatusCodes.Status422UnprocessableEntity);
+        }
+
+        var rows = await queries.SearchAsync(q, limit ?? 20, ct);
+        return Results.Ok(rows);
+    }
+
+    /// <summary>
+    /// <c>GET /users/{id}</c>: returns the user's profile plus team
+    /// memberships scoped to the current tenant (RLS-filtered). 404 surfaces
+    /// the same envelope whether the id is unknown or visible only in another
+    /// tenant (ADR-0090 — RLS hides the difference).
+    /// </summary>
+    internal static async Task<IResult> GetUserDetailAsync(
+        Guid id,
+        UserQueries queries,
+        CancellationToken ct)
+    {
+        var user = await queries.GetDetailAsync(id, ct);
+        if (user is null)
+        {
+            return Results.Problem(
+                type: ProblemTypes.ResourceNotFound,
+                title: "User not found",
+                detail: "No user with that id is visible in the current tenant.",
+                statusCode: StatusCodes.Status404NotFound);
+        }
+        return Results.Ok(user);
+    }
+
     // ----- shared helpers -----------------------------------------------
 
     /// <summary>
