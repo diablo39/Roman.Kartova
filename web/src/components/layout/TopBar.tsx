@@ -1,7 +1,7 @@
 import { SearchSm, ChevronDown, LogOut01 } from "@untitledui/icons";
 import { Button as AriaButton } from "react-aria-components";
 import { useAuth } from "react-oidc-context";
-import { useCurrentOrganization } from "@/features/organization/api/me";
+import { useOrgProfile } from "@/features/organization/api/organization";
 import { useCurrentUser } from "@/shared/auth/useCurrentUser";
 import { initialsOf } from "@/shared/auth/initials";
 import { Avatar } from "@/components/base/avatar/avatar";
@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/base/skeleton/skeleton";
 import { Dropdown } from "@/components/base/dropdown/dropdown";
 
 export function TopBar() {
-  const orgQuery = useCurrentOrganization();
+  const orgQuery = useOrgProfile();
   const user = useCurrentUser();
   const auth = useAuth();
 

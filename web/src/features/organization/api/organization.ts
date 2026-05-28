@@ -1,0 +1,160 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "react-oidc-context";
+import { apiClient } from "@/features/catalog/api/client";
+import type { components } from "@/generated/openapi";
+
+type OrgProfileResponse = components["schemas"]["OrgProfileResponse"];
+type UpdateOrgProfileRequest = components["schemas"]["UpdateOrgProfileRequest"];
+type UploadLogoResponse = components["schemas"]["UploadLogoResponse"];
+
+export const orgKeys = {
+  profile: () => ["org", "profile"] as const,
+  logoUrl: (etag: string | null) => ["org", "logo", etag ?? ""] as const,
+};
+
+/**
+ * Re-throws an openapi-fetch error after attaching the HTTP status as a
+ * `__status` field so callers can branch on 412 / 409 / 400 without re-parsing
+ * the response. Mirrors the helper in catalog/api/applications.ts and teams/api/teams.ts.
+ */
+function throwWithStatus(error: unknown, response: { status: number }): never {
+  (error as Record<string, unknown>).__status = response.status;
+  throw error;
+}
+
+function unwrapData<T>(data: T | undefined): T {
+  if (!data) throw new Error("API returned neither data nor error");
+  return data;
+}
+
+/**
+ * GET /api/v1/organizations/me — fetches the current tenant's organization
+ * profile (slice-9 spec §4). The response includes `logoEtag` / `logoMimeType`
+ * for the logo metadata so the SPA can compose a cache-friendly logo URL via
+ * `useLogoUrl()` without a second round trip.
+ */
+export function useOrgProfile() {
+  return useQuery<OrgProfileResponse>({
+    queryKey: orgKeys.profile(),
+    queryFn: async ({ signal }) => {
+      const { data, error } = await apiClient.GET(
+        "/api/v1/organizations/me",
+        { signal },
+      );
+      if (error) throw error;
+      return unwrapData(data);
+    },
+    staleTime: 60_000,
+  });
+}
+
+/**
+ * PUT /api/v1/organizations/me — updates the current tenant's profile
+ * (slice-9 spec §4). The `If-Match` header carries the optimistic concurrency
+ * token (ADR-0096); the backend reserves the contract today and will start
+ * enforcing it once the EF concurrency token lands, so callers should pass
+ * `ifMatch` whenever they have a fresh version from a prior `GET /me`.
+ *
+ * On 412 the hook re-throws with `__status: 412` attached so a future profile
+ * dialog can branch on the conflict without re-parsing the response body.
+ */
+export function useUpdateOrgProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: UpdateOrgProfileRequest & { ifMatch?: string }) => {
+      const { ifMatch, ...body } = input;
+      const { error, response } = await apiClient.PUT(
+        "/api/v1/organizations/me",
+        {
+          body,
+          headers: ifMatch ? { "If-Match": ifMatch } : undefined,
+        },
+      );
+      if (error) throwWithStatus(error, response);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: orgKeys.profile() }),
+  });
+}
+
+/**
+ * Composes the URL the `<img>` tag should point at to render the current
+ * organization's logo. The `?v=<etag>` query param is the cache-bust signal:
+ * a new upload changes `logoEtag` on the profile response, which changes the
+ * URL, which forces the browser to revalidate.
+ *
+ * Returns `null` when no logo has been uploaded yet (server returns 404 on
+ * `GET /me/logo`) so callers can render a placeholder without an extra check.
+ */
+export function useLogoUrl(): string | null {
+  const { data } = useOrgProfile();
+  if (!data?.logoEtag) return null;
+  return `/api/v1/organizations/me/logo?v=${encodeURIComponent(data.logoEtag)}`;
+}
+
+/**
+ * PUT /api/v1/organizations/me/logo — uploads new logo bytes. The endpoint
+ * accepts a raw binary body (`image/png`, `image/jpeg`, `image/svg+xml`) and
+ * returns the new strong ETag + the negotiated MIME type. We bypass
+ * `apiClient` because openapi-fetch hard-codes `application/json` for typed
+ * bodies and rebuilds the payload as JSON; here we need the raw Blob byte-for-byte
+ * with a caller-controlled `Content-Type`.
+ *
+ * The relative URL ("/api/v1/...") is correct: Vite dev proxies to
+ * `localhost:8080`, and the production deploy is same-origin. If a future
+ * environment splits frontend + backend across origins, fall back to
+ * `import.meta.env.VITE_API_BASE_URL + "/api/v1/..."` (already what
+ * `apiClient` does — see catalog/api/client.ts).
+ */
+export function useUploadOrgLogo() {
+  const auth = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      bytes,
+      mimeType,
+    }: {
+      bytes: Blob;
+      mimeType: string;
+    }): Promise<UploadLogoResponse> => {
+      const token = auth.user?.access_token;
+      if (!token) throw new Error("Not authenticated");
+      const response = await fetch("/api/v1/organizations/me/logo", {
+        method: "PUT",
+        headers: {
+          "Content-Type": mimeType,
+          Authorization: `Bearer ${token}`,
+        },
+        body: bytes,
+      });
+      if (!response.ok) {
+        const error: Record<string, unknown> = {
+          message: `Upload failed: ${response.status}`,
+        };
+        throwWithStatus(error, response);
+      }
+      return (await response.json()) as UploadLogoResponse;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: orgKeys.profile() }),
+  });
+}
+
+/**
+ * DELETE /api/v1/organizations/me/logo — removes the stored logo. 204 on
+ * success; 404 if no logo exists (treated as success by the dialog — the
+ * end state is the same).
+ */
+export function useDeleteOrgLogo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { error, response } = await apiClient.DELETE(
+        "/api/v1/organizations/me/logo",
+        {},
+      );
+      if (error) throwWithStatus(error, response);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: orgKeys.profile() }),
+  });
+}
+
+export type { OrgProfileResponse, UpdateOrgProfileRequest, UploadLogoResponse };
