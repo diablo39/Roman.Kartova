@@ -23,7 +23,7 @@ describe("useCurrentOrganization", () => {
 
   it("fetches /api/v1/organizations/me and exposes data", async () => {
     const get = vi.fn().mockResolvedValue({
-      data: { id: "o1", name: "Acme Corp" },
+      data: { id: "o1", displayName: "Acme Corp" },
       error: undefined,
     });
     vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
@@ -35,7 +35,7 @@ describe("useCurrentOrganization", () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(get).toHaveBeenCalledWith("/api/v1/organizations/me");
-    expect(result.current.data).toEqual({ id: "o1", name: "Acme Corp" });
+    expect(result.current.data).toEqual({ id: "o1", displayName: "Acme Corp" });
   });
 
   it("surfaces API errors as query error state", async () => {

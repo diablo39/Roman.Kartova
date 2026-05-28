@@ -24,7 +24,7 @@ export function TopBar() {
           <Skeleton className="h-6 w-32" data-testid="tenant-skeleton" />
         ) : orgQuery.isSuccess ? (
           <Badge color="gray" type="pill-color" size="sm" className="uppercase tracking-wide">
-            {orgQuery.data.name}
+            {orgQuery.data.displayName}
           </Badge>
         ) : null}
       </div>

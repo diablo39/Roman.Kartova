@@ -44,7 +44,7 @@ describe("TopBar", () => {
 
   it("renders organization name when query resolves", async () => {
     const get = vi.fn().mockResolvedValue({
-      data: { id: "o1", name: "Acme Corp" },
+      data: { id: "o1", displayName: "Acme Corp" },
       error: undefined,
     });
     vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
@@ -77,7 +77,7 @@ describe("TopBar", () => {
 
   it("renders user initials and exposes a sign-out menu item", async () => {
     const get = vi.fn().mockResolvedValue({
-      data: { id: "o1", name: "Acme" },
+      data: { id: "o1", displayName: "Acme" },
       error: undefined,
     });
     vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
