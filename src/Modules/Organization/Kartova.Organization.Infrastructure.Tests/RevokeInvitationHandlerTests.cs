@@ -135,4 +135,47 @@ public sealed class RevokeInvitationHandlerTests
             Assert.AreEqual(InvitationStatus.Revoked, reloaded.Status);
         }
     }
+
+    [TestMethod]
+    public async Task Returns_Upstream_when_keycloak_delete_throws_non_NotFound()
+    {
+        // Symmetry contract with CreateInvitationHandler: a non-NotFound KC failure
+        // class (Unauthorized / Unexpected) must surface as Upstream → 502 rather
+        // than propagating as an uncaught 500. The invitation must stay Pending
+        // so a retry can complete the revoke cleanly (no partial commit).
+        var opts = NewOptions();
+        var clock = new FakeTimeProvider(T0);
+        var tenant = new TenantId(Guid.NewGuid());
+        var kcUserId = Guid.NewGuid();
+
+        Guid invitationId;
+        await using (var seedDb = new OrganizationDbContext(opts))
+        {
+            var invitation = Invitation.Create("alice@example.com", KartovaRoles.Member,
+                invitedByUserId: Guid.NewGuid(), keycloakUserId: kcUserId,
+                tenantId: tenant, clock: clock);
+            seedDb.Invitations.Add(invitation);
+            await seedDb.SaveChangesAsync();
+            invitationId = invitation.Id.Value;
+        }
+
+        var kc = Substitute.For<IKeycloakAdminClient>();
+        kc.DeleteUserAsync(kcUserId, Arg.Any<CancellationToken>())
+            .ThrowsAsync(new KeycloakAdminException(KeycloakAdminError.Unexpected, "boom"));
+
+        await using (var actDb = new OrganizationDbContext(opts))
+        {
+            var sut = new RevokeInvitationHandler(actDb, kc, clock);
+            var result = await sut.HandleAsync(invitationId, CancellationToken.None);
+            Assert.AreEqual(RevokeResult.Upstream, result);
+        }
+
+        // Verify the invitation is STILL Pending — no partial commit on upstream failure.
+        await using (var assertDb = new OrganizationDbContext(opts))
+        {
+            var reloaded = await assertDb.Invitations.SingleAsync();
+            Assert.AreEqual(InvitationStatus.Pending, reloaded.Status);
+            Assert.IsNull(reloaded.RevokedAt);
+        }
+    }
 }

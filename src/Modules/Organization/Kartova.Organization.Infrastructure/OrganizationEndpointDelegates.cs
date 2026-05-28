@@ -642,6 +642,11 @@ internal static class OrganizationEndpointDelegates
                 title: "Invitation is not pending",
                 detail: "Only invitations in Pending state can be revoked.",
                 statusCode: StatusCodes.Status409Conflict),
+            RevokeResult.Upstream => Results.Problem(
+                type: ProblemTypes.ServiceUnavailable,
+                title: "Upstream KeyCloak error",
+                detail: "The identity provider rejected the user deletion. The invitation remains Pending; please retry shortly.",
+                statusCode: StatusCodes.Status502BadGateway),
             _ => Results.StatusCode(StatusCodes.Status500InternalServerError),
         };
     }

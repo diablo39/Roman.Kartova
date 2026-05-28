@@ -31,6 +31,16 @@ public sealed class RevokeInvitationHandler(
         {
             // Idempotent cleanup: a missing KC user is the desired end state.
         }
+        catch (KeycloakAdminException)
+        {
+            // KC reachable but rejecting the delete (Unauthorized / Unexpected).
+            // Don't partially commit: leave the invitation Pending so a retry can
+            // complete the revoke cleanly. Returns 502 via the endpoint result-
+            // switch — matches CreateInvitationHandler's Upstream wire contract on
+            // the same KC failure class, so clients see a consistent surface
+            // across both endpoints.
+            return RevokeResult.Upstream;
+        }
 
         inv.Revoke(clock);
         await db.SaveChangesAsync(ct);
@@ -38,4 +48,4 @@ public sealed class RevokeInvitationHandler(
     }
 }
 
-public enum RevokeResult { Ok, NotFound, NotPending }
+public enum RevokeResult { Ok, NotFound, NotPending, Upstream }

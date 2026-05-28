@@ -183,7 +183,8 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
             .WithName("RevokeInvitation")
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict);
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status502BadGateway);
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
