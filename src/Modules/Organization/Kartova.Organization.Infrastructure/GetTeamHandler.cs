@@ -59,13 +59,13 @@ public sealed class GetTeamHandler(
         var members = rawMembers
             .Select(m =>
             {
-                var hasInfo = directoryEntries.TryGetValue(m.UserId, out var info);
+                directoryEntries.TryGetValue(m.UserId, out var info);
                 return new TeamMemberResponse(
                     m.UserId,
                     m.Role.ToString(),
                     m.AddedAt,
-                    hasInfo ? info!.DisplayName : "",
-                    hasInfo ? info!.Email : "");
+                    info?.DisplayName ?? "",
+                    info?.Email ?? "");
             })
             .ToList();
 

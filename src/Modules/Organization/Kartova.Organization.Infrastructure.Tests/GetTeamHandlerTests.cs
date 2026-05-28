@@ -179,11 +179,13 @@ public sealed class GetTeamHandlerTests
     }
 
     [TestMethod]
-    public async Task Handle_invokes_directory_GetManyAsync_with_distinct_member_ids()
+    public async Task Handle_invokes_directory_GetManyAsync_once_with_all_member_ids()
     {
-        // Verifies the HashSet de-duplication path (slice-9 review convention)
-        // and the contract that the handler issues a single batch call rather
-        // than N individual GetAsync hits.
+        // Pins the contract that the handler issues a single batch call rather
+        // than N individual GetAsync hits. (The HashSet de-dup step is defensive
+        // — the team_members PK guarantees UserId uniqueness within a team — so
+        // this test does not exercise the dedup branch; OrganizationUserDirectory
+        // tests cover GetManyAsync's own input contract.)
         await using var db = NewInMemory(out var tenant);
         var team = SeedTeam(db, tenant);
         var clock = new FakeTimeProvider(T0);
