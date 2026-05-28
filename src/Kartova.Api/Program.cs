@@ -144,6 +144,15 @@ public class Program
         builder.Services.AddDbContext<AdminOrganizationDbContext>(opts => opts.UseNpgsql(bypassConnection));
         builder.Services.AddScoped<IAdminOrganizationCommands, AdminOrganizationCommands>();
 
+        // Slice 9 D8: leader-elected periodic sweep of past-due invitations.
+        // Registered here (not in OrganizationModule) for the same reason as
+        // AdminOrganizationDbContext above — the hosted service type lives in
+        // Infrastructure.Admin which the Infrastructure-resident OrganizationModule
+        // cannot reference. D9 will refactor these two lines into an
+        // AddOrganizationAdmin(IServiceCollection) composition extension.
+        builder.Services.AddPostgresDistributedLocks();
+        builder.Services.AddHostedService<ExpireInvitationsHostedService>();
+
         // Wolverine — in-process CQRS mediator only.
         // Postgres persistence (outbox) is deferred until a slice publishes domain events.
         // See ADR-0080 and docs/superpowers/specs/2026-04-24-defer-wolverine-persistence-design.md.
