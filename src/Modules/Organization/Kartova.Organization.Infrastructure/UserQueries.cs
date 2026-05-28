@@ -1,4 +1,5 @@
 using Kartova.Organization.Contracts;
+using Kartova.SharedKernel.Pagination;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kartova.Organization.Infrastructure;
@@ -18,6 +19,8 @@ namespace Kartova.Organization.Infrastructure;
 /// to <c>LOWER(...) LIKE</c>) and the InMemory provider used by unit tests
 /// execute the predicate. <c>ILike</c> is Npgsql-only and throws on InMemory.
 /// </remarks>
+[BoundedListResult(
+    "Typeahead search cap is 20 results (Math.Clamp at SearchAsync); not user-controlled paging.")]
 public sealed class UserQueries
 {
     private readonly OrganizationDbContext _db;

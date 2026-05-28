@@ -669,7 +669,11 @@ internal static class OrganizationEndpointDelegates
         UserQueries queries,
         CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(q))
+        // Trim before validating so a query like "  a  " is treated as a 1-char
+        // query (and rejected with "too short"), not a 5-char query that searches
+        // for a literal "  a  " substring (which would degrade to zero matches).
+        var trimmed = q?.Trim() ?? "";
+        if (trimmed.Length == 0)
         {
             return Results.Problem(
                 type: ProblemTypes.ValidationFailed,
@@ -677,7 +681,7 @@ internal static class OrganizationEndpointDelegates
                 detail: "Query 'q' is required.",
                 statusCode: StatusCodes.Status422UnprocessableEntity);
         }
-        if (q.Length < 2)
+        if (trimmed.Length < 2)
         {
             return Results.Problem(
                 type: ProblemTypes.ValidationFailed,
@@ -686,7 +690,7 @@ internal static class OrganizationEndpointDelegates
                 statusCode: StatusCodes.Status422UnprocessableEntity);
         }
 
-        var rows = await queries.SearchAsync(q, limit ?? 20, ct);
+        var rows = await queries.SearchAsync(trimmed, limit ?? 20, ct);
         return Results.Ok(rows);
     }
 
