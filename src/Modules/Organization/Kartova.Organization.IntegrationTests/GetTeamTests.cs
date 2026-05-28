@@ -107,4 +107,92 @@ public sealed class GetTeamTests : OrganizationIntegrationTestBase
             await Fx.DeleteTeamsForTenantAsync(Tenant.Value);
         }
     }
+
+    [TestMethod]
+    public async Task GET_teams_id_returns_members_with_DisplayName_and_Email_populated()
+    {
+        // Slice 9 / E3 (ADR-0098): GET /teams/{id} enriches each member with the
+        // matching users projection row via IUserDirectory. Seed two members
+        // (with users rows) and verify both fields surface on the wire.
+        const byte MemberRole = 1;
+        const byte AdminRole = 2;
+        await Fx.SeedOrganizationAsync(Tenant.Value, "OrgA-GetEnrich");
+        var teamId = await Fx.SeedTeamAsync(Tenant.Value, "Platform");
+        var unique = Guid.NewGuid().ToString("N")[..8];
+        var aliceId = await Fx.SeedUserInOrganizationAsync(
+            Tenant.Value,
+            displayName: "Alice Anderson",
+            email: $"alice-{unique}@example.com");
+        var bobId = await Fx.SeedUserInOrganizationAsync(
+            Tenant.Value,
+            displayName: "Bob Brown",
+            email: $"bob-{unique}@example.com");
+        await Fx.SeedTeamMembershipAsync(teamId, aliceId, AdminRole);
+        await Fx.SeedTeamMembershipAsync(teamId, bobId, MemberRole);
+        try
+        {
+            var client = Fx.CreateClient();
+            var token = Fx.Signer.IssueForTenant(Tenant, new[] { KartovaRoles.OrgAdmin });
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var resp = await client.GetAsync($"/api/v1/organizations/teams/{teamId}");
+            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+            var body = await resp.Content.ReadFromJsonAsync<TeamDetailResponse>(KartovaApiFixtureBase.WireJson);
+            Assert.IsNotNull(body);
+            Assert.AreEqual(2, body!.Members.Count);
+
+            var byUser = body.Members.ToDictionary(m => m.UserId);
+            Assert.IsTrue(byUser.ContainsKey(aliceId));
+            Assert.AreEqual("Admin", byUser[aliceId].Role);
+            Assert.AreEqual("Alice Anderson", byUser[aliceId].DisplayName);
+            Assert.AreEqual($"alice-{unique}@example.com", byUser[aliceId].Email);
+
+            Assert.IsTrue(byUser.ContainsKey(bobId));
+            Assert.AreEqual("Member", byUser[bobId].Role);
+            Assert.AreEqual("Bob Brown", byUser[bobId].DisplayName);
+            Assert.AreEqual($"bob-{unique}@example.com", byUser[bobId].Email);
+        }
+        finally
+        {
+            // E1/E2 cleanup-order convention: user-row deletes run BEFORE
+            // teams cleanup so a teams-cleanup throw cannot strand users rows.
+            await Fx.DeleteUserInOrganizationAsync(aliceId);
+            await Fx.DeleteUserInOrganizationAsync(bobId);
+            await Fx.DeleteTeamsForTenantAsync(Tenant.Value);
+        }
+    }
+
+    [TestMethod]
+    public async Task GET_teams_id_returns_members_with_empty_display_info_when_user_row_missing()
+    {
+        // Slice 9 / E3: when a team_members row's UserId has no matching users
+        // projection row (deleted user, projection lag), DisplayName + Email
+        // surface as the "" fallback rather than 500ing or omitting the member.
+        const byte MemberRole = 1;
+        await Fx.SeedOrganizationAsync(Tenant.Value, "OrgA-GetEnrich-Missing");
+        var teamId = await Fx.SeedTeamAsync(Tenant.Value, "Platform");
+        var orphanUserId = Guid.NewGuid();
+        await Fx.SeedTeamMembershipAsync(teamId, orphanUserId, MemberRole);
+        try
+        {
+            var client = Fx.CreateClient();
+            var token = Fx.Signer.IssueForTenant(Tenant, new[] { KartovaRoles.OrgAdmin });
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var resp = await client.GetAsync($"/api/v1/organizations/teams/{teamId}");
+            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+            var body = await resp.Content.ReadFromJsonAsync<TeamDetailResponse>(KartovaApiFixtureBase.WireJson);
+            Assert.IsNotNull(body);
+            Assert.AreEqual(1, body!.Members.Count);
+            var only = body.Members.Single();
+            Assert.AreEqual(orphanUserId, only.UserId);
+            Assert.AreEqual("Member", only.Role);
+            Assert.AreEqual("", only.DisplayName);
+            Assert.AreEqual("", only.Email);
+        }
+        finally
+        {
+            await Fx.DeleteTeamsForTenantAsync(Tenant.Value);
+        }
+    }
 }

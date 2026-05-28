@@ -83,6 +83,50 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     }
 
     /// <summary>
+    /// Seeds a <c>users</c> row via BYPASSRLS. Slice 9 / E3 — used by team-detail
+    /// and AddTeamMember integration tests so the new <c>TeamMemberResponse</c>
+    /// <c>DisplayName</c> + <c>Email</c> fields populate from the
+    /// <see cref="Kartova.SharedKernel.Identity.IUserDirectory"/> port. Mirrors the
+    /// Catalog-side seeder added in E1. Columns line up with
+    /// <c>UserEntityTypeConfiguration</c> + the <c>AddUsersTable</c> migration.
+    /// </summary>
+    public async Task<Guid> SeedUserInOrganizationAsync(
+        Guid tenantId, string displayName, string email)
+    {
+        var userId = Guid.NewGuid();
+        await using var conn = new NpgsqlConnection(BypassConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO users (id, tenant_id, email, display_name, created_at)
+            VALUES ($1, $2, $3, $4, NOW())
+            """;
+        cmd.Parameters.AddWithValue(userId);
+        cmd.Parameters.AddWithValue(tenantId);
+        cmd.Parameters.AddWithValue(email);
+        cmd.Parameters.AddWithValue(displayName);
+        await cmd.ExecuteNonQueryAsync();
+        return userId;
+    }
+
+    /// <summary>
+    /// Deletes a single <c>users</c> row via BYPASSRLS. Slice 9 / E3 cleanup hook —
+    /// call BEFORE <see cref="DeleteTeamsForTenantAsync"/> per the slice-9
+    /// ordering convention (E1 e5aaf73 / E2 4715c87): the more leak-prone
+    /// direct-id delete (no prefix sweep) runs first so a downstream teams
+    /// cleanup throw cannot strand a <c>users</c> row.
+    /// </summary>
+    public async Task DeleteUserInOrganizationAsync(Guid userId)
+    {
+        await using var conn = new NpgsqlConnection(BypassConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM users WHERE id = $1";
+        cmd.Parameters.AddWithValue(userId);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    /// <summary>
     /// Inserts a team-membership row via BYPASSRLS. <paramref name="roleByte"/> matches
     /// <see cref="Domain.TeamRole"/> (1 = Member, 2 = Admin). Idempotent — duplicate
     /// (team_id, user_id) pairs are silently ignored, which is convenient for tests

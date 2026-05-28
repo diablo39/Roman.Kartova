@@ -3,6 +3,7 @@ using Kartova.Organization.Application;
 using Kartova.Organization.Contracts;
 using Kartova.Organization.Domain;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Pagination;
 using Kartova.SharedKernel.Postgres.Pagination;
@@ -249,6 +250,7 @@ internal static class OrganizationEndpointDelegates
         AddTeamMemberHandler handler,
         OrganizationDbContext db,
         IAuthorizationService auth,
+        IUserDirectory directory,
         ClaimsPrincipal user,
         CancellationToken ct)
     {
@@ -273,7 +275,21 @@ internal static class OrganizationEndpointDelegates
         // aggregate — surfaced via AddTeamMemberResult — so clients see exactly
         // the timestamp the DB sees, not a re-clocked wall-clock snapshot taken
         // here (slice-boundary review fix item 6).
-        var resp = new TeamMemberResponse(request.UserId, role.ToString(), result.AddedAt!.Value);
+        //
+        // Slice 9 / E3 (ADR-0098): enrich the response with the new member's
+        // DisplayName + Email so the SPA can immediately render the row without
+        // a follow-up users lookup. The IUserDirectory port shares an
+        // OrganizationDbContext with the handler, so the read sees the just-
+        // committed users projection row when KeyCloak post-auth has run for
+        // this user. When no row is visible (cross-tenant lag or unimported
+        // user), both fields fall back to "" per the contract docstring.
+        var info = await directory.GetAsync(request.UserId, ct);
+        var resp = new TeamMemberResponse(
+            request.UserId,
+            role.ToString(),
+            result.AddedAt!.Value,
+            info?.DisplayName ?? "",
+            info?.Email ?? "");
         return Results.Created($"/api/v1/organizations/teams/{id}/members/{request.UserId}", resp);
     }
 
