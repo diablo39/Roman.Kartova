@@ -96,6 +96,15 @@ services:
       Authentication__MetadataAddress: "http://keycloak:8080/realms/kartova/.well-known/openid-configuration"
       Authentication__Audience: "kartova-api"
       Authentication__RequireHttpsMetadata: "false"
+      # KartovaIdentity (slice-9): Dev appsettings overlay targets http://localhost:8180 which is host-only.
+      # Inside the API container, Keycloak is reachable at http://keycloak:8080 (compose DNS).
+      # AdminClientSecret + Realm + AdminClientId pinned here so the in-container OptionsValidator passes.
+      # FrontendBaseUrl stays at the host port so invitation emails resolve from a developer's browser.
+      KartovaIdentity__Keycloak__BaseUrl: "http://keycloak:8080"
+      KartovaIdentity__Keycloak__Realm: "kartova"
+      KartovaIdentity__Keycloak__AdminClientId: "kartova-admin"
+      KartovaIdentity__Keycloak__AdminClientSecret: "admin-dev-secret"
+      KartovaIdentity__Keycloak__FrontendBaseUrl: "http://localhost:5173"
       ASPNETCORE_ENVIRONMENT: Development
       GIT_COMMIT: "${GIT_COMMIT:-dev}"
       BUILD_TIME: "${BUILD_TIME:-unknown}"
