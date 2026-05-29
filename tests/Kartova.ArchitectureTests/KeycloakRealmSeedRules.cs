@@ -179,4 +179,86 @@ public sealed class KeycloakRealmSeedRules
                 $"Role '{role}' in KartovaRolePermissions.Map must have at least one dev user in kartova-realm.json.");
         }
     }
+
+    /// <summary>
+    /// Slice-9 carry-forward #14: drift sentinel for the <c>kartova-admin</c> service-account
+    /// client used by <c>KeycloakAdminClient</c> to provision invited users. If anyone disables
+    /// service accounts, re-enables the password grant, or flips the client to public, the
+    /// admin REST flow breaks silently — this test catches it at CI time.
+    /// </summary>
+    [TestMethod]
+    public void RealmSeed_RegistersKartovaAdminClientWithServiceAccount()
+    {
+        Assert.IsTrue(File.Exists(SeedPath), $"realm seed not found at {SeedPath}");
+
+        using var doc = JsonDocument.Parse(File.ReadAllText(SeedPath));
+        var admin = doc.RootElement.GetProperty("clients").EnumerateArray()
+            .FirstOrDefault(c => c.GetProperty("clientId").GetString() == "kartova-admin");
+
+        Assert.AreNotEqual(
+            JsonValueKind.Undefined,
+            admin.ValueKind,
+            "slice-9 §6.7 requires a kartova-admin service-account client for invitation provisioning.");
+
+        Assert.IsFalse(
+            admin.GetProperty("publicClient").GetBoolean(),
+            "kartova-admin must be a confidential client — it holds an admin secret.");
+        Assert.IsTrue(
+            admin.GetProperty("serviceAccountsEnabled").GetBoolean(),
+            "kartova-admin must have serviceAccountsEnabled — client-credentials flow is the only allowed mechanism.");
+        Assert.IsFalse(
+            admin.GetProperty("directAccessGrantsEnabled").GetBoolean(),
+            "kartova-admin must NOT have password grant enabled — confidential service-account only.");
+        Assert.IsFalse(
+            admin.GetProperty("standardFlowEnabled").GetBoolean(),
+            "kartova-admin is not a user-facing OIDC client — standard flow must be disabled.");
+
+        Assert.AreEqual(
+            "admin-dev-secret",
+            admin.GetProperty("secret").GetString(),
+            "kartova-admin secret must match RealmSeedConstants.AdminClientSecret (test fixtures rely on it).");
+    }
+
+    /// <summary>
+    /// Slice-9 carry-forward #14: the <c>kartova-admin</c> service-account user must hold the
+    /// <c>realm-management</c> client roles required by <see cref="Kartova.SharedKernel.Identity.IKeycloakAdminClient"/>
+    /// (create / search / delete users + assign realm roles). Without these the client gets
+    /// 403 on every admin REST call and invitation acceptance silently fails.
+    /// </summary>
+    [TestMethod]
+    public void KartovaAdmin_service_account_has_realm_management_admin_role()
+    {
+        using var doc = JsonDocument.Parse(File.ReadAllText(SeedPath));
+
+        var serviceAccountUser = doc.RootElement.GetProperty("users").EnumerateArray()
+            .FirstOrDefault(u => u.TryGetProperty("serviceAccountClientId", out var sac)
+                                  && sac.GetString() == "kartova-admin");
+
+        Assert.AreNotEqual(
+            JsonValueKind.Undefined,
+            serviceAccountUser.ValueKind,
+            "kartova-admin must have a corresponding service-account user (Keycloak convention: " +
+            "users[].serviceAccountClientId == 'kartova-admin').");
+
+        Assert.IsTrue(
+            serviceAccountUser.TryGetProperty("clientRoles", out var clientRoles),
+            "kartova-admin service-account user must declare clientRoles for realm-management.");
+        Assert.IsTrue(
+            clientRoles.TryGetProperty("realm-management", out var realmMgmt),
+            "kartova-admin service-account user must hold roles from the realm-management client.");
+
+        var roles = realmMgmt.EnumerateArray()
+            .Select(r => r.GetString())
+            .Where(s => !string.IsNullOrEmpty(s))
+            .ToHashSet(StringComparer.Ordinal);
+
+        // KeycloakAdminClient calls CreateUser, SearchUsers, DeleteUser, AssignRealmRole.
+        // manage-users covers create + delete + role assignment; view-users covers search.
+        Assert.IsTrue(
+            roles.Contains("manage-users"),
+            "kartova-admin needs realm-management:manage-users (create/delete users, assign roles).");
+        Assert.IsTrue(
+            roles.Contains("view-users"),
+            "kartova-admin needs realm-management:view-users (search users by email/query).");
+    }
 }

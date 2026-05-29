@@ -10,6 +10,10 @@ using Kartova.Organization.Domain;
 using Kartova.Organization.Infrastructure;
 using Kartova.Organization.Infrastructure.Admin;
 using Kartova.SharedKernel;
+using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Identity;
+using Kartova.SharedKernel.Postgres;
+using Kartova.SharedKernel.Wolverine;
 
 namespace Kartova.ArchitectureTests;
 
@@ -19,6 +23,10 @@ namespace Kartova.ArchitectureTests;
 internal static class AssemblyRegistry
 {
     public static readonly Assembly SharedKernel = typeof(IModule).Assembly;
+    public static readonly Assembly SharedKernelIdentity = typeof(IKeycloakAdminClient).Assembly;
+    public static readonly Assembly SharedKernelAspNetCore = typeof(TenantScopeBeginMiddleware).Assembly;
+    public static readonly Assembly SharedKernelPostgres = typeof(Kartova.SharedKernel.Postgres.TenantScope).Assembly;
+    public static readonly Assembly SharedKernelWolverine = typeof(TenantScopeWolverineMiddleware).Assembly;
     public static readonly Assembly Api = typeof(Program).Assembly;
 
     public static class Catalog
@@ -41,6 +49,10 @@ internal static class AssemblyRegistry
     public static IEnumerable<Assembly> AllProduction()
     {
         yield return SharedKernel;
+        yield return SharedKernelIdentity;
+        yield return SharedKernelAspNetCore;
+        yield return SharedKernelPostgres;
+        yield return SharedKernelWolverine;
         yield return Api;
         yield return Catalog.Domain;
         yield return Catalog.Application;
