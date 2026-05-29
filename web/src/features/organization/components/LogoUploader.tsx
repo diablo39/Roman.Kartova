@@ -121,14 +121,23 @@ export function LogoUploader({ currentLogoUrl, canEdit }: Props) {
       setStagedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err) {
-      // The upload hook constructs a synthetic error with only `__status` and
-      // `message` (no `detail` / `title`), so byStatus is the right dispatch:
-      // there is no server-supplied detail to prefer at any of these codes.
+      // The upload hook now parses the server's RFC 7807 problem body so
+      // both the canonical problem-type URI (slice-9 spec §6.4 —
+      // Kartova.SharedKernel.AspNetCore.ProblemTypes) and `detail` reach us.
+      // Dispatch order: known problem-type URI → friendly canned message;
+      // residual statuses → status-keyed canned message; finally the
+      // fallback path, which itself prefers the server's `detail` / `title`
+      // over the generic string when present (so a 422 with a richer
+      // `detail` like "SVG contained scripts" still surfaces verbatim
+      // when the problem-type is absent / unrecognized).
       toastProblem(err, {
-        byStatus: {
-          413: "Logo is too large for the server.",
-          415: "Server rejected the logo MIME type.",
-          422: "Logo rejected by server.",
+        byProblemType: {
+          "https://kartova.io/problems/logo-too-large":
+            "Logo is too large for the server.",
+          "https://kartova.io/problems/unsupported-logo-media":
+            "Server rejected the logo MIME type.",
+          "https://kartova.io/problems/logo-invalid-content":
+            "Logo rejected by server.",
         },
         fallback: "Could not upload logo.",
       });

@@ -178,9 +178,16 @@ describe("LogoUploader", () => {
       );
     });
 
-    it("on 422 from upload, toasts the server detail and does not clear staging", async () => {
+    it("on 422 with logo-invalid-content problem-type, toasts the canned message", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValue(
-        new Response('{"detail":"That image is haunted"}', { status: 422 }),
+        new Response(
+          JSON.stringify({
+            type: "https://kartova.io/problems/logo-invalid-content",
+            title: "Invalid logo content",
+            detail: "SVG contained scripts",
+          }),
+          { status: 422, headers: { "Content-Type": "application/problem+json" } },
+        ),
       );
       mockApiClient({});
 
@@ -191,17 +198,50 @@ describe("LogoUploader", () => {
       await userEvent.upload(input, good);
       await userEvent.click(screen.getByRole("button", { name: /upload logo/i }));
 
-      // The hook throws a synthetic error containing only __status; the
-      // toast falls back to the generic "rejected by server" string. We
-      // assert on the rejected wording, not on the body's detail.
+      // byProblemType match takes precedence and surfaces the friendly canned
+      // message rather than the raw server `detail`.
       await waitFor(() =>
         expect(screen.getByText(/rejected by server/i)).toBeInTheDocument(),
       );
     });
 
-    it("on 413 from upload, toasts a 'too large' message", async () => {
+    it("on 422 with detail but no problem-type, the server detail propagates verbatim", async () => {
+      // Critical regression: the previous `useUploadOrgLogo` constructed a
+      // synthetic error with only `__status` and `message`, discarding the
+      // server's `detail`. Now the hook parses the problem body, and when
+      // no problem-type URI is recognized the fallback path prefers
+      // `detail` over the generic canned string — so user-actionable
+      // server text reaches the toast verbatim.
       vi.spyOn(globalThis, "fetch").mockResolvedValue(
-        new Response('{"title":"big"}', { status: 413 }),
+        new Response('{"detail":"That image is haunted"}', {
+          status: 422,
+          headers: { "Content-Type": "application/problem+json" },
+        }),
+      );
+      mockApiClient({});
+
+      render(harness(newQc(), <LogoUploader currentLogoUrl={null} canEdit={true} />));
+
+      const input = screen.getByLabelText(/choose logo file/i) as HTMLInputElement;
+      const good = fakeFile("logo.png", "image/png", 2048);
+      await userEvent.upload(input, good);
+      await userEvent.click(screen.getByRole("button", { name: /upload logo/i }));
+
+      await waitFor(() =>
+        expect(screen.getByText(/that image is haunted/i)).toBeInTheDocument(),
+      );
+    });
+
+    it("on 413 with logo-too-large problem-type, toasts the canned 'too large' message", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            type: "https://kartova.io/problems/logo-too-large",
+            title: "Logo too large",
+            detail: "256 KB ceiling",
+          }),
+          { status: 413, headers: { "Content-Type": "application/problem+json" } },
+        ),
       );
       mockApiClient({});
 

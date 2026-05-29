@@ -120,8 +120,27 @@ export function useUploadOrgLogo() {
         },
       );
       if (!response.ok) {
+        // Parse the RFC 7807 problem body so the caller (LogoUploader) can
+        // dispatch on the canonical problem-type URI
+        // (https://kartova.io/problems/{logo-too-large,unsupported-logo-media,
+        //  logo-invalid-content}) and surface the server's `detail` text
+        // instead of a synthetic "Upload failed: <status>" stub. The bypass
+        // of `apiClient` is necessary (raw Blob body), but it does not need
+        // to discard the body — the server still answers with JSON
+        // application/problem+json.
+        let body: Record<string, unknown> = {};
+        try {
+          body = (await response.json()) as Record<string, unknown>;
+        } catch {
+          // Non-JSON body (truncated proxy / empty 502) — fall through
+          // with just the synthesized fallback message.
+        }
         const error: Record<string, unknown> = {
-          message: `Upload failed: ${response.status}`,
+          ...body,
+          message:
+            typeof body.detail === "string"
+              ? body.detail
+              : `Upload failed: ${response.status}`,
         };
         throwWithStatus(error, response);
       }
