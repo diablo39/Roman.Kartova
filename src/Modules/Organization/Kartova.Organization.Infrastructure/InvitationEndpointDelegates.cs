@@ -21,9 +21,14 @@ internal static class InvitationEndpointDelegates
     /// <summary>
     /// <c>GET /invitations</c>: cursor-paginated list of invitations visible
     /// to the current tenant (RLS-filtered). Optional <c>status</c> filter
-    /// narrows to a single <see cref="InvitationStatus"/>. Parsing mirrors
-    /// <see cref="TeamEndpointDelegates.ListTeamsAsync"/> — same paging exceptions translate to
-    /// RFC 7807 400 envelopes via <c>PagingExceptionHandler</c>.
+    /// narrows to a single <see cref="InvitationStatus"/>; per spec §6.7 the
+    /// default when the query string omits <c>status</c> is
+    /// <see cref="InvitationStatus.Pending"/> (the most common OrgAdmin view).
+    /// Pass the literal <c>status=all</c> (case-insensitive) to opt out of the
+    /// filter and list every lifecycle state. Parsing mirrors
+    /// <see cref="TeamEndpointDelegates.ListTeamsAsync"/> — same paging
+    /// exceptions translate to RFC 7807 400 envelopes via
+    /// <c>PagingExceptionHandler</c>.
     /// </summary>
     internal static async Task<IResult> ListInvitationsAsync(
         [FromQuery] string? sortBy,
@@ -38,19 +43,33 @@ internal static class InvitationEndpointDelegates
         var (parsedSortBy, parsedSortOrder, effectiveLimit) = CursorListBinding.Bind<InvitationSortField>(
             sortBy, sortOrder, limit, InvitationSortSpecs.AllowedFieldNames);
 
-        InvitationStatus? parsedStatus = null;
-        if (status is not null)
+        // Spec §6.7: `status ∈ {pending, accepted, revoked, expired, all}` with
+        // default = pending. The "all" sentinel is the SPA-facing escape hatch
+        // for the "All" tab on InvitationsPage — it explicitly disables the
+        // filter (parsedStatus stays null). A missing/empty query value is
+        // treated as the default, NOT as "all", so a forgotten query param
+        // does not silently leak revoked/accepted/expired rows into the
+        // OrgAdmin's primary view.
+        InvitationStatus? parsedStatus = InvitationStatus.Pending;
+        if (!string.IsNullOrEmpty(status))
         {
-            if (!Enum.TryParse<InvitationStatus>(status, ignoreCase: true, out var s)
-                || !Enum.IsDefined(s))
+            if (string.Equals(status, "all", StringComparison.OrdinalIgnoreCase))
+            {
+                parsedStatus = null;
+            }
+            else if (Enum.TryParse<InvitationStatus>(status, ignoreCase: true, out var s)
+                && Enum.IsDefined(s))
+            {
+                parsedStatus = s;
+            }
+            else
             {
                 return Results.Problem(
                     type: ProblemTypes.ValidationFailed,
                     title: "Invalid status filter",
-                    detail: $"'{status}' must be one of: Pending, Accepted, Revoked, Expired.",
+                    detail: $"'{status}' must be one of: Pending, Accepted, Revoked, Expired, All.",
                     statusCode: StatusCodes.Status400BadRequest);
             }
-            parsedStatus = s;
         }
 
         var query = new ListInvitationsQuery(

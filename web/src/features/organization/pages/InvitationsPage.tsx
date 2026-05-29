@@ -89,10 +89,14 @@ export function InvitationsPage() {
 
   const [activeTab, setActiveTab] = useState<"Pending" | "All">("Pending");
 
+  // Server-side default is now `Pending` (spec §6.7) — the "All" tab MUST
+  // pass the explicit `"all"` sentinel to opt out of the filter, otherwise
+  // an omitted `status` would silently land back on the Pending default and
+  // the All tab would mirror the Pending tab.
   const list = useInvitationsList({
     sortBy,
     sortOrder,
-    status: activeTab === "Pending" ? ("Pending" satisfies InvitationStatus) : undefined,
+    status: activeTab === "Pending" ? ("Pending" satisfies InvitationStatus) : "all",
   });
 
   const [dialogOpen, setDialogOpen] = useState(false);

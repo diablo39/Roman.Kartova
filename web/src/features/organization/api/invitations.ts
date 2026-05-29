@@ -21,15 +21,34 @@ type ListInvitationsQuery = NonNullable<
   operations["ListInvitations"]["parameters"]["query"]
 >;
 
-/** Status filter for the invitations list endpoint. `null`/omitted = all. */
+/**
+ * Lifecycle states for an invitations row. The wire enum (spec §6.7) carries
+ * exactly these four — `"all"` is a query-string sentinel on the list
+ * endpoint, NOT a status an individual invitation can be in, so it lives on
+ * {@link InvitationsListParams} below rather than this union.
+ */
 export type InvitationStatus = "Pending" | "Accepted" | "Revoked" | "Expired";
+
+/**
+ * Server-side filter for the invitations list endpoint. Mirrors the spec §6.7
+ * grammar `status ∈ {pending, accepted, revoked, expired, all}` exactly:
+ *   - one of the four lifecycle states → server filters to that state
+ *   - `"all"` → opt out of the filter (legacy `undefined` would now default to Pending)
+ * Defaults to Pending server-side when the query string omits the value;
+ * callers wanting the whole list MUST pass `"all"` explicitly.
+ */
+export type InvitationsListStatusFilter = InvitationStatus | "all";
 
 export interface InvitationsListParams {
   sortBy: NonNullable<ListInvitationsQuery["sortBy"]>;
   sortOrder: NonNullable<ListInvitationsQuery["sortOrder"]>;
   limit?: number;
-  /** When set, server filters to only invitations in this status. */
-  status?: InvitationStatus;
+  /**
+   * When set, server filters to only invitations in this status — or, for
+   * the <c>"all"</c> sentinel, opts out of the default Pending filter.
+   * Omit the field to fall back to the server-side default (Pending).
+   */
+  status?: InvitationsListStatusFilter;
 }
 
 export const invitationKeys = {

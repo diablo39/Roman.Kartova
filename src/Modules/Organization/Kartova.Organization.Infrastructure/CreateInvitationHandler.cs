@@ -66,7 +66,7 @@ public sealed class CreateInvitationHandler(
         {
             kcId = await kc.CreateUserAsync(new CreateKeycloakUserRequest(
                 email, null, null, tenant.Id.Value.ToString(),
-                new[] { "UPDATE_PASSWORD" }), ct);
+                new[] { KeycloakAdminRequiredActions.UpdatePassword }), ct);
         }
         catch (KeycloakAdminException ex) when (ex.Error == KeycloakAdminError.EmailAlreadyExists)
         {

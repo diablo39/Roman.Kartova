@@ -177,7 +177,11 @@ describe("InvitationsPage", () => {
     );
   });
 
-  it("switching to the All tab passes status=undefined to the hook", async () => {
+  it("switching to the All tab passes status='all' to the hook", async () => {
+    // Spec §6.7: a missing `status` query parameter is server-side
+    // shorthand for the default Pending filter. To list every lifecycle
+    // state the All tab MUST pass the explicit "all" sentinel — leaving
+    // it undefined would silently land on Pending again.
     useInvitationsListMock.mockReturnValue(listShape([]));
     render(<InvitationsPage />, { wrapper: harness(newQc()) });
 
@@ -186,7 +190,7 @@ describe("InvitationsPage", () => {
 
     await waitFor(() =>
       expect(useInvitationsListMock).toHaveBeenLastCalledWith(
-        expect.objectContaining({ status: undefined }),
+        expect.objectContaining({ status: "all" }),
       ),
     );
   });
