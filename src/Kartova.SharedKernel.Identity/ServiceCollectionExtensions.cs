@@ -1,6 +1,7 @@
 using Duende.IdentityModel.Client;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 
 namespace Kartova.SharedKernel.Identity;
@@ -21,6 +22,12 @@ public static class ServiceCollectionExtensions
                 "override it via the environment variable 'KartovaIdentity__Keycloak__AdminClientSecret' " +
                 "at deploy time. Production configs intentionally do not carry the real secret in source.")
             .ValidateOnStart();
+
+        // Slice-9 carry-forward #15: reject localhost FrontendBaseUrl outside Development.
+        // Implemented as a separate IValidateOptions<T> because the simpler .Validate(...)
+        // delegate has no access to IHostEnvironment.
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IValidateOptions<KeycloakAdminOptions>, KeycloakAdminOptionsEnvValidator>());
 
         services.AddHttpClient<IKeycloakAdminClient, KeycloakAdminClient>((sp, http) =>
         {
