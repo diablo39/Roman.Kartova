@@ -42,6 +42,12 @@ RUN dotnet publish src/Kartova.Api/Kartova.Api.csproj \
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
 WORKDIR /app
 
+# tzdata is required for TimeZoneInfo.FindSystemTimeZoneById to resolve
+# IANA timezone names (e.g., "Europe/Warsaw"). Alpine doesn't ship it by default.
+# Slice-9 surfaced this via H3 docker-compose verification: Organization.UpdateProfile
+# rejects every non-UTC IANA id without tzdata.
+RUN apk add --no-cache tzdata
+
 RUN addgroup -g 1000 kartova && adduser -D -u 1000 -G kartova kartova
 USER kartova:kartova
 

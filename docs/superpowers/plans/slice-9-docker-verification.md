@@ -391,3 +391,42 @@ docker compose down
 
 (Volumes preserved for the next H4 session — they now contain the freshly-imported
 `kartova-admin` client, so the next `up` will not require the `down -v` dance.)
+
+## H3 follow-up: Europe/Warsaw fix verified (2026-05-29)
+
+The H3 row 5a deviation (Alpine runtime missing `tzdata`, every non-UTC IANA tz id
+returning 400 from `PUT /api/v1/organizations/me`) is fixed by installing the
+`tzdata` apk package in the API runtime image. Verified against a freshly-rebuilt
+image at git HEAD `fea16af` + the Dockerfile change applied on top.
+
+Image layer (confirmed):
+
+```
+#19 [runtime 3/5] RUN apk add --no-cache tzdata
+```
+
+Image content (`docker run --rm --entrypoint sh kartova/api:dev -c "apk info -e tzdata && ls /usr/share/zoneinfo/Europe/Warsaw"`):
+
+```
+tzdata
+/usr/share/zoneinfo/Europe/Warsaw
+```
+
+Endpoint re-verification (the curl that produced 400 in the H3 row 5a capture):
+
+```
+PUT /api/v1/organizations/me  body={"displayName":"Org A","description":"verified","defaultTimeZone":"Europe/Warsaw"}
+HTTP_STATUS=204  (was 400 + "Unknown IANA time-zone id." pre-fix)
+```
+
+Status table delta:
+
+| Row | Step | Pre-fix outcome | Post-fix outcome |
+|----:|------|-----------------|------------------|
+| 5a  | Org profile update with `Europe/Warsaw` (happy) | 400 (DEVIATION) | **204 (OK)** |
+
+The first-row deviation from the H3 outcomes table is closed. Files touched:
+`src/Kartova.Api/Dockerfile` (apk add tzdata in runtime stage),
+`tests/Kartova.ArchitectureTests/Slice9BoundarySentinels.cs`
+(`Runtime_can_resolve_common_IANA_timezones` sentinel — makes the IANA-tz
+dependency visible on any future stripped-down runtime).

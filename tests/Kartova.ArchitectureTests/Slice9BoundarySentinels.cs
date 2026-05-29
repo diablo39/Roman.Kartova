@@ -106,6 +106,34 @@ public sealed class Slice9BoundarySentinels
                 "..", "..", "..", "..", "..",
                 "src", "Kartova.SharedKernel.Postgres", "PostgresAdvisoryLock.cs"));
 
+    /// <summary>
+    /// Slice-9 H3 surfaced that Alpine-based runtime containers without the
+    /// <c>tzdata</c> package cannot resolve IANA timezone ids — every call to
+    /// <see cref="TimeZoneInfo.FindSystemTimeZoneById"/> with a non-UTC id returns null,
+    /// and <c>Organization.UpdateProfile</c> rejects the request with
+    /// "Unknown IANA time-zone id." → HTTP 400. The production fix is
+    /// <c>apk add --no-cache tzdata</c> in <c>src/Kartova.Api/Dockerfile</c>.
+    /// <para>
+    /// This sentinel runs on the test host (typically Windows or Linux with tzdata)
+    /// and confirms the IANA ids slice-9 advertises do resolve. It won't catch the
+    /// Alpine regression by itself (CI may run on Linux with tzdata), but it makes
+    /// the timezone-resolution dependency visible and would fail on a stripped-down
+    /// minimal Linux runtime.
+    /// </para>
+    /// </summary>
+    [TestMethod]
+    public void Runtime_can_resolve_common_IANA_timezones()
+    {
+        foreach (var tz in new[] { "Europe/Warsaw", "Europe/London", "America/New_York", "UTC" })
+        {
+            Assert.IsTrue(
+                TimeZoneInfo.TryFindSystemTimeZoneById(tz, out _),
+                $"Test host runtime cannot resolve IANA timezone '{tz}' — " +
+                "production Alpine container needs tzdata package installed " +
+                "(see src/Kartova.Api/Dockerfile, slice-9 H3 deviation).");
+        }
+    }
+
     private static IEnumerable<Type> SafeGetTypes(System.Reflection.Assembly a)
     {
         try
