@@ -170,6 +170,24 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     }
 
     /// <summary>
+    /// Deletes every <c>invitations</c> row for <paramref name="tenantId"/> via the
+    /// BYPASSRLS connection. Slice 9 / H1 — used by invitation integration tests so
+    /// rows seeded indirectly through <c>POST /api/v1/organizations/invitations</c>
+    /// can be cleaned up in <c>finally</c> blocks without leaking across tests.
+    /// Mirrors <see cref="DeleteTeamsForTenantAsync"/>.
+    /// </summary>
+    public async Task DeleteInvitationsForTenantAsync(Guid tenantId)
+    {
+        var opts = new DbContextOptionsBuilder<OrganizationDbContext>()
+            .UseNpgsql(BypassConnectionString)
+            .Options;
+        await using var db = new OrganizationDbContext(opts);
+        await db.Database.ExecuteSqlRawAsync(
+            "DELETE FROM invitations WHERE tenant_id = {0}",
+            tenantId);
+    }
+
+    /// <summary>
     /// Seeds one Catalog <see cref="DomainApplication"/> assigned to <paramref name="teamId"/>
     /// for the given tenant. Returns the new app's id. Used by
     /// <c>DeleteTeamTests</c> to drive the 409 team-has-applications branch:
