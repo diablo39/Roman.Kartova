@@ -10,9 +10,9 @@ namespace Kartova.SharedKernel.Identity.Tests;
 [TestClass]
 public sealed class KeycloakAdminClientTests
 {
-    private static (KeycloakAdminClient client, StubHttpMessageHandler stub) MakeSut()
+    private static (KeycloakAdminClient client, StubHttpMessageHandler stub) MakeSut(bool captureBodies = false)
     {
-        var stub = new StubHttpMessageHandler();
+        var stub = new StubHttpMessageHandler { CaptureBodies = captureBodies };
         var http = new HttpClient(stub) { BaseAddress = new Uri("http://keycloak:8080") };
         var tokenHttp = new HttpClient(stub) { BaseAddress = new Uri("http://keycloak:8080") };
         var tokenClient = new TokenClient(tokenHttp, new TokenClientOptions
@@ -98,7 +98,9 @@ public sealed class KeycloakAdminClientTests
         // Regression: real KeyCloak rejects the create-user payload with 400 unless either the
         // realm sets registrationEmailAsUsername=true or the payload includes an explicit username.
         // The realm seed does not set the flag, so the payload MUST carry username = email.
-        var (client, stub) = MakeSut();
+        // CaptureBodies = true: this test inspects the JSON sent to the create endpoint, so it
+        // opts into the (otherwise off-by-default) body capture on the stub handler.
+        var (client, stub) = MakeSut(captureBodies: true);
         var newId = Guid.NewGuid();
         EnqueueTokenResponse(stub);
         stub.EnqueueResponse(_ => new HttpResponseMessage(HttpStatusCode.Created)

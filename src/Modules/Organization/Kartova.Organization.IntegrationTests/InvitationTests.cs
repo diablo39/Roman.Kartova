@@ -53,19 +53,72 @@ public sealed class InvitationTests : OrganizationIntegrationTestBase
 #pragma warning restore CA1031
     }
 
+    /// <summary>Reads <c>KeycloakUserId</c> off an invitations row via BYPASSRLS — the
+    /// Invitation aggregate maps its id through the <c>_id</c> backing field, so EF
+    /// can't translate <c>i.Id.Value == ...</c>; we reach the column via <c>EF.Property</c>.</summary>
+    private static async Task<Guid?> GetKeycloakUserIdFromInvitationAsync(Guid invitationId)
+    {
+        await using var db = new OrganizationDbContext(BypassOptions());
+        return await db.Invitations
+            .Where(i => EF.Property<Guid>(i, "_id") == invitationId)
+            .Select(i => i.KeycloakUserId)
+            .SingleAsync();
+    }
+
+    /// <summary>
+    /// Tears down a tenant's invitation state across users + invitations + KC.
+    /// Order: users FIRST (slice-9 e5aaf73/4715c87 convention — direct-id-leak-prone,
+    /// no prefix sweep), invitations second, KC LAST (best-effort). Each step runs in
+    /// its own try/catch — a throw on one does not skip the others; KC leaks are the
+    /// worst case (realm <c>duplicateEmailsAllowed: false</c> would spuriously 409 a
+    /// later test reusing the email). Errors go to <c>Console.Error</c> so a CI
+    /// failure surfaces the cleanup gap without masking the original test failure
+    /// that fired the <c>finally</c>.
+    /// </summary>
+    private static async Task CleanupTenantInvitationsAsync(Guid tenantId, params Guid?[] keycloakUserIds)
+    {
+#pragma warning disable CA1031 // best-effort test teardown — log and continue
+        try
+        {
+            await using var db = new OrganizationDbContext(BypassOptions());
+            await db.Database.ExecuteSqlRawAsync("DELETE FROM users WHERE tenant_id = {0}", tenantId);
+        }
+        catch (Exception ex)
+        {
+            await Console.Error.WriteLineAsync($"[cleanup] users delete failed for tenant {tenantId}: {ex.Message}");
+        }
+
+        try { await Fx.DeleteInvitationsForTenantAsync(tenantId); }
+        catch (Exception ex)
+        {
+            await Console.Error.WriteLineAsync($"[cleanup] invitations delete failed for tenant {tenantId}: {ex.Message}");
+        }
+#pragma warning restore CA1031
+
+        foreach (var kcId in keycloakUserIds.Where(id => id is not null))
+            await TryDeleteKeycloakUserAsync(kcId);
+    }
+
+    /// <summary>Fresh per-test context: unique-suffix admin email + derived deterministic
+    /// tenant id + seeded organization row. Each test calls this so its tenant id is
+    /// disjoint from every other test's (suite stays parallel-safe even though MSTest
+    /// serializes test classes).</summary>
+    private static async Task<(string adminEmail, Guid tenantId)> NewTenantAsync(string scenarioSlug)
+    {
+        var unique = Guid.NewGuid().ToString("N")[..8];
+        var adminEmail = $"admin@{scenarioSlug}-{unique}.kartova.local";
+        var tenantId = KartovaApiFixtureBase.TenantFor(adminEmail).Value;
+        await Fx.SeedOrganizationAsync(tenantId, $"Org-{scenarioSlug}");
+        return (adminEmail, tenantId);
+    }
+
     // ---------- Scenario #2 (spec §11.3): happy path -------------------------
 
     [TestMethod]
     public async Task Invitation_create_persists_keycloak_user_and_db_row()
     {
-        // Each test uses a unique email domain so its derived tenant id is
-        // disjoint from every other test — keeps the suite parallel-safe even
-        // though MSTest serializes test classes.
-        var unique = Guid.NewGuid().ToString("N")[..8];
-        var adminEmail = $"admin@create-happy-{unique}.kartova.local";
-        var inviteeEmail = $"newuser-{unique}@create-happy-{unique}.kartova.local";
-        var tenantId = KartovaApiFixtureBase.TenantFor(adminEmail).Value;
-        await Fx.SeedOrganizationAsync(tenantId, "Org-CreateHappy");
+        var (adminEmail, tenantId) = await NewTenantAsync("create-happy");
+        var inviteeEmail = $"newuser-{Guid.NewGuid():N}@{adminEmail.Split('@')[1]}";
 
         Guid? kcUserId = null;
         try
@@ -96,9 +149,6 @@ public sealed class InvitationTests : OrganizationIntegrationTestBase
             // both committed under the request's per-tenant scope.
             await using (var db = new OrganizationDbContext(BypassOptions()))
             {
-                // The Invitation aggregate maps its id via the `_id` backing field
-                // (see InvitationEntityTypeConfiguration). EF cannot translate
-                // `i.Id.Value == ...` — go through EF.Property to reach the column.
                 var invitation = await db.Invitations.SingleAsync(
                     i => EF.Property<Guid>(i, "_id") == body.Invitation.Id);
                 Assert.AreEqual(inviteeEmail.ToLowerInvariant(), invitation.Email);
@@ -120,16 +170,7 @@ public sealed class InvitationTests : OrganizationIntegrationTestBase
         }
         finally
         {
-            // Order: users-row cleanup BEFORE invitations cleanup — the
-            // users row is direct-id-leak-prone (no prefix sweep). Mirrors the
-            // slice-9 e5aaf73 / 4715c87 convention.
-            await using (var db = new OrganizationDbContext(BypassOptions()))
-            {
-                await db.Database.ExecuteSqlRawAsync(
-                    "DELETE FROM users WHERE tenant_id = {0}", tenantId);
-            }
-            await Fx.DeleteInvitationsForTenantAsync(tenantId);
-            await TryDeleteKeycloakUserAsync(kcUserId);
+            await CleanupTenantInvitationsAsync(tenantId, kcUserId);
         }
     }
 
@@ -138,11 +179,8 @@ public sealed class InvitationTests : OrganizationIntegrationTestBase
     [TestMethod]
     public async Task Invitation_create_returns_409_when_email_already_in_tenant()
     {
-        var unique = Guid.NewGuid().ToString("N")[..8];
-        var adminEmail = $"admin@inv-409-intenant-{unique}.kartova.local";
-        var existingEmail = $"existing-{unique}@inv-409-intenant-{unique}.kartova.local";
-        var tenantId = KartovaApiFixtureBase.TenantFor(adminEmail).Value;
-        await Fx.SeedOrganizationAsync(tenantId, "Org-409-InTenant");
+        var (adminEmail, tenantId) = await NewTenantAsync("inv-409-intenant");
+        var existingEmail = $"existing-{Guid.NewGuid():N}@{adminEmail.Split('@')[1]}";
         var seededUserId = await Fx.SeedUserInOrganizationAsync(
             tenantId, displayName: existingEmail, email: existingEmail);
         try
@@ -171,6 +209,10 @@ public sealed class InvitationTests : OrganizationIntegrationTestBase
         }
         finally
         {
+            // Custom cleanup: this scenario seeds a real users row via the fixture
+            // helper (not the projection-side-effect of an invite), so use the
+            // fixture's matching delete helper to remove it. No KC user was
+            // created — the handler short-circuited before the KC call.
             await Fx.DeleteUserInOrganizationAsync(seededUserId);
             await Fx.DeleteInvitationsForTenantAsync(tenantId);
         }
@@ -181,11 +223,8 @@ public sealed class InvitationTests : OrganizationIntegrationTestBase
     [TestMethod]
     public async Task Invitation_create_returns_409_when_email_already_pending_in_tenant()
     {
-        var unique = Guid.NewGuid().ToString("N")[..8];
-        var adminEmail = $"admin@inv-409-invited-{unique}.kartova.local";
-        var inviteeEmail = $"target-{unique}@inv-409-invited-{unique}.kartova.local";
-        var tenantId = KartovaApiFixtureBase.TenantFor(adminEmail).Value;
-        await Fx.SeedOrganizationAsync(tenantId, "Org-409-Invited");
+        var (adminEmail, tenantId) = await NewTenantAsync("inv-409-invited");
+        var inviteeEmail = $"target-{Guid.NewGuid():N}@{adminEmail.Split('@')[1]}";
 
         Guid? kcUserId = null;
         try
@@ -203,13 +242,7 @@ public sealed class InvitationTests : OrganizationIntegrationTestBase
 
             // Capture the KC user id before we mutate the projection — we still need
             // it for KC cleanup in the finally block.
-            await using (var db = new OrganizationDbContext(BypassOptions()))
-            {
-                kcUserId = await db.Invitations
-                    .Where(i => EF.Property<Guid>(i, "_id") == firstBody!.Invitation.Id)
-                    .Select(i => i.KeycloakUserId)
-                    .SingleAsync();
-            }
+            kcUserId = await GetKeycloakUserIdFromInvitationAsync(firstBody!.Invitation.Id);
 
             // Spec §6.7 step 2 (users-row guard) fires before step 3 (pending-
             // invitation guard). To exercise the EmailAlreadyInvited branch
@@ -255,13 +288,7 @@ public sealed class InvitationTests : OrganizationIntegrationTestBase
         }
         finally
         {
-            await using (var db = new OrganizationDbContext(BypassOptions()))
-            {
-                await db.Database.ExecuteSqlRawAsync(
-                    "DELETE FROM users WHERE tenant_id = {0}", tenantId);
-            }
-            await Fx.DeleteInvitationsForTenantAsync(tenantId);
-            await TryDeleteKeycloakUserAsync(kcUserId);
+            await CleanupTenantInvitationsAsync(tenantId, kcUserId);
         }
     }
 
@@ -277,16 +304,11 @@ public sealed class InvitationTests : OrganizationIntegrationTestBase
         // EmailAlreadyOnPlatform. The in-tenant pre-check passes for tenant B
         // because RLS hides tenant A's users row — only KC's platform view
         // catches the conflict.
-        var unique = Guid.NewGuid().ToString("N")[..8];
-        var adminAEmail = $"admin@otherten-a-{unique}.kartova.local";
-        var adminBEmail = $"admin@otherten-b-{unique}.kartova.local";
-        var sharedInvitee = $"shared-{unique}@cross-tenant-{unique}.kartova.local";
-        var tenantA = KartovaApiFixtureBase.TenantFor(adminAEmail).Value;
-        var tenantB = KartovaApiFixtureBase.TenantFor(adminBEmail).Value;
+        var (adminAEmail, tenantA) = await NewTenantAsync("otherten-a");
+        var (adminBEmail, tenantB) = await NewTenantAsync("otherten-b");
         Assert.AreNotEqual(tenantA, tenantB, "Distinct admin domains MUST yield distinct deterministic tenants.");
 
-        await Fx.SeedOrganizationAsync(tenantA, "Org-Other-A");
-        await Fx.SeedOrganizationAsync(tenantB, "Org-Other-B");
+        var sharedInvitee = $"shared-{Guid.NewGuid():N}@cross-tenant-{Guid.NewGuid():N}.kartova.local";
 
         Guid? kcUserId = null;
         try
@@ -300,13 +322,7 @@ public sealed class InvitationTests : OrganizationIntegrationTestBase
             Assert.IsNotNull(bodyA);
 
             // Capture the KC user id for cleanup before any later assertion can throw.
-            await using (var db = new OrganizationDbContext(BypassOptions()))
-            {
-                kcUserId = await db.Invitations
-                    .Where(i => EF.Property<Guid>(i, "_id") == bodyA!.Invitation.Id)
-                    .Select(i => i.KeycloakUserId)
-                    .SingleAsync();
-            }
+            kcUserId = await GetKeycloakUserIdFromInvitationAsync(bodyA!.Invitation.Id);
 
             // Tenant B's admin invites the SAME email — KC will surface
             // EmailAlreadyExists from its platform-wide directory.
@@ -339,16 +355,8 @@ public sealed class InvitationTests : OrganizationIntegrationTestBase
         }
         finally
         {
-            await using (var db = new OrganizationDbContext(BypassOptions()))
-            {
-                await db.Database.ExecuteSqlRawAsync(
-                    "DELETE FROM users WHERE tenant_id = {0}", tenantA);
-                await db.Database.ExecuteSqlRawAsync(
-                    "DELETE FROM users WHERE tenant_id = {0}", tenantB);
-            }
-            await Fx.DeleteInvitationsForTenantAsync(tenantA);
-            await Fx.DeleteInvitationsForTenantAsync(tenantB);
-            await TryDeleteKeycloakUserAsync(kcUserId);
+            await CleanupTenantInvitationsAsync(tenantA, kcUserId);
+            await CleanupTenantInvitationsAsync(tenantB);
         }
     }
 
@@ -357,11 +365,8 @@ public sealed class InvitationTests : OrganizationIntegrationTestBase
     [TestMethod]
     public async Task Invitation_revoke_deletes_keycloak_user_and_flips_status()
     {
-        var unique = Guid.NewGuid().ToString("N")[..8];
-        var adminEmail = $"admin@revoke-happy-{unique}.kartova.local";
-        var inviteeEmail = $"revoked-{unique}@revoke-happy-{unique}.kartova.local";
-        var tenantId = KartovaApiFixtureBase.TenantFor(adminEmail).Value;
-        await Fx.SeedOrganizationAsync(tenantId, "Org-RevokeHappy");
+        var (adminEmail, tenantId) = await NewTenantAsync("revoke-happy");
+        var inviteeEmail = $"revoked-{Guid.NewGuid():N}@{adminEmail.Split('@')[1]}";
 
         Guid? kcUserId = null;
         try
@@ -375,13 +380,7 @@ public sealed class InvitationTests : OrganizationIntegrationTestBase
             Assert.IsNotNull(created);
             var invitationId = created!.Invitation.Id;
 
-            await using (var db = new OrganizationDbContext(BypassOptions()))
-            {
-                kcUserId = await db.Invitations
-                    .Where(i => EF.Property<Guid>(i, "_id") == invitationId)
-                    .Select(i => i.KeycloakUserId)
-                    .SingleAsync();
-            }
+            kcUserId = await GetKeycloakUserIdFromInvitationAsync(invitationId);
             Assert.IsNotNull(kcUserId, "Sanity: a freshly-created Pending invitation has a KC user id.");
 
             // Revoke the invitation.
@@ -411,14 +410,10 @@ public sealed class InvitationTests : OrganizationIntegrationTestBase
         }
         finally
         {
-            await using (var db = new OrganizationDbContext(BypassOptions()))
-            {
-                await db.Database.ExecuteSqlRawAsync(
-                    "DELETE FROM users WHERE tenant_id = {0}", tenantId);
-            }
-            await Fx.DeleteInvitationsForTenantAsync(tenantId);
-            // Idempotent: the revoke above already deleted the KC user.
-            await TryDeleteKeycloakUserAsync(kcUserId);
+            // Idempotent: the revoke above already deleted the KC user, so the
+            // KC delete inside CleanupTenantInvitationsAsync is a best-effort
+            // no-op (matches RevokeInvitationHandler's idempotent semantics).
+            await CleanupTenantInvitationsAsync(tenantId, kcUserId);
         }
     }
 
@@ -431,11 +426,8 @@ public sealed class InvitationTests : OrganizationIntegrationTestBase
         // the implementation in ExpireInvitationsHostedService.ExpireDueAsync
         // (Infrastructure.Admin/ExpireInvitationsHostedService.cs:57) DELETES the
         // KC user rather than disabling it. Test mirrors what the code does.
-        var unique = Guid.NewGuid().ToString("N")[..8];
-        var adminEmail = $"admin@expire-{unique}.kartova.local";
-        var inviteeEmail = $"expired-{unique}@expire-{unique}.kartova.local";
-        var tenantId = KartovaApiFixtureBase.TenantFor(adminEmail).Value;
-        await Fx.SeedOrganizationAsync(tenantId, "Org-Expire");
+        var (adminEmail, tenantId) = await NewTenantAsync("expire");
+        var inviteeEmail = $"expired-{Guid.NewGuid():N}@{adminEmail.Split('@')[1]}";
 
         Guid? kcUserId = null;
         try
@@ -462,13 +454,7 @@ public sealed class InvitationTests : OrganizationIntegrationTestBase
                     backdate, invitationId);
             }
 
-            await using (var db = new OrganizationDbContext(BypassOptions()))
-            {
-                kcUserId = await db.Invitations
-                    .Where(i => EF.Property<Guid>(i, "_id") == invitationId)
-                    .Select(i => i.KeycloakUserId)
-                    .SingleAsync();
-            }
+            kcUserId = await GetKeycloakUserIdFromInvitationAsync(invitationId);
 
             // Invoke the sweep directly through the public-for-testing entry
             // point — bypasses the LeaderElectedPeriodicService timer + lock
@@ -499,13 +485,7 @@ public sealed class InvitationTests : OrganizationIntegrationTestBase
         }
         finally
         {
-            await using (var db = new OrganizationDbContext(BypassOptions()))
-            {
-                await db.Database.ExecuteSqlRawAsync(
-                    "DELETE FROM users WHERE tenant_id = {0}", tenantId);
-            }
-            await Fx.DeleteInvitationsForTenantAsync(tenantId);
-            await TryDeleteKeycloakUserAsync(kcUserId);
+            await CleanupTenantInvitationsAsync(tenantId, kcUserId);
         }
     }
 }
