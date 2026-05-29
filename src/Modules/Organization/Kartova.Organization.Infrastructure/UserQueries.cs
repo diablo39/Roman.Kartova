@@ -62,29 +62,54 @@ public sealed class UserQueries
             .FirstOrDefaultAsync(u => u.Id == id, ct);
         if (user is null) return null;
 
-        // Join team_members → teams to project TeamName alongside the role.
+        // Two server-side queries, joined client-side. Why not a single
+        // server-side .Join()? The original implementation joined on
+        // `m.TeamId.Value` (outer) → `EF.Property<Guid>(t, "_id")` (inner)
+        // and Npgsql refused to translate the outer key selector: the
+        // TeamId value object's `.Value` getter is fine in a plain Select
+        // (see OrganizationTeamMembershipReader) but is NOT translatable as
+        // a Join key. That surfaced as a 500 on `GET /users/{id}` in the
+        // H4 verification.
         //
-        // Plan suggested joining on the TeamId value-object directly, but
-        // Team.Id is computed (returns new TeamId(_id)) and explicitly Ignore'd
-        // in the EF model — only the private `_id` Guid backing field is
-        // mapped. EF Core therefore cannot translate `t => t.Id` to SQL nor
-        // evaluate it on the InMemory provider. The same pattern shows up in
-        // TeamSortSpecs / DeleteTeamHandler / UpdateTeamHandler — they all
-        // reach the PK via `EF.Property<Guid>(t, "_id")`. Doing the same here
-        // also lets us read the Guid into the response directly without an
-        // extra `.Value` accessor on a value object EF doesn't know how to
-        // project.
-        var teams = await _db.TeamMembers
+        // Membership cardinality on a single user is small (a handful of
+        // teams in practice; spec §6.7's user-detail view is unbounded only
+        // in the contract sense), so two round trips with a client-side
+        // dictionary lookup is cheap and works on both providers (Npgsql in
+        // production, InMemory in UserQueriesTests).
+        var memberships = await _db.TeamMembers
             .AsNoTracking()
             .Where(m => m.UserId == id)
-            .Join(_db.Teams,
-                m => m.TeamId.Value,
-                t => EF.Property<Guid>(t, "_id"),
-                (m, t) => new UserTeamMembership(
-                    EF.Property<Guid>(t, "_id"),
-                    t.DisplayName,
-                    m.Role.ToString()))
+            .Select(m => new { TeamGuid = m.TeamId.Value, m.Role })
             .ToListAsync(ct);
+
+        IReadOnlyList<UserTeamMembership> teams;
+        if (memberships.Count == 0)
+        {
+            teams = [];
+        }
+        else
+        {
+            // Fetch matching teams by primary key. Team.Id is computed
+            // (returns `new TeamId(_id)`) and explicitly Ignore'd in the EF
+            // model — only the private `_id` Guid backing field is mapped,
+            // accessed here via EF.Property exactly as TeamSortSpecs /
+            // DeleteTeamHandler / UpdateTeamHandler already do.
+            var teamIds = memberships.Select(m => m.TeamGuid).ToHashSet();
+            var teamRows = await _db.Teams
+                .AsNoTracking()
+                .Where(t => teamIds.Contains(EF.Property<Guid>(t, "_id")))
+                .Select(t => new { Id = EF.Property<Guid>(t, "_id"), t.DisplayName })
+                .ToListAsync(ct);
+            var teamById = teamRows.ToDictionary(t => t.Id, t => t.DisplayName);
+
+            teams = memberships
+                .Where(m => teamById.ContainsKey(m.TeamGuid))
+                .Select(m => new UserTeamMembership(
+                    m.TeamGuid,
+                    teamById[m.TeamGuid],
+                    m.Role.ToString()))
+                .ToList();
+        }
 
         return new UserDetailResponse(
             user.Id,
