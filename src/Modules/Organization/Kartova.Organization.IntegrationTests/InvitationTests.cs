@@ -379,7 +379,13 @@ public sealed class InvitationTests : OrganizationIntegrationTestBase
             Assert.AreEqual(HttpStatusCode.NoContent, revoke.StatusCode);
 
             // DB: status flipped to Revoked, RevokedAt populated; users
-            // projection row is NOT deleted (revoke clears KC only).
+            // projection row IS deleted alongside the KC user. Removing the
+            // projection is the contract change introduced by review finding
+            // #1 — without it, a follow-up invite for the same email 409s
+            // on the EmailAlreadyInTenant pre-check, locking the OrgAdmin
+            // out of correcting a fat-fingered address. The dedicated
+            // regression `Revoke_then_re_invite_same_email_succeeds`
+            // exercises the full re-invite cycle.
             await using (var db = new OrganizationDbContext(BypassOptions()))
             {
                 var reloaded = await db.Invitations.SingleAsync(
@@ -387,8 +393,8 @@ public sealed class InvitationTests : OrganizationIntegrationTestBase
                 Assert.AreEqual(InvitationStatus.Revoked, reloaded.Status);
                 Assert.IsNotNull(reloaded.RevokedAt);
                 var userRow = await db.Users.SingleOrDefaultAsync(u => u.Id == kcUserId!.Value);
-                Assert.IsNotNull(userRow,
-                    "Revoke must NOT delete the users projection — only the KC directory entry.");
+                Assert.IsNull(userRow,
+                    "Revoke must delete the users projection stub so the same email can be re-invited.");
             }
 
             // KC: the user is gone (GetUserAsync returns null).
@@ -403,6 +409,88 @@ public sealed class InvitationTests : OrganizationIntegrationTestBase
             // KC delete inside CleanupTenantInvitationsAsync is a best-effort
             // no-op (matches RevokeInvitationHandler's idempotent semantics).
             await CleanupTenantInvitationsAsync(tenantId, kcUserId);
+        }
+    }
+
+    // ---------- Regression for review finding #1 -----------------------------
+
+    /// <summary>
+    /// End-to-end regression for the orphan-users-row bug surfaced by the
+    /// slice-9 boundary code review (finding #1): revoking an invitation
+    /// MUST tear down the users-projection stub that <see cref="CreateInvitationHandler"/>
+    /// inserted, so an OrgAdmin can re-issue the invite for the same email
+    /// (fat-finger correction, recipient never received the original link, …).
+    /// Before the fix, the second create 409'd with
+    /// <see cref="ProblemTypes.EmailAlreadyInTenant"/> because the stale
+    /// users row tripped the create-handler's tenant-membership pre-check.
+    /// </summary>
+    [TestMethod]
+    public async Task Revoke_then_re_invite_same_email_succeeds()
+    {
+        var (adminEmail, tenantId) = await NewTenantAsync("revoke-reinvite");
+        var inviteeEmail = $"reinvite-{Guid.NewGuid():N}@{adminEmail.Split('@')[1]}";
+
+        Guid? firstKcUserId = null;
+        Guid? secondKcUserId = null;
+        try
+        {
+            var client = await Fx.CreateAuthenticatedClientAsync(adminEmail, new[] { KartovaRoles.OrgAdmin });
+
+            // Cycle 1: invite → KC user + invitations row + users projection stub.
+            var first = await client.PostAsJsonAsync(
+                "/api/v1/organizations/invitations",
+                new CreateInvitationRequest(inviteeEmail, KartovaRoles.Member));
+            Assert.AreEqual(HttpStatusCode.Created, first.StatusCode);
+            var firstBody = await first.Content.ReadFromJsonAsync<CreateInvitationResponse>(KartovaApiFixtureBase.WireJson);
+            Assert.IsNotNull(firstBody);
+            var firstInvitationId = firstBody!.Invitation.Id;
+            firstKcUserId = await GetKeycloakUserIdFromInvitationAsync(firstInvitationId);
+
+            // Revoke the first invite — the handler must drop the KC user AND
+            // the users projection row that would otherwise block re-invite.
+            var revoke = await client.PostAsync(
+                $"/api/v1/organizations/invitations/{firstInvitationId}/revoke",
+                content: null);
+            Assert.AreEqual(HttpStatusCode.NoContent, revoke.StatusCode);
+
+            // Cycle 2: re-invite the SAME email. Before review fix #1 this hit
+            // 409 EmailAlreadyInTenant because the projection row survived the
+            // revoke. Post-fix the create-handler's pre-check finds nothing
+            // and we land on 201 with a fresh KC user + invitations row.
+            var second = await client.PostAsJsonAsync(
+                "/api/v1/organizations/invitations",
+                new CreateInvitationRequest(inviteeEmail, KartovaRoles.Member));
+            Assert.AreEqual(
+                HttpStatusCode.Created, second.StatusCode,
+                "Re-invite after revoke must succeed once the users projection row is dropped.");
+            var secondBody = await second.Content.ReadFromJsonAsync<CreateInvitationResponse>(KartovaApiFixtureBase.WireJson);
+            Assert.IsNotNull(secondBody);
+            Assert.AreNotEqual(
+                firstInvitationId, secondBody!.Invitation.Id,
+                "The re-invite must produce a brand-new invitations row, not resurrect the revoked one.");
+            secondKcUserId = await GetKeycloakUserIdFromInvitationAsync(secondBody.Invitation.Id);
+            Assert.IsNotNull(secondKcUserId);
+            Assert.AreNotEqual(firstKcUserId, secondKcUserId,
+                "The re-invite must provision a fresh KC user (the prior one was deleted by revoke).");
+
+            // DB sanity: exactly one Pending invitation + one users projection
+            // row for the email — the revoked invitation is still present in
+            // Revoked state but no longer impedes the new invite.
+            await using var db = new OrganizationDbContext(BypassOptions());
+            var emailNormalized = inviteeEmail.ToLowerInvariant();
+            var pendingCount = await db.Invitations.CountAsync(
+                i => i.TenantId == new TenantId(tenantId)
+                    && i.Email == emailNormalized
+                    && i.Status == InvitationStatus.Pending);
+            Assert.AreEqual(1, pendingCount);
+            var userCount = await db.Users.CountAsync(
+                u => u.TenantId == new TenantId(tenantId) && u.Email == emailNormalized);
+            Assert.AreEqual(1, userCount,
+                "Exactly one users projection — the fresh stub from the second invite.");
+        }
+        finally
+        {
+            await CleanupTenantInvitationsAsync(tenantId, firstKcUserId, secondKcUserId);
         }
     }
 
