@@ -21,7 +21,7 @@ internal sealed class KeycloakAdminOptionsEnvValidator(IHostEnvironment env)
 {
     public ValidateOptionsResult Validate(string? name, KeycloakAdminOptions options)
     {
-        if (env.IsDevelopment())
+        if (env.IsDevelopment() || env.IsEnvironment("Testing"))
         {
             return ValidateOptionsResult.Success;
         }

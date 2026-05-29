@@ -94,6 +94,24 @@ public sealed class KeycloakAdminOptionsValidationTests
     }
 
     [TestMethod]
+    public void ValidateOnStart_allows_localhost_FrontendBaseUrl_in_Testing_env()
+    {
+        // Mirrors the Development-env passing-path test but with EnvironmentName = "Testing".
+        // Justification: every integration test in the repo bootstraps via WebApplicationFactory<Program>
+        // with UseEnvironment("Testing") (see tests/Kartova.Testing.Auth/KartovaApiFixtureBase.cs) and
+        // inherits appsettings.json's FrontendBaseUrl = http://localhost:5173 default. Without this
+        // allow-list extension, every Catalog / Organization / Api integration test would fail bootstrap
+        // with OptionsValidationException at host startup.
+        var services = BuildServices("Testing");
+        services.AddKeycloakAdminClient(
+            BuildConfig("real-secret-value", frontendBaseUrl: "http://localhost:5173"));
+
+        using var sp = services.BuildServiceProvider();
+        var opts = sp.GetRequiredService<IOptions<KeycloakAdminOptions>>().Value;
+        Assert.AreEqual("http://localhost:5173", opts.FrontendBaseUrl);
+    }
+
+    [TestMethod]
     public void ValidateOnStart_allows_non_localhost_FrontendBaseUrl_in_Production()
     {
         var services = BuildServices(Environments.Production);
