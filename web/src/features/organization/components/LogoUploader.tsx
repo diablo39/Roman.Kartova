@@ -6,6 +6,7 @@ import {
   useUploadOrgLogo,
   useDeleteOrgLogo,
 } from "@/features/organization/api/organization";
+import { toastProblem } from "@/shared/forms/toastProblem";
 
 /**
  * Allowed MIME types for the organization logo — must match the server-side
@@ -21,19 +22,6 @@ type AllowedMime = (typeof ALLOWED_MIME)[number];
 
 function isAllowedMime(value: string): value is AllowedMime {
   return (ALLOWED_MIME as readonly string[]).includes(value);
-}
-
-/**
- * Reads the server-side ProblemDetails attached to an upload/delete failure
- * by `useUploadOrgLogo` / `useDeleteOrgLogo`. The hook attaches `__status`
- * but does NOT parse the response body for upload (it throws a synthetic
- * error with just the status), so we fall back to a generic detail string.
- */
-function extractDetail(err: unknown, fallback: string): string {
-  const problem = err as { detail?: unknown; title?: unknown };
-  if (typeof problem?.detail === "string") return problem.detail;
-  if (typeof problem?.title === "string") return problem.title;
-  return fallback;
 }
 
 interface Props {
@@ -133,20 +121,17 @@ export function LogoUploader({ currentLogoUrl, canEdit }: Props) {
       setStagedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err) {
-      const status = (err as { __status?: number }).__status;
-      if (status === 413) {
-        toast.error("Logo is too large for the server.");
-        return;
-      }
-      if (status === 415) {
-        toast.error("Server rejected the logo MIME type.");
-        return;
-      }
-      if (status === 422) {
-        toast.error(extractDetail(err, "Logo rejected by server."));
-        return;
-      }
-      toast.error(extractDetail(err, "Could not upload logo."));
+      // The upload hook constructs a synthetic error with only `__status` and
+      // `message` (no `detail` / `title`), so byStatus is the right dispatch:
+      // there is no server-supplied detail to prefer at any of these codes.
+      toastProblem(err, {
+        byStatus: {
+          413: "Logo is too large for the server.",
+          415: "Server rejected the logo MIME type.",
+          422: "Logo rejected by server.",
+        },
+        fallback: "Could not upload logo.",
+      });
     }
   }
 
@@ -162,7 +147,7 @@ export function LogoUploader({ currentLogoUrl, canEdit }: Props) {
         toast.success("Logo removed");
         return;
       }
-      toast.error(extractDetail(err, "Could not remove logo."));
+      toastProblem(err, { fallback: "Could not remove logo." });
     }
   }
 

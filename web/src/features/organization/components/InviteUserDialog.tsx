@@ -22,6 +22,7 @@ import {
   applyProblemDetailsToForm,
   type ProblemDetails,
 } from "@/shared/forms/problemDetails";
+import { toastProblem } from "@/shared/forms/toastProblem";
 
 interface Props {
   open: boolean;
@@ -89,29 +90,27 @@ export function InviteUserDialog({ open, onOpenChange }: Props) {
       setSuccess(response);
     } catch (err) {
       const problem = err as ProblemDetails & { __status?: number };
-      const status = problem.__status;
 
       const handled = applyProblemDetailsToForm(problem, (name, error) =>
         form.setError(name as Parameters<typeof form.setError>[0], error),
       );
       if (handled) return; // 400 — field errors applied, form stays open.
 
-      // Three-way 409 mapping (spec §6.7) + 502 upstream.
-      if (problem.type && PROBLEM_TYPE_TO_MESSAGE[problem.type]) {
-        toast.error(PROBLEM_TYPE_TO_MESSAGE[problem.type]);
-        return;
-      }
+      // Three-way 409 mapping (spec §6.7) + 502 upstream — recognized
+      // problem-type URIs are toasted with friendly canned messages.
+      if (toastProblem(err, { byProblemType: PROBLEM_TYPE_TO_MESSAGE })) return;
 
+      // Residual statuses: 409 / 422 prefer the server's `detail` / `title`
+      // (real-world payloads carry context the canned fallback lacks); 502
+      // is always the same canned message regardless of body. Fallthrough
+      // catch-all surfaces detail/title or the generic "Could not create".
+      const status = problem.__status;
       if (status === 409) {
-        toast.error(
-          problem.detail ?? problem.title ?? "Conflict creating invitation.",
-        );
+        toastProblem(err, { fallback: "Conflict creating invitation." });
         return;
       }
       if (status === 422) {
-        toast.error(
-          problem.detail ?? "The server rejected the invitation details.",
-        );
+        toastProblem(err, { fallback: "The server rejected the invitation details." });
         return;
       }
       if (status === 502) {
@@ -121,7 +120,7 @@ export function InviteUserDialog({ open, onOpenChange }: Props) {
         return;
       }
 
-      toast.error(problem.detail ?? problem.title ?? "Could not create invitation");
+      toastProblem(err, { fallback: "Could not create invitation" });
     }
   });
 
