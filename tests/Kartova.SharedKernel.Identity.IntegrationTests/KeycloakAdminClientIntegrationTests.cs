@@ -2,6 +2,7 @@ using Kartova.SharedKernel.Identity;
 using Kartova.Testing.Auth;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Kartova.SharedKernel.Identity.IntegrationTests;
@@ -54,6 +55,13 @@ public sealed class KeycloakAdminClientIntegrationTests
 
         var services = new ServiceCollection();
         services.AddLogging(b => b.SetMinimumLevel(LogLevel.Warning));
+        // KeycloakAdminOptionsEnvValidator (added in slice-9 H2) takes IHostEnvironment via DI.
+        // This suite builds its ServiceCollection by hand rather than going through
+        // WebApplicationFactory<Program>, so the host-environment registration that production
+        // gets for free has to be supplied explicitly. Development matches the FrontendBaseUrl
+        // = http://localhost:5173 we configure above (the validator allow-lists localhost in
+        // Development and Testing envs only — see KeycloakAdminOptionsEnvValidator).
+        services.AddSingleton<IHostEnvironment>(new StubHostEnvironment(Environments.Development));
         services.AddKeycloakAdminClient(config);
         _services = services.BuildServiceProvider();
     }
@@ -209,5 +217,18 @@ public sealed class KeycloakAdminClientIntegrationTests
         {
             await TryDeleteAsync(createdId);
         }
+    }
+
+    // Mirrors the StubHostEnvironment in KeycloakAdminOptionsValidationTests (unit-test sibling).
+    // Kept inline rather than promoted to a shared helper because the unit tests still need
+    // their own copy (they construct it with varying EnvironmentName values per test case),
+    // and a two-line stub doesn't justify a new shared project.
+    private sealed class StubHostEnvironment(string environmentName) : IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = environmentName;
+        public string ApplicationName { get; set; } = "Kartova.SharedKernel.Identity.IntegrationTests";
+        public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
+        public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; } =
+            new Microsoft.Extensions.FileProviders.NullFileProvider();
     }
 }
