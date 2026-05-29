@@ -12,7 +12,9 @@ I'm continuing execution of slice 9 (organization & people management). Context:
 **Plan:** `docs/superpowers/plans/2026-05-27-slice-9-organization-people-management-plan.md`
 **Branch:** `feat/slice-9-organization-people-management` (already checked out)
 
-**Status: Phases A + B + C + D + E COMPLETE (57 commits since branch start, 9 since D-phase end).** Full-solution build: 0 warnings, 0 errors. Full unit + architecture + Catalog integration pass at HEAD `b7530ac`:
+**Status: Phases A + B + C + D + E + F + G COMPLETE.** F1–F8 shipped before this checkpoint (commits `577ff02..16ad0b0`); G1 (ADR-0100) shipped in this checkpoint. Remaining work: **Phase H (verification + DoD)**. Below is the Phase E checkpoint reference (NOT re-verified at the F/G boundary — see Phase H section for outstanding verification work).
+
+Full-solution build: 0 warnings, 0 errors. Full unit + architecture + Catalog integration pass at HEAD `b7530ac` (Phase E checkpoint reference, pre-Phase F):
 
 | Suite | Passed | Notes |
 |---|---|---|
@@ -28,7 +30,7 @@ I'm continuing execution of slice 9 (organization & people management). Context:
 | `Kartova.Catalog.IntegrationTests` | 96/96 | +4 E1 `ApplicationOwnerEnrichmentTests` + 4 E2 `ListApplicationsOwnerFilterTests` over D-phase baseline |
 | `Kartova.Organization.IntegrationTests` | 70/70 | +3 net E3 + H7 fix in `2bde836` |
 
-**Known integration failures (do NOT regress in F-phase work):**
+**Known integration failures (do NOT regress in Phase H work):**
 
 1. ~~`AuthErrorTests.Platform_admin_without_tenant_hits_missing_tenant_on_tenant_scoped_route`~~ ✅ **RESOLVED in `2bde836`** — test updated to assert 403 (current pipeline behavior; PlatformAdmin's empty permission set fails Authorization before TenantScopeBeginMiddleware's 401-missing-tenant path fires). Renamed to `Platform_admin_without_tenant_gets_403_on_tenant_scoped_route` with an inline comment documenting the pipeline-order race and the alternative `TenantClaimRequiredMiddleware` fix if the diagnostic 401 contract becomes important again.
 
@@ -70,22 +72,22 @@ I'm continuing execution of slice 9 (organization & people management). Context:
 
 10. **E-phase verification at HEAD (`b7530ac`):** 509 unit + architecture tests green; full-solution build 0 warnings / 0 errors. Catalog integration 96/96 (including the new E1 + E2 wire-shape tests). Organization integration 69/70 (1 pre-existing failure tracked above, NOT slice-blocking).
 
-**Next task: F1 (`permissions.snapshot.json` + `permissions.ts` const object).** Plan file §"Task F1" should be lifted verbatim. Phase F is **8 tasks** (F1-F8) — significantly larger than Phase E and entirely SPA scope. F1 closes the SPA-side permissions drift introduced by C1 (which only updated the backend snapshot).
+**Next task: H1 (Integration tests for Phase D endpoints).** Plan file §"Task H1" lists the 16 scenarios from spec §11.3 with Testcontainers (KeyCloak + Postgres). Phase H is the verification ladder — H1 unit/integration, H2 architecture tests, H3 docker compose HTTP, H4 Playwright E2E (REQUIRED to close the F-phase verification gap), H5 simplify+mutation, H6 CHECKLIST + PR. Phase H is non-optional: CLAUDE.md DoD #5 mandates docker compose happy + negative HTTP paths for HTTP/auth/DB/middleware slices, and slice 9 is all three.
 
-**Phase F preview (8 tasks, SPA-only):**
+**Phase H preview (8 tasks, mostly cross-cutting):**
 
-- **F1: permissions.snapshot.json + permissions.ts const object.** C1 only updated the backend snapshot; F1 closes the SPA-side const-object lag.
-- **F2: organization API hooks** (`useOrgProfile`, `useUpdateOrgProfile`, `useLogoUrl`, `useUploadOrgLogo`, `useDeleteOrgLogo`).
-- **F3: OrganizationSettingsPage + LogoUploader + zod schema.**
-- **F4: invitations API hooks + InvitationsPage + InviteUserDialog + CopyInviteLinkBox.**
-- **F5: users API hooks + UserDetailPage + UserSearchCombobox + OwnerLink.**
-- **F6: auth/session API + OidcCallbackHandler + WelcomePage** (reads `JustAcceptedInvitationId` from session-bootstrap).
-- **F7: Router + Sidebar + Header updates.**
-- **F8: AddMemberDialog upgrade + Application table OwnerLink.**
+- **H1: integration tests for Phase D endpoints** (16 scenarios from spec §11.3 — invitation create/revoke/accept/expire, org profile/logo, user search, session bootstrap, cross-module owner enrichment) + `KeycloakAdminClient` Testcontainers integration test (spec §11.3 carry-forward).
+- **H2: architecture tests for slice-9 boundaries** (`Kartova_SharedKernel_Identity_does_not_reference_AspNetCore`, `Organization_owns_users_and_invitations_tables`, `Catalog_does_not_reference_Organization_Domain`, `IDistributedLock_implementations_use_session_advisory_locks`).
+- **H3: docker compose HTTP verification** — happy + negative paths captured per CLAUDE.md DoD #5.
+- **H4: SPA E2E via Playwright MCP** — `Invitation_happy_path` + `Org_profile_logo_upload_visible_in_header` from spec §11.5. **Closes the F-phase verification gap.**
+- **H5: /simplify, /misc:mutation-sentinel, /misc:test-generator, /superpowers:requesting-code-review, /pr-review-toolkit:review-pr, /deep-review**.
+- **H6: Update CHECKLIST.md + push + open PR**.
+- **H7: ✅ already shipped in `2bde836`**.
+- **H8: Mirror `KartovaIdentity__Keycloak__AdminClientSecret` env-var into `Kartova.Api.IntegrationTests` host bootstrap** (D9-introduced ValidateOnStart blocks host startup; tracked since E-phase).
 
-Workflow: still `superpowers:subagent-driven-development`. One implementer per task; two-stage review (spec + quality) per task. **Frontend verification surface differs from backend: each F-phase implementer must `cold-start the dev server` and verify via Playwright MCP (per ADR-0084) instead of relying on `dotnet test`.** Update CLAUDE.md per-slice instructions if Playwright + dotnet test invariants drift.
+Workflow: still `superpowers:subagent-driven-development`. One implementer per task; two-stage review (spec + quality) per task. Phase H is heavily integration- and infrastructure-flavored — implementers will need Docker access for H1/H3/H4 (and likely H5 mutation work too).
 
-**Docker availability:** Phase F is SPA-only — no Docker dependency. Phase H still needs Docker for `docker compose up` integration verification.
+**Docker availability:** REQUIRED for H1 (Testcontainers), H3 (docker compose up), H4 (Playwright against live stack). Confirm with the user before dispatching any of those if Docker is not running locally.
 
 **Remaining task ledger** (mark each `[x]` as you ship):
 
@@ -115,23 +117,30 @@ Workflow: still `superpowers:subagent-driven-development`. One implementer per t
 - [x] E2: `?ownerUserId=` filter on /catalog/applications + 422 validation (`15395c9` + `4715c87`)
 - [x] E3: `TeamMemberResponse` display info enrichment (`4726371` + `b7530ac`)
 
-### Phase F — SPA ← **START HERE**
+### Phase F — SPA ✅ COMPLETE (8 tasks, 11 commits — `577ff02..16ad0b0` plus `e5339d7` docs)
 
-**F1 status note:** F1 was verification-only at this point in the timeline — both drift sentinels (`Ts_snapshot_equals_csharp_KartovaPermissions_All` C# arch test + the `permissions.ts` runtime drift guard exercised via `usePermissions.test.tsx`) were green at HEAD before F2 started. The SPA-side const object update was committed earlier in `577ff02` ("F1 — add 7 org.* entries to SPA KartovaPermissions const object"); this checkpoint formally records that F1 closed cleanly with no further code change required.
+**F1 status note:** F1 was verification-only at this checkpoint timeline. The SPA-side const-object update landed as code in `577ff02`; both drift sentinels (`Ts_snapshot_equals_csharp_KartovaPermissions_All` C# arch test + the `permissions.ts` runtime drift guard exercised via `usePermissions.test.tsx`) were independently verified green at HEAD `16ad0b0` (recorded in `e5339d7`).
 
-- [x] F1: permissions snapshot + drift sentinels verified at HEAD `16ad0b0` (no code change — verification-only; C# arch `KartovaPermissionsRules` 10/10 green incl. `Ts_snapshot_equals_csharp_KartovaPermissions_All`; SPA vitest `usePermissions.test.tsx` 7/7 green with no drift error)
-- [ ] F2: organization API hooks
-- [ ] F3: OrganizationSettingsPage + LogoUploader + zod schema
-- [ ] F4: invitations API hooks + InvitationsPage + InviteUserDialog + CopyInviteLinkBox
-- [ ] F5: users API hooks + UserDetailPage + UserSearchCombobox + OwnerLink
-- [ ] F6: auth/session API + OidcCallbackHandler + WelcomePage (reads `JustAcceptedInvitationId` from session-bootstrap response)
-- [ ] F7: Router + Sidebar + Header updates
-- [ ] F8: AddMemberDialog upgrade + Application table OwnerLink
+- [x] F1: 7 org.* entries in SPA `KartovaPermissions` const object (`577ff02`) + drift sentinels verified green at `16ad0b0` (`e5339d7` docs checkpoint — C# arch `KartovaPermissionsRules` 10/10 incl. `Ts_snapshot_equals_csharp_KartovaPermissions_All`; SPA vitest `usePermissions.test.tsx` 7/7 with no drift error)
+- [x] F2: organization API hooks — `useOrgProfile` + `useUpdateOrgProfile` + `useLogoUrl` + `useUploadOrgLogo` + `useDeleteOrgLogo` (`7faf4df`; consolidates `useCurrentOrganization` into `useOrgProfile`). Branch-precursor SPA-side fixes: `97580d0` (OpenAPI snapshot refresh + TopBar alignment to `OrganizationResponse.displayName`) + `d87bd4a` (Dockerfile fix: include `Kartova.SharedKernel.Identity` in API restore stage).
+- [x] F3: `OrganizationSettingsPage` + `LogoUploader` + zod schema (`5b77063`)
+- [x] F4: invitations — page + create dialog + copy-link + revoke + minimal `useUser` shim (`e3ab92b`) + fixes (`5d6672a`: move dialog reset out of effect; tighten 'Pending' test assertion)
+- [x] F5: users feature — search hook + detail page + combobox + `<OwnerLink>` (`d145225`) + fixes (`76cbe8a`: wire 'Try again' refetch + add combobox keyboard nav)
+- [x] F6: session bootstrap + `OidcCallbackHandler` + `WelcomePage` + `LoginErrorPage` (`e26b0cd`)
+- [x] F7: Settings nav group + logo-or-name TopBar + new routes (`dc9dd3c`)
+- [x] F8: `AddMemberDialog` combobox + `OwnerLink` in catalog + `TeamDetailPage` display names (`16ad0b0`)
 
-### Phase G — ADR-0100
-- [ ] G1: Write ADR-0100 (strict one-email-per-tenant)
+**Phase F reconciliations / carry-forwards:**
 
-### Phase H — Verification + DoD
+1. **F-phase shipped without per-task Playwright cold-start verification.** The resume prompt mandated `cold-start dev server → navigate → interact → snapshot` per task (ADR-0084), but the actual F-phase commits are vitest-only. Phase H4 must close this gap with the two E2E scenarios from spec §11.5: `Invitation_happy_path` + `Org_profile_logo_upload_visible_in_header`. **Do NOT claim Phase F "verified" until H4 is done.**
+2. **No fresh full-solution build after F-phase.** The Phase E checkpoint (above) was at `b7530ac`; the F-phase added SPA code + one Dockerfile fix (`d87bd4a`) + one OpenAPI snapshot refresh (`97580d0`). Phase H must run a fresh `dotnet build` on the full solution + `npm run build` on the SPA + `npm test` to confirm no regression.
+3. **OpenAPI snapshot drift fix landed in F-phase, not D-phase.** `97580d0` refreshed `web/src/shared/api/schema.ts` (or equivalent) after D-phase endpoint additions. This means the SPA wasn't truly green between D-phase end and F2; Phase H must verify the snapshot is now in sync with the running API (consider running the snapshot regen one more time as a sentinel check).
+4. **F2 consolidated two organization hooks.** `useCurrentOrganization` was merged into `useOrgProfile`. Any external imports of `useCurrentOrganization` would have broken; the F2 commit must have updated callers. Phase H code-review pass should grep for stale references.
+
+### Phase G — ADR-0100 ✅ COMPLETE (1 task, 1 commit)
+- [x] G1: ADR-0100 (strict one-email-per-tenant) — file + README (Index table row, Authentication & Authorization category, Identity & auth topic tag, Keyword Index entries for KeyCloak/Identity scope/Cross-tenant duplicate email handling/duplicateEmailsAllowed, History row, frontmatter `adr_count: 99 → 100` + `last_updated: 2026-05-27 → 2026-05-29`)
+
+### Phase H — Verification + DoD ← **START HERE**
 - [ ] H1: Integration tests for Phase D endpoints (16 scenarios) + `KeycloakAdminClient` Testcontainers integration test (spec §11.3)
 - [ ] H2: Architecture tests for slice-9 boundaries
 - [ ] H3: docker compose HTTP verification (happy + negative paths captured)
@@ -143,16 +152,14 @@ Workflow: still `superpowers:subagent-driven-development`. One implementer per t
 
 **Please start by:**
 1. Invoking `superpowers:subagent-driven-development` (the skill).
-2. Reading the plan at the path above to lift the verbatim Task F1 text.
-3. Reading `web/src/shared/auth/permissions.snapshot.json` to see the C1 backend snapshot (already has 7 new entries).
-4. Reading `web/src/shared/auth/permissions.ts` (or wherever the SPA-side const object lives — verify the path before assuming) to see the drift gap.
-5. Reading the drift sentinel test (search for "permissions.snapshot" in `web/src/`) to understand what F1 must satisfy.
-6. Confirming whether F1 is purely a generated-file update (codegen from snapshot) or a hand-edit of the const object — different verification surfaces.
-7. Dispatching the F1 implementer.
+2. Reading the plan at the path above to lift the verbatim Task H1 text (and the 16-scenario list from spec §11.3 it points at).
+3. Reading `tests/Kartova.Organization.IntegrationTests/` to inventory which scenarios already exist vs which need to be added — there's a real chance some H1 scenarios were added incrementally during D/E/F and only the missing ones need to be filled in.
+4. Confirming Docker availability with the user before dispatching the H1 implementer (Testcontainers needs Docker to start KeyCloak + Postgres).
+5. Dispatching H1 in batches per the plan's commit cadence (one commit per feature area — invitations, org profile + logo, user search, session bootstrap, cross-module owner enrichment).
 
-**Frontend verification reminder:** Per ADR-0084, frontend changes need a Playwright MCP cold-start before claiming done — HMR cache can mask config errors. F-phase implementers should `cold-start the dev server → navigate → interact → snapshot → check console` and capture screenshots when relevant. Backend test-only verification is NOT sufficient for F-phase tasks.
+**Frontend verification reminder:** Per ADR-0084, frontend changes need a Playwright MCP cold-start before claiming done — HMR cache can mask config errors. F-phase shipped vitest-only; **H4 is REQUIRED** to close the Playwright cold-start verification gap with the two E2E scenarios from spec §11.5.
 
-**Phase F completion estimate:** F1 likely 1 fresh session (small, mechanical). F2-F8 likely 2-3 sessions depending on Playwright-verified-per-task overhead. Plan accordingly.
+**Phase H completion estimate:** H1 likely 1-2 sessions (16 integration scenarios + Testcontainers). H2 + H8 small. H3 + H4 require Docker stack up. H5 (mutation + simplify + review) is the largest single-session chunk historically — budget accordingly. H6 closes the slice.
 
 ---
 
