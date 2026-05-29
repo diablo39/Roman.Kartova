@@ -14,12 +14,25 @@ const a1: ApplicationRow = {
   id: "00000000-0000-0000-0000-000000000001",
   displayName: "App One",
   description: "first app",
-  ownerUserId: "u",
+  ownerUserId: "00000000-0000-0000-0000-0000000000aa",
+  owner: {
+    id: "00000000-0000-0000-0000-0000000000aa",
+    displayName: "Alice Admin",
+    email: "alice@example.com",
+  },
   createdAt: "2026-04-30T00:00:00Z",
   lifecycle: "active",
   sunsetDate: null,
 };
-const a2: ApplicationRow = { ...a1, id: "00000000-0000-0000-0000-000000000002", displayName: "App Two", description: "second" };
+const a2: ApplicationRow = {
+  ...a1,
+  id: "00000000-0000-0000-0000-000000000002",
+  displayName: "App Two",
+  description: "second",
+  // Intentionally omit `owner` here so the "Unknown user" fallback is exercised
+  // in the multi-row render test.
+  owner: null,
+};
 
 function makeList(overrides: Partial<CursorListResult<ApplicationRow>>): CursorListResult<ApplicationRow> {
   return {
@@ -153,5 +166,46 @@ describe("ApplicationsTable", () => {
       />
     ));
     expect(screen.getByText(/unknown team/i)).toBeInTheDocument();
+  });
+
+  it("renders the owner display name as a link to /users/{id} (slice-9 F8)", () => {
+    render(withRouter(
+      <ApplicationsTable
+        list={makeList({ items: [a1] })}
+        sortBy="createdAt"
+        sortOrder="desc"
+        onSortChange={noop}
+        teamNameById={emptyTeamMap}
+      />
+    ));
+    const ownerLink = screen.getByRole("link", { name: /alice admin/i });
+    expect(ownerLink).toHaveAttribute("href", "/users/00000000-0000-0000-0000-0000000000aa");
+  });
+
+  it("renders 'Unknown user' fallback when owner is null (slice-9 F8)", () => {
+    // a2 has owner: null — the OwnerLink component renders an italic fallback.
+    render(withRouter(
+      <ApplicationsTable
+        list={makeList({ items: [a2] })}
+        sortBy="createdAt"
+        sortOrder="desc"
+        onSortChange={noop}
+        teamNameById={emptyTeamMap}
+      />
+    ));
+    expect(screen.getByText(/unknown user/i)).toBeInTheDocument();
+  });
+
+  it("renders an Owner column header", () => {
+    render(withRouter(
+      <ApplicationsTable
+        list={makeList({ items: [a1] })}
+        sortBy="createdAt"
+        sortOrder="desc"
+        onSortChange={noop}
+        teamNameById={emptyTeamMap}
+      />
+    ));
+    expect(screen.getByRole("columnheader", { name: /owner/i })).toBeInTheDocument();
   });
 });

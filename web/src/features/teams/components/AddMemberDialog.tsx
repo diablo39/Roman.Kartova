@@ -1,11 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 
 import { ModalOverlay, Modal, Dialog } from "@/components/application/modals/modal";
-import { HookForm, FormField } from "@/components/base/form/hook-form";
-import { Input } from "@/components/base/input/input";
+import { HookForm } from "@/components/base/form/hook-form";
 import { Button } from "@/components/base/buttons/button";
 
 import {
@@ -13,6 +12,8 @@ import {
   type AddTeamMemberInput,
 } from "@/features/teams/schemas/addTeamMember";
 import { useAddTeamMember } from "@/features/teams/api/teams";
+import { UserSearchCombobox } from "@/features/users/components/UserSearchCombobox";
+import type { UserSummaryResponse } from "@/features/users/api/users";
 import {
   applyProblemDetailsToForm,
   type ProblemDetails,
@@ -35,10 +36,21 @@ export function AddMemberDialog({ teamId, open, onOpenChange }: Props) {
     resolver: zodResolver(addTeamMemberSchema),
     defaultValues: { userId: "", role: "Member" },
   });
+  // Visual confirmation of the picked user — purely presentational; the form's
+  // `userId` (a UUID) is the source of truth for the submitted payload.
+  const [selectedUser, setSelectedUser] = useState<UserSummaryResponse | null>(null);
 
   useEffect(() => {
     if (!open) {
       form.reset({ userId: "", role: "Member" });
+      // Sync local presentational state (Selected: …) with the form reset.
+      // react-hooks/set-state-in-effect would flag this, but the existing
+      // form.reset call above already writes RHF state on the same close
+      // transition — keeping both writes co-located keeps the open→closed
+      // semantics readable. Mirrors ChangeRoleDialog's pattern for the same
+      // reason.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedUser(null);
     }
   }, [open, form]);
 
@@ -66,23 +78,38 @@ export function AddMemberDialog({ teamId, open, onOpenChange }: Props) {
           <div className="space-y-1 mb-4">
             <h2 className="text-lg font-semibold text-primary">Add Member</h2>
             <p className="text-sm text-tertiary">
-              Enter the user's UUID and choose a role. Admins can manage team members; Members have read access.
+              Search for a user and choose a role. Admins can manage team members; Members have read access.
             </p>
           </div>
 
           <HookForm form={form} onSubmit={onSubmit} className="space-y-5">
-            <FormField name="userId" control={form.control}>
-              {({ field, fieldState }) => (
-                <Input
-                  label="User ID"
-                  placeholder="00000000-0000-0000-0000-000000000000"
-                  hint={fieldState.error?.message ?? "UUID of the user to add."}
-                  isInvalid={!!fieldState.error}
-                  isRequired
-                  {...field}
-                />
+            <Controller
+              name="userId"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-medium text-secondary">
+                    User <span className="text-error-primary">*</span>
+                  </label>
+                  <UserSearchCombobox
+                    onSelect={(user) => {
+                      field.onChange(user.id);
+                      setSelectedUser(user);
+                    }}
+                    placeholder="Search by name or email…"
+                  />
+                  {selectedUser && (
+                    <p className="text-xs text-tertiary">
+                      Selected: <span className="font-medium text-secondary">{selectedUser.displayName || selectedUser.email}</span>
+                      {selectedUser.displayName && ` (${selectedUser.email})`}
+                    </p>
+                  )}
+                  {fieldState.error && (
+                    <p className="text-xs text-error-primary">{fieldState.error.message}</p>
+                  )}
+                </div>
               )}
-            </FormField>
+            />
 
             <Controller
               name="role"

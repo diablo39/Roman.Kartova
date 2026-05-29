@@ -36,8 +36,20 @@ const baseTeam = {
   description: "Owns shared infra",
   createdAt: "2026-01-01T00:00:00Z",
   members: [
-    { userId: "u-1", role: "Admin", addedAt: "2026-01-02T00:00:00Z" },
-    { userId: "u-2", role: "Member", addedAt: "2026-01-03T00:00:00Z" },
+    {
+      userId: "u-1",
+      role: "Admin",
+      addedAt: "2026-01-02T00:00:00Z",
+      displayName: "Alice Admin",
+      email: "alice@example.com",
+    },
+    {
+      userId: "u-2",
+      role: "Member",
+      addedAt: "2026-01-03T00:00:00Z",
+      displayName: "Bob Builder",
+      email: "bob@example.com",
+    },
   ],
   applications: [
     { id: "app-1", displayName: "Billing API", lifecycle: "Active" },
@@ -77,10 +89,39 @@ describe("TeamDetailPage", () => {
 
     await waitFor(() => expect(screen.getByText("Platform")).toBeInTheDocument());
     expect(screen.getByText(/owns shared infra/i)).toBeInTheDocument();
-    expect(screen.getByText("u-1")).toBeInTheDocument();
-    expect(screen.getByText("u-2")).toBeInTheDocument();
+    // Slice 9 (F8): member rows show displayName + email, not the bare userId.
+    expect(screen.getByText("Alice Admin")).toBeInTheDocument();
+    expect(screen.getByText("alice@example.com")).toBeInTheDocument();
+    expect(screen.getByText("Bob Builder")).toBeInTheDocument();
+    expect(screen.getByText("bob@example.com")).toBeInTheDocument();
     expect(screen.getByText("Billing API")).toBeInTheDocument();
     expect(screen.getByText("app-1")).toBeInTheDocument();
+  });
+
+  it("falls back to bare userId when displayName is empty (slice-9 F8)", async () => {
+    mockPermissions({ role: "OrgAdmin" });
+    const teamWithBlankName = {
+      ...baseTeam,
+      members: [
+        {
+          userId: "00000000-0000-0000-0000-000000000999",
+          role: "Member",
+          addedAt: "2026-01-02T00:00:00Z",
+          displayName: "",
+          email: "ghost@example.com",
+        },
+      ],
+    };
+    const get = vi.fn().mockResolvedValue({ data: teamWithBlankName, error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(),
+    } as never);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(harness(qc));
+
+    await waitFor(() => expect(screen.getByText("Platform")).toBeInTheDocument());
+    expect(screen.getByText("00000000-0000-0000-0000-000000000999")).toBeInTheDocument();
+    expect(screen.getByText("ghost@example.com")).toBeInTheDocument();
   });
 
   it("hides Rename/Delete for a plain Member of the team", async () => {

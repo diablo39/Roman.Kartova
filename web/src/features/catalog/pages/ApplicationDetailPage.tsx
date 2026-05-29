@@ -7,6 +7,7 @@ import { useApplication } from "@/features/catalog/api/applications";
 import { LifecycleMenu } from "@/features/catalog/components/LifecycleMenu";
 import { EditApplicationDialog } from "@/features/catalog/components/EditApplicationDialog";
 import { AssignTeamPicker } from "@/features/teams/components/AssignTeamPicker";
+import { OwnerLink } from "@/features/users/components/OwnerLink";
 import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
 
@@ -86,7 +87,12 @@ export function ApplicationDetailPage() {
           <hr className="border-secondary" />
           <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Field label="ID" value={app.id} mono />
-            <Field label="Owner" value={app.ownerUserId ?? "—"} mono />
+            <div>
+              <div className="text-xs uppercase tracking-wide text-tertiary">Owner</div>
+              <div className="mt-1 text-sm">
+                <OwnerLink user={app.owner} />
+              </div>
+            </div>
             <Field label="Created" value={app.createdAt ?? "—"} />
           </section>
         </CardContent>
