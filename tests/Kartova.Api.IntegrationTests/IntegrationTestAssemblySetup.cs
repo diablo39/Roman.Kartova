@@ -1,3 +1,5 @@
+using Kartova.Testing.Auth;
+
 namespace Kartova.Api.IntegrationTests;
 
 /// <summary>

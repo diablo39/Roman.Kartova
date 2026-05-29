@@ -30,4 +30,13 @@
     <ProjectReference Include="..\..\Catalog\Kartova.Catalog.Infrastructure\Kartova.Catalog.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\..\tests\Kartova.Testing.Auth\Kartova.Testing.Auth.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Slice 9 / H1-prereq: KartovaApiFixtureBase opts into a Keycloak container,
+         which mounts kartova-realm.json from AppContext.BaseDirectory. MSBuild does
+         not propagate <None CopyToOutputDirectory> items through project references,
+         so the include is mirrored here (and in every other consumer that opts in). -->
+    <None Include="..\..\..\..\deploy\keycloak\kartova-realm.json" Link="kartova-realm.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>

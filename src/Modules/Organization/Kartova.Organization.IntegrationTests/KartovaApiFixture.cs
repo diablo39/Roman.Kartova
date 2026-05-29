@@ -26,6 +26,12 @@ namespace Kartova.Organization.IntegrationTests;
 [ExcludeFromCodeCoverage]
 public class KartovaApiFixture : KartovaApiFixtureBase
 {
+    // Slice 9 / H1-prereq: Organization integration tests exercise the real
+    // Keycloak admin client via CreateInvitationHandler / RevokeInvitationHandler /
+    // ExpireInvitationsHostedService. Opt into the shared Postgres + Keycloak
+    // container pair so those handlers can provision and disable real KC users.
+    protected override bool UsesKeycloakContainer => true;
+
     protected override async Task RunModuleMigrationsAsync(string migratorConnectionString)
     {
         await PostgresTestBootstrap.RunMigrationsAsync<OrganizationDbContext>(

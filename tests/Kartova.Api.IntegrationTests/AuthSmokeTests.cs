@@ -34,6 +34,16 @@ public class AuthSmokeTests : KeycloakContainerTestBase
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Audience), "kartova-api");
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.RequireHttpsMetadata), "false");
 
+        // Slice 9 / H8: AddKeycloakAdminClient.ValidateOnStart rejects the
+        // appsettings placeholder "OVERRIDE_VIA_ENV". Wire the four
+        // KartovaIdentity__Keycloak__* env vars from the live container so the
+        // host boots. Realm seed matches deploy/keycloak/kartova-realm.json.
+        Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__BaseUrl",
+            Containers.Keycloak.GetBaseAddress().TrimEnd('/'));
+        Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__Realm", "kartova");
+        Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__AdminClientId", "kartova-admin");
+        Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__AdminClientSecret", "admin-dev-secret");
+
         _app = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
         {
             b.UseEnvironment("Testing");

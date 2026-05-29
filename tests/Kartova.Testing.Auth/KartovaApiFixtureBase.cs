@@ -37,7 +37,36 @@ public abstract class KartovaApiFixtureBase
         .WithPassword("postgres")
         .Build();
 
+    private KeycloakContainerFixture? _keycloak;
+
     public TestJwtSigner Signer { get; } = new();
+
+    /// <summary>
+    /// Opt-in hook for derived fixtures that need a real Keycloak container.
+    /// When <see langword="true"/>, <see cref="InitializeAsync"/> additionally
+    /// spins up a <see cref="KeycloakContainerFixture"/> and <see cref="CreateHost"/>
+    /// wires the four <c>KartovaIdentity__Keycloak__*</c> env vars from the live
+    /// container instead of the placeholder fallback. Defaults to <see langword="false"/>
+    /// so module fixtures that do not exercise the Keycloak admin client (Catalog)
+    /// keep their fast startup path.
+    /// </summary>
+    /// <remarks>
+    /// Consumer pattern: override on the derived module fixture, e.g.
+    /// <code>
+    /// protected override bool UsesKeycloakContainer =&gt; true;
+    /// </code>
+    /// Test code that needs the live Keycloak endpoint (token issuance, admin REST)
+    /// can read it via <see cref="Keycloak"/> once the fixture has initialized.
+    /// </remarks>
+    protected virtual bool UsesKeycloakContainer => false;
+
+    /// <summary>
+    /// The shared Keycloak fixture when <see cref="UsesKeycloakContainer"/> is
+    /// <see langword="true"/>; otherwise <see langword="null"/>. Exposed so opt-in
+    /// derived fixtures (and tests built on them) can read the live authority,
+    /// admin client secret, etc.
+    /// </summary>
+    public KeycloakContainerFixture? Keycloak => _keycloak;
 
     /// <summary>
     /// Mirror of the API's <c>ConfigureHttpJsonOptions</c> setup in <c>Program.cs</c>:
@@ -98,7 +127,19 @@ public abstract class KartovaApiFixtureBase
     /// </remarks>
     public async Task InitializeAsync()
     {
-        await _pg.StartAsync();
+        var pgTask = _pg.StartAsync();
+        Task? kcTask = null;
+        if (UsesKeycloakContainer)
+        {
+            // Start KC in parallel with Postgres — both take ~5-10s and there is
+            // no inter-dependency. Saves wall-clock when the opt-in path is active.
+            _keycloak = new KeycloakContainerFixture();
+            kcTask = _keycloak.InitializeAsync();
+        }
+
+        await pgTask;
+        if (kcTask is not null) await kcTask;
+
         await PostgresTestBootstrap.SeedRolesAndSchemaAsync(_pg.GetConnectionString());
         await RunModuleMigrationsAsync(MigratorConnectionString);
     }
@@ -114,6 +155,10 @@ public abstract class KartovaApiFixtureBase
     protected virtual async ValueTask DisposeAsyncCore()
     {
         await _pg.DisposeAsync();
+        if (_keycloak is not null)
+        {
+            await _keycloak.DisposeAsync();
+        }
         await base.DisposeAsync();
     }
 
@@ -133,14 +178,31 @@ public abstract class KartovaApiFixtureBase
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Authority), TestJwtSigner.Issuer);
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Audience), TestJwtSigner.Audience);
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.RequireHttpsMetadata), "false");
-        // Slice 9 / Phase D: Kartova.SharedKernel.Identity.AddKeycloakAdminClient runs
-        // .ValidateOnStart() and rejects the appsettings.json placeholder verbatim.
-        // Integration tests do not actually exercise the KC admin client, but the
-        // options validation runs at host startup unconditionally — supply a test-only
-        // secret so the host boots. Production overrides this via secret store.
-        Environment.SetEnvironmentVariable(
-            "KartovaIdentity__Keycloak__AdminClientSecret",
-            "test-only-secret-not-used-by-any-real-call");
+
+        if (_keycloak is not null)
+        {
+            // Opt-in path: point the AddKeycloakAdminClient binding at the live
+            // Testcontainer. Realm seed matches deploy/keycloak/kartova-realm.json
+            // (admin client = "kartova-admin" / secret = "admin-dev-secret"). The
+            // CreateInvitation / RevokeInvitation / ExpireInvitation handlers in
+            // the Organization module exercise this for real.
+            Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__BaseUrl", _keycloak.KeycloakBaseUrl);
+            Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__Realm", "kartova");
+            Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__AdminClientId", "kartova-admin");
+            Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__AdminClientSecret", "admin-dev-secret");
+        }
+        else
+        {
+            // Slice 9 / Phase D: Kartova.SharedKernel.Identity.AddKeycloakAdminClient runs
+            // .ValidateOnStart() and rejects the appsettings.json placeholder verbatim.
+            // Fixtures that do not opt into a real KC container (Catalog and similar)
+            // do not exercise the KC admin client, but the options validation runs at
+            // host startup unconditionally — supply a test-only secret so the host
+            // boots. Production overrides this via secret store.
+            Environment.SetEnvironmentVariable(
+                "KartovaIdentity__Keycloak__AdminClientSecret",
+                "test-only-secret-not-used-by-any-real-call");
+        }
         return base.CreateHost(builder);
     }
 
