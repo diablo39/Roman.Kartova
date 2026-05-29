@@ -101,7 +101,17 @@ public sealed class CreateInvitationHandler(
         });
         await db.SaveChangesAsync(ct);
 
-        var inviteUrl = $"{options.Value.FrontendBaseUrl}/?invitation=1";
+        // Spec §9.2 step 8: the URL carries the sentinel `?invitation=1` flag
+        // rather than a per-invitation token — acceptance is keyed off the
+        // authenticated user's email at the OIDC callback (§9.3 step 6) so a
+        // token is intentionally unnecessary. The `email` query parameter is
+        // a UX hint: the invitee can see at a glance which email to log in
+        // with, and a future SPA change can lift it into Keycloak's
+        // `login_hint` parameter on the OIDC redirect without a contract
+        // change. Documented as the resolution of H4 API-1 in
+        // docs/superpowers/plans/slice-9-docker-verification.md.
+        var inviteUrl =
+            $"{options.Value.FrontendBaseUrl}/?invitation=1&email={Uri.EscapeDataString(email)}";
         var response = new InvitationResponse(
             invitation.Id.Value,
             invitation.Email,

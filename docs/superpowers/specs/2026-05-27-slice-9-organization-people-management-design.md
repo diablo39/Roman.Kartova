@@ -807,7 +807,15 @@ POST /api/v1/organizations/invitations  body { email, role }
 7. Insert `users` projection stub (id = kcId, email, displayName = email fallback).
 8. Return 201:
      { invitation: <InvitationResponse>,
-       inviteUrl: $"{frontendBaseUrl}/?invitation=1" }
+       inviteUrl: $"{frontendBaseUrl}/?invitation=1&email={Uri.EscapeDataString(email)}" }
+
+   The `?invitation=1` sentinel is intentional — acceptance is keyed off the
+   authenticated user's email at the OIDC callback (§9.3 step 6), so a
+   token in the URL would be redundant. The `email` query parameter is a UX
+   hint: the invitee sees the target address in the link, and a future SPA
+   change can lift it into Keycloak's `login_hint` parameter on the OIDC
+   redirect so the realm login form pre-fills (no contract change required
+   on this surface). Resolution of H4 API-1.
 ```
 
 ### 9.3 Invitation acceptance

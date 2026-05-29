@@ -189,7 +189,15 @@ public sealed class CreateInvitationHandlerTests
 
             var created = result as CreateInvitationResult.Created;
             Assert.IsNotNull(created);
-            Assert.AreEqual("http://localhost:5173/?invitation=1", created!.Response.InviteUrl);
+            // Spec §9.2 step 8: `?invitation=1` is a deliberate sentinel
+            // (auto-accept is keyed off the authenticated email, not a token).
+            // Slice-9 H4 API-1 fix added an `email` hint so the invitee sees
+            // the target address in the link and the SPA can pass it to KC
+            // as `login_hint` in a follow-up — invariant: the URL must end
+            // with the sentinel + the percent-encoded email of the invitation.
+            Assert.AreEqual(
+                $"http://localhost:5173/?invitation=1&email={Uri.EscapeDataString("alice@example.com")}",
+                created!.Response.InviteUrl);
             Assert.AreEqual("alice@example.com", created.Response.Invitation.Email);
             Assert.AreEqual(KartovaRoles.Member, created.Response.Invitation.Role);
             Assert.AreEqual("Pending", created.Response.Invitation.Status);
