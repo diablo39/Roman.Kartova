@@ -116,7 +116,10 @@ Workflow: still `superpowers:subagent-driven-development`. One implementer per t
 - [x] E3: `TeamMemberResponse` display info enrichment (`4726371` + `b7530ac`)
 
 ### Phase F — SPA ← **START HERE**
-- [ ] F1: permissions.snapshot.json **AND `permissions.ts` const object** (C1 only updated the snapshot; the SPA-side const object lag is documented — F1 must close it)
+
+**F1 status note:** F1 was verification-only at this point in the timeline — both drift sentinels (`Ts_snapshot_equals_csharp_KartovaPermissions_All` C# arch test + the `permissions.ts` runtime drift guard exercised via `usePermissions.test.tsx`) were green at HEAD before F2 started. The SPA-side const object update was committed earlier in `577ff02` ("F1 — add 7 org.* entries to SPA KartovaPermissions const object"); this checkpoint formally records that F1 closed cleanly with no further code change required.
+
+- [x] F1: permissions snapshot + drift sentinels verified at HEAD `16ad0b0` (no code change — verification-only; C# arch `KartovaPermissionsRules` 10/10 green incl. `Ts_snapshot_equals_csharp_KartovaPermissions_All`; SPA vitest `usePermissions.test.tsx` 7/7 green with no drift error)
 - [ ] F2: organization API hooks
 - [ ] F3: OrganizationSettingsPage + LogoUploader + zod schema
 - [ ] F4: invitations API hooks + InvitationsPage + InviteUserDialog + CopyInviteLinkBox
