@@ -31,11 +31,6 @@ namespace Kartova.Organization.IntegrationTests;
 [TestClass]
 public sealed class InvitationTests : OrganizationIntegrationTestBase
 {
-    private static DbContextOptions<OrganizationDbContext> BypassOptions() =>
-        new DbContextOptionsBuilder<OrganizationDbContext>()
-            .UseNpgsql(Fx.BypassConnectionString)
-            .Options;
-
     /// <summary>
     /// Best-effort KC cleanup for a user provisioned by a test. The KC admin
     /// client treats <c>DeleteUserAsync</c> on a missing id as idempotent
@@ -97,19 +92,6 @@ public sealed class InvitationTests : OrganizationIntegrationTestBase
 
         foreach (var kcId in keycloakUserIds.Where(id => id is not null))
             await TryDeleteKeycloakUserAsync(kcId);
-    }
-
-    /// <summary>Fresh per-test context: unique-suffix admin email + derived deterministic
-    /// tenant id + seeded organization row. Each test calls this so its tenant id is
-    /// disjoint from every other test's (suite stays parallel-safe even though MSTest
-    /// serializes test classes).</summary>
-    private static async Task<(string adminEmail, Guid tenantId)> NewTenantAsync(string scenarioSlug)
-    {
-        var unique = Guid.NewGuid().ToString("N")[..8];
-        var adminEmail = $"admin@{scenarioSlug}-{unique}.kartova.local";
-        var tenantId = KartovaApiFixtureBase.TenantFor(adminEmail).Value;
-        await Fx.SeedOrganizationAsync(tenantId, $"Org-{scenarioSlug}");
-        return (adminEmail, tenantId);
     }
 
     // ---------- Scenario #2 (spec §11.3): happy path -------------------------

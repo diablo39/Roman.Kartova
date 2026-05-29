@@ -9,7 +9,6 @@ using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.Testing.Auth;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
 
 namespace Kartova.Organization.IntegrationTests;
 
@@ -44,79 +43,27 @@ public sealed class OrgProfileAndLogoTests : OrganizationIntegrationTestBase
         0x3C, 0x2E, 0x33, 0x34, 0x32, 0xFF, 0xD9,
     };
 
-    private static DbContextOptions<OrganizationDbContext> BypassOptions() =>
-        new DbContextOptionsBuilder<OrganizationDbContext>()
-            .UseNpgsql(Fx.BypassConnectionString)
-            .Options;
-
-    /// <summary>
-    /// Fresh per-test context: unique-suffix admin email + derived deterministic
-    /// tenant id + seeded organization row. Mirrors InvitationTests.NewTenantAsync
-    /// — same scenario-slug convention so cleanup in the <c>finally</c> can target
-    /// the exact tenant the test wrote to.
-    /// </summary>
-    private static async Task<(string adminEmail, Guid tenantId)> NewTenantAsync(string scenarioSlug)
-    {
-        var unique = Guid.NewGuid().ToString("N")[..8];
-        var adminEmail = $"admin@{scenarioSlug}-{unique}.kartova.local";
-        var tenantId = KartovaApiFixtureBase.TenantFor(adminEmail).Value;
-        await Fx.SeedOrganizationAsync(tenantId, $"Org-{scenarioSlug}");
-        return (adminEmail, tenantId);
-    }
-
     /// <summary>
     /// Best-effort teardown: deletes the seeded organizations row for
-    /// <paramref name="tenantId"/> via BYPASSRLS. The <c>logo_*</c> columns
-    /// live on the same row, so dropping the row removes any uploaded logo
-    /// at the same time (no separate logo table to clean up). Errors go to
-    /// <c>Console.Error</c> so a CI failure surfaces the cleanup gap without
-    /// masking the original test failure that fired the <c>finally</c>.
+    /// <paramref name="tenantId"/> via <see cref="KartovaApiFixture.DeleteOrganizationsForTenantAsync"/>.
+    /// The <c>logo_*</c> columns live on the same row, so dropping the row removes
+    /// any uploaded logo at the same time (no separate logo table to clean up).
+    /// Errors go to <c>Console.Error</c> so a CI failure surfaces the cleanup gap
+    /// without masking the original test failure that fired the <c>finally</c>.
     /// </summary>
     private static async Task CleanupTenantOrgAsync(Guid tenantId)
     {
-#pragma warning disable CA1031 // best-effort test teardown — log and continue
         try
         {
-            await using var conn = new NpgsqlConnection(Fx.BypassConnectionString);
-            await conn.OpenAsync();
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "DELETE FROM organizations WHERE tenant_id = $1";
-            cmd.Parameters.AddWithValue(tenantId);
-            await cmd.ExecuteNonQueryAsync();
+            await Fx.DeleteOrganizationsForTenantAsync(tenantId);
         }
+#pragma warning disable CA1031 // best-effort test teardown — log and continue
         catch (Exception ex)
         {
             await Console.Error.WriteLineAsync(
                 $"[cleanup] organizations delete failed for tenant {tenantId}: {ex.Message}");
         }
 #pragma warning restore CA1031
-    }
-
-    /// <summary>
-    /// Reads (logo_bytes, logo_mime_type, logo_content_hash) directly via
-    /// BYPASSRLS — bypasses the EF owned-entity mapping so a test can verify
-    /// the columns are NULL after a rejected upload (the owned <c>Logo</c>
-    /// property would just be null on the aggregate, but the columns under it
-    /// are the actual source of truth).
-    /// </summary>
-    private static async Task<(byte[]? Bytes, string? MimeType, string? ContentHash)>
-        ReadLogoColumnsAsync(Guid tenantId)
-    {
-        await using var conn = new NpgsqlConnection(Fx.BypassConnectionString);
-        await conn.OpenAsync();
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT logo_bytes, logo_mime_type, logo_content_hash "
-                        + "FROM organizations WHERE tenant_id = $1";
-        cmd.Parameters.AddWithValue(tenantId);
-        await using var reader = await cmd.ExecuteReaderAsync();
-        if (!await reader.ReadAsync())
-        {
-            return (null, null, null);
-        }
-        var bytes = reader.IsDBNull(0) ? null : (byte[])reader.GetValue(0);
-        var mime = reader.IsDBNull(1) ? null : reader.GetString(1);
-        var hash = reader.IsDBNull(2) ? null : reader.GetString(2);
-        return (bytes, mime, hash);
     }
 
     // ---------- Scenario #14 (spec §11.3): SVG with script returns 422 -------
@@ -158,7 +105,7 @@ public sealed class OrgProfileAndLogoTests : OrganizationIntegrationTestBase
 
             // LogoCommands.UploadAsync returns Rejected BEFORE org.SetLogo, so
             // the persisted columns must remain NULL.
-            var (bytes, mime, hash) = await ReadLogoColumnsAsync(tenantId);
+            var (bytes, mime, hash) = await Fx.ReadOrgLogoColumnsAsync(tenantId);
             Assert.IsNull(bytes, "Rejected upload must not persist any bytes.");
             Assert.IsNull(mime);
             Assert.IsNull(hash);
@@ -296,7 +243,7 @@ public sealed class OrgProfileAndLogoTests : OrganizationIntegrationTestBase
             StringAssert.Contains(detail!, "bytes");
 
             // The handler never ran — persisted columns remain NULL.
-            var (bytes, mime, hash) = await ReadLogoColumnsAsync(tenantId);
+            var (bytes, mime, hash) = await Fx.ReadOrgLogoColumnsAsync(tenantId);
             Assert.IsNull(bytes, "413 short-circuit must not persist any bytes.");
             Assert.IsNull(mime);
             Assert.IsNull(hash);

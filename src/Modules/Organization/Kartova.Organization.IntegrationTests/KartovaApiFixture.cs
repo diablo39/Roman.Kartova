@@ -188,6 +188,55 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     }
 
     /// <summary>
+    /// Deletes the <c>organizations</c> row for <paramref name="tenantId"/> via
+    /// BYPASSRLS. Slice-9 H1 batch 2 cleanup hook — call from a test's
+    /// <c>finally</c> block (typically AFTER child-table cleanup helpers like
+    /// <see cref="DeleteUserInOrganizationAsync"/> /
+    /// <see cref="DeleteInvitationsForTenantAsync"/> if the test seeded any).
+    /// The <c>logo_*</c> columns live on this same row, so dropping it removes
+    /// any uploaded logo at the same time (no separate logo table to clean up).
+    /// The caller wraps in try/catch + logging — the fixture stays raw.
+    /// </summary>
+    public async Task DeleteOrganizationsForTenantAsync(Guid tenantId)
+    {
+        await using var conn = new NpgsqlConnection(BypassConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM organizations WHERE tenant_id = $1";
+        cmd.Parameters.AddWithValue(tenantId);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    /// <summary>
+    /// Reads the three <c>organizations.logo_*</c> columns
+    /// (<c>logo_bytes</c>, <c>logo_mime_type</c>, <c>logo_content_hash</c>) for
+    /// <paramref name="tenantId"/> via BYPASSRLS — bypasses the EF owned-entity
+    /// mapping so a test can verify the columns are NULL after a rejected upload
+    /// (the owned <c>Logo</c> property would just be null on the aggregate, but
+    /// the columns under it are the actual source of truth). Returns
+    /// (null, null, null) when no row exists for the tenant.
+    /// </summary>
+    public async Task<(byte[]? Bytes, string? MimeType, string? ContentHash)>
+        ReadOrgLogoColumnsAsync(Guid tenantId)
+    {
+        await using var conn = new NpgsqlConnection(BypassConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT logo_bytes, logo_mime_type, logo_content_hash "
+                        + "FROM organizations WHERE tenant_id = $1";
+        cmd.Parameters.AddWithValue(tenantId);
+        await using var reader = await cmd.ExecuteReaderAsync();
+        if (!await reader.ReadAsync())
+        {
+            return (null, null, null);
+        }
+        var bytes = reader.IsDBNull(0) ? null : (byte[])reader.GetValue(0);
+        var mime = reader.IsDBNull(1) ? null : reader.GetString(1);
+        var hash = reader.IsDBNull(2) ? null : reader.GetString(2);
+        return (bytes, mime, hash);
+    }
+
+    /// <summary>
     /// Seeds one Catalog <see cref="DomainApplication"/> assigned to <paramref name="teamId"/>
     /// for the given tenant. Returns the new app's id. Used by
     /// <c>DeleteTeamTests</c> to drive the 409 team-has-applications branch:
