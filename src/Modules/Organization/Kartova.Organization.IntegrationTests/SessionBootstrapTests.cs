@@ -81,10 +81,11 @@ public sealed class SessionBootstrapTests : OrganizationIntegrationTestBase
 
     /// <summary>
     /// Tears down everything the seed planted plus the row the post-auth hook
-    /// upserts for the invitee. Mirrors the slice-9 InvitationTests convention:
-    /// users + invitations FIRST (per slice-9 e5aaf73 — direct-id-leak-prone, no
-    /// prefix sweep), organizations LAST. Each step in its own try/catch so a
-    /// leak on one row doesn't strand the next.
+    /// upserts for the invitee. Cleanup order: invitations first (mirrors
+    /// <see cref="KartovaApiFixture.DeleteInvitationsForTenantAsync"/>'s internal
+    /// contract), users second (no FK from users to invitations or vice versa,
+    /// so either order works), organizations last (parent row). Each step in
+    /// its own try/catch so a leak on one row doesn't strand the next.
     /// </summary>
     private static async Task CleanupAsync(SessionBootstrapSeed seed)
     {

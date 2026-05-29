@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Kartova.Catalog.Domain;
 using Kartova.Catalog.Infrastructure;
+using Kartova.Organization.Domain;
 using Kartova.Organization.Infrastructure;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.Testing.Auth;
@@ -181,7 +182,8 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     /// expiry guard at <c>PostAuthHook.cs:57</c> needs <c>ExpiresAt &gt; now</c> for
     /// the acceptance branch to fire, so callers should pass a future
     /// <paramref name="expiresAt"/> (default = invited_at + 7d).
-    /// Status is hardcoded to <c>Pending</c> (byte 0) — accepted/revoked/expired
+    /// Status is hardcoded to <c>Pending</c> (smallint 1, matching
+    /// <see cref="InvitationStatus.Pending"/>) — accepted/revoked/expired
     /// invitations don't drive the hook's acceptance path.
     /// </summary>
     public async Task<Guid> SeedInvitationAsync(
@@ -210,7 +212,7 @@ public class KartovaApiFixture : KartovaApiFixtureBase
         cmd.Parameters.AddWithValue(invitedByUserId);
         cmd.Parameters.AddWithValue(invitedAt);
         cmd.Parameters.AddWithValue(expiresAt ?? invitedAt.AddDays(7));
-        cmd.Parameters.AddWithValue((short)1); // InvitationStatus.Pending (enum byte 1, column type smallint)
+        cmd.Parameters.AddWithValue((short)InvitationStatus.Pending);
         cmd.Parameters.AddWithValue(keycloakUserId);
         await cmd.ExecuteNonQueryAsync();
         return invitationId;
