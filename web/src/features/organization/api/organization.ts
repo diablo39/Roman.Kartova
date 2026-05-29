@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "react-oidc-context";
-import { apiClient } from "@/features/catalog/api/client";
+import { apiClient, API_BASE_URL } from "@/features/catalog/api/client";
 import {
   throwWithStatus,
   unwrapData,
@@ -79,18 +79,6 @@ export function useLogoUrl(): string | null {
   if (!data?.logoEtag) return null;
   return `/api/v1/organizations/me/logo?v=${encodeURIComponent(data.logoEtag)}`;
 }
-
-/**
- * Base URL the SPA targets for every API call. The default
- * (`http://localhost:8080`) lines up with `docker compose up`'s API origin
- * and matches the apiClient configuration in `features/catalog/api/client.ts`.
- * In production both origins collapse to the same host so `VITE_API_BASE_URL`
- * (typically unset) is the empty string — relative paths Just Work.
- *
- * Exported for test fixtures that need to assert the URL composition.
- */
-export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
 
 /**
  * PUT /api/v1/organizations/me/logo — uploads new logo bytes. The endpoint
