@@ -389,7 +389,7 @@ internal static class OrganizationEndpointDelegates
             if (ms.Length > LogoMaxBytes)
             {
                 return Results.Problem(
-                    type: ProblemTypes.UnsupportedLogoMedia,
+                    type: ProblemTypes.LogoTooLarge,
                     title: "Logo too large",
                     detail: $"Logo bytes must be <= {LogoMaxBytes:N0} bytes.",
                     statusCode: StatusCodes.Status413PayloadTooLarge);
@@ -402,7 +402,7 @@ internal static class OrganizationEndpointDelegates
         {
             UploadLogoResult.Accepted a => Results.Ok(new UploadLogoResponse(a.Etag, a.MimeType)),
             UploadLogoResult.Rejected r => Results.Problem(
-                type: ProblemTypes.UnsupportedLogoMedia,
+                type: ProblemTypes.LogoInvalidContent,
                 title: "Logo rejected",
                 detail: r.Reason,
                 statusCode: StatusCodes.Status422UnprocessableEntity),

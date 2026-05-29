@@ -93,9 +93,11 @@ public sealed class OrgProfileAndLogoTests : OrganizationIntegrationTestBase
             await using var problemStream = await resp.Content.ReadAsStreamAsync();
             using var problemDoc = await JsonDocument.ParseAsync(problemStream);
             // Specific type assertion — kills mutants that swap the problem-type
-            // URI for ValidationFailed or ResourceNotFound.
+            // URI for ValidationFailed or ResourceNotFound, and pins the 422
+            // failure mode to LogoInvalidContent (distinct from 415's
+            // UnsupportedLogoMedia and 413's LogoTooLarge).
             Assert.AreEqual(
-                ProblemTypes.UnsupportedLogoMedia,
+                ProblemTypes.LogoInvalidContent,
                 problemDoc.RootElement.GetProperty("type").GetString());
             // Detail surfaces the Rejected.Reason from LogoCommands.UploadAsync,
             // i.e. "SVG contained disallowed content".
@@ -231,8 +233,10 @@ public sealed class OrgProfileAndLogoTests : OrganizationIntegrationTestBase
 
             await using var problemStream = await resp.Content.ReadAsStreamAsync();
             using var problemDoc = await JsonDocument.ParseAsync(problemStream);
+            // Pins the 413 failure mode to LogoTooLarge (distinct from 415's
+            // UnsupportedLogoMedia and 422's LogoInvalidContent).
             Assert.AreEqual(
-                ProblemTypes.UnsupportedLogoMedia,
+                ProblemTypes.LogoTooLarge,
                 problemDoc.RootElement.GetProperty("type").GetString());
             var detail = problemDoc.RootElement.GetProperty("detail").GetString();
             Assert.IsNotNull(detail);

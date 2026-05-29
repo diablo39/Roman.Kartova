@@ -38,8 +38,11 @@ public static class ProblemTypes
     // Catalog ?ownerUserId= filter — slice 9 / E2 (spec §6.5).
     public const string InvalidOwner           = Base + "invalid-owner";
 
-    // Logo upload validation — slice 9 (spec §6.4).
-    public const string UnsupportedLogoMedia   = Base + "unsupported-logo-media";
+    // Logo upload validation — slice 9 (spec §6.4). One URI per failure mode
+    // so SPA / API consumers can dispatch on `type` instead of HTTP status.
+    public const string UnsupportedLogoMedia   = Base + "unsupported-logo-media";   // 415: Content-Type not in allow-list.
+    public const string LogoTooLarge           = Base + "logo-too-large";           // 413: streamed bytes exceeded LogoMaxBytes.
+    public const string LogoInvalidContent     = Base + "logo-invalid-content";     // 422: SVG-script strip, magic-byte mismatch, etc.
 
     // Invitation lifecycle conflicts — slice 9 (spec §6.7).
     public const string EmailAlreadyInTenant   = Base + "email-already-in-tenant";
