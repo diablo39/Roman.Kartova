@@ -170,6 +170,53 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     }
 
     /// <summary>
+    /// Inserts a Pending <c>invitations</c> row via BYPASSRLS. Slice 9 / H1 batch 4 —
+    /// used by session-bootstrap tests to plant an invitation row tied to a specific
+    /// <paramref name="keycloakUserId"/> (which doubles as the <c>sub</c> claim of
+    /// the impersonated invitee's JWT) without round-tripping through the
+    /// <c>POST /api/v1/organizations/invitations</c> handler (that path provisions a
+    /// real KC user, which session-bootstrap tests don't need — the post-auth hook
+    /// flips Pending → Accepted purely on DB state).
+    /// Column names follow <c>InvitationEntityTypeConfiguration</c>. The handler's
+    /// expiry guard at <c>PostAuthHook.cs:57</c> needs <c>ExpiresAt &gt; now</c> for
+    /// the acceptance branch to fire, so callers should pass a future
+    /// <paramref name="expiresAt"/> (default = invited_at + 7d).
+    /// Status is hardcoded to <c>Pending</c> (byte 0) — accepted/revoked/expired
+    /// invitations don't drive the hook's acceptance path.
+    /// </summary>
+    public async Task<Guid> SeedInvitationAsync(
+        Guid tenantId,
+        string email,
+        string role,
+        Guid invitedByUserId,
+        Guid keycloakUserId,
+        DateTimeOffset invitedAt,
+        DateTimeOffset? expiresAt = null)
+    {
+        var invitationId = Guid.NewGuid();
+        await using var conn = new NpgsqlConnection(BypassConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO invitations
+                (id, tenant_id, email, role, invited_by_user_id,
+                 invited_at, expires_at, status, keycloak_user_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            """;
+        cmd.Parameters.AddWithValue(invitationId);
+        cmd.Parameters.AddWithValue(tenantId);
+        cmd.Parameters.AddWithValue(email);
+        cmd.Parameters.AddWithValue(role);
+        cmd.Parameters.AddWithValue(invitedByUserId);
+        cmd.Parameters.AddWithValue(invitedAt);
+        cmd.Parameters.AddWithValue(expiresAt ?? invitedAt.AddDays(7));
+        cmd.Parameters.AddWithValue((short)1); // InvitationStatus.Pending (enum byte 1, column type smallint)
+        cmd.Parameters.AddWithValue(keycloakUserId);
+        await cmd.ExecuteNonQueryAsync();
+        return invitationId;
+    }
+
+    /// <summary>
     /// Deletes every <c>invitations</c> row for <paramref name="tenantId"/> via the
     /// BYPASSRLS connection. Slice 9 / H1 — used by invitation integration tests so
     /// rows seeded indirectly through <c>POST /api/v1/organizations/invitations</c>

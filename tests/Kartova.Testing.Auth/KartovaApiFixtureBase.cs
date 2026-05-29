@@ -237,12 +237,35 @@ public abstract class KartovaApiFixtureBase
     /// <paramref name="email"/>'s deterministic <c>sub</c> claim (Guid form) and
     /// the deterministic test tenant id derived from the email's domain. Roles
     /// default to <c>OrgAdmin</c> so the request passes any role guards.
+    /// <para>
+    /// Slice 9 / H1 batch 4 added two optional overrides used by session-bootstrap
+    /// tests that need to impersonate a specific KC user id (e.g. the
+    /// <c>keycloak_user_id</c> stored on a Pending invitation) and emit an
+    /// <c>email</c> claim so <c>OrganizationPostAuthSyncHook</c> can run its
+    /// upsert + invitation-acceptance side effects:
+    /// </para>
+    /// <list type="bullet">
+    ///   <item><paramref name="subjectOverride"/> — replaces the <c>sub</c> claim
+    ///   value (the deterministic <see cref="SubFor"/> Guid is used when null).</item>
+    ///   <item><paramref name="emailClaim"/> — when non-null, adds an <c>email</c>
+    ///   claim to the JWT. Defaults to null so existing tests continue to mint
+    ///   tokens without an email claim (their assertions don't depend on the
+    ///   post-auth hook's projection upsert).</item>
+    /// </list>
     /// </summary>
-    public Task<HttpClient> CreateAuthenticatedClientAsync(string email, string[]? roles = null)
+    public Task<HttpClient> CreateAuthenticatedClientAsync(
+        string email,
+        string[]? roles = null,
+        Guid? subjectOverride = null,
+        string? emailClaim = null)
     {
-        var sub = SubFor(email);
+        var sub = subjectOverride ?? SubFor(email);
         var tenant = TenantFor(email);
-        var token = Signer.IssueForTenant(tenant, roles ?? new[] { "OrgAdmin" }, subject: sub.ToString());
+        var token = Signer.IssueForTenant(
+            tenant,
+            roles ?? new[] { "OrgAdmin" },
+            subject: sub.ToString(),
+            email: emailClaim);
 
         var client = CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
