@@ -92,6 +92,18 @@ export function useLogoUrl(): string | null {
 }
 
 /**
+ * Base URL the SPA targets for every API call. The default
+ * (`http://localhost:8080`) lines up with `docker compose up`'s API origin
+ * and matches the apiClient configuration in `features/catalog/api/client.ts`.
+ * In production both origins collapse to the same host so `VITE_API_BASE_URL`
+ * (typically unset) is the empty string — relative paths Just Work.
+ *
+ * Exported for test fixtures that need to assert the URL composition.
+ */
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
+
+/**
  * PUT /api/v1/organizations/me/logo — uploads new logo bytes. The endpoint
  * accepts a raw binary body (`image/png`, `image/jpeg`, `image/svg+xml`) and
  * returns the new strong ETag + the negotiated MIME type. We bypass
@@ -99,11 +111,12 @@ export function useLogoUrl(): string | null {
  * bodies and rebuilds the payload as JSON; here we need the raw Blob byte-for-byte
  * with a caller-controlled `Content-Type`.
  *
- * The relative URL ("/api/v1/...") is correct: Vite dev proxies to
- * `localhost:8080`, and the production deploy is same-origin. If a future
- * environment splits frontend + backend across origins, fall back to
- * `import.meta.env.VITE_API_BASE_URL + "/api/v1/..."` (already what
- * `apiClient` does — see catalog/api/client.ts).
+ * The URL is prefixed with `API_BASE_URL` so the request hits the API origin
+ * (`http://localhost:8080` in dev) rather than the SPA dev-server origin
+ * (`http://localhost:5173`). The H4 Playwright verification surfaced the
+ * silent 404 that the previous relative-URL implementation produced when no
+ * Vite proxy was configured — see `docs/superpowers/plans/slice-9-docker-verification.md`
+ * bug SPA-1.
  */
 export function useUploadOrgLogo() {
   const auth = useAuth();
@@ -118,14 +131,17 @@ export function useUploadOrgLogo() {
     }): Promise<UploadLogoResponse> => {
       const token = auth.user?.access_token;
       if (!token) throw new Error("Not authenticated");
-      const response = await fetch("/api/v1/organizations/me/logo", {
-        method: "PUT",
-        headers: {
-          "Content-Type": mimeType,
-          Authorization: `Bearer ${token}`,
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/organizations/me/logo`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": mimeType,
+            Authorization: `Bearer ${token}`,
+          },
+          body: bytes,
         },
-        body: bytes,
-      });
+      );
       if (!response.ok) {
         const error: Record<string, unknown> = {
           message: `Upload failed: ${response.status}`,

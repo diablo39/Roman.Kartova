@@ -241,18 +241,64 @@ describe("organization hooks", () => {
       const data = await result.current.mutateAsync({ bytes, mimeType: "image/png" });
 
       expect(data).toEqual(body);
-      expect(fetchSpy).toHaveBeenCalledWith(
-        "/api/v1/organizations/me/logo",
-        expect.objectContaining({
-          method: "PUT",
-          headers: {
-            "Content-Type": "image/png",
-            Authorization: "Bearer tok-123",
-          },
-          body: bytes,
-        }),
-      );
+      // The URL must be prefixed with the API base — relative paths hit the
+      // SPA dev-server origin (Vite, :5173) instead of the API (:8080) and
+      // silently 404, which is exactly the H4 SPA-1 bug this fix closes. We
+      // assert against the absolute URL substring to keep the test resilient
+      // to environment-specific VITE_API_BASE_URL overrides while still
+      // catching the "no prefix at all" regression.
+      const [calledUrl, calledInit] = fetchSpy.mock.calls[0]!;
+      expect(typeof calledUrl).toBe("string");
+      const urlString = calledUrl as string;
+      expect(urlString.endsWith("/api/v1/organizations/me/logo")).toBe(true);
+      expect(/^https?:\/\//.test(urlString)).toBe(true);
+      expect(calledInit).toMatchObject({
+        method: "PUT",
+        headers: {
+          "Content-Type": "image/png",
+          Authorization: "Bearer tok-123",
+        },
+        body: bytes,
+      });
       expect(invalidate).toHaveBeenCalledWith({ queryKey: orgKeys.profile() });
+    });
+
+    it("targets the API origin (NOT the SPA origin) — H4 SPA-1 regression", async () => {
+      // Before the H4 fix, the upload used a relative URL (`/api/v1/...`),
+      // which the browser resolved against the SPA dev-server origin
+      // (`http://localhost:5173`) instead of the API origin
+      // (`http://localhost:8080`), producing a silent 404 with no user-facing
+      // error toast. This test pins the fix by asserting the URL starts with
+      // an absolute http(s):// prefix matching VITE_API_BASE_URL's default
+      // (`http://localhost:8080`) — i.e. the resolved hostname is NOT 5173.
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue(
+          new Response('{"logoEtag":"e","mimeType":"image/png"}', {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+
+      const { result } = renderHook(() => useUploadOrgLogo(), {
+        wrapper: makeWrapper(newQueryClient()),
+      });
+      await result.current.mutateAsync({
+        bytes: new Blob([new Uint8Array([1])]),
+        mimeType: "image/png",
+      });
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      const calledUrl = fetchSpy.mock.calls[0]![0] as string;
+      // Must be absolute and end with the API path — kills the "no prefix"
+      // mutant and the "prefix points at SPA origin" mutant. Parsing via URL
+      // catches both shapes deterministically.
+      const parsed = new URL(calledUrl);
+      expect(parsed.pathname).toBe("/api/v1/organizations/me/logo");
+      // The default API origin in dev is 8080; the SPA origin is 5173. The
+      // test environment's VITE_API_BASE_URL is unset, so the default kicks
+      // in — assert the port is 8080 to lock in the API target.
+      expect(parsed.port).toBe("8080");
     });
 
     it("throws when the OIDC user has no access_token", async () => {

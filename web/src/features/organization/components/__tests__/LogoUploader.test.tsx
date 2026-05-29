@@ -159,16 +159,20 @@ describe("LogoUploader", () => {
       await userEvent.click(screen.getByRole("button", { name: /upload logo/i }));
 
       await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
-      expect(fetchSpy).toHaveBeenCalledWith(
-        "/api/v1/organizations/me/logo",
-        expect.objectContaining({
-          method: "PUT",
-          headers: expect.objectContaining({
-            "Content-Type": "image/png",
-            Authorization: "Bearer tok-1",
-          }),
-        }),
-      );
+      // H4 SPA-1 fix: the URL must be absolute and resolve to the API origin
+      // (not the SPA dev-server origin). Pin via URL parsing so the assertion
+      // is independent of how the absolute prefix is composed.
+      const calledUrl = fetchSpy.mock.calls[0]![0] as string;
+      const parsed = new URL(calledUrl);
+      expect(parsed.pathname).toBe("/api/v1/organizations/me/logo");
+      expect(parsed.port).toBe("8080");
+      expect(fetchSpy.mock.calls[0]![1]).toMatchObject({
+        method: "PUT",
+        headers: {
+          "Content-Type": "image/png",
+          Authorization: "Bearer tok-1",
+        },
+      });
       await waitFor(() =>
         expect(screen.getByText(/logo uploaded/i)).toBeInTheDocument(),
       );
