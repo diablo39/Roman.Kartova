@@ -1,24 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/features/catalog/api/client";
+import {
+  throwWithStatus,
+  unwrapData,
+} from "@/shared/api/openapi-fetch-helpers";
 import type { components } from "@/generated/openapi";
 
 type UserDetailResponse = components["schemas"]["UserDetailResponse"];
 type UserSummaryResponse = components["schemas"]["UserSummaryResponse"];
-
-/**
- * Re-throws an openapi-fetch error after attaching the HTTP status as a
- * `__status` field. Kept here (rather than imported from another feature) so
- * `users/` is self-contained and F5 can extend without cross-feature coupling.
- */
-function throwWithStatus(error: unknown, response: { status: number }): never {
-  (error as Record<string, unknown>).__status = response.status;
-  throw error;
-}
-
-function unwrapData<T>(data: T | undefined): T {
-  if (!data) throw new Error("API returned neither data nor error");
-  return data;
-}
 
 export const userKeys = {
   all: ["users"] as const,

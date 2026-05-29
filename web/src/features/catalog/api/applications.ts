@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "./client";
 import { useCursorList } from "@/lib/list/useCursorList";
+import {
+  throwWithStatus,
+  unwrapData,
+} from "@/shared/api/openapi-fetch-helpers";
 import type { RegisterApplicationInput } from "../schemas/registerApplication";
 import type { EditApplicationInput } from "../schemas/editApplication";
 import type { DeprecateApplicationInput } from "../schemas/deprecateApplication";
@@ -33,22 +37,6 @@ export const applicationKeys = {
       : ([...applicationKeys.all, "list"] as const),
   detail: (id: string) => [...applicationKeys.all, "detail", id] as const,
 };
-
-/**
- * Re-throws an openapi-fetch error after attaching the HTTP status as a
- * `__status` field so callers can branch on 412 / 409 / 400 without re-parsing
- * the response. Used by every mutation that maps RFC 7807 problem types to
- * dialog UX.
- */
-function throwWithStatus(error: unknown, response: { status: number }): never {
-  (error as Record<string, unknown>).__status = response.status;
-  throw error;
-}
-
-function unwrapData<T>(data: T | undefined): T {
-  if (!data) throw new Error("API returned neither data nor error");
-  return data;
-}
 
 export function useApplicationsList(params: ApplicationsListParams) {
   return useCursorList<ApplicationResponse>({

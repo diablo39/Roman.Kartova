@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "react-oidc-context";
 import { apiClient } from "@/features/catalog/api/client";
+import {
+  throwWithStatus,
+  unwrapData,
+} from "@/shared/api/openapi-fetch-helpers";
 import type { components } from "@/generated/openapi";
 
 type OrgProfileResponse = components["schemas"]["OrgProfileResponse"];
@@ -11,21 +15,6 @@ export const orgKeys = {
   profile: () => ["org", "profile"] as const,
   logoUrl: (etag: string | null) => ["org", "logo", etag ?? ""] as const,
 };
-
-/**
- * Re-throws an openapi-fetch error after attaching the HTTP status as a
- * `__status` field so callers can branch on 412 / 409 / 400 without re-parsing
- * the response. Mirrors the helper in catalog/api/applications.ts and teams/api/teams.ts.
- */
-function throwWithStatus(error: unknown, response: { status: number }): never {
-  (error as Record<string, unknown>).__status = response.status;
-  throw error;
-}
-
-function unwrapData<T>(data: T | undefined): T {
-  if (!data) throw new Error("API returned neither data nor error");
-  return data;
-}
 
 /**
  * GET /api/v1/organizations/me — fetches the current tenant's organization
