@@ -33,7 +33,7 @@ namespace Kartova.Organization.Infrastructure.Migrations
 DROP INDEX IF EXISTS idx_invitations_email_pending;
 CREATE UNIQUE INDEX idx_invitations_email_pending ON invitations(tenant_id, lower(email)) WHERE status = 1;
 COMMENT ON INDEX idx_invitations_email_pending IS
-  'Partial UNIQUE index on Pending invitations only: enforces ""one Pending invitation per (tenant, lower(email))"" at the database level. Closes the race-condition gap left by the handler-level AnyAsync pre-check (slice-9 carry-forward #10). Re-invite after revoke (status=2) / accept (3) / expire (4) remains allowed because the WHERE clause filters them out. status=1 maps to Kartova.Organization.Domain.InvitationStatus.Pending.';
+  'Partial UNIQUE index on Pending invitations only: enforces ""one Pending invitation per (tenant, lower(email))"" at the database level. Closes the race-condition gap left by the handler-level AnyAsync pre-check (slice-9 carry-forward #10). Re-invite after accept (status=2) / revoke (3) / expire (4) remains allowed because the WHERE clause filters them out. status=1 maps to Kartova.Organization.Domain.InvitationStatus.Pending.';
 ");
         }
 
@@ -44,7 +44,7 @@ COMMENT ON INDEX idx_invitations_email_pending IS
 DROP INDEX IF EXISTS idx_invitations_email_pending;
 CREATE INDEX idx_invitations_email_pending ON invitations(tenant_id, lower(email)) WHERE status = 1;
 COMMENT ON INDEX idx_invitations_email_pending IS
-  'Partial index on Pending invitations only: enforces ""one Pending invitation per (tenant, lower(email))"" while allowing re-invite after revoke (status=2) / accept (3) / expire (4). status=1 maps to Kartova.Organization.Domain.InvitationStatus.Pending.';
+  'Partial index on Pending invitations only: enforces ""one Pending invitation per (tenant, lower(email))"" while allowing re-invite after accept (status=2) / revoke (3) / expire (4). status=1 maps to Kartova.Organization.Domain.InvitationStatus.Pending.';
 ");
         }
     }
