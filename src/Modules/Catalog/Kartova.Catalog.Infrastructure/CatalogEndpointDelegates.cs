@@ -91,43 +91,11 @@ internal static class CatalogEndpointDelegates
         CancellationToken ct)
     {
         // Enum.TryParse alone accepts numeric strings ("999", "-1") and binds them to
-        // an undefined enum value. Enum.IsDefined rejects those before they reach the
-        // sort spec / order branch.
-        ApplicationSortField? parsedSortBy = null;
-        if (sortBy is not null)
-        {
-            if (!Enum.TryParse<ApplicationSortField>(sortBy, ignoreCase: true, out var sf)
-                || !Enum.IsDefined(sf))
-            {
-                throw new InvalidSortFieldException(sortBy, ApplicationSortSpecs.AllowedFieldNames);
-            }
-            parsedSortBy = sf;
-        }
-
-        SortOrder? parsedSortOrder = null;
-        if (sortOrder is not null)
-        {
-            if (!Enum.TryParse<SortOrder>(sortOrder, ignoreCase: true, out var so)
-                || !Enum.IsDefined(so))
-            {
-                throw new InvalidSortOrderException(sortOrder);
-            }
-            parsedSortOrder = so;
-        }
-
-        int effectiveLimit;
-        if (limit is null)
-        {
-            effectiveLimit = QueryablePagingExtensions.DefaultLimit;
-        }
-        else if (!int.TryParse(limit, System.Globalization.NumberStyles.Integer,
-                System.Globalization.CultureInfo.InvariantCulture, out effectiveLimit))
-        {
-            throw new InvalidLimitException(
-                limit,
-                QueryablePagingExtensions.MinLimit,
-                QueryablePagingExtensions.MaxLimit);
-        }
+        // an undefined enum value. The shared CursorListBinding.Bind applies the
+        // Enum.IsDefined guard plus the sort spec allow-list reject, then defers range
+        // validation on limit to QueryablePagingExtensions.ToCursorPagedAsync.
+        var (parsedSortBy, parsedSortOrder, effectiveLimit) = CursorListBinding.Bind<ApplicationSortField>(
+            sortBy, sortOrder, limit, ApplicationSortSpecs.AllowedFieldNames);
 
         // Resource gate: when ?ownerUserId= is supplied, validate it resolves to a
         // user in the current tenant BEFORE invoking the handler. IUserDirectory is

@@ -44,41 +44,8 @@ internal static class TeamEndpointDelegates
         OrganizationDbContext db,
         CancellationToken ct)
     {
-        TeamSortField? parsedSortBy = null;
-        if (sortBy is not null)
-        {
-            if (!Enum.TryParse<TeamSortField>(sortBy, ignoreCase: true, out var sf)
-                || !Enum.IsDefined(sf))
-            {
-                throw new InvalidSortFieldException(sortBy, TeamSortSpecs.AllowedFieldNames);
-            }
-            parsedSortBy = sf;
-        }
-
-        SortOrder? parsedSortOrder = null;
-        if (sortOrder is not null)
-        {
-            if (!Enum.TryParse<SortOrder>(sortOrder, ignoreCase: true, out var so)
-                || !Enum.IsDefined(so))
-            {
-                throw new InvalidSortOrderException(sortOrder);
-            }
-            parsedSortOrder = so;
-        }
-
-        int effectiveLimit;
-        if (limit is null)
-        {
-            effectiveLimit = QueryablePagingExtensions.DefaultLimit;
-        }
-        else if (!int.TryParse(limit, System.Globalization.NumberStyles.Integer,
-                System.Globalization.CultureInfo.InvariantCulture, out effectiveLimit))
-        {
-            throw new InvalidLimitException(
-                limit,
-                QueryablePagingExtensions.MinLimit,
-                QueryablePagingExtensions.MaxLimit);
-        }
+        var (parsedSortBy, parsedSortOrder, effectiveLimit) = CursorListBinding.Bind<TeamSortField>(
+            sortBy, sortOrder, limit, TeamSortSpecs.AllowedFieldNames);
 
         var query = new ListTeamsQuery(
             SortBy: parsedSortBy ?? TeamSortField.CreatedAt,

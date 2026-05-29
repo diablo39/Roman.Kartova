@@ -35,41 +35,8 @@ internal static class InvitationEndpointDelegates
         OrganizationDbContext db,
         CancellationToken ct)
     {
-        InvitationSortField? parsedSortBy = null;
-        if (sortBy is not null)
-        {
-            if (!Enum.TryParse<InvitationSortField>(sortBy, ignoreCase: true, out var sf)
-                || !Enum.IsDefined(sf))
-            {
-                throw new InvalidSortFieldException(sortBy, InvitationSortSpecs.AllowedFieldNames);
-            }
-            parsedSortBy = sf;
-        }
-
-        SortOrder? parsedSortOrder = null;
-        if (sortOrder is not null)
-        {
-            if (!Enum.TryParse<SortOrder>(sortOrder, ignoreCase: true, out var so)
-                || !Enum.IsDefined(so))
-            {
-                throw new InvalidSortOrderException(sortOrder);
-            }
-            parsedSortOrder = so;
-        }
-
-        int effectiveLimit;
-        if (limit is null)
-        {
-            effectiveLimit = QueryablePagingExtensions.DefaultLimit;
-        }
-        else if (!int.TryParse(limit, System.Globalization.NumberStyles.Integer,
-                System.Globalization.CultureInfo.InvariantCulture, out effectiveLimit))
-        {
-            throw new InvalidLimitException(
-                limit,
-                QueryablePagingExtensions.MinLimit,
-                QueryablePagingExtensions.MaxLimit);
-        }
+        var (parsedSortBy, parsedSortOrder, effectiveLimit) = CursorListBinding.Bind<InvitationSortField>(
+            sortBy, sortOrder, limit, InvitationSortSpecs.AllowedFieldNames);
 
         InvitationStatus? parsedStatus = null;
         if (status is not null)
