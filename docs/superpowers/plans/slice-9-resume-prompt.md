@@ -74,6 +74,23 @@ Full-solution build: 0 warnings, 0 errors. Full unit + architecture + Catalog in
 
 **Next task: H1 (Integration tests for Phase D endpoints).** Plan file §"Task H1" lists the 16 scenarios from spec §11.3 with Testcontainers (KeyCloak + Postgres). Phase H is the verification ladder — H1 unit/integration, H2 architecture tests, H3 docker compose HTTP, H4 Playwright E2E (REQUIRED to close the F-phase verification gap), H5 simplify+mutation, H6 CHECKLIST + PR. Phase H is non-optional: CLAUDE.md DoD #5 mandates docker compose happy + negative HTTP paths for HTTP/auth/DB/middleware slices, and slice 9 is all three.
 
+**⚠️ H1 reconciliation (discovered during Phase F+G handoff): H1 needs a fixture refactor before the spec'd scenarios are testable.**
+
+Plan text says "Use the existing slice-8 fixtures (TestContainerFixture etc.) as templates." That's misleading. The existing `KartovaApiFixtureBase` (at `tests/Kartova.Testing.Auth/KartovaApiFixtureBase.cs`, lines 137-143) deliberately stubs the KeyCloak admin secret with the placeholder `"test-only-secret-not-used-by-any-real-call"` and does NOT spin up a real KeyCloak container. The comment explicitly says "Integration tests do not actually exercise the KC admin client." Slice 9's invitation flow (`CreateInvitationHandler` → `IKeycloakAdminClient.CreateUserAsync`) requires a real KC at host startup.
+
+Good news: there IS a working `Testcontainers.Keycloak` setup at `tests/Kartova.Api.IntegrationTests/KeycloakContainerFixture.cs` (uses `quay.io/keycloak/keycloak:26.1`, `--import-realm`, mounts `deploy/keycloak/kartova-realm.json`). The Org integration tests do not currently use it.
+
+**Cleanest path for H1 (4 sub-dispatches):**
+
+1. **H1-prereq:** Promote `KeycloakContainerFixture` from `tests/Kartova.Api.IntegrationTests/` to `tests/Kartova.Testing.Auth/` (shared). Update its callers in `Kartova.Api.IntegrationTests` to use the moved type. Extend `KartovaApiFixtureBase` to compose with `KeycloakContainerFixture` and wire env vars (`KartovaIdentity__Keycloak__BaseUrl`, `KartovaIdentity__Keycloak__Realm`, `KartovaIdentity__Keycloak__AdminClientId`, `KartovaIdentity__Keycloak__AdminClientSecret`) from the live container instead of placeholders. Verify existing Org integration tests (70 tests, currently green) still pass. Resolves **H8** along the way (the `Kartova.Api.IntegrationTests` env-var miss is the same root cause). Commit suggestion: `refactor(slice-9): promote KeycloakContainerFixture to Kartova.Testing.Auth + wire into KartovaApiFixtureBase (closes H8)`.
+2. **H1 batch 1:** Add 6 invitation tests (spec §11.3 #2–#6 + #9). Now feasible because `CreateInvitationHandler` can hit the real KC admin client. Commit: `test(slice-9): invitation integration tests (create / revoke / acceptance / expire)`.
+3. **H1 batches 2–4:** Logo (#10–#12) + user search (#13–#14) + session bootstrap (#7–#8) + org-profile timezone (#16) = 9 tests across 3 commits per plan cadence.
+4. **H1 batch 5:** Direct `KeycloakAdminClient` Testcontainers test (spec §11.3 last paragraph, Phase A carry-forward). Likely lives in a new `tests/Kartova.SharedKernel.Identity.IntegrationTests/` project mirroring the `Kartova.SharedKernel.Postgres.IntegrationTests` shape — small standalone integration suite that uses `KeycloakContainerFixture` directly without the full API host. Commit: `test(slice-9): KeycloakAdminClient Testcontainers integration test (Phase A carry-forward)`.
+
+Scenario #1 (`PostgresAdvisoryLock_two_acquisitions_only_one_wins`) and scenario #15 (`Cross_module_owner_enrichment_via_IUserDirectory`) are ALREADY GREEN: #1 ships in `tests/Kartova.SharedKernel.Postgres.IntegrationTests/PostgresAdvisoryLockTests.cs` (Phase A), and #15 is covered by E1's `ApplicationOwnerEnrichmentTests` + E2's `ListApplicationsOwnerFilterTests` in `Kartova.Catalog.IntegrationTests`. Don't duplicate.
+
+**Why the resume-prompt-author missed this:** the H1 fixture gap is not visible until you read `KartovaApiFixtureBase.cs` lines 130–145 (the env-var setup), and even then the stub comment ("Integration tests do not actually exercise the KC admin client") only becomes a blocker when you actually try to write an invitation test. The Phase A reconciliation #8 in this file (PostAuthHook ordering bug) is a sibling pattern — Phase D ships production code that integration tests would break, fix lands one phase later.
+
 **Phase H preview (8 tasks, mostly cross-cutting):**
 
 - **H1: integration tests for Phase D endpoints** (16 scenarios from spec §11.3 — invitation create/revoke/accept/expire, org profile/logo, user search, session bootstrap, cross-module owner enrichment) + `KeycloakAdminClient` Testcontainers integration test (spec §11.3 carry-forward).
