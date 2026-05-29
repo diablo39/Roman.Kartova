@@ -4,8 +4,10 @@ using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
+using Npgsql;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 
@@ -248,6 +250,67 @@ public sealed class CreateInvitationHandlerTests
         // And nothing is persisted to the DB.
         Assert.AreEqual(0, await db.Invitations.CountAsync());
         Assert.AreEqual(0, await db.Users.CountAsync());
+    }
+
+    [TestMethod]
+    public async Task Returns_EmailAlreadyInvited_and_compensates_when_unique_index_throws_23505()
+    {
+        // Race-condition contract closed by slice-9 carry-forward #10
+        // (migration MakeInvitationsPendingIndexUnique): a concurrent invite
+        // that slips past the AnyAsync pre-check now races the partial UNIQUE
+        // index `idx_invitations_email_pending` and surfaces a 23505. The
+        // handler must translate that to EmailAlreadyInvited + best-effort
+        // delete the orphan KeyCloak user (matches the role-assign
+        // compensation pattern).
+        var clock = new FakeTimeProvider(T0);
+
+        // Synthesize the minimum signal the handler matches on
+        // (InnerException is PostgresException with SqlState == "23505").
+        // Npgsql 10 exposes a public ctor that lets us seed sqlState directly.
+        var pg = new PostgresException(
+            messageText: "duplicate key value violates unique constraint",
+            severity: "ERROR",
+            invariantSeverity: "ERROR",
+            sqlState: "23505");
+
+        // Throw on the first SaveChangesAsync — wrap in DbUpdateException so
+        // EF Core's contract is preserved (the production code matches on
+        // DbUpdateException + InnerException is PostgresException).
+        var interceptor = new ThrowOnSaveInterceptor(new DbUpdateException("duplicate", pg));
+        var opts = new DbContextOptionsBuilder<OrganizationDbContext>()
+            .UseInMemoryDatabase($"inv-{Guid.NewGuid()}")
+            .AddInterceptors(interceptor)
+            .Options;
+
+        var (h, db, kc, _, _) = Make(clock, opts);
+        await using var _db = db;
+
+        var kcId = Guid.NewGuid();
+        kc.CreateUserAsync(Arg.Any<CreateKeycloakUserRequest>(), Arg.Any<CancellationToken>())
+            .Returns(kcId);
+
+        var result = await h.HandleAsync(new CreateInvitationRequest("alice@example.com", KartovaRoles.Member), CancellationToken.None);
+
+        var failed = result as CreateInvitationResult.Failed;
+        Assert.IsNotNull(failed);
+        Assert.AreEqual(CreateInvitationError.EmailAlreadyInvited, failed!.Error);
+        // Compensation: the orphan KC user must be deleted so the realm doesn't
+        // carry an unreachable shadow account when the DB rejects the commit.
+        await kc.Received(1).DeleteUserAsync(kcId, Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    /// EF Core save interceptor that throws a configured exception on the
+    /// first SaveChanges call — drives the 23505 contract test without
+    /// requiring a real PostgreSQL container in a unit-tier suite.
+    /// </summary>
+    private sealed class ThrowOnSaveInterceptor(Exception ex) : ISaveChangesInterceptor
+    {
+        public ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData,
+            InterceptionResult<int> result,
+            CancellationToken ct = default)
+            => throw ex;
     }
 
     [TestMethod]

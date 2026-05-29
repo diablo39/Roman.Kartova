@@ -5,6 +5,7 @@ using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Npgsql;
 
 namespace Kartova.Organization.Infrastructure;
 
@@ -99,7 +100,27 @@ public sealed class CreateInvitationHandler(
             DisplayName = email,
             CreatedAt = clock.GetUtcNow(),
         });
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException pg && pg.SqlState == "23505")
+        {
+            // Race-condition path closed by carry-forward #10 (migration
+            // MakeInvitationsPendingIndexUnique): the partial UNIQUE index
+            // idx_invitations_email_pending caught a concurrent invite that
+            // slipped past the AnyAsync pre-check above. Translate the
+            // PostgreSQL unique-violation into the same outcome the
+            // application-level pre-check produces, then best-effort delete
+            // the orphaned KC user so the realm doesn't carry an unreachable
+            // shadow account (same compensation pattern as the role-assign
+            // failure branch above).
+            try { await kc.DeleteUserAsync(kcId, ct); }
+#pragma warning disable CA1031 // intentional best-effort swallow per spec §6.7
+            catch { }
+#pragma warning restore CA1031
+            return new CreateInvitationResult.Failed(CreateInvitationError.EmailAlreadyInvited);
+        }
 
         // Spec §9.2 step 8: the URL carries the sentinel `?invitation=1` flag
         // rather than a per-invitation token — acceptance is keyed off the

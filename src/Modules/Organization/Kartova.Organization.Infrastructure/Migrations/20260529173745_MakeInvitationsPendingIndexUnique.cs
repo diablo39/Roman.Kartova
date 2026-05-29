@@ -13,8 +13,10 @@ namespace Kartova.Organization.Infrastructure.Migrations
     /// commit between the AnyAsync check and SaveChangesAsync. Promoting the
     /// partial index to UNIQUE moves enforcement to the database — concurrent
     /// duplicate creates now race the index, the second commit surfaces a
-    /// 23505 unique-violation, and PostgresUniqueViolationProblemMapper (or the
-    /// handler's catch) turns it into the same 409 EmailAlreadyInvited contract.
+    /// 23505 unique-violation, and the handler's
+    /// <c>try { SaveChangesAsync } catch DbUpdateException 23505 → EmailAlreadyInvited</c>
+    /// block in <c>CreateInvitationHandler.HandleAsync</c> turns it into the same
+    /// 409 <c>EmailAlreadyInvited</c> contract (with best-effort KC user cleanup).
     /// </summary>
     /// <remarks>
     /// Schema-only change: no data backfill, no FORCE-RLS toggle (the partial
