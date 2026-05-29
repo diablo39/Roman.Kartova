@@ -25,6 +25,7 @@ internal sealed class KeycloakAdminClient(
         {
             Content = JsonContent.Create(new
             {
+                username = request.Email,    // KC requires explicit username unless the realm sets registrationEmailAsUsername=true; sending it makes the handler self-sufficient regardless of realm config.
                 email = request.Email,
                 firstName = request.FirstName,
                 lastName = request.LastName,

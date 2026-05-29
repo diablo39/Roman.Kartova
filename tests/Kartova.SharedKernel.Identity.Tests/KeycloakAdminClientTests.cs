@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using Duende.IdentityModel.Client;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -89,6 +90,34 @@ public sealed class KeycloakAdminClientTests
         var ex = await Assert.ThrowsExactlyAsync<KeycloakAdminException>(() =>
             client.DeleteUserAsync(Guid.NewGuid(), CancellationToken.None));
         Assert.AreEqual(KeycloakAdminError.NotFound, ex.Error);
+    }
+
+    [TestMethod]
+    public async Task CreateUserAsync_sends_username_field_equal_to_email_in_payload()
+    {
+        // Regression: real KeyCloak rejects the create-user payload with 400 unless either the
+        // realm sets registrationEmailAsUsername=true or the payload includes an explicit username.
+        // The realm seed does not set the flag, so the payload MUST carry username = email.
+        var (client, stub) = MakeSut();
+        var newId = Guid.NewGuid();
+        EnqueueTokenResponse(stub);
+        stub.EnqueueResponse(_ => new HttpResponseMessage(HttpStatusCode.Created)
+        {
+            Headers = { Location = new Uri($"http://keycloak:8080/admin/realms/kartova/users/{newId}") }
+        });
+
+        await client.CreateUserAsync(
+            new CreateKeycloakUserRequest("alice@example.com", "Alice", "Example", Guid.NewGuid().ToString(), ["UPDATE_PASSWORD"]),
+            CancellationToken.None);
+
+        var bodyJson = stub.CapturedBodies[1];   // [0] is token, [1] is create
+        Assert.IsNotNull(bodyJson, "Create-user request must have a body.");
+        using var doc = JsonDocument.Parse(bodyJson!);
+        Assert.IsTrue(doc.RootElement.TryGetProperty("username", out var usernameProp),
+            $"Create-user payload must include 'username' field. Body was: {bodyJson}");
+        Assert.AreEqual("alice@example.com", usernameProp.GetString());
+        // Sanity-check: email also present and matches.
+        Assert.AreEqual("alice@example.com", doc.RootElement.GetProperty("email").GetString());
     }
 
     [TestMethod]
