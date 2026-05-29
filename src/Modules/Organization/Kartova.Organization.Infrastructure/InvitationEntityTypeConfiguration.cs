@@ -12,7 +12,10 @@ internal sealed class InvitationEntityTypeConfiguration : IEntityTypeConfigurati
         b.ToTable("invitations");
 
         // Backing-field strategy mirrors slice 8 (Team aggregate id).
-        b.Property<Guid>("_id").HasColumnName("id");
+        // Defensive: _id is always assigned in Invitation.Create — pin EF's
+        // convention so it never silently treats the Guid PK as database-
+        // generated regardless of provider defaults.
+        b.Property<Guid>("_id").HasColumnName("id").ValueGeneratedNever();
         b.HasKey("_id");
 
         b.Property(x => x.TenantId)

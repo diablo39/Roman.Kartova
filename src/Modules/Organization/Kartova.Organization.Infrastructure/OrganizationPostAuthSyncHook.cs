@@ -34,6 +34,14 @@ internal sealed class OrganizationPostAuthSyncHook(
     {
         ArgumentNullException.ThrowIfNull(principal);
 
+        // Claim names follow OpenID Connect Core §5.1 ("sub", "email", "given_name",
+        // "family_name") — they are the wire contract from KC's ID/access tokens, not
+        // magic strings. We check both the raw OIDC form AND the .NET ClaimTypes.*
+        // form because some pipeline stages (notably DefaultClaimsTransformation)
+        // rewrite "sub" → ClaimTypes.NameIdentifier and "email" → ClaimTypes.Email
+        // before the principal reaches us. Production typically sees only the OIDC
+        // form (JwtBearer with MapInboundClaims=false), but the dual lookup keeps
+        // the hook robust to upstream claim-transformation changes.
         var subRaw = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value
                   ?? principal.FindFirst("sub")?.Value;
         if (!Guid.TryParse(subRaw, out var userId)) return;

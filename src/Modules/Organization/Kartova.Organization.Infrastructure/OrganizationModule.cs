@@ -230,8 +230,6 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
         services.AddModuleDbContext<OrganizationDbContext>(npg =>
             npg.MigrationsAssembly(typeof(OrganizationDbContext).Assembly.FullName));
 
-        services.AddScoped<IOrganizationQueries, OrganizationQueries>();
-
         // TimeProvider is needed by Organization.Create and any future
         // organization-side handler. TryAdd is idempotent — if another module
         // (or test fixture override) already registered TimeProvider, this is a

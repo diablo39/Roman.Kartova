@@ -11,7 +11,10 @@ internal sealed class UserEntityTypeConfiguration : IEntityTypeConfiguration<Use
     {
         b.ToTable("users");
         b.HasKey(x => x.Id);
-        b.Property(x => x.Id).HasColumnName("id");
+        // Defensive: Id is always assigned in the domain (User.Create) — pin
+        // EF's convention so it never silently treats the Guid PK as
+        // database-generated regardless of provider defaults.
+        b.Property(x => x.Id).HasColumnName("id").ValueGeneratedNever();
         b.Property(x => x.TenantId)
             .HasColumnName("tenant_id")
             .HasConversion(v => v.Value, v => new TenantId(v));

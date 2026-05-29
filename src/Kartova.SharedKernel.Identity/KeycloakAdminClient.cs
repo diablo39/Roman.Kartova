@@ -130,12 +130,10 @@ internal sealed class KeycloakAdminClient(
 
     private sealed record KeycloakUserRaw(
         Guid Id, string Email, string? FirstName, string? LastName,
-        bool Enabled, bool EmailVerified,
-        Dictionary<string, List<string>>? Attributes)
+        bool Enabled, bool EmailVerified)
     {
         public KeycloakUser ToDomain() => new(
-            Id, Email, FirstName, LastName, Enabled, EmailVerified,
-            Attributes is not null && Attributes.TryGetValue("tenantId", out var tids) && tids.Count > 0 ? tids[0] : null);
+            Id, Email, FirstName, LastName, Enabled, EmailVerified);
     }
 
     private sealed record RealmRole(string Id, string Name);

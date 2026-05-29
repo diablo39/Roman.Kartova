@@ -40,7 +40,7 @@ internal static class AssemblyRegistry
     public static class Organization
     {
         public static readonly Assembly Domain = typeof(Kartova.Organization.Domain.Organization).Assembly;
-        public static readonly Assembly Application = typeof(IOrganizationQueries).Assembly;
+        public static readonly Assembly Application = typeof(IAdminOrganizationCommands).Assembly;
         public static readonly Assembly Infrastructure = typeof(OrganizationDbContext).Assembly;
         public static readonly Assembly InfrastructureAdmin = typeof(AdminOrganizationDbContext).Assembly;
         public static readonly Assembly Contracts = typeof(OrganizationDto).Assembly;

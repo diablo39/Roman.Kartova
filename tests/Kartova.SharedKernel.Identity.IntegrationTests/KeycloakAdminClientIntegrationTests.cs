@@ -95,16 +95,14 @@ public sealed class KeycloakAdminClientIntegrationTests
     [TestMethod]
     public async Task CreateUser_returns_id_and_GetUser_returns_the_created_user()
     {
-        // NOTE on TenantId round-trip: KeycloakAdminClient writes the tenantId attribute
-        // on create ("tenantId" -> [request.TenantId]), but Keycloak 26's GET /users/{id}
-        // returns the user representation WITHOUT the custom "attributes" bag by default
-        // unless ?userProfileMetadata=true is passed or the attribute is declared on the
-        // user-profile config. As a result KeycloakUser.TenantId comes back null even
-        // though the attribute IS persisted server-side. This is a latent drift in
-        // IKeycloakAdminClient.GetUserAsync but not a slice-9 blocker — every consumer
-        // reads the canonical tenant id off its own DB row, never off KeycloakUser.TenantId.
-        // Flagged in the H1 batch 5 report so a follow-up can decide whether to drop the
-        // field or fetch with briefRepresentation=false / userProfileMetadata=true.
+        // NOTE on tenant-id attribute: KeycloakAdminClient writes the tenantId attribute
+        // on create ("tenantId" -> [request.TenantId]) and KC persists it, but KC 26's
+        // GET /users/{id} omits the custom "attributes" bag by default unless
+        // ?userProfileMetadata=true is passed or the attribute is declared on the
+        // user-profile config. The KeycloakUser.TenantId field was therefore dropped
+        // (H1 carry-forward) — consumers read the canonical tenant id off their own DB
+        // row, never off the KC representation. This test now only round-trips the
+        // fields KC reliably echoes back: id, email, enabled, emailVerified.
         var client = GetClient();
         var email = FreshEmail("roundtrip");
         Guid? createdId = null;

@@ -40,17 +40,19 @@ public sealed class ExpireInvitationsHostedServiceTests
         return services.BuildServiceProvider();
     }
 
-    private static ExpireInvitationsHostedService BuildSut(TimeProvider clock)
+    private static (ExpireInvitationsHostedService Sut, ServiceProvider HostSp) BuildSut(TimeProvider clock)
     {
         // The base ctor requires IServiceScopeFactory and IDistributedLock; neither is
         // touched by ExpireDueAsync when invoked directly. Use a real DI container so
-        // the base class type-checks cleanly.
+        // the base class type-checks cleanly. Caller is responsible for disposing the
+        // returned ServiceProvider (covered by the per-test `await using` blocks below).
         var hostSp = new ServiceCollection().BuildServiceProvider();
-        return new ExpireInvitationsHostedService(
+        var sut = new ExpireInvitationsHostedService(
             hostSp.GetRequiredService<IServiceScopeFactory>(),
             Substitute.For<IDistributedLock>(),
             clock,
             NullLogger<ExpireInvitationsHostedService>.Instance);
+        return (sut, hostSp);
     }
 
     [TestMethod]
@@ -75,8 +77,9 @@ public sealed class ExpireInvitationsHostedServiceTests
         }
 
         clock.Advance(TimeSpan.FromDays(8));
-        var sp = BuildServices(opts, kc, clock);
-        var sut = BuildSut(clock);
+        await using var sp = BuildServices(opts, kc, clock);
+        var (sut, hostSp) = BuildSut(clock);
+        await using var _hostSp = hostSp;
 
         await sut.ExpireDueAsync(sp, CancellationToken.None);
 
@@ -107,8 +110,9 @@ public sealed class ExpireInvitationsHostedServiceTests
         }
 
         // Clock NOT advanced — invitation is still within its TTL window.
-        var sp = BuildServices(opts, kc, clock);
-        var sut = BuildSut(clock);
+        await using var sp = BuildServices(opts, kc, clock);
+        var (sut, hostSp) = BuildSut(clock);
+        await using var _hostSp = hostSp;
 
         await sut.ExpireDueAsync(sp, CancellationToken.None);
 
@@ -141,8 +145,9 @@ public sealed class ExpireInvitationsHostedServiceTests
         }
 
         clock.Advance(TimeSpan.FromDays(8));
-        var sp = BuildServices(opts, kc, clock);
-        var sut = BuildSut(clock);
+        await using var sp = BuildServices(opts, kc, clock);
+        var (sut, hostSp) = BuildSut(clock);
+        await using var _hostSp = hostSp;
 
         await sut.ExpireDueAsync(sp, CancellationToken.None);
 
@@ -179,8 +184,9 @@ public sealed class ExpireInvitationsHostedServiceTests
             .ThrowsAsync(new KeycloakAdminException(KeycloakAdminError.NotFound, "user already gone"));
 
         clock.Advance(TimeSpan.FromDays(8));
-        var sp = BuildServices(opts, kc, clock);
-        var sut = BuildSut(clock);
+        await using var sp = BuildServices(opts, kc, clock);
+        var (sut, hostSp) = BuildSut(clock);
+        await using var _hostSp = hostSp;
 
         await sut.ExpireDueAsync(sp, CancellationToken.None);
 

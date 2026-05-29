@@ -37,6 +37,9 @@ namespace Kartova.Organization.Infrastructure.Migrations
                 table: "invitations",
                 columns: new[] { "tenant_id", "status" });
 
+            // status = 1 maps to InvitationStatus.Pending. The partial index enforces
+            // "at-most-one Pending invitation per (tenant, lower(email))" while still
+            // allowing re-invite after Revoked (2) / Accepted (3) / Expired (4).
             migrationBuilder.Sql(@"
 ALTER TABLE invitations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invitations FORCE ROW LEVEL SECURITY;
@@ -44,6 +47,8 @@ CREATE POLICY tenant_isolation ON invitations
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
 
 CREATE INDEX idx_invitations_email_pending ON invitations(tenant_id, lower(email)) WHERE status = 1;
+COMMENT ON INDEX idx_invitations_email_pending IS
+  'Partial index on Pending invitations only: enforces ""one Pending invitation per (tenant, lower(email))"" while allowing re-invite after revoke (status=2) / accept (3) / expire (4). status=1 maps to Kartova.Organization.Domain.InvitationStatus.Pending.';
 ");
         }
 

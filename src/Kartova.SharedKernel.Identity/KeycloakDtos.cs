@@ -10,6 +10,15 @@ public sealed record CreateKeycloakUserRequest(
     string TenantId,
     IReadOnlyList<string> RequiredActions);
 
+/// <summary>
+/// Slim domain projection of a Keycloak user. Note: the <c>tenantId</c> custom
+/// attribute IS persisted server-side on user creation (see
+/// <see cref="KeycloakAdminClient.CreateUserAsync"/>), but KC 26's
+/// <c>GET /users/{id}</c> omits custom attributes by default — and consumers
+/// here always read the canonical tenant id off their own DB row, never off
+/// the KC representation. The field was therefore dropped to avoid a dead
+/// surface that always came back null.
+/// </summary>
 [ExcludeFromCodeCoverage]
 public sealed record KeycloakUser(
     Guid Id,
@@ -17,5 +26,4 @@ public sealed record KeycloakUser(
     string? FirstName,
     string? LastName,
     bool Enabled,
-    bool EmailVerified,
-    string? TenantId);
+    bool EmailVerified);
