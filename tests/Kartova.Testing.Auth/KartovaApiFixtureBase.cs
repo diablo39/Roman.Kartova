@@ -49,6 +49,13 @@ public abstract class KartovaApiFixtureBase
     /// container instead of the placeholder fallback. Defaults to <see langword="false"/>
     /// so module fixtures that do not exercise the Keycloak admin client (Catalog)
     /// keep their fast startup path.
+    /// <para>
+    /// <b>Precondition:</b> when this is <see langword="true"/>,
+    /// <see cref="InitializeAsync"/> MUST run before <see cref="CreateClient"/> /
+    /// <see cref="CreateAuthenticatedClientAsync"/> — the live KC URL is only
+    /// available after the container starts. <see cref="CreateHost"/> throws
+    /// <see cref="InvalidOperationException"/> if the precondition is violated.
+    /// </para>
     /// </summary>
     /// <remarks>
     /// Consumer pattern: override on the derived module fixture, e.g.
@@ -179,17 +186,27 @@ public abstract class KartovaApiFixtureBase
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Audience), TestJwtSigner.Audience);
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.RequireHttpsMetadata), "false");
 
-        if (_keycloak is not null)
+        if (UsesKeycloakContainer)
         {
+            // Read the virtual rather than the backing field so a misordered
+            // lifecycle (CreateClient before InitializeAsync) surfaces as an
+            // explicit InvalidOperationException instead of silently falling
+            // through to the placeholder branch and producing a confusing
+            // "KC admin client can't authenticate" runtime error.
+            if (_keycloak is null)
+            {
+                throw new InvalidOperationException(
+                    $"{nameof(InitializeAsync)} must run before {nameof(CreateClient)} when {nameof(UsesKeycloakContainer)} is true.");
+            }
+
             // Opt-in path: point the AddKeycloakAdminClient binding at the live
-            // Testcontainer. Realm seed matches deploy/keycloak/kartova-realm.json
-            // (admin client = "kartova-admin" / secret = "admin-dev-secret"). The
-            // CreateInvitation / RevokeInvitation / ExpireInvitation handlers in
-            // the Organization module exercise this for real.
+            // Testcontainer. Realm seed matches deploy/keycloak/kartova-realm.json.
+            // The CreateInvitation / RevokeInvitation / ExpireInvitation handlers
+            // in the Organization module exercise this for real.
             Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__BaseUrl", _keycloak.KeycloakBaseUrl);
-            Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__Realm", "kartova");
-            Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__AdminClientId", "kartova-admin");
-            Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__AdminClientSecret", "admin-dev-secret");
+            Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__Realm", RealmSeedConstants.RealmName);
+            Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__AdminClientId", RealmSeedConstants.AdminClientId);
+            Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__AdminClientSecret", RealmSeedConstants.AdminClientSecret);
         }
         else
         {

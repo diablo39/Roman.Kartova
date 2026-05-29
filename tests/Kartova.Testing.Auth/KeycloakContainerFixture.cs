@@ -1,20 +1,26 @@
 using System.Diagnostics.CodeAnalysis;
 using DotNet.Testcontainers.Builders;
 using Testcontainers.Keycloak;
-using Testcontainers.PostgreSql;
 
 namespace Kartova.Testing.Auth;
 
 /// <summary>
-/// Shared Postgres + Keycloak Testcontainer pair. Boots a <c>postgres:18-alpine</c>
-/// container alongside a <c>quay.io/keycloak/keycloak:26.1</c> container started with
-/// <c>--import-realm</c> mounting <c>kartova-realm.json</c> so the realm seed
-/// (clients, roles, service accounts) is in place by the time the wait strategy
-/// observes <c>/realms/kartova/.well-known/openid-configuration</c>.
+/// Shared Keycloak Testcontainer — boots a <c>quay.io/keycloak/keycloak:26.1</c>
+/// container with <c>--import-realm</c> mounting <c>kartova-realm.json</c> so the
+/// realm seed (clients, roles, service accounts) is in place by the time the wait
+/// strategy observes <c>/realms/kartova/.well-known/openid-configuration</c>.
 /// <para>
 /// Originally lived in <c>Kartova.Api.IntegrationTests</c> (where the auth-smoke
-/// tests were the only consumer). Slice 9 / H1-prereq promotes it here so module
-/// integration tests can opt into a real KC via <see cref="KartovaApiFixtureBase.UsesKeycloakContainer"/>.
+/// tests were the only consumer). Slice 9 / H1-prereq promoted it to
+/// <c>Kartova.Testing.Auth</c> so module integration tests can opt into a real KC
+/// via <see cref="KartovaApiFixtureBase.UsesKeycloakContainer"/>.
+/// </para>
+/// <para>
+/// Slice 9 / H1-prereq follow-up: the Postgres container previously bundled into
+/// this fixture has been split out. <see cref="KartovaApiFixtureBase"/> owns its own
+/// Postgres lifecycle, so leaving a second one inside this fixture spun up an
+/// unused container per assembly run. Consumers that need a sibling Postgres
+/// (e.g. <c>Kartova.Api.IntegrationTests</c>) compose one separately.
 /// </para>
 /// <para>
 /// <b>Realm JSON discovery:</b> the file must be present in the consuming test
@@ -29,13 +35,6 @@ namespace Kartova.Testing.Auth;
 [ExcludeFromCodeCoverage]
 public sealed class KeycloakContainerFixture : IAsyncDisposable
 {
-    public PostgreSqlContainer Postgres { get; } = new PostgreSqlBuilder()
-        .WithImage("postgres:18-alpine")
-        .WithDatabase("kartova")
-        .WithUsername("postgres")
-        .WithPassword("postgres")
-        .Build();
-
     public KeycloakContainer Keycloak { get; } = new KeycloakBuilder()
         .WithImage("quay.io/keycloak/keycloak:26.1")
         // KeycloakBuilder.Init() already appends "start-dev"; WithCommand merges
@@ -51,18 +50,12 @@ public sealed class KeycloakContainerFixture : IAsyncDisposable
             Path.Combine(AppContext.BaseDirectory, "kartova-realm.json"),
             "/opt/keycloak/data/import")
         .WithWaitStrategy(Wait.ForUnixContainer()
-            .UntilHttpRequestIsSucceeded(r => r.ForPort(8080).ForPath("/realms/kartova/.well-known/openid-configuration")))
+            .UntilHttpRequestIsSucceeded(r => r.ForPort(8080).ForPath($"/realms/{RealmSeedConstants.RealmName}/.well-known/openid-configuration")))
         .Build();
 
-    public async Task InitializeAsync()
-    {
-        await Task.WhenAll(Postgres.StartAsync(), Keycloak.StartAsync());
-    }
+    public Task InitializeAsync() => Keycloak.StartAsync();
 
-    public async ValueTask DisposeAsync()
-    {
-        await Task.WhenAll(Postgres.DisposeAsync().AsTask(), Keycloak.DisposeAsync().AsTask());
-    }
+    public ValueTask DisposeAsync() => Keycloak.DisposeAsync();
 
     /// <summary>
     /// OIDC authority for the seeded realm — appended with <c>/protocol/...</c> by
@@ -71,7 +64,7 @@ public sealed class KeycloakContainerFixture : IAsyncDisposable
     /// URL with a trailing slash, so the concatenation produces
     /// <c>http://host:port/realms/kartova</c> (no double slash).
     /// </summary>
-    public string KeycloakAuthority => $"{Keycloak.GetBaseAddress()}realms/kartova";
+    public string KeycloakAuthority => $"{Keycloak.GetBaseAddress()}realms/{RealmSeedConstants.RealmName}";
 
     /// <summary>
     /// Base URL of the Keycloak admin REST API, without a trailing slash so

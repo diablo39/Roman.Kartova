@@ -28,12 +28,12 @@ public class CorsTests : KeycloakContainerTestBase
         // Slice 9 / H8: AddKeycloakAdminClient.ValidateOnStart rejects the
         // appsettings placeholder "OVERRIDE_VIA_ENV". Wire the four
         // KartovaIdentity__Keycloak__* env vars from the live container so the
-        // host boots. Realm seed matches deploy/keycloak/kartova-realm.json.
-        Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__BaseUrl",
-            Containers.Keycloak.GetBaseAddress().TrimEnd('/'));
-        Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__Realm", "kartova");
-        Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__AdminClientId", "kartova-admin");
-        Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__AdminClientSecret", "admin-dev-secret");
+        // host boots. Realm-seed literals live in RealmSeedConstants so a
+        // future rename of kartova-realm.json only touches one site.
+        Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__BaseUrl", Containers.KeycloakBaseUrl);
+        Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__Realm", RealmSeedConstants.RealmName);
+        Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__AdminClientId", RealmSeedConstants.AdminClientId);
+        Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__AdminClientSecret", RealmSeedConstants.AdminClientSecret);
 
         // CORS allowlist — set before WAF boots so the policy builder sees the value.
         Environment.SetEnvironmentVariable($"{CorsConfigKeys.AllowedOrigins.Replace(":", "__")}__0", "http://localhost:5173");
