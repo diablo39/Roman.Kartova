@@ -33,14 +33,7 @@ internal static class OrganizationProfileEndpointDelegates
     internal static async Task<IResult> GetMeAsync(OrgProfileQueries queries, CancellationToken ct)
     {
         var profile = await queries.GetMyOrgAsync(ct);
-        if (profile is null)
-        {
-            return Results.Problem(
-                type: ProblemTypes.ResourceNotFound,
-                title: "Organization not found",
-                detail: "The current tenant has no visible Organization row.",
-                statusCode: StatusCodes.Status404NotFound);
-        }
+        if (profile is null) return OrgNotFound();
         return Results.Ok(profile);
     }
 
@@ -65,11 +58,7 @@ internal static class OrganizationProfileEndpointDelegates
         return result switch
         {
             UpdateOrgProfileResult.Ok => Results.NoContent(),
-            UpdateOrgProfileResult.NotFound => Results.Problem(
-                type: ProblemTypes.ResourceNotFound,
-                title: "Organization not found",
-                detail: "The current tenant has no visible Organization row.",
-                statusCode: StatusCodes.Status404NotFound),
+            UpdateOrgProfileResult.NotFound => OrgNotFound(),
             UpdateOrgProfileResult.ConcurrencyConflict => Results.Problem(
                 type: ProblemTypes.ConcurrencyConflict,
                 title: "Concurrency conflict",
@@ -168,11 +157,7 @@ internal static class OrganizationProfileEndpointDelegates
                 title: "Logo rejected",
                 detail: r.Reason,
                 statusCode: StatusCodes.Status422UnprocessableEntity),
-            UploadLogoResult.NotFound => Results.Problem(
-                type: ProblemTypes.ResourceNotFound,
-                title: "Organization not found",
-                detail: "The current tenant has no visible Organization row.",
-                statusCode: StatusCodes.Status404NotFound),
+            UploadLogoResult.NotFound => OrgNotFound(),
             _ => Results.StatusCode(StatusCodes.Status500InternalServerError),
         };
     }
@@ -187,14 +172,7 @@ internal static class OrganizationProfileEndpointDelegates
         CancellationToken ct)
     {
         var ok = await cmds.ClearAsync(ct);
-        if (!ok)
-        {
-            return Results.Problem(
-                type: ProblemTypes.ResourceNotFound,
-                title: "Organization not found",
-                detail: "The current tenant has no visible Organization row.",
-                statusCode: StatusCodes.Status404NotFound);
-        }
+        if (!ok) return OrgNotFound();
         return Results.NoContent();
     }
 
@@ -263,4 +241,18 @@ internal static class OrganizationProfileEndpointDelegates
 
         return Results.File(data.Bytes, data.MimeType);
     }
+
+    /// <summary>
+    /// RFC 7807 404 envelope shared by every Organization profile endpoint that
+    /// resolves the current tenant's Organization row. RLS hides cross-tenant
+    /// rows so "row absent" and "row exists but not visible" both surface as
+    /// the same 404 (intentional, ADR-0090). Mirrors the private
+    /// <c>TeamEndpointDelegates.TeamNotFound</c> helper and the
+    /// <c>EndpointResultExtensions.ApplicationNotFound</c> helper in Catalog.
+    /// </summary>
+    private static IResult OrgNotFound() => Results.Problem(
+        type: ProblemTypes.ResourceNotFound,
+        title: "Organization not found",
+        detail: "The current tenant has no visible Organization row.",
+        statusCode: StatusCodes.Status404NotFound);
 }
