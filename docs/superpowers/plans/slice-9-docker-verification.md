@@ -430,3 +430,101 @@ The first-row deviation from the H3 outcomes table is closed. Files touched:
 `tests/Kartova.ArchitectureTests/Slice9BoundarySentinels.cs`
 (`Runtime_can_resolve_common_IANA_timezones` sentinel — makes the IANA-tz
 dependency visible on any future stripped-down runtime).
+
+## H4 SPA E2E Playwright verification
+
+Closes the F-phase SPA verification gap (F-phase shipped vitest-only). Satisfies
+the SPA half of CLAUDE.md DoD #5 and ADR-0084 cold-start Playwright requirement.
+
+### Run context
+
+| Field | Value |
+|-------|-------|
+| Git HEAD at run | `53073674019a127094b5357e28b82f72b146d612` (branch `feat/slice-9-organization-people-management`) |
+| Stack | `docker compose up -d` (api + postgres + keycloak + migrator + keycloak-db) — same compose used in H3 |
+| SPA | `cd web && npm run dev` (Vite v6.4.2, cold-start per ADR-0084), served on `http://localhost:5173` |
+| Browser driver | Playwright MCP (`mcp__playwright__*` tools) — single Chromium context |
+| Wall-clock start | 2026-05-29 15:18 UTC (first navigation) |
+| Wall-clock end | 2026-05-29 15:35 UTC (browser closed, stack torn down) |
+| Total | ~17 min (incl. investigation of bugs surfaced mid-flow) |
+| Admin user | `admin@orga.kartova.local` / `dev_pass` (OrgAdmin) — same as H3 |
+| Screenshots | 18 PNGs under `docs/superpowers/plans/slice-9-screenshots/` |
+
+Stack verified healthy via `docker compose ps`: all four services reached `(healthy)`
+on first attempt, migrator exited 0. Vite emitted `Local: http://localhost:5173/`
+on cold start with no React/build errors (HMR not active — cold-start only). The
+H3 fix (tzdata + KartovaIdentity env vars in compose) carried through cleanly —
+no API boot issues observed.
+
+### Step-by-step results
+
+| Step | Outcome | Screenshots | Notes |
+|-----:|---------|-------------|-------|
+| 1. Navigate + KC login | **PASS** | `step-1a-kc-login.png`, `step-1b-catalog-after-login.png` | OIDC PKCE redirect → KC realm `kartova` → `Sign In` → callback → `/catalog` rendered. Header shows `img alt="Org A"` (note: the org already has a logo — `logoEtag` set in seed, so the original "no logo yet" expectation in the task does not hold for this seed; the placeholder vs uploaded-logo distinction is moot). |
+| 2. Logo upload | **FAIL — SPA bug surfaced** | `step-2a-org-settings-loaded.png`, `step-2b-logo-upload-failed-404.png` | Form populated correctly (`Org A` / `verified` / `Europe/Warsaw` — matches `GET /api/v1/organizations/me`). Dropzone accepts file, preview renders (64×64 + 200×200). Clicking **Upload Logo** issues `PUT /api/v1/organizations/me/logo` against the **SPA dev-server origin** (`http://localhost:5173`) instead of the API origin (`http://localhost:8080`) → 404 from Vite. **No user-facing error toast** — failure is silent. Filed below as bug **SPA-1**. |
+| 3. Create invitation | **PASS for create, FAIL for invite URL** | `step-3a-invitations-list.png`, `step-3b-invite-dialog-open.png`, `step-3c-invite-success-copylink.png` | `POST /api/v1/organizations/invitations` → 201 Created. Success-state UI renders with copy-link box. But: the link is `http://localhost:5173/?invitation=1` — a **placeholder URL with no token and a sentinel integer** — not a usable acceptance link. Filed below as bug **API-1**. Also surfaced bug **API-2**: the **Invited by** column shows the raw UUID `1e8d120d-…` because the user-detail enrichment endpoint crashes (see API-2 details). |
+| 4. Accept invite in fresh context | **NOT TESTABLE — blocked by API-1 + auth design** | `step-4a-invite-url-broken.png` | The invite URL has no token; opening it in a fresh tab simply lands on `/catalog` (the `?invitation=1` query string is silently dropped by the SPA — no `/accept` route exists). Per the SPA's `OidcCallbackHandler` design, acceptance is keyed off the invitee's authenticated email at callback time — not off a URL token — so the broken URL is *technically* cosmetic, but the invitee experience is unusable (no clear "what to do next" link). Step 4 cannot complete without manually pre-creating the invitee user in KeyCloak admin (out of scope for an MCP-driven E2E session). |
+| 5. Land on `/welcome` | **NOT TESTABLE** | — | Depends on step 4 producing an `AcceptedInvitationInfo` from `OidcCallbackHandler`. Direct nav to `/welcome` (no router state) correctly falls back to `/catalog` — verified by reading `WelcomePage.tsx` line 23: `if (!info) return <Navigate to="/catalog" replace />`. |
+| 6. Continue → `/catalog` | **PASS (implicit)** | `step-1b-catalog-after-login.png` | The catalog renders fine immediately after login — same path Welcome's Continue button takes. No screenshot needed beyond step 1b. |
+| 7. Catalog Owner → user detail | **PARTIAL PASS — FE works, BE crashes** | `step-7c-application-detail-unknown-owner.png`, `step-7d-catalog-owner-as-displayname.png`, `step-7e-user-detail-after-owner-click.png`, `step-7b-user-detail-failed-500.png` | Seeded apps all have null owners ("Unknown user"). Registered a new app "H4 E2E App" via the Register Application dialog — owner defaulted to current user. Catalog row shows **"Alice Admin"** as a `<a href="/users/{id}">` link (NOT a UUID) — the slice-9 E1 OwnerLink component is wired correctly. Clicking the link navigates to `/users/{id}` — but the page renders **"Failed to load user / Try refreshing"** because `GET /api/v1/organizations/users/{id}` returns **500 Internal Server Error**. Root cause is bug **API-2** below. |
+| 8. Team Detail members rendering | **PASS** | `step-8a-teams-list-empty.png`, `step-8b-team-detail-empty.png`, `step-8c-team-detail-with-member.png` | Created "Slice-9 H4 E2E Team" (no teams seeded). Empty state renders cleanly. Added Alice Admin as member via the Add Member dialog. The members table renders **"Alice Admin" + "admin@orga.kartova.local"** in two-line format — display name + email, NOT raw UUIDs. Slice-9 E3 enrichment confirmed working at the SPA layer. |
+| 9. Add Member combobox typeahead | **PASS** | `step-9a-add-member-dialog-open.png`, `step-9b-combobox-typeahead-admin.png` | Dialog opens with `<input role="combobox" placeholder="Search by name or email…">`. Typing `admin` issues `GET /api/v1/organizations/users?q=admin` and surfaces one option: "Alice Admin / admin@orga.kartova.local". Selection commits the user. Slice-9 F8 combobox confirmed working end-to-end. |
+
+### Bugs surfaced (release blockers)
+
+#### SPA-1: Logo upload fires against SPA origin (404 silent failure)
+
+- **Component:** `web/src/features/organization/` — the logo-upload mutation
+- **Symptom:** `PUT http://localhost:5173/api/v1/organizations/me/logo` → 404 from Vite. No user-facing error toast.
+- **Repro:** Step 2 — pick any PNG ≤256 KB, click Upload Logo.
+- **Network log:** requests 282 & 283 both 404.
+- **Severity:** Blocker — logo upload is non-functional end-to-end. Other API calls in the same SPA (`/permissions`, `/me`, `/invitations`, catalog) correctly hit `http://localhost:8080` — so the bug is local to whichever client/fetch the logo mutation uses. Likely the mutation uses a relative `fetch()` instead of `apiClient` or a hard-coded `apiBaseUrl`.
+- **Secondary issue:** the SPA also fires `GET /api/v1/...` against the SPA origin in at least two cases (requests 272, 273) — those return 200-with-HTML (Vite serves index.html for unknown routes), which can be a silent corruption hazard if the SPA tries to JSON-parse the response.
+
+#### API-1: invite URL is a placeholder, not a usable link
+
+- **Component:** `src/Modules/Organization/Kartova.Organization.Infrastructure/` — the invitation create endpoint response builder
+- **Symptom:** `POST /api/v1/organizations/invitations` response body:
+  ```json
+  { "invitation": {...}, "inviteUrl": "http://localhost:5173/?invitation=1" }
+  ```
+  The URL points at `/` (not `/accept` or `/welcome`), uses a literal integer `1` instead of a per-invitation token, and the SPA has no handler for `?invitation=...`.
+- **Severity:** Blocker — invitees cannot self-serve from the link. The auto-accept-on-callback path *could* still work if the invitee already has a KC account with the matching email, but the link is misleading and step 4 of the user journey is broken UX.
+- **Note:** the list endpoint `GET /api/v1/organizations/invitations` does not surface the token either, so even if the SPA wanted to regenerate the link client-side it can't.
+
+#### API-2: `GET /api/v1/organizations/users/{id}` returns 500 (LINQ translation failure)
+
+- **Component:** `src/Modules/Organization/Kartova.Organization.Infrastructure/UserQueries.cs` line 77
+- **Symptom:** every request to `GET /api/v1/organizations/users/{id}` returns 500. Stack trace from API logs:
+  ```
+  System.InvalidOperationException: The LINQ expression 'DbSet<TeamMembership>()
+      .Where(t => t.UserId == @id)
+      .Join(
+          inner: DbSet<Team>(),
+          outerKeySelector: t => (object)t.TeamId.Value,
+          innerKeySelector: t0 => (object)EF.Property<Guid>(t0, "_id"),
+          resultSelector: (t, t0) => new TransparentIdentifier<TeamMembership, Team>(...))'
+  could not be translated.
+     at Kartova.Organization.Infrastructure.UserQueries.GetDetailAsync(Guid id, CancellationToken ct)
+        in /src/src/Modules/Organization/Kartova.Organization.Infrastructure/UserQueries.cs:line 77
+  ```
+- **Root cause:** the EF query joins `TeamMembership.TeamId` (a value-object wrapper) against `Team`'s shadow primary key via `(object)` casts. EF Core can't translate that into SQL — needs either an explicit conversion on the value object's mapping (so `.Value` is unwrapped server-side) or a rewritten join using strongly-typed projections.
+- **Severity:** Blocker — every page that resolves a UUID to a display name via this endpoint is broken:
+  - The **Invitations list** "Invited by" column renders raw UUID (4 failed requests visible in network log per page load — 286, 287, 290, 291).
+  - The **/users/{id}** page (linked from OwnerLink in catalog rows and from invitation rows) renders "Failed to load user" — making step 7 of the journey non-completable past the link click.
+- **What still works:** the search endpoint `GET /api/v1/organizations/users?q=...` (used by the F8 combobox) does NOT hit this code path and works fine — confirmed by step 9 returning "Alice Admin" for `q=admin`.
+
+### Summary
+
+| Metric | Value |
+|--------|-------|
+| Steps PASS | 4 of 9 (steps 1, 6, 8, 9) |
+| Steps PARTIAL | 2 of 9 (step 3 — create works, link broken; step 7 — link wiring works, target page crashes) |
+| Steps FAIL | 1 of 9 (step 2 — silent 404) |
+| Steps NOT TESTABLE | 2 of 9 (steps 4 + 5 — depend on the invite-URL flow being functional) |
+| New release blockers found | 3 (SPA-1 silent 404 on logo upload, API-1 placeholder invite URL, API-2 500 on user detail) |
+| Stack state at end | torn down via `docker compose down` — verified; Vite dev server stopped — verified (`Get-NetTCPConnection -LocalPort 5173` returns nothing) |
+| ADR-0084 cold-start requirement | satisfied — `npm run dev` started from a clean process, no HMR cache active |
+| CLAUDE.md DoD #5 SPA half | partially satisfied — happy + negative paths captured, but three new release blockers must be fixed and re-verified before "slice-9 complete" |
+| Outcome | **DONE_WITH_CONCERNS** — verification completed end-to-end, but three release-blocking bugs were surfaced that must be addressed before slice-9 can be marked done. |
+

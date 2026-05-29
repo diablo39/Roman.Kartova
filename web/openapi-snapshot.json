@@ -644,7 +644,7 @@
     "/api/v1/organizations/me": {
       "get": {
         "tags": [
-          "OrganizationEndpointDelegates"
+          "OrganizationProfileEndpointDelegates"
         ],
         "operationId": "GetOrganizationMe",
         "responses": {
@@ -672,7 +672,7 @@
       },
       "put": {
         "tags": [
-          "OrganizationEndpointDelegates"
+          "OrganizationProfileEndpointDelegates"
         ],
         "operationId": "UpdateOrganizationMe",
         "requestBody": {
@@ -725,7 +725,7 @@
     "/api/v1/organizations/me/logo": {
       "put": {
         "tags": [
-          "OrganizationEndpointDelegates"
+          "OrganizationProfileEndpointDelegates"
         ],
         "operationId": "UploadOrganizationLogo",
         "responses": {
@@ -783,7 +783,7 @@
       },
       "delete": {
         "tags": [
-          "OrganizationEndpointDelegates"
+          "OrganizationProfileEndpointDelegates"
         ],
         "operationId": "DeleteOrganizationLogo",
         "responses": {
@@ -804,7 +804,7 @@
       },
       "get": {
         "tags": [
-          "OrganizationEndpointDelegates"
+          "OrganizationProfileEndpointDelegates"
         ],
         "operationId": "GetOrganizationLogo",
         "responses": {
@@ -830,7 +830,7 @@
     "/api/v1/organizations/me/permissions": {
       "get": {
         "tags": [
-          "OrganizationEndpointDelegates"
+          "OrganizationProfileEndpointDelegates"
         ],
         "operationId": "GetMePermissions",
         "responses": {
@@ -850,7 +850,7 @@
     "/api/v1/organizations/me/admin-only": {
       "get": {
         "tags": [
-          "OrganizationEndpointDelegates"
+          "OrganizationProfileEndpointDelegates"
         ],
         "operationId": "GetOrganizationMeAdminOnly",
         "responses": {
@@ -890,7 +890,7 @@
     "/api/v1/organizations/teams": {
       "get": {
         "tags": [
-          "OrganizationEndpointDelegates"
+          "TeamEndpointDelegates"
         ],
         "operationId": "ListTeams",
         "parameters": [
@@ -949,7 +949,7 @@
       },
       "post": {
         "tags": [
-          "OrganizationEndpointDelegates"
+          "TeamEndpointDelegates"
         ],
         "operationId": "CreateTeam",
         "requestBody": {
@@ -989,7 +989,7 @@
     "/api/v1/organizations/teams/{id}": {
       "get": {
         "tags": [
-          "OrganizationEndpointDelegates"
+          "TeamEndpointDelegates"
         ],
         "operationId": "GetTeam",
         "parameters": [
@@ -1028,7 +1028,7 @@
       },
       "put": {
         "tags": [
-          "OrganizationEndpointDelegates"
+          "TeamEndpointDelegates"
         ],
         "operationId": "UpdateTeam",
         "parameters": [
@@ -1097,7 +1097,7 @@
       },
       "delete": {
         "tags": [
-          "OrganizationEndpointDelegates"
+          "TeamEndpointDelegates"
         ],
         "operationId": "DeleteTeam",
         "parameters": [
@@ -1151,7 +1151,7 @@
     "/api/v1/organizations/teams/{id}/members": {
       "post": {
         "tags": [
-          "OrganizationEndpointDelegates"
+          "TeamEndpointDelegates"
         ],
         "operationId": "AddTeamMember",
         "parameters": [
@@ -1232,7 +1232,7 @@
     "/api/v1/organizations/teams/{id}/members/{userId}": {
       "delete": {
         "tags": [
-          "OrganizationEndpointDelegates"
+          "TeamEndpointDelegates"
         ],
         "operationId": "RemoveTeamMember",
         "parameters": [
@@ -1283,7 +1283,7 @@
       },
       "put": {
         "tags": [
-          "OrganizationEndpointDelegates"
+          "TeamEndpointDelegates"
         ],
         "operationId": "UpdateTeamMember",
         "parameters": [
@@ -1356,7 +1356,7 @@
     "/api/v1/organizations/invitations": {
       "get": {
         "tags": [
-          "OrganizationEndpointDelegates"
+          "InvitationEndpointDelegates"
         ],
         "operationId": "ListInvitations",
         "parameters": [
@@ -1421,7 +1421,7 @@
       },
       "post": {
         "tags": [
-          "OrganizationEndpointDelegates"
+          "InvitationEndpointDelegates"
         ],
         "operationId": "CreateInvitation",
         "requestBody": {
@@ -1481,7 +1481,7 @@
     "/api/v1/organizations/invitations/{id}/revoke": {
       "post": {
         "tags": [
-          "OrganizationEndpointDelegates"
+          "InvitationEndpointDelegates"
         ],
         "operationId": "RevokeInvitation",
         "parameters": [
@@ -1535,7 +1535,7 @@
     "/api/v1/organizations/users": {
       "get": {
         "tags": [
-          "OrganizationEndpointDelegates"
+          "UserEndpointDelegates"
         ],
         "operationId": "SearchUsers",
         "parameters": [
@@ -1589,7 +1589,7 @@
     "/api/v1/organizations/users/{id}": {
       "get": {
         "tags": [
-          "OrganizationEndpointDelegates"
+          "UserEndpointDelegates"
         ],
         "operationId": "GetUserDetail",
         "parameters": [
@@ -1630,7 +1630,7 @@
     "/api/v1/auth/session": {
       "post": {
         "tags": [
-          "OrganizationEndpointDelegates"
+          "AuthEndpointDelegates"
         ],
         "operationId": "StartSession",
         "responses": {
@@ -2559,7 +2559,19 @@
       "name": "CatalogEndpointDelegates"
     },
     {
-      "name": "OrganizationEndpointDelegates"
+      "name": "OrganizationProfileEndpointDelegates"
+    },
+    {
+      "name": "TeamEndpointDelegates"
+    },
+    {
+      "name": "InvitationEndpointDelegates"
+    },
+    {
+      "name": "UserEndpointDelegates"
+    },
+    {
+      "name": "AuthEndpointDelegates"
     },
     {
       "name": "AdminOrganizationEndpointDelegates"
