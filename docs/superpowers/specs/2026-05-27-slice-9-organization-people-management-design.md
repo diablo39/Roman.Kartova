@@ -30,7 +30,7 @@ Estimated size: ~10 working days. Larger than slice 7/8 (~5-6 each) because four
 
 - Slices 0–8 merged. Slice 8 (Team Management, PR #26) merged 2026-05-22.
 - `Kartova.Organization` module today carries `Organization` aggregate + `Team` aggregate + `TeamMembership`. E-03 is its bounded context; slice 9 adds two more aggregates: `Invitation` and `User` (projection only).
-- `Kartova.SharedKernel.AspNetCore` hosts `TenantClaimsTransformation` (slice 7), `ITenantContext` (slice 8 extended), `KartovaPermissions` policy registration. Slice 9 extends `TenantClaimsTransformation` further to upsert the `users` projection.
+- `Kartova.SharedKernel.AspNetCore` hosts `TenantClaimsTransformation` (slice 7), `ITenantContext` (slice 8 extended), `KartovaPermissions` policy registration. Slice 9 performs the `users` projection upsert inside `SessionStartHandler` (see §9.1) rather than extending `TenantClaimsTransformation` — see §9.1's rationale paragraph for the post-slice-boundary refactor that consolidated this work.
 - `Kartova.SharedKernel.Postgres` exists with connection-string helpers + the BYPASSRLS pool (slice 5 + slice 8 use it for admin-side reads/writes that need to bypass tenant RLS).
 - Wolverine is configured as **in-process mediator only**; persistence is explicitly deferred (Program.cs:147-152 + ADR-0080). Slice 9 honors this deferral and uses Postgres advisory locks instead of Wolverine scheduled messages.
 - ADR-0011 declares one Org = one tenant. ADR-0006 declares KeyCloak as the IdP. The realm `kartova` is shared across all tenants; per-user `tenantId` attribute scopes them.
@@ -225,7 +225,7 @@ public sealed class User : ITenantOwned
 }
 ```
 
-A `UserProjectionUpdater` helper (in `Kartova.Organization.Application`) handles upsert from JWT claims; called by `TenantClaimsTransformation`.
+A `UserProjectionUpdater` helper (in `Kartova.Organization.Application`) handles upsert from JWT claims; called by `SessionStartHandler.HandleAsync` (see §9.1; this was called by `TenantClaimsTransformation` in the original design, refactored in `e8bf859`).
 
 ### 4.4 Tables
 
@@ -764,11 +764,13 @@ Slice 7's chore (PR #25) — TS types regenerate after backend ships new endpoin
 
 ### 9.1 JWT-claim → `users` projection sync
 
-**Trigger:** every authenticated request, in `TenantClaimsTransformation.TransformAsync`.
+**Trigger:** first authenticated call to `POST /api/v1/auth/session` per session, in `SessionStartHandler.HandleAsync`.
 
 ```
 1. Extract from JWT: sub, email, given_name, family_name, tenantId.
-2. Open OrganizationDbContext via existing ITenantScope (already begun upstream).
+2. Open OrganizationDbContext via existing ITenantScope (already begun upstream
+   by TenantScopeBeginMiddleware; team memberships are likewise populated by
+   that middleware before the handler runs).
 3. Upsert `users` row:
      ON CONFLICT (id) DO UPDATE SET
        email = EXCLUDED.email,
@@ -779,11 +781,13 @@ Slice 7's chore (PR #25) — TS types regenerate after backend ships new endpoin
 4. Check matching Pending invitation by `keycloak_user_id = userId`:
      IF found AND ExpiresAt > NOW():
        invitation.MarkAccepted(clock); SaveChanges
-       ICurrentUser.JustAcceptedInvitation = invitation  (used by §9.4)
-5. Slice-8 logic continues: populate ICurrentUser.TeamMemberships via ITeamMembershipReader.
+       Capture the accepted invitation as a local variable (used to build the
+       §9.4 response payload).
 ```
 
 Idempotent + cheap. Naive `last_seen_at` write per request is acceptable for MVP scale; debounce is a documented follow-up (§13).
+
+**Architectural rationale (post-slice-boundary refactor `e8bf859`):** The original design used an `IPostAuthSyncHook` interface that fired on every authenticated request via `TenantScopeBeginMiddleware`. Volue Identity's static-`redirect_uri` constraint guarantees the SPA's `OidcCallbackHandler` always calls `POST /auth/session` as the first authenticated request after KC roundtrip. Non-SPA clients (CLI, agent — future slices) require pre-registered accounts established via the SPA invitation flow. Both deferred scenarios mean the upsert + invitation-flip can live on the session-bootstrap endpoint without losing coverage. The hook + `ICurrentUser.JustAcceptedInvitationId` + `ITenantContext.SetJustAcceptedInvitation` infrastructure was YAGNI for slice-9 scope and is removed.
 
 ### 9.2 Invitation create
 
@@ -819,8 +823,8 @@ POST /api/v1/organizations/invitations  body { email, role }
    prompts for new password.
 4. User sets password → KC clears the required action → issues OIDC tokens.
 5. SPA OIDC callback completes → fires useStartSession() mutation.
-6. Backend TenantClaimsTransformation runs (§9.1) — upserts users row + accepts
-   matching Pending invitation (sets ICurrentUser.JustAcceptedInvitation).
+6. Backend `SessionStartHandler.HandleAsync` runs (§9.1) — upserts users row +
+   accepts matching Pending invitation.
 7. POST /api/v1/auth/session handler returns SessionStartResponse with
    AcceptedInvitation populated.
 8. SPA routes to /welcome with the info as router state.
@@ -831,16 +835,21 @@ POST /api/v1/organizations/invitations  body { email, role }
 
 ### 9.4 Detection of "just accepted in this request"
 
-Per-request flag on `ICurrentUser`:
+`SessionStartHandler.HandleAsync` performs the Pending → Accepted flip and the
+`AcceptedInvitationInfo` composition as a single sequential operation. The
+just-accepted invitation id is a local variable inside the handler's scope —
+not a shared property on `ICurrentUser` or `ITenantContext`. The
+`AcceptedInvitationInfo` block in `SessionStartResponse` is populated iff
+the handler flipped a Pending row in this very request; on every subsequent
+session-bootstrap call (when the invitation is already Accepted), the
+response carries `acceptedInvitation: null`.
 
-```csharp
-public interface ICurrentUser {
-    // existing ...
-    Guid? JustAcceptedInvitationId { get; }
-}
-```
+Deterministic — no clock-skew dependency, no shared mutable state.
 
-Raw `Guid?` — *not* `InvitationId?` — to avoid leaking `Kartova.Organization.Domain` types into `Kartova.SharedKernel.AspNetCore`. `TenantClaimsTransformation` sets this flag with the invitation's id *only* when it actually flipped Pending → Accepted in the current request. The session-bootstrap endpoint resolves the full aggregate via `OrganizationDbContext` to build `AcceptedInvitationInfo`. Deterministic — no clock-skew dependency.
+> A `Guid? JustAcceptedInvitationId { get; }` property previously lived on
+> `ICurrentUser` (with a matching `SetJustAcceptedInvitation` mutator on
+> `ITenantContext`) and was removed in `e8bf859` as part of the slice-boundary
+> consolidation described in §9.1's rationale paragraph.
 
 ### 9.5 Logo upload
 
@@ -922,15 +931,14 @@ Idempotent — safe to re-run if a node dies mid-work. BYPASSRLS connection beca
 POST /api/v1/auth/session  (no body)
 
 1. (Pipeline) TenantScopeBeginMiddleware opens scope from JWT tenant claim.
-2. (Pipeline) TenantClaimsTransformation runs §9.1 — upsert + invitation
-   acceptance side-effects + ICurrentUser.JustAcceptedInvitation flag.
-3. Handler:
-     - Load my User from local projection (now fresh).
+2. (Handler) `SessionStartHandler.HandleAsync` runs §9.1 — upsert + invitation
+   acceptance + AcceptedInvitationInfo composition (all inline).
+3. Handler continues:
+     - Load my User from local projection (now fresh from step 2's upsert).
      - Load my permissions (KartovaRolePermissions.Map[role]).
-     - Load my Teams (already in ICurrentUser).
+     - Load my Teams (already in ICurrentUser, populated by middleware).
      - Load OrgProfile (Organization aggregate).
-     - If ICurrentUser.JustAcceptedInvitationId is { } id:
-         Load Invitation by id from OrganizationDbContext (RLS-scoped).
+     - If the §9.1 step captured an accepted invitation (local variable):
          Look up invitedBy via IUserDirectory.GetAsync.
          Build AcceptedInvitationInfo.
 4. Publish in-process Wolverine event UserSessionStarted (no subscribers in slice 9).

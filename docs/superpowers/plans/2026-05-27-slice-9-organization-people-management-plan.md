@@ -2031,6 +2031,14 @@ git commit -m "feat(slice-9): add 7 org permissions to KartovaPermissions + role
 
 ---
 
+> **POST-MERGE RECONCILIATION (`e8bf859`):** Tasks C2 and C4 below shipped as
+> planned during the slice. At slice closure (PR #27 review), the
+> `IPostAuthSyncHook` + `ICurrentUser.JustAcceptedInvitationId` +
+> `ITenantContext.SetJustAcceptedInvitation` infrastructure was consolidated
+> into `SessionStartHandler.HandleAsync` as YAGNI. The plan text below is
+> preserved as a historical execution record; the production code described
+> here was deleted. See the slice-9 PR conversation for the design discussion.
+
 ### Task C2: Extend `ICurrentUser` with `JustAcceptedInvitationId`
 
 **Files:**
@@ -2247,6 +2255,14 @@ git commit -m "feat(slice-9): UserProjectionUpdater for JWT-claim sync"
 ```
 
 ---
+
+> **POST-MERGE RECONCILIATION (`e8bf859`):** Tasks C2 and C4 below shipped as
+> planned during the slice. At slice closure (PR #27 review), the
+> `IPostAuthSyncHook` + `ICurrentUser.JustAcceptedInvitationId` +
+> `ITenantContext.SetJustAcceptedInvitation` infrastructure was consolidated
+> into `SessionStartHandler.HandleAsync` as YAGNI. The plan text below is
+> preserved as a historical execution record; the production code described
+> here was deleted. See the slice-9 PR conversation for the design discussion.
 
 ### Task C4: Wire `UserProjectionUpdater` + invitation acceptance into `TenantClaimsTransformation`
 
