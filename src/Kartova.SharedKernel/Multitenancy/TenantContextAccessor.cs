@@ -15,7 +15,6 @@ public sealed class TenantContextAccessor : ITenantContext
     public IReadOnlyCollection<string> Roles => _roles;
     public IReadOnlyList<TeamMembershipInfo> TeamMemberships => _teamMemberships;
     public IReadOnlySet<Guid> TeamIds => _teamIds;
-    public Guid? JustAcceptedInvitationId { get; private set; }
 
     public void Populate(TenantId id, IReadOnlyCollection<string> roles)
     {
@@ -32,8 +31,6 @@ public sealed class TenantContextAccessor : ITenantContext
         _teamIds = memberships.Select(m => m.TeamId).ToFrozenSet();
     }
 
-    public void SetJustAcceptedInvitation(Guid invitationId) => JustAcceptedInvitationId = invitationId;
-
     public void Clear()
     {
         _id = TenantId.Empty;
@@ -41,6 +38,5 @@ public sealed class TenantContextAccessor : ITenantContext
         _populated = false;
         _teamMemberships = Array.Empty<TeamMembershipInfo>();
         _teamIds = FrozenSet<Guid>.Empty;
-        JustAcceptedInvitationId = null;
     }
 }

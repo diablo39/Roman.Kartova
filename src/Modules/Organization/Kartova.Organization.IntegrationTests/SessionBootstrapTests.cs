@@ -12,19 +12,20 @@ namespace Kartova.Organization.IntegrationTests;
 /// <summary>
 /// Integration tests for the slice-9 session-bootstrap endpoint
 /// <c>POST /api/v1/auth/session</c> (spec §11.3 scenarios #7 + #8) — verifies the
-/// post-auth hook's invitation-acceptance side effect end-to-end against the real
-/// Postgres + WebApplicationFactory pipeline. The handler itself is unit-tested
-/// at <see cref="Infrastructure.Tests.SessionStartHandlerTests"/>; these tests
+/// invitation-acceptance side effect end-to-end against the real Postgres +
+/// WebApplicationFactory pipeline. The handler itself is unit-tested at
+/// <see cref="Infrastructure.Tests.SessionStartHandlerTests"/>; these tests
 /// cover the request-pipeline integration that the unit tests can't reach:
-/// claim → <c>OrganizationPostAuthSyncHook</c> → DB flip → handler response.
+/// JWT claim → <c>SessionStartHandler</c> upsert + Pending → Accepted flip →
+/// HTTP response.
 ///
-/// Key technical gotcha: the post-auth hook short-circuits when the JWT lacks an
-/// <c>email</c> claim (<see cref="OrganizationPostAuthSyncHook"/> at
-/// PostAuthHook.cs:43-49). H1 batch 4 extended <see cref="TestJwtSigner"/> +
+/// Key technical gotcha: <c>SessionStartHandler</c> requires an <c>email</c>
+/// claim on the JWT (it throws otherwise — see <c>SessionStartHandler.cs</c>).
+/// H1 batch 4 extended <see cref="TestJwtSigner"/> +
 /// <see cref="KartovaApiFixtureBase.CreateAuthenticatedClientAsync"/> with an
-/// optional <c>emailClaim</c> parameter so these tests can mint the right shape.
-/// Tests not exercising the hook continue to pass without an email claim — the
-/// default is opt-out.
+/// optional <c>emailClaim</c> parameter so these tests can mint the right
+/// shape. Tests not exercising session-bootstrap continue to pass without an
+/// email claim — the default is opt-out.
 /// </summary>
 [TestClass]
 public sealed class SessionBootstrapTests : OrganizationIntegrationTestBase
@@ -46,8 +47,8 @@ public sealed class SessionBootstrapTests : OrganizationIntegrationTestBase
         var inviteeEmail = $"invitee@{domain}";
         var inviteeKcId = Guid.NewGuid();
         // Backdate invitedAt so AcceptedAt > InvitedAt is observable when the
-        // hook fires in the request. ExpiresAt defaults to invited_at + 7d (well
-        // in the future) so the hook's expiry guard at PostAuthHook.cs:57
+        // handler flips the row in the request. ExpiresAt defaults to
+        // invited_at + 7d (well in the future) so the handler's expiry guard
         // (ExpiresAt > now) lets the acceptance branch run.
         var invitedAt = TimeProvider.System.GetUtcNow().AddMinutes(-10);
         var invitationId = await Fx.SeedInvitationAsync(
@@ -80,8 +81,8 @@ public sealed class SessionBootstrapTests : OrganizationIntegrationTestBase
         DateTimeOffset InvitedAt);
 
     /// <summary>
-    /// Tears down everything the seed planted plus the row the post-auth hook
-    /// upserts for the invitee. Cleanup order: invitations first (mirrors
+    /// Tears down everything the seed planted plus the row the handler upserts
+    /// for the invitee. Cleanup order: invitations first (mirrors
     /// <see cref="KartovaApiFixture.DeleteInvitationsForTenantAsync"/>'s internal
     /// contract), users second (no FK from users to invitations or vice versa,
     /// so either order works), organizations last (parent row). Each step in
@@ -129,8 +130,8 @@ public sealed class SessionBootstrapTests : OrganizationIntegrationTestBase
             // Impersonate the invitee — JWT sub = the KC user id stored on the
             // invitation, email = the invitation email. Role = Member (the role
             // the invitation carried). The TestJwtSigner emits the email claim
-            // because emailClaim is non-null; without it the post-auth hook
-            // short-circuits and the test would fail.
+            // because emailClaim is non-null; without it SessionStartHandler
+            // throws (the email claim is now a required bootstrap input).
             var inviteeClient = await Fx.CreateAuthenticatedClientAsync(
                 seed.InviteeEmail,
                 roles: new[] { KartovaRoles.Member },
@@ -144,7 +145,7 @@ public sealed class SessionBootstrapTests : OrganizationIntegrationTestBase
                 KartovaApiFixtureBase.WireJson);
             Assert.IsNotNull(body);
 
-            // Me: hook upserted the row, OrganizationUserDirectory returned it.
+            // Me: SessionStartHandler upserted the row, OrganizationUserDirectory returned it.
             Assert.AreEqual(seed.InviteeKcUserId, body!.Me.Id);
             Assert.AreEqual(seed.InviteeEmail, body.Me.Email);
 
@@ -195,7 +196,7 @@ public sealed class SessionBootstrapTests : OrganizationIntegrationTestBase
                 Assert.AreEqual(InvitationStatus.Accepted, inv.Status);
                 Assert.IsNotNull(inv.AcceptedAt);
 
-                // Users projection: hook upserted the invitee row keyed by
+                // Users projection: handler upserted the invitee row keyed by
                 // KeycloakUserId.
                 var userRow = await db.Users.SingleAsync(u => u.Id == seed.InviteeKcUserId);
                 Assert.AreEqual(seed.InviteeEmail, userRow.Email);
@@ -222,18 +223,17 @@ public sealed class SessionBootstrapTests : OrganizationIntegrationTestBase
                 subjectOverride: seed.InviteeKcUserId,
                 emailClaim: seed.InviteeEmail);
 
-            // First call: flips Pending → Accepted via the post-auth hook. We
+            // First call: flips Pending → Accepted via SessionStartHandler. We
             // don't assert the welcome payload here — that's #7's job. We just
             // need the state transition to happen so the second call observes
             // the Accepted row.
             var first = await inviteeClient.PostAsync("/api/v1/auth/session", content: null);
             Assert.AreEqual(HttpStatusCode.OK, first.StatusCode);
 
-            // Second call: same client, same JWT. The post-auth hook now finds no
-            // Pending invitation (the row is Accepted from the first call), so it
-            // does NOT call SetJustAcceptedInvitation, so ICurrentUser
-            // .JustAcceptedInvitationId stays null, so the handler emits a null
-            // AcceptedInvitation block.
+            // Second call: same client, same JWT. The handler now finds no
+            // Pending invitation (the row is Accepted from the first call), so
+            // it does not flip anything and emits a null AcceptedInvitation
+            // block — the welcome banner is a one-shot in-request signal.
             var second = await inviteeClient.PostAsync("/api/v1/auth/session", content: null);
             Assert.AreEqual(HttpStatusCode.OK, second.StatusCode);
 
@@ -254,9 +254,9 @@ public sealed class SessionBootstrapTests : OrganizationIntegrationTestBase
                 "AcceptedInvitation must be null on the second session-start — the welcome banner " +
                 "is a one-shot signal driven by the in-request invitation flip, not the persisted status.");
 
-            // DB: status is STILL Accepted from the first call (no re-flip — the
-            // hook only acts on Pending invitations; the second-call's hook found
-            // no Pending row and short-circuited).
+            // DB: status is STILL Accepted from the first call (no re-flip —
+            // the handler only acts on Pending invitations; the second call
+            // found no Pending row and short-circuited).
             await using var db = new OrganizationDbContext(BypassOptions());
             var inv = await db.Invitations.SingleAsync(
                 i => EF.Property<Guid>(i, "_id") == seed.InvitationId);

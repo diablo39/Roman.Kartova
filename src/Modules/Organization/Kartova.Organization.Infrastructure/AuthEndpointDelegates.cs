@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Kartova.Organization.Application;
 using Microsoft.AspNetCore.Http;
 
@@ -22,12 +23,19 @@ internal static class AuthEndpointDelegates
     /// because the handler owns the Invitation read and the org-profile join —
     /// the URL diverges from <c>/api/v1/organizations</c> only because "session"
     /// isn't an organization resource (it's a per-request bootstrap).
+    /// <para>
+    /// <see cref="ClaimsPrincipal"/> is bound automatically by Minimal API from
+    /// <c>HttpContext.User</c>; threading it explicitly through the delegate
+    /// avoids depending on <see cref="IHttpContextAccessor"/> inside the
+    /// handler and keeps the JWT claim reads testable.
+    /// </para>
     /// </summary>
     internal static async Task<IResult> StartSessionAsync(
         SessionStartHandler handler,
+        ClaimsPrincipal principal,
         CancellationToken ct)
     {
-        var response = await handler.HandleAsync(ct);
+        var response = await handler.HandleAsync(principal, ct);
         return Results.Ok(response);
     }
 }

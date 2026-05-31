@@ -285,11 +285,12 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
         services.AddScoped<RevokeInvitationHandler>();
         services.AddScoped<ListInvitationsHandler>();
 
-        // Post-auth hook: upserts `users` projection from JWT claims + detects invitation
-        // acceptance for the current request (spec §4.3, §5.2). Resolved by
-        // TenantClaimsTransformation via IEnumerable<IPostAuthSyncHook>.
+        // Users-projection upsert helper — invoked inline by SessionStartHandler
+        // on POST /api/v1/auth/session to materialize the local users row from
+        // the JWT's OIDC claims (sub/email/given_name/family_name). The SPA's
+        // OidcCallbackHandler always hits /auth/session first after the KC
+        // roundtrip, so no separate per-request pipeline hook is needed.
         services.AddScoped<UserProjectionUpdater>();
-        services.AddScoped<IPostAuthSyncHook, OrganizationPostAuthSyncHook>();
 
         // Cross-module port (ADR-0098 + slice-9 spec §3): exposes the local users
         // projection so Catalog/Team responses can attach display names + emails

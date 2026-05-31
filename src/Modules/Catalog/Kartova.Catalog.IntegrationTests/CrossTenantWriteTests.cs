@@ -56,6 +56,5 @@ public sealed class CrossTenantWriteTests : CatalogIntegrationTestBase
         public Guid UserId { get; }
         public IReadOnlyList<TeamMembershipInfo> TeamMemberships { get; } = Array.Empty<TeamMembershipInfo>();
         public IReadOnlySet<Guid> TeamIds { get; } = new HashSet<Guid>();
-        public Guid? JustAcceptedInvitationId => null;
     }
 }

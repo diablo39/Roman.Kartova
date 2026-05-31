@@ -59,10 +59,11 @@ public sealed class TestJwtSigner
             claims.Add(new Claim(KartovaClaims.TenantId, tid.Value.ToString()));
         }
         // Slice 9 / H1 batch 4: optional "email" claim plumbing — needed because
-        // OrganizationPostAuthSyncHook short-circuits when email is missing
-        // (see PostAuthHook.cs:43-49). Off by default to preserve the wire shape
-        // every existing test was minted against; opt-in by passing email through
-        // IssueForTenant or CreateAuthenticatedClientAsync's emailClaim parameter.
+        // SessionStartHandler throws when the email claim is missing (it is now
+        // a required bootstrap input for the users-projection upsert). Off by
+        // default to preserve the wire shape every existing test was minted
+        // against; opt-in by passing email through IssueForTenant or
+        // CreateAuthenticatedClientAsync's emailClaim parameter.
         if (!string.IsNullOrEmpty(email))
         {
             claims.Add(new Claim("email", email));

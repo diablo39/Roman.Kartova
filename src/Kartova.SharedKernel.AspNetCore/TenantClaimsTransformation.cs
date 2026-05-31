@@ -22,11 +22,11 @@ namespace Kartova.SharedKernel.AspNetCore;
 /// (see <c>AddModuleDbContextExtensions</c>).
 /// </para>
 /// <para>
-/// Post-auth sync work (user-projection upsert, invitation acceptance, etc.) is
-/// instead performed by <see cref="TenantScopeBeginMiddleware"/> which fans out
-/// to all registered <see cref="IPostAuthSyncHook"/> implementations AFTER
-/// <see cref="ITenantScope.BeginAsync"/> succeeds — the scope is then active and
-/// module DbContexts resolve correctly.
+/// Post-auth sync work (user-projection upsert from JWT claims, invitation
+/// acceptance, etc.) is performed inline by the Organization module's
+/// <c>SessionStartHandler</c> on <c>POST /api/v1/auth/session</c> — the SPA's
+/// <c>OidcCallbackHandler</c> always calls that endpoint first after the KC
+/// roundtrip, so no separate pipeline hook is needed.
 /// </para>
 /// </summary>
 public sealed class TenantClaimsTransformation : IClaimsTransformation

@@ -24,9 +24,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Expose internal types (e.g. OrganizationPostAuthSyncHook) to the tests project
-         so behavioral tests can construct them directly. The hook is internal because
-         it is only consumed via IPostAuthSyncHook DI. -->
+    <!-- Expose internal types (e.g. OrganizationUserDirectory) to the tests project
+         so behavioral tests can construct them directly. -->
     <InternalsVisibleTo Include="Kartova.Organization.Infrastructure.Tests" />
   </ItemGroup>
 

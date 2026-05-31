@@ -27,10 +27,4 @@ public interface ICurrentUser
     /// Convenience projection of <see cref="TeamMemberships"/> to a set of team ids.
     /// </summary>
     IReadOnlySet<Guid> TeamIds { get; }
-
-    /// <summary>
-    /// Set by the post-auth sync hook when the current request's caller has just accepted
-    /// an invitation in the same request that triggered claim-sync; <c>null</c> otherwise.
-    /// </summary>
-    Guid? JustAcceptedInvitationId { get; }
 }
