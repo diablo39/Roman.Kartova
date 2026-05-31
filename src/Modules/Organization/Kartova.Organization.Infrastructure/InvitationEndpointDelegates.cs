@@ -2,10 +2,14 @@ using Kartova.Organization.Application;
 using Kartova.Organization.Contracts;
 using Kartova.Organization.Domain;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Identity;
+using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Pagination;
 using Kartova.SharedKernel.Postgres.Pagination;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Routing;
 
 namespace Kartova.Organization.Infrastructure;
 
@@ -165,5 +169,40 @@ internal static class InvitationEndpointDelegates
                 statusCode: StatusCodes.Status502BadGateway),
             _ => Results.StatusCode(StatusCodes.Status500InternalServerError),
         };
+    }
+}
+
+/// <summary>
+/// Route composition for the Invitation surface (`/invitations`,
+/// `/invitations/{id}/revoke`). Slice 9 spec §6.7. Extracted from
+/// <c>OrganizationModule.MapEndpoints</c> in slice-9 carry-forward S6.
+/// Three-way 409 model (already-in-tenant / already-invited / already-on-platform)
+/// surfaces via dedicated <see cref="ProblemTypes"/> constants from the handler.
+/// </summary>
+internal static class InvitationRoutes
+{
+    public static void MapTo(RouteGroupBuilder tenant)
+    {
+        tenant.MapGet("/invitations", InvitationEndpointDelegates.ListInvitationsAsync)
+            .RequireAuthorization(KartovaPermissions.OrgInvitationsRead)
+            .WithName("ListInvitations")
+            .Produces<CursorPage<InvitationResponse>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest);
+
+        tenant.MapPost("/invitations", InvitationEndpointDelegates.CreateInvitationAsync)
+            .RequireAuthorization(KartovaPermissions.OrgInvitationsCreate)
+            .WithName("CreateInvitation")
+            .Produces<CreateInvitationResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .ProducesProblem(StatusCodes.Status502BadGateway);
+
+        tenant.MapPost("/invitations/{id:guid}/revoke", InvitationEndpointDelegates.RevokeInvitationAsync)
+            .RequireAuthorization(KartovaPermissions.OrgInvitationsRevoke)
+            .WithName("RevokeInvitation")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status502BadGateway);
     }
 }

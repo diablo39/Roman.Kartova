@@ -1,7 +1,12 @@
 using Kartova.Organization.Application;
+using Kartova.Organization.Contracts;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Identity;
+using Kartova.SharedKernel.Multitenancy;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Routing;
 
 namespace Kartova.Organization.Infrastructure;
 
@@ -77,5 +82,30 @@ internal static class UserEndpointDelegates
                 statusCode: StatusCodes.Status404NotFound);
         }
         return Results.Ok(user);
+    }
+}
+
+/// <summary>
+/// Route composition for the User surface (`/users`, `/users/{id}`). Slice 9
+/// spec §6.7. Extracted from <c>OrganizationModule.MapEndpoints</c> in
+/// slice-9 carry-forward S6.
+/// Typeahead search is a bounded list (no cursor envelope) — limit is clamped
+/// at 20 inside <see cref="UserQueries.SearchAsync"/>.
+/// </summary>
+internal static class UserRoutes
+{
+    public static void MapTo(RouteGroupBuilder tenant)
+    {
+        tenant.MapGet("/users", UserEndpointDelegates.SearchUsersAsync)
+            .RequireAuthorization(KartovaPermissions.OrgUsersSearch)
+            .WithName("SearchUsers")
+            .Produces<IReadOnlyList<UserSummaryResponse>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        tenant.MapGet("/users/{id:guid}", UserEndpointDelegates.GetUserDetailAsync)
+            .RequireAuthorization(KartovaPermissions.OrgUsersRead)
+            .WithName("GetUserDetail")
+            .Produces<UserDetailResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound);
     }
 }

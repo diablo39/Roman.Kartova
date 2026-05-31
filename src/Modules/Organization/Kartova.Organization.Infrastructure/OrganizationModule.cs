@@ -40,187 +40,26 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
 
     public Type DbContextType => typeof(OrganizationDbContext);
 
+    /// <summary>
+    /// Composes the Organization module's HTTP surface from per-resource route
+    /// extension methods. Each <c>*Routes.MapTo</c> colocates with its owning
+    /// <c>*EndpointDelegates.cs</c> file (slice-9 carry-forward S6 — extends
+    /// the H5 R2 per-resource delegate split to the route registrations too).
+    /// <para>
+    /// <see cref="AuthRoutes.MapTo"/> takes the raw <see cref="IEndpointRouteBuilder"/>
+    /// rather than the tenant group because <c>/api/v1/auth/session</c> sits
+    /// outside the <c>/api/v1/organizations</c> slug (per-request bootstrap,
+    /// not an organization resource).
+    /// </para>
+    /// </summary>
     public void MapEndpoints(IEndpointRouteBuilder app)
     {
         var tenant = app.MapTenantScopedModule(Slug);     // /api/v1/organizations
-        tenant.MapGet("/me", OrganizationProfileEndpointDelegates.GetMeAsync)
-            .RequireAuthorization(KartovaPermissions.OrgProfileRead)
-            .WithName("GetOrganizationMe")
-            .Produces<OrgProfileResponse>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status404NotFound);
-        tenant.MapPut("/me", OrganizationProfileEndpointDelegates.UpdateMeAsync)
-            .RequireAuthorization(KartovaPermissions.OrgProfileEdit)
-            .WithName("UpdateOrganizationMe")
-            .Produces(StatusCodes.Status204NoContent)
-            .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status412PreconditionFailed);
-
-        // Logo upload / clear / serve — slice 9 spec §6.4. The upload endpoint
-        // accepts raw image/png|jpeg|svg+xml bodies (NOT multipart/form-data)
-        // and is capped server-side at 256 KiB to match the OrgLogo invariant.
-        tenant.MapPut("/me/logo", OrganizationProfileEndpointDelegates.UploadLogoAsync)
-            .RequireAuthorization(KartovaPermissions.OrgProfileEdit)
-            .WithName("UploadOrganizationLogo")
-            .Produces<UploadLogoResponse>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status413PayloadTooLarge)
-            .ProducesProblem(StatusCodes.Status415UnsupportedMediaType)
-            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
-        tenant.MapDelete("/me/logo", OrganizationProfileEndpointDelegates.DeleteLogoAsync)
-            .RequireAuthorization(KartovaPermissions.OrgProfileEdit)
-            .WithName("DeleteOrganizationLogo")
-            .Produces(StatusCodes.Status204NoContent)
-            .ProducesProblem(StatusCodes.Status404NotFound);
-        tenant.MapGet("/me/logo", OrganizationProfileEndpointDelegates.GetLogoAsync)
-            .RequireAuthorization(KartovaPermissions.OrgProfileRead)
-            .WithName("GetOrganizationLogo")
-            // 200 streams the raw bytes — content type comes from the stored MIME.
-            // 304 is the cache-revalidation path (If-None-Match match).
-            .Produces(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status304NotModified)
-            .ProducesProblem(StatusCodes.Status404NotFound);
-        tenant.MapGet("/me/permissions", OrganizationProfileEndpointDelegates.GetMePermissions)
-            .WithName("GetMePermissions")
-            .Produces<MePermissionsResponse>(StatusCodes.Status200OK);
-        tenant.MapGet("/me/admin-only", OrganizationProfileEndpointDelegates.GetAdminOnlyAsync)
-            .RequireAuthorization(p => p.RequireRole(KartovaRoles.OrgAdmin))
-            .WithName("GetOrganizationMeAdminOnly")
-            .Produces<AdminOnlyResponse>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status403Forbidden);
-
-        // ---- Team management (slice 8, ADR-0098 / spec §6) -----------------
-        // Claim-policy gate via .RequireAuthorization stops Viewer/anon.
-        // Resource-auth gate (TeamAdminOfThis) is enforced inside the delegate
-        // via IAuthorizationService — applied ONLY to mutation endpoints. The
-        // bare GETs and POST /teams rely on the claim gate alone: CreateTeam
-        // has no target team yet, and the read-list / read-detail surfaces are
-        // visible to any tenant member with team.read.
-
-        tenant.MapGet("/teams", TeamEndpointDelegates.ListTeamsAsync)
-            .RequireAuthorization(KartovaPermissions.TeamRead)
-            .WithName("ListTeams")
-            // CursorPage<T> envelope — ADR-0095: items + nextCursor + prevCursor.
-            // sortBy/sortOrder enum schemas + bounded-integer limit schema are emitted
-            // by the OpenAPI transformer wired in Program.cs (same path as catalog).
-            .Produces<CursorPage<TeamResponse>>(StatusCodes.Status200OK);
-
-        tenant.MapGet("/teams/{id:guid}", TeamEndpointDelegates.GetTeamAsync)
-            .RequireAuthorization(KartovaPermissions.TeamRead)
-            .WithName("GetTeam")
-            .Produces<TeamDetailResponse>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status404NotFound);
-
-        tenant.MapPost("/teams", TeamEndpointDelegates.CreateTeamAsync)
-            .RequireAuthorization(KartovaPermissions.TeamCreate)
-            .WithName("CreateTeam")
-            .Produces<TeamResponse>(StatusCodes.Status201Created)
-            .ProducesProblem(StatusCodes.Status400BadRequest);
-
-        tenant.MapPut("/teams/{id:guid}", TeamEndpointDelegates.UpdateTeamAsync)
-            .RequireAuthorization(KartovaPermissions.TeamMetadataEdit)
-            .WithName("UpdateTeam")
-            .Produces<TeamResponse>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status404NotFound);
-
-        tenant.MapDelete("/teams/{id:guid}", TeamEndpointDelegates.DeleteTeamAsync)
-            .RequireAuthorization(KartovaPermissions.TeamDelete)
-            .WithName("DeleteTeam")
-            .Produces(StatusCodes.Status204NoContent)
-            .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            // 409 team-has-applications with applicationCount extension — spec §6.5.
-            .ProducesProblem(StatusCodes.Status409Conflict);
-
-        tenant.MapPost("/teams/{id:guid}/members", TeamEndpointDelegates.AddTeamMemberAsync)
-            .RequireAuthorization(KartovaPermissions.TeamMembersManage)
-            .WithName("AddTeamMember")
-            // 201 + TeamMemberResponse body (spec critic-revision §7 — NOT 204).
-            .Produces<TeamMemberResponse>(StatusCodes.Status201Created)
-            .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict);
-
-        tenant.MapDelete("/teams/{id:guid}/members/{userId:guid}", TeamEndpointDelegates.RemoveTeamMemberAsync)
-            .RequireAuthorization(KartovaPermissions.TeamMembersManage)
-            .WithName("RemoveTeamMember")
-            .Produces(StatusCodes.Status204NoContent)
-            .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status404NotFound);
-
-        tenant.MapPut("/teams/{id:guid}/members/{userId:guid}", TeamEndpointDelegates.UpdateTeamMemberAsync)
-            .RequireAuthorization(KartovaPermissions.TeamMembersManage)
-            .WithName("UpdateTeamMember")
-            .Produces(StatusCodes.Status204NoContent)
-            .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status404NotFound);
-
-        // ---- Invitations (slice 9 spec §6.7) -------------------------------
-        // Create / Revoke gate on the corresponding permissions. Three-way
-        // 409 model (already-in-tenant / already-invited / already-on-platform)
-        // surfaces via dedicated ProblemTypes constants.
-        tenant.MapGet("/invitations", InvitationEndpointDelegates.ListInvitationsAsync)
-            .RequireAuthorization(KartovaPermissions.OrgInvitationsRead)
-            .WithName("ListInvitations")
-            .Produces<CursorPage<InvitationResponse>>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status400BadRequest);
-
-        tenant.MapPost("/invitations", InvitationEndpointDelegates.CreateInvitationAsync)
-            .RequireAuthorization(KartovaPermissions.OrgInvitationsCreate)
-            .WithName("CreateInvitation")
-            .Produces<CreateInvitationResponse>(StatusCodes.Status201Created)
-            .ProducesProblem(StatusCodes.Status409Conflict)
-            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
-            .ProducesProblem(StatusCodes.Status502BadGateway);
-
-        tenant.MapPost("/invitations/{id:guid}/revoke", InvitationEndpointDelegates.RevokeInvitationAsync)
-            .RequireAuthorization(KartovaPermissions.OrgInvitationsRevoke)
-            .WithName("RevokeInvitation")
-            .Produces(StatusCodes.Status204NoContent)
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict)
-            .ProducesProblem(StatusCodes.Status502BadGateway);
-
-        // ---- Users: search + detail (slice 9 spec §6.7) --------------------
-        // Typeahead search is a bounded list (no cursor envelope) — limit is
-        // clamped at 20 inside UserQueries.SearchAsync. Detail surfaces team
-        // memberships joined from the team_members table so the SPA can render
-        // the user's team list without a second round-trip.
-        tenant.MapGet("/users", UserEndpointDelegates.SearchUsersAsync)
-            .RequireAuthorization(KartovaPermissions.OrgUsersSearch)
-            .WithName("SearchUsers")
-            .Produces<IReadOnlyList<UserSummaryResponse>>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
-
-        tenant.MapGet("/users/{id:guid}", UserEndpointDelegates.GetUserDetailAsync)
-            .RequireAuthorization(KartovaPermissions.OrgUsersRead)
-            .WithName("GetUserDetail")
-            .Produces<UserDetailResponse>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status404NotFound);
-
-        // ---- Session bootstrap (slice 9 spec §6.7 / §9.8) ------------------
-        // POST /api/v1/auth/session sits OUTSIDE the /organizations slug — it's
-        // a per-request bootstrap, not an organization resource. The endpoint
-        // still needs RequireTenantScope so OrganizationDbContext resolves
-        // against an open ITenantScope (spec §9.8 step 3). Mapped here rather
-        // than in a dedicated auth module because the handler is module-owned
-        // (Invitation lookup + org-profile join).
-        //
-        // Auth gate: RequireAuthorization() with no policy = any valid JWT.
-        // Permission-level gating would defeat the bootstrap's purpose — we
-        // need EVERY authenticated tenant member (incl. fresh invitees on
-        // first login) to be able to call this.
-        var authGroup = app.MapGroup("/api/v1/auth").RequireTenantScope();
-        authGroup.MapPost("/session", AuthEndpointDelegates.StartSessionAsync)
-            .RequireAuthorization()
-            .WithName("StartSession")
-            .Produces<SessionStartResponse>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status401Unauthorized);
+        OrganizationProfileRoutes.MapTo(tenant);
+        TeamRoutes.MapTo(tenant);
+        InvitationRoutes.MapTo(tenant);
+        UserRoutes.MapTo(tenant);
+        AuthRoutes.MapTo(app);
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)

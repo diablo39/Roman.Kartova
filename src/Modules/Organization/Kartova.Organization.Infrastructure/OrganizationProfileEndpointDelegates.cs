@@ -4,6 +4,7 @@ using Kartova.Organization.Contracts;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Net.Http.Headers;
@@ -255,4 +256,65 @@ internal static class OrganizationProfileEndpointDelegates
         title: "Organization not found",
         detail: "The current tenant has no visible Organization row.",
         statusCode: StatusCodes.Status404NotFound);
+}
+
+/// <summary>
+/// Route composition for the Organization profile surface (`/me`, `/me/logo`,
+/// `/me/permissions`, `/me/admin-only`). Extracted from
+/// <c>OrganizationModule.MapEndpoints</c> in slice-9 carry-forward S6 so each
+/// resource's route registration colocates with its endpoint delegates (the
+/// H5 R2 split that introduced one delegate file per resource). Behavior is
+/// identical to the inline registrations — the only change is composition.
+/// </summary>
+internal static class OrganizationProfileRoutes
+{
+    public static void MapTo(Microsoft.AspNetCore.Routing.RouteGroupBuilder tenant)
+    {
+        tenant.MapGet("/me", OrganizationProfileEndpointDelegates.GetMeAsync)
+            .RequireAuthorization(KartovaPermissions.OrgProfileRead)
+            .WithName("GetOrganizationMe")
+            .Produces<OrgProfileResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+        tenant.MapPut("/me", OrganizationProfileEndpointDelegates.UpdateMeAsync)
+            .RequireAuthorization(KartovaPermissions.OrgProfileEdit)
+            .WithName("UpdateOrganizationMe")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status412PreconditionFailed);
+
+        // Logo upload / clear / serve — slice 9 spec §6.4. The upload endpoint
+        // accepts raw image/png|jpeg|svg+xml bodies (NOT multipart/form-data)
+        // and is capped server-side at 256 KiB to match the OrgLogo invariant.
+        tenant.MapPut("/me/logo", OrganizationProfileEndpointDelegates.UploadLogoAsync)
+            .RequireAuthorization(KartovaPermissions.OrgProfileEdit)
+            .WithName("UploadOrganizationLogo")
+            .Produces<UploadLogoResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status413PayloadTooLarge)
+            .ProducesProblem(StatusCodes.Status415UnsupportedMediaType)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+        tenant.MapDelete("/me/logo", OrganizationProfileEndpointDelegates.DeleteLogoAsync)
+            .RequireAuthorization(KartovaPermissions.OrgProfileEdit)
+            .WithName("DeleteOrganizationLogo")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+        tenant.MapGet("/me/logo", OrganizationProfileEndpointDelegates.GetLogoAsync)
+            .RequireAuthorization(KartovaPermissions.OrgProfileRead)
+            .WithName("GetOrganizationLogo")
+            // 200 streams the raw bytes — content type comes from the stored MIME.
+            // 304 is the cache-revalidation path (If-None-Match match).
+            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status304NotModified)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+        tenant.MapGet("/me/permissions", OrganizationProfileEndpointDelegates.GetMePermissions)
+            .WithName("GetMePermissions")
+            .Produces<MePermissionsResponse>(StatusCodes.Status200OK);
+        tenant.MapGet("/me/admin-only", OrganizationProfileEndpointDelegates.GetAdminOnlyAsync)
+            .RequireAuthorization(p => p.RequireRole(KartovaRoles.OrgAdmin))
+            .WithName("GetOrganizationMeAdminOnly")
+            .Produces<AdminOnlyResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
+    }
 }

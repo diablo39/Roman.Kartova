@@ -1,6 +1,10 @@
 using System.Security.Claims;
 using Kartova.Organization.Application;
+using Kartova.Organization.Contracts;
+using Kartova.SharedKernel.AspNetCore;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 
 namespace Kartova.Organization.Infrastructure;
 
@@ -37,5 +41,38 @@ internal static class AuthEndpointDelegates
     {
         var response = await handler.HandleAsync(principal, ct);
         return Results.Ok(response);
+    }
+}
+
+/// <summary>
+/// Route composition for the auth bootstrap surface (`/api/v1/auth/session`).
+/// Slice 9 spec §6.7 / §9.8. Extracted from
+/// <c>OrganizationModule.MapEndpoints</c> in slice-9 carry-forward S6.
+/// <para>
+/// Unique among the slice-9 route sets: maps onto the raw
+/// <see cref="IEndpointRouteBuilder"/>, not the
+/// <c>/api/v1/organizations</c> tenant group — POST /api/v1/auth/session is a
+/// per-request bootstrap, not an organization resource. The endpoint still
+/// needs <see cref="TenantScopeRouteExtensions.RequireTenantScope(Microsoft.AspNetCore.Routing.RouteGroupBuilder)"/>
+/// so <c>OrganizationDbContext</c> resolves against an open
+/// <c>ITenantScope</c> (spec §9.8 step 3).
+/// </para>
+/// <para>
+/// Auth gate: <c>RequireAuthorization()</c> with no policy = any valid JWT.
+/// Permission-level gating would defeat the bootstrap's purpose — every
+/// authenticated tenant member (incl. fresh invitees on first login) must
+/// be able to call this.
+/// </para>
+/// </summary>
+internal static class AuthRoutes
+{
+    public static void MapTo(IEndpointRouteBuilder app)
+    {
+        var authGroup = app.MapGroup("/api/v1/auth").RequireTenantScope();
+        authGroup.MapPost("/session", AuthEndpointDelegates.StartSessionAsync)
+            .RequireAuthorization()
+            .WithName("StartSession")
+            .Produces<SessionStartResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized);
     }
 }
