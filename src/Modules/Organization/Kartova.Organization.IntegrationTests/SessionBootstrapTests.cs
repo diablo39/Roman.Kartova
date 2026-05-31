@@ -42,7 +42,7 @@ public sealed class SessionBootstrapTests : OrganizationIntegrationTestBase
         var (adminEmail, tenantId) = await NewTenantAsync(scenarioSlug);
         var domain = adminEmail.Split('@')[1];
         var inviterUserId = await Fx.SeedUserInOrganizationAsync(
-            tenantId, "Inviter Display", $"inviter@{domain}");
+            new TenantId(tenantId), "Inviter Display", $"inviter@{domain}");
 
         var inviteeEmail = $"invitee@{domain}";
         var inviteeKcId = Guid.NewGuid();

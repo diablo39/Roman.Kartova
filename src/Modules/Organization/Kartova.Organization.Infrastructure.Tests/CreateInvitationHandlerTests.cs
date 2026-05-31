@@ -5,6 +5,7 @@ using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 using Npgsql;
@@ -55,7 +56,9 @@ public sealed class CreateInvitationHandlerTests
             FrontendBaseUrl = "http://localhost:5173",
         });
 
-        var h = new CreateInvitationHandler(db, kc, tenantCtx, currentUser, clock, koOptions);
+        var h = new CreateInvitationHandler(
+            db, kc, tenantCtx, currentUser, clock, koOptions,
+            NullLogger<CreateInvitationHandler>.Instance);
         return (h, db, kc, tenant, currentUserId);
     }
 
@@ -311,6 +314,43 @@ public sealed class CreateInvitationHandlerTests
             InterceptionResult<int> result,
             CancellationToken ct = default)
             => throw ex;
+    }
+
+    [TestMethod]
+    public async Task SaveChangesAsync_DbUpdateException_triggers_KC_user_cleanup()
+    {
+        // Item 11 (slice-9 carry-forward): a generic DbUpdateException (NOT the
+        // 23505 race-path covered by the test above) on the post-KC SaveChangesAsync
+        // must trigger best-effort compensation — kc.DeleteUserAsync(kcId) is called
+        // and the original exception propagates so the caller sees the true cause.
+        // Any other DB persistence failure (FK violation, connection loss, timeout)
+        // would otherwise leak a KC user that has no matching Invitation row.
+        var clock = new FakeTimeProvider(T0);
+
+        // A non-PostgresException InnerException keeps the catch out of the
+        // 23505 branch — we hit the generic DbUpdateException catch added by item 11.
+        var generic = new DbUpdateException("simulated FK violation", new InvalidOperationException("inner"));
+        var interceptor = new ThrowOnSaveInterceptor(generic);
+        var opts = new DbContextOptionsBuilder<OrganizationDbContext>()
+            .UseInMemoryDatabase($"inv-{Guid.NewGuid()}")
+            .AddInterceptors(interceptor)
+            .Options;
+
+        var (h, db, kc, _, _) = Make(clock, opts);
+        await using var _db = db;
+
+        var kcId = Guid.NewGuid();
+        kc.CreateUserAsync(Arg.Any<CreateKeycloakUserRequest>(), Arg.Any<CancellationToken>())
+            .Returns(kcId);
+
+        // Propagate: caller must see the original DbUpdateException, not a translated Failed.
+        var thrown = await Assert.ThrowsExactlyAsync<DbUpdateException>(
+            () => h.HandleAsync(new CreateInvitationRequest("alice@example.com", KartovaRoles.Member), CancellationToken.None));
+        Assert.AreSame(generic, thrown);
+
+        // Compensation MUST run exactly once — the orphan KC user is deleted so
+        // the realm doesn't carry an unreachable shadow account.
+        await kc.Received(1).DeleteUserAsync(kcId, Arg.Any<CancellationToken>());
     }
 
     [TestMethod]

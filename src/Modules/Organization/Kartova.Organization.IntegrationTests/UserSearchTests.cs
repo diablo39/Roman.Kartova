@@ -74,11 +74,11 @@ public sealed class UserSearchTests : OrganizationIntegrationTestBase
         // "wonderland" hits ONLY the display name (no email contains it),
         // proving display-name match is independent of email match.
         var carolId = await Fx.SeedUserInOrganizationAsync(
-            tenantId, "Carol Davis", "carol@three.example.org");
+            new TenantId(tenantId), "Carol Davis", "carol@three.example.org");
         var aliceId = await Fx.SeedUserInOrganizationAsync(
-            tenantId, "Alice Wonderland", "alice@one.example.org");
+            new TenantId(tenantId), "Alice Wonderland", "alice@one.example.org");
         var bobId = await Fx.SeedUserInOrganizationAsync(
-            tenantId, "Bob Smith", "bob@two.example.org");
+            new TenantId(tenantId), "Bob Smith", "bob@two.example.org");
 
         try
         {
@@ -163,13 +163,13 @@ public sealed class UserSearchTests : OrganizationIntegrationTestBase
             "Distinct admin domains MUST yield distinct deterministic tenants.");
 
         var aliceA = await Fx.SeedUserInOrganizationAsync(
-            tenantA, "Search Match A1", "match-a1@a.kartova.local");
+            new TenantId(tenantA), "Search Match A1", "match-a1@a.kartova.local");
         var bettyA = await Fx.SeedUserInOrganizationAsync(
-            tenantA, "Search Match A2", "match-a2@a.kartova.local");
+            new TenantId(tenantA), "Search Match A2", "match-a2@a.kartova.local");
         var aliceB = await Fx.SeedUserInOrganizationAsync(
-            tenantB, "Search Match B1", "match-b1@b.kartova.local");
+            new TenantId(tenantB), "Search Match B1", "match-b1@b.kartova.local");
         var bettyB = await Fx.SeedUserInOrganizationAsync(
-            tenantB, "Search Match B2", "match-b2@b.kartova.local");
+            new TenantId(tenantB), "Search Match B2", "match-b2@b.kartova.local");
 
         try
         {

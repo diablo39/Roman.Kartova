@@ -5,12 +5,13 @@ namespace Kartova.SharedKernel.Pagination;
 
 /// <summary>
 /// Encodes and decodes opaque pagination cursors per ADR-0095.
-/// Wire format is base64url-encoded JSON <c>{ s, i, d, ic? }</c>:
+/// Wire format is base64url-encoded JSON <c>{ s, i, d, ic?, ou? }</c>:
 /// <list type="bullet">
 /// <item><description><c>s</c> — sort value of the boundary row (string|number|ISO-8601 string)</description></item>
 /// <item><description><c>i</c> — boundary row id (Guid, tiebreaker)</description></item>
 /// <item><description><c>d</c> — direction the cursor was produced under ("asc"|"desc"). The handler verifies this matches the request's <c>sortOrder</c> to detect reused cursors across a sort flip.</description></item>
 /// <item><description><c>ic</c> — optional include-decommissioned filter state at issue time. When absent (legacy cursors from before slice 6), decodes as <c>false</c>. Mismatched against the request's <c>includeDecommissioned</c> via <see cref="CursorFilterMismatchException"/> (ADR-0073 default-view rule, slice 6).</description></item>
+/// <item><description><c>ou</c> — optional ownerUserId filter (Guid string) at issue time. When absent (filter not applied or legacy cursors), decodes as <c>null</c>. Mismatched against the request's <c>ownerUserId</c> via <see cref="CursorFilterMismatchException"/> (slice 9 / E2 + S5 carry-forward, parallels the <c>ic</c> mismatch precedent).</description></item>
 /// </list>
 /// </summary>
 public static class CursorCodec
@@ -21,18 +22,31 @@ public static class CursorCodec
         WriteIndented = false,
     };
 
-    public sealed record DecodedCursor(object SortValue, Guid Id, SortOrder Direction, bool IncludeDecommissioned);
+    public sealed record DecodedCursor(
+        object SortValue,
+        Guid Id,
+        SortOrder Direction,
+        bool IncludeDecommissioned,
+        Guid? OwnerUserId);
 
-    public static string Encode(object sortValue, Guid id, SortOrder direction, bool includeDecommissioned = false)
+    public static string Encode(
+        object sortValue,
+        Guid id,
+        SortOrder direction,
+        bool includeDecommissioned = false,
+        Guid? ownerUserId = null)
     {
-        // ic is intentionally omitted from the JSON when false to keep cursors short
-        // and to remain forward-compatible with future filter dimensions: legacy
-        // decoders that don't know the field treat it as default-false.
+        // ic and ou are intentionally omitted from the JSON when default (false / null)
+        // to keep cursors short and forward-compatible: legacy decoders that don't
+        // know a field treat it as the default. ownerUserId is serialized as the
+        // canonical "D" Guid string ("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx") rather
+        // than the JSON object form so the wire shape stays a single scalar.
         var payload = new CursorPayload(
             sortValue,
             id,
             direction == SortOrder.Asc ? "asc" : "desc",
-            includeDecommissioned ? true : (bool?)null);
+            includeDecommissioned ? true : (bool?)null,
+            ownerUserId?.ToString("D"));
         var json = JsonSerializer.SerializeToUtf8Bytes(payload, Options);
         return ToBase64Url(json);
     }
@@ -77,7 +91,19 @@ public static class CursorCodec
         // Legacy cursors from pre-slice-6 omit `ic`; default to false so existing
         // in-flight clients keep paging without breaking on the contract change.
         var includeDecommissioned = payload.Ic ?? false;
-        return new DecodedCursor(sortValue, payload.I, direction, includeDecommissioned);
+        // Pre-slice-9 cursors (and any cursor issued without an owner filter) omit
+        // `ou`; decode as null. A malformed `ou` value is fail-closed — same shape
+        // as the rest of the codec.
+        Guid? ownerUserId = null;
+        if (payload.Ou is not null)
+        {
+            if (!Guid.TryParseExact(payload.Ou, "D", out var parsed))
+            {
+                throw new InvalidCursorException("Cursor ownerUserId is not a canonical Guid.");
+            }
+            ownerUserId = parsed;
+        }
+        return new DecodedCursor(sortValue, payload.I, direction, includeDecommissioned, ownerUserId);
     }
 
     private static object UnwrapJsonElement(JsonElement el) => el.ValueKind switch
@@ -108,5 +134,6 @@ public static class CursorCodec
         [property: JsonPropertyName("s")] object? S,
         [property: JsonPropertyName("i")] Guid I,
         [property: JsonPropertyName("d")] string? D,
-        [property: JsonPropertyName("ic")] bool? Ic);
+        [property: JsonPropertyName("ic")] bool? Ic,
+        [property: JsonPropertyName("ou")] string? Ou);
 }

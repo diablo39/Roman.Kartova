@@ -171,7 +171,7 @@ public sealed class InvitationTests : OrganizationIntegrationTestBase
         var (adminEmail, tenantId) = await NewTenantAsync("inv-409-intenant");
         var existingEmail = $"existing-{Guid.NewGuid():N}@{adminEmail.Split('@')[1]}";
         var seededUserId = await Fx.SeedUserInOrganizationAsync(
-            tenantId, displayName: existingEmail, email: existingEmail);
+            new TenantId(tenantId), displayName: existingEmail, email: existingEmail);
         try
         {
             var client = await Fx.CreateAuthenticatedClientAsync(adminEmail, new[] { KartovaRoles.OrgAdmin });

@@ -58,10 +58,11 @@ public sealed class ListApplicationsHandler(IUserDirectory directory)
         // here the predicate is safe to apply. RLS still scopes the row set, so
         // a leak-by-construction (e.g., owner row from another tenant) would
         // still produce an empty page rather than expose cross-tenant data.
-        // TODO: Phase H — encode ownerUserId in the cursor for filter-mismatch
-        // detection symmetric to IncludeDecommissioned. Out of scope for E2
-        // per the slice-9 plan; the SPA does not change filters mid-pagination
-        // and there is no security implication (RLS still bounds the result set).
+        // Slice 9 / S5 carry-forward (Phase H follow-up): the cursor codec now
+        // encodes ownerUserId; ToCursorPagedAsync below replays the filter on
+        // cursor decode and trips CursorFilterMismatchException if the request
+        // changes the owner mid-pagination. Symmetric to the slice-6
+        // IncludeDecommissioned precedent.
         if (q.OwnerUserId is { } ownerUserId)
         {
             source = source.Where(a => a.OwnerUserId == ownerUserId);
@@ -71,7 +72,8 @@ public sealed class ListApplicationsHandler(IUserDirectory directory)
             .ToCursorPagedAsync(
                 spec, q.SortOrder, q.Cursor, q.Limit,
                 ApplicationSortSpecs.IdSelector, IdExtractor, ct,
-                expectedIncludeDecommissioned: q.IncludeDecommissioned);
+                expectedIncludeDecommissioned: q.IncludeDecommissioned,
+                expectedOwnerUserId: q.OwnerUserId);
 
         // Batch-fetch owners for the entire page in a single round trip. HashSet
         // de-duplicates in one allocation so multiple apps owned by the same user

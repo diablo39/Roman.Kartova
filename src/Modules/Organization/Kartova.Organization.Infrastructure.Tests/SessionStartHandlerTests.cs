@@ -5,6 +5,7 @@ using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 
@@ -98,7 +99,7 @@ public sealed class SessionStartHandlerTests
             new OrgProfileQueries(db),
             currentUser,
             tenantCtx,
-            new UserProjectionUpdater(clock),
+            new UserProjectionUpdater(clock, NullLogger<UserProjectionUpdater>.Instance),
             clock);
     }
 

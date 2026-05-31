@@ -231,6 +231,72 @@ public sealed class CursorCodecTests
     }
 
     [TestMethod]
+    public void Encode_then_Decode_preserves_ownerUserId_when_present()
+    {
+        // Slice 9 / S5: cursor codec encodes the ownerUserId filter so list
+        // handlers can detect a filter mismatch mid-pagination (parallels the
+        // includeDecommissioned precedent above).
+        var owner = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+        var encoded = CursorCodec.Encode(
+            sortValue: "2026-05-30T12:00:00.0000000Z",
+            id: AnyId,
+            direction: SortOrder.Asc,
+            includeDecommissioned: false,
+            ownerUserId: owner);
+
+        var decoded = CursorCodec.Decode(encoded);
+
+        Assert.AreEqual(owner, decoded.OwnerUserId);
+    }
+
+    [TestMethod]
+    public void Encode_with_null_ownerUserId_omits_ou_field_and_decodes_null()
+    {
+        // Default-null ownerUserId must be omitted from the wire JSON to keep
+        // cursors compact and forward-compatible (legacy decoders treat absent
+        // fields as default-null).
+        var encoded = CursorCodec.Encode(
+            sortValue: "2026-05-30T12:00:00.0000000Z",
+            id: AnyId,
+            direction: SortOrder.Asc,
+            includeDecommissioned: false,
+            ownerUserId: null);
+
+        var bytes = System.Buffers.Text.Base64Url.DecodeFromChars(encoded.AsSpan());
+        var json = System.Text.Encoding.UTF8.GetString(bytes);
+        StringAssert.DoesNotMatch(json, new Regex("\"ou\""));
+
+        var decoded = CursorCodec.Decode(encoded);
+        Assert.IsNull(decoded.OwnerUserId);
+    }
+
+    [TestMethod]
+    public void Decode_legacy_cursor_without_ou_field_returns_null_ownerUserId()
+    {
+        // Pre-slice-9 cursor wire shape (`{s,i,d}` only): decoder must default
+        // OwnerUserId to null so in-flight clients keep paging without breaking.
+        var legacyJson = "{\"s\":\"2026-05-30T12:00:00.0000000Z\",\"i\":\"" + AnyId + "\",\"d\":\"asc\"}";
+        var legacyCursor = System.Buffers.Text.Base64Url.EncodeToString(System.Text.Encoding.UTF8.GetBytes(legacyJson));
+
+        var decoded = CursorCodec.Decode(legacyCursor);
+
+        Assert.IsNull(decoded.OwnerUserId);
+    }
+
+    [TestMethod]
+    public void Decode_throws_when_ownerUserId_is_not_canonical_guid()
+    {
+        // ou must be the canonical "D" Guid string. A malformed `ou` value is a
+        // tampering signal; fail closed with InvalidCursorException so the
+        // problem-handler maps to 400 invalid-cursor (matches the rest of the
+        // codec's posture).
+        var json = $$"""{"s":"alpha","i":"{{AnyId}}","d":"asc","ou":"not-a-guid"}""";
+        var encoded = ToBase64Url(json);
+
+        Assert.ThrowsExactly<InvalidCursorException>(() => CursorCodec.Decode(encoded));
+    }
+
+    [TestMethod]
     public void Encode_with_includeDecommissioned_false_omits_ic_field_and_round_trips()
     {
         var encoded = CursorCodec.Encode(

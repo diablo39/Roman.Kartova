@@ -96,9 +96,15 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     /// <see cref="Kartova.SharedKernel.Identity.IUserDirectory"/> port. Mirrors the
     /// Catalog-side seeder added in E1. Columns line up with
     /// <c>UserEntityTypeConfiguration</c> + the <c>AddUsersTable</c> migration.
+    /// <para>
+    /// Slice-9 item 19 carry-forward: signature takes strong-typed
+    /// <see cref="TenantId"/> to match the Catalog-side helper
+    /// (<c>Kartova.Catalog.IntegrationTests/KartovaApiFixture.cs</c>) — keeps
+    /// cross-module test fixtures from drifting on the same operation.
+    /// </para>
     /// </summary>
     public async Task<Guid> SeedUserInOrganizationAsync(
-        Guid tenantId, string displayName, string email)
+        TenantId tenantId, string displayName, string email)
     {
         var userId = Guid.NewGuid();
         await using var conn = new NpgsqlConnection(BypassConnectionString);
@@ -109,7 +115,7 @@ public class KartovaApiFixture : KartovaApiFixtureBase
             VALUES ($1, $2, $3, $4, NOW())
             """;
         cmd.Parameters.AddWithValue(userId);
-        cmd.Parameters.AddWithValue(tenantId);
+        cmd.Parameters.AddWithValue(tenantId.Value);
         cmd.Parameters.AddWithValue(email);
         cmd.Parameters.AddWithValue(displayName);
         await cmd.ExecuteNonQueryAsync();

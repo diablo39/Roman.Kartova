@@ -35,6 +35,15 @@ public static class QueryablePagingExtensions
     /// encoding the next-page cursor. This separation is necessary because EF Core
     /// cannot translate <c>x.StrongId.Value</c> in LINQ expressions, but the CLR
     /// compiled delegate CAN access it at runtime.
+    /// <para>
+    /// <paramref name="expectedOwnerUserId"/> — slice 9 / E2 + S5 carry-forward.
+    /// When non-null, the request is filtering by ownerUserId; the codec encodes
+    /// the filter into the cursor and decoding fails closed on mismatch via
+    /// <see cref="CursorFilterMismatchException"/> (same posture as the slice-6
+    /// <c>includeDecommissioned</c> precedent). When null, the field is omitted
+    /// from the cursor JSON and any incoming cursor's <c>ou</c> is ignored — only
+    /// callers that opt in get the strict mismatch check.
+    /// </para>
     /// </summary>
     public static async Task<CursorPage<T>> ToCursorPagedAsync<T>(
         this IQueryable<T> source,
@@ -45,7 +54,8 @@ public static class QueryablePagingExtensions
         Expression<Func<T, Guid>> idSelector,
         Func<T, Guid> idExtractor,
         CancellationToken ct,
-        bool? expectedIncludeDecommissioned = null)
+        bool? expectedIncludeDecommissioned = null,
+        Guid? expectedOwnerUserId = null)
         where T : class
     {
         if (limit < MinLimit || limit > MaxLimit)
@@ -71,6 +81,19 @@ public static class QueryablePagingExtensions
                     expectedValue: decoded.IncludeDecommissioned ? "true" : "false",
                     actualValue: requestFilter ? "true" : "false");
             }
+            // ownerUserId mismatch — symmetric to includeDecommissioned. The decoded
+            // value may be null (cursor issued without an owner filter); a null/value
+            // delta is a real mismatch and must trip the same exception. Using
+            // Nullable<Guid>.Equals keeps the comparison value-typed (no boxing) and
+            // gives the same null-vs-value semantics across the four (null,null) /
+            // (null,value) / (value,null) / (value,value) cases.
+            if (!Nullable.Equals(decoded.OwnerUserId, expectedOwnerUserId))
+            {
+                throw new CursorFilterMismatchException(
+                    filterName: "ownerUserId",
+                    expectedValue: decoded.OwnerUserId?.ToString("D") ?? "(none)",
+                    actualValue: expectedOwnerUserId?.ToString("D") ?? "(none)");
+            }
             q = ApplyKeysetFilter(q, sort.KeySelector, idSelector, decoded.SortValue, decoded.Id, order);
         }
 
@@ -91,7 +114,8 @@ public static class QueryablePagingExtensions
                     NormalizeForCursor(sortValue),
                     id,
                     order,
-                    expectedIncludeDecommissioned ?? false);
+                    expectedIncludeDecommissioned ?? false,
+                    expectedOwnerUserId);
         }
 
         return new CursorPage<T>(rows, nextCursor, PrevCursor: null);

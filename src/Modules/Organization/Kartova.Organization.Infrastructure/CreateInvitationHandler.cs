@@ -4,6 +4,7 @@ using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
 
@@ -17,8 +18,11 @@ namespace Kartova.Organization.Infrastructure;
 ///
 /// <para>
 /// Compensation: if role assignment fails after the KC user was created, the
-/// KC user is best-effort deleted. DB failure after a successful KC create+role
-/// is currently NOT compensated — see slice-9 spec §6.7 follow-up notes.
+/// KC user is best-effort deleted. DB persistence failure after a successful
+/// KC create+role is also best-effort compensated: the handler attempts a
+/// <c>kc.DeleteUserAsync</c> and propagates the original <c>DbUpdateException</c>.
+/// An orphan KC user therefore requires BOTH the DB write AND the compensation
+/// delete to fail — a far narrower failure mode than the prior gap.
 /// </para>
 /// </summary>
 public sealed class CreateInvitationHandler(
@@ -27,7 +31,8 @@ public sealed class CreateInvitationHandler(
     ITenantContext tenant,
     ICurrentUser currentUser,
     TimeProvider clock,
-    IOptions<KeycloakAdminOptions> options)
+    IOptions<KeycloakAdminOptions> options,
+    ILogger<CreateInvitationHandler> logger)
 {
     public async Task<CreateInvitationResult> HandleAsync(CreateInvitationRequest request, CancellationToken ct)
     {
@@ -120,6 +125,33 @@ public sealed class CreateInvitationHandler(
             catch { }
 #pragma warning restore CA1031
             return new CreateInvitationResult.Failed(CreateInvitationError.EmailAlreadyInvited);
+        }
+        catch (DbUpdateException ex)
+        {
+            // Any other DB persistence failure (FK violation, connection loss,
+            // timeout, etc.) leaves a KC user provisioned but no DB invitation
+            // row. Best-effort compensation: delete the orphan KC user so the
+            // realm doesn't carry an unreachable shadow account, then propagate
+            // the original DbUpdateException so the caller sees the real cause.
+            // Same compensation pattern as the role-assign branch above + the
+            // 23505 branch immediately above this one. An orphan now requires
+            // BOTH the SaveChangesAsync AND the kc.DeleteUserAsync to fail —
+            // significantly narrower than the prior unmitigated gap.
+            logger.LogError(
+                ex,
+                "Invitation DB persistence failed AFTER KC create+role for {KcUserId}; attempting compensation.",
+                kcId);
+            try { await kc.DeleteUserAsync(kcId, ct); }
+#pragma warning disable CA1031 // intentional best-effort swallow per spec §6.7
+            catch (Exception cleanupEx)
+            {
+                logger.LogWarning(
+                    cleanupEx,
+                    "Compensation delete of orphaned KC user {KcUserId} also failed.",
+                    kcId);
+            }
+#pragma warning restore CA1031
+            throw;
         }
 
         // Spec §9.2 step 8: the URL carries the sentinel `?invitation=1` flag

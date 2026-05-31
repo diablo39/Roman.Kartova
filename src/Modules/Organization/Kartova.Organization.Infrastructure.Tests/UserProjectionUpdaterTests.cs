@@ -1,6 +1,7 @@
 using Kartova.Organization.Domain;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Kartova.Organization.Infrastructure.Tests;
@@ -21,7 +22,7 @@ public sealed class UserProjectionUpdaterTests
     {
         await using var db = NewInMemory();
         var clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-05-27T10:00:00Z"));
-        var sut = new UserProjectionUpdater(clock);
+        var sut = new UserProjectionUpdater(clock, NullLogger<UserProjectionUpdater>.Instance);
         var tenant = new TenantId(Guid.NewGuid());
 
         await sut.UpsertAsync(db, new Guid("11111111-1111-1111-1111-111111111111"),
@@ -37,7 +38,7 @@ public sealed class UserProjectionUpdaterTests
     public async Task Upsert_falls_back_to_email_when_names_missing()
     {
         await using var db = NewInMemory();
-        var sut = new UserProjectionUpdater(new FakeTimeProvider());
+        var sut = new UserProjectionUpdater(new FakeTimeProvider(), NullLogger<UserProjectionUpdater>.Instance);
         var tenant = new TenantId(Guid.NewGuid());
 
         await sut.UpsertAsync(db, Guid.NewGuid(), "noname@example.com", null, null, tenant, CancellationToken.None);
@@ -51,7 +52,7 @@ public sealed class UserProjectionUpdaterTests
     {
         await using var db = NewInMemory();
         var clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-05-27T10:00:00Z"));
-        var sut = new UserProjectionUpdater(clock);
+        var sut = new UserProjectionUpdater(clock, NullLogger<UserProjectionUpdater>.Instance);
         var tenant = new TenantId(Guid.NewGuid());
         var id = Guid.NewGuid();
 

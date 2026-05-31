@@ -30,7 +30,7 @@ public sealed class AddTeamMemberTests : OrganizationIntegrationTestBase
         var teamId = await Fx.SeedTeamAsync(Tenant.Value, "Platform");
         var unique = Guid.NewGuid().ToString("N")[..8];
         var newUserId = await Fx.SeedUserInOrganizationAsync(
-            Tenant.Value,
+            Tenant,
             displayName: "Adam Admin",
             email: $"adam-{unique}@example.com");
         try

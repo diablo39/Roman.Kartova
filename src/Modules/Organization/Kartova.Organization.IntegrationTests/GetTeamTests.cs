@@ -120,11 +120,11 @@ public sealed class GetTeamTests : OrganizationIntegrationTestBase
         var teamId = await Fx.SeedTeamAsync(Tenant.Value, "Platform");
         var unique = Guid.NewGuid().ToString("N")[..8];
         var aliceId = await Fx.SeedUserInOrganizationAsync(
-            Tenant.Value,
+            Tenant,
             displayName: "Alice Anderson",
             email: $"alice-{unique}@example.com");
         var bobId = await Fx.SeedUserInOrganizationAsync(
-            Tenant.Value,
+            Tenant,
             displayName: "Bob Brown",
             email: $"bob-{unique}@example.com");
         await Fx.SeedTeamMembershipAsync(teamId, aliceId, AdminRole);

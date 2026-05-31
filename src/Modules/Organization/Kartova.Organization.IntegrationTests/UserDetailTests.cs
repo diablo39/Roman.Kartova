@@ -38,7 +38,7 @@ public sealed class UserDetailTests : OrganizationIntegrationTestBase
 
         var unique = Guid.NewGuid().ToString("N")[..8];
         var userId = await Fx.SeedUserInOrganizationAsync(
-            tenantId, "Alice Wonder", $"alice-{unique}@example.com");
+            new TenantId(tenantId), "Alice Wonder", $"alice-{unique}@example.com");
         var platformTeamId = await Fx.SeedTeamAsync(tenantId, $"Platform-{unique}");
         var frontendTeamId = await Fx.SeedTeamAsync(tenantId, $"Frontend-{unique}");
         await Fx.SeedTeamMembershipAsync(platformTeamId, userId, AdminRole);
@@ -100,7 +100,7 @@ public sealed class UserDetailTests : OrganizationIntegrationTestBase
         var (adminEmail, tenantId) = await NewTenantAsync("user-detail-no-teams");
         var unique = Guid.NewGuid().ToString("N")[..8];
         var userId = await Fx.SeedUserInOrganizationAsync(
-            tenantId, "Bob Loner", $"bob-{unique}@example.com");
+            new TenantId(tenantId), "Bob Loner", $"bob-{unique}@example.com");
         try
         {
             var client = await Fx.CreateAuthenticatedClientAsync(
