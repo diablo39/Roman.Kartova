@@ -31,6 +31,17 @@ internal sealed class InvitationEntityTypeConfiguration : IEntityTypeConfigurati
         b.Property(x => x.AcceptedAt).HasColumnName("accepted_at");
         b.Property(x => x.RevokedAt).HasColumnName("revoked_at");
 
+        b.Property(x => x.TokenHash).HasColumnName("token_hash").HasMaxLength(64);
+        b.Property(x => x.CredentialSetAt).HasColumnName("credential_set_at");
+
+        // Global lookup key for the anonymous accept path; UNIQUE so a token maps to
+        // at most one invitation. Partial (token_hash IS NOT NULL) so burned/legacy
+        // NULL rows don't collide.
+        b.HasIndex(x => x.TokenHash)
+            .HasDatabaseName("idx_invitations_token_hash")
+            .IsUnique()
+            .HasFilter("token_hash IS NOT NULL");
+
         b.HasIndex(x => new { x.TenantId, x.Status }).HasDatabaseName("idx_invitations_tenant_status");
     }
 }
