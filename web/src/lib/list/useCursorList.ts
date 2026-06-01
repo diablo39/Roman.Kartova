@@ -5,7 +5,7 @@ import type { CursorListResult, CursorPageEnvelope } from "./types";
 interface UseCursorListOptions<TItem> {
   queryKey: QueryKey;
   fetchPage: (cursor: string | undefined) => Promise<CursorPageEnvelope<TItem>>;
-  /** Garbage-collection time for cached pages (ms). Default 5 min. */
+  /** Garbage-collection time for cached pages (ms). Default 15 min. */
   gcTime?: number;
 }
 
@@ -24,7 +24,7 @@ interface UseCursorListOptions<TItem> {
 export function useCursorList<TItem>(
   options: UseCursorListOptions<TItem>,
 ): CursorListResult<TItem> {
-  const { queryKey, fetchPage, gcTime = 5 * 60 * 1000 } = options;
+  const { queryKey, fetchPage, gcTime = 15 * 60 * 1000 } = options;
   const keyStr = JSON.stringify(queryKey);
   const [stack, setStack] = useState<(string | undefined)[]>([undefined]);
   const [seenKey, setSeenKey] = useState(keyStr);
