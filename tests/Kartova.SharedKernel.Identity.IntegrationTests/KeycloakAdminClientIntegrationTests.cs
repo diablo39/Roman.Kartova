@@ -259,6 +259,92 @@ public sealed class KeycloakAdminClientIntegrationTests
         Assert.AreEqual(KeycloakAdminError.NotFound, ex.Error);
     }
 
+    /// <summary>
+    /// Regression guard for FIX A: verifies that <see cref="KeycloakAdminClient.CreateUserAsync"/>
+    /// writes the user attribute as <c>tenant_id</c> (snake_case), not <c>tenantId</c> (camelCase),
+    /// so the token mapper (<c>user.attribute: tenant_id</c>) can read it and emit the claim.
+    /// <para>
+    /// The test reads the attribute back via the raw KC admin REST API
+    /// (<c>GET /admin/realms/{realm}/users/{id}?userProfileMetadata=true</c>) as a
+    /// <c>JsonDocument</c> because <see cref="KeycloakUser"/> deliberately omits the
+    /// attributes bag (consumers read tenant id from their own DB row, not from KC).
+    /// Fix B (unmanagedAttributePolicy = ENABLED in the realm seed) is a pre-condition:
+    /// without it, KC silently drops the unmanaged attribute on the profile save and
+    /// this assertion would fail with "tenant_id array is null or empty".
+    /// </para>
+    /// </summary>
+    [TestMethod]
+    public async Task CreateUser_persists_tenant_id_attribute_with_snake_case_key()
+    {
+        var client = GetClient();
+        var email = FreshEmail("tenantattr");
+        var expectedTenantId = Guid.NewGuid().ToString();
+        Guid? createdId = null;
+        try
+        {
+            createdId = await client.CreateUserAsync(
+                NewUserRequest(email, tenantId: expectedTenantId),
+                CancellationToken.None);
+            Assert.AreNotEqual(Guid.Empty, createdId.Value);
+
+            // Fetch the raw KC user representation via the admin REST API — we need the
+            // attributes bag, which KeycloakUser omits by design.  An admin token is
+            // obtained the same way GetTokenAsync does it inside the production client
+            // (client-credentials against the kartova-admin service account).
+            // We reach straight to the Keycloak HTTP base URL, which the fixture exposes
+            // as _kc.KeycloakBaseUrl, and use HttpClient directly to keep this test
+            // self-contained without coupling to non-public internals of KeycloakAdminClient.
+            using var httpClient = new System.Net.Http.HttpClient { BaseAddress = new Uri(_kc!.KeycloakBaseUrl) };
+
+            // Obtain an admin token via client-credentials (same client used by the production client).
+            using var tokenReq = new System.Net.Http.FormUrlEncodedContent(new[]
+            {
+                new System.Collections.Generic.KeyValuePair<string, string>("grant_type",    "client_credentials"),
+                new System.Collections.Generic.KeyValuePair<string, string>("client_id",     RealmSeedConstants.AdminClientId),
+                new System.Collections.Generic.KeyValuePair<string, string>("client_secret", RealmSeedConstants.AdminClientSecret),
+            });
+            using var tokenResp = await httpClient.PostAsync(
+                $"/realms/{RealmSeedConstants.RealmName}/protocol/openid-connect/token", tokenReq);
+            tokenResp.EnsureSuccessStatusCode();
+
+            using var tokenDoc = await System.Text.Json.JsonDocument.ParseAsync(
+                await tokenResp.Content.ReadAsStreamAsync());
+            var adminToken = tokenDoc.RootElement.GetProperty("access_token").GetString()
+                ?? throw new InvalidOperationException("Token response missing access_token.");
+
+            // GET the raw user representation including attributes.
+            // userProfileMetadata=true ensures KC returns the full attribute bag even for
+            // unmanaged attributes when unmanagedAttributePolicy = ENABLED.
+            using var userReq = new System.Net.Http.HttpRequestMessage(
+                System.Net.Http.HttpMethod.Get,
+                $"/admin/realms/{RealmSeedConstants.RealmName}/users/{createdId.Value}?userProfileMetadata=true");
+            userReq.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", adminToken);
+
+            using var userResp = await httpClient.SendAsync(userReq);
+            userResp.EnsureSuccessStatusCode();
+
+            using var userDoc = await System.Text.Json.JsonDocument.ParseAsync(
+                await userResp.Content.ReadAsStreamAsync());
+
+            // Assert that attributes.tenant_id[0] equals what we passed in — not
+            // "tenantId" (the pre-fix camelCase key that the mapper couldn't read).
+            Assert.IsTrue(
+                userDoc.RootElement.TryGetProperty("attributes", out var attrsEl),
+                "KC user representation missing 'attributes' — unmanagedAttributePolicy may not be ENABLED in the test realm.");
+            Assert.IsTrue(
+                attrsEl.TryGetProperty("tenant_id", out var tenantIdEl),
+                "Attribute 'tenant_id' not found. CreateUserAsync may still be writing 'tenantId' (camelCase) — check the fix.");
+            var values = tenantIdEl.EnumerateArray().Select(e => e.GetString()).ToArray();
+            Assert.IsTrue(values.Length >= 1, "tenant_id attribute array is empty.");
+            Assert.AreEqual(expectedTenantId, values[0],
+                $"tenant_id attribute value mismatch: expected '{expectedTenantId}', got '{values[0]}'.");
+        }
+        finally
+        {
+            await TryDeleteAsync(createdId);
+        }
+    }
+
     // Mirrors the StubHostEnvironment in KeycloakAdminOptionsValidationTests (unit-test sibling).
     // Kept inline rather than promoted to a shared helper because the unit tests still need
     // their own copy (they construct it with varying EnvironmentName values per test case),

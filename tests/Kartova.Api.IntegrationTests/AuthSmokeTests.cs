@@ -70,7 +70,7 @@ public class AuthSmokeTests : KeycloakContainerTestBase
             ["grant_type"] = "password",
             ["client_id"] = "kartova-api",
             ["username"] = "admin@orga.kartova.local",
-            ["password"] = "dev_pass",
+            ["password"] = "dev_password_12",
             ["scope"] = "openid",
         });
         var tokenResp = await oidc.PostAsync($"{Containers.KeycloakAuthority}/protocol/openid-connect/token", form);

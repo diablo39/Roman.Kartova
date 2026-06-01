@@ -32,7 +32,7 @@ internal sealed class KeycloakAdminClient(
                 enabled = true,
                 emailVerified = false,
                 requiredActions = request.RequiredActions,
-                attributes = new { tenantId = new[] { request.TenantId } },
+                attributes = new { tenant_id = new[] { request.TenantId } },
             }, options: JsonOpts),
         };
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
