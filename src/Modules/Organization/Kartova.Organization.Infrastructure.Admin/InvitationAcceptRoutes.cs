@@ -1,4 +1,5 @@
 using Kartova.Organization.Contracts;
+using Kartova.SharedKernel.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -18,16 +19,16 @@ internal static class InvitationAcceptRoutes
         group.MapGet("/accept", GetContextAsync)
             .WithName("GetInvitationAcceptContext")
             .Produces<InvitationAcceptContext>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status410Gone);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status410Gone);
 
         group.MapPost("/accept", AcceptAsync)
             .WithName("AcceptInvitation")
             .Produces<AcceptInvitationResponse>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status400BadRequest)
-            .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status410Gone)
-            .Produces(StatusCodes.Status502BadGateway);
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status410Gone)
+            .ProducesProblem(StatusCodes.Status502BadGateway);
     }
 
     private static async Task<IResult> GetContextAsync(
@@ -36,14 +37,25 @@ internal static class InvitationAcceptRoutes
         HttpContext ctx,
         CancellationToken ct)
     {
-        ctx.Response.Headers["Referrer-Policy"] = "no-referrer";
+        NoReferrer(ctx);
         var result = await handler.GetContextAsync(token, ct);
         return result switch
         {
             GetAcceptContextResult.Ok ok => Results.Ok(ok.Context),
-            GetAcceptContextResult.Failed { Error: AcceptInvitationError.NotFound } => Results.NotFound(),
-            GetAcceptContextResult.Failed f => Results.Problem(statusCode: StatusCodes.Status410Gone, title: f.Error.ToString()),
-            _ => Results.Problem(statusCode: StatusCodes.Status500InternalServerError),
+            GetAcceptContextResult.Failed { Error: AcceptInvitationError.NotFound } => Results.Problem(
+                type: ProblemTypes.ResourceNotFound,
+                title: "Invitation not found",
+                detail: "No invitation matches the supplied token.",
+                statusCode: StatusCodes.Status404NotFound),
+            GetAcceptContextResult.Failed => Results.Problem(
+                type: ProblemTypes.InvitationGone,
+                title: "Invitation no longer valid",
+                detail: "The invitation has expired, been revoked, or was already accepted.",
+                statusCode: StatusCodes.Status410Gone),
+            _ => Results.Problem(
+                type: ProblemTypes.InternalServerError,
+                title: "Unexpected error",
+                statusCode: StatusCodes.Status500InternalServerError),
         };
     }
 
@@ -53,16 +65,38 @@ internal static class InvitationAcceptRoutes
         HttpContext ctx,
         CancellationToken ct)
     {
-        ctx.Response.Headers["Referrer-Policy"] = "no-referrer";
+        NoReferrer(ctx);
         var result = await handler.AcceptAsync(body.Token, body.Password, body.DisplayName, ct);
         return result switch
         {
             AcceptInvitationResult.Ok ok => Results.Ok(new AcceptInvitationResponse(ok.Email)),
-            AcceptInvitationResult.Failed { Error: AcceptInvitationError.Validation } => Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Password or display name invalid."),
-            AcceptInvitationResult.Failed { Error: AcceptInvitationError.NotFound } => Results.NotFound(),
-            AcceptInvitationResult.Failed { Error: AcceptInvitationError.Upstream } => Results.Problem(statusCode: StatusCodes.Status502BadGateway, title: "Identity provider error."),
-            AcceptInvitationResult.Failed f => Results.Problem(statusCode: StatusCodes.Status410Gone, title: f.Error.ToString()),
-            _ => Results.Problem(statusCode: StatusCodes.Status500InternalServerError),
+            AcceptInvitationResult.Failed { Error: AcceptInvitationError.Validation } => Results.Problem(
+                type: ProblemTypes.ValidationFailed,
+                title: "Password or display name invalid",
+                detail: "Password must be at least 12 characters and meet complexity requirements. Display name must be non-empty.",
+                statusCode: StatusCodes.Status400BadRequest),
+            AcceptInvitationResult.Failed { Error: AcceptInvitationError.NotFound } => Results.Problem(
+                type: ProblemTypes.ResourceNotFound,
+                title: "Invitation not found",
+                detail: "No invitation matches the supplied token.",
+                statusCode: StatusCodes.Status404NotFound),
+            AcceptInvitationResult.Failed { Error: AcceptInvitationError.Upstream } => Results.Problem(
+                type: ProblemTypes.ServiceUnavailable,
+                title: "Identity provider error",
+                detail: "The identity provider rejected the account creation. Please retry.",
+                statusCode: StatusCodes.Status502BadGateway),
+            AcceptInvitationResult.Failed => Results.Problem(
+                type: ProblemTypes.InvitationGone,
+                title: "Invitation no longer valid",
+                detail: "The invitation has expired, been revoked, or was already accepted.",
+                statusCode: StatusCodes.Status410Gone),
+            _ => Results.Problem(
+                type: ProblemTypes.InternalServerError,
+                title: "Unexpected error",
+                statusCode: StatusCodes.Status500InternalServerError),
         };
     }
+
+    private static void NoReferrer(HttpContext ctx) =>
+        ctx.Response.Headers["Referrer-Policy"] = "no-referrer";
 }

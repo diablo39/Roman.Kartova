@@ -49,4 +49,7 @@ public static class ProblemTypes
     public const string EmailAlreadyInvited    = Base + "email-already-invited";
     public const string EmailAlreadyOnPlatform = Base + "email-already-on-platform";
     public const string InvitationNotPending   = Base + "invitation-not-pending";
+
+    // Invitation accept — slice 9 (spec §6.8).
+    public const string InvitationGone         = Base + "invitation-gone";         // 410: expired, revoked, or already accepted.
 }

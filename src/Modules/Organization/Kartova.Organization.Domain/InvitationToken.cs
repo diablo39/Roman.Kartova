@@ -1,3 +1,4 @@
+using System.Buffers.Text;
 using System.Security.Cryptography;
 
 namespace Kartova.Organization.Domain;
@@ -14,7 +15,7 @@ public static class InvitationToken
     public static (string Plaintext, string Hash) Issue()
     {
         var bytes = RandomNumberGenerator.GetBytes(32);
-        var plaintext = Base64UrlNoPad(bytes);
+        var plaintext = Base64Url.EncodeToString(bytes);
         return (plaintext, Hash(plaintext));
     }
 
@@ -23,9 +24,6 @@ public static class InvitationToken
     {
         ArgumentNullException.ThrowIfNull(plaintext);
         var digest = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(plaintext));
-        return Base64UrlNoPad(digest);
+        return Base64Url.EncodeToString(digest);
     }
-
-    private static string Base64UrlNoPad(byte[] bytes) =>
-        Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 }

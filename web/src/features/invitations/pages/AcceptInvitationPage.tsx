@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "react-oidc-context";
 
 import { Button } from "@/components/base/buttons/button";
+import { Card, CardContent } from "@/components/base/card/card";
 import { HookForm, FormField } from "@/components/base/form/hook-form";
 import { Input } from "@/components/base/input/input";
 
@@ -28,36 +29,38 @@ type ViewState =
 
 // ─── small helper cards ──────────────────────────────────────────────────────
 
-function Card({ children }: { children: React.ReactNode }) {
+function CardShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen items-center justify-center bg-primary">
-      <div className="max-w-md w-full space-y-6 rounded-xl bg-secondary p-8 shadow-lg">
-        {children}
-      </div>
+      <Card className="max-w-md w-full">
+        <CardContent className="space-y-6">
+          {children}
+        </CardContent>
+      </Card>
     </div>
   );
 }
 
 function InvalidCard() {
   return (
-    <Card>
+    <CardShell>
       <h1 className="text-2xl font-semibold text-primary">Invalid invitation link</h1>
       <p className="text-base text-tertiary">
         This invitation link is invalid. Ask the person who invited you to send
         a new one.
       </p>
-    </Card>
+    </CardShell>
   );
 }
 
 function GoneCard() {
   return (
-    <Card>
+    <CardShell>
       <h1 className="text-2xl font-semibold text-primary">This invitation can no longer be used</h1>
       <p className="text-base text-tertiary">
         This invitation link has expired, been revoked, or was already used. Ask the person who invited you to send a new one.
       </p>
-    </Card>
+    </CardShell>
   );
 }
 
@@ -108,7 +111,7 @@ function FormView({ token, ctx, onGone }: FormViewProps) {
   });
 
   return (
-    <Card>
+    <CardShell>
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold text-primary">
           Join {ctx.orgDisplayName}
@@ -192,7 +195,7 @@ function FormView({ token, ctx, onGone }: FormViewProps) {
           Join {ctx.orgDisplayName}
         </Button>
       </HookForm>
-    </Card>
+    </CardShell>
   );
 }
 
