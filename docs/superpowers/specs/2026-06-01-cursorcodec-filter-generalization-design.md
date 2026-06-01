@@ -198,3 +198,14 @@ Full project DoD (CLAUDE.md, nine gates): 0-warning build (`TreatWarningsAsError
 - Hashing/obfuscating filter values in the cursor (diagnostics > compactness; cursor already declared opaque).
 - Any change to Teams/Invitations handlers (they pass no filters).
 - Relocating or renaming `CursorCodec` (the core is correctly placed in SharedKernel).
+
+## 12. Follow-ups (tracked)
+
+**FU-1 — `ConvertCursorValue` returns 500 instead of 400 on a tampered sort-value *type*.**
+Discovered during this slice's `/pr-review` (silent-failure lens, 2026-06-01). **Pre-existing — not introduced by this refactor.**
+
+- **Where:** `src/Kartova.SharedKernel.Postgres/Pagination/QueryablePagingExtensions.cs` — `ConvertCursorValue` (the `DateTimeOffset.Parse` / `DateTime.Parse` / `Guid.Parse` / `Convert.ChangeType` block).
+- **Symptom:** a tampered/hand-crafted cursor whose `s` (sort value) is the wrong type for the query's sort key (e.g. a non-date string for a `createdAt` query) makes `Parse`/`ChangeType` throw raw `FormatException` / `InvalidCastException` / `OverflowException`. These are **not** handled by `PagingExceptionHandler` (which maps only `InvalidCursorException` / `CursorFilterMismatchException` / `Invalid{Sort,Limit}*`), so the request returns **500** instead of the intended **400 `invalid-cursor`** — and a stack trace may leak if the global handler isn't tight.
+- **Fix:** wrap the `ConvertCursorValue` body in `try { … } catch (Exception ex) when (ex is FormatException or InvalidCastException or OverflowException) { throw new InvalidCursorException($"Cursor sort value '{value}' is not compatible with expected type {targetType.Name}.", ex); }`.
+- **Test:** add a `ListApplicationsPaginationTests` case (or a `QueryablePagingExtensionsTests` case) that replays a cursor with a deliberately wrong-typed `s` and asserts **400 `invalid-cursor`** (not 500).
+- **Why deferred here:** out of scope for the filter-state generalization (the diff never touched sort-value conversion); deserves its own small PR + dedicated tamper test rather than scope-creeping this one.
