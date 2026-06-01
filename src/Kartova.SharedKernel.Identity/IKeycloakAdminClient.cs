@@ -122,4 +122,14 @@ public interface IKeycloakAdminClient
     /// response.
     /// </exception>
     Task DeleteUserAsync(Guid userId, CancellationToken ct);
+
+    /// <summary>Sets (resets) a realm user's password. Admin override — bypasses the
+    /// realm password policy, so callers MUST validate strength themselves.</summary>
+    /// <exception cref="KeycloakAdminException">NotFound (user gone) / Unauthorized / Unexpected.</exception>
+    Task SetPasswordAsync(Guid userId, string password, bool temporary, CancellationToken ct);
+
+    /// <summary>Partial-updates a realm user (emailVerified, requiredActions, name).
+    /// Used to finalize an invited user after they set their password.</summary>
+    /// <exception cref="KeycloakAdminException">NotFound (user gone) / Unauthorized / Unexpected.</exception>
+    Task UpdateUserAsync(Guid userId, UpdateKeycloakUserRequest request, CancellationToken ct);
 }

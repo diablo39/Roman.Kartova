@@ -219,6 +219,46 @@ public sealed class KeycloakAdminClientIntegrationTests
         }
     }
 
+    [TestMethod]
+    public async Task SetPasswordAsync_then_UpdateUserAsync_finalizes_invited_user()
+    {
+        var client = GetClient();
+        Guid? createdId = null;
+        try
+        {
+            createdId = await client.CreateUserAsync(new CreateKeycloakUserRequest(
+                FreshEmail("setpw"),
+                null, null,
+                Guid.NewGuid().ToString(),
+                new[] { KeycloakAdminRequiredActions.UpdatePassword }), CancellationToken.None);
+
+            await client.SetPasswordAsync(createdId.Value, "Sup3rSecretPassw0rd!", temporary: false, CancellationToken.None);
+            await client.UpdateUserAsync(createdId.Value, new UpdateKeycloakUserRequest(
+                FirstName: "Jane Doe",
+                LastName: null,
+                EmailVerified: true,
+                RequiredActions: Array.Empty<string>()), CancellationToken.None);
+
+            var user = await client.GetUserAsync(createdId.Value, CancellationToken.None);
+            Assert.IsNotNull(user);
+            Assert.IsTrue(user!.EmailVerified);
+            Assert.AreEqual("Jane Doe", user.FirstName);
+        }
+        finally
+        {
+            await TryDeleteAsync(createdId);
+        }
+    }
+
+    [TestMethod]
+    public async Task SetPasswordAsync_throws_NotFound_for_unknown_user()
+    {
+        var client = GetClient();
+        var ex = await Assert.ThrowsExactlyAsync<KeycloakAdminException>(() =>
+            client.SetPasswordAsync(Guid.NewGuid(), "whatever12345", false, CancellationToken.None));
+        Assert.AreEqual(KeycloakAdminError.NotFound, ex.Error);
+    }
+
     // Mirrors the StubHostEnvironment in KeycloakAdminOptionsValidationTests (unit-test sibling).
     // Kept inline rather than promoted to a shared helper because the unit tests still need
     // their own copy (they construct it with varying EnvironmentName values per test case),

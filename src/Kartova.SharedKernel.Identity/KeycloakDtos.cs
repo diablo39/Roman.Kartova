@@ -10,6 +10,13 @@ public sealed record CreateKeycloakUserRequest(
     string TenantId,
     IReadOnlyList<string> RequiredActions);
 
+[ExcludeFromCodeCoverage]
+public sealed record UpdateKeycloakUserRequest(
+    string? FirstName,
+    string? LastName,
+    bool EmailVerified,
+    IReadOnlyList<string> RequiredActions);
+
 /// <summary>
 /// Slim domain projection of a Keycloak user. Note: the <c>tenantId</c> custom
 /// attribute IS persisted server-side on user creation (see

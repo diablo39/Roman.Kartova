@@ -120,6 +120,46 @@ internal sealed class KeycloakAdminClient(
             throw new KeycloakAdminException(KeycloakAdminError.Unexpected, $"KeyCloak delete-user returned {(int)resp.StatusCode}.");
     }
 
+    public async Task SetPasswordAsync(Guid userId, string password, bool temporary, CancellationToken ct)
+    {
+        var token = await GetTokenAsync(ct);
+        using var req = new HttpRequestMessage(HttpMethod.Put, $"/admin/realms/{_realm}/users/{userId}/reset-password")
+        {
+            Content = JsonContent.Create(new { type = "password", value = password, temporary }, options: JsonOpts),
+        };
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var resp = await http.SendAsync(req, ct);
+        if (resp.StatusCode == HttpStatusCode.NotFound)
+            throw new KeycloakAdminException(KeycloakAdminError.NotFound, $"User {userId} not found.");
+        if (resp.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+            throw new KeycloakAdminException(KeycloakAdminError.Unauthorized, "Admin client unauthorized.");
+        if (!resp.IsSuccessStatusCode)
+            throw new KeycloakAdminException(KeycloakAdminError.Unexpected, $"KeyCloak reset-password returned {(int)resp.StatusCode}.");
+    }
+
+    public async Task UpdateUserAsync(Guid userId, UpdateKeycloakUserRequest request, CancellationToken ct)
+    {
+        var token = await GetTokenAsync(ct);
+        using var req = new HttpRequestMessage(HttpMethod.Put, $"/admin/realms/{_realm}/users/{userId}")
+        {
+            Content = JsonContent.Create(new
+            {
+                firstName = request.FirstName,
+                lastName = request.LastName,
+                emailVerified = request.EmailVerified,
+                requiredActions = request.RequiredActions,
+            }, options: JsonOpts),
+        };
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var resp = await http.SendAsync(req, ct);
+        if (resp.StatusCode == HttpStatusCode.NotFound)
+            throw new KeycloakAdminException(KeycloakAdminError.NotFound, $"User {userId} not found.");
+        if (resp.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+            throw new KeycloakAdminException(KeycloakAdminError.Unauthorized, "Admin client unauthorized.");
+        if (!resp.IsSuccessStatusCode)
+            throw new KeycloakAdminException(KeycloakAdminError.Unexpected, $"KeyCloak update-user returned {(int)resp.StatusCode}.");
+    }
+
     private async Task<string> GetTokenAsync(CancellationToken ct)
     {
         var resp = await tokenClient.RequestClientCredentialsTokenAsync(cancellationToken: ct);
