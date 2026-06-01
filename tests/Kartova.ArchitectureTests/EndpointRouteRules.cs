@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using Kartova.SharedKernel.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -48,6 +49,10 @@ public class EndpointRouteRules
 
         // Organization admin (BYPASSRLS, separate auth surface, same slug)
         new("AdminCreateOrganization",     Post, "/api/v1/admin/organizations/"),
+
+        // Invitation accept — anonymous, tenant-less (slice 9, task 8)
+        new("GetInvitationAcceptContext",  Get,  "/api/v1/invitations/accept"),
+        new("AcceptInvitation",            Post, "/api/v1/invitations/accept"),
     ];
 
     [TestMethod]
@@ -125,6 +130,8 @@ public class EndpointRouteRules
         builder.Services.AddAuthentication("Test").AddJwtBearer("Test", _ => { });
         builder.Services.AddAuthorization();
         builder.Services.AddRouting();
+        // Rate limiter must be present because InvitationAcceptRoutes calls RequireRateLimiting.
+        builder.Services.AddRateLimiter(_ => { });
 
         // The endpoint delegates take handler/DbContext/abstraction parameters that
         // RequestDelegateFactory must classify as [FromServices] rather than [FromBody].
@@ -182,7 +189,8 @@ public class EndpointRouteRules
         {
             foreach (var type in assembly.GetTypes())
             {
-                if (!type.Name.EndsWith("EndpointDelegates", StringComparison.Ordinal)) continue;
+                if (!type.Name.EndsWith("EndpointDelegates", StringComparison.Ordinal)
+                    && !type.Name.EndsWith("Routes", StringComparison.Ordinal)) continue;
                 foreach (var method in type.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static))
                 {
                     foreach (var p in method.GetParameters())

@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Kartova.SharedKernel.AspNetCore;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -57,6 +58,8 @@ public class RestVerbPolicyRules
         builder.Services.AddAuthentication("Test").AddJwtBearer("Test", _ => { });
         builder.Services.AddAuthorization();
         builder.Services.AddRouting();
+        // Rate limiter must be present because InvitationAcceptRoutes calls RequireRateLimiting.
+        builder.Services.AddRateLimiter(_ => { });
 
         // Stub every reference type referenced by an endpoint delegate parameter so
         // RequestDelegateFactory's IServiceProviderIsService check classifies them as
@@ -98,7 +101,8 @@ public class RestVerbPolicyRules
         {
             foreach (var type in assembly.GetTypes())
             {
-                if (!type.Name.EndsWith("EndpointDelegates", StringComparison.Ordinal)) continue;
+                if (!type.Name.EndsWith("EndpointDelegates", StringComparison.Ordinal)
+                    && !type.Name.EndsWith("Routes", StringComparison.Ordinal)) continue;
                 foreach (var method in type.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static))
                 {
                     foreach (var p in method.GetParameters())

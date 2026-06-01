@@ -14,6 +14,7 @@ using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Postgres;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Wolverine;
@@ -174,6 +175,18 @@ public class Program
             }
         });
 
+        // Rate limiter — fixed window for anonymous accept-invitation endpoints.
+        // 10 requests/minute per client; queue = 0 (surplus requests rejected immediately).
+        builder.Services.AddRateLimiter(o =>
+        {
+            o.AddFixedWindowLimiter(Kartova.Organization.Infrastructure.Admin.InvitationAcceptRoutes.RateLimitPolicy, opt =>
+            {
+                opt.PermitLimit = 10;
+                opt.Window = TimeSpan.FromMinutes(1);
+                opt.QueueLimit = 0;
+            });
+        });
+
         // Health checks — ADR-0060.
         builder.Services.AddHealthChecks()
             .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"])
@@ -189,6 +202,7 @@ public class Program
         app.UseCors("KartovaWeb");
         app.UseAuthentication();
         app.UseAuthorization();
+        app.UseRateLimiter();
         app.UseMiddleware<TenantScopeBeginMiddleware>();
 
         app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = c => c.Tags.Contains("live") });
