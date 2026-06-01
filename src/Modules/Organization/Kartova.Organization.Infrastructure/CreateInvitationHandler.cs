@@ -83,14 +83,24 @@ public sealed class CreateInvitationHandler(
         {
             await kc.AssignRealmRoleAsync(kcId, request.Role, ct);
         }
-        catch (KeycloakAdminException)
+        catch (KeycloakAdminException ex)
         {
             // Best-effort compensation: if we orphan the KC user, the platform
             // shows an unreachable email at the realm level. Swallow secondary
             // failures so the original 502 is still the surfaced reason.
+            logger.LogError(
+                ex,
+                "Invitation creation failed: KC AssignRealmRoleAsync threw for {KcUserId}; attempting compensation delete.",
+                kcId);
             try { await kc.DeleteUserAsync(kcId, ct); }
 #pragma warning disable CA1031 // intentional best-effort swallow per spec §6.7
-            catch { }
+            catch (Exception cleanupEx)
+            {
+                logger.LogWarning(
+                    cleanupEx,
+                    "Compensation delete of orphaned KC user {KcUserId} also failed after role-assign error.",
+                    kcId);
+            }
 #pragma warning restore CA1031
             return new CreateInvitationResult.Failed(CreateInvitationError.Upstream);
         }
@@ -120,9 +130,19 @@ public sealed class CreateInvitationHandler(
             // the orphaned KC user so the realm doesn't carry an unreachable
             // shadow account (same compensation pattern as the role-assign
             // failure branch above).
+            logger.LogError(
+                ex,
+                "Invitation creation lost concurrent race (23505 unique-violation) for {KcUserId} email {Email}; attempting compensation delete.",
+                kcId, email);
             try { await kc.DeleteUserAsync(kcId, ct); }
 #pragma warning disable CA1031 // intentional best-effort swallow per spec §6.7
-            catch { }
+            catch (Exception cleanupEx)
+            {
+                logger.LogWarning(
+                    cleanupEx,
+                    "Compensation delete of orphaned KC user {KcUserId} also failed after 23505 race.",
+                    kcId);
+            }
 #pragma warning restore CA1031
             return new CreateInvitationResult.Failed(CreateInvitationError.EmailAlreadyInvited);
         }
