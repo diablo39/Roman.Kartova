@@ -70,7 +70,7 @@ public sealed class ExpireInvitationsHostedServiceTests
             // moves "now" past ExpiresAt without needing to fabricate a backdated invitation.
             var seeded = Invitation.Create("alice@example.com", KartovaRoles.Member,
                 invitedByUserId: Guid.NewGuid(), keycloakUserId: Guid.NewGuid(),
-                tenantId: tenant, clock: clock);
+                tenantId: tenant, clock: clock, tokenHash: InvitationToken.Hash("seed-token"));
             kcUserId = seeded.KeycloakUserId!.Value;
             seedDb.Invitations.Add(seeded);
             await seedDb.SaveChangesAsync();
@@ -104,7 +104,7 @@ public sealed class ExpireInvitationsHostedServiceTests
             // Pending invitation with ExpiresAt 7 days in the future — sweep should skip.
             var seeded = Invitation.Create("alice@example.com", KartovaRoles.Member,
                 invitedByUserId: Guid.NewGuid(), keycloakUserId: Guid.NewGuid(),
-                tenantId: tenant, clock: clock);
+                tenantId: tenant, clock: clock, tokenHash: InvitationToken.Hash("seed-token"));
             seedDb.Invitations.Add(seeded);
             await seedDb.SaveChangesAsync();
         }
@@ -138,7 +138,7 @@ public sealed class ExpireInvitationsHostedServiceTests
         {
             var seeded = Invitation.Create("alice@example.com", KartovaRoles.Member,
                 invitedByUserId: Guid.NewGuid(), keycloakUserId: Guid.NewGuid(),
-                tenantId: tenant, clock: clock);
+                tenantId: tenant, clock: clock, tokenHash: InvitationToken.Hash("seed-token"));
             seeded.MarkAccepted(clock);
             seedDb.Invitations.Add(seeded);
             await seedDb.SaveChangesAsync();
@@ -179,10 +179,10 @@ public sealed class ExpireInvitationsHostedServiceTests
         {
             var first = Invitation.Create("alice@example.com", KartovaRoles.Member,
                 invitedByUserId: Guid.NewGuid(), keycloakUserId: Guid.NewGuid(),
-                tenantId: tenant, clock: clock);
+                tenantId: tenant, clock: clock, tokenHash: InvitationToken.Hash("seed-token"));
             var second = Invitation.Create("bob@example.com", KartovaRoles.Member,
                 invitedByUserId: Guid.NewGuid(), keycloakUserId: Guid.NewGuid(),
-                tenantId: tenant, clock: clock);
+                tenantId: tenant, clock: clock, tokenHash: InvitationToken.Hash("seed-token"));
             firstKcId = first.KeycloakUserId!.Value;
             secondKcId = second.KeycloakUserId!.Value;
             seedDb.Invitations.Add(first);
@@ -239,7 +239,7 @@ public sealed class ExpireInvitationsHostedServiceTests
         {
             var seeded = Invitation.Create("alice@example.com", KartovaRoles.Member,
                 invitedByUserId: Guid.NewGuid(), keycloakUserId: Guid.NewGuid(),
-                tenantId: tenant, clock: clock);
+                tenantId: tenant, clock: clock, tokenHash: InvitationToken.Hash("seed-token"));
             kcUserId = seeded.KeycloakUserId!.Value;
             seedDb.Invitations.Add(seeded);
             await seedDb.SaveChangesAsync();

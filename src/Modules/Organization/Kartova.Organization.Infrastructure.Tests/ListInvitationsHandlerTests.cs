@@ -50,11 +50,11 @@ public sealed class ListInvitationsHandlerTests
 
         // Seed three Pending invitations spaced 1h apart, all with unique emails
         // so the sort comparison is unambiguous.
-        var older = Invitation.Create("a@x.com", KartovaRoles.Member, Guid.NewGuid(), Guid.NewGuid(), tenant, clock);
+        var older = Invitation.Create("a@x.com", KartovaRoles.Member, Guid.NewGuid(), Guid.NewGuid(), tenant, clock, InvitationToken.Hash("seed-a"));
         clock.Advance(TimeSpan.FromHours(1));
-        var middle = Invitation.Create("b@x.com", KartovaRoles.Member, Guid.NewGuid(), Guid.NewGuid(), tenant, clock);
+        var middle = Invitation.Create("b@x.com", KartovaRoles.Member, Guid.NewGuid(), Guid.NewGuid(), tenant, clock, InvitationToken.Hash("seed-b"));
         clock.Advance(TimeSpan.FromHours(1));
-        var newest = Invitation.Create("c@x.com", KartovaRoles.Member, Guid.NewGuid(), Guid.NewGuid(), tenant, clock);
+        var newest = Invitation.Create("c@x.com", KartovaRoles.Member, Guid.NewGuid(), Guid.NewGuid(), tenant, clock, InvitationToken.Hash("seed-c"));
 
         db.Invitations.AddRange(older, middle, newest);
         await db.SaveChangesAsync();
@@ -79,8 +79,8 @@ public sealed class ListInvitationsHandlerTests
         var tenant = new TenantId(Guid.NewGuid());
         var clock = new FakeTimeProvider(T0);
 
-        var pending = Invitation.Create("pending@x.com", KartovaRoles.Member, Guid.NewGuid(), Guid.NewGuid(), tenant, clock);
-        var toRevoke = Invitation.Create("revoked@x.com", KartovaRoles.Member, Guid.NewGuid(), Guid.NewGuid(), tenant, clock);
+        var pending = Invitation.Create("pending@x.com", KartovaRoles.Member, Guid.NewGuid(), Guid.NewGuid(), tenant, clock, InvitationToken.Hash("seed-pending"));
+        var toRevoke = Invitation.Create("revoked@x.com", KartovaRoles.Member, Guid.NewGuid(), Guid.NewGuid(), tenant, clock, InvitationToken.Hash("seed-revoked"));
         toRevoke.Revoke(clock);
 
         db.Invitations.AddRange(pending, toRevoke);

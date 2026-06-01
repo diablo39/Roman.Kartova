@@ -146,7 +146,7 @@ public sealed class CreateInvitationHandlerTests
         // matches a previously-stored pending invitation.
         var existing = Invitation.Create("alice@example.com", KartovaRoles.Member,
             invitedByUserId: Guid.NewGuid(), keycloakUserId: Guid.NewGuid(),
-            tenantId: tenant, clock: clock);
+            tenantId: tenant, clock: clock, tokenHash: InvitationToken.Hash("seed-token"));
         db.Invitations.Add(existing);
         await db.SaveChangesAsync();
 
@@ -194,15 +194,13 @@ public sealed class CreateInvitationHandlerTests
 
             var created = result as CreateInvitationResult.Created;
             Assert.IsNotNull(created);
-            // Spec §9.2 step 8: `?invitation=1` is a deliberate sentinel
-            // (auto-accept is keyed off the authenticated email, not a token).
-            // Slice-9 H4 API-1 fix added an `email` hint so the invitee sees
-            // the target address in the link and the SPA can pass it to KC
-            // as `login_hint` in a follow-up — invariant: the URL must end
-            // with the sentinel + the percent-encoded email of the invitation.
-            Assert.AreEqual(
-                $"http://localhost:5173/?invitation=1&email={Uri.EscapeDataString("alice@example.com")}",
-                created!.Response.InviteUrl);
+            // URL carries an opaque single-use token; only its hash is persisted.
+            StringAssert.StartsWith(
+                created!.Response.InviteUrl,
+                "http://localhost:5173/accept-invitation?token=");
+            StringAssert.DoesNotMatch(
+                created.Response.InviteUrl,
+                new System.Text.RegularExpressions.Regex("email=|invitation=1"));
             Assert.AreEqual("alice@example.com", created.Response.Invitation.Email);
             Assert.AreEqual(KartovaRoles.Member, created.Response.Invitation.Role);
             Assert.AreEqual("Pending", created.Response.Invitation.Status);
@@ -227,6 +225,40 @@ public sealed class CreateInvitationHandlerTests
             Assert.AreEqual(kcId, user.Id);
             Assert.AreEqual("alice@example.com", user.Email);
             Assert.AreEqual("alice@example.com", user.DisplayName);
+        }
+    }
+
+    [TestMethod]
+    public async Task Create_returns_tokenized_url_and_persists_hash()
+    {
+        var opts = NewOptions();
+        var clock = new FakeTimeProvider(T0);
+        var kcId = Guid.NewGuid();
+
+        var (h, db, kc, _, _) = Make(clock, opts);
+        await using (db)
+        {
+            kc.CreateUserAsync(Arg.Any<CreateKeycloakUserRequest>(), Arg.Any<CancellationToken>())
+                .Returns(kcId);
+
+            var result = await h.HandleAsync(
+                new CreateInvitationRequest("alice@example.com", KartovaRoles.Member),
+                CancellationToken.None);
+
+            var created = (CreateInvitationResult.Created)result;
+            StringAssert.StartsWith(
+                created.Response.InviteUrl,
+                "http://localhost:5173/accept-invitation?token=");
+            StringAssert.DoesNotMatch(
+                created.Response.InviteUrl,
+                new System.Text.RegularExpressions.Regex("email=|invitation=1"));
+        }
+
+        await using (var assertDb = new OrganizationDbContext(opts))
+        {
+            var token = (await assertDb.Invitations.SingleAsync())
+                .TokenHash;
+            Assert.IsNotNull(token);
         }
     }
 

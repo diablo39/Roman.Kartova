@@ -105,7 +105,8 @@ public sealed class CreateInvitationHandler(
             return new CreateInvitationResult.Failed(CreateInvitationError.Upstream);
         }
 
-        var invitation = Invitation.Create(email, request.Role, currentUser.UserId, kcId, tenant.Id, clock);
+        var (tokenPlaintext, tokenHash) = InvitationToken.Issue();
+        var invitation = Invitation.Create(email, request.Role, currentUser.UserId, kcId, tenant.Id, clock, tokenHash);
         db.Invitations.Add(invitation);
         db.Users.Add(new User
         {
@@ -174,17 +175,11 @@ public sealed class CreateInvitationHandler(
             throw;
         }
 
-        // Spec §9.2 step 8: the URL carries the sentinel `?invitation=1` flag
-        // rather than a per-invitation token — acceptance is keyed off the
-        // authenticated user's email at the OIDC callback (§9.3 step 6) so a
-        // token is intentionally unnecessary. The `email` query parameter is
-        // a UX hint: the invitee can see at a glance which email to log in
-        // with, and a future SPA change can lift it into Keycloak's
-        // `login_hint` parameter on the OIDC redirect without a contract
-        // change. Documented as the resolution of H4 API-1 in
-        // docs/superpowers/plans/slice-9-docker-verification.md.
+        // The URL carries an opaque single-use token; only its SHA-256 hash is
+        // persisted (InvitationToken). The plaintext is returned once here and
+        // never logged — the invitee exchanges it via the accept-invitation flow.
         var inviteUrl =
-            $"{options.Value.FrontendBaseUrl}/?invitation=1&email={Uri.EscapeDataString(email)}";
+            $"{options.Value.FrontendBaseUrl}/accept-invitation?token={Uri.EscapeDataString(tokenPlaintext)}";
         var response = new InvitationResponse(
             invitation.Id.Value,
             invitation.Email,

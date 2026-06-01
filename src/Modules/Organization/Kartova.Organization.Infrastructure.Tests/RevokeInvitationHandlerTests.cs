@@ -46,7 +46,7 @@ public sealed class RevokeInvitationHandlerTests
 
         var invitation = Invitation.Create("alice@example.com", KartovaRoles.Member,
             invitedByUserId: Guid.NewGuid(), keycloakUserId: Guid.NewGuid(),
-            tenantId: tenant, clock: clock);
+            tenantId: tenant, clock: clock, tokenHash: InvitationToken.Hash("seed-token"));
         invitation.MarkAccepted(clock);
         db.Invitations.Add(invitation);
         await db.SaveChangesAsync();
@@ -73,7 +73,7 @@ public sealed class RevokeInvitationHandlerTests
         {
             var invitation = Invitation.Create("alice@example.com", KartovaRoles.Member,
                 invitedByUserId: Guid.NewGuid(), keycloakUserId: kcUserId,
-                tenantId: tenant, clock: clock);
+                tenantId: tenant, clock: clock, tokenHash: InvitationToken.Hash("seed-token"));
             seedDb.Invitations.Add(invitation);
             await seedDb.SaveChangesAsync();
             invitationId = invitation.Id.Value;
@@ -112,7 +112,7 @@ public sealed class RevokeInvitationHandlerTests
         {
             var invitation = Invitation.Create("alice@example.com", KartovaRoles.Member,
                 invitedByUserId: Guid.NewGuid(), keycloakUserId: kcUserId,
-                tenantId: tenant, clock: clock);
+                tenantId: tenant, clock: clock, tokenHash: InvitationToken.Hash("seed-token"));
             seedDb.Invitations.Add(invitation);
             await seedDb.SaveChangesAsync();
             invitationId = invitation.Id.Value;
@@ -153,7 +153,7 @@ public sealed class RevokeInvitationHandlerTests
         {
             var invitation = Invitation.Create("alice@example.com", KartovaRoles.Member,
                 invitedByUserId: Guid.NewGuid(), keycloakUserId: kcUserId,
-                tenantId: tenant, clock: clock);
+                tenantId: tenant, clock: clock, tokenHash: InvitationToken.Hash("seed-token"));
             seedDb.Invitations.Add(invitation);
             await seedDb.SaveChangesAsync();
             invitationId = invitation.Id.Value;

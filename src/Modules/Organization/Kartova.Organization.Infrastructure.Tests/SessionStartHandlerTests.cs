@@ -328,7 +328,8 @@ public sealed class SessionStartHandlerTests
             invitedByUserId: inviterId,
             keycloakUserId: userId,
             tenantId: tenant,
-            clock: clock);
+            clock: clock,
+            tokenHash: InvitationToken.Hash("seed-token"));
         db.Invitations.Add(invitation);
         await db.SaveChangesAsync();
 
@@ -408,7 +409,8 @@ public sealed class SessionStartHandlerTests
             invitedByUserId: Guid.NewGuid(),
             keycloakUserId: userId,
             tenantId: tenant,
-            clock: clock);
+            clock: clock,
+            tokenHash: InvitationToken.Hash("seed-token"));
         db.Invitations.Add(invitation);
         await db.SaveChangesAsync();
 
@@ -455,7 +457,8 @@ public sealed class SessionStartHandlerTests
             invitedByUserId: inviterId,
             keycloakUserId: userId,
             tenantId: tenant,
-            clock: clock);
+            clock: clock,
+            tokenHash: InvitationToken.Hash("seed-token"));
         db.Invitations.Add(invitation);
         await db.SaveChangesAsync();
 
