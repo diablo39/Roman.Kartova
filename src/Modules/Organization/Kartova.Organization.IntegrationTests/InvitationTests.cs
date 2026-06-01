@@ -123,16 +123,22 @@ public sealed class InvitationTests : OrganizationIntegrationTestBase
                 body.Invitation.ExpiresAt > body.Invitation.InvitedAt,
                 $"ExpiresAt ({body.Invitation.ExpiresAt:o}) must be after InvitedAt ({body.Invitation.InvitedAt:o}).");
             Assert.IsFalse(string.IsNullOrWhiteSpace(body.InviteUrl), "InviteUrl must be non-empty.");
-            // Spec §9.2 step 8 + H4 API-1 fix: the URL carries the
-            // `?invitation=1` sentinel (auto-accept is keyed off the
-            // authenticated email, not a token) and an `email=<percent-encoded
-            // invitee email>` hint so the recipient sees the target address
-            // and the SPA can pass it to KC's login_hint in a follow-up.
-            var expectedSuffix =
-                $"/?invitation=1&email={Uri.EscapeDataString(inviteeEmail.ToLowerInvariant())}";
-            Assert.IsTrue(
-                body.InviteUrl.EndsWith(expectedSuffix, StringComparison.Ordinal),
-                $"InviteUrl must end with '{expectedSuffix}'. Actual: {body.InviteUrl}");
+            // The invite URL carries an opaque single-use token (NOT the email):
+            // "{frontendBase}/accept-invitation?token={plaintext}". Only the token's
+            // SHA-256 hash is persisted; acceptance is keyed off the pre-created KC
+            // user at the OIDC callback. (Invitation set-password flow.)
+            var inviteUri = new Uri(body.InviteUrl);
+            Assert.AreEqual(
+                "/accept-invitation", inviteUri.AbsolutePath,
+                $"InviteUrl path must be /accept-invitation. Actual: {body.InviteUrl}");
+            var inviteToken = System.Web.HttpUtility.ParseQueryString(inviteUri.Query)["token"];
+            Assert.IsFalse(
+                string.IsNullOrWhiteSpace(inviteToken),
+                $"InviteUrl must carry a non-empty token. Actual: {body.InviteUrl}");
+            // The email must never leak into the URL (privacy + the old sentinel is gone).
+            StringAssert.DoesNotMatch(
+                body.InviteUrl,
+                new System.Text.RegularExpressions.Regex("email=|invitation=1"));
 
             // BYPASSRLS verification: the invitations row + users projection row
             // both committed under the request's per-tenant scope.
