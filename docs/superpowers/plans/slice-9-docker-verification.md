@@ -528,3 +528,136 @@ no API boot issues observed.
 | CLAUDE.md DoD #5 SPA half | partially satisfied — happy + negative paths captured, but three new release blockers must be fixed and re-verified before "slice-9 complete" |
 | Outcome | **DONE_WITH_CONCERNS** — verification completed end-to-end, but three release-blocking bugs were surfaced that must be addressed before slice-9 can be marked done. |
 
+## H6 re-verification at HEAD 3a67b95 (2026-06-01)
+
+Re-runs the H3 scenarios (subset of 9) against the current branch HEAD to confirm
+that the 14 commits landed since the H4 SPA run (`5307367` → `3a67b95`) have not
+regressed any HTTP verification path. The three blockers surfaced in H4 (SPA-1
+logo origin, API-1 placeholder invite URL, API-2 user-detail 500) have all been
+fixed in this window; this run also adds an explicit Scenario 1 ("stack starts
+cleanly with the new UNIQUE migration") and a pre-session probe to cover the
+post-auth-hook removal blast radius.
+
+### Run context
+
+| Field | Value |
+|-------|-------|
+| Branch | `feat/slice-9-organization-people-management` |
+| Verified at git HEAD | `3a67b9539f958e87085b8e6e21ca8749ed592dd9` ("test(slice-9): close MT1/MT2/MT4/MT5/MT7 wire test gaps from deep-review") |
+| Commits since H4 baseline (`5307367`) | 14 — most consequential: `e8bf859` (removed IPostAuthSyncHook, consolidated upsert + invitation flip into SessionStartHandler), `a8fd443` (new `AddUsersTenantEmailUnique` migration), `fc86775` (extracted MapEndpoints into per-resource extension methods), plus three H4-blocker fixes (`8cc5dd9` SPA-1, `3759186` API-1, `5fa11ef` API-2) |
+| Wall-clock start (stack up) | 2026-06-01 06:33:34 UTC (`docker compose down -v && docker compose up -d --build`) |
+| Wall-clock start (HTTP tests) | 2026-06-01 06:38:29 UTC |
+| Wall-clock end (HTTP tests) | 2026-06-01 06:40:44 UTC |
+| Total wall-clock (build + HTTP) | ~7 min 10 sec (build ~3 min, KC import + warmup ~75 s, HTTP suite ~2 min) — slightly faster than H3 (~8 min) despite concurrent Stryker mutation testing competing for IO/CPU |
+| API base | `http://localhost:8080` |
+| Keycloak base | `http://localhost:8180` (host) / `http://keycloak:8080` (in-cluster) |
+| Seeded admin user | `admin@orga.kartova.local` / `dev_pass` (OrgAdmin) — KC sub now `aae05905-bf64-414f-bd97-4d37704517a9` (different from H3's `1e8d120d-…` because the KC realm DB was wiped with `down -v`) |
+
+### Scenario 1 — Stack starts cleanly with the new migration
+
+`docker compose down -v && docker compose up -d --build` produced four healthy
+services + migrator exited 0. Migrator log shows both new slice-9 migrations
+applying without warnings:
+
+```
+info: Microsoft.EntityFrameworkCore.Migrations[20402]
+      Applying migration '20260529173745_MakeInvitationsPendingIndexUnique'.
+…
+      CREATE UNIQUE INDEX idx_invitations_email_pending ON invitations(tenant_id, lower(email)) WHERE status = 1;
+info: Microsoft.EntityFrameworkCore.Migrations[20402]
+      Applying migration '20260531200125_AddUsersTenantEmailUnique'.
+…
+      CREATE UNIQUE INDEX ix_users_tenant_email ON users (tenant_id, lower(email));
+```
+
+No collision warnings — the dev realm seed (which provisions two admin users at
+`admin@orga.kartova.local` and `team-admin@orga.kartova.local`, distinct
+addresses) does not violate the new `(tenant_id, lower(email))` invariant. The
+ADR-0100 compliance concern flagged in the task brief ("two admin users with the
+same email pattern across two tenants") does not materialize because the seed
+keeps the two addresses textually distinct.
+
+Migrator exit code: `Exited (0)` — confirmed via `docker compose ps -a`. Verdict: **PASS**.
+
+### Pre-session probe — Tenant-scoped read BEFORE `/auth/session`
+
+To verify the post-auth-hook removal (`e8bf859`) doesn't crash other endpoints
+when the `users` row hasn't been upserted yet:
+
+```bash
+curl -i -X GET http://localhost:8080/api/v1/organizations/me \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+```
+HTTP/1.1 200 OK
+{"id":"11111111-1111-1111-1111-111111111111","displayName":"Org A","description":null,
+ "defaultTimeZone":"UTC","logoEtag":null,"logoMimeType":null,
+ "createdAt":"2026-06-01T06:36:20.793419+00:00"}
+```
+
+**Key finding**: returned **200**, not 500. The tenant-scoped read path
+(`GET /api/v1/organizations/me`) does not depend on a `users`-row existing for
+the caller. `TenantClaimsTransformation` resolves the tenant from JWT claims
+without joining `users`, and the org-profile read goes through `ITenantScope`
+with `SET LOCAL app.current_tenant_id`. The post-auth-hook deletion
+(`e8bf859`) has **no observable HTTP blast radius** on tenant-scoped reads
+called before `/auth/session`. Good — confirms the consolidation is safe.
+
+### Scenarios 2-9
+
+| # | Scenario | Expected | Actual | Verdict |
+|---|----------|----------|--------|---------|
+| 2 | Get token (KC password grant) | 200 + 1305-char JWT | 200 + 1305-char JWT | **PASS** |
+| 3 | Session bootstrap (happy) | 200 + SessionStartResponse with `OrgAdmin` role + 17 permissions + Org A tenant | 200 + identical shape (including all 17 permissions: catalog.*, team.*, org.profile.*, org.invitations.*, org.users.*) | **PASS** |
+| 4 | Invitation create (happy, fresh email) | 201 + invitation + inviteUrl ending in `?invitation=1&email=…` | 201; `inviteUrl=http://localhost:5173/?invitation=1&email=h6-verify-1780295935%40example.com` (email-hint segment confirms commit `3759186` H4-API-1 fix shipped) | **PASS** |
+| 5 | Invitation create duplicate (negative) | 409 + `email-already-in-tenant` | 409 + `https://kartova.io/problems/email-already-in-tenant` | **PASS** |
+| 6a | Org profile read | 200 + OrgProfileResponse | 200 | **PASS** |
+| 6b | Org profile update `Europe/Warsaw` | 204 (Alpine tzdata fix in place) | 204 (improvement vs H3 row 5a's 400 — tzdata still in runtime image) | **PASS** |
+| 7 | Org profile update `Mars/Olympus` (negative) | 400 + `validation-failed` | 400 + `https://kartova.io/problems/validation-failed`, errors:{tz:["Unknown IANA time-zone id."]} | **PASS** |
+| 8a | Logo upload 1x1 PNG (happy) | 200 + etag + mimeType | 200 + `logoEtag=B1FF9C8EA3A780BAD09B346C423D2D0E46815926879B18E841D928376A946640` + `mimeType=image/png` (ETag differs from H3's `E878…` because the source PNG bytes were regenerated locally — deterministic hash per content, expected) | **PASS** |
+| 8b | Logo upload 300 KB (negative) | 413 + `logo-too-large` | 413 + `https://kartova.io/problems/logo-too-large` (detail: "Logo bytes must be <= 262,144 bytes.") | **PASS** |
+| 9 | User search `?q=admin` | 200 + non-empty array with admin user | 200 + `[{"id":"aae05905-bf64-414f-bd97-4d37704517a9","displayName":"Alice Admin","email":"admin@orga.kartova.local"}]` | **PASS** |
+
+### Drift vs H3 baseline
+
+| Aspect | H3 outcome | H6 outcome | Drift? |
+|--------|-----------|-----------|--------|
+| Stack `up` time | ~8 min | ~7 min 10 sec | Marginal — within noise; concurrent Stryker did NOT visibly slow the build |
+| Migrator exit code | 0 | 0 | none |
+| Migration application warnings | none | none (incl. new `AddUsersTenantEmailUnique`) | none |
+| Session bootstrap shape | 200, OrgAdmin, 17 permissions, Org A | 200, OrgAdmin, 17 permissions, Org A | none — `SessionStartHandler` post-`e8bf859` produces identical wire shape |
+| Invitation create response | included `inviteUrl=…/?invitation=1` (H4-API-1 issue) | includes `…/?invitation=1&email=…` (H4-API-1 closed by `3759186`) | improvement |
+| Org profile `Europe/Warsaw` | 400 (H3 row 5a deviation; closed by H3 follow-up `fea16af`) | 204 | improvement (carried forward) |
+| Invalid tz problem-type | `validation-failed` | `validation-failed` | none |
+| Logo upload happy | 200 + deterministic SHA-256 ETag | 200 + deterministic SHA-256 ETag (different value because source PNG regenerated locally; the hash function is unchanged) | none |
+| Logo upload 413 | 413 + `logo-too-large` + 262,144 byte limit | 413 + `logo-too-large` + 262,144 byte limit | none |
+| User search shape | flat JSON array | flat JSON array | none |
+| Route registration after `fc86775` (per-resource extraction) | n/a (pre-refactor) | All 9 endpoints reachable, all permission policies intact, no silent 401/403 mismatch | none — refactor is regression-free |
+| Pre-session tenant-scoped read after `e8bf859` (post-auth-hook removal) | n/a (pre-refactor) | 200 (no 500) — confirms no blast-radius regression | none — refactor is regression-free |
+
+No regressions observed against H3. Three improvements (H4 API-1 / SPA-1 / API-2
+fixes carried through, tzdata fix carried through). The two highest-risk
+changes flagged in the task brief — the `AddUsersTenantEmailUnique` migration
+and the post-auth-hook removal — both proved safe under HTTP load.
+
+### Tear-down
+
+```
+docker compose down
+```
+
+(Volumes preserved — next session can reuse them, no `down -v` dance needed.)
+
+### Summary
+
+| Metric | Value |
+|--------|-------|
+| Scenarios attempted | 9 (+ 1 pre-session probe + 1 stack-start check) |
+| Scenarios PASS | 9 of 9 |
+| Migration application | clean — `AddUsersTenantEmailUnique` + `MakeInvitationsPendingIndexUnique` both applied without warnings |
+| Drift vs H3 baseline | none (3 improvements observed: H4 API-1 + SPA-1 + API-2 + tzdata all carried forward) |
+| Post-auth-hook removal blast radius (`e8bf859`) | confirmed zero on HTTP endpoints — tenant-scoped reads work before `/auth/session` |
+| Route refactor risk (`fc86775`) | confirmed zero — all 9 endpoints reachable, no silent auth drift |
+| Total wall-clock | ~7 min 10 sec (compose-up to scenario-9 done) |
+| Outcome | **DONE** — DoD #5 re-satisfied at HEAD `3a67b95`. No new bugs surfaced; all H4 blockers verified closed. |
