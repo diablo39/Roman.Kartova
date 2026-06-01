@@ -53,6 +53,8 @@ public sealed class Invitation : ITenantOwned
         ArgumentNullException.ThrowIfNull(clock);
         if (Status != InvitationStatus.Pending)
             throw new InvalidOperationException($"Cannot set credential on invitation in {Status} state.");
+        if (CredentialSetAt is not null)
+            throw new InvalidOperationException("Credential already set for this invitation.");
         CredentialSetAt = clock.GetUtcNow();
         TokenHash = null;
     }

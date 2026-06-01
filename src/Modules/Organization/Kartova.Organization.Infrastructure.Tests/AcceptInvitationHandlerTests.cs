@@ -4,6 +4,7 @@ using Kartova.Organization.Infrastructure.Admin;
 using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -31,7 +32,7 @@ public sealed class AcceptInvitationHandlerTests
         AdminOrganizationDbContext db,
         IKeycloakAdminClient kc,
         FakeTimeProvider clock) =>
-        new(db, kc, clock);
+        new(db, kc, clock, NullLogger<AcceptInvitationHandler>.Instance);
 
     // ------------------------------------------------------------------ helpers
 
@@ -425,6 +426,75 @@ public sealed class AcceptInvitationHandlerTests
         var failed = result as AcceptInvitationResult.Failed;
         Assert.IsNotNull(failed);
         Assert.AreEqual(AcceptInvitationError.Upstream, failed!.Error);
+    }
+
+    // =================================================================
+    // AcceptAsync — boundary validation (password length limits, null password, displayName limit)
+    // =================================================================
+
+    [TestMethod]
+    public async Task AcceptAsync_password_length_129_returns_Validation_kc_not_called()
+    {
+        var opts = NewOptions();
+        var clock = new FakeTimeProvider(T0);
+        var tenant = new TenantId(Guid.NewGuid());
+
+        await using var db = new AdminOrganizationDbContext(opts);
+        SeedPendingInvitation(db, tenant, clock);
+
+        var kc = Substitute.For<IKeycloakAdminClient>();
+        var sut = MakeSut(db, kc, clock);
+
+        // 129 chars — one over the 128-char maximum.
+        var result = await sut.AcceptAsync(Token, new string('a', 129), "Alice", CancellationToken.None);
+
+        var failed = result as AcceptInvitationResult.Failed;
+        Assert.IsNotNull(failed);
+        Assert.AreEqual(AcceptInvitationError.Validation, failed!.Error);
+        await kc.DidNotReceive().SetPasswordAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task AcceptAsync_null_password_returns_Validation_kc_not_called()
+    {
+        var opts = NewOptions();
+        var clock = new FakeTimeProvider(T0);
+        var tenant = new TenantId(Guid.NewGuid());
+
+        await using var db = new AdminOrganizationDbContext(opts);
+        SeedPendingInvitation(db, tenant, clock);
+
+        var kc = Substitute.For<IKeycloakAdminClient>();
+        var sut = MakeSut(db, kc, clock);
+
+        var result = await sut.AcceptAsync(Token, null!, "Alice", CancellationToken.None);
+
+        var failed = result as AcceptInvitationResult.Failed;
+        Assert.IsNotNull(failed);
+        Assert.AreEqual(AcceptInvitationError.Validation, failed!.Error);
+        await kc.DidNotReceive().SetPasswordAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task AcceptAsync_displayName_length_129_returns_Validation_kc_not_called()
+    {
+        var opts = NewOptions();
+        var clock = new FakeTimeProvider(T0);
+        var tenant = new TenantId(Guid.NewGuid());
+
+        await using var db = new AdminOrganizationDbContext(opts);
+        SeedPendingInvitation(db, tenant, clock);
+
+        var kc = Substitute.For<IKeycloakAdminClient>();
+        var sut = MakeSut(db, kc, clock);
+
+        // 129 chars — one over the 128-char maximum for display name.
+        var result = await sut.AcceptAsync(Token, "ValidP@ssword1!", new string('a', 129), CancellationToken.None);
+
+        var failed = result as AcceptInvitationResult.Failed;
+        Assert.IsNotNull(failed);
+        Assert.AreEqual(AcceptInvitationError.Validation, failed!.Error);
+        await kc.DidNotReceive().SetPasswordAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
     }
 
     // =================================================================

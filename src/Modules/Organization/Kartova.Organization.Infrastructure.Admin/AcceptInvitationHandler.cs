@@ -2,6 +2,7 @@ using Kartova.Organization.Contracts;
 using Kartova.Organization.Domain;
 using Kartova.SharedKernel.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Kartova.Organization.Infrastructure.Admin;
 
@@ -33,7 +34,8 @@ internal abstract record AcceptInvitationResult
 public sealed class AcceptInvitationHandler(
     AdminOrganizationDbContext db,
     IKeycloakAdminClient kc,
-    TimeProvider clock)
+    TimeProvider clock,
+    ILogger<AcceptInvitationHandler> logger)
 {
     private const int MinPasswordLength = 12;
     private const int MaxPasswordLength = 128;
@@ -95,16 +97,21 @@ public sealed class AcceptInvitationHandler(
         {
             // KC user was deleted (e.g. revoked / expired cleanup won a race).
             // The link is effectively gone — treat as already-used.
+            logger.LogWarning(ex, "Accept-invitation: KC user {KcUserId} not found (revoked/expired race); treating as already-used.", kcId);
             return new AcceptInvitationResult.Failed(AcceptInvitationError.GoneAlreadyUsed);
         }
-        catch (KeycloakAdminException)
+        catch (KeycloakAdminException ex)
         {
             // Any other KC error (network, 5xx, unexpected) — surface as Upstream
             // so the HTTP route can map it to 502 Bad Gateway.
+            logger.LogError(ex, "Accept-invitation: KC {KcError} finalizing user {KcUserId}; surfacing as Upstream.", ex.Error, kcId);
             return new AcceptInvitationResult.Failed(AcceptInvitationError.Upstream);
         }
 
-        // Burns the token (TokenHash → null) and stamps CredentialSetAt.
+        // Burns the token (TokenHash → null) and stamps CredentialSetAt so the link
+        // cannot be replayed: a re-submitted token resolves to not-found (null hash ≠ any stored hash).
+        // Strict atomic compare-and-swap is intentionally NOT used — the concurrent same-token
+        // case is benign (idempotent same-user password set).
         // Status intentionally stays Pending — it flips to Accepted on first login
         // once the OIDC session is established (spec §6).
         inv.MarkCredentialSet(clock);
@@ -113,7 +120,7 @@ public sealed class AcceptInvitationHandler(
     }
 
     // Loads the invitation TRACKED (AcceptAsync mutates it). A burned token has
-    // TokenHash = null and is therefore simply not found — that is the single-use guard.
+    // TokenHash = null and resolves to not-found — that is the single-use enforcement mechanism.
     private async Task<(Invitation?, AcceptInvitationError?)> ResolveAsync(string token, CancellationToken ct)
     {
         if (string.IsNullOrEmpty(token)) return (null, AcceptInvitationError.NotFound);

@@ -73,7 +73,7 @@ internal static class InvitationAcceptRoutes
             AcceptInvitationResult.Failed { Error: AcceptInvitationError.Validation } => Results.Problem(
                 type: ProblemTypes.ValidationFailed,
                 title: "Password or display name invalid",
-                detail: "Password must be at least 12 characters and meet complexity requirements. Display name must be non-empty.",
+                detail: "Password must be 12–128 characters (complexity enforced by the identity provider). Display name must be non-empty.",
                 statusCode: StatusCodes.Status400BadRequest),
             AcceptInvitationResult.Failed { Error: AcceptInvitationError.NotFound } => Results.Problem(
                 type: ProblemTypes.ResourceNotFound,
@@ -97,6 +97,7 @@ internal static class InvitationAcceptRoutes
         };
     }
 
+    // Token rides in the URL query string, so suppress the Referer header (spec D5 token-leak mitigation).
     private static void NoReferrer(HttpContext ctx) =>
         ctx.Response.Headers["Referrer-Policy"] = "no-referrer";
 }

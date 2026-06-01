@@ -18,7 +18,7 @@ public sealed record UpdateKeycloakUserRequest(
     IReadOnlyList<string> RequiredActions);
 
 /// <summary>
-/// Slim domain projection of a Keycloak user. Note: the <c>tenantId</c> custom
+/// Slim domain projection of a Keycloak user. Note: the <c>tenant_id</c> custom
 /// attribute IS persisted server-side on user creation (see
 /// <see cref="KeycloakAdminClient.CreateUserAsync"/>), but KC 26's
 /// <c>GET /users/{id}</c> omits custom attributes by default — and consumers

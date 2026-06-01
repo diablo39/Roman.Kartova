@@ -160,4 +160,20 @@ public sealed class InvitationTests
         // Act + Assert: guard must fire.
         Assert.ThrowsExactly<InvalidOperationException>(() => inv.MarkCredentialSet(clock));
     }
+
+    [TestMethod]
+    public void MarkCredentialSet_throws_on_second_call_even_when_still_pending()
+    {
+        // Arrange: Pending invitation with first call succeeding.
+        var clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-05-27T10:00:00Z"));
+        var inv = Invitation.Create("a@b.com", KartovaRoles.Member, Guid.NewGuid(),
+            Guid.NewGuid(), new TenantId(Guid.NewGuid()), clock, tokenHash: "HASH");
+
+        // First call must succeed.
+        inv.MarkCredentialSet(clock);
+        Assert.IsNotNull(inv.CredentialSetAt);
+
+        // Second call must throw — credential already set.
+        Assert.ThrowsExactly<InvalidOperationException>(() => inv.MarkCredentialSet(clock));
+    }
 }

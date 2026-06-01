@@ -179,8 +179,9 @@ public class Program
         // Rate limiter — per-IP fixed window for anonymous accept-invitation endpoints.
         // 10 requests/minute per remote IP; queue = 0 (surplus requests rejected immediately).
         // Rejection returns 429 Too Many Requests.
-        // NOTE: token rides in the query string on GET /accept; if request/HTTP logging is
-        // added later, exclude the `token` query param to prevent token leakage in logs.
+        // NOTE: token rides in the query string on GET /api/v1/invitations/accept; if
+        // request/HTTP logging is added later, exclude the `token` query param to prevent
+        // token leakage in logs.
         builder.Services.AddRateLimiter(o =>
         {
             o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
