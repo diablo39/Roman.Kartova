@@ -5,15 +5,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Kartova.Organization.Infrastructure.Admin;
 
-public enum AcceptInvitationError { NotFound, GoneExpired, GoneRevoked, GoneAlreadyUsed, Validation, Upstream }
+internal enum AcceptInvitationError { NotFound, GoneExpired, GoneRevoked, GoneAlreadyUsed, Validation, Upstream }
 
-public abstract record GetAcceptContextResult
+internal abstract record GetAcceptContextResult
 {
     public sealed record Ok(InvitationAcceptContext Context) : GetAcceptContextResult;
     public sealed record Failed(AcceptInvitationError Error) : GetAcceptContextResult;
 }
 
-public abstract record AcceptInvitationResult
+internal abstract record AcceptInvitationResult
 {
     public sealed record Ok(string Email) : AcceptInvitationResult;
     public sealed record Failed(AcceptInvitationError Error) : AcceptInvitationResult;
@@ -44,7 +44,7 @@ public sealed class AcceptInvitationHandler(
     /// (org name, inviter display name, email, role, expiry).
     /// Does NOT mutate state.
     /// </summary>
-    public async Task<GetAcceptContextResult> GetContextAsync(string token, CancellationToken ct)
+    internal async Task<GetAcceptContextResult> GetContextAsync(string token, CancellationToken ct)
     {
         var (inv, error) = await ResolveAsync(token, ct);
         if (inv is null) return new GetAcceptContextResult.Failed(error!.Value);
@@ -72,7 +72,7 @@ public sealed class AcceptInvitationHandler(
     /// via <see cref="Invitation.MarkCredentialSet"/> (TokenHash → null, CredentialSetAt
     /// stamped) so the link cannot be replayed.
     /// </summary>
-    public async Task<AcceptInvitationResult> AcceptAsync(
+    internal async Task<AcceptInvitationResult> AcceptAsync(
         string token, string password, string displayName, CancellationToken ct)
     {
         var (inv, error) = await ResolveAsync(token, ct);

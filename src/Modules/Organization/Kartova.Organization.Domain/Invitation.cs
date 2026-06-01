@@ -51,6 +51,8 @@ public sealed class Invitation : ITenantOwned
     public void MarkCredentialSet(TimeProvider clock)
     {
         ArgumentNullException.ThrowIfNull(clock);
+        if (Status != InvitationStatus.Pending)
+            throw new InvalidOperationException($"Cannot set credential on invitation in {Status} state.");
         CredentialSetAt = clock.GetUtcNow();
         TokenHash = null;
     }

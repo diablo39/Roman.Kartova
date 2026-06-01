@@ -147,4 +147,17 @@ public sealed class InvitationTests
         Assert.IsNotNull(inv.CredentialSetAt);
         Assert.AreEqual(InvitationStatus.Pending, inv.Status);
     }
+
+    [TestMethod]
+    public void MarkCredentialSet_throws_when_not_pending()
+    {
+        // Arrange: move invitation to a non-Pending state.
+        var clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-05-27T10:00:00Z"));
+        var inv = Invitation.Create("a@b.com", KartovaRoles.Member, Guid.NewGuid(),
+            Guid.NewGuid(), new TenantId(Guid.NewGuid()), clock, tokenHash: "HASH");
+        inv.MarkAccepted(clock);
+
+        // Act + Assert: guard must fire.
+        Assert.ThrowsExactly<InvalidOperationException>(() => inv.MarkCredentialSet(clock));
+    }
 }

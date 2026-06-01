@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using JasperFx;
 using Kartova.Catalog.Infrastructure;
 using Kartova.Organization.Application;
@@ -175,16 +176,23 @@ public class Program
             }
         });
 
-        // Rate limiter — fixed window for anonymous accept-invitation endpoints.
-        // 10 requests/minute per client; queue = 0 (surplus requests rejected immediately).
+        // Rate limiter — per-IP fixed window for anonymous accept-invitation endpoints.
+        // 10 requests/minute per remote IP; queue = 0 (surplus requests rejected immediately).
+        // Rejection returns 429 Too Many Requests.
+        // NOTE: token rides in the query string on GET /accept; if request/HTTP logging is
+        // added later, exclude the `token` query param to prevent token leakage in logs.
         builder.Services.AddRateLimiter(o =>
         {
-            o.AddFixedWindowLimiter(Kartova.Organization.Infrastructure.Admin.InvitationAcceptRoutes.RateLimitPolicy, opt =>
-            {
-                opt.PermitLimit = 10;
-                opt.Window = TimeSpan.FromMinutes(1);
-                opt.QueueLimit = 0;
-            });
+            o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            o.AddPolicy(Kartova.Organization.Infrastructure.Admin.InvitationAcceptRoutes.RateLimitPolicy, httpCtx =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: httpCtx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 10,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                    }));
         });
 
         // Health checks — ADR-0060.
