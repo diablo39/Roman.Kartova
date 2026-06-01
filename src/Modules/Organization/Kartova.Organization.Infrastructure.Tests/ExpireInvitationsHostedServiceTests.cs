@@ -160,6 +160,71 @@ public sealed class ExpireInvitationsHostedServiceTests
     }
 
     [TestMethod]
+    public async Task ExpireDueAsync_propagates_non_NotFound_KC_error_and_aborts_before_save()
+    {
+        // MT4 (= slice-9 carry-forward item 12): the loop must propagate any
+        // non-NotFound KeycloakAdminException AND abort before SaveChangesAsync
+        // runs. The two seeded invitations are processed in EF iteration order;
+        // throwing on the FIRST KC delete means BOTH rows must still be Pending
+        // when ops inspects the table — no partial commit (the surviving row
+        // is critical; a partial flip would silently mask the failure on the
+        // next sweep tick).
+        var opts = NewOptions();
+        var clock = new FakeTimeProvider(T0);
+        var tenant = new TenantId(Guid.NewGuid());
+        var kc = Substitute.For<IKeycloakAdminClient>();
+
+        Guid firstKcId, secondKcId;
+        await using (var seedDb = new AdminOrganizationDbContext(opts))
+        {
+            var first = Invitation.Create("alice@example.com", KartovaRoles.Member,
+                invitedByUserId: Guid.NewGuid(), keycloakUserId: Guid.NewGuid(),
+                tenantId: tenant, clock: clock);
+            var second = Invitation.Create("bob@example.com", KartovaRoles.Member,
+                invitedByUserId: Guid.NewGuid(), keycloakUserId: Guid.NewGuid(),
+                tenantId: tenant, clock: clock);
+            firstKcId = first.KeycloakUserId!.Value;
+            secondKcId = second.KeycloakUserId!.Value;
+            seedDb.Invitations.Add(first);
+            seedDb.Invitations.Add(second);
+            await seedDb.SaveChangesAsync();
+        }
+
+        // Throw on the FIRST id — the second is never reached. Use
+        // KeycloakAdminError.Unexpected to exercise the non-NotFound branch
+        // (the swallowed-NotFound branch is covered by the sibling test).
+        kc.DeleteUserAsync(firstKcId, Arg.Any<CancellationToken>())
+            .ThrowsAsync(new KeycloakAdminException(KeycloakAdminError.Unexpected, "KC down"));
+
+        clock.Advance(TimeSpan.FromDays(8));
+        await using var sp = BuildServices(opts, kc, clock);
+        var (sut, hostSp) = BuildSut(clock);
+        await using var _hostSp = hostSp;
+
+        // The exception must surface to the caller — the base class's
+        // LeaderElectedPeriodicService swallows + logs at the periodic tick,
+        // but ExpireDueAsync itself (the unit under test) propagates.
+        await Assert.ThrowsExactlyAsync<KeycloakAdminException>(
+            () => sut.ExpireDueAsync(sp, CancellationToken.None));
+
+        // Critical invariant: NEITHER row was flipped. SaveChangesAsync runs
+        // AFTER the loop, so a throw in the loop aborts before the save,
+        // leaving both rows Pending.
+        await using (var assertDb = new AdminOrganizationDbContext(opts))
+        {
+            var rows = await assertDb.Invitations.OrderBy(i => i.Email).ToListAsync();
+            Assert.AreEqual(2, rows.Count);
+            Assert.IsTrue(rows.All(r => r.Status == InvitationStatus.Pending),
+                "No partial commit: both invitations must still be Pending after the abort.");
+        }
+
+        // The KC delete was called exactly once for the first id; the second
+        // never ran because the loop aborted.
+        await kc.Received(1).DeleteUserAsync(firstKcId, Arg.Any<CancellationToken>());
+        await kc.DidNotReceive().DeleteUserAsync(secondKcId, Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
     public async Task ExpireDueAsync_swallows_KC_NotFound_and_still_marks_expired()
     {
         // Idempotency contract: if the KC user was already deleted (or never existed),

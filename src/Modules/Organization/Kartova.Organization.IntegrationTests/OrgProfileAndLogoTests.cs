@@ -324,6 +324,177 @@ public sealed class OrgProfileAndLogoTests : OrganizationIntegrationTestBase
         }
     }
 
+    // ---------- MT1 (slice-9 carry-forward): unsupported Content-Type → 415 ---
+
+    [TestMethod]
+    public async Task Logo_upload_with_unsupported_content_type_returns_415()
+    {
+        // The endpoint enforces a fixed Content-Type allow-list
+        // (image/png|jpeg|svg+xml) BEFORE LogoCommands.UploadAsync runs. A
+        // request with image/gif must short-circuit at the delegate guard and
+        // surface ProblemTypes.UnsupportedLogoMedia — never the 422 magic-byte
+        // failure mode (which is for the *content* not matching its declared
+        // type) or the 413 size-limit failure.
+        var (adminEmail, tenantId) = await NewTenantAsync("logo-415-gif");
+        try
+        {
+            var client = await Fx.CreateAuthenticatedClientAsync(
+                adminEmail, new[] { KartovaRoles.OrgAdmin });
+
+            // Any tiny payload is fine — the endpoint rejects on Content-Type
+            // alone before reading the body.
+            var content = new ByteArrayContent(new byte[] { 0x47, 0x49, 0x46 });
+            content.Headers.ContentType = new MediaTypeHeaderValue("image/gif");
+
+            var resp = await client.PutAsync("/api/v1/organizations/me/logo", content);
+            Assert.AreEqual(HttpStatusCode.UnsupportedMediaType, resp.StatusCode);
+
+            await using var problemStream = await resp.Content.ReadAsStreamAsync();
+            using var problemDoc = await JsonDocument.ParseAsync(problemStream);
+            Assert.AreEqual(
+                ProblemTypes.UnsupportedLogoMedia,
+                problemDoc.RootElement.GetProperty("type").GetString());
+
+            // 415 short-circuit — handler never ran, columns must be NULL.
+            var (bytes, mime, hash) = await Fx.ReadOrgLogoColumnsAsync(tenantId);
+            Assert.IsNull(bytes);
+            Assert.IsNull(mime);
+            Assert.IsNull(hash);
+        }
+        finally
+        {
+            await CleanupTenantOrgAsync(tenantId);
+        }
+    }
+
+    // ---------- MT2: declared JPEG but PNG bytes → 422 -----------------------
+
+    [TestMethod]
+    public async Task Logo_upload_declared_jpeg_with_png_bytes_returns_422()
+    {
+        // The endpoint passes the Content-Type allow-list (image/jpeg) but the
+        // body's magic bytes are PNG (0x89 0x50 0x4E 0x47). LogoValidation.MagicBytesMatch
+        // returns false; LogoCommands.UploadAsync surfaces Rejected("magic-byte mismatch").
+        // The endpoint maps that to a 422 with type=LogoInvalidContent and a detail
+        // line that contains "magic-byte".
+        var (adminEmail, tenantId) = await NewTenantAsync("logo-422-magic");
+        try
+        {
+            var client = await Fx.CreateAuthenticatedClientAsync(
+                adminEmail, new[] { KartovaRoles.OrgAdmin });
+
+            // PNG magic header — first 8 bytes are the spec'd PNG signature.
+            var pngBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0xDE, 0xAD };
+            var content = new ByteArrayContent(pngBytes);
+            content.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+
+            var resp = await client.PutAsync("/api/v1/organizations/me/logo", content);
+            Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
+
+            await using var problemStream = await resp.Content.ReadAsStreamAsync();
+            using var problemDoc = await JsonDocument.ParseAsync(problemStream);
+            Assert.AreEqual(
+                ProblemTypes.LogoInvalidContent,
+                problemDoc.RootElement.GetProperty("type").GetString());
+            var detail = problemDoc.RootElement.GetProperty("detail").GetString();
+            Assert.IsNotNull(detail);
+            StringAssert.Contains(detail!, "magic-byte",
+                "422 detail must surface the Rejected.Reason from LogoCommands.UploadAsync.");
+
+            // Persisted columns must remain NULL.
+            var (bytes, mime, hash) = await Fx.ReadOrgLogoColumnsAsync(tenantId);
+            Assert.IsNull(bytes);
+            Assert.IsNull(mime);
+            Assert.IsNull(hash);
+        }
+        finally
+        {
+            await CleanupTenantOrgAsync(tenantId);
+        }
+    }
+
+    // ---------- MT7: 256 KiB exact boundary + 256 KiB + 1 byte ---------------
+
+    [TestMethod]
+    public async Task Logo_upload_at_exactly_256_KiB_succeeds()
+    {
+        // OrgLogo.Create enforces `bytes.Length > 256 * 1024 ⇒ reject`. A
+        // payload at exactly 262144 bytes must therefore SUCCEED — boundary
+        // value test that complements the strictly-over-the-limit case below.
+        // Padding strategy: keep the JPEG magic + JFIF header bytes intact so
+        // MagicBytesMatch passes, then pad with 0x00 to hit 262144 total.
+        var (adminEmail, tenantId) = await NewTenantAsync("logo-256k-exact");
+        try
+        {
+            var client = await Fx.CreateAuthenticatedClientAsync(
+                adminEmail, new[] { KartovaRoles.OrgAdmin });
+
+            var payload = new byte[262144];
+            // First 3 bytes are FFD8FF — the JPEG magic LogoValidation checks.
+            payload[0] = 0xFF; payload[1] = 0xD8; payload[2] = 0xFF;
+            // The rest can be zero — magic-byte check is positional, not full-file.
+
+            var content = new ByteArrayContent(payload);
+            content.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+
+            var resp = await client.PutAsync("/api/v1/organizations/me/logo", content);
+            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+
+            var body = await resp.Content.ReadFromJsonAsync<UploadLogoResponse>(
+                KartovaApiFixtureBase.WireJson);
+            Assert.IsNotNull(body);
+            Assert.AreEqual("image/jpeg", body!.MimeType);
+            Assert.AreEqual(64, body.LogoEtag.Length);
+
+            // Persistence side-check: the persisted blob matches the input length.
+            var (bytes, _, _) = await Fx.ReadOrgLogoColumnsAsync(tenantId);
+            Assert.IsNotNull(bytes);
+            Assert.AreEqual(262144, bytes!.Length);
+        }
+        finally
+        {
+            await CleanupTenantOrgAsync(tenantId);
+        }
+    }
+
+    [TestMethod]
+    public async Task Logo_upload_at_256_KiB_plus_one_returns_413()
+    {
+        // Boundary-just-over-limit pair to MT7's success case: 262145 bytes
+        // must be rejected with 413 + LogoTooLarge. The endpoint's size check
+        // fires BEFORE LogoCommands.UploadAsync, so we don't need a structurally
+        // valid magic header here.
+        var (adminEmail, tenantId) = await NewTenantAsync("logo-256k-plus1");
+        try
+        {
+            var client = await Fx.CreateAuthenticatedClientAsync(
+                adminEmail, new[] { KartovaRoles.OrgAdmin });
+
+            var oversized = new byte[262145];
+            var content = new ByteArrayContent(oversized);
+            content.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+
+            var resp = await client.PutAsync("/api/v1/organizations/me/logo", content);
+            Assert.AreEqual(HttpStatusCode.RequestEntityTooLarge, resp.StatusCode);
+
+            await using var problemStream = await resp.Content.ReadAsStreamAsync();
+            using var problemDoc = await JsonDocument.ParseAsync(problemStream);
+            Assert.AreEqual(
+                ProblemTypes.LogoTooLarge,
+                problemDoc.RootElement.GetProperty("type").GetString());
+
+            // 413 short-circuit — handler never ran.
+            var (bytes, mime, hash) = await Fx.ReadOrgLogoColumnsAsync(tenantId);
+            Assert.IsNull(bytes);
+            Assert.IsNull(mime);
+            Assert.IsNull(hash);
+        }
+        finally
+        {
+            await CleanupTenantOrgAsync(tenantId);
+        }
+    }
+
     // ---------- helpers ------------------------------------------------------
 
     /// <summary>

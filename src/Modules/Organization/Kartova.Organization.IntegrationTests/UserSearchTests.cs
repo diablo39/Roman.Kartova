@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Kartova.Organization.Contracts;
+using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.Testing.Auth;
 
@@ -209,6 +211,70 @@ public sealed class UserSearchTests : OrganizationIntegrationTestBase
     }
 
     // ---------- helpers ------------------------------------------------------
+
+    // ---------- MT5 (slice-9 carry-forward): typeahead query validation ------
+
+    [TestMethod]
+    public async Task User_search_empty_query_returns_422_ValidationFailed()
+    {
+        // The endpoint trims `q` and rejects empty/whitespace-only with 422 +
+        // type=validation-failed + detail "Query 'q' is required.".
+        // Distinct from the "too short" branch below.
+        var (adminEmail, tenantId) = await NewTenantAsync("user-search-empty");
+        try
+        {
+            var client = await Fx.CreateAuthenticatedClientAsync(
+                adminEmail, new[] { KartovaRoles.OrgAdmin });
+
+            var resp = await client.GetAsync("/api/v1/organizations/users?q=");
+            Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
+
+            await using var stream = await resp.Content.ReadAsStreamAsync();
+            using var doc = await JsonDocument.ParseAsync(stream);
+            Assert.AreEqual(
+                ProblemTypes.ValidationFailed,
+                doc.RootElement.GetProperty("type").GetString());
+            var detail = doc.RootElement.GetProperty("detail").GetString();
+            Assert.IsNotNull(detail);
+            StringAssert.Contains(detail!, "required",
+                "Empty `q` must surface the 'required' branch — not the 'too short' branch.");
+        }
+        finally
+        {
+            await Fx.DeleteOrganizationsForTenantAsync(tenantId);
+        }
+    }
+
+    [TestMethod]
+    public async Task User_search_single_char_query_returns_422_ValidationFailed()
+    {
+        // The endpoint's "at least 2 characters" branch fires for trimmed
+        // single-character queries. Detail must contain "at least 2 characters"
+        // so this kills any mutant that swaps the two 422 branches.
+        var (adminEmail, tenantId) = await NewTenantAsync("user-search-short");
+        try
+        {
+            var client = await Fx.CreateAuthenticatedClientAsync(
+                adminEmail, new[] { KartovaRoles.OrgAdmin });
+
+            var resp = await client.GetAsync("/api/v1/organizations/users?q=a");
+            Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
+
+            await using var stream = await resp.Content.ReadAsStreamAsync();
+            using var doc = await JsonDocument.ParseAsync(stream);
+            Assert.AreEqual(
+                ProblemTypes.ValidationFailed,
+                doc.RootElement.GetProperty("type").GetString());
+            var detail = doc.RootElement.GetProperty("detail").GetString();
+            Assert.IsNotNull(detail);
+            StringAssert.Contains(detail!, "at least 2 characters",
+                "Single-char `q` must surface the 'too short' branch with the exact threshold message.");
+        }
+        finally
+        {
+            await Fx.DeleteOrganizationsForTenantAsync(tenantId);
+        }
+    }
 
     /// <summary>
     /// Issues a typed GET against the user-search endpoint and deserializes
