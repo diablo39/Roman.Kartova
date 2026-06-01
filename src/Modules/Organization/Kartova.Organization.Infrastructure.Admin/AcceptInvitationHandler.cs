@@ -97,6 +97,12 @@ public sealed class AcceptInvitationHandler(
             // The link is effectively gone — treat as already-used.
             return new AcceptInvitationResult.Failed(AcceptInvitationError.GoneAlreadyUsed);
         }
+        catch (KeycloakAdminException)
+        {
+            // Any other KC error (network, 5xx, unexpected) — surface as Upstream
+            // so the HTTP route can map it to 502 Bad Gateway.
+            return new AcceptInvitationResult.Failed(AcceptInvitationError.Upstream);
+        }
 
         // Burns the token (TokenHash → null) and stamps CredentialSetAt.
         // Status intentionally stays Pending — it flips to Accepted on first login

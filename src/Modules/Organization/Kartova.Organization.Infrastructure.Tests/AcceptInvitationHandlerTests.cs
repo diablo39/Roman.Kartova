@@ -262,12 +262,13 @@ public sealed class AcceptInvitationHandlerTests
         // KC: SetPasswordAsync called once with correct arguments (temporary=false)
         await kc.Received(1).SetPasswordAsync(kcUserId, "ValidP@ssword1!", false, Arg.Any<CancellationToken>());
 
-        // KC: UpdateUserAsync called once — EmailVerified=true, FirstName trimmed, RequiredActions empty
+        // KC: UpdateUserAsync called once — EmailVerified=true, FirstName trimmed, LastName null, RequiredActions empty
         await kc.Received(1).UpdateUserAsync(
             kcUserId,
             Arg.Is<UpdateKeycloakUserRequest>(r =>
                 r.EmailVerified == true &&
                 r.FirstName == "Alice" &&            // whitespace trimmed
+                r.LastName == null &&
                 r.RequiredActions.Count == 0),
             Arg.Any<CancellationToken>());
 
@@ -360,6 +361,70 @@ public sealed class AcceptInvitationHandlerTests
         var failed = result as AcceptInvitationResult.Failed;
         Assert.IsNotNull(failed);
         Assert.AreEqual(AcceptInvitationError.GoneAlreadyUsed, failed!.Error);
+    }
+
+    // =================================================================
+    // AcceptAsync — Status==Accepted (token still present) → GoneAlreadyUsed
+    // =================================================================
+
+    [TestMethod]
+    public async Task AcceptAsync_status_Accepted_returns_GoneAlreadyUsed()
+    {
+        // Seed an invitation that has been accepted (Status=Accepted) but whose
+        // TokenHash is still set (simulates MarkAccepted called without burning the token,
+        // e.g., the status was transitioned independently of MarkCredentialSet).
+        var opts = NewOptions();
+        var clock = new FakeTimeProvider(T0);
+        var tenant = new TenantId(Guid.NewGuid());
+
+        await using (var seedDb = new AdminOrganizationDbContext(opts))
+        {
+            var inv = SeedPendingInvitation(seedDb, tenant, clock, token: "ACC");
+            inv.MarkAccepted(clock);
+            await seedDb.SaveChangesAsync();
+        }
+
+        await using var db = new AdminOrganizationDbContext(opts);
+        var kc = Substitute.For<IKeycloakAdminClient>();
+        var sut = MakeSut(db, kc, clock);
+
+        var result = await sut.AcceptAsync("ACC", "ValidP@ssword1!", "Alice", CancellationToken.None);
+
+        var failed = result as AcceptInvitationResult.Failed;
+        Assert.IsNotNull(failed);
+        Assert.AreEqual(AcceptInvitationError.GoneAlreadyUsed, failed!.Error);
+        await kc.DidNotReceive().SetPasswordAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+    }
+
+    // =================================================================
+    // AcceptAsync — KC Unexpected error translates to Upstream
+    // =================================================================
+
+    [TestMethod]
+    public async Task AcceptAsync_kc_SetPassword_Unexpected_returns_Upstream()
+    {
+        var opts = NewOptions();
+        var clock = new FakeTimeProvider(T0);
+        var tenant = new TenantId(Guid.NewGuid());
+        var kcUserId = Guid.NewGuid();
+
+        await using (var seedDb = new AdminOrganizationDbContext(opts))
+        {
+            SeedPendingInvitation(seedDb, tenant, clock, kcUserId: kcUserId);
+        }
+
+        var kc = Substitute.For<IKeycloakAdminClient>();
+        kc.SetPasswordAsync(kcUserId, Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new KeycloakAdminException(KeycloakAdminError.Unexpected, "x"));
+
+        await using var db = new AdminOrganizationDbContext(opts);
+        var sut = MakeSut(db, kc, clock);
+
+        var result = await sut.AcceptAsync(Token, "ValidP@ssword1!", "Alice", CancellationToken.None);
+
+        var failed = result as AcceptInvitationResult.Failed;
+        Assert.IsNotNull(failed);
+        Assert.AreEqual(AcceptInvitationError.Upstream, failed!.Error);
     }
 
     // =================================================================
