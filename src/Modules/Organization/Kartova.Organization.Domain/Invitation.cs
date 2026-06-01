@@ -16,14 +16,17 @@ public sealed class Invitation : ITenantOwned
     public Guid? KeycloakUserId { get; private set; }
     public DateTimeOffset? AcceptedAt { get; private set; }
     public DateTimeOffset? RevokedAt { get; private set; }
+    public string? TokenHash { get; private set; }
+    public DateTimeOffset? CredentialSetAt { get; private set; }
 
     private Invitation() { }
 
     public static Invitation Create(
         string email, string role, Guid invitedByUserId,
-        Guid keycloakUserId, TenantId tenantId, TimeProvider clock)
+        Guid keycloakUserId, TenantId tenantId, TimeProvider clock, string tokenHash)
     {
         ArgumentNullException.ThrowIfNull(clock);
+        if (string.IsNullOrEmpty(tokenHash)) throw new ArgumentException("Token hash required.", nameof(tokenHash));
         ValidateEmail(email);
         if (!KartovaRoles.All.Contains(role))
             throw new ArgumentException("Unknown role.", nameof(role));
@@ -39,7 +42,17 @@ public sealed class Invitation : ITenantOwned
             ExpiresAt = now.AddDays(7),
             Status = InvitationStatus.Pending,
             KeycloakUserId = keycloakUserId,
+            TokenHash = tokenHash,
         };
+    }
+
+    /// <summary>Invitee set their credential via the accept token. Burns the token
+    /// (single-use) but does NOT accept — Status flips at first login (spec §6).</summary>
+    public void MarkCredentialSet(TimeProvider clock)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        CredentialSetAt = clock.GetUtcNow();
+        TokenHash = null;
     }
 
     public void MarkAccepted(TimeProvider clock)

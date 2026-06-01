@@ -16,7 +16,7 @@ public sealed class InvitationTests
     public void Create_sets_pending_status_and_7day_expiry()
     {
         var clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-05-27T10:00:00Z"));
-        var inv = Invitation.Create("Alice@Example.com", "Member", InvitedBy, KcUser, Tenant, clock);
+        var inv = Invitation.Create("Alice@Example.com", "Member", InvitedBy, KcUser, Tenant, clock, tokenHash: "HASH");
         Assert.AreEqual(InvitationStatus.Pending, inv.Status);
         Assert.AreEqual("alice@example.com", inv.Email);
         Assert.AreEqual("Member", inv.Role);
@@ -33,7 +33,7 @@ public sealed class InvitationTests
     {
         var clock = new FakeTimeProvider();
         var ex = Assert.ThrowsExactly<ArgumentException>(() =>
-            Invitation.Create(email, "Member", InvitedBy, KcUser, Tenant, clock));
+            Invitation.Create(email, "Member", InvitedBy, KcUser, Tenant, clock, tokenHash: "HASH"));
         Assert.AreEqual("email", ex.ParamName);
     }
 
@@ -42,7 +42,7 @@ public sealed class InvitationTests
     {
         var clock = new FakeTimeProvider();
         var ex = Assert.ThrowsExactly<ArgumentException>(() =>
-            Invitation.Create("a@b.c", "BogusRole", InvitedBy, KcUser, Tenant, clock));
+            Invitation.Create("a@b.c", "BogusRole", InvitedBy, KcUser, Tenant, clock, tokenHash: "HASH"));
         Assert.AreEqual("role", ex.ParamName);
     }
 
@@ -53,7 +53,7 @@ public sealed class InvitationTests
         var tooLong = new string('a', 315) + "@b.com"; // 315 + 6 = 321 chars (>320)
         Assert.AreEqual(321, tooLong.Length);
         var ex = Assert.ThrowsExactly<ArgumentException>(() =>
-            Invitation.Create(tooLong, "Member", InvitedBy, KcUser, Tenant, clock));
+            Invitation.Create(tooLong, "Member", InvitedBy, KcUser, Tenant, clock, tokenHash: "HASH"));
         Assert.AreEqual("email", ex.ParamName);
     }
 
@@ -63,7 +63,7 @@ public sealed class InvitationTests
         var clock = new FakeTimeProvider();
         var maxEmail = new string('a', 314) + "@b.com"; // 314 + 6 = 320 chars
         Assert.AreEqual(320, maxEmail.Length);
-        var inv = Invitation.Create(maxEmail, "Member", InvitedBy, KcUser, Tenant, clock);
+        var inv = Invitation.Create(maxEmail, "Member", InvitedBy, KcUser, Tenant, clock, tokenHash: "HASH");
         Assert.AreEqual(320, inv.Email.Length);
     }
 
@@ -71,7 +71,7 @@ public sealed class InvitationTests
     public void MarkAccepted_flips_status_and_sets_AcceptedAt()
     {
         var clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-05-27T10:00:00Z"));
-        var inv = Invitation.Create("a@b.c", "Member", InvitedBy, KcUser, Tenant, clock);
+        var inv = Invitation.Create("a@b.c", "Member", InvitedBy, KcUser, Tenant, clock, tokenHash: "HASH");
         clock.Advance(TimeSpan.FromMinutes(5));
         inv.MarkAccepted(clock);
         Assert.AreEqual(InvitationStatus.Accepted, inv.Status);
@@ -82,7 +82,7 @@ public sealed class InvitationTests
     public void MarkAccepted_throws_when_already_accepted()
     {
         var clock = new FakeTimeProvider();
-        var inv = Invitation.Create("a@b.c", "Member", InvitedBy, KcUser, Tenant, clock);
+        var inv = Invitation.Create("a@b.c", "Member", InvitedBy, KcUser, Tenant, clock, tokenHash: "HASH");
         inv.MarkAccepted(clock);
         Assert.ThrowsExactly<InvalidOperationException>(() => inv.MarkAccepted(clock));
     }
@@ -91,7 +91,7 @@ public sealed class InvitationTests
     public void Revoke_flips_status_and_sets_RevokedAt()
     {
         var clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-05-27T10:00:00Z"));
-        var inv = Invitation.Create("a@b.c", "Member", InvitedBy, KcUser, Tenant, clock);
+        var inv = Invitation.Create("a@b.c", "Member", InvitedBy, KcUser, Tenant, clock, tokenHash: "HASH");
         clock.Advance(TimeSpan.FromHours(2));
         inv.Revoke(clock);
         Assert.AreEqual(InvitationStatus.Revoked, inv.Status);
@@ -102,7 +102,7 @@ public sealed class InvitationTests
     public void Revoke_throws_when_already_terminal()
     {
         var clock = new FakeTimeProvider();
-        var inv = Invitation.Create("a@b.c", "Member", InvitedBy, KcUser, Tenant, clock);
+        var inv = Invitation.Create("a@b.c", "Member", InvitedBy, KcUser, Tenant, clock, tokenHash: "HASH");
         inv.MarkAccepted(clock);
         Assert.ThrowsExactly<InvalidOperationException>(() => inv.Revoke(clock));
     }
@@ -111,7 +111,7 @@ public sealed class InvitationTests
     public void MarkExpired_flips_status()
     {
         var clock = new FakeTimeProvider();
-        var inv = Invitation.Create("a@b.c", "Member", InvitedBy, KcUser, Tenant, clock);
+        var inv = Invitation.Create("a@b.c", "Member", InvitedBy, KcUser, Tenant, clock, tokenHash: "HASH");
         inv.MarkExpired(clock);
         Assert.AreEqual(InvitationStatus.Expired, inv.Status);
     }
@@ -120,8 +120,31 @@ public sealed class InvitationTests
     public void MarkExpired_throws_when_not_pending()
     {
         var clock = new FakeTimeProvider();
-        var inv = Invitation.Create("a@b.c", "Member", InvitedBy, KcUser, Tenant, clock);
+        var inv = Invitation.Create("a@b.c", "Member", InvitedBy, KcUser, Tenant, clock, tokenHash: "HASH");
         inv.Revoke(clock);
         Assert.ThrowsExactly<InvalidOperationException>(() => inv.MarkExpired(clock));
+    }
+
+    [TestMethod]
+    public void Create_stores_token_hash_and_leaves_credential_unset()
+    {
+        var clock = new FakeTimeProvider();
+        var inv = Invitation.Create("a@b.com", KartovaRoles.Member, Guid.NewGuid(),
+            Guid.NewGuid(), new TenantId(Guid.NewGuid()), clock, tokenHash: "HASH");
+        Assert.AreEqual("HASH", inv.TokenHash);
+        Assert.IsNull(inv.CredentialSetAt);
+    }
+
+    [TestMethod]
+    public void MarkCredentialSet_burns_token_and_stamps_time()
+    {
+        var clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-05-27T10:00:00Z"));
+        var inv = Invitation.Create("a@b.com", KartovaRoles.Member, Guid.NewGuid(),
+            Guid.NewGuid(), new TenantId(Guid.NewGuid()), clock, tokenHash: "HASH");
+        clock.Advance(TimeSpan.FromMinutes(10));
+        inv.MarkCredentialSet(clock);
+        Assert.IsNull(inv.TokenHash);
+        Assert.IsNotNull(inv.CredentialSetAt);
+        Assert.AreEqual(InvitationStatus.Pending, inv.Status);
     }
 }
