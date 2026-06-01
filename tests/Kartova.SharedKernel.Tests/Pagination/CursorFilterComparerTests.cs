@@ -76,6 +76,8 @@ public sealed class CursorFilterComparerTests
 
         Assert.IsNotNull(result);
         Assert.AreEqual("a", result.Value.Name);
+        Assert.AreEqual("1", result.Value.Expected);
+        Assert.AreEqual("2", result.Value.Actual);
     }
 
     [TestMethod]
@@ -86,6 +88,8 @@ public sealed class CursorFilterComparerTests
 
         Assert.IsNotNull(result);
         Assert.AreEqual("k", result.Value.Name);
+        Assert.AreEqual("Value", result.Value.Expected);
+        Assert.AreEqual("value", result.Value.Actual);
     }
 
     [TestMethod]
