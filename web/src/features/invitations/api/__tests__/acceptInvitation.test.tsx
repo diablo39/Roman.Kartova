@@ -165,5 +165,14 @@ describe("acceptInvitation API module", () => {
         acceptInvitation({ token: "T", password: "weak", displayName: "D" }),
       ).rejects.toMatchObject({ __status: 400 });
     });
+
+    it("throws with __status 502 on a Bad Gateway response", async () => {
+      const { spy } = makeFetchSpy(502, { title: "Bad Gateway" });
+      globalThis.fetch = spy as unknown as typeof fetch;
+
+      await expect(
+        acceptInvitation({ token: "T", password: "S3cr3t!", displayName: "D" }),
+      ).rejects.toMatchObject({ __status: 502 });
+    });
   });
 });
