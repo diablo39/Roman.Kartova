@@ -5,7 +5,9 @@ namespace Kartova.SharedKernel.Pagination;
 /// state encoded in the supplied cursor. This is a 400 Bad Request — the cursor
 /// was issued under a different filter, so paging would silently skip rows or
 /// repeat them. Mapped to RFC 7807 by <c>PagingExceptionHandler</c> with
-/// problem-type slug <c>cursor-filter-mismatch</c>. ADR-0095 / ADR-0073, slice 6.
+/// problem-type slug <c>cursor-filter-mismatch</c>. The differing filter is
+/// reported generically via <see cref="CursorFilterComparer"/>; the codec and
+/// extension know no specific filter names. ADR-0095.
 /// </summary>
 public sealed class CursorFilterMismatchException : Exception
 {

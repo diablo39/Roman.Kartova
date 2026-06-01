@@ -205,114 +205,70 @@ public sealed class CursorCodecTests
     }
 
     [TestMethod]
-    public void Encode_then_Decode_preserves_includeDecommissioned_true()
+    public void Encode_then_Decode_roundtrips_filter_map()
     {
-        var encoded = CursorCodec.Encode(
-            sortValue: "2026-05-07T12:00:00.0000000Z",
-            id: Guid.Parse("11111111-1111-1111-1111-111111111111"),
-            direction: SortOrder.Desc,
-            includeDecommissioned: true);
+        var filters = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["includeDecommissioned"] = "true",
+            ["ownerUserId"] = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+        };
 
+        var encoded = CursorCodec.Encode("alpha", AnyId, SortOrder.Asc, filters);
         var decoded = CursorCodec.Decode(encoded);
 
-        Assert.IsTrue(decoded.IncludeDecommissioned);
+        Assert.AreEqual(2, decoded.Filters.Count);
+        Assert.AreEqual("true", decoded.Filters["includeDecommissioned"]);
+        Assert.AreEqual("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", decoded.Filters["ownerUserId"]);
     }
 
     [TestMethod]
-    public void Decode_legacy_cursor_without_ic_field_returns_includeDecommissioned_false()
+    public void Encode_with_null_filters_omits_f_field_and_decodes_empty()
     {
-        // Hand-crafted legacy cursor: { s, i, d } only, no `ic` — the shape pre-slice-6 emitted.
-        var legacyJson = "{\"s\":\"2026-05-07T12:00:00.0000000Z\",\"i\":\"11111111-1111-1111-1111-111111111111\",\"d\":\"desc\"}";
-        var legacyCursor = System.Buffers.Text.Base64Url.EncodeToString(System.Text.Encoding.UTF8.GetBytes(legacyJson));
-
-        var decoded = CursorCodec.Decode(legacyCursor);
-
-        Assert.IsFalse(decoded.IncludeDecommissioned);
-    }
-
-    [TestMethod]
-    public void Encode_then_Decode_preserves_ownerUserId_when_present()
-    {
-        // Slice 9 / S5: cursor codec encodes the ownerUserId filter so list
-        // handlers can detect a filter mismatch mid-pagination (parallels the
-        // includeDecommissioned precedent above).
-        var owner = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
-        var encoded = CursorCodec.Encode(
-            sortValue: "2026-05-30T12:00:00.0000000Z",
-            id: AnyId,
-            direction: SortOrder.Asc,
-            includeDecommissioned: false,
-            ownerUserId: owner);
-
-        var decoded = CursorCodec.Decode(encoded);
-
-        Assert.AreEqual(owner, decoded.OwnerUserId);
-    }
-
-    [TestMethod]
-    public void Encode_with_null_ownerUserId_omits_ou_field_and_decodes_null()
-    {
-        // Default-null ownerUserId must be omitted from the wire JSON to keep
-        // cursors compact and forward-compatible (legacy decoders treat absent
-        // fields as default-null).
-        var encoded = CursorCodec.Encode(
-            sortValue: "2026-05-30T12:00:00.0000000Z",
-            id: AnyId,
-            direction: SortOrder.Asc,
-            includeDecommissioned: false,
-            ownerUserId: null);
+        var encoded = CursorCodec.Encode("alpha", AnyId, SortOrder.Asc, filters: null);
 
         var bytes = System.Buffers.Text.Base64Url.DecodeFromChars(encoded.AsSpan());
         var json = System.Text.Encoding.UTF8.GetString(bytes);
-        StringAssert.DoesNotMatch(json, new Regex("\"ou\""));
+        StringAssert.DoesNotMatch(json, new Regex("\"f\""));
 
         var decoded = CursorCodec.Decode(encoded);
-        Assert.IsNull(decoded.OwnerUserId);
+        Assert.AreEqual(0, decoded.Filters.Count);
     }
 
     [TestMethod]
-    public void Decode_legacy_cursor_without_ou_field_returns_null_ownerUserId()
+    public void Encode_with_empty_filters_omits_f_field_and_decodes_empty()
     {
-        // Pre-slice-9 cursor wire shape (`{s,i,d}` only): decoder must default
-        // OwnerUserId to null so in-flight clients keep paging without breaking.
-        var legacyJson = "{\"s\":\"2026-05-30T12:00:00.0000000Z\",\"i\":\"" + AnyId + "\",\"d\":\"asc\"}";
-        var legacyCursor = System.Buffers.Text.Base64Url.EncodeToString(System.Text.Encoding.UTF8.GetBytes(legacyJson));
+        var empty = new Dictionary<string, string>();
 
-        var decoded = CursorCodec.Decode(legacyCursor);
+        var encoded = CursorCodec.Encode("alpha", AnyId, SortOrder.Asc, empty);
 
-        Assert.IsNull(decoded.OwnerUserId);
+        var bytes = System.Buffers.Text.Base64Url.DecodeFromChars(encoded.AsSpan());
+        var json = System.Text.Encoding.UTF8.GetString(bytes);
+        StringAssert.DoesNotMatch(json, new Regex("\"f\""));
+
+        var decoded = CursorCodec.Decode(encoded);
+        Assert.AreEqual(0, decoded.Filters.Count);
     }
 
     [TestMethod]
-    public void Decode_throws_when_ownerUserId_is_not_canonical_guid()
+    public void Decode_cursor_without_f_field_returns_empty_filters()
     {
-        // ou must be the canonical "D" Guid string. A malformed `ou` value is a
-        // tampering signal; fail closed with InvalidCursorException so the
-        // problem-handler maps to 400 invalid-cursor (matches the rest of the
-        // codec's posture).
-        var json = $$"""{"s":"alpha","i":"{{AnyId}}","d":"asc","ou":"not-a-guid"}""";
+        var json = $$"""{"s":"alpha","i":"{{AnyId}}","d":"asc"}""";
+        var encoded = ToBase64Url(json);
+
+        var decoded = CursorCodec.Decode(encoded);
+
+        Assert.AreEqual(0, decoded.Filters.Count);
+    }
+
+    [TestMethod]
+    public void Decode_throws_when_f_field_has_non_string_value()
+    {
+        // `f` must be a string→string map. A non-string value is a tampering
+        // signal — fail closed (JsonException → InvalidCursorException).
+        var json = $"{{\"s\":\"alpha\",\"i\":\"{AnyId}\",\"d\":\"asc\",\"f\":{{\"includeDecommissioned\":123}}}}";
         var encoded = ToBase64Url(json);
 
         Assert.ThrowsExactly<InvalidCursorException>(() => CursorCodec.Decode(encoded));
-    }
-
-    [TestMethod]
-    public void Encode_with_includeDecommissioned_false_omits_ic_field_and_round_trips()
-    {
-        var encoded = CursorCodec.Encode(
-            sortValue: "2026-05-07T12:00:00.0000000Z",
-            id: Guid.Parse("22222222-2222-2222-2222-222222222222"),
-            direction: SortOrder.Asc,
-            includeDecommissioned: false);
-
-        // ic must be absent in the wire JSON to keep cursors compact and forward-compatible
-        // (ic is omitted (not written as false) per WhenWritingNull).
-        var bytes = System.Buffers.Text.Base64Url.DecodeFromChars(encoded.AsSpan());
-        var json = System.Text.Encoding.UTF8.GetString(bytes);
-        StringAssert.DoesNotMatch(json, new Regex("\"ic\""));
-
-        var decoded = CursorCodec.Decode(encoded);
-        Assert.IsFalse(decoded.IncludeDecommissioned);
     }
 
     private static string ToBase64Url(string json) =>

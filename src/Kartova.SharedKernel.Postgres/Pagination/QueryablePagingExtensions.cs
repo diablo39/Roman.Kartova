@@ -15,6 +15,9 @@ public static class QueryablePagingExtensions
     public const int MaxLimit = 200;
     public const int DefaultLimit = 50;
 
+    private static readonly IReadOnlyDictionary<string, string> EmptyFilters =
+        new Dictionary<string, string>(StringComparer.Ordinal);
+
     public static Task<CursorPage<T>> ToCursorPagedAsync<T>(
         this IQueryable<T> source,
         SortSpec<T> sort,
@@ -36,13 +39,14 @@ public static class QueryablePagingExtensions
     /// cannot translate <c>x.StrongId.Value</c> in LINQ expressions, but the CLR
     /// compiled delegate CAN access it at runtime.
     /// <para>
-    /// <paramref name="expectedOwnerUserId"/> — slice 9 / E2 + S5 carry-forward.
-    /// When non-null, the request is filtering by ownerUserId; the codec encodes
-    /// the filter into the cursor and decoding fails closed on mismatch via
-    /// <see cref="CursorFilterMismatchException"/> (same posture as the slice-6
-    /// <c>includeDecommissioned</c> precedent). When null, the field is omitted
-    /// from the cursor JSON and any incoming cursor's <c>ou</c> is ignored — only
-    /// callers that opt in get the strict mismatch check.
+    /// <paramref name="expectedFilters"/> — ADR-0095 filter-state replay. An
+    /// opaque, caller-owned string→string map of the filters this request
+    /// applies. The codec encodes it into the next cursor; on decode,
+    /// <see cref="CursorFilterComparer"/> requires the request's map to equal the
+    /// cursor's map and fails closed via <see cref="CursorFilterMismatchException"/>
+    /// on any difference (added, dropped, or changed). Null/empty when the caller
+    /// applies no filters, in which case `f` is omitted from the cursor and an
+    /// incoming cursor that carries filter state is itself a mismatch.
     /// </para>
     /// </summary>
     public static async Task<CursorPage<T>> ToCursorPagedAsync<T>(
@@ -54,8 +58,7 @@ public static class QueryablePagingExtensions
         Expression<Func<T, Guid>> idSelector,
         Func<T, Guid> idExtractor,
         CancellationToken ct,
-        bool? expectedIncludeDecommissioned = null,
-        Guid? expectedOwnerUserId = null)
+        IReadOnlyDictionary<string, string>? expectedFilters = null)
         where T : class
     {
         if (limit < MinLimit || limit > MaxLimit)
@@ -73,26 +76,16 @@ public static class QueryablePagingExtensions
                 throw new InvalidCursorException(
                     $"Cursor was issued for direction '{decoded.Direction}' but request uses '{order}'.");
             }
-            if (expectedIncludeDecommissioned is bool requestFilter
-                && decoded.IncludeDecommissioned != requestFilter)
+            // Filter-state replay (ADR-0095): the request's filter set must equal
+            // the set the cursor was issued under, or paging would skip/repeat
+            // rows. Domain-agnostic — CursorFilterComparer never interprets the
+            // keys; the owning handler supplies them. A difference in either
+            // direction is a 400.
+            var mismatch = CursorFilterComparer.FindMismatch(
+                decoded.Filters, expectedFilters ?? EmptyFilters);
+            if (mismatch is { } m)
             {
-                throw new CursorFilterMismatchException(
-                    filterName: "includeDecommissioned",
-                    expectedValue: decoded.IncludeDecommissioned ? "true" : "false",
-                    actualValue: requestFilter ? "true" : "false");
-            }
-            // ownerUserId mismatch — symmetric to includeDecommissioned. The decoded
-            // value may be null (cursor issued without an owner filter); a null/value
-            // delta is a real mismatch and must trip the same exception. Using
-            // Nullable<Guid>.Equals keeps the comparison value-typed (no boxing) and
-            // gives the same null-vs-value semantics across the four (null,null) /
-            // (null,value) / (value,null) / (value,value) cases.
-            if (!Nullable.Equals(decoded.OwnerUserId, expectedOwnerUserId))
-            {
-                throw new CursorFilterMismatchException(
-                    filterName: "ownerUserId",
-                    expectedValue: decoded.OwnerUserId?.ToString("D") ?? "(none)",
-                    actualValue: expectedOwnerUserId?.ToString("D") ?? "(none)");
+                throw new CursorFilterMismatchException(m.Name, m.Expected, m.Actual);
             }
             q = ApplyKeysetFilter(q, sort.KeySelector, idSelector, decoded.SortValue, decoded.Id, order);
         }
@@ -114,8 +107,7 @@ public static class QueryablePagingExtensions
                     NormalizeForCursor(sortValue),
                     id,
                     order,
-                    expectedIncludeDecommissioned ?? false,
-                    expectedOwnerUserId);
+                    expectedFilters);
         }
 
         return new CursorPage<T>(rows, nextCursor, PrevCursor: null);

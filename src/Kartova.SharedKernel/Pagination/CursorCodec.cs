@@ -5,13 +5,12 @@ namespace Kartova.SharedKernel.Pagination;
 
 /// <summary>
 /// Encodes and decodes opaque pagination cursors per ADR-0095.
-/// Wire format is base64url-encoded JSON <c>{ s, i, d, ic?, ou? }</c>:
+/// Wire format is base64url-encoded JSON <c>{ s, i, d, f? }</c>:
 /// <list type="bullet">
 /// <item><description><c>s</c> — sort value of the boundary row (string|number|ISO-8601 string)</description></item>
 /// <item><description><c>i</c> — boundary row id (Guid, tiebreaker)</description></item>
 /// <item><description><c>d</c> — direction the cursor was produced under ("asc"|"desc"). The handler verifies this matches the request's <c>sortOrder</c> to detect reused cursors across a sort flip.</description></item>
-/// <item><description><c>ic</c> — optional include-decommissioned filter state at issue time. When absent (legacy cursors from before slice 6), decodes as <c>false</c>. Mismatched against the request's <c>includeDecommissioned</c> via <see cref="CursorFilterMismatchException"/> (ADR-0073 default-view rule, slice 6).</description></item>
-/// <item><description><c>ou</c> — optional ownerUserId filter (Guid string) at issue time. When absent (filter not applied or legacy cursors), decodes as <c>null</c>. Mismatched against the request's <c>ownerUserId</c> via <see cref="CursorFilterMismatchException"/> (slice 9 / E2 + S5 carry-forward, parallels the <c>ic</c> mismatch precedent).</description></item>
+/// <item><description><c>f</c> — optional, opaque filter state the cursor was issued under: a string→string map the codec never interprets. The owning module (e.g. Catalog) supplies the keys/values; <see cref="CursorFilterComparer"/> detects a filter change mid-pagination, surfaced as <see cref="CursorFilterMismatchException"/>. Absent when no filters apply, decoding as an empty map.</description></item>
 /// </list>
 /// </summary>
 public static class CursorCodec
@@ -22,31 +21,32 @@ public static class CursorCodec
         WriteIndented = false,
     };
 
+    private static readonly IReadOnlyDictionary<string, string> EmptyFilters =
+        new Dictionary<string, string>(StringComparer.Ordinal);
+
     public sealed record DecodedCursor(
         object SortValue,
         Guid Id,
         SortOrder Direction,
-        bool IncludeDecommissioned,
-        Guid? OwnerUserId);
+        IReadOnlyDictionary<string, string> Filters);
 
     public static string Encode(
         object sortValue,
         Guid id,
         SortOrder direction,
-        bool includeDecommissioned = false,
-        Guid? ownerUserId = null)
+        IReadOnlyDictionary<string, string>? filters = null)
     {
-        // ic and ou are intentionally omitted from the JSON when default (false / null)
-        // to keep cursors short and forward-compatible: legacy decoders that don't
-        // know a field treat it as the default. ownerUserId is serialized as the
-        // canonical "D" Guid string ("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx") rather
-        // than the JSON object form so the wire shape stays a single scalar.
+        // `f` is omitted from the JSON when no filters apply (null/empty) to keep
+        // cursors short and forward-compatible: a decoder that sees no `f` treats
+        // it as "no filter state". The codec never interprets the keys/values —
+        // they are opaque, owned by the calling module.
         var payload = new CursorPayload(
             sortValue,
             id,
             direction == SortOrder.Asc ? "asc" : "desc",
-            includeDecommissioned ? true : (bool?)null,
-            ownerUserId?.ToString("D"));
+            filters is { Count: > 0 }
+                ? new Dictionary<string, string>(filters, StringComparer.Ordinal)
+                : null);
         var json = JsonSerializer.SerializeToUtf8Bytes(payload, Options);
         return ToBase64Url(json);
     }
@@ -88,22 +88,12 @@ public static class CursorCodec
 
         var direction = payload.D == "asc" ? SortOrder.Asc : SortOrder.Desc;
         var sortValue = payload.S is JsonElement el ? UnwrapJsonElement(el) : payload.S;
-        // Legacy cursors from pre-slice-6 omit `ic`; default to false so existing
-        // in-flight clients keep paging without breaking on the contract change.
-        var includeDecommissioned = payload.Ic ?? false;
-        // Pre-slice-9 cursors (and any cursor issued without an owner filter) omit
-        // `ou`; decode as null. A malformed `ou` value is fail-closed — same shape
-        // as the rest of the codec.
-        Guid? ownerUserId = null;
-        if (payload.Ou is not null)
-        {
-            if (!Guid.TryParseExact(payload.Ou, "D", out var parsed))
-            {
-                throw new InvalidCursorException("Cursor ownerUserId is not a canonical Guid.");
-            }
-            ownerUserId = parsed;
-        }
-        return new DecodedCursor(sortValue, payload.I, direction, includeDecommissioned, ownerUserId);
+        // Cursors with no filter state (or cursors issued before any filter
+        // existed) omit `f`; decode as an empty map so consumers never null-check.
+        IReadOnlyDictionary<string, string> filters = payload.F is { Count: > 0 }
+            ? payload.F
+            : EmptyFilters;
+        return new DecodedCursor(sortValue, payload.I, direction, filters);
     }
 
     private static object UnwrapJsonElement(JsonElement el) => el.ValueKind switch
@@ -134,6 +124,5 @@ public static class CursorCodec
         [property: JsonPropertyName("s")] object? S,
         [property: JsonPropertyName("i")] Guid I,
         [property: JsonPropertyName("d")] string? D,
-        [property: JsonPropertyName("ic")] bool? Ic,
-        [property: JsonPropertyName("ou")] string? Ou);
+        [property: JsonPropertyName("f")] Dictionary<string, string>? F);
 }

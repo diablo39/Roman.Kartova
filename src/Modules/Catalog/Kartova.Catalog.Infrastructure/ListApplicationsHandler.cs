@@ -44,7 +44,7 @@ public sealed class ListApplicationsHandler(IUserDirectory directory)
         // Apply ADR-0073 default-view filter before pagination so the keyset
         // bounds stay consistent: a row that's hidden by the filter must never
         // appear as a cursor boundary, otherwise the next page would silently
-        // skip rows. The cursor JSON (CursorCodec.ic) is mismatch-checked inside
+        // skip rows. The cursor JSON (CursorCodec `f`) is mismatch-checked inside
         // ToCursorPagedAsync.
         IQueryable<DomainApplication> source = db.Applications;
         if (!q.IncludeDecommissioned)
@@ -68,12 +68,25 @@ public sealed class ListApplicationsHandler(IUserDirectory directory)
             source = source.Where(a => a.OwnerUserId == ownerUserId);
         }
 
+        // Filter state the cursor is issued under (ADR-0095). The owning module
+        // owns the keys/values; the shared codec treats them as opaque. Always-
+        // applied dimensions (includeDecommissioned) are always present; optional
+        // filters (ownerUserId) only when applied. A change mid-pagination trips
+        // CursorFilterMismatchException inside ToCursorPagedAsync.
+        var filters = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["includeDecommissioned"] = q.IncludeDecommissioned ? "true" : "false",
+        };
+        if (q.OwnerUserId is { } owner)
+        {
+            filters["ownerUserId"] = owner.ToString("D");
+        }
+
         var page = await source
             .ToCursorPagedAsync(
                 spec, q.SortOrder, q.Cursor, q.Limit,
                 ApplicationSortSpecs.IdSelector, IdExtractor, ct,
-                expectedIncludeDecommissioned: q.IncludeDecommissioned,
-                expectedOwnerUserId: q.OwnerUserId);
+                expectedFilters: filters);
 
         // Batch-fetch owners for the entire page in a single round trip. HashSet
         // de-duplicates in one allocation so multiple apps owned by the same user
