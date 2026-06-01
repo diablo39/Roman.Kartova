@@ -36,4 +36,25 @@ We also observed that adding pagination retroactively is a wire-shape break + a 
 - `s` (sort value) carries a JSON scalar (string, number, or ISO-8601 timestamp string).
 - Stable tiebreaker is `id` (Guid). The keyset filter uses the disjunctive form `key > @p OR (key = @p AND id > @p)` for `asc`, reversed for `desc` (chosen for portability across PostgreSQL + sqlite test path; row-constructor was the original target but was dropped per spec §14 mitigation).
 - Cursor decode mismatching `d` against the request's `sortOrder` throws `InvalidCursorException` → 400.
-- `gcTime` on frontend `useCursorList` set to 5 min default to bound the per-cursor `useQuery` cache growth (one cached entry per visited cursor in the in-memory stack).
+- `gcTime` on frontend `useCursorList` set to 15 min default to bound the per-cursor `useQuery` cache growth (one cached entry per visited cursor in the in-memory stack).
+
+## Amendment (2026-06-01): generalized filter state in the cursor
+
+Clause 3's wire shape is generalized from `{ s, i, d }` to `{ s, i, d, f? }`:
+
+- `f` is an **opaque, caller-owned** `string→string` filter map. `CursorCodec`
+  never interprets it — the owning module (e.g. Catalog's `ListApplicationsHandler`)
+  supplies the keys/values. Absent when no filters apply; decodes as an empty map.
+- Filter-mismatch detection is a **generic** map comparison (`CursorFilterComparer`,
+  sorted-union first-difference). `CursorFilterMismatchException` reports the first
+  differing key; the shared codec/extension know no specific filter names.
+- The request's filter map must equal the cursor's; a difference in either
+  direction (added/dropped/changed) is a 400 `cursor-filter-mismatch`.
+
+This closes a documentation gap: the slice-6 `ic` (includeDecommissioned) and
+slice-9 `ou` (ownerUserId) cursor fields were code-only and never recorded here.
+They are replaced by the generic `f` map (clean break — no legacy `ic`/`ou`
+decoding; cursors are opaque + time-bound per this ADR).
+
+**Consequences update:** the frontend per-cursor cache `gcTime` default is raised
+from 5 min to 15 min (`web/src/lib/list/useCursorList.ts`).
