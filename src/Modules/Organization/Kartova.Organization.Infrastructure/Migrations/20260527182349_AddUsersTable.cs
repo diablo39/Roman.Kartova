@@ -46,7 +46,14 @@ ALTER TABLE users FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON users
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
 
-CREATE INDEX idx_users_displayname_trgm ON users USING gin (display_name gin_trgm_ops);
+-- Trigram indexes are on lower(col), NOT the bare column: UserQueries.SearchAsync
+-- filters lower(display_name)/lower(email) LIKE '%q%' (ToLower().Contains() for
+-- InMemory-provider portability). A gin_trgm index on the bare column does NOT
+-- match a lower(col) predicate, so the planner seq-scans (confirmed via
+-- EXPLAIN ANALYZE 2026-06-01). lower(col) gin_trgm_ops makes both branches index-backed.
+CREATE INDEX idx_users_displayname_trgm ON users USING gin (lower(display_name) gin_trgm_ops);
+CREATE INDEX idx_users_email_trgm ON users USING gin (lower(email) gin_trgm_ops);
+-- Kept for case-insensitive email equality/prefix lookups (trigram doesn't serve those efficiently).
 CREATE INDEX idx_users_email_lower ON users(tenant_id, lower(email));
 ");
         }
@@ -56,6 +63,7 @@ CREATE INDEX idx_users_email_lower ON users(tenant_id, lower(email));
         {
             migrationBuilder.Sql(@"
 DROP INDEX IF EXISTS idx_users_email_lower;
+DROP INDEX IF EXISTS idx_users_email_trgm;
 DROP INDEX IF EXISTS idx_users_displayname_trgm;
 DROP POLICY IF EXISTS tenant_isolation ON users;
 ALTER TABLE users DISABLE ROW LEVEL SECURITY;

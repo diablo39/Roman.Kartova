@@ -257,8 +257,9 @@ created_at      timestamptz   not null
 
 UNIQUE (tenant_id, email)
 INDEX idx_users_tenant ON users(tenant_id)
-INDEX idx_users_displayname_trgm ON users USING gin (display_name gin_trgm_ops)
-INDEX idx_users_email_lower ON users(tenant_id, lower(email))
+INDEX idx_users_displayname_trgm ON users USING gin (lower(display_name) gin_trgm_ops)  -- lower(): matches the lower()..LIKE predicate (fixed 2026-06-01; bare-column index was unused)
+INDEX idx_users_email_trgm ON users USING gin (lower(email) gin_trgm_ops)                -- infix email search (added 2026-06-01)
+INDEX idx_users_email_lower ON users(tenant_id, lower(email))                            -- case-insensitive email equality/prefix
 -- RLS: tenant_id = current_setting('app.current_tenant_id')::uuid
 ```
 
@@ -399,7 +400,7 @@ Standard slice-7 binding-level enforcement (`.RequireAuthorization(KartovaPermis
 
 | Method | Path | Claim policy | Notes |
 |---|---|---|---|
-| `GET` | `/users` | `org.users.search` | Typeahead. Query `q` (min 2 chars), `limit ≤ 20`. Matches `display_name` (trigram) + `email` (prefix). Returns `IReadOnlyList<UserSummaryResponse>`. **Marked `[BoundedListResult]`** with justification *"typeahead capped at 20 results — pagination not meaningful"*. |
+| `GET` | `/users` | `org.users.search` | Typeahead. Query `q` (min 2 chars), `limit ≤ 20`. Matches `display_name` + `email` (both infix `LIKE '%q%'`, trigram-indexed on `lower(col)`). Returns `IReadOnlyList<UserSummaryResponse>`. **Marked `[BoundedListResult]`** with justification *"typeahead capped at 20 results — pagination not meaningful"*. |
 | `GET` | `/users/{id:guid}` | `org.users.read` | Returns `UserDetailResponse` — user + teams. **Owned applications NOT included** — SPA composes via Catalog endpoint (see §6.5). |
 
 ### 6.4 Session bootstrap endpoint — under `/api/v1/auth`
