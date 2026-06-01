@@ -111,15 +111,35 @@ describe("AcceptInvitationPage", () => {
     );
   });
 
-  it("shows 'invalid link' message on generic context error", async () => {
+  it("shows 'something went wrong' when getInvitationAcceptContext rejects with __status 500", async () => {
+    const err = Object.assign(new Error("Internal Server Error"), { __status: 500 });
+    getInvitationAcceptContextMock.mockRejectedValue(err);
+    renderPage();
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("heading", { name: /something went wrong/i }),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByText(/couldn't load this invitation right now/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/invalid invitation link/i)).not.toBeInTheDocument();
+  });
+
+  it("shows 'something went wrong' when getInvitationAcceptContext rejects with no __status (network error)", async () => {
     getInvitationAcceptContextMock.mockRejectedValue(new Error("Network error"));
     renderPage();
 
     await waitFor(() =>
       expect(
-        screen.getByText(/invalid invitation link/i),
+        screen.getByRole("heading", { name: /something went wrong/i }),
       ).toBeInTheDocument(),
     );
+    expect(
+      screen.getByText(/couldn't load this invitation right now/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/invalid invitation link/i)).not.toBeInTheDocument();
   });
 
   // ── successful submit ────────────────────────────────────────────────────────

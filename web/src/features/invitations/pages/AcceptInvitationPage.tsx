@@ -25,6 +25,7 @@ type ViewState =
   | { kind: "loading" }
   | { kind: "invalid" }
   | { kind: "gone" }
+  | { kind: "errored" }
   | { kind: "form"; ctx: InvitationAcceptContext };
 
 // ─── small helper cards ──────────────────────────────────────────────────────
@@ -48,6 +49,17 @@ function InvalidCard() {
       <p className="text-base text-tertiary">
         This invitation link is invalid. Ask the person who invited you to send
         a new one.
+      </p>
+    </CardShell>
+  );
+}
+
+function ErroredCard() {
+  return (
+    <CardShell>
+      <h1 className="text-2xl font-semibold text-primary">Something went wrong</h1>
+      <p className="text-base text-tertiary">
+        We couldn&apos;t load this invitation right now. Please try again in a moment.
       </p>
     </CardShell>
   );
@@ -208,7 +220,8 @@ function FormView({ token, ctx, onGone }: FormViewProps) {
  *  1. If `token` query param is absent → render "Invalid invitation link".
  *  2. Fetch `getInvitationAcceptContext(token)`:
  *     - 410 → "This invitation can no longer be used" message (expired/revoked/already-used).
- *     - other error / 404 → "Invalid invitation link".
+ *     - 404 → "Invalid invitation link" (unknown token).
+ *     - 5xx / network / undefined → "Something went wrong" (transient; ask user to retry).
  *     - success → render the set-password + display-name form.
  *  3. On submit → `acceptInvitation({ token, password, displayName })`:
  *     - success → `auth.signinRedirect({ login_hint: email })`.
@@ -241,8 +254,11 @@ export function AcceptInvitationPage() {
         const status = (err as { __status?: number }).__status;
         if (status === 410) {
           setView({ kind: "gone" });
-        } else {
+        } else if (status === 404) {
           setView({ kind: "invalid" });
+        } else {
+          // Covers __status >= 500, undefined (network failure), or unexpected contract errors.
+          setView({ kind: "errored" });
         }
       });
 
@@ -261,6 +277,7 @@ export function AcceptInvitationPage() {
 
   if (view.kind === "invalid") return <InvalidCard />;
   if (view.kind === "gone") return <GoneCard />;
+  if (view.kind === "errored") return <ErroredCard />;
 
   return (
     <FormView
