@@ -15,6 +15,10 @@
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Npgsql" />
+    <!-- Slice-9 carry-forward MT3: NSubstitute is used by InvitationFailureWiringTests
+         to override IKeycloakAdminClient via ConfigureTestServices so a forced KC
+         role-assign failure exercises the 502 wire mapping end-to-end. -->
+    <PackageReference Include="NSubstitute" />
     <PackageReference Include="coverlet.collector" />
   </ItemGroup>
   <ItemGroup>
