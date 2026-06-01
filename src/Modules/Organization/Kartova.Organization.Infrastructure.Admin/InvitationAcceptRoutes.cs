@@ -26,7 +26,8 @@ internal static class InvitationAcceptRoutes
             .Produces<AcceptInvitationResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status410Gone);
+            .Produces(StatusCodes.Status410Gone)
+            .Produces(StatusCodes.Status502BadGateway);
     }
 
     private static async Task<IResult> GetContextAsync(
