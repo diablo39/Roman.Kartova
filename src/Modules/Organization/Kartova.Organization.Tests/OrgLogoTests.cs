@@ -55,4 +55,34 @@ public sealed class OrgLogoTests
         bytes[0] = 0xFF;   // mutate caller's array
         Assert.AreEqual(originalFirst, logo.Bytes[0]);
     }
+
+    [TestMethod]
+    public void Bytes_returned_array_is_a_defensive_clone()
+    {
+        // S4 (slice-9 carry-forward): the public Bytes getter MUST return a
+        // fresh clone on every read. Without this, callers could mutate the
+        // returned array, invalidating ContentHash (which is computed once
+        // in Create and never recomputed). Pinning the clone behaviour with
+        // three independent assertions keeps the invariant under mutation
+        // testing — any mutant that drops the .Clone() call would flip
+        // AreNotSame, and any mutant that aliases the field would let the
+        // post-mutation ContentHash check fail.
+        var input = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+        var logo = OrgLogo.Create(input, "image/png");
+        var firstRead = logo.Bytes;
+        var secondRead = logo.Bytes;
+
+        // Different array instance per read (clone), but same content.
+        Assert.AreNotSame(firstRead, secondRead);
+        CollectionAssert.AreEqual(firstRead, secondRead);
+
+        // Mutating the returned array does NOT affect the stored ContentHash.
+        var originalHash = logo.ContentHash;
+        firstRead[0] = 0xFF;
+        Assert.AreEqual(originalHash, logo.ContentHash);
+
+        // And the next read returns a fresh clone with the ORIGINAL bytes.
+        var thirdRead = logo.Bytes;
+        CollectionAssert.AreEqual(input, thirdRead);
+    }
 }
