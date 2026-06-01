@@ -37,6 +37,10 @@ export function createApiClient(baseUrl: string) {
   return client;
 }
 
+export function createAnonymousApiClient(baseUrl: string) {
+  return createClient<paths>({ baseUrl, fetch: deferredFetch });
+}
+
 /**
  * Single source of truth for the SPA's API origin. The default
  * (`http://localhost:8080`) lines up with `docker compose up`'s API origin;

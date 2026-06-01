@@ -1679,10 +1679,116 @@
           }
         }
       }
+    },
+    "/api/v1/invitations/accept": {
+      "get": {
+        "tags": [
+          "InvitationAcceptRoutes"
+        ],
+        "operationId": "GetInvitationAcceptContext",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationAcceptContext"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "410": {
+            "description": "Gone"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "InvitationAcceptRoutes"
+        ],
+        "operationId": "AcceptInvitation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptInvitationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptInvitationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "410": {
+            "description": "Gone"
+          },
+          "502": {
+            "description": "Bad Gateway"
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AcceptInvitationRequest": {
+        "required": [
+          "token",
+          "password",
+          "displayName"
+        ],
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          }
+        }
+      },
+      "AcceptInvitationResponse": {
+        "required": [
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          }
+        }
+      },
       "AcceptedInvitationInfo": {
         "required": [
           "orgDisplayName",
@@ -1986,6 +2092,38 @@
           },
           "description": {
             "type": "string"
+          }
+        }
+      },
+      "InvitationAcceptContext": {
+        "required": [
+          "orgDisplayName",
+          "invitedByDisplayName",
+          "email",
+          "defaultDisplayName",
+          "role",
+          "expiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "orgDisplayName": {
+            "type": "string"
+          },
+          "invitedByDisplayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "defaultDisplayName": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -2575,6 +2713,9 @@
     },
     {
       "name": "AdminOrganizationEndpointDelegates"
+    },
+    {
+      "name": "InvitationAcceptRoutes"
     }
   ]
 }
