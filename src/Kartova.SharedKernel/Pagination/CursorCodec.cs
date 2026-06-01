@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -21,9 +22,6 @@ public static class CursorCodec
         WriteIndented = false,
     };
 
-    private static readonly IReadOnlyDictionary<string, string> EmptyFilters =
-        new Dictionary<string, string>(StringComparer.Ordinal);
-
     public sealed record DecodedCursor(
         object SortValue,
         Guid Id,
@@ -39,14 +37,14 @@ public static class CursorCodec
         // `f` is omitted from the JSON when no filters apply (null/empty) to keep
         // cursors short and forward-compatible: a decoder that sees no `f` treats
         // it as "no filter state". The codec never interprets the keys/values —
-        // they are opaque, owned by the calling module.
+        // they are opaque, owned by the calling module. The map is serialized
+        // synchronously below and never retained, so it is passed through without
+        // a defensive copy.
         var payload = new CursorPayload(
             sortValue,
             id,
             direction == SortOrder.Asc ? "asc" : "desc",
-            filters is { Count: > 0 }
-                ? new Dictionary<string, string>(filters, StringComparer.Ordinal)
-                : null);
+            filters is { Count: > 0 } ? filters : null);
         var json = JsonSerializer.SerializeToUtf8Bytes(payload, Options);
         return ToBase64Url(json);
     }
@@ -90,9 +88,7 @@ public static class CursorCodec
         var sortValue = payload.S is JsonElement el ? UnwrapJsonElement(el) : payload.S;
         // Cursors with no filter state (or cursors issued before any filter
         // existed) omit `f`; decode as an empty map so consumers never null-check.
-        IReadOnlyDictionary<string, string> filters = payload.F is { Count: > 0 }
-            ? payload.F
-            : EmptyFilters;
+        IReadOnlyDictionary<string, string> filters = payload.F ?? FrozenDictionary<string, string>.Empty;
         return new DecodedCursor(sortValue, payload.I, direction, filters);
     }
 
@@ -124,5 +120,5 @@ public static class CursorCodec
         [property: JsonPropertyName("s")] object? S,
         [property: JsonPropertyName("i")] Guid I,
         [property: JsonPropertyName("d")] string? D,
-        [property: JsonPropertyName("f")] Dictionary<string, string>? F);
+        [property: JsonPropertyName("f")] IReadOnlyDictionary<string, string>? F);
 }

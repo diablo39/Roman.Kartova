@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Linq.Expressions;
 using Kartova.SharedKernel.Pagination;
 using Microsoft.EntityFrameworkCore;
@@ -14,9 +15,6 @@ public static class QueryablePagingExtensions
     public const int MinLimit = 1;
     public const int MaxLimit = 200;
     public const int DefaultLimit = 50;
-
-    private static readonly IReadOnlyDictionary<string, string> EmptyFilters =
-        new Dictionary<string, string>(StringComparer.Ordinal);
 
     public static Task<CursorPage<T>> ToCursorPagedAsync<T>(
         this IQueryable<T> source,
@@ -82,7 +80,7 @@ public static class QueryablePagingExtensions
             // keys; the owning handler supplies them. A difference in either
             // direction is a 400.
             var mismatch = CursorFilterComparer.FindMismatch(
-                decoded.Filters, expectedFilters ?? EmptyFilters);
+                decoded.Filters, expectedFilters ?? FrozenDictionary<string, string>.Empty);
             if (mismatch is { } m)
             {
                 throw new CursorFilterMismatchException(m.Name, m.Expected, m.Actual);
