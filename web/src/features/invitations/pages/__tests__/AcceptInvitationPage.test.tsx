@@ -89,9 +89,12 @@ describe("AcceptInvitationPage", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText(/invitation can no longer be used/i),
+        screen.getByRole("heading", { name: /this invitation can no longer be used/i }),
       ).toBeInTheDocument(),
     );
+    expect(
+      screen.getByText(/has expired, been revoked, or was already used/i),
+    ).toBeInTheDocument();
   });
 
   // ── context error: 404 / generic ─────────────────────────────────────────────
@@ -204,7 +207,7 @@ describe("AcceptInvitationPage", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText(/invitation can no longer be used/i),
+        screen.getByRole("heading", { name: /this invitation can no longer be used/i }),
       ).toBeInTheDocument(),
     );
   });

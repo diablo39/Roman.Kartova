@@ -53,10 +53,9 @@ function InvalidCard() {
 function GoneCard() {
   return (
     <Card>
-      <h1 className="text-2xl font-semibold text-primary">Invitation expired</h1>
+      <h1 className="text-2xl font-semibold text-primary">This invitation can no longer be used</h1>
       <p className="text-base text-tertiary">
-        This invitation can no longer be used. Try signing in or ask for a new
-        invitation.
+        This invitation link has expired, been revoked, or was already used. Ask the person who invited you to send a new one.
       </p>
     </Card>
   );
@@ -205,13 +204,13 @@ function FormView({ token, ctx, onGone }: FormViewProps) {
  * Flow:
  *  1. If `token` query param is absent → render "Invalid invitation link".
  *  2. Fetch `getInvitationAcceptContext(token)`:
- *     - 410 → "Invitation expired" message.
+ *     - 410 → "This invitation can no longer be used" message (expired/revoked/already-used).
  *     - other error / 404 → "Invalid invitation link".
  *     - success → render the set-password + display-name form.
  *  3. On submit → `acceptInvitation({ token, password, displayName })`:
  *     - success → `auth.signinRedirect({ login_hint: email })`.
  *     - 400 → password field error.
- *     - 410 → switch to "Invitation expired" view.
+ *     - 410 → switch to "This invitation can no longer be used" view.
  *     - other → generic form-level error.
  */
 export function AcceptInvitationPage() {
