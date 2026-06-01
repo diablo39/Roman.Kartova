@@ -31,7 +31,14 @@ internal sealed class InvitationEntityTypeConfiguration : IEntityTypeConfigurati
         b.Property(x => x.AcceptedAt).HasColumnName("accepted_at");
         b.Property(x => x.RevokedAt).HasColumnName("revoked_at");
 
-        b.Property(x => x.TokenHash).HasColumnName("token_hash").HasMaxLength(64);
+        // TokenHash doubles as an optimistic concurrency token: EF appends
+        // "AND token_hash = <original>" to the UPDATE WHERE clause, so two concurrent
+        // accepts of the same token lose the race at DB level. The loser gets
+        // DbUpdateConcurrencyException which AcceptAsync maps to GoneAlreadyUsed (410).
+        // No migration needed — token_hash already exists; IsConcurrencyToken() is a
+        // client-side convention only.
+        b.Property(x => x.TokenHash).HasColumnName("token_hash").HasMaxLength(64)
+            .IsConcurrencyToken();
         b.Property(x => x.CredentialSetAt).HasColumnName("credential_set_at");
 
         // Global lookup key for the anonymous accept path; UNIQUE so a token maps to
@@ -43,5 +50,6 @@ internal sealed class InvitationEntityTypeConfiguration : IEntityTypeConfigurati
             .HasFilter("token_hash IS NOT NULL");
 
         b.HasIndex(x => new { x.TenantId, x.Status }).HasDatabaseName("idx_invitations_tenant_status");
+
     }
 }

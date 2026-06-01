@@ -36,7 +36,7 @@ public sealed class AcceptInvitationHandlerTests
 
     // ------------------------------------------------------------------ helpers
 
-    private static Invitation SeedPendingInvitation(
+    private static async Task<Invitation> SeedPendingInvitationAsync(
         AdminOrganizationDbContext db,
         TenantId tenant,
         FakeTimeProvider clock,
@@ -52,7 +52,7 @@ public sealed class AcceptInvitationHandlerTests
             clock: clock,
             tokenHash: InvitationToken.Hash(token));
         db.Invitations.Add(inv);
-        db.SaveChanges();
+        await db.SaveChangesAsync();
         return inv;
     }
 
@@ -102,7 +102,7 @@ public sealed class AcceptInvitationHandlerTests
 
         await using (var seedDb = new AdminOrganizationDbContext(opts))
         {
-            var inv = SeedPendingInvitation(seedDb, tenant, clock);
+            var inv = await SeedPendingInvitationAsync(seedDb, tenant, clock);
             inv.Revoke(clock);
             await seedDb.SaveChangesAsync();
         }
@@ -128,7 +128,7 @@ public sealed class AcceptInvitationHandlerTests
 
         await using (var seedDb = new AdminOrganizationDbContext(opts))
         {
-            var inv = SeedPendingInvitation(seedDb, tenant, clock);
+            var inv = await SeedPendingInvitationAsync(seedDb, tenant, clock);
             inv.MarkExpired(clock);
             await seedDb.SaveChangesAsync();
         }
@@ -154,7 +154,7 @@ public sealed class AcceptInvitationHandlerTests
         await using (var seedDb = new AdminOrganizationDbContext(opts))
         {
             // Invitation.Create sets ExpiresAt = now + 7 days; advance clock past that.
-            SeedPendingInvitation(seedDb, tenant, clock);
+            await SeedPendingInvitationAsync(seedDb, tenant, clock);
         }
 
         clock.Advance(TimeSpan.FromDays(8));   // now past ExpiresAt
@@ -246,7 +246,7 @@ public sealed class AcceptInvitationHandlerTests
 
         await using (var seedDb = new AdminOrganizationDbContext(opts))
         {
-            SeedPendingInvitation(seedDb, tenant, clock, kcUserId: kcUserId);
+            await SeedPendingInvitationAsync(seedDb, tenant, clock, kcUserId: kcUserId);
         }
 
         var kc = Substitute.For<IKeycloakAdminClient>();
@@ -296,7 +296,7 @@ public sealed class AcceptInvitationHandlerTests
         var tenant = new TenantId(Guid.NewGuid());
 
         await using var db = new AdminOrganizationDbContext(opts);
-        SeedPendingInvitation(db, tenant, clock);
+        await SeedPendingInvitationAsync(db, tenant, clock);
 
         var kc = Substitute.For<IKeycloakAdminClient>();
         var sut = MakeSut(db, kc, clock);
@@ -318,7 +318,7 @@ public sealed class AcceptInvitationHandlerTests
         var tenant = new TenantId(Guid.NewGuid());
 
         await using var db = new AdminOrganizationDbContext(opts);
-        SeedPendingInvitation(db, tenant, clock);
+        await SeedPendingInvitationAsync(db, tenant, clock);
 
         var kc = Substitute.For<IKeycloakAdminClient>();
         var sut = MakeSut(db, kc, clock);
@@ -347,7 +347,7 @@ public sealed class AcceptInvitationHandlerTests
 
         await using (var seedDb = new AdminOrganizationDbContext(opts))
         {
-            SeedPendingInvitation(seedDb, tenant, clock, kcUserId: kcUserId);
+            await SeedPendingInvitationAsync(seedDb, tenant, clock, kcUserId: kcUserId);
         }
 
         var kc = Substitute.For<IKeycloakAdminClient>();
@@ -374,7 +374,7 @@ public sealed class AcceptInvitationHandlerTests
 
         await using (var seedDb = new AdminOrganizationDbContext(opts))
         {
-            SeedPendingInvitation(seedDb, tenant, clock, kcUserId: kcUserId);
+            await SeedPendingInvitationAsync(seedDb, tenant, clock, kcUserId: kcUserId);
         }
 
         var kc = Substitute.For<IKeycloakAdminClient>();
@@ -410,7 +410,7 @@ public sealed class AcceptInvitationHandlerTests
 
         await using (var seedDb = new AdminOrganizationDbContext(opts))
         {
-            var inv = SeedPendingInvitation(seedDb, tenant, clock, token: "ACC");
+            var inv = await SeedPendingInvitationAsync(seedDb, tenant, clock, token: "ACC");
             inv.MarkAccepted(clock);
             await seedDb.SaveChangesAsync();
         }
@@ -441,7 +441,7 @@ public sealed class AcceptInvitationHandlerTests
 
         await using (var seedDb = new AdminOrganizationDbContext(opts))
         {
-            SeedPendingInvitation(seedDb, tenant, clock, kcUserId: kcUserId);
+            await SeedPendingInvitationAsync(seedDb, tenant, clock, kcUserId: kcUserId);
         }
 
         var kc = Substitute.For<IKeycloakAdminClient>();
@@ -470,7 +470,7 @@ public sealed class AcceptInvitationHandlerTests
         var tenant = new TenantId(Guid.NewGuid());
 
         await using var db = new AdminOrganizationDbContext(opts);
-        SeedPendingInvitation(db, tenant, clock);
+        await SeedPendingInvitationAsync(db, tenant, clock);
 
         var kc = Substitute.For<IKeycloakAdminClient>();
         var sut = MakeSut(db, kc, clock);
@@ -492,7 +492,7 @@ public sealed class AcceptInvitationHandlerTests
         var tenant = new TenantId(Guid.NewGuid());
 
         await using var db = new AdminOrganizationDbContext(opts);
-        SeedPendingInvitation(db, tenant, clock);
+        await SeedPendingInvitationAsync(db, tenant, clock);
 
         var kc = Substitute.For<IKeycloakAdminClient>();
         var sut = MakeSut(db, kc, clock);
@@ -513,7 +513,7 @@ public sealed class AcceptInvitationHandlerTests
         var tenant = new TenantId(Guid.NewGuid());
 
         await using var db = new AdminOrganizationDbContext(opts);
-        SeedPendingInvitation(db, tenant, clock);
+        await SeedPendingInvitationAsync(db, tenant, clock);
 
         var kc = Substitute.For<IKeycloakAdminClient>();
         var sut = MakeSut(db, kc, clock);
@@ -544,7 +544,7 @@ public sealed class AcceptInvitationHandlerTests
 
         await using (var seedDb = new AdminOrganizationDbContext(opts))
         {
-            SeedPendingInvitation(seedDb, tenant, clock, kcUserId: kcUserId);
+            await SeedPendingInvitationAsync(seedDb, tenant, clock, kcUserId: kcUserId);
         }
 
         var kc = Substitute.For<IKeycloakAdminClient>();

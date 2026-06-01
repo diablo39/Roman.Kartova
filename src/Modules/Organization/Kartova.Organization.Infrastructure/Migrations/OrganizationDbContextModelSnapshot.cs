@@ -77,6 +77,7 @@ namespace Kartova.Organization.Infrastructure.Migrations
                         .HasColumnName("tenant_id");
 
                     b.Property<string>("TokenHash")
+                        .IsConcurrencyToken()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("token_hash");

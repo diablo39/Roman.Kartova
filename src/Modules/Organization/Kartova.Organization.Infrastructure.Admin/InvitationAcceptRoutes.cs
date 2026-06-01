@@ -9,7 +9,7 @@ namespace Kartova.Organization.Infrastructure.Admin;
 
 internal static class InvitationAcceptRoutes
 {
-    public const string RateLimitPolicy = "invitation-accept";
+    internal const string RateLimitPolicy = "invitation-accept";
 
     public static void MapTo(IEndpointRouteBuilder app)
     {
@@ -47,6 +47,7 @@ internal static class InvitationAcceptRoutes
                 title: "Invitation not found",
                 detail: "No invitation matches the supplied token.",
                 statusCode: StatusCodes.Status404NotFound),
+            // Deliberate: GET collapses expired/revoked/already-used into one generic 410 (no enumeration) — see spec §5.1 + deep-review nit 3.
             GetAcceptContextResult.Failed => Results.Problem(
                 type: ProblemTypes.InvitationGone,
                 title: "Invitation no longer valid",

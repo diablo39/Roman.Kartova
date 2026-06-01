@@ -110,12 +110,23 @@ public sealed class AcceptInvitationHandler(
 
         // Burns the token (TokenHash → null) and stamps CredentialSetAt so the link
         // cannot be replayed: a re-submitted token resolves to not-found (null hash ≠ any stored hash).
-        // Strict atomic compare-and-swap is intentionally NOT used — the concurrent same-token
-        // case is benign (idempotent same-user password set).
+        // TokenHash is a concurrency token (IsConcurrencyToken in entity config): EF appends
+        // "AND token_hash = <original>" to the UPDATE WHERE clause. Two concurrent accepts of
+        // the same token both pass ResolveAsync, but only one can commit — the loser's row
+        // will have a different (already-null) token_hash and EF throws DbUpdateConcurrencyException.
+        // No migration needed — IsConcurrencyToken is client-side metadata; token_hash already exists.
         // Status intentionally stays Pending — it flips to Accepted on first login
         // once the OIDC session is established (spec §6).
         inv.MarkCredentialSet(clock);
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // A concurrent accept of the same token won the race and burned it first.
+            return new AcceptInvitationResult.Failed(AcceptInvitationError.GoneAlreadyUsed);
+        }
         return new AcceptInvitationResult.Ok(inv.Email);
     }
 

@@ -396,6 +396,77 @@ public sealed class InvitationAcceptTests : OrganizationIntegrationTestBase
     }
 
     // -------------------------------------------------------------------------
+    // Test #7 — POST /accept concurrent calls with same token → one 200, one 410
+    // -------------------------------------------------------------------------
+
+    [TestMethod]
+    public async Task Post_accept_concurrent_calls_with_same_token_returns_one_200_and_one_410()
+    {
+        var (adminEmail, tenantId) = await NewTenantAsync("accept-concurrent");
+        var inviteeEmail = $"invitee-{Guid.NewGuid():N}@{adminEmail.Split('@')[1]}";
+
+        Guid? kcUserId = null;
+        try
+        {
+            var adminClient = await Fx.CreateAuthenticatedClientAsync(
+                adminEmail, new[] { KartovaRoles.OrgAdmin });
+            var (_, token, kc) = await CreateInvitationAsync(adminClient, inviteeEmail);
+            kcUserId = kc;
+
+            var anonClient1 = Fx.CreateAnonymousClient();
+            var anonClient2 = Fx.CreateAnonymousClient();
+            var body = new AcceptInvitationRequest(token, "Sup3rSecretPassw0rd!", "Concurrent User");
+
+            // Fire both concurrently — one wins the xmin race, one loses.
+            var responses = await Task.WhenAll(
+                anonClient1.PostAsJsonAsync("/api/v1/invitations/accept", body),
+                anonClient2.PostAsJsonAsync("/api/v1/invitations/accept", body));
+
+            var statuses = new[] { (int)responses[0].StatusCode, (int)responses[1].StatusCode };
+            var ok200 = statuses.Count(s => s == 200);
+            // With xmin the loser gets 410 (GoneAlreadyUsed). Under rare serialization
+            // the loser may see 404 (burned-hash path). Both are valid race outcomes.
+            var goneOrNotFound = statuses.Count(s => s is 410 or 404);
+
+            Assert.AreEqual(1, ok200,
+                $"Exactly one response must be 200 OK. Got: {statuses[0]}, {statuses[1]}.");
+            Assert.AreEqual(1, goneOrNotFound,
+                $"Exactly one response must be 410 Gone (or 404 if requests serialized after burn). Got: {statuses[0]}, {statuses[1]}.");
+        }
+        finally
+        {
+            await CleanupTenantAsync(tenantId, kcUserId);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Test #8 — GET /accept exceeds rate limit → 429 on 11th request
+    // -------------------------------------------------------------------------
+
+    [TestMethod]
+    public async Task Get_accept_exceeds_rate_limit_returns_429()
+    {
+        // Rate limit: 10 requests/min per remote IP (loopback → same partition for all test requests).
+        // Sends 11 sequential GETs with a bogus token; rate limiting applies before the handler.
+        // The first 10 return 404 (unknown token); the 11th must return 429.
+        var bogusToken = Convert.ToBase64String(
+                System.Security.Cryptography.RandomNumberGenerator.GetBytes(32))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+        var anonClient = Fx.CreateAnonymousClient();
+        var url = $"/api/v1/invitations/accept?token={Uri.EscapeDataString(bogusToken)}";
+
+        HttpResponseMessage? lastResponse = null;
+        for (var i = 0; i < 11; i++)
+        {
+            lastResponse = await anonClient.GetAsync(url);
+        }
+
+        Assert.AreEqual(System.Net.HttpStatusCode.TooManyRequests, lastResponse!.StatusCode,
+            $"The 11th request must be rate-limited (429). Got {(int)lastResponse.StatusCode}.");
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers for KC requiredActions (raw admin REST — KeycloakUser omits this field)
     // -------------------------------------------------------------------------
 
