@@ -11,6 +11,7 @@ import { OrganizationSettingsPage } from "@/features/organization/pages/Organiza
 import { InvitationsPage } from "@/features/organization/pages/InvitationsPage";
 import { UserDetailPage } from "@/features/users/pages/UserDetailPage";
 import { CallbackPage } from "./CallbackPage";
+import { AcceptInvitationPage } from "@/features/invitations/pages/AcceptInvitationPage";
 
 function ProtectedShell() {
   return (
@@ -31,6 +32,7 @@ export function AppRoutes() {
           shown when the auth handshake itself failed. */}
       <Route path="/welcome" element={<WelcomePage />} />
       <Route path="/login-error" element={<LoginErrorPage />} />
+      <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
       <Route element={<ProtectedShell />}>
         <Route path="/catalog" element={<CatalogListPage />} />
         <Route
