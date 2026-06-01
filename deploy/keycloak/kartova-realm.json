@@ -6,6 +6,8 @@
   "accessTokenLifespan": 900,
   "ssoSessionIdleTimeout": 1800,
   "ssoSessionMaxLifespan": 36000,
+  "passwordPolicy": "length(12)",
+  "bruteForceProtected": true,
   "roles": {
     "realm": [
       { "name": "OrgAdmin" },
