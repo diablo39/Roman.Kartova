@@ -364,6 +364,36 @@ public sealed class AcceptInvitationHandlerTests
         Assert.AreEqual(AcceptInvitationError.GoneAlreadyUsed, failed!.Error);
     }
 
+    [TestMethod]
+    public async Task AcceptAsync_kc_UpdateUser_NotFound_returns_GoneAlreadyUsed()
+    {
+        var opts = NewOptions();
+        var clock = new FakeTimeProvider(T0);
+        var tenant = new TenantId(Guid.NewGuid());
+        var kcUserId = Guid.NewGuid();
+
+        await using (var seedDb = new AdminOrganizationDbContext(opts))
+        {
+            SeedPendingInvitation(seedDb, tenant, clock, kcUserId: kcUserId);
+        }
+
+        var kc = Substitute.For<IKeycloakAdminClient>();
+        // SetPasswordAsync succeeds; UpdateUserAsync throws NotFound
+        kc.SetPasswordAsync(kcUserId, Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        kc.UpdateUserAsync(kcUserId, Arg.Any<UpdateKeycloakUserRequest>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new KeycloakAdminException(KeycloakAdminError.NotFound, "user gone"));
+
+        await using var db = new AdminOrganizationDbContext(opts);
+        var sut = MakeSut(db, kc, clock);
+
+        var result = await sut.AcceptAsync(Token, "ValidP@ssword1!", "Alice", CancellationToken.None);
+
+        var failed = result as AcceptInvitationResult.Failed;
+        Assert.IsNotNull(failed);
+        Assert.AreEqual(AcceptInvitationError.GoneAlreadyUsed, failed!.Error);
+    }
+
     // =================================================================
     // AcceptAsync — Status==Accepted (token still present) → GoneAlreadyUsed
     // =================================================================
