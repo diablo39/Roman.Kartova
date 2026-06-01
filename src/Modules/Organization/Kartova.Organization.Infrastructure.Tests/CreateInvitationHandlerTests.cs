@@ -236,6 +236,7 @@ public sealed class CreateInvitationHandlerTests
         var kcId = Guid.NewGuid();
 
         var (h, db, kc, _, _) = Make(clock, opts);
+        CreateInvitationResult.Created created;
         await using (db)
         {
             kc.CreateUserAsync(Arg.Any<CreateKeycloakUserRequest>(), Arg.Any<CancellationToken>())
@@ -245,7 +246,7 @@ public sealed class CreateInvitationHandlerTests
                 new CreateInvitationRequest("alice@example.com", KartovaRoles.Member),
                 CancellationToken.None);
 
-            var created = (CreateInvitationResult.Created)result;
+            created = (CreateInvitationResult.Created)result;
             StringAssert.StartsWith(
                 created.Response.InviteUrl,
                 "http://localhost:5173/accept-invitation?token=");
@@ -256,9 +257,10 @@ public sealed class CreateInvitationHandlerTests
 
         await using (var assertDb = new OrganizationDbContext(opts))
         {
-            var token = (await assertDb.Invitations.SingleAsync())
-                .TokenHash;
-            Assert.IsNotNull(token);
+            var saved = await assertDb.Invitations.SingleAsync();
+            Assert.IsNotNull(saved.TokenHash);
+            var tokenFromUrl = Uri.UnescapeDataString(created.Response.InviteUrl.Split("token=")[1]);
+            Assert.AreEqual(InvitationToken.Hash(tokenFromUrl), saved.TokenHash);
         }
     }
 
