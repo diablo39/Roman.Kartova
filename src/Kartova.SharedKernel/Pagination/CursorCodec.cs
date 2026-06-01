@@ -88,7 +88,13 @@ public static class CursorCodec
         var sortValue = payload.S is JsonElement el ? UnwrapJsonElement(el) : payload.S;
         // Cursors with no filter state (or cursors issued before any filter
         // existed) omit `f`; decode as an empty map so consumers never null-check.
-        IReadOnlyDictionary<string, string> filters = payload.F ?? FrozenDictionary<string, string>.Empty;
+        // Materialize a present map into a FrozenDictionary so DecodedCursor.Filters
+        // is a truly immutable view — the STJ-deserialized dictionary is otherwise
+        // castable back to IDictionary and mutable (defensive-immutability convention,
+        // cf. OrgLogo.Bytes on this branch).
+        IReadOnlyDictionary<string, string> filters = payload.F is { Count: > 0 } f
+            ? f.ToFrozenDictionary(StringComparer.Ordinal)
+            : FrozenDictionary<string, string>.Empty;
         return new DecodedCursor(sortValue, payload.I, direction, filters);
     }
 

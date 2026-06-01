@@ -45,6 +45,12 @@ public static class QueryablePagingExtensions
     /// on any difference (added, dropped, or changed). Null/empty when the caller
     /// applies no filters, in which case `f` is omitted from the cursor and an
     /// incoming cursor that carries filter state is itself a mismatch.
+    /// <para>
+    /// CALLER CONTRACT: a caller that applies ANY row-set-narrowing filter (a
+    /// <c>WHERE</c> beyond the always-on tenant/RLS scope) MUST include that filter
+    /// here. Omitting an applied filter silently breaks keyset consistency — the
+    /// cursor cannot detect the filter change, so a mid-pagination change skips or
+    /// repeats rows undetected. Pass only the filters that narrow the row set.
     /// </para>
     /// </summary>
     public static async Task<CursorPage<T>> ToCursorPagedAsync<T>(
