@@ -478,6 +478,8 @@ public sealed class QueryablePagingExtensionsTests
                 expectedFilters: Filters(("includeDecommissioned", "false"), ("ownerUserId", "aaaaaaaa-0000-0000-0000-000000000002"))));
 
         Assert.AreEqual("ownerUserId", ex.FilterName);
+        Assert.AreEqual("aaaaaaaa-0000-0000-0000-000000000001", ex.ExpectedValue);
+        Assert.AreEqual("aaaaaaaa-0000-0000-0000-000000000002", ex.ActualValue);
     }
 
     [TestMethod]
@@ -512,7 +514,13 @@ public sealed class QueryablePagingExtensionsTests
             x => x.Id, CancellationToken.None,
             expectedFilters: Filters(("includeDecommissioned", "false")));
 
-        Assert.IsTrue(page.Items.Any());
+        // Matching filters must NOT interfere with the keyset: the cursor boundary
+        // (origin / Row1Id) excludes only row-0 (CreatedAt == origin, id 000 < 001),
+        // so rows 1-4 come back. Stronger than Any(): proves paging still advances
+        // past the boundary rather than returning the whole table.
+        Assert.AreEqual(4, page.Items.Count());
+        Assert.IsFalse(page.Items.Any(r => r.Id == Guid.Empty),
+            "Row-0 (id 000) is the keyset boundary and must be excluded.");
     }
 
     [TestMethod]

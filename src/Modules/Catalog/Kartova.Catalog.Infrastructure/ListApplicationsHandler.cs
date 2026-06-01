@@ -58,11 +58,10 @@ public sealed class ListApplicationsHandler(IUserDirectory directory)
         // here the predicate is safe to apply. RLS still scopes the row set, so
         // a leak-by-construction (e.g., owner row from another tenant) would
         // still produce an empty page rather than expose cross-tenant data.
-        // Slice 9 / S5 carry-forward (Phase H follow-up): the cursor codec now
-        // encodes ownerUserId; ToCursorPagedAsync below replays the filter on
-        // cursor decode and trips CursorFilterMismatchException if the request
-        // changes the owner mid-pagination. Symmetric to the slice-6
-        // IncludeDecommissioned precedent.
+        // Slice 9 / S5 carry-forward: ownerUserId is encoded into the generic
+        // filter map below (CursorCodec `f`); ToCursorPagedAsync replays the map
+        // on cursor decode and trips CursorFilterMismatchException if the request
+        // changes the owner mid-pagination. Same mechanism as includeDecommissioned.
         if (q.OwnerUserId is { } ownerUserId)
         {
             source = source.Where(a => a.OwnerUserId == ownerUserId);
