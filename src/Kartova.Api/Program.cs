@@ -149,6 +149,7 @@ public class Program
         var bypassConnection = KartovaConnectionStrings.RequireBypass(builder.Configuration);
         builder.Services.AddDbContext<AdminOrganizationDbContext>(opts => opts.UseNpgsql(bypassConnection));
         builder.Services.AddScoped<IAdminOrganizationCommands, AdminOrganizationCommands>();
+        builder.Services.AddScoped<AcceptInvitationHandler>();
 
         // Slice 9 D8: leader-elected periodic sweep of past-due invitations.
         // Registered here (not in OrganizationModule) for the same reason as
