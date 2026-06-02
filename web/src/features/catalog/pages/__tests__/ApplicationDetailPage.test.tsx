@@ -48,7 +48,12 @@ describe("ApplicationDetailPage", () => {
         tenantId: "t",
         displayName: "Payment Gateway",
         description: "Handles charges",
-        ownerUserId: "u-1",
+        ownerUserId: "00000000-0000-0000-0000-0000000000u1",
+        owner: {
+          id: "00000000-0000-0000-0000-0000000000u1",
+          displayName: "Alice Owner",
+          email: "alice@example.com",
+        },
         createdAt: "2026-01-01T12:34:56Z",
         lifecycle: "active",
         sunsetDate: null,
@@ -67,6 +72,66 @@ describe("ApplicationDetailPage", () => {
     await waitFor(() => expect(screen.getByText("Payment Gateway")).toBeInTheDocument());
     expect(screen.getByText("Handles charges")).toBeInTheDocument();
     expect(screen.getByText(/active/i)).toBeInTheDocument();
+  });
+
+  it("renders OwnerLink to /users/{id} when owner is present (slice-9 F8)", async () => {
+    const get = vi.fn().mockResolvedValue({
+      data: {
+        id: "00000000-0000-0000-0000-000000000001",
+        tenantId: "t",
+        displayName: "Payment Gateway",
+        description: "Handles charges",
+        ownerUserId: "00000000-0000-0000-0000-0000000000u1",
+        owner: {
+          id: "00000000-0000-0000-0000-0000000000u1",
+          displayName: "Alice Owner",
+          email: "alice@example.com",
+        },
+        createdAt: "2026-01-01T12:34:56Z",
+        lifecycle: "active",
+        sunsetDate: null,
+        teamId: null,
+        version: "v1",
+      },
+      error: undefined,
+    });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(harness(qc, "/catalog/applications/00000000-0000-0000-0000-000000000001"));
+
+    const ownerLink = await screen.findByRole("link", { name: /alice owner/i });
+    expect(ownerLink).toHaveAttribute("href", "/users/00000000-0000-0000-0000-0000000000u1");
+  });
+
+  it("renders 'Unknown user' fallback when owner is null (slice-9 F8)", async () => {
+    const get = vi.fn().mockResolvedValue({
+      data: {
+        id: "00000000-0000-0000-0000-000000000001",
+        tenantId: "t",
+        displayName: "Orphaned App",
+        description: "Owner since deleted",
+        ownerUserId: "00000000-0000-0000-0000-0000000000u1",
+        owner: null,
+        createdAt: "2026-01-01T12:34:56Z",
+        lifecycle: "active",
+        sunsetDate: null,
+        teamId: null,
+        version: "v1",
+      },
+      error: undefined,
+    });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(harness(qc, "/catalog/applications/00000000-0000-0000-0000-000000000001"));
+
+    await waitFor(() => expect(screen.getByText("Orphaned App")).toBeInTheDocument());
+    expect(screen.getByText(/unknown user/i)).toBeInTheDocument();
   });
 
   it("calls GET with the path id from the URL", async () => {

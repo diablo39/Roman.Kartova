@@ -4,6 +4,7 @@
     <Project Path="src/Kartova.Migrator/Kartova.Migrator.csproj" />
     <Project Path="src/Kartova.SharedKernel/Kartova.SharedKernel.csproj" />
     <Project Path="src/Kartova.SharedKernel.AspNetCore/Kartova.SharedKernel.AspNetCore.csproj" />
+    <Project Path="src/Kartova.SharedKernel.Identity/Kartova.SharedKernel.Identity.csproj" />
     <Project Path="src/Kartova.SharedKernel.Postgres/Kartova.SharedKernel.Postgres.csproj" />
     <Project Path="src/Kartova.SharedKernel.Wolverine/Kartova.SharedKernel.Wolverine.csproj" />
   </Folder>
@@ -31,6 +32,9 @@
     <Project Path="tests/Kartova.Api.IntegrationTests/Kartova.Api.IntegrationTests.csproj" />
     <Project Path="tests/Kartova.ArchitectureTests/Kartova.ArchitectureTests.csproj" />
     <Project Path="tests/Kartova.SharedKernel.AspNetCore.Tests/Kartova.SharedKernel.AspNetCore.Tests.csproj" />
+    <Project Path="tests/Kartova.SharedKernel.Identity.IntegrationTests/Kartova.SharedKernel.Identity.IntegrationTests.csproj" />
+    <Project Path="tests/Kartova.SharedKernel.Identity.Tests/Kartova.SharedKernel.Identity.Tests.csproj" />
+    <Project Path="tests/Kartova.SharedKernel.Postgres.IntegrationTests/Kartova.SharedKernel.Postgres.IntegrationTests.csproj" />
     <Project Path="tests/Kartova.SharedKernel.Tests/Kartova.SharedKernel.Tests.csproj" />
     <Project Path="tests/Kartova.Testing.Auth/Kartova.Testing.Auth.csproj" />
   </Folder>

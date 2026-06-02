@@ -26,5 +26,6 @@
     <InternalsVisibleTo Include="Kartova.Api" />
     <InternalsVisibleTo Include="Kartova.Api.IntegrationTests" />
     <InternalsVisibleTo Include="Kartova.Organization.IntegrationTests" />
+    <InternalsVisibleTo Include="Kartova.Organization.Infrastructure.Tests" />
   </ItemGroup>
 </Project>

@@ -37,7 +37,43 @@ public abstract class KartovaApiFixtureBase
         .WithPassword("postgres")
         .Build();
 
+    private KeycloakContainerFixture? _keycloak;
+
     public TestJwtSigner Signer { get; } = new();
+
+    /// <summary>
+    /// Opt-in hook for derived fixtures that need a real Keycloak container.
+    /// When <see langword="true"/>, <see cref="InitializeAsync"/> additionally
+    /// spins up a <see cref="KeycloakContainerFixture"/> and <see cref="CreateHost"/>
+    /// wires the four <c>KartovaIdentity__Keycloak__*</c> env vars from the live
+    /// container instead of the placeholder fallback. Defaults to <see langword="false"/>
+    /// so module fixtures that do not exercise the Keycloak admin client (Catalog)
+    /// keep their fast startup path.
+    /// <para>
+    /// <b>Precondition:</b> when this is <see langword="true"/>,
+    /// <see cref="InitializeAsync"/> MUST run before <see cref="CreateClient"/> /
+    /// <see cref="CreateAuthenticatedClientAsync"/> — the live KC URL is only
+    /// available after the container starts. <see cref="CreateHost"/> throws
+    /// <see cref="InvalidOperationException"/> if the precondition is violated.
+    /// </para>
+    /// </summary>
+    /// <remarks>
+    /// Consumer pattern: override on the derived module fixture, e.g.
+    /// <code>
+    /// protected override bool UsesKeycloakContainer =&gt; true;
+    /// </code>
+    /// Test code that needs the live Keycloak endpoint (token issuance, admin REST)
+    /// can read it via <see cref="Keycloak"/> once the fixture has initialized.
+    /// </remarks>
+    protected virtual bool UsesKeycloakContainer => false;
+
+    /// <summary>
+    /// The shared Keycloak fixture when <see cref="UsesKeycloakContainer"/> is
+    /// <see langword="true"/>; otherwise <see langword="null"/>. Exposed so opt-in
+    /// derived fixtures (and tests built on them) can read the live authority,
+    /// admin client secret, etc.
+    /// </summary>
+    public KeycloakContainerFixture? Keycloak => _keycloak;
 
     /// <summary>
     /// Mirror of the API's <c>ConfigureHttpJsonOptions</c> setup in <c>Program.cs</c>:
@@ -98,7 +134,19 @@ public abstract class KartovaApiFixtureBase
     /// </remarks>
     public async Task InitializeAsync()
     {
-        await _pg.StartAsync();
+        var pgTask = _pg.StartAsync();
+        Task? kcTask = null;
+        if (UsesKeycloakContainer)
+        {
+            // Start KC in parallel with Postgres — both take ~5-10s and there is
+            // no inter-dependency. Saves wall-clock when the opt-in path is active.
+            _keycloak = new KeycloakContainerFixture();
+            kcTask = _keycloak.InitializeAsync();
+        }
+
+        await pgTask;
+        if (kcTask is not null) await kcTask;
+
         await PostgresTestBootstrap.SeedRolesAndSchemaAsync(_pg.GetConnectionString());
         await RunModuleMigrationsAsync(MigratorConnectionString);
     }
@@ -114,6 +162,10 @@ public abstract class KartovaApiFixtureBase
     protected virtual async ValueTask DisposeAsyncCore()
     {
         await _pg.DisposeAsync();
+        if (_keycloak is not null)
+        {
+            await _keycloak.DisposeAsync();
+        }
         await base.DisposeAsync();
     }
 
@@ -133,6 +185,41 @@ public abstract class KartovaApiFixtureBase
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Authority), TestJwtSigner.Issuer);
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Audience), TestJwtSigner.Audience);
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.RequireHttpsMetadata), "false");
+
+        if (UsesKeycloakContainer)
+        {
+            // Read the virtual rather than the backing field so a misordered
+            // lifecycle (CreateClient before InitializeAsync) surfaces as an
+            // explicit InvalidOperationException instead of silently falling
+            // through to the placeholder branch and producing a confusing
+            // "KC admin client can't authenticate" runtime error.
+            if (_keycloak is null)
+            {
+                throw new InvalidOperationException(
+                    $"{nameof(InitializeAsync)} must run before {nameof(CreateClient)} when {nameof(UsesKeycloakContainer)} is true.");
+            }
+
+            // Opt-in path: point the AddKeycloakAdminClient binding at the live
+            // Testcontainer. Realm seed matches deploy/keycloak/kartova-realm.json.
+            // The CreateInvitation / RevokeInvitation / ExpireInvitation handlers
+            // in the Organization module exercise this for real.
+            Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__BaseUrl", _keycloak.KeycloakBaseUrl);
+            Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__Realm", RealmSeedConstants.RealmName);
+            Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__AdminClientId", RealmSeedConstants.AdminClientId);
+            Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__AdminClientSecret", RealmSeedConstants.AdminClientSecret);
+        }
+        else
+        {
+            // Slice 9 / Phase D: Kartova.SharedKernel.Identity.AddKeycloakAdminClient runs
+            // .ValidateOnStart() and rejects the appsettings.json placeholder verbatim.
+            // Fixtures that do not opt into a real KC container (Catalog and similar)
+            // do not exercise the KC admin client, but the options validation runs at
+            // host startup unconditionally — supply a test-only secret so the host
+            // boots. Production overrides this via secret store.
+            Environment.SetEnvironmentVariable(
+                "KartovaIdentity__Keycloak__AdminClientSecret",
+                "test-only-secret-not-used-by-any-real-call");
+        }
         return base.CreateHost(builder);
     }
 
@@ -150,12 +237,35 @@ public abstract class KartovaApiFixtureBase
     /// <paramref name="email"/>'s deterministic <c>sub</c> claim (Guid form) and
     /// the deterministic test tenant id derived from the email's domain. Roles
     /// default to <c>OrgAdmin</c> so the request passes any role guards.
+    /// <para>
+    /// Slice 9 / H1 batch 4 added two optional overrides used by session-bootstrap
+    /// tests that need to impersonate a specific KC user id (e.g. the
+    /// <c>keycloak_user_id</c> stored on a Pending invitation) and emit an
+    /// <c>email</c> claim so <c>SessionStartHandler</c> can run its upsert +
+    /// invitation-acceptance side effects:
+    /// </para>
+    /// <list type="bullet">
+    ///   <item><paramref name="subjectOverride"/> — replaces the <c>sub</c> claim
+    ///   value (the deterministic <see cref="SubFor"/> Guid is used when null).</item>
+    ///   <item><paramref name="emailClaim"/> — when non-null, adds an <c>email</c>
+    ///   claim to the JWT. Defaults to null so existing tests continue to mint
+    ///   tokens without an email claim (their assertions don't depend on the
+    ///   session-bootstrap projection upsert).</item>
+    /// </list>
     /// </summary>
-    public Task<HttpClient> CreateAuthenticatedClientAsync(string email, string[]? roles = null)
+    public Task<HttpClient> CreateAuthenticatedClientAsync(
+        string email,
+        string[]? roles = null,
+        Guid? subjectOverride = null,
+        string? emailClaim = null)
     {
-        var sub = SubFor(email);
+        var sub = subjectOverride ?? SubFor(email);
         var tenant = TenantFor(email);
-        var token = Signer.IssueForTenant(tenant, roles ?? new[] { "OrgAdmin" }, subject: sub.ToString());
+        var token = Signer.IssueForTenant(
+            tenant,
+            roles ?? new[] { "OrgAdmin" },
+            subject: sub.ToString(),
+            email: emailClaim);
 
         var client = CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);

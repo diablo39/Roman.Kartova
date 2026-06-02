@@ -99,7 +99,14 @@ export function TeamDetailPage() {
               <tbody className="divide-y divide-secondary">
                 {team.members.map(m => (
                   <tr key={m.userId} className="hover:bg-primary_hover">
-                    <td className="px-4 py-3 font-mono text-xs text-tertiary">{m.userId}</td>
+                    <td className="px-4 py-3">
+                      {/* Slice 9 (F8): TeamMemberResponse carries displayName + email
+                          via E3 enrichment. Fall back to the bare userId UUID when
+                          displayName is empty (spec §4.1 — a freshly added user whose
+                          profile hasn't been populated yet). */}
+                      <div className="font-medium text-primary">{m.displayName || m.userId}</div>
+                      <div className="text-xs text-tertiary">{m.email}</div>
+                    </td>
                     <td className="px-4 py-3 text-primary">{m.role}</td>
                     <td className="px-4 py-3 text-tertiary">
                       {new Date(m.addedAt).toLocaleDateString()}

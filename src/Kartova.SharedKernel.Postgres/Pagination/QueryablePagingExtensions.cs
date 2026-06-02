@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Linq.Expressions;
 using Kartova.SharedKernel.Pagination;
 using Microsoft.EntityFrameworkCore;
@@ -35,6 +36,22 @@ public static class QueryablePagingExtensions
     /// encoding the next-page cursor. This separation is necessary because EF Core
     /// cannot translate <c>x.StrongId.Value</c> in LINQ expressions, but the CLR
     /// compiled delegate CAN access it at runtime.
+    /// <para>
+    /// <paramref name="expectedFilters"/> — ADR-0095 filter-state replay. An
+    /// opaque, caller-owned string→string map of the filters this request
+    /// applies. The codec encodes it into the next cursor; on decode,
+    /// <see cref="CursorFilterComparer"/> requires the request's map to equal the
+    /// cursor's map and fails closed via <see cref="CursorFilterMismatchException"/>
+    /// on any difference (added, dropped, or changed). Null/empty when the caller
+    /// applies no filters, in which case `f` is omitted from the cursor and an
+    /// incoming cursor that carries filter state is itself a mismatch.
+    /// <para>
+    /// CALLER CONTRACT: a caller that applies ANY row-set-narrowing filter (a
+    /// <c>WHERE</c> beyond the always-on tenant/RLS scope) MUST include that filter
+    /// here. Omitting an applied filter silently breaks keyset consistency — the
+    /// cursor cannot detect the filter change, so a mid-pagination change skips or
+    /// repeats rows undetected. Pass only the filters that narrow the row set.
+    /// </para>
     /// </summary>
     public static async Task<CursorPage<T>> ToCursorPagedAsync<T>(
         this IQueryable<T> source,
@@ -45,7 +62,7 @@ public static class QueryablePagingExtensions
         Expression<Func<T, Guid>> idSelector,
         Func<T, Guid> idExtractor,
         CancellationToken ct,
-        bool? expectedIncludeDecommissioned = null)
+        IReadOnlyDictionary<string, string>? expectedFilters = null)
         where T : class
     {
         if (limit < MinLimit || limit > MaxLimit)
@@ -63,13 +80,16 @@ public static class QueryablePagingExtensions
                 throw new InvalidCursorException(
                     $"Cursor was issued for direction '{decoded.Direction}' but request uses '{order}'.");
             }
-            if (expectedIncludeDecommissioned is bool requestFilter
-                && decoded.IncludeDecommissioned != requestFilter)
+            // Filter-state replay (ADR-0095): the request's filter set must equal
+            // the set the cursor was issued under, or paging would skip/repeat
+            // rows. Domain-agnostic — CursorFilterComparer never interprets the
+            // keys; the owning handler supplies them. A difference in either
+            // direction is a 400.
+            var mismatch = CursorFilterComparer.FindMismatch(
+                decoded.Filters, expectedFilters ?? FrozenDictionary<string, string>.Empty);
+            if (mismatch is { } m)
             {
-                throw new CursorFilterMismatchException(
-                    filterName: "includeDecommissioned",
-                    expectedValue: decoded.IncludeDecommissioned ? "true" : "false",
-                    actualValue: requestFilter ? "true" : "false");
+                throw new CursorFilterMismatchException(m.Name, m.Expected, m.Actual);
             }
             q = ApplyKeysetFilter(q, sort.KeySelector, idSelector, decoded.SortValue, decoded.Id, order);
         }
@@ -91,7 +111,7 @@ public static class QueryablePagingExtensions
                     NormalizeForCursor(sortValue),
                     id,
                     order,
-                    expectedIncludeDecommissioned ?? false);
+                    expectedFilters);
         }
 
         return new CursorPage<T>(rows, nextCursor, PrevCursor: null);

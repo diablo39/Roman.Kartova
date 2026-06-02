@@ -431,74 +431,127 @@ public sealed class QueryablePagingExtensionsTests
         AssertAscending(seen);
     }
 
-    [TestMethod]
-    public async Task ToCursorPagedAsync_throws_CursorFilterMismatchException_when_cursor_ic_does_not_match_expected()
-    {
-        // Arrange: seed rows so the keyset filter has real data available.
-        await SeedAsync(3);
-        // Encode a cursor that was issued with includeDecommissioned=true.
-        // Use row-0's Id (non-empty Guid) as the boundary id so Decode accepts it.
-        var origin = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
-        var cursorWithIcTrue = CursorCodec.Encode(
-            sortValue: origin.UtcDateTime.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
-            id: Guid.Parse("00000000-0000-0000-0000-000000000001"),
-            direction: SortOrder.Asc,
-            includeDecommissioned: true);
+    private static readonly string OriginIso =
+        new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero).UtcDateTime
+            .ToString("O", System.Globalization.CultureInfo.InvariantCulture);
 
-        // Act / Assert: the extension throws CursorFilterMismatchException with the right field values.
+    private static readonly Guid Row1Id = Guid.Parse("00000000-0000-0000-0000-000000000001");
+
+    private static IReadOnlyDictionary<string, string> Filters(params (string K, string V)[] pairs)
+    {
+        var d = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (k, v) in pairs) d[k] = v;
+        return d;
+    }
+
+    [TestMethod]
+    public async Task FilterMismatch_on_changed_value_reports_filter_name_expected_and_actual()
+    {
+        await SeedAsync(3);
+        var cursor = CursorCodec.Encode(
+            OriginIso, Row1Id, SortOrder.Asc,
+            Filters(("includeDecommissioned", "true")));
+
         var ex = await Assert.ThrowsExactlyAsync<CursorFilterMismatchException>(async () =>
             await _db.Rows.ToCursorPagedAsync(
-                ByCreatedAt, SortOrder.Asc, cursorWithIcTrue, limit: 10, x => x.Id,
+                ByCreatedAt, SortOrder.Asc, cursor, limit: 10, x => x.Id,
                 x => x.Id, CancellationToken.None,
-                expectedIncludeDecommissioned: false));
+                expectedFilters: Filters(("includeDecommissioned", "false"))));
+
         Assert.AreEqual("includeDecommissioned", ex.FilterName);
-        Assert.AreEqual("true", ex.ExpectedValue);   // cursor was issued with ic=true
-        Assert.AreEqual("false", ex.ActualValue);    // request says ic=false
+        Assert.AreEqual("true", ex.ExpectedValue);
+        Assert.AreEqual("false", ex.ActualValue);
     }
 
     [TestMethod]
-    public async Task ToCursorPagedAsync_with_null_expectedIncludeDecommissioned_skips_filter_check_even_when_cursor_has_ic_true()
+    public async Task FilterMismatch_reports_ownerUserId_key_when_owner_changes()
     {
-        // Arrange: seed several rows so the keyset filter returns real results.
+        await SeedAsync(3);
+        var cursor = CursorCodec.Encode(
+            OriginIso, Row1Id, SortOrder.Asc,
+            Filters(("includeDecommissioned", "false"), ("ownerUserId", "aaaaaaaa-0000-0000-0000-000000000001")));
+
+        var ex = await Assert.ThrowsExactlyAsync<CursorFilterMismatchException>(async () =>
+            await _db.Rows.ToCursorPagedAsync(
+                ByCreatedAt, SortOrder.Asc, cursor, limit: 10, x => x.Id,
+                x => x.Id, CancellationToken.None,
+                expectedFilters: Filters(("includeDecommissioned", "false"), ("ownerUserId", "aaaaaaaa-0000-0000-0000-000000000002"))));
+
+        Assert.AreEqual("ownerUserId", ex.FilterName);
+        Assert.AreEqual("aaaaaaaa-0000-0000-0000-000000000001", ex.ExpectedValue);
+        Assert.AreEqual("aaaaaaaa-0000-0000-0000-000000000002", ex.ActualValue);
+    }
+
+    [TestMethod]
+    public async Task Cursor_carrying_filters_replayed_against_no_filter_request_throws_mismatch()
+    {
         await SeedAsync(5);
-        // Encode a cursor at row-0's boundary (ic=true) using a non-empty Guid so Decode accepts it.
-        // The sortValue string must match what NormalizeForCursor produces for a DateTimeOffset:
-        // origin.UtcDateTime formatted as "O" (round-trip). The keyset filter then returns rows
-        // whose CreatedAt >= origin (row-0 was at origin, so rows 1-4 are strictly after it).
-        var origin = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
-        var cursorWithIcTrue = CursorCodec.Encode(
-            sortValue: origin.UtcDateTime.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
-            id: Guid.Parse("00000000-0000-0000-0000-000000000001"),
-            direction: SortOrder.Asc,
-            includeDecommissioned: true);
+        var cursor = CursorCodec.Encode(
+            OriginIso, Row1Id, SortOrder.Asc,
+            Filters(("includeDecommissioned", "true")));
 
-        // Act: expectedIncludeDecommissioned omitted (null) → filter check must be skipped.
-        // The keyset filter is applied with the cursor boundary, so rows after row-0 are returned.
-        var page = await _db.Rows.ToCursorPagedAsync(
-            ByCreatedAt, SortOrder.Asc, cursorWithIcTrue, limit: 10, x => x.Id,
-            x => x.Id, CancellationToken.None,
-            expectedIncludeDecommissioned: null);
+        var ex = await Assert.ThrowsExactlyAsync<CursorFilterMismatchException>(async () =>
+            await _db.Rows.ToCursorPagedAsync(
+                ByCreatedAt, SortOrder.Asc, cursor, limit: 10, x => x.Id,
+                x => x.Id, CancellationToken.None,
+                expectedFilters: null));
 
-        // Assert: no exception; pagination returns rows after the boundary
-        // (rows 1-4 are after the row-0 boundary).
-        Assert.IsTrue(page.Items.Any());
+        Assert.AreEqual("includeDecommissioned", ex.FilterName);
+        Assert.AreEqual("true", ex.ExpectedValue);
+        Assert.AreEqual("(none)", ex.ActualValue);
     }
 
     [TestMethod]
-    public async Task ToCursorPagedAsync_with_null_expectedIncludeDecommissioned_encodes_next_cursor_with_ic_false()
+    public async Task MatchingFilters_do_not_throw_and_return_rows()
     {
-        // Kills mutation at QueryablePagingExtensions.cs:94: `expectedIncludeDecommissioned ?? false` → `?? true`.
-        // With the mutation the next cursor would encode ic=true; this test decodes it and asserts ic=false.
-        // Arrange: seed enough rows (> limit) so a NextCursor is produced.
+        await SeedAsync(5);
+        var cursor = CursorCodec.Encode(
+            OriginIso, Row1Id, SortOrder.Asc,
+            Filters(("includeDecommissioned", "false")));
+
+        var page = await _db.Rows.ToCursorPagedAsync(
+            ByCreatedAt, SortOrder.Asc, cursor, limit: 10, x => x.Id,
+            x => x.Id, CancellationToken.None,
+            expectedFilters: Filters(("includeDecommissioned", "false")));
+
+        // Matching filters must NOT interfere with the keyset: the cursor boundary
+        // (origin / Row1Id) excludes only row-0 (CreatedAt == origin, id 000 < 001),
+        // so rows 1-4 come back. Stronger than Any(): proves paging still advances
+        // past the boundary rather than returning the whole table.
+        Assert.AreEqual(4, page.Items.Count());
+        Assert.IsFalse(page.Items.Any(r => r.Id == Guid.Empty),
+            "Row-0 (id 000) is the keyset boundary and must be excluded.");
+    }
+
+    [TestMethod]
+    public async Task NextCursor_round_trips_the_expectedFilters()
+    {
+        await SeedAsync(6);
+        var expected = Filters(
+            ("includeDecommissioned", "true"),
+            ("ownerUserId", "aaaaaaaa-0000-0000-0000-000000000009"));
+
+        var page = await _db.Rows.ToCursorPagedAsync(
+            ByCreatedAt, SortOrder.Asc, cursor: null, limit: 5, x => x.Id,
+            x => x.Id, CancellationToken.None,
+            expectedFilters: expected);
+
+        Assert.IsNotNull(page.NextCursor);
+        var decoded = CursorCodec.Decode(page.NextCursor!);
+        Assert.AreEqual("true", decoded.Filters["includeDecommissioned"]);
+        Assert.AreEqual("aaaaaaaa-0000-0000-0000-000000000009", decoded.Filters["ownerUserId"]);
+    }
+
+    [TestMethod]
+    public async Task No_expectedFilters_encodes_next_cursor_without_filter_state()
+    {
         await SeedAsync(6);
 
-        // Act: call with null expectedIncludeDecommissioned (default) and a small limit so NextCursor is set.
         var page = await _db.Rows.ToCursorPagedAsync(
             ByCreatedAt, SortOrder.Asc, cursor: null, limit: 5, x => x.Id, CancellationToken.None);
 
-        // Assert: NextCursor must exist (6 rows > limit 5) and decode with IncludeDecommissioned == false.
         Assert.IsNotNull(page.NextCursor);
         var decoded = CursorCodec.Decode(page.NextCursor!);
-        Assert.IsFalse(decoded.IncludeDecommissioned);
+        Assert.AreEqual(0, decoded.Filters.Count);
     }
 }

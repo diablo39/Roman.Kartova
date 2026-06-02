@@ -22,6 +22,79 @@ namespace Kartova.Organization.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Kartova.Organization.Domain.Invitation", b =>
+                {
+                    b.Property<Guid>("_id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("AcceptedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("accepted_at");
+
+                    b.Property<DateTimeOffset?>("CredentialSetAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("credential_set_at");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)")
+                        .HasColumnName("email");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTimeOffset>("InvitedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("invited_at");
+
+                    b.Property<Guid>("InvitedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invited_by_user_id");
+
+                    b.Property<Guid?>("KeycloakUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("keycloak_user_id");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("role");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("smallint")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("TokenHash")
+                        .IsConcurrencyToken()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("token_hash");
+
+                    b.HasKey("_id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("idx_invitations_token_hash")
+                        .HasFilter("token_hash IS NOT NULL");
+
+                    b.HasIndex("TenantId", "Status")
+                        .HasDatabaseName("idx_invitations_tenant_status");
+
+                    b.ToTable("invitations", (string)null);
+                });
+
             modelBuilder.Entity("Kartova.Organization.Domain.Organization", b =>
                 {
                     b.Property<Guid>("Id")
@@ -32,7 +105,20 @@ namespace Kartova.Organization.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
-                    b.Property<string>("Name")
+                    b.Property<string>("DefaultTimeZone")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasDefaultValue("UTC")
+                        .HasColumnName("default_time_zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
@@ -108,6 +194,93 @@ namespace Kartova.Organization.Infrastructure.Migrations
                         .HasDatabaseName("idx_team_members_user");
 
                     b.ToTable("team_members", (string)null);
+                });
+
+            modelBuilder.Entity("Kartova.Organization.Domain.User", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("display_name");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)")
+                        .HasColumnName("email");
+
+                    b.Property<string>("FamilyName")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("family_name");
+
+                    b.Property<string>("GivenName")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("given_name");
+
+                    b.Property<DateTimeOffset?>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_seen_at");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("idx_users_tenant");
+
+                    b.HasIndex("TenantId", "Email")
+                        .IsUnique()
+                        .HasDatabaseName("ux_users_tenant_email");
+
+                    b.ToTable("users", (string)null);
+                });
+
+            modelBuilder.Entity("Kartova.Organization.Domain.Organization", b =>
+                {
+                    b.OwnsOne("Kartova.Organization.Domain.OrgLogo", "Logo", b1 =>
+                        {
+                            b1.Property<Guid>("OrganizationId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<byte[]>("Bytes")
+                                .IsRequired()
+                                .HasColumnType("bytea")
+                                .HasColumnName("logo_bytes");
+
+                            b1.Property<string>("ContentHash")
+                                .IsRequired()
+                                .HasMaxLength(64)
+                                .HasColumnType("character varying(64)")
+                                .HasColumnName("logo_content_hash");
+
+                            b1.Property<string>("MimeType")
+                                .IsRequired()
+                                .HasMaxLength(32)
+                                .HasColumnType("character varying(32)")
+                                .HasColumnName("logo_mime_type");
+
+                            b1.HasKey("OrganizationId");
+
+                            b1.ToTable("organizations");
+
+                            b1.WithOwner()
+                                .HasForeignKey("OrganizationId");
+                        });
+
+                    b.Navigation("Logo");
                 });
 #pragma warning restore 612, 618
         }

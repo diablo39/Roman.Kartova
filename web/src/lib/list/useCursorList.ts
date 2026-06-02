@@ -5,7 +5,7 @@ import type { CursorListResult, CursorPageEnvelope } from "./types";
 interface UseCursorListOptions<TItem> {
   queryKey: QueryKey;
   fetchPage: (cursor: string | undefined) => Promise<CursorPageEnvelope<TItem>>;
-  /** Garbage-collection time for cached pages (ms). Default 5 min. */
+  /** Garbage-collection time for cached pages (ms). Default 15 min. */
   gcTime?: number;
 }
 
@@ -24,7 +24,7 @@ interface UseCursorListOptions<TItem> {
 export function useCursorList<TItem>(
   options: UseCursorListOptions<TItem>,
 ): CursorListResult<TItem> {
-  const { queryKey, fetchPage, gcTime = 5 * 60 * 1000 } = options;
+  const { queryKey, fetchPage, gcTime = 15 * 60 * 1000 } = options;
   const keyStr = JSON.stringify(queryKey);
   const [stack, setStack] = useState<(string | undefined)[]>([undefined]);
   const [seenKey, setSeenKey] = useState(keyStr);
@@ -60,6 +60,14 @@ export function useCursorList<TItem>(
 
   const reset = useCallback(() => setStack([undefined]), []);
 
+  // Surface React Query's refetch so callers can retry after a first-page
+  // error. `reset()` alone is a no-op in that case — the stack is already
+  // `[undefined]`, so React Query has no reason to re-run.
+  const { refetch: queryRefetch } = query;
+  const refetch = useCallback(() => {
+    void queryRefetch();
+  }, [queryRefetch]);
+
   return {
     items: query.data?.items ?? [],
     isLoading: query.isLoading,
@@ -71,5 +79,6 @@ export function useCursorList<TItem>(
     goNext,
     goPrev,
     reset,
+    refetch,
   };
 }

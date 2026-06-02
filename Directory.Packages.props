@@ -6,6 +6,8 @@
   <ItemGroup>
     <!-- Production dependencies -->
     <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
+    <PackageVersion Include="Duende.IdentityModel" Version="8.1.0" />
+    <PackageVersion Include="HtmlSanitizer" Version="9.0.892" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.7" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.Common" Version="5.0.0" />
@@ -19,8 +21,12 @@
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.2" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.2" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.2" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.2" />
+    <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.0" />
     <PackageVersion Include="Microsoft.IdentityModel.Tokens" Version="8.3.0" />
     <PackageVersion Include="Npgsql" Version="10.0.0" />
     <PackageVersion Include="Npgsql.DependencyInjection" Version="10.0.0" />

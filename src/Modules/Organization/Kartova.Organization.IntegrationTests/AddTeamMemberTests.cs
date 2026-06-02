@@ -23,15 +23,22 @@ public sealed class AddTeamMemberTests : OrganizationIntegrationTestBase
     [TestMethod]
     public async Task OrgAdmin_adds_member_returns_201_with_body()
     {
+        // Slice 9 / E3 (ADR-0098): the 201 body now includes DisplayName + Email
+        // pulled from IUserDirectory. Seed a matching users row BEFORE the POST
+        // so the enrichment path is exercised (not just the fallback).
         await Fx.SeedOrganizationAsync(Tenant.Value, "OrgA-Add");
         var teamId = await Fx.SeedTeamAsync(Tenant.Value, "Platform");
+        var unique = Guid.NewGuid().ToString("N")[..8];
+        var newUserId = await Fx.SeedUserInOrganizationAsync(
+            Tenant,
+            displayName: "Adam Admin",
+            email: $"adam-{unique}@example.com");
         try
         {
             var client = Fx.CreateClient();
             var token = Fx.Signer.IssueForTenant(Tenant, new[] { KartovaRoles.OrgAdmin });
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-            var newUserId = Guid.NewGuid();
             var resp = await client.PostAsJsonAsync(
                 $"/api/v1/organizations/teams/{teamId}/members",
                 new AddTeamMemberRequest(newUserId, "Admin"));
@@ -41,6 +48,46 @@ public sealed class AddTeamMemberTests : OrganizationIntegrationTestBase
             Assert.IsNotNull(body);
             Assert.AreEqual(newUserId, body!.UserId);
             Assert.AreEqual("Admin", body.Role);
+            Assert.AreEqual("Adam Admin", body.DisplayName);
+            Assert.AreEqual($"adam-{unique}@example.com", body.Email);
+        }
+        finally
+        {
+            // Order: user-row delete first so the more leak-prone cleanup
+            // (direct-id delete, no prefix sweep) runs even if the teams
+            // cleanup throws — mirrors E1 e5aaf73 / E2 4715c87 convention.
+            await Fx.DeleteUserInOrganizationAsync(newUserId);
+            await Fx.DeleteTeamsForTenantAsync(Tenant.Value);
+        }
+    }
+
+    [TestMethod]
+    public async Task Add_member_with_no_users_row_returns_empty_display_info()
+    {
+        // Slice 9 / E3: when no users projection row matches the supplied UserId
+        // (race against post-auth sync, or a manually-supplied id), DisplayName
+        // + Email must surface as the "" fallback rather than throwing. The 201
+        // shape is otherwise unchanged.
+        await Fx.SeedOrganizationAsync(Tenant.Value, "OrgA-Add-NoUser");
+        var teamId = await Fx.SeedTeamAsync(Tenant.Value, "Platform");
+        try
+        {
+            var client = Fx.CreateClient();
+            var token = Fx.Signer.IssueForTenant(Tenant, new[] { KartovaRoles.OrgAdmin });
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var orphanUserId = Guid.NewGuid();
+            var resp = await client.PostAsJsonAsync(
+                $"/api/v1/organizations/teams/{teamId}/members",
+                new AddTeamMemberRequest(orphanUserId, "Member"));
+
+            Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode);
+            var body = await resp.Content.ReadFromJsonAsync<TeamMemberResponse>(KartovaApiFixtureBase.WireJson);
+            Assert.IsNotNull(body);
+            Assert.AreEqual(orphanUserId, body!.UserId);
+            Assert.AreEqual("Member", body.Role);
+            Assert.AreEqual("", body.DisplayName);
+            Assert.AreEqual("", body.Email);
         }
         finally
         {

@@ -7,9 +7,27 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Kartova.SharedKernel.AspNetCore;
 
 /// <summary>
-/// IClaimsTransformation that reads <c>tenant_id</c> and realm roles from the validated JWT
-/// and populates the scoped <see cref="ITenantContext"/>.
+/// <see cref="IClaimsTransformation"/> that reads <c>tenant_id</c> and realm roles from
+/// the validated JWT and populates the scoped <see cref="ITenantContext"/>.
 /// Realm roles live in the JSON claim <c>realm_access</c> with shape <c>{"roles": [...]}</c>.
+/// <para>
+/// This transformation does claims-only work: it MUST NOT touch any service that
+/// depends on an active <see cref="ITenantScope"/>. ASP.NET runs
+/// <see cref="IClaimsTransformation"/> implementations inside the
+/// <c>UseAuthentication</c> middleware, which fires BEFORE
+/// <see cref="TenantScopeBeginMiddleware"/> opens the per-request connection +
+/// transaction. Resolving (e.g.) a module DbContext from here throws
+/// "TenantScope is not active" because the DbContext options factory calls
+/// <see cref="INpgsqlTenantScope.Connection"/> at materialization
+/// (see <c>AddModuleDbContextExtensions</c>).
+/// </para>
+/// <para>
+/// Post-auth sync work (user-projection upsert from JWT claims, invitation
+/// acceptance, etc.) is performed inline by the Organization module's
+/// <c>SessionStartHandler</c> on <c>POST /api/v1/auth/session</c> — the SPA's
+/// <c>OidcCallbackHandler</c> always calls that endpoint first after the KC
+/// roundtrip, so no separate pipeline hook is needed.
+/// </para>
 /// </summary>
 public sealed class TenantClaimsTransformation : IClaimsTransformation
 {

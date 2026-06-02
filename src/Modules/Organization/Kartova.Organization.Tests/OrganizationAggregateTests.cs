@@ -25,7 +25,7 @@ public class OrganizationAggregateTests
 
         Assert.AreNotEqual(Guid.Empty, org.Id.Value);
         Assert.AreEqual(org.Id.Value, org.TenantId.Value);
-        Assert.AreEqual("Acme", org.Name);
+        Assert.AreEqual("Acme", org.DisplayName);
         Assert.AreEqual(clock.GetUtcNow(), org.CreatedAt);
     }
 
@@ -56,10 +56,10 @@ public class OrganizationAggregateTests
     }
 
     [TestMethod]
-    public void Rename_updates_name()
+    public void Rename_updates_display_name()
     {
         var org = Domain.Organization.Create("Acme", Clock());
         org.Rename("NewName");
-        Assert.AreEqual("NewName", org.Name);
+        Assert.AreEqual("NewName", org.DisplayName);
     }
 }

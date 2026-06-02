@@ -440,49 +440,42 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
-    public async Task GET_applications_with_legacy_cursor_lacking_ic_decodes_as_false_and_pages()
+    public async Task GET_applications_with_filterless_cursor_returns_400_cursor_filter_mismatch()
     {
-        var unique = $"f6-legc-{Guid.NewGuid():N}";
-        var activePrefix = $"{unique}-a-";
+        // Clean break (ADR-0095 amendment 2026-06-01): the applications endpoint
+        // ALWAYS encodes the includeDecommissioned filter dimension into the
+        // cursor. A cursor carrying no filter state — a pre-slice-6/9 legacy
+        // `{s,i,d}`-only cursor — therefore no longer "decodes as ic=false"; it
+        // mismatches the request's filter map and is rejected. (Old behaviour:
+        // legacy cursor silently treated as ic=false and paged through.) The
+        // mismatch fires before keyset filtering, so no seeding is needed and the
+        // sort value/id need not point at real rows.
+        var filterlessJson = "{\"s\":\"2020-01-01T00:00:00.0000000Z\",\"i\":\"" + Guid.NewGuid() + "\",\"d\":\"desc\"}";
+        var filterlessCursor = System.Buffers.Text.Base64Url.EncodeToString(System.Text.Encoding.UTF8.GetBytes(filterlessJson));
 
-        var tenantId = Fx.TenantIdForEmail("admin@orga.kartova.local");
-        // Seed 5 rows as the most recent rows in the tenant (seeded now, so createdAt desc
-        // puts them at the top). limit=2 on page1 returns 2 of our rows and yields a cursor
-        // pointing into our seeded range.
-        await Fx.SeedApplicationsAsync(tenantId, count: 5, namePrefix: activePrefix);
+        var client = Fx.CreateClientForOrgA();
 
-        try
-        {
-            var client = Fx.CreateClientForOrgA();
+        // Default request (no includeDecommissioned param → false). The cursor has
+        // no filter state (empty map), so includeDecommissioned is present in the
+        // request map but absent from the cursor map → mismatch.
+        var resp = await client.GetAsync(
+            $"/api/v1/catalog/applications?limit=2&sortBy=createdAt&sortOrder=desc&cursor={Uri.EscapeDataString(filterlessCursor)}");
 
-            var page1 = await client.GetAsync("/api/v1/catalog/applications?limit=2&sortBy=createdAt&sortOrder=desc");
-            Assert.AreEqual(HttpStatusCode.OK, page1.StatusCode);
-            var p1 = await page1.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
-            var boundary = p1!.Items.Last();
-
-            // Construct a cursor JSON without the `ic` field — pre-slice-6 shape.
-            var legacyJson = $"{{\"s\":\"{boundary.CreatedAt:O}\",\"i\":\"{boundary.Id}\",\"d\":\"desc\"}}";
-            var legacyCursor = System.Buffers.Text.Base64Url.EncodeToString(System.Text.Encoding.UTF8.GetBytes(legacyJson));
-
-            // Default request (no includeDecommissioned param → false). Legacy cursor decodes to ic=false → match.
-            var page2 = await client.GetAsync(
-                $"/api/v1/catalog/applications?limit=2&sortBy=createdAt&sortOrder=desc&cursor={Uri.EscapeDataString(legacyCursor)}");
-
-            Assert.AreEqual(HttpStatusCode.OK, page2.StatusCode);
-        }
-        finally
-        {
-            await Fx.DeleteApplicationsByPrefixAsync(tenantId, activePrefix);
-        }
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+        var problem = await resp.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(ProblemTypes.CursorFilterMismatch, problem!.Type);
+        Assert.AreEqual("includeDecommissioned", problem.Extensions["filterName"]!.ToString());
+        Assert.AreEqual("(none)", problem.Extensions["expectedValue"]!.ToString());  // cursor carries no filter state
+        Assert.AreEqual("false", problem.Extensions["actualValue"]!.ToString());     // default request applies ic=false
     }
 
     [TestMethod]
     public async Task GET_applications_legacy_cursor_replayed_with_includeDecommissioned_true_returns_400()
     {
-        // Build a legacy cursor (no `ic` field) directly — no seeding needed because
-        // the filter-mismatch check fires before any keyset WHERE is applied, so the
-        // sort value and id do not need to point at real rows.
-        // Legacy cursor shape: { s, i, d } — the pre-slice-6 format.
+        // Build a filterless cursor (no filter state) directly — no seeding needed
+        // because the filter-mismatch check fires before any keyset WHERE is
+        // applied, so the sort value and id do not need to point at real rows.
+        // Shape: { s, i, d } — pre-slice-6/9 format, decodes to an empty filter map.
         var fakeTimestamp = "2020-01-01T00:00:00.0000000Z";
         var fakeId = Guid.NewGuid().ToString();
         var legacyJson = $"{{\"s\":\"{fakeTimestamp}\",\"i\":\"{fakeId}\",\"d\":\"desc\"}}";
@@ -490,14 +483,18 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
 
         var client = Fx.CreateClientForOrgA();
 
-        // Replay with ?includeDecommissioned=true. Cursor decodes ic=false (legacy default),
-        // request expects true → mismatch is detected before keyset filtering.
+        // Replay with ?includeDecommissioned=true. The cursor has no filter state
+        // (empty map); the request map has includeDecommissioned=true → the key is
+        // in the request but not the cursor → mismatch, before keyset filtering.
         var resp = await client.GetAsync(
             $"/api/v1/catalog/applications?limit=2&sortBy=createdAt&sortOrder=desc&includeDecommissioned=true&cursor={Uri.EscapeDataString(legacyCursor)}");
 
         Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
         var problem = await resp.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
         Assert.AreEqual(ProblemTypes.CursorFilterMismatch, problem!.Type);
+        Assert.AreEqual("includeDecommissioned", problem.Extensions["filterName"]!.ToString());
+        Assert.AreEqual("(none)", problem.Extensions["expectedValue"]!.ToString());  // cursor carries no filter state
+        Assert.AreEqual("true", problem.Extensions["actualValue"]!.ToString());      // request applies ic=true
     }
 
 }

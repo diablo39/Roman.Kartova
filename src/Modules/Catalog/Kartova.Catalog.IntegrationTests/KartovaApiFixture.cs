@@ -238,6 +238,46 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     }
 
     /// <summary>
+    /// Seeds a <c>users</c> row in the Organization schema via BYPASSRLS. Slice 9
+    /// / E1 — exercised by the Catalog list+detail handlers, which join through
+    /// <c>IUserDirectory</c> to enrich <c>ApplicationResponse.Owner</c>. Mirrors
+    /// <see cref="SeedTeamInOrganizationAsync"/> for consistency. Columns line up
+    /// with <c>UserEntityTypeConfiguration</c> + the <c>AddUsersTable</c> migration.
+    /// </summary>
+    public async Task<Guid> SeedUserInOrganizationAsync(
+        TenantId tenantId, string displayName, string email)
+    {
+        var userId = Guid.NewGuid();
+        await using var conn = new Npgsql.NpgsqlConnection(BypassConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO users (id, tenant_id, email, display_name, created_at)
+            VALUES ($1, $2, $3, $4, NOW())
+            """;
+        cmd.Parameters.AddWithValue(userId);
+        cmd.Parameters.AddWithValue(tenantId.Value);
+        cmd.Parameters.AddWithValue(email);
+        cmd.Parameters.AddWithValue(displayName);
+        await cmd.ExecuteNonQueryAsync();
+        return userId;
+    }
+
+    /// <summary>
+    /// Deletes a single <c>users</c> row via BYPASSRLS. Slice 9 / E1 cleanup hook
+    /// for tests that seeded a directory user to verify Owner enrichment.
+    /// </summary>
+    public async Task DeleteUserInOrganizationAsync(Guid userId)
+    {
+        await using var conn = new Npgsql.NpgsqlConnection(BypassConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM users WHERE id = $1";
+        cmd.Parameters.AddWithValue(userId);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    /// <summary>
     /// Seeds a team_members row directly via BYPASSRLS. <paramref name="roleByte"/>
     /// matches <c>TeamRole</c> (1 = Member, 2 = Admin). Idempotent.
     /// </summary>

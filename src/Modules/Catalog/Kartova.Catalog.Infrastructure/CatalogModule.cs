@@ -42,7 +42,12 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .RequireAuthorization(KartovaPermissions.CatalogRead)
               .WithName("ListApplications")
               // CursorPage<T> envelope — ADR-0095: items + nextCursor + prevCursor.
-              .Produces<CursorPage<ApplicationResponse>>(StatusCodes.Status200OK);
+              .Produces<CursorPage<ApplicationResponse>>(StatusCodes.Status200OK)
+              // Slice 9 / E2 (spec §6.5): ?ownerUserId= validation produces a 422
+              // invalid-owner envelope when the supplied id does not resolve to a
+              // user in the current tenant (cross-tenant ids hit the same branch
+              // because IUserDirectory is RLS-scoped).
+              .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
               // sortBy/sortOrder enum schemas + bounded-integer limit schema are emitted
               // in the OpenAPI doc by Kartova.Api.OpenApi.CursorListQueryParameterTransformer
               // (registered in Program.cs). Endpoint binding stays `string?` so the custom

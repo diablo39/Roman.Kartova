@@ -3,6 +3,7 @@ using Kartova.Organization.Application;
 using Kartova.Organization.Contracts;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Pagination;
 using Kartova.SharedKernel.Postgres;
@@ -39,92 +40,26 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
 
     public Type DbContextType => typeof(OrganizationDbContext);
 
+    /// <summary>
+    /// Composes the Organization module's HTTP surface from per-resource route
+    /// extension methods. Each <c>*Routes.MapTo</c> colocates with its owning
+    /// <c>*EndpointDelegates.cs</c> file (slice-9 carry-forward S6 — extends
+    /// the H5 R2 per-resource delegate split to the route registrations too).
+    /// <para>
+    /// <see cref="AuthRoutes.MapTo"/> takes the raw <see cref="IEndpointRouteBuilder"/>
+    /// rather than the tenant group because <c>/api/v1/auth/session</c> sits
+    /// outside the <c>/api/v1/organizations</c> slug (per-request bootstrap,
+    /// not an organization resource).
+    /// </para>
+    /// </summary>
     public void MapEndpoints(IEndpointRouteBuilder app)
     {
         var tenant = app.MapTenantScopedModule(Slug);     // /api/v1/organizations
-        tenant.MapGet("/me", OrganizationEndpointDelegates.GetMeAsync)
-            .WithName("GetOrganizationMe")
-            .Produces<OrganizationDto>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status404NotFound);
-        tenant.MapGet("/me/permissions", OrganizationEndpointDelegates.GetMePermissions)
-            .WithName("GetMePermissions")
-            .Produces<MePermissionsResponse>(StatusCodes.Status200OK);
-        tenant.MapGet("/me/admin-only", OrganizationEndpointDelegates.GetAdminOnlyAsync)
-            .RequireAuthorization(p => p.RequireRole(KartovaRoles.OrgAdmin))
-            .WithName("GetOrganizationMeAdminOnly")
-            .Produces<AdminOnlyResponse>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status403Forbidden);
-
-        // ---- Team management (slice 8, ADR-0098 / spec §6) -----------------
-        // Claim-policy gate via .RequireAuthorization stops Viewer/anon.
-        // Resource-auth gate (TeamAdminOfThis) is enforced inside the delegate
-        // via IAuthorizationService — applied ONLY to mutation endpoints. The
-        // bare GETs and POST /teams rely on the claim gate alone: CreateTeam
-        // has no target team yet, and the read-list / read-detail surfaces are
-        // visible to any tenant member with team.read.
-
-        tenant.MapGet("/teams", OrganizationEndpointDelegates.ListTeamsAsync)
-            .RequireAuthorization(KartovaPermissions.TeamRead)
-            .WithName("ListTeams")
-            // CursorPage<T> envelope — ADR-0095: items + nextCursor + prevCursor.
-            // sortBy/sortOrder enum schemas + bounded-integer limit schema are emitted
-            // by the OpenAPI transformer wired in Program.cs (same path as catalog).
-            .Produces<CursorPage<TeamResponse>>(StatusCodes.Status200OK);
-
-        tenant.MapGet("/teams/{id:guid}", OrganizationEndpointDelegates.GetTeamAsync)
-            .RequireAuthorization(KartovaPermissions.TeamRead)
-            .WithName("GetTeam")
-            .Produces<TeamDetailResponse>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status404NotFound);
-
-        tenant.MapPost("/teams", OrganizationEndpointDelegates.CreateTeamAsync)
-            .RequireAuthorization(KartovaPermissions.TeamCreate)
-            .WithName("CreateTeam")
-            .Produces<TeamResponse>(StatusCodes.Status201Created)
-            .ProducesProblem(StatusCodes.Status400BadRequest);
-
-        tenant.MapPut("/teams/{id:guid}", OrganizationEndpointDelegates.UpdateTeamAsync)
-            .RequireAuthorization(KartovaPermissions.TeamMetadataEdit)
-            .WithName("UpdateTeam")
-            .Produces<TeamResponse>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status404NotFound);
-
-        tenant.MapDelete("/teams/{id:guid}", OrganizationEndpointDelegates.DeleteTeamAsync)
-            .RequireAuthorization(KartovaPermissions.TeamDelete)
-            .WithName("DeleteTeam")
-            .Produces(StatusCodes.Status204NoContent)
-            .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            // 409 team-has-applications with applicationCount extension — spec §6.5.
-            .ProducesProblem(StatusCodes.Status409Conflict);
-
-        tenant.MapPost("/teams/{id:guid}/members", OrganizationEndpointDelegates.AddTeamMemberAsync)
-            .RequireAuthorization(KartovaPermissions.TeamMembersManage)
-            .WithName("AddTeamMember")
-            // 201 + TeamMemberResponse body (spec critic-revision §7 — NOT 204).
-            .Produces<TeamMemberResponse>(StatusCodes.Status201Created)
-            .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict);
-
-        tenant.MapDelete("/teams/{id:guid}/members/{userId:guid}", OrganizationEndpointDelegates.RemoveTeamMemberAsync)
-            .RequireAuthorization(KartovaPermissions.TeamMembersManage)
-            .WithName("RemoveTeamMember")
-            .Produces(StatusCodes.Status204NoContent)
-            .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status404NotFound);
-
-        tenant.MapPut("/teams/{id:guid}/members/{userId:guid}", OrganizationEndpointDelegates.UpdateTeamMemberAsync)
-            .RequireAuthorization(KartovaPermissions.TeamMembersManage)
-            .WithName("UpdateTeamMember")
-            .Produces(StatusCodes.Status204NoContent)
-            .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+        OrganizationProfileRoutes.MapTo(tenant);
+        TeamRoutes.MapTo(tenant);
+        InvitationRoutes.MapTo(tenant);
+        UserRoutes.MapTo(tenant);
+        AuthRoutes.MapTo(app);
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
@@ -133,8 +68,6 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
         // Migrations assembly pinned so `dotnet ef` and runtime agree.
         services.AddModuleDbContext<OrganizationDbContext>(npg =>
             npg.MigrationsAssembly(typeof(OrganizationDbContext).Assembly.FullName));
-
-        services.AddScoped<IOrganizationQueries, OrganizationQueries>();
 
         // TimeProvider is needed by Organization.Create and any future
         // organization-side handler. TryAdd is idempotent — if another module
@@ -156,6 +89,26 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
         // Team CRUD + member handlers (slice 8). Handlers are invoked directly
         // from the endpoint delegate (synchronous, in-process) — same dispatch
         // pattern as CatalogModule, see CatalogEndpointDelegates' class comment.
+        // Org profile read/write (slice-9 spec §4). Lives in Infrastructure
+        // (not Application) because both classes depend on OrganizationDbContext —
+        // same placement as the slice-8 team handlers above.
+        services.AddScoped<OrgProfileQueries>();
+        services.AddScoped<UpdateOrgProfileHandler>();
+
+        // User typeahead search + detail (slice-9 spec §6.7) — read-only
+        // queries against the local users projection joined with team_members.
+        services.AddScoped<UserQueries>();
+
+        // Logo upload/clear/serve handler (slice-9 spec §6.4) — same Infrastructure
+        // placement as the sibling profile handlers above.
+        services.AddScoped<LogoCommands>();
+
+        // Session bootstrap handler (slice 9 spec §6.7 / §9.8) — composes the
+        // org-profile read with the invitation lookup so the SPA can hydrate a
+        // fresh session in one round-trip. Same Infrastructure placement as the
+        // queries it composes — depends on OrganizationDbContext.
+        services.AddScoped<SessionStartHandler>();
+
         services.AddScoped<CreateTeamHandler>();
         services.AddScoped<UpdateTeamHandler>();
         services.AddScoped<DeleteTeamHandler>();
@@ -164,6 +117,24 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
         services.AddScoped<UpdateTeamMemberHandler>();
         services.AddScoped<GetTeamHandler>();
         services.AddScoped<ListTeamsHandler>();
+
+        // Invitation lifecycle handlers (slice 9 spec §6.7) — same direct-
+        // dispatch pattern as the Team handlers above.
+        services.AddScoped<CreateInvitationHandler>();
+        services.AddScoped<RevokeInvitationHandler>();
+        services.AddScoped<ListInvitationsHandler>();
+
+        // Users-projection upsert helper — invoked inline by SessionStartHandler
+        // on POST /api/v1/auth/session to materialize the local users row from
+        // the JWT's OIDC claims (sub/email/given_name/family_name). The SPA's
+        // OidcCallbackHandler always hits /auth/session first after the KC
+        // roundtrip, so no separate per-request pipeline hook is needed.
+        services.AddScoped<UserProjectionUpdater>();
+
+        // Cross-module port (ADR-0098 + slice-9 spec §3): exposes the local users
+        // projection so Catalog/Team responses can attach display names + emails
+        // without referencing Organization internals.
+        services.AddScoped<IUserDirectory, OrganizationUserDirectory>();
     }
 
     /// <summary>

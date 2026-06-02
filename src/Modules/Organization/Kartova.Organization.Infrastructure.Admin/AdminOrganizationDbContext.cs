@@ -12,6 +12,8 @@ public sealed class AdminOrganizationDbContext : DbContext
     public AdminOrganizationDbContext(DbContextOptions<AdminOrganizationDbContext> options) : base(options) { }
 
     public DbSet<Kartova.Organization.Domain.Organization> Organizations => Set<Kartova.Organization.Domain.Organization>();
+    public DbSet<Kartova.Organization.Domain.Invitation> Invitations => Set<Kartova.Organization.Domain.Invitation>();
+    public DbSet<Kartova.Organization.Domain.User> Users => Set<Kartova.Organization.Domain.User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

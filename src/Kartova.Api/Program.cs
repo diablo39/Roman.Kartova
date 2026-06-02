@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using JasperFx;
 using Kartova.Catalog.Infrastructure;
 using Kartova.Organization.Application;
@@ -9,10 +10,12 @@ using Kartova.Organization.Infrastructure;
 using Kartova.Organization.Infrastructure.Admin;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Postgres;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Wolverine;
@@ -48,6 +51,11 @@ public class Program
         // JWT authentication — ADR-0006/0007/0014 + claims transformation populates ITenantContext.
         builder.Services.AddKartovaJwtAuth(builder.Configuration);
         builder.Services.AddScoped<IClaimsTransformation, TenantClaimsTransformation>();
+
+        // Slice 9 D9: KeyCloak Admin client (service-account flow) for the kartova-admin
+        // realm client. Used by CreateInvitationHandler/RevokeInvitationHandler/ExpireInvitations
+        // to provision and clean up KC users. Reads from KartovaIdentity:Keycloak section.
+        builder.Services.AddKeycloakAdminClient(builder.Configuration);
 
         // RFC 7807 problem details — ADR-0091.
         builder.Services.AddProblemDetails(options =>
@@ -143,6 +151,16 @@ public class Program
         var bypassConnection = KartovaConnectionStrings.RequireBypass(builder.Configuration);
         builder.Services.AddDbContext<AdminOrganizationDbContext>(opts => opts.UseNpgsql(bypassConnection));
         builder.Services.AddScoped<IAdminOrganizationCommands, AdminOrganizationCommands>();
+        builder.Services.AddScoped<AcceptInvitationHandler>();
+
+        // Slice 9 D8: leader-elected periodic sweep of past-due invitations.
+        // Registered here (not in OrganizationModule) for the same reason as
+        // AdminOrganizationDbContext above — the hosted service type lives in
+        // Infrastructure.Admin which the Infrastructure-resident OrganizationModule
+        // cannot reference. D9 will refactor these two lines into an
+        // AddOrganizationAdmin(IServiceCollection) composition extension.
+        builder.Services.AddPostgresDistributedLocks();
+        builder.Services.AddHostedService<ExpireInvitationsHostedService>();
 
         // Wolverine — in-process CQRS mediator only.
         // Postgres persistence (outbox) is deferred until a slice publishes domain events.
@@ -156,6 +174,26 @@ public class Program
             {
                 module.ConfigureWolverine(opts);
             }
+        });
+
+        // Rate limiter — per-IP fixed window for anonymous accept-invitation endpoints.
+        // 10 requests/minute per remote IP; queue = 0 (surplus requests rejected immediately).
+        // Rejection returns 429 Too Many Requests.
+        // NOTE: token rides in the query string on GET /api/v1/invitations/accept; if
+        // request/HTTP logging is added later, exclude the `token` query param to prevent
+        // token leakage in logs.
+        builder.Services.AddRateLimiter(o =>
+        {
+            o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            o.AddPolicy(Kartova.Organization.Infrastructure.Admin.InvitationAcceptRoutes.RateLimitPolicy, httpCtx =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: httpCtx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 10,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                    }));
         });
 
         // Health checks — ADR-0060.
@@ -173,6 +211,7 @@ public class Program
         app.UseCors("KartovaWeb");
         app.UseAuthentication();
         app.UseAuthorization();
+        app.UseRateLimiter();
         app.UseMiddleware<TenantScopeBeginMiddleware>();
 
         app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = c => c.Tags.Contains("live") });

@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/features/catalog/api/client";
 import { useCursorList } from "@/lib/list/useCursorList";
+import {
+  throwWithStatus,
+  unwrapData,
+} from "@/shared/api/openapi-fetch-helpers";
 import type { components, operations } from "@/generated/openapi";
 
 type TeamResponse = components["schemas"]["TeamResponse"];
@@ -31,21 +35,6 @@ export const teamKeys = {
       : ([...teamKeys.all, "list"] as const),
   detail: (id: string) => [...teamKeys.all, "detail", id] as const,
 };
-
-/**
- * Re-throws an openapi-fetch error after attaching the HTTP status as a
- * `__status` field so callers can branch on 412 / 409 / 400 without re-parsing
- * the response. Mirrors the helper in applications.ts (slice 7).
- */
-function throwWithStatus(error: unknown, response: { status: number }): never {
-  (error as Record<string, unknown>).__status = response.status;
-  throw error;
-}
-
-function unwrapData<T>(data: T | undefined): T {
-  if (!data) throw new Error("API returned neither data nor error");
-  return data;
-}
 
 export function useTeamsList(params: TeamsListParams) {
   return useCursorList<TeamResponse>({

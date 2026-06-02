@@ -34,4 +34,22 @@ public static class ProblemTypes
     // Team management — slice 8 (ADR-0098 spec §6.5).
     public const string TeamHasApplications    = Base + "team-has-applications";
     public const string InvalidTeam            = Base + "invalid-team";
+
+    // Catalog ?ownerUserId= filter — slice 9 / E2 (spec §6.5).
+    public const string InvalidOwner           = Base + "invalid-owner";
+
+    // Logo upload validation — slice 9 (spec §6.4). One URI per failure mode
+    // so SPA / API consumers can dispatch on `type` instead of HTTP status.
+    public const string UnsupportedLogoMedia   = Base + "unsupported-logo-media";   // 415: Content-Type not in allow-list.
+    public const string LogoTooLarge           = Base + "logo-too-large";           // 413: streamed bytes exceeded LogoMaxBytes.
+    public const string LogoInvalidContent     = Base + "logo-invalid-content";     // 422: SVG-script strip, magic-byte mismatch, etc.
+
+    // Invitation lifecycle conflicts — slice 9 (spec §6.7).
+    public const string EmailAlreadyInTenant   = Base + "email-already-in-tenant";
+    public const string EmailAlreadyInvited    = Base + "email-already-invited";
+    public const string EmailAlreadyOnPlatform = Base + "email-already-on-platform";
+    public const string InvitationNotPending   = Base + "invitation-not-pending";
+
+    // Invitation accept — slice 9 (spec §6.8).
+    public const string InvitationGone         = Base + "invitation-gone";         // 410: expired, revoked, or already accepted.
 }

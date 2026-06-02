@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "./client";
 import { useCursorList } from "@/lib/list/useCursorList";
+import {
+  throwWithStatus,
+  unwrapData,
+} from "@/shared/api/openapi-fetch-helpers";
 import type { RegisterApplicationInput } from "../schemas/registerApplication";
 import type { EditApplicationInput } from "../schemas/editApplication";
 import type { DeprecateApplicationInput } from "../schemas/deprecateApplication";
@@ -21,6 +25,8 @@ type ApplicationsListParams = {
   limit?: number;
   /** ADR-0073 default-view rule: false (the default) hides Decommissioned rows. Slice 6. */
   includeDecommissioned?: boolean;
+  /** When set, server filters to applications owned by this user (slice-9 E2). */
+  ownerUserId?: string;
 };
 
 export const applicationKeys = {
@@ -31,22 +37,6 @@ export const applicationKeys = {
       : ([...applicationKeys.all, "list"] as const),
   detail: (id: string) => [...applicationKeys.all, "detail", id] as const,
 };
-
-/**
- * Re-throws an openapi-fetch error after attaching the HTTP status as a
- * `__status` field so callers can branch on 412 / 409 / 400 without re-parsing
- * the response. Used by every mutation that maps RFC 7807 problem types to
- * dialog UX.
- */
-function throwWithStatus(error: unknown, response: { status: number }): never {
-  (error as Record<string, unknown>).__status = response.status;
-  throw error;
-}
-
-function unwrapData<T>(data: T | undefined): T {
-  if (!data) throw new Error("API returned neither data nor error");
-  return data;
-}
 
 export function useApplicationsList(params: ApplicationsListParams) {
   return useCursorList<ApplicationResponse>({
@@ -60,6 +50,9 @@ export function useApplicationsList(params: ApplicationsListParams) {
             limit: params.limit ?? 50,
             cursor,
             includeDecommissioned: params.includeDecommissioned ?? false,
+            // Only thread `ownerUserId` when set so the wire stays clean for the
+            // default list view (server treats omitted == "no filter").
+            ...(params.ownerUserId ? { ownerUserId: params.ownerUserId } : {}),
           },
         },
       });

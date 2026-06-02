@@ -34,6 +34,16 @@ public class AuthSmokeTests : KeycloakContainerTestBase
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Audience), "kartova-api");
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.RequireHttpsMetadata), "false");
 
+        // Slice 9 / H8: AddKeycloakAdminClient.ValidateOnStart rejects the
+        // appsettings placeholder "OVERRIDE_VIA_ENV". Wire the four
+        // KartovaIdentity__Keycloak__* env vars from the live container so the
+        // host boots. Realm-seed literals live in RealmSeedConstants so a
+        // future rename of kartova-realm.json only touches one site.
+        Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__BaseUrl", Containers.KeycloakBaseUrl);
+        Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__Realm", RealmSeedConstants.RealmName);
+        Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__AdminClientId", RealmSeedConstants.AdminClientId);
+        Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__AdminClientSecret", RealmSeedConstants.AdminClientSecret);
+
         _app = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
         {
             b.UseEnvironment("Testing");
@@ -60,7 +70,7 @@ public class AuthSmokeTests : KeycloakContainerTestBase
             ["grant_type"] = "password",
             ["client_id"] = "kartova-api",
             ["username"] = "admin@orga.kartova.local",
-            ["password"] = "dev_pass",
+            ["password"] = "dev_password_12",
             ["scope"] = "openid",
         });
         var tokenResp = await oidc.PostAsync($"{Containers.KeycloakAuthority}/protocol/openid-connect/token", form);

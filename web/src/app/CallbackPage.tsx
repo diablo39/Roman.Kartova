@@ -1,21 +1,42 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "react-oidc-context";
-import { toast } from "sonner";
 
+import { OidcCallbackHandler } from "@/features/auth/components/OidcCallbackHandler";
+import { CenteredSpinner } from "@/features/auth/components/CenteredSpinner";
+
+/**
+ * `/callback` — OIDC return URL. Has a two-phase lifecycle:
+ *
+ *   1. `react-oidc-context` first parses the URL fragment / query for the
+ *      authorization code and exchanges it for an access token. While that
+ *      is in flight `auth.isLoading` is true; if it fails, `auth.error` is
+ *      populated.
+ *   2. Once the token is in hand (`auth.isAuthenticated === true`) we hand
+ *      off to `<OidcCallbackHandler />`, which runs the Kartova session
+ *      bootstrap (`POST /api/v1/auth/session`) and routes onward to
+ *      `/welcome`, `/catalog`, or `/login-error` (slice-9 spec §6).
+ *
+ * Auth errors short-circuit to `/login-error` so the user gets a real
+ * recovery surface instead of being bounced back to `/` with a transient
+ * toast (the slice-7 behaviour, retained until F6).
+ */
 export function CallbackPage() {
   const auth = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (auth.isAuthenticated) {
-      navigate("/", { replace: true });
-    } else if (auth.error) {
+    if (auth.error) {
       console.error("OIDC callback failed:", auth.error);
-      toast.error("Sign-in failed", { description: auth.error.message });
-      navigate("/", { replace: true });
+      navigate("/login-error", { replace: true });
     }
-  }, [auth.isAuthenticated, auth.error, navigate]);
+  }, [auth.error, navigate]);
 
-  return <div className="p-8 text-sm">Completing sign-in…</div>;
+  if (auth.error) {
+    return <CenteredSpinner message="Sign-in failed; redirecting…" />;
+  }
+  if (auth.isLoading || !auth.isAuthenticated) {
+    return <CenteredSpinner message="Completing sign-in…" />;
+  }
+  return <OidcCallbackHandler />;
 }

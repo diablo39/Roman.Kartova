@@ -1,8 +1,8 @@
 ---
 platform: Kartova
 description: SaaS service catalog and developer portal platform (Backstage + Compass + Statuspage)
-adr_count: 97
-last_updated: 2026-05-08
+adr_count: 100
+last_updated: 2026-05-29
 architecture:
   backend: .NET 10 (LTS) / ASP.NET Core + EF Core (ADR-0027)
   backend_pattern: Modular monolith (ADR-0082) with Clean Architecture per module — Domain / Application / Infrastructure / Contracts (ADR-0028); inter-module via Wolverine mediator or Kafka events
@@ -225,14 +225,16 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0096](ADR-0096-rest-verb-policy.md) | REST Verb Policy — PUT for Full Replacement, POST for Actions, No PATCH | API & Integration Architecture | Accepted | 0029, 0073, 0091, 0092, 0095 | `PUT /resources/{id}` for idempotent full-resource replacement on small/stable DTOs; `POST /resources/{id}/<action>` for named domain commands (deprecate, decommission, restore, transfer-ownership); `PATCH` forbidden (semantics drift, missing-vs-null ambiguity, uneven codegen). Enforced by `RestVerbPolicyRules` arch test. |
 | [0097](ADR-0097-mstest-supersedes-xunit.md) | MSTest v4 supersedes xUnit | Testing & Quality | Accepted | 0028, 0080, 0082, 0083, 0084, 0095 | Replaces xUnit + FluentAssertions with MSTest v4 native assertions across all 10 xUnit-using test projects. Project SDK, VSTest runner, `coverlet.collector`, and Stryker per-module orchestration all unchanged. MTP deferred — Stryker.NET does not support it at the version probed in Phase 0 (stryker-net#3094). Migration tracked in `docs/superpowers/specs/2026-05-08-xunit-to-mstest-migration-design.md`. |
 | [0098](ADR-0098-uuid-only-entity-identifier.md) | UUIDs as the Canonical and Only Entity Identifier | API & Integration Architecture | Accepted | 0001, 0011, 0029, 0082, 0092 | UUIDs are the canonical and only entity identifier across Kartova. URLs use `{id:guid}` exclusively; no slugs anywhere. |
+| [0099](ADR-0099-distributed-locking-leader-elected-periodic-tasks.md) | Distributed Locking and Leader-Elected Periodic Tasks via Postgres Advisory Locks | Platform Infrastructure | Accepted | 0001, 0080, 0082 | Adopt Postgres session-level advisory locks as the distributed-locking primitive. `IDistributedLock` + `PostgresAdvisoryLock` + `LeaderElectedPeriodicService` reusable building blocks for safe multi-instance periodic work (invitation expiry, scorecard recompute, retention purge, etc.). |
+| [0100](ADR-0100-strict-one-email-per-tenant-identity-scope.md) | Identity Scope — Strict One-Email-Per-Tenant in a Single KeyCloak Realm | Authentication & Authorization | Accepted | 0006, 0011 | Preserve KeyCloak realm setting `duplicateEmailsAllowed: false`: one email = one tenant across the platform. Cross-tenant duplicate invitations surface as 409 `email-already-on-platform`. Industry pattern (Atlassian/GitHub). Upgrade path for multi-tenant-per-user is realm-per-tenant, not flipping the flag. |
 
 ## By category (quick navigation)
 
 - **Data Platform**: 0001, 0002, 0003, 0004, 0005
-- **Authentication & Authorization**: 0006, 0007, 0008, 0009, 0010
+- **Authentication & Authorization**: 0006, 0007, 0008, 0009, 0010, 0100
 - **Multi-Tenancy**: 0011, 0012, 0013, 0014, 0090
 - **Compliance & Retention**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050
-- **Platform Infrastructure**: 0022, 0023, 0024, 0025, 0026
+- **Platform Infrastructure**: 0022, 0023, 0024, 0025, 0026, 0099
 - **API & Integration Architecture**: 0027, 0028, 0029, 0030, 0031, 0032, 0033, 0034, 0035, 0036, 0037, 0038, 0091, 0092, 0095, 0096, 0098
 - **Backend Architecture**: 0080, 0081, 0082, 0089, 0093
 - **Frontend Architecture**: 0039, 0040, 0088
@@ -278,7 +280,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Git integration**: 0035, 0054, 0055, 0057
 - **Scan / import**: 0045, 0054, 0055, 0056, 0067
 - **Status page**: 0005, 0010, 0023, 0051, 0052, 0053, 0076
-- **Identity & auth**: 0006, 0007, 0008, 0009, 0010, 0014, 0042
+- **Identity & auth**: 0006, 0007, 0008, 0009, 0010, 0014, 0042, 0100
 - **Infrastructure & deployment**: 0022, 0023, 0024, 0025, 0043, 0085, 0086
 - **Database migrations**: 0001, 0012, 0082, 0085
 - **Helm / packaging / GitOps**: 0043, 0085, 0086
@@ -371,7 +373,10 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **JWT** → 0007, 0009, 0014, 0042
 - **Kafka** → 0003, 0033, 0047, 0080, 0081
 - **KafkaFlow (inbound consumers)** → 0081
-- **KeyCloak** → 0006, 0007, 0008, 0009, 0010, 0014
+- **KeyCloak** → 0006, 0007, 0008, 0009, 0010, 0014, 0100
+- **Identity scope (one email per tenant)** → 0100
+- **Cross-tenant duplicate email handling** → 0100
+- **duplicateEmailsAllowed (KeyCloak realm setting)** → 0100
 - **KRaft (Kafka)** → 0003
 - **Least-privilege OAuth scopes** → 0057
 - **Let's Encrypt / ACME / auto-SSL** → 0052
@@ -525,3 +530,5 @@ _No ADRs have been deprecated or superseded yet. When an ADR is superseded by a 
 | 2026-05-04 | ADR-0095 (Cursor pagination contract) accepted — concrete contract for ADR-0029's "pagination via cursors" mention; first-cut mandate + arch fitness rule; reference impl on Applications list |
 | 2026-05-06 | ADR-0096 (REST verb policy) accepted — `PUT` for full replacement, `POST /<action>` for named domain commands, `PATCH` forbidden; arch fitness rule pins the no-PATCH invariant; first instantiated by Slice 5 (Applications edit + lifecycle) |
 | 2026-05-08 | ADR-0097 (MSTest v4 supersedes xUnit) accepted — replaces xUnit + FluentAssertions with MSTest v4 native assertions across all 10 xUnit-using test projects; project SDK and VSTest runner unchanged (MTP deferred — Stryker.NET does not support it at the version probed in Phase 0, see stryker-net#3094); ADR-0083 marked superseded |
+| 2026-05-27 | ADR-0099 (Distributed locking + leader-elected periodic tasks) accepted — `IDistributedLock` + `PostgresAdvisoryLock` (Postgres `pg_try_advisory_lock`) + `LeaderElectedPeriodicService` base class for multi-instance-safe periodic background work; landed alongside slice 9 (organization & people management). |
+| 2026-05-29 | ADR-0100 (Identity scope — strict one-email-per-tenant) accepted — KeyCloak realm setting `duplicateEmailsAllowed: false` preserved; cross-tenant duplicate invitations return 409 `email-already-on-platform`; landed as part of slice 9 invitation flow. |

@@ -15,6 +15,10 @@
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Npgsql" />
+    <!-- Slice-9 carry-forward MT3: NSubstitute is used by InvitationFailureWiringTests
+         to override IKeycloakAdminClient via ConfigureTestServices so a forced KC
+         role-assign failure exercises the 502 wire mapping end-to-end. -->
+    <PackageReference Include="NSubstitute" />
     <PackageReference Include="coverlet.collector" />
   </ItemGroup>
   <ItemGroup>
@@ -29,5 +33,14 @@
          architecture rules target src/ assemblies, not test assemblies. -->
     <ProjectReference Include="..\..\Catalog\Kartova.Catalog.Infrastructure\Kartova.Catalog.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\..\tests\Kartova.Testing.Auth\Kartova.Testing.Auth.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Slice 9 / H1-prereq: KartovaApiFixtureBase opts into a Keycloak container,
+         which mounts kartova-realm.json from AppContext.BaseDirectory. MSBuild does
+         not propagate <None CopyToOutputDirectory> items through project references,
+         so the include is mirrored here (and in every other consumer that opts in). -->
+    <None Include="..\..\..\..\deploy\keycloak\kartova-realm.json" Link="kartova-realm.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>

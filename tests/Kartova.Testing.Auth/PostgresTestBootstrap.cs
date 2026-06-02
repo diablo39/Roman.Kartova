@@ -22,11 +22,17 @@ public static class PostgresTestBootstrap
     // Mirrors docker/postgres/init.sql exactly so the test fixture's permission surface
     // matches production. kartova_app gets USAGE on schema only (no CREATE); only the
     // BYPASSRLS role retains CREATE for the admin-bypass path.
+    //
+    // Slice 9 — the migrator role must hold CREATE on the database so the
+    // EnablePgTrgmExtension migration (Kartova.Organization.Infrastructure) can install
+    // pg_trgm. PG 13+ permits non-superusers to CREATE trusted extensions when they hold
+    // CREATE on the database. Symmetry with docker/postgres/init.sql line 19.
     private static readonly string SeedRolesSql = $"""
         CREATE ROLE {MigratorRole} WITH LOGIN PASSWORD '{MigratorPassword}' CREATEDB;
         CREATE ROLE {AppRole} WITH LOGIN PASSWORD '{AppPassword}';
         CREATE ROLE {BypassRole} WITH LOGIN PASSWORD '{BypassPassword}' BYPASSRLS;
         GRANT CONNECT ON DATABASE kartova TO {AppRole}, {BypassRole};
+        GRANT CREATE ON DATABASE kartova TO {MigratorRole};
         ALTER SCHEMA public OWNER TO {MigratorRole};
         GRANT USAGE ON SCHEMA public TO {AppRole};
         GRANT USAGE, CREATE ON SCHEMA public TO {BypassRole};

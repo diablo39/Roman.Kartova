@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Pagination;
 using Kartova.SharedKernel.Postgres.Pagination;
@@ -64,6 +65,18 @@ internal static class CatalogEndpointDelegates
     /// default views" / slice-6 spec §5. Cursor encodes the filter so paging is
     /// stable; mismatch returns 400 <c>cursor-filter-mismatch</c>.
     /// </para>
+    /// <para>
+    /// <c>ownerUserId</c> — slice 9 / E2 (spec §6.5): optional filter that narrows
+    /// the result set to applications whose <c>OwnerUserId</c> matches the supplied
+    /// guid. When non-null, the value is validated up-front against
+    /// <see cref="IUserDirectory"/> (which is tenant-scoped, so an id from another
+    /// tenant validates as "not found"). A miss surfaces as 422 <c>invalid-owner</c>.
+    /// The validation lives at the endpoint level rather than in the handler so the
+    /// handler's <c>Task&lt;CursorPage&lt;T&gt;&gt;</c> return shape stays compliant
+    /// with the pagination-convention architecture rule (no result-record wrapper).
+    /// Mirrors the slice-8 <c>invalid-team</c> envelope pattern in
+    /// <see cref="AssignApplicationTeamAsync"/>.
+    /// </para>
     /// </summary>
     internal static async Task<IResult> ListApplicationsAsync(
         [FromQuery] string? sortBy,
@@ -71,47 +84,35 @@ internal static class CatalogEndpointDelegates
         [FromQuery] string? cursor,
         [FromQuery] string? limit,
         [FromQuery] bool? includeDecommissioned,
+        [FromQuery] Guid? ownerUserId,
         ListApplicationsHandler handler,
         CatalogDbContext db,
+        IUserDirectory directory,
         CancellationToken ct)
     {
         // Enum.TryParse alone accepts numeric strings ("999", "-1") and binds them to
-        // an undefined enum value. Enum.IsDefined rejects those before they reach the
-        // sort spec / order branch.
-        ApplicationSortField? parsedSortBy = null;
-        if (sortBy is not null)
-        {
-            if (!Enum.TryParse<ApplicationSortField>(sortBy, ignoreCase: true, out var sf)
-                || !Enum.IsDefined(sf))
-            {
-                throw new InvalidSortFieldException(sortBy, ApplicationSortSpecs.AllowedFieldNames);
-            }
-            parsedSortBy = sf;
-        }
+        // an undefined enum value. The shared CursorListBinding.Bind applies the
+        // Enum.IsDefined guard plus the sort spec allow-list reject, then defers range
+        // validation on limit to QueryablePagingExtensions.ToCursorPagedAsync.
+        var (parsedSortBy, parsedSortOrder, effectiveLimit) = CursorListBinding.Bind<ApplicationSortField>(
+            sortBy, sortOrder, limit, ApplicationSortSpecs.AllowedFieldNames);
 
-        SortOrder? parsedSortOrder = null;
-        if (sortOrder is not null)
+        // Resource gate: when ?ownerUserId= is supplied, validate it resolves to a
+        // user in the current tenant BEFORE invoking the handler. IUserDirectory is
+        // already RLS-scoped so an id from another tenant returns null; we surface
+        // both "unknown id" and "cross-tenant id" with the same 422 envelope. Mirror
+        // of the slice-8 AssignApplicationTeam invalid-team pattern below.
+        if (ownerUserId is { } ownerToValidate)
         {
-            if (!Enum.TryParse<SortOrder>(sortOrder, ignoreCase: true, out var so)
-                || !Enum.IsDefined(so))
+            var user = await directory.GetAsync(ownerToValidate, ct);
+            if (user is null)
             {
-                throw new InvalidSortOrderException(sortOrder);
+                return Results.Problem(
+                    type: ProblemTypes.InvalidOwner,
+                    title: "Invalid owner",
+                    detail: "The supplied ownerUserId does not resolve to a user in the current tenant.",
+                    statusCode: StatusCodes.Status422UnprocessableEntity);
             }
-            parsedSortOrder = so;
-        }
-
-        int effectiveLimit;
-        if (limit is null)
-        {
-            effectiveLimit = QueryablePagingExtensions.DefaultLimit;
-        }
-        else if (!int.TryParse(limit, System.Globalization.NumberStyles.Integer,
-                System.Globalization.CultureInfo.InvariantCulture, out effectiveLimit))
-        {
-            throw new InvalidLimitException(
-                limit,
-                QueryablePagingExtensions.MinLimit,
-                QueryablePagingExtensions.MaxLimit);
         }
 
         var query = new ListApplicationsQuery(
@@ -119,7 +120,8 @@ internal static class CatalogEndpointDelegates
             SortOrder: parsedSortOrder ?? SortOrder.Desc,
             Cursor: cursor,
             Limit: effectiveLimit,
-            IncludeDecommissioned: includeDecommissioned ?? false);
+            IncludeDecommissioned: includeDecommissioned ?? false,
+            OwnerUserId: ownerUserId);
 
         var page = await handler.Handle(query, db, ct);
         return Results.Ok(page);

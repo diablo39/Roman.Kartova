@@ -194,6 +194,7 @@ const stubListResult = {
   goNext: vi.fn(),
   goPrev: vi.fn(),
   reset: vi.fn(),
+  refetch: vi.fn(),
 };
 
 function harnessWithApp(initialEntries: string[] = ["/"]) {

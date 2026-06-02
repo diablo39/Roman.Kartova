@@ -67,6 +67,43 @@ describe("catalog hooks", () => {
       expect(result.current.items).toHaveLength(1);
     });
 
+    it("threads ownerUserId into the wire query when provided (slice-9 E2)", async () => {
+      const page = { items: [], nextCursor: null, prevCursor: null };
+      const get = vi.fn().mockResolvedValue({ data: page, error: undefined });
+      mockApiClient({ GET: get });
+
+      const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const { result } = renderHook(
+        () => useApplicationsList({ ...DEFAULT_PARAMS, ownerUserId: "abc-123" }),
+        { wrapper: makeWrapper(qc) },
+      );
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      expect(get).toHaveBeenCalledWith(
+        "/api/v1/catalog/applications",
+        expect.objectContaining({
+          params: expect.objectContaining({
+            query: expect.objectContaining({ ownerUserId: "abc-123" }),
+          }),
+        }),
+      );
+    });
+
+    it("omits ownerUserId from the wire query when not provided", async () => {
+      const page = { items: [], nextCursor: null, prevCursor: null };
+      const get = vi.fn().mockResolvedValue({ data: page, error: undefined });
+      mockApiClient({ GET: get });
+
+      const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const { result } = renderHook(() => useApplicationsList(DEFAULT_PARAMS), {
+        wrapper: makeWrapper(qc),
+      });
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      const sentQuery = get.mock.calls[0]?.[1].params.query;
+      expect(sentQuery).not.toHaveProperty("ownerUserId");
+    });
+
     it("surfaces error when API returns error", async () => {
       const get = vi.fn().mockResolvedValue({ data: undefined, error: { status: 500, title: "boom" } });
       mockApiClient({ GET: get });

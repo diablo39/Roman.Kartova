@@ -44,7 +44,7 @@ describe("TopBar", () => {
 
   it("renders organization name when query resolves", async () => {
     const get = vi.fn().mockResolvedValue({
-      data: { id: "o1", name: "Acme Corp" },
+      data: { id: "o1", displayName: "Acme Corp" },
       error: undefined,
     });
     vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
@@ -75,9 +75,37 @@ describe("TopBar", () => {
     });
   });
 
+  it("renders the tenant logo (and not the badge) when the org has a logoEtag", async () => {
+    const get = vi.fn().mockResolvedValue({
+      data: {
+        id: "o1",
+        displayName: "Acme Corp",
+        logoEtag: "\"abc123\"",
+        logoMimeType: "image/png",
+      },
+      error: undefined,
+    });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(withQueryClient(<TopBar />, qc));
+
+    const logo = await waitFor(() => screen.getByTestId("tenant-logo"));
+    expect(logo).toBeInTheDocument();
+    expect(logo.tagName).toBe("IMG");
+    expect(logo.getAttribute("alt")).toBe("Acme Corp");
+    // The src must include the etag as a cache-bust query string (organization.ts contract).
+    expect(logo.getAttribute("src")).toContain("/api/v1/organizations/me/logo");
+    expect(logo.getAttribute("src")).toContain("v=");
+    // And the gray displayName badge must NOT render at the same time.
+    expect(screen.queryByText("Acme Corp")).toBeNull();
+  });
+
   it("renders user initials and exposes a sign-out menu item", async () => {
     const get = vi.fn().mockResolvedValue({
-      data: { id: "o1", name: "Acme" },
+      data: { id: "o1", displayName: "Acme" },
       error: undefined,
     });
     vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({

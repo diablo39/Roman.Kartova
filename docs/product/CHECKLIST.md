@@ -120,10 +120,10 @@
 ### E-03: Organization & Team Management
 
 **E-03.F-01: Organization Management**
-- [ ] E-03.F-01.S-01 — Configure organization profile
-- [ ] E-03.F-01.S-02 — Invite users with specific roles
-- [ ] E-03.F-01.S-03 — View user details (owner/member name + click-through)
-- [ ] E-03.F-01.S-04 — User search for team-member add
+- [x] E-03.F-01.S-01 — Configure organization profile (slice 9 — PR #TBD, 2026-05-29; bytea logo with 256 KiB cap + SVG sanitization + ETag/304 + CSP sandbox, Description, DefaultTimeZone with IANA validation, Alpine `tzdata` runtime fix)
+- [x] E-03.F-01.S-02 — Invite users with specific roles (slice 9 — PR #TBD, 2026-05-29; KeyCloak admin client with `username` field, copy-link UX, three-way 409 conflict model, UNIQUE partial index closes race, hourly expiry sweep via PostgresAdvisoryLock leader election; plus accept-invitation set-password flow (opaque tokenized link + Kartova-hosted set-password page; slice-9 sub-slice, 2026-06-01))
+- [x] E-03.F-01.S-03 — View user details (slice 9 — PR #TBD, 2026-05-29; `GET /users/{id}` with teams + memberships via two-query client-side join over RLS-scoped Npgsql)
+- [x] E-03.F-01.S-04 — User search for team-member add (slice 9 — PR #TBD, 2026-05-29; `GET /users?q=...&limit=...` typeahead with case-insensitive substring match across DisplayName + Email; `UserSearchCombobox` SPA component replaces raw UUID input)
 
 **E-03.F-02: Team Management**
 - [x] E-03.F-02.S-01 — Create and manage team profile (slice 8 — PR #TBD, 2026-05-26; `teams` table + `DisplayName`/`Description`; OrgAdmin creates, TeamAdmin renames own team)

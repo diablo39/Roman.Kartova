@@ -12,6 +12,7 @@ COPY Directory.Packages.props ./
 COPY NuGet.Config ./
 COPY src/Kartova.SharedKernel/*.csproj src/Kartova.SharedKernel/
 COPY src/Kartova.SharedKernel.AspNetCore/*.csproj src/Kartova.SharedKernel.AspNetCore/
+COPY src/Kartova.SharedKernel.Identity/*.csproj src/Kartova.SharedKernel.Identity/
 COPY src/Kartova.SharedKernel.Postgres/*.csproj src/Kartova.SharedKernel.Postgres/
 COPY src/Kartova.SharedKernel.Wolverine/*.csproj src/Kartova.SharedKernel.Wolverine/
 COPY src/Kartova.Api/*.csproj src/Kartova.Api/
@@ -40,6 +41,12 @@ RUN dotnet publish src/Kartova.Api/Kartova.Api.csproj \
 # --- runtime -------------------------------------------------------------
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
 WORKDIR /app
+
+# tzdata is required for TimeZoneInfo.FindSystemTimeZoneById to resolve
+# IANA timezone names (e.g., "Europe/Warsaw"). Alpine doesn't ship it by default.
+# Slice-9 surfaced this via H3 docker-compose verification: Organization.UpdateProfile
+# rejects every non-UTC IANA id without tzdata.
+RUN apk add --no-cache tzdata
 
 RUN addgroup -g 1000 kartova && adduser -D -u 1000 -G kartova kartova
 USER kartova:kartova

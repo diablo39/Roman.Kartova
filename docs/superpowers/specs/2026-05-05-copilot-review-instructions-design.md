@@ -4,6 +4,8 @@
 **Author:** Roman Głogowski (with Claude)
 **Status:** Draft — pending review
 
+**Amendment 2026-05-27:** Tests (F4) instruction file rewritten for **MSTest v4 + native assertions + NSubstitute** per ADR-0097 (supersedes ADR-0083). Backend (F2) and frontend (F3) files extended for ADR-0096 (REST verb policy: PUT/POST only, PATCH banned) and ADR-0098 (UUID-only entity identifier; no slugs, no `{slug}` URLs). ADR-0099 (distributed locking via `LeaderElectedPeriodicService` + `IDistributedLock`) intentionally deferred — Goldilocks: periodic services are too rare in PR diffs to earn budget yet. Live files at `.github/instructions/*.md` are the source of truth; the F2–F4 blocks embedded below are the 2026-05-05 snapshot and are now stale. Appendix A tables updated; embedded F-blocks intentionally left as-is to preserve the design-time snapshot.
+
 ---
 
 ## Context & motivation
@@ -336,8 +338,11 @@ This map preserves the rule→ADR relationship that's stripped from the live fil
 | OAuth tokens AES-256-GCM with per-tenant DEK | ADR-0077 | mTLS not used; flag plaintext / hand-rolled crypto |
 | No raw secret-value columns | ADR-0078 | Pairs with ADR-0077 |
 | Routes via `MapTenantScopedModule` / `MapAdminModule` | ADR-0092 | REST URL convention |
+| HTTP verbs: PUT for replacement, POST for actions, PATCH banned | ADR-0096 | Arch test `RestVerbPolicyRules.No_endpoint_uses_PATCH_verb` enforces |
+| Entities use `Guid` only; URLs `{id:guid}`; no slug / namespace-in-URL | ADR-0098 | Resolves ADR-0092 §line-124 punt; slice 8 retrofitted slice-3's `Application.Name` |
 | `application/problem+json` errors | ADR-0091 | RFC 7807 |
 | Structured logs with `tenant_id` + `correlation_id` | ADR-0058 | No `Console.WriteLine` |
+| `LeaderElectedPeriodicService` + `IDistributedLock` / `PostgresAdvisoryLock` | ADR-0099 | **Deferred from live file** — Goldilocks (periodic services rare in diffs); reconsider on first observed Copilot misfire |
 
 ### Frontend (F3)
 
@@ -357,19 +362,24 @@ This map preserves the rule→ADR relationship that's stripped from the live fil
 | RFC 7807 frontend error parsing | ADR-0091 | `type`, `title`, `detail`, `traceId`, `errors` |
 | TypeScript strict, no `any` | ADR-0039 | TS strict mode |
 | Forms: `react-hook-form` + `zod` | (no ADR — project convention from package.json) | |
+| Routes / links use `{id:guid}` only; no slug-based URLs | ADR-0098 | Mirrors backend rule; display names are free text |
 
 ### Tests (F4)
 
 | Rule | ADR(s) | Notes |
 |---|---|---|
-| xUnit only | ADR-0083 | "xUnit + FluentAssertions" |
-| NetArchTest in architecture-tests project | ADR-0083 | Mandatory CI gate |
-| Testcontainers (Postgres + Kafka + ES + KeyCloak) | ADR-0083 | No in-memory provider for tenant data |
-| `KartovaApiFixtureBase` / `KeycloakContainerFixture` | (no ADR — fixture base from `tests/Kartova.Testing.Auth/`) | |
+| MSTest v4 only (`[TestClass]`/`[TestMethod]`/`[DataRow]`) | ADR-0097 (supersedes ADR-0083) | Migrated 2026-05-08; xUnit `[Fact]`/`[Theory]` and NUnit `[Test]` banned |
+| MSTest native assertions (`Assert.AreEqual`, `Assert.IsNotNull`, `Assert.ThrowsExactly<T>`, `StringAssert.*`, `CollectionAssert.*`) | ADR-0097 | FluentAssertions / Shouldly / `Assert.That` banned; FA 8+ commercial-licence trajectory |
+| NSubstitute for mocking | ADR-0097 (unchanged from ADR-0083) | One mock lib per assembly; Moq / FakeItEasy banned |
+| `[assembly: DoNotParallelize]` on integration assemblies | ADR-0097 | Replaces xUnit `[Collection]` env-var-race protection; currently expressed only as deny-list hint in the live file (Goldilocks-pruned for budget) |
+| `[ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]` for shared fixtures; `[AssemblyInitialize]` for `KeycloakContainerFixture` | ADR-0097 | MSTest equivalents of xUnit `IClassFixture<T>` / per-assembly singleton; pruned from live file for budget — caught here as future tuning candidate |
+| NetArchTest in architecture-tests project | ADR-0083 (preserved by ADR-0097) | Mandatory CI gate |
+| Testcontainers (Postgres + Kafka + ES + KeyCloak) | ADR-0083 (preserved by ADR-0097) | No in-memory provider for tenant data |
+| `KartovaApiFixtureBase` / `KeycloakContainerFixture` | (no ADR — fixture base from `tests/Kartova.Testing.Auth/`) | Per-module `KartovaApiFixture` subclasses |
 | `CursorPage<T>` envelope assertions | ADR-0095 | List-endpoint integration tests |
 | `application/problem+json` assertions | ADR-0091 | Error-path integration tests |
 | Vitest + Testing Library + user-event | (no ADR — project tooling) | ADR-0039 names React+Vite stack only |
-| Stryker mutation testing target ≥80% | (no ADR — explicitly out of scope per ADR-0083) | `stryker-config.json` is project tooling |
+| Stryker mutation testing target ≥80% | (no ADR — explicitly out of scope per ADR-0083, preserved by ADR-0097) | `stryker-config.json` is project tooling; `MSTest.Sdk` / Microsoft.Testing.Platform runner-switch deferred (Stryker compat — stryker-net#3094) |
 
 ### Manifest (F1)
 
@@ -396,6 +406,15 @@ Two layers of audit shaped this design. Notable catches that altered the draft:
 - MSW is not installed in the project — initial frontend test rule referenced it incorrectly.
 - ADR-0091 (RFC 7807 problem+json) was missed in initial draft for both backend and frontend.
 - ADR-0092 (`MapTenantScopedModule` / `MapAdminModule` routing) was missed in initial backend draft.
+
+**Post-merge drift catch (2026-05-27):**
+- ADR-0097 superseded ADR-0083 on 2026-05-08 (xUnit → MSTest v4 + native assertions + NSubstitute). The F4 live file was not updated at the time; the original instructions actively flagged the correct framework (`[TestMethod]`/`[TestClass]`) and recommended the banned one (`[Fact]`/`[Theory]` + FluentAssertions). Caught during a SecondBrain-grounded refresh, rewritten in-place at 3,981 chars. Lesson: every ADR that supersedes another should trigger a re-grep of the rule↔ADR map; the rotation is silent otherwise.
+- Same audit pass surfaced three other ADRs added since 2026-05-05 with no entries in the live files:
+  - **ADR-0096 (2026-05-06, REST verb policy):** `[HttpPatch]` / `MapPatch` would silently slip past review. Added to backend (F2) as one rule + a `Verbs` table row.
+  - **ADR-0098 (2026-05-25, UUID-only entity identifier):** slug-format fields and `{slug}` route segments would silently slip past review on both backend and frontend. Added to both — backend gets a rule + `Route IDs` table row; frontend gets a new `Entity IDs` section.
+  - **ADR-0099 (2026-05-27, distributed locking):** identifiers exist (`IDistributedLock`, `LeaderElectedPeriodicService`, `PostgresAdvisoryLock`) but periodic-service PRs are rare. Deferred per Goldilocks; tracked in Appendix A row marked `Deferred from live file`.
+- Backend file went 3,817 → 3,975 (within 25-char headroom of the 4 KB cap) by trimming five existing rules and dropping the redundant "Tokens" `❌/✅` row (Secrets section already covers it). The cross-module-direct-references rule was dropped from the messaging section since NetArchTest enforces it and the deny-list already lists "Module-layering violations — fitness tests handle".
+- General lesson: budget pressure means rule *adds* must be paired with *cuts*. The two-layer audit should now run on every batch of ≥3 new ADRs touching a convention area, not just on framework-superseding ADRs.
 
 **Expert optimization (3 runs):**
 - Vacuous-assertion rule had a Gopu determinism violation ("behavior-asserting check" requires semantic judgement). Replaced with enumerated assertion patterns.

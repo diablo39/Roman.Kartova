@@ -1,9 +1,10 @@
 namespace Kartova.Api.IntegrationTests;
 
 /// <summary>
-/// Assembly-scoped singleton that hosts the shared <see cref="KeycloakContainerFixture"/>
-/// (Postgres + Keycloak Testcontainers) for every API integration test class. Exactly one
-/// Postgres + Keycloak container pair per assembly run, regardless of how many derived
+/// Assembly-scoped singleton that hosts the shared
+/// <see cref="KeycloakAndPostgresContainers"/> aggregate (Postgres + Keycloak
+/// Testcontainers) for every API integration test class. Exactly one Postgres +
+/// Keycloak container pair per assembly run, regardless of how many derived
 /// test classes exist.
 ///
 /// Requires <c>[assembly: DoNotParallelize]</c> (see <c>Properties/AssemblyInfo.cs</c>):
@@ -16,12 +17,12 @@ namespace Kartova.Api.IntegrationTests;
 [TestClass]
 public sealed class IntegrationTestAssemblySetup
 {
-    public static KeycloakContainerFixture Containers { get; private set; } = null!;
+    public static KeycloakAndPostgresContainers Containers { get; private set; } = null!;
 
     [AssemblyInitialize]
     public static async Task InitAsync(TestContext _)
     {
-        Containers = new KeycloakContainerFixture();
+        Containers = new KeycloakAndPostgresContainers();
         await Containers.InitializeAsync();
     }
 

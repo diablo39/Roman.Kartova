@@ -27,5 +27,7 @@ public sealed class OrganizationAdminModule : IModuleEndpoints
         var admin = app.MapAdminModule(Slug);             // /api/v1/admin/organizations
         admin.MapPost("/", AdminOrganizationEndpointDelegates.CreateAsync)
             .WithName("AdminCreateOrganization");
+
+        InvitationAcceptRoutes.MapTo(app);
     }
 }

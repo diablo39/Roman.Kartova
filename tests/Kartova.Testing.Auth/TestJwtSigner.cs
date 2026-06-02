@@ -25,19 +25,25 @@ public sealed class TestJwtSigner
 
     public SecurityKey PublicKey => _key;
 
-    public string IssueForTenant(TenantId tenantId, string[] roles, TimeSpan? lifetime = null, string subject = "test-user")
-        => Build(subject, tenantId, roles, lifetime ?? TimeSpan.FromMinutes(15), expired: false);
+    public string IssueForTenant(
+        TenantId tenantId,
+        string[] roles,
+        TimeSpan? lifetime = null,
+        string subject = "test-user",
+        string? email = null)
+        => Build(subject, tenantId, roles, lifetime ?? TimeSpan.FromMinutes(15), expired: false, email: email);
 
     public string IssueForPlatformAdmin(string[]? extraRoles = null, string subject = "platform-admin-user")
     {
         var roles = new[] { KartovaRoles.PlatformAdmin }.Concat(extraRoles ?? []).ToArray();
-        return Build(subject, tenantId: null, roles, TimeSpan.FromMinutes(15), expired: false);
+        return Build(subject, tenantId: null, roles, TimeSpan.FromMinutes(15), expired: false, email: null);
     }
 
     public string IssueExpired(TenantId tenantId)
-        => Build("test-user", tenantId, [KartovaRoles.OrgAdmin], TimeSpan.FromMinutes(15), expired: true);
+        => Build("test-user", tenantId, [KartovaRoles.OrgAdmin], TimeSpan.FromMinutes(15), expired: true, email: null);
 
-    private string Build(string subject, TenantId? tenantId, string[] roles, TimeSpan lifetime, bool expired)
+    private string Build(
+        string subject, TenantId? tenantId, string[] roles, TimeSpan lifetime, bool expired, string? email)
     {
         var now = expired ? DateTime.UtcNow.AddMinutes(-30) : DateTime.UtcNow;
         var expires = now.Add(lifetime);
@@ -51,6 +57,16 @@ public sealed class TestJwtSigner
         if (tenantId is { } tid)
         {
             claims.Add(new Claim(KartovaClaims.TenantId, tid.Value.ToString()));
+        }
+        // Slice 9 / H1 batch 4: optional "email" claim plumbing — needed because
+        // SessionStartHandler throws when the email claim is missing (it is now
+        // a required bootstrap input for the users-projection upsert). Off by
+        // default to preserve the wire shape every existing test was minted
+        // against; opt-in by passing email through IssueForTenant or
+        // CreateAuthenticatedClientAsync's emailClaim parameter.
+        if (!string.IsNullOrEmpty(email))
+        {
+            claims.Add(new Claim("email", email));
         }
 
         var token = new JwtSecurityToken(

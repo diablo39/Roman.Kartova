@@ -11,6 +11,14 @@ export const KartovaPermissions = {
   TeamMetadataEdit: "team.metadata.edit",
   TeamDelete: "team.delete",
   TeamMembersManage: "team.members.manage",
+
+  OrgProfileRead: "org.profile.read",
+  OrgProfileEdit: "org.profile.edit",
+  OrgInvitationsRead: "org.invitations.read",
+  OrgInvitationsCreate: "org.invitations.create",
+  OrgInvitationsRevoke: "org.invitations.revoke",
+  OrgUsersRead: "org.users.read",
+  OrgUsersSearch: "org.users.search",
 } as const;
 
 export type KartovaPermission = (typeof KartovaPermissions)[keyof typeof KartovaPermissions];

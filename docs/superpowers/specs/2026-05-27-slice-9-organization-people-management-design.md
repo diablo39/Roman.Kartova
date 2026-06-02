@@ -56,7 +56,7 @@ Estimated size: ~10 working days. Larger than slice 7/8 (~5-6 each) because four
 | 12 | **`<OwnerLink>` receives embedded `UserDisplayInfo` as a prop** — no per-row `useUser(id)` fetch. ApplicationResponse + TeamMemberResponse extended to include owner/member display info; backend handlers batch-fetch via `IUserDirectory.GetManyAsync(ids)`. | Eliminates N+1 client-side fetches; one DB query per page; ~1.6 KB payload growth for 20 rows is negligible. |
 | 13 | **`Organization` profile fields landing in slice 9: DisplayName + Description + Logo + DefaultTimeZone.** | BrandColor (E-12), DefaultLocale (no i18n consumer), data residency (E-01.F-05.S-08), notification policy (E-06a.F-02) all deferred to their owning slices — no knobs ahead of consumers. |
 | 14 | **`VERIFY_EMAIL` required-action is NOT set on invited KeyCloak users in slice 9.** | We have no SMTP; KeyCloak would prompt the user to verify an email it can't send. Re-enabled when E-06a notification infrastructure lands. |
-| 15 | **Token cache for the KeyCloak Admin client** — via `IdentityModel.Client.TokenClient` with built-in refresh ~30s before expiry. | Avoids 2× round-trips per Admin API call; trivial implementation; matches standard OAuth client patterns. User-confirmed despite low slice-9 volume because we know Admin API surface area will grow. |
+| 15 | **Token strategy for the KeyCloak Admin client** — slice 9 ships the **uncached per-request token fetch** path via `Duende.IdentityModel.Client.TokenClient`. The token-cache adoption originally drafted here (in-memory cache + ~30s pre-expiry refresh) is acceptable to skip at slice-9 volume (invitation create/revoke + the expiry sweep — single-digit calls per OrgAdmin action). Cache adoption is **tracked as a future slice** when the Admin API surface area grows enough to make the 2× round-trip noticeable. Spec reconciled with shipped behavior. |
 | 16 | **One PR, sequenced commits per task.** Closes E-03.F-01 in full. | Slice-8 precedent. |
 
 ## 4. Domain model
@@ -257,8 +257,9 @@ created_at      timestamptz   not null
 
 UNIQUE (tenant_id, email)
 INDEX idx_users_tenant ON users(tenant_id)
-INDEX idx_users_displayname_trgm ON users USING gin (display_name gin_trgm_ops)
-INDEX idx_users_email_lower ON users(tenant_id, lower(email))
+INDEX idx_users_displayname_trgm ON users USING gin (lower(display_name) gin_trgm_ops)  -- lower(): matches the lower()..LIKE predicate (fixed 2026-06-01; bare-column index was unused)
+INDEX idx_users_email_trgm ON users USING gin (lower(email) gin_trgm_ops)                -- infix email search (added 2026-06-01)
+INDEX idx_users_email_lower ON users(tenant_id, lower(email))                            -- case-insensitive email equality/prefix
 -- RLS: tenant_id = current_setting('app.current_tenant_id')::uuid
 ```
 
@@ -272,14 +273,24 @@ email               varchar(320)  not null
 role                varchar(32)   not null
 invited_by_user_id  uuid          not null
 invited_at          timestamptz   not null
-expires_at          timestamptz   not null
+expires_at          timestamptz   not null     -- scheduled cut-off (slice-9 §9.7)
 status              smallint      not null
 keycloak_user_id    uuid          null
 accepted_at         timestamptz   null
 revoked_at          timestamptz   null
+-- NOTE: no explicit `expired_at` column. Expiry is detected by
+-- the sweep filter `expires_at < now()` and the row's status is
+-- flipped to Expired (= 4) in place; the timestamp of the flip
+-- is intentionally elided in slice 9. ExpireInvitationsHostedService
+-- does not emit a separate "expired_at" — re-introducing one is
+-- tracked as a follow-up if audit reporting needs distinct
+-- "scheduled" vs. "swept" timestamps.
 
 INDEX idx_invitations_tenant_status ON invitations(tenant_id, status)
 INDEX idx_invitations_email_pending ON invitations(tenant_id, lower(email)) WHERE status = 1
+  -- ^ UNIQUE as of migration MakeInvitationsPendingIndexUnique (slice-9 review #6 +
+  --   carry-forward #10): closes the D5 race-condition gap where two concurrent
+  --   creates can both pass CreateInvitationHandler's AnyAsync pre-check.
 -- RLS: tenant_id = current_setting('app.current_tenant_id')::uuid
 ```
 
@@ -306,6 +317,7 @@ Sequenced:
 2. **`AddOrganizationProfileColumns`** (Organization) — pure DDL on `organizations`; no FORCE toggle needed (no backfill).
 3. **`AddUsersTable`** (Organization) — new table, single SQL block: `CREATE TABLE + INDEXES + ENABLE/FORCE RLS + CREATE POLICY`. Slice-8 pattern (`AddTeamsTable` precedent).
 4. **`AddInvitationsTable`** (Organization) — same shape.
+5. **`MakeInvitationsPendingIndexUnique`** (Organization, post-slice-boundary) — promotes `idx_invitations_email_pending` from a regular partial index to a UNIQUE partial index. Closes carry-forward #10 (D5 race-condition gap) and review finding #6. Raw `migrationBuilder.Sql` (DROP + CREATE UNIQUE + COMMENT) — no model snapshot impact since the index isn't expressed in `OrganizationDbContext`.
 
 ### 4.7 EF configurations
 
@@ -363,7 +375,7 @@ Standard slice-7 binding-level enforcement (`.RequireAuthorization(KartovaPermis
 | Method | Path | Claim policy | Notes |
 |---|---|---|---|
 | `GET`    | `/me` | `org.profile.read` | Returns `OrgProfileResponse` (no bytes). ETag header from logo content-hash + profile version. |
-| `PUT`    | `/me` | `org.profile.edit` | Body: `UpdateOrgProfileRequest`. `If-Match` required (optimistic concurrency, ADR-0096). |
+| `PUT`    | `/me` | `org.profile.edit` | Body: `UpdateOrgProfileRequest`. `If-Match` **reserved** (wire-contract slot for optimistic concurrency, ADR-0096) — accepted-and-ignored in slice 9 because the `Organization` aggregate does not yet carry an EF concurrency token (xmin mapping deferred). The endpoint passes `ifMatch: null` to the handler; when the token lands, wire `IfMatchEndpointFilter` (already used by `CatalogModule`) onto this endpoint and remove this note. Reconciled with shipped behavior; the original "required" wording would have implied enforcement that isn't in place yet. |
 | `PUT`    | `/me/logo` | `org.profile.edit` | Content-Type ∈ {png, jpeg, svg+xml}. Body raw bytes ≤ 256 KB. 415 on bad mime; 413 over size; 422 on magic-byte/sanitization rejection. 200 returns `{ logoEtag, mimeType }`. |
 | `DELETE` | `/me/logo` | `org.profile.edit` | 204. |
 | `GET`    | `/me/logo` | `org.profile.read` | Streams bytes. `Content-Type: <stored mime>`. `ETag: "<hash>"`. `Cache-Control: private, max-age=300`. 304 on If-None-Match match. 404 if no logo. |
@@ -372,7 +384,7 @@ Standard slice-7 binding-level enforcement (`.RequireAuthorization(KartovaPermis
 
 | Method | Path | Claim policy | Notes |
 |---|---|---|---|
-| `GET`  | `/invitations` | `org.invitations.read` | Cursor-paginated (ADR-0095). Filters: `status ∈ {pending, accepted, revoked, expired, all}` default `pending`. `sortBy ∈ {invitedAt, expiresAt, email}` default `invitedAt`. |
+| `GET`  | `/invitations` | `org.invitations.read` | Cursor-paginated (ADR-0095). Filters: `status ∈ {pending, accepted, revoked, expired, all}` default `pending` — a missing/empty `status` query parameter falls back to **pending** (the OrgAdmin's primary view); pass the literal `status=all` (case-insensitive) to opt out of the filter. Implemented in `InvitationEndpointDelegates.ListInvitationsAsync` per slice-9 review #3. `sortBy ∈ {invitedAt, expiresAt, email}` default `invitedAt`. |
 | `POST` | `/invitations` | `org.invitations.create` | Body: `CreateInvitationRequest`. Three-way 409 model (below). 201 returns `CreateInvitationResponse` (invitation + inviteUrl). |
 | `POST` | `/invitations/{id:guid}/revoke` | `org.invitations.revoke` | 204. Marks Revoked + deletes the dormant KC user. 409 `invitation-not-pending` if not Pending. |
 
@@ -381,14 +393,14 @@ Standard slice-7 binding-level enforcement (`.RequireAuthorization(KartovaPermis
 | Detected via | Problem type | Meaning |
 |---|---|---|
 | `users` row with matching email in current tenant | `email-already-in-tenant` | The email already belongs to this tenant. |
-| Pending `invitations` row with matching email in current tenant | `email-already-invited` | Already invited (best-effort idempotency: response carries the existing invitation). |
+| Pending `invitations` row with matching email in current tenant | `email-already-invited` | Already invited. Slice 9 returns the standard RFC 7807 ProblemDetails envelope only — the "response carries the existing invitation" idempotency body originally drafted here is **deferred to E-06a / Phase H+** when re-send + UX-driven idempotency is in scope. Spec reconciled with shipped behavior. |
 | `KeycloakAdminError.EmailAlreadyExists` from create-user call | `email-already-on-platform` | The email exists in another tenant (KeyCloak realm uniqueness). Message: *"This email already has a Kartova account in another organization."* |
 
 ### 6.3 User endpoints — under `/api/v1/organizations`
 
 | Method | Path | Claim policy | Notes |
 |---|---|---|---|
-| `GET` | `/users` | `org.users.search` | Typeahead. Query `q` (min 2 chars), `limit ≤ 20`. Matches `display_name` (trigram) + `email` (prefix). Returns `IReadOnlyList<UserSummaryResponse>`. **Marked `[BoundedListResult]`** with justification *"typeahead capped at 20 results — pagination not meaningful"*. |
+| `GET` | `/users` | `org.users.search` | Typeahead. Query `q` (min 2 chars), `limit ≤ 20`. Matches `display_name` + `email` (both infix `LIKE '%q%'`, trigram-indexed on `lower(col)`). Returns `IReadOnlyList<UserSummaryResponse>`. **Marked `[BoundedListResult]`** with justification *"typeahead capped at 20 results — pagination not meaningful"*. |
 | `GET` | `/users/{id:guid}` | `org.users.read` | Returns `UserDetailResponse` — user + teams. **Owned applications NOT included** — SPA composes via Catalog endpoint (see §6.5). |
 
 ### 6.4 Session bootstrap endpoint — under `/api/v1/auth`
@@ -479,7 +491,7 @@ src/Kartova.SharedKernel.Identity/
   ServiceCollectionExtensions.cs
 ```
 
-NuGet deps: `IdentityModel` (12.x), `System.Net.Http.Json`.
+NuGet deps: `Duende.IdentityModel` (8.x — the legacy `IdentityModel` package was renamed to `Duende.IdentityModel` after v7; the `TokenClient` namespace was renamed to `Duende.IdentityModel.Client` in the rebrand — earlier reconciliation note that claimed the legacy `IdentityModel.Client` namespace was preserved was wrong and has been corrected). `System.Net.Http.Json` is NOT added explicitly — it ships with the `net10.0` shared framework, and adding it triggers NU1510 under `TreatWarningsAsErrors`.
 Project references: `Kartova.SharedKernel` only (no ASP.NET coupling).
 
 ### 7.2 `IKeycloakAdminClient`
@@ -520,7 +532,7 @@ Interface deliberately narrow — no generic admin-request escape hatch.
 
 ### 7.3 `KeycloakAdminClient` (implementation)
 
-- Uses `IdentityModel.Client.TokenClient` for `client_credentials` grant with built-in cache + ~30s pre-expiry refresh.
+- Uses `Duende.IdentityModel.Client.TokenClient` for `client_credentials` grant. Slice 9 ships the **uncached per-request token fetch** — acceptable at slice-9 volume (see Decision §15 reconciliation). Cache adoption (in-memory store + ~30s pre-expiry refresh) is tracked as a future slice when Admin API call volume grows.
 - `HttpClient` injected via `IHttpClientFactory`; base address = realm root.
 - Returns 409 from KC's create-user → throws `KeycloakAdminException(EmailAlreadyExists, ...)`.
 - 401/403 → `Unauthorized` (backend config issue, surfaced as 502 from the calling endpoint).
@@ -811,7 +823,15 @@ POST /api/v1/organizations/invitations  body { email, role }
 7. Insert `users` projection stub (id = kcId, email, displayName = email fallback).
 8. Return 201:
      { invitation: <InvitationResponse>,
-       inviteUrl: $"{frontendBaseUrl}/?invitation=1" }
+       inviteUrl: $"{frontendBaseUrl}/?invitation=1&email={Uri.EscapeDataString(email)}" }
+
+   The `?invitation=1` sentinel is intentional — acceptance is keyed off the
+   authenticated user's email at the OIDC callback (§9.3 step 6), so a
+   token in the URL would be redundant. The `email` query parameter is a UX
+   hint: the invitee sees the target address in the link, and a future SPA
+   change can lift it into Keycloak's `login_hint` parameter on the OIDC
+   redirect so the realm login form pre-fills (no contract change required
+   on this surface). Resolution of H4 API-1.
 ```
 
 ### 9.3 Invitation acceptance
@@ -1011,7 +1031,8 @@ POST /api/v1/auth/session  (no body)
 - `Invitation_revoke_deletes_keycloak_user_and_flips_status`
 - `Session_start_after_invitation_login_marks_accepted`
 - `Session_start_subsequent_call_returns_no_accepted_invitation`
-- `Expire_invitations_sweep_disables_keycloak_user_and_flips_status`
+- `Expire_invitations_sweep_deletes_keycloak_user_and_flips_status`
+  - Reconciled with shipped behavior: `ExpireInvitationsHostedService.ExpireDueAsync` **deletes** the KC user (not "disables") to keep the cleanup path identical to revoke. Test name + assertion mirror the production code.
 - `Logo_upload_with_svg_containing_script_returns_422`
 - `Logo_upload_with_jpeg_returns_200_and_serve_returns_correct_bytes_and_etag`
 - `Logo_upload_above_256_kb_returns_413`

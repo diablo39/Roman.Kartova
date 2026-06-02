@@ -8,5 +8,12 @@
   "team.create",
   "team.metadata.edit",
   "team.delete",
-  "team.members.manage"
+  "team.members.manage",
+  "org.profile.read",
+  "org.profile.edit",
+  "org.invitations.read",
+  "org.invitations.create",
+  "org.invitations.revoke",
+  "org.users.read",
+  "org.users.search"
 ]
