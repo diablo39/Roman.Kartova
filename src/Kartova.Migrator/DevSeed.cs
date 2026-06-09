@@ -100,10 +100,38 @@ internal static class DevSeed
             await ExecAsync(conn, "ALTER TABLE catalog_applications FORCE ROW LEVEL SECURITY;");
         }
 
+        // Seed the users row for team-admin@orga so the realm_role write-through cache
+        // (ADR-0102) is populated for the docker-compose smoke scenario. Only this user
+        // has a pinned KC id in kartova-realm.json; admin@orga / member@orga get their
+        // users rows on first login via the session-bootstrap hook (their KC sub is not
+        // fixed in the realm import). realm_role = 'Member' per ADR-0101 (team-admin is
+        // a realm Member who holds Admin TeamRole).
+        try
+        {
+            await ExecAsync(conn, "ALTER TABLE users NO FORCE ROW LEVEL SECURITY;");
+            await using var userCmd = conn.CreateCommand();
+            userCmd.CommandText = """
+                INSERT INTO users (id, tenant_id, email, display_name, realm_role, created_at)
+                VALUES ($1, $2, $3, $4, $5, now())
+                ON CONFLICT (id) DO UPDATE
+                    SET realm_role = EXCLUDED.realm_role;
+                """;
+            userCmd.Parameters.AddWithValue(TeamAdminUserId);
+            userCmd.Parameters.AddWithValue(OrgATenantId);
+            userCmd.Parameters.AddWithValue("team-admin@orga.kartova.local");
+            userCmd.Parameters.AddWithValue("Team Admin");
+            userCmd.Parameters.AddWithValue("Member");
+            var userRows = await userCmd.ExecuteNonQueryAsync();
+            logger.LogInformation("Dev seed: team-admin@orga users row {Result}.", userRows == 1 ? "inserted" : "updated");
+        }
+        finally
+        {
+            await ExecAsync(conn, "ALTER TABLE users FORCE ROW LEVEL SECURITY;");
+        }
+
         // ADR-0101: team-admin@orga is now a realm-Member who holds the Admin TeamRole on a
         // demo team. Seed the demo team + Admin membership so docker-compose up demonstrates
         // the membership-authority model end-to-end.
-        // team_members.user_id has no DB-level FK to users(id), so no users row is required.
         try
         {
             await ExecAsync(conn, "ALTER TABLE teams NO FORCE ROW LEVEL SECURITY;");

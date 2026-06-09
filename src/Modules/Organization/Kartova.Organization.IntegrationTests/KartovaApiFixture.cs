@@ -104,20 +104,21 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     /// </para>
     /// </summary>
     public async Task<Guid> SeedUserInOrganizationAsync(
-        TenantId tenantId, string displayName, string email)
+        TenantId tenantId, string displayName, string email, string realmRole = "Viewer")
     {
         var userId = Guid.NewGuid();
         await using var conn = new NpgsqlConnection(BypassConnectionString);
         await conn.OpenAsync();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            INSERT INTO users (id, tenant_id, email, display_name, created_at)
-            VALUES ($1, $2, $3, $4, NOW())
+            INSERT INTO users (id, tenant_id, email, display_name, realm_role, created_at)
+            VALUES ($1, $2, $3, $4, $5, NOW())
             """;
         cmd.Parameters.AddWithValue(userId);
         cmd.Parameters.AddWithValue(tenantId.Value);
         cmd.Parameters.AddWithValue(email);
         cmd.Parameters.AddWithValue(displayName);
+        cmd.Parameters.AddWithValue(realmRole);
         await cmd.ExecuteNonQueryAsync();
         return userId;
     }
