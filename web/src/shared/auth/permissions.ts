@@ -16,6 +16,8 @@ export const KartovaPermissions = {
   OrgInvitationsRevoke: "org.invitations.revoke",
   OrgUsersRead: "org.users.read",
   OrgUsersSearch: "org.users.search",
+  OrgUsersRoleChange: "org.users.role.change",
+  OrgUsersRemove: "org.users.remove",
 } as const;
 
 export type KartovaPermission = (typeof KartovaPermissions)[keyof typeof KartovaPermissions];

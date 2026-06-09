@@ -20,6 +20,8 @@ public static class KartovaPermissions
     public const string OrgInvitationsRevoke   = "org.invitations.revoke";
     public const string OrgUsersRead           = "org.users.read";
     public const string OrgUsersSearch         = "org.users.search";
+    public const string OrgUsersRoleChange     = "org.users.role.change";
+    public const string OrgUsersRemove         = "org.users.remove";
 
     public static FrozenSet<string> All { get; } = new[]
     {
@@ -35,7 +37,6 @@ public static class KartovaPermissions
         OrgInvitationsRead,
         OrgInvitationsCreate,
         OrgInvitationsRevoke,
-        OrgUsersRead,
-        OrgUsersSearch,
+        OrgUsersRead, OrgUsersSearch, OrgUsersRoleChange, OrgUsersRemove,
     }.ToFrozenSet(StringComparer.Ordinal);
 }

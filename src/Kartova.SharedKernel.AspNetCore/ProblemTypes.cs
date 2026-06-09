@@ -52,4 +52,9 @@ public static class ProblemTypes
 
     // Invitation accept — slice 9 (spec §6.8).
     public const string InvitationGone         = Base + "invitation-gone";         // 410: expired, revoked, or already accepted.
+
+    // Member lifecycle — slice 10.
+    public const string LastOrgAdmin       = Base + "last-orgadmin";          // 409
+    public const string CannotOffboardSelf = Base + "cannot-offboard-self";   // 409
+    public const string InvalidSuccessor   = Base + "invalid-successor";      // 422
 }
