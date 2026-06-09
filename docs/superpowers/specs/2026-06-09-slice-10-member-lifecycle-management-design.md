@@ -35,7 +35,7 @@ Three capabilities, three new stories under E-03.F-01:
 | D2 | **Audit of offboarding/role-change is deferred** to the ADR-0018 audit-log slice. Until then, offboarding is intentionally **traceless** (no soft-delete row, no audit entry). | User-confirmed: skip audit-log infrastructure this slice. This is a conscious MVP carve-out, named as a known gap in ADR-0102 — *not* a silent omission. Command handlers are structured (single mutation method per action) so an `IAuditLog` emitter drops in later without reshaping them. |
 | D3 | **No session revocation.** Role-change and offboard take effect on the member's next access-token refresh (token TTL, minutes). | User-confirmed (*neither*). Avoids adding KeyCloak session-management surface; the UI surfaces the staleness ("takes effect on next login"). Immediate revocation can be added with the audit/security-hardening slice if needed. |
 | D4 | **`realm_role` is added to the `users` projection as a write-through read-cache.** KeyCloak remains the source of truth. | The directory must show a Role column for a page of N members. Reading role per-row from KeyCloak is N+1 (rejected by slice-9 Decision 6). The projection column makes the directory one indexed SELECT. Role-change writes through to KeyCloak **and** the projection; invitation sets it from the invited role; session-bootstrap re-syncs from the JWT. |
-| D5 | **Owned applications reassign to a chosen successor** in one step, cross-module via Wolverine `IMessageBus.InvokeAsync` (in-process), within the request's tenant-scope transaction. | `Application.OwnerUserId` is a required non-empty Guid — apps cannot be left ownerless. Reassign-to-successor beats block-409 on UX and beats reassign-to-actor on predictability. ADR-0082 forbids direct cross-module DB access, so Organization sends a command Catalog handles against its own DbContext. |
+| D5 | **Owned applications reassign to a chosen successor** in one step, cross-module via a **DI port** `IApplicationOwnerReassigner` (Organization's offboard handler calls it; Catalog implements it against `CatalogDbContext`), within the request's tenant-scope transaction. | `Application.OwnerUserId` is a required non-empty Guid — apps cannot be left ownerless. Reassign-to-successor beats block-409 on UX and beats reassign-to-actor on predictability. ADR-0082 forbids direct cross-module DB access. The port pattern — **not** Wolverine `IMessageBus` — is the codebase's established cross-module mechanism (`IApplicationCountByTeamReader`, `IOrganizationTeamExistenceChecker`); per ADR-0093 the Wolverine bus opens its own DI scope that would not see the request's `ITenantScope`, so `IMessageBus` would break tenant isolation here. |
 | D6 | **Two new granular permissions** — `org.users.role.change`, `org.users.remove` — both **OrgAdmin-only**. | Matches slice-9's granular split (invitations had separate `create`/`revoke`). Binding-level `.RequireAuthorization(...)` enforcement; Viewer/Member fail before any DB hit. |
 | D7 | **Org must retain ≥ 1 active OrgAdmin.** Cannot demote or offboard the last OrgAdmin; cannot offboard yourself. | Prevents the org locking itself out of administration and the actor locking themselves out mid-operation. |
 | D8 | **The directory is a new endpoint `GET /users`; the slice-9 typeahead relocates to `GET /users/search`.** | *Refinement vs the approved sketch* (which kept the typeahead at `GET /users?q=`): one path/verb must map to one response schema for the OpenAPI codegen pipeline (slice-7 chore). `GET /users` returns `CursorPage<MemberSummaryResponse>`; the bounded typeahead returns `IReadOnlyList<UserSummaryResponse>`. Co-locating both on `?q?`-presence would force two response schemas on one operation. Relocating the typeahead to `/users/search` keeps each contract clean; the combobox call + its tests are updated, behavior unchanged. **Flagged for review.** |
@@ -109,7 +109,7 @@ Both mutations are org-wide OrgAdmin acts (binding-level `.RequireAuthorization`
 
 | Method | Path | Permission | Notes |
 |--------|------|-----------|-------|
-| `GET` | `/users` | `org.users.read` | **New.** Cursor-paginated members directory (ADR-0095). Returns `CursorPage<MemberSummaryResponse>`. `sortBy ∈ {displayName, role, lastSeenAt, createdAt}` default `displayName`; `sortOrder`; `cursor`; `limit`. Optional filters: `role ∈ {viewer, member, orgAdmin, all}` default `all`; `q` (infix on display_name + email, reuses slice-9 trigram indexes). |
+| `GET` | `/users` | `org.users.read` | **New.** Cursor-paginated members directory (ADR-0095). Returns `CursorPage<MemberSummaryResponse>`. `sortBy ∈ {displayName, role, createdAt}` default `displayName` (lastSeenAt is a display-only column — nullable keyset pagination avoided); `sortOrder`; `cursor`; `limit`. Optional filters: `role ∈ {viewer, member, orgAdmin, all}` default `all`; `q` (infix on display_name + email, reuses slice-9 trigram indexes). Filtered queries pass the ADR-0095 `expectedFilters` map to `ToCursorPagedAsync` so a cursor can't be replayed across a filter change. |
 | `GET` | `/users/search` | `org.users.search` | **Relocated** slice-9 typeahead (was `GET /users?q=`). `q` (min 2 chars), `limit ≤ 20`. `IReadOnlyList<UserSummaryResponse>`. `[BoundedListResult]` — justification "typeahead capped at 20 results". |
 | `GET` | `/users/{id:guid}` | `org.users.read` | Unchanged (slice-9 `UserDetailResponse`). |
 | `PUT` | `/users/{id:guid}/role` | `org.users.role.change` | Body `UpdateMemberRoleRequest { role }`. 204. Guards: 404 if not found; 409 `last-orgadmin` if demoting the last OrgAdmin; 422 if role ∉ `KartovaRoles.All`. |
@@ -175,22 +175,29 @@ If step 5 fails after step 4, KeyCloak holds the new role but the projection is 
 2. 409 cannot-offboard-self if id == current user id.
 3. 422 invalid-successor if successor missing / not in tenant / == target.
 4. Guard D7: if target.RealmRole == OrgAdmin && only one OrgAdmin -> 409 last-orgadmin.
-5. IMessageBus.InvokeAsync(new ReassignApplicationOwnerCommand(
-       FromUserId: id, ToUserId: successorUserId));
-   // Catalog handler: UPDATE catalog_applications SET owner_user_id = @to
-   //                  WHERE owner_user_id = @from;  (own DbContext, shared tenant tx)
+5. IApplicationOwnerReassigner.ReassignOwnerAsync(fromUserId: id, toUserId: successorUserId).
+   // Catalog impl loads its Applications WHERE owner_user_id = @from (CatalogDbContext,
+   // shared request tenant tx) and calls app.ReassignOwner(@to) on each; SaveChanges.
 6. IKeycloakAdminClient.DeleteUserAsync(id);     // external, point of no return
 7. Remove team_memberships WHERE user_id = id; remove users row.
 8. SaveChanges (commits steps 5 + 7 in the request tenant-scope tx); 204.
 ```
 
-**Ordering & consistency.** The reassignment (step 5) and projection/membership delete (step 7) share the one request transaction (ADR-0090) and commit atomically. The KeyCloak delete (step 6) is the non-transactional external call: if it fails, the endpoint returns 502 and the transaction rolls back (apps un-reassigned, projection intact — safe to retry). The residual edge — KeyCloak delete succeeds but the DB commit then fails — leaves a deleted KeyCloak identity with a stale projection row; this is the same dual-write reality slice-9 accepted (no durable outbox yet) and is resolved by manual re-run of the (now idempotent on `NotFound`) offboard. Documented limitation, not solved here.
+**Ordering & consistency.** The reassignment (step 5, Catalog's `CatalogDbContext`) and the projection/membership delete (step 7, `OrganizationDbContext`) share the one request connection + transaction (ADR-0090 — both DbContexts enlist in the same `ITenantScope`) and commit atomically. The KeyCloak delete (step 6) is the non-transactional external call: if it fails, the endpoint returns 502 and the transaction rolls back (apps un-reassigned, projection intact — safe to retry). The residual edge — KeyCloak delete succeeds but the DB commit then fails — leaves a deleted KeyCloak identity with a stale projection row; this is the same dual-write reality slice-9 accepted (no durable outbox yet) and is resolved by manual re-run of the (now idempotent on `NotFound`) offboard. Documented limitation, not solved here.
 
 **Team-membership cascade.** If removing the member empties a team's Admin set, no special handling: OrgAdmin retains authority over every team via the `TeamAdminOfThis` OrgAdmin bypass (ADR-0101).
 
-### 7.3 Cross-module command
+### 7.3 Cross-module port
 
-`ReassignApplicationOwnerCommand(Guid FromUserId, Guid ToUserId)` lives in **`Kartova.Catalog.Contracts`** — Catalog owns the command it handles, and `Contracts` is the allowed cross-module surface (ADR-0082: messaging via `IMessageBus`, no references to another module's Domain/Application/Infrastructure). `Kartova.Organization.Infrastructure` references `Kartova.Catalog.Contracts` to construct + send it. The Catalog handler is idempotent (a second run with no matching `owner_user_id = from` rows is a no-op).
+```csharp
+// Kartova.SharedKernel.Multitenancy
+public interface IApplicationOwnerReassigner
+{
+    Task<int> ReassignOwnerAsync(Guid fromUserId, Guid toUserId, CancellationToken ct);  // returns # reassigned
+}
+```
+
+Implemented by `Kartova.Catalog.Infrastructure.ApplicationOwnerReassigner(CatalogDbContext db)` (`internal sealed`, registered `services.AddScoped<IApplicationOwnerReassigner, ApplicationOwnerReassigner>()` in `CatalogModule`), consumed by Organization's offboard handler. This mirrors the existing `IApplicationCountByTeamReader` (Catalog→Organization) and `IOrganizationTeamExistenceChecker` (Organization→Catalog) ports exactly. A new domain method `Application.ReassignOwner(Guid newOwnerUserId)` (guards `Guid.Empty`) performs the mutation; the reassigner loads each matching aggregate and calls it. Idempotent — a second run with no matching `owner_user_id = from` rows reassigns 0 and is a no-op. **Not** Wolverine `IMessageBus` (D4: would break tenant scope).
 
 ## 8. SPA
 
@@ -204,7 +211,7 @@ If step 5 fails after step 4, KeyCloak holds the new role but the projection is 
 
 | Path | Purpose |
 |------|---------|
-| `web/src/features/users/pages/MembersDirectoryPage.tsx` | `useCursorList` + `useListUrlState` + `<DataTable>`. Columns: display name (→ `/users/:id`), email, **role** (badge), team count, last-seen. Role filter + search box. Per-row actions for OrgAdmin: Change role, Remove. |
+| `web/src/features/users/pages/MembersDirectoryPage.tsx` | `useCursorList` + `useListUrlState` + a hand-rolled `<table>` (the `TeamsListPage`/`CatalogListPage` idiom — there is no `<DataTable>` component; the CLAUDE.md guardrail names it aspirationally). Columns: display name (→ `/users/:id`), email, **role** (badge), team count, last-seen. Role filter + search box. Per-row actions for OrgAdmin: Change role, Remove. |
 | `web/src/features/users/api/members.ts` | `useMembersList`, `useChangeMemberRole`, `useOffboardMember`. |
 | `web/src/features/users/components/ChangeMemberRoleDialog.tsx` | Org-role picker (Viewer/Member/OrgAdmin) — distinct from the team-role dialog. Shows the "takes effect on next login" note (D3). |
 | `web/src/features/users/components/OffboardMemberConfirmDialog.tsx` | Confirm + owned-app count warning + successor picker (`<UserSearchCombobox>`). Surfaces `last-orgadmin` / `cannot-offboard-self` ProblemDetails inline. |
@@ -249,7 +256,7 @@ Full DoD ladder (CLAUDE.md). This slice touches HTTP / auth / DB / cross-module 
 **Auth:** `KartovaPermissions.cs`, `KartovaRolePermissions.cs`.
 **Identity client:** `IKeycloakAdminClient.cs`, `KeycloakAdminClient.cs` (+ `ChangeRealmRoleAsync`).
 **Endpoints:** `UserEndpointDelegates.cs` (directory + role-change + offboard + typeahead relocation), routing.
-**Cross-module:** `ReassignApplicationOwnerCommand` + Catalog handler.
+**Cross-module:** `IApplicationOwnerReassigner` port (`Kartova.SharedKernel.Multitenancy`) + `ApplicationOwnerReassigner` impl (Catalog.Infrastructure) + `Application.ReassignOwner` domain method.
 **Contracts:** `MemberSummaryResponse`, `UpdateMemberRoleRequest`, `OffboardMemberRequest`, `ProblemTypes` (+3).
 **SPA:** `MembersDirectoryPage`, `members.ts`, `ChangeMemberRoleDialog`, `OffboardMemberConfirmDialog`, `permissions.ts` (+snapshot), `router.tsx`, `Sidebar.tsx`, `UserSearchCombobox`/`users.ts` (typeahead relocation).
 **Seed:** `DevSeed.cs` (set `realm_role` on seeded users).
