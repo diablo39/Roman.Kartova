@@ -303,11 +303,14 @@ internal static class TeamEndpointDelegates
 /// spec §6.5–§10. Extracted from <c>OrganizationModule.MapEndpoints</c> in
 /// slice-9 carry-forward S6.
 /// <para>
-/// Claim-policy gate on each endpoint via <c>RequireAuthorization</c>;
-/// resource-policy gate (<c>TeamAdminOfThis</c>) is enforced inside the
-/// delegate via <see cref="IAuthorizationService"/> on mutation endpoints.
-/// CreateTeam has no target team yet, and the read endpoints rely on the
-/// claim gate alone — same posture as the inline registrations this replaces.
+/// Read endpoints (<c>team.read</c>) and CreateTeam (<c>team.create</c>) gate on a
+/// claim policy via <c>RequireAuthorization(permission)</c>. The five mutation
+/// endpoints (ADR-0101) drop the claim gate to a bare <c>RequireAuthorization()</c>
+/// (authenticated + tenant baseline) and authorize solely on the inline
+/// <c>TeamAdminOfThis</c> resource policy enforced inside the delegate via
+/// <see cref="IAuthorizationService"/> — team-admin authority is per-team
+/// <c>Admin</c> membership, not a realm role. CreateTeam stays OrgAdmin-only as it
+/// has no target team yet.
 /// </para>
 /// </summary>
 internal static class TeamRoutes
@@ -334,8 +337,12 @@ internal static class TeamRoutes
             .Produces<TeamResponse>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest);
 
+        // Mutation routes authorize via the inline TeamAdminOfThis resource gate
+        // (LoadAndAuthorizeTeamAsync), not a claim policy — team-admin authority is
+        // per-team Admin membership (ADR-0101). RequireAuthorization() keeps the
+        // authenticated+tenant baseline so anonymous callers still get 401.
         tenant.MapPut("/teams/{id:guid}", TeamEndpointDelegates.UpdateTeamAsync)
-            .RequireAuthorization(KartovaPermissions.TeamMetadataEdit)
+            .RequireAuthorization()
             .WithName("UpdateTeam")
             .Produces<TeamResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -343,7 +350,7 @@ internal static class TeamRoutes
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         tenant.MapDelete("/teams/{id:guid}", TeamEndpointDelegates.DeleteTeamAsync)
-            .RequireAuthorization(KartovaPermissions.TeamDelete)
+            .RequireAuthorization()
             .WithName("DeleteTeam")
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -352,7 +359,7 @@ internal static class TeamRoutes
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         tenant.MapPost("/teams/{id:guid}/members", TeamEndpointDelegates.AddTeamMemberAsync)
-            .RequireAuthorization(KartovaPermissions.TeamMembersManage)
+            .RequireAuthorization()
             .WithName("AddTeamMember")
             // 201 + TeamMemberResponse body (spec critic-revision §7 — NOT 204).
             .Produces<TeamMemberResponse>(StatusCodes.Status201Created)
@@ -362,14 +369,14 @@ internal static class TeamRoutes
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         tenant.MapDelete("/teams/{id:guid}/members/{userId:guid}", TeamEndpointDelegates.RemoveTeamMemberAsync)
-            .RequireAuthorization(KartovaPermissions.TeamMembersManage)
+            .RequireAuthorization()
             .WithName("RemoveTeamMember")
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         tenant.MapPut("/teams/{id:guid}/members/{userId:guid}", TeamEndpointDelegates.UpdateTeamMemberAsync)
-            .RequireAuthorization(KartovaPermissions.TeamMembersManage)
+            .RequireAuthorization()
             .WithName("UpdateTeamMember")
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status400BadRequest)

@@ -1,13 +1,13 @@
 import { z } from "zod";
 
 /**
- * The four Kartova realm roles supported by the invitation flow. Mirrors the
+ * The three Kartova realm roles supported by the invitation flow. Mirrors the
  * backend `KartovaRoles.*` constants and the `CreateInvitationRequest.role`
- * wire enum (`Viewer | Member | TeamAdmin | OrgAdmin`). Listed as a `const`
+ * wire enum (`Viewer | Member | OrgAdmin`). Listed as a `const`
  * tuple so `z.enum(KARTOVA_ROLES)` and `<select>` option rendering share a
- * single source of truth — adding a fifth role is a one-line change here.
+ * single source of truth — adding a fourth role is a one-line change here.
  */
-export const KARTOVA_ROLES = ["Viewer", "Member", "TeamAdmin", "OrgAdmin"] as const;
+export const KARTOVA_ROLES = ["Viewer", "Member", "OrgAdmin"] as const;
 export type KartovaRole = (typeof KARTOVA_ROLES)[number];
 
 /**
@@ -19,7 +19,7 @@ export type KartovaRole = (typeof KARTOVA_ROLES)[number];
  *    built-in `z.string().email()` shape check. The server performs the
  *    canonical lowercase + length validation again and may still reject with
  *    422 (e.g. invalid TLD); that case is handled in the dialog with a toast.
- *  - `role` must be one of the four realm roles above. Anything else fails
+ *  - `role` must be one of the three realm roles above. Anything else fails
  *    client-side before the network request.
  */
 export const inviteUserSchema = z.object({

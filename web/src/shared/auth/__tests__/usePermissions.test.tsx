@@ -72,9 +72,6 @@ describe("usePermissions", () => {
           "catalog.applications.lifecycle.reverse",
           "team.read",
           "team.create",
-          "team.metadata.edit",
-          "team.delete",
-          "team.members.manage",
           "org.profile.read",
           "org.profile.edit",
           "org.invitations.read",
@@ -158,7 +155,7 @@ describe("usePermissions", () => {
   it("returns teamIds and teamAdminTeamIds from /me/permissions", async () => {
     const get = vi.fn().mockResolvedValue({
       data: {
-        role: "TeamAdmin",
+        role: "Member",
         permissions: ["catalog.read", "team.read"],
         teamMemberships: [
           { teamId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", role: "Admin" },

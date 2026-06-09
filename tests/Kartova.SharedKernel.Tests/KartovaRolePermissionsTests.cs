@@ -28,20 +28,16 @@ public sealed class KartovaRolePermissionsTests
     }
 
     [TestMethod]
-    public void TeamAdmin_is_superset_of_Member_with_team_management_perms()
+    public void OrgAdmin_does_not_carry_team_mutation_claims_resource_gate_owns_them()
     {
-        // Slice 8 (ADR-0098): TeamAdmin diverges from Member by gaining
-        // team metadata edit / delete / members manage. Still gated to own team
-        // via resource auth at the handler layer.
-        var member = KartovaRolePermissions.ForRole(KartovaRoles.Member);
-        var teamAdmin = KartovaRolePermissions.ForRole(KartovaRoles.TeamAdmin);
-        Assert.IsTrue(member.IsSubsetOf(teamAdmin),
-            "TeamAdmin must retain everything Member has.");
-        Assert.IsTrue(teamAdmin.Contains(KartovaPermissions.TeamMetadataEdit));
-        Assert.IsTrue(teamAdmin.Contains(KartovaPermissions.TeamDelete));
-        Assert.IsTrue(teamAdmin.Contains(KartovaPermissions.TeamMembersManage));
-        Assert.IsFalse(teamAdmin.Contains(KartovaPermissions.TeamCreate),
-            "team.create is OrgAdmin-only — TeamAdmin cannot create new teams.");
+        // ADR-0101: team metadata/delete/members are no longer permission claims —
+        // team-admin authority is the per-team Admin membership via TeamAdminOfThis.
+        var orgAdmin = KartovaRolePermissions.ForRole(KartovaRoles.OrgAdmin);
+        Assert.IsTrue(orgAdmin.Contains(KartovaPermissions.TeamRead));
+        Assert.IsTrue(orgAdmin.Contains(KartovaPermissions.TeamCreate));
+        Assert.IsFalse(orgAdmin.Contains("team.metadata.edit"));
+        Assert.IsFalse(orgAdmin.Contains("team.delete"));
+        Assert.IsFalse(orgAdmin.Contains("team.members.manage"));
     }
 
     [TestMethod]
@@ -50,7 +46,7 @@ public sealed class KartovaRolePermissionsTests
         var orgAdmin = KartovaRolePermissions.ForRole(KartovaRoles.OrgAdmin);
         Assert.IsTrue(orgAdmin.Contains(KartovaPermissions.CatalogApplicationsLifecycleReverse));
 
-        foreach (var role in new[] { KartovaRoles.Viewer, KartovaRoles.Member, KartovaRoles.TeamAdmin })
+        foreach (var role in new[] { KartovaRoles.Viewer, KartovaRoles.Member })
         {
             var perms = KartovaRolePermissions.ForRole(role);
             Assert.IsFalse(perms.Contains(KartovaPermissions.CatalogApplicationsLifecycleReverse),

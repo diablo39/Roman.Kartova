@@ -34,7 +34,7 @@ public sealed class TeamAdminOfThisHandlerTests
     }
 
     [TestMethod]
-    public async Task TeamAdmin_of_this_team_succeeds()
+    public async Task Member_realm_role_with_Admin_membership_succeeds()
     {
         var teamId = Guid.NewGuid();
         var currentUser = Substitute.For<ICurrentUser>();
@@ -44,7 +44,7 @@ public sealed class TeamAdminOfThisHandlerTests
         var requirement = new TeamAdminOfThisRequirement();
         var resource = new FakeTeam { TeamId = teamId };
 
-        var principal = MakePrincipal(KartovaRoles.TeamAdmin);
+        var principal = MakePrincipal(KartovaRoles.Member);
         var ctx = new AuthorizationHandlerContext(new[] { requirement }, principal, resource);
 
         await ((IAuthorizationHandler)sut).HandleAsync(ctx);
@@ -72,7 +72,7 @@ public sealed class TeamAdminOfThisHandlerTests
     }
 
     [TestMethod]
-    public async Task TeamAdmin_of_another_team_fails()
+    public async Task Member_with_Admin_membership_of_another_team_fails()
     {
         var otherTeamId = Guid.NewGuid();
         var currentUser = Substitute.For<ICurrentUser>();
@@ -82,7 +82,25 @@ public sealed class TeamAdminOfThisHandlerTests
         var requirement = new TeamAdminOfThisRequirement();
         var resource = new FakeTeam { TeamId = Guid.NewGuid() };   // a DIFFERENT team
 
-        var principal = MakePrincipal(KartovaRoles.TeamAdmin);
+        var principal = MakePrincipal(KartovaRoles.Member);
+        var ctx = new AuthorizationHandlerContext(new[] { requirement }, principal, resource);
+
+        await ((IAuthorizationHandler)sut).HandleAsync(ctx);
+
+        Assert.IsFalse(ctx.HasSucceeded);
+    }
+
+    [TestMethod]
+    public async Task Member_with_no_membership_fails()
+    {
+        var currentUser = Substitute.For<ICurrentUser>();
+        currentUser.TeamMemberships.Returns(Array.Empty<TeamMembershipInfo>());
+
+        var sut = new TeamAdminOfThisHandler(currentUser);
+        var requirement = new TeamAdminOfThisRequirement();
+        var resource = new FakeTeam { TeamId = Guid.NewGuid() };
+
+        var principal = MakePrincipal(KartovaRoles.Member);
         var ctx = new AuthorizationHandlerContext(new[] { requirement }, principal, resource);
 
         await ((IAuthorizationHandler)sut).HandleAsync(ctx);

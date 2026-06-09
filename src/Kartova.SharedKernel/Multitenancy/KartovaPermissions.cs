@@ -12,9 +12,6 @@ public static class KartovaPermissions
 
     public const string TeamRead          = "team.read";
     public const string TeamCreate        = "team.create";
-    public const string TeamMetadataEdit  = "team.metadata.edit";
-    public const string TeamDelete        = "team.delete";
-    public const string TeamMembersManage = "team.members.manage";
 
     public const string OrgProfileRead         = "org.profile.read";
     public const string OrgProfileEdit         = "org.profile.edit";
@@ -33,9 +30,6 @@ public static class KartovaPermissions
         CatalogApplicationsLifecycleReverse,
         TeamRead,
         TeamCreate,
-        TeamMetadataEdit,
-        TeamDelete,
-        TeamMembersManage,
         OrgProfileRead,
         OrgProfileEdit,
         OrgInvitationsRead,

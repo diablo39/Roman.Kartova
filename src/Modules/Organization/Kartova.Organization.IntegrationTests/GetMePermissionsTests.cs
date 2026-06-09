@@ -57,21 +57,6 @@ public sealed class GetMePermissionsTests : OrganizationIntegrationTestBase
     }
 
     [TestMethod]
-    public async Task GET_me_permissions_returns_TeamAdmin_set()
-    {
-        var client = await Fx.CreateAuthenticatedClientAsync(EmailOrgA, new[] { KartovaRoles.TeamAdmin });
-        var resp = await client.GetAsync("/api/v1/organizations/me/permissions");
-
-        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
-        var body = await resp.Content.ReadFromJsonAsync<MePermissionsResponse>();
-        Assert.IsNotNull(body);
-        Assert.AreEqual(KartovaRoles.TeamAdmin, body!.Role);
-        CollectionAssert.AreEquivalent(
-            KartovaRolePermissions.ForRole(KartovaRoles.TeamAdmin).ToList(),
-            body.Permissions.ToList());
-    }
-
-    [TestMethod]
     public async Task GET_me_permissions_returns_401_when_unauthenticated()
     {
         var client = Fx.CreateAnonymousClient();

@@ -109,7 +109,7 @@ internal static class InvitationEndpointDelegates
                 CreateInvitationError.Validation => Results.Problem(
                     type: ProblemTypes.ValidationFailed,
                     title: "Invalid invitation request",
-                    detail: "Email must be a non-empty, <=320-character string containing '@', and role must be one of: Viewer, Member, TeamAdmin, OrgAdmin.",
+                    detail: "Email must be a non-empty, <=320-character string containing '@', and role must be one of: Viewer, Member, OrgAdmin.",
                     statusCode: StatusCodes.Status422UnprocessableEntity),
                 CreateInvitationError.EmailAlreadyInTenant => Results.Problem(
                     type: ProblemTypes.EmailAlreadyInTenant,

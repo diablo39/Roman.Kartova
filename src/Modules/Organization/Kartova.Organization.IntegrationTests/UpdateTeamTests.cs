@@ -8,10 +8,10 @@ using Kartova.Testing.Auth;
 namespace Kartova.Organization.IntegrationTests;
 
 /// <summary>
-/// Integration tests for <c>PUT /api/v1/organizations/teams/{id}</c> (slice 8, spec §10).
-/// Exercises both authorization gates: the claim gate
-/// (<c>team.metadata.edit</c>, granted to TeamAdmin + OrgAdmin only — Member is 403)
-/// and the resource gate (<c>TeamAdminOfThis</c> — TeamAdmin of team-A is 403 on team-B).
+/// Integration tests for <c>PUT /api/v1/organizations/teams/{id}</c> (slice 8, spec §10;
+/// ADR-0101). Authorization is the inline resource gate (<c>TeamAdminOfThis</c>) alone —
+/// the claim gate was removed: a realm-Member who is Admin of this team succeeds, the
+/// same user is 403 on another team, and a plain Member (non-Admin) is 403 here.
 /// </summary>
 [TestClass]
 public sealed class UpdateTeamTests : OrganizationIntegrationTestBase
@@ -50,7 +50,7 @@ public sealed class UpdateTeamTests : OrganizationIntegrationTestBase
     }
 
     [TestMethod]
-    public async Task TeamAdmin_of_this_team_updates_returns_200()
+    public async Task Member_who_is_team_admin_updates_returns_200()
     {
         await Fx.SeedOrganizationAsync(Tenant.Value, "OrgA-Update");
         var teamId = await Fx.SeedTeamAsync(Tenant.Value, "TeamX", null);
@@ -61,9 +61,11 @@ public sealed class UpdateTeamTests : OrganizationIntegrationTestBase
             var client = Fx.CreateClient();
             // Mint a token whose sub claim is the user's Guid — the middleware reads
             // it to populate TeamMemberships, which the resource policy then queries.
+            // The realm role is Member; team-admin authority is the per-team Admin
+            // membership alone (ADR-0101 — no claim gate).
             var token = Fx.Signer.IssueForTenant(
                 Tenant,
-                new[] { KartovaRoles.TeamAdmin },
+                new[] { KartovaRoles.Member },
                 subject: userId.ToString());
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -80,7 +82,7 @@ public sealed class UpdateTeamTests : OrganizationIntegrationTestBase
     }
 
     [TestMethod]
-    public async Task TeamAdmin_of_other_team_returns_403()
+    public async Task Member_admin_of_other_team_returns_403()
     {
         await Fx.SeedOrganizationAsync(Tenant.Value, "OrgA-Update");
         var teamA = await Fx.SeedTeamAsync(Tenant.Value, "TeamA", null);
@@ -93,7 +95,7 @@ public sealed class UpdateTeamTests : OrganizationIntegrationTestBase
             var client = Fx.CreateClient();
             var token = Fx.Signer.IssueForTenant(
                 Tenant,
-                new[] { KartovaRoles.TeamAdmin },
+                new[] { KartovaRoles.Member },
                 subject: userId.ToString());
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -112,9 +114,10 @@ public sealed class UpdateTeamTests : OrganizationIntegrationTestBase
     [TestMethod]
     public async Task Plain_Member_of_team_returns_403()
     {
-        // The claim-gate (team.metadata.edit) blocks Member at the route policy —
-        // they don't even reach the resource handler. Either way, the wire result
-        // must be 403.
+        // The resource gate (TeamAdminOfThis) denies: this user's membership role
+        // is Member, not Admin. (Previously the claim gate blocked Member before
+        // the resource gate; now the resource gate is the sole check — same 403
+        // result.)
         await Fx.SeedOrganizationAsync(Tenant.Value, "OrgA-Update");
         var teamId = await Fx.SeedTeamAsync(Tenant.Value, "TeamX", null);
         var userId = Guid.NewGuid();
@@ -141,19 +144,16 @@ public sealed class UpdateTeamTests : OrganizationIntegrationTestBase
     }
 
     [TestMethod]
-    public async Task Cross_tenant_TeamAdmin_returns_404()
+    public async Task Cross_tenant_member_returns_404()
     {
-        // Fills the cross-tenant, non-OrgAdmin cell in the auth matrix: existing
-        // tests cover cross-tenant 404 with OrgAdmin and same-tenant 403 with
-        // TeamAdmin-of-other-team. A TeamAdmin from tenant A hitting tenant-B's
-        // team URL passes the claim gate (TeamAdmin has team.metadata.edit) but
-        // LoadAndAuthorizeTeam's RLS-scoped read finds no row under tenant A's
-        // tenant_id — gate returns 404 before any resource-gate 403, preventing
-        // existence-leak of tenant B's teams.
+        // Fills the cross-tenant cell in the auth matrix. A caller from tenant A
+        // hitting tenant-B's team URL: LoadAndAuthorizeTeam's RLS-scoped read finds
+        // no row under tenant A's tenant_id, so the gate returns 404 before any
+        // resource-gate 403 — preventing existence-leak of tenant B's teams.
         //
-        // Plain Member is blocked earlier by the claim gate (no TeamMetadataEdit),
-        // so the 404-vs-403 ordering only manifests for callers who clear the
-        // claim policy.
+        // Post-ADR-0101 there is no claim gate in front: LoadAndAuthorizeTeamAsync
+        // reads the team first (404 if not visible under the tenant) for every
+        // authenticated caller, so the 404-before-403 ordering holds uniformly.
         var tenantA = new TenantId(Guid.Parse("aaaaaaaa-0005-0005-0005-000000000001"));
         var tenantB = new TenantId(Guid.Parse("aaaaaaaa-0005-0005-0005-000000000002"));
         await Fx.SeedOrganizationAsync(tenantA.Value, "OrgA-XT");
@@ -162,7 +162,7 @@ public sealed class UpdateTeamTests : OrganizationIntegrationTestBase
         try
         {
             var client = Fx.CreateClient();
-            var token = Fx.Signer.IssueForTenant(tenantA, new[] { KartovaRoles.TeamAdmin });
+            var token = Fx.Signer.IssueForTenant(tenantA, new[] { KartovaRoles.Member });
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             var resp = await client.PutAsJsonAsync(
@@ -177,6 +177,19 @@ public sealed class UpdateTeamTests : OrganizationIntegrationTestBase
             await Fx.DeleteTeamsForTenantAsync(tenantA.Value);
             await Fx.DeleteTeamsForTenantAsync(tenantB.Value);
         }
+    }
+
+    [TestMethod]
+    public async Task No_token_returns_401_on_team_mutation()
+    {
+        // ADR-0101: the team-mutation routes dropped their permission-claim policy and rely on
+        // bare RequireAuthorization() for the authenticated baseline. Lock that anonymous → 401
+        // (a regression to AllowAnonymous / a dropped RequireAuthorization would otherwise slip through).
+        var client = Fx.CreateClient();   // no Authorization header
+        var resp = await client.PutAsJsonAsync(
+            $"/api/v1/organizations/teams/{Guid.NewGuid()}",
+            new UpdateTeamRequest("X", null));
+        Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
     }
 
     [TestMethod]

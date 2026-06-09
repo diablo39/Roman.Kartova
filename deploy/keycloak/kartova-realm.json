@@ -17,9 +17,6 @@
         "name": "Member"
       },
       {
-        "name": "TeamAdmin"
-      },
-      {
         "name": "Viewer"
       },
       {
@@ -207,6 +204,7 @@
       ]
     },
     {
+      "id": "aaaabbbb-0001-0001-0001-000000000001",
       "username": "team-admin@orga.kartova.local",
       "enabled": true,
       "emailVerified": true,
@@ -226,7 +224,7 @@
         }
       ],
       "realmRoles": [
-        "TeamAdmin"
+        "Member"
       ]
     },
     {

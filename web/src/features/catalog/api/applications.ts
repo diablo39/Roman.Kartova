@@ -231,7 +231,7 @@ export function useUnDecommissionApplication(id: string) {
  * PUT /applications/{id}/team — assign or unassign team. Slice 8 (ADR-0098 §6.4).
  * Passing `teamId: null` unassigns. Server returns 422 invalid-team when teamId
  * is non-null and the team doesn't exist in the tenant; 403 when caller lacks
- * the resource-auth gate (Member/TeamAdmin trying to assign across teams).
+ * the resource-auth gate (Member trying to assign across teams).
  */
 export function useAssignApplicationTeam(id: string) {
   const qc = useQueryClient();

@@ -110,8 +110,8 @@ public sealed class SessionStartHandler
         // read-only baseline rather than a 500.
         var role = _tenant.Roles.FirstOrDefault() ?? KartovaRoles.Viewer;
 
-        // Use ForRole (not Map[role]) — Map only contains entries for the four
-        // tenant-scoped roles (Viewer/Member/TeamAdmin/OrgAdmin). PlatformAdmin
+        // Use ForRole (not Map[role]) — Map only contains entries for the three
+        // tenant-scoped roles (Viewer/Member/OrgAdmin). PlatformAdmin
         // and ServiceAccount are deliberately absent because they're orthogonal
         // to tenants; if such a principal ever reaches this endpoint, ForRole
         // returns an empty set instead of throwing KeyNotFoundException.

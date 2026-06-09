@@ -1,8 +1,8 @@
 ---
 platform: Kartova
 description: SaaS service catalog and developer portal platform (Backstage + Compass + Statuspage)
-adr_count: 100
-last_updated: 2026-05-29
+adr_count: 101
+last_updated: 2026-06-09
 architecture:
   backend: .NET 10 (LTS) / ASP.NET Core + EF Core (ADR-0027)
   backend_pattern: Modular monolith (ADR-0082) with Clean Architecture per module — Domain / Application / Infrastructure / Contracts (ADR-0028); inter-module via Wolverine mediator or Kafka events
@@ -35,7 +35,7 @@ multi_tenancy:
   model: one-organization-one-tenant (ADR-0011)
   isolation: PostgreSQL RLS + EF Core global filters + Elasticsearch tenant routing (ADR-0012, ADR-0013)
   tenant_context: tenant_id JWT claim propagated to SET app.current_tenant (ADR-0014)
-  rbac: five fixed roles — Org Admin, Editor, Contributor, Viewer, Service Account (ADR-0008)
+  rbac: org-entry realm roles — Viewer, Member, OrgAdmin (+ orthogonal PlatformAdmin, forward-compat ServiceAccount); team-admin authority is per-team Admin membership, not a realm role (ADR-0008 amended by ADR-0101)
 compliance:
   - GDPR from day one — right to erasure, export, consent, residency, DPA (ADR-0015)
   - MiFID II per-tenant opt-in (mifid_ii_enabled flag) triggering 5-year retention (ADR-0016)
@@ -115,8 +115,8 @@ open_source_strategy: fully proprietary, no OSS core / source-available (ADR-002
 # Architecture Decision Records — Kartova
 
 **Status:** Living document
-**Last updated:** 2026-05-08
-**Total accepted:** 97
+**Last updated:** 2026-06-09
+**Total accepted:** 101
 **Convention:** Michael Nygard template (Status / Context / Decision / Rationale / Alternatives / Consequences / References)
 
 ## How to use this index
@@ -227,11 +227,12 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0098](ADR-0098-uuid-only-entity-identifier.md) | UUIDs as the Canonical and Only Entity Identifier | API & Integration Architecture | Accepted | 0001, 0011, 0029, 0082, 0092 | UUIDs are the canonical and only entity identifier across Kartova. URLs use `{id:guid}` exclusively; no slugs anywhere. |
 | [0099](ADR-0099-distributed-locking-leader-elected-periodic-tasks.md) | Distributed Locking and Leader-Elected Periodic Tasks via Postgres Advisory Locks | Platform Infrastructure | Accepted | 0001, 0080, 0082 | Adopt Postgres session-level advisory locks as the distributed-locking primitive. `IDistributedLock` + `PostgresAdvisoryLock` + `LeaderElectedPeriodicService` reusable building blocks for safe multi-instance periodic work (invitation expiry, scorecard recompute, retention purge, etc.). |
 | [0100](ADR-0100-strict-one-email-per-tenant-identity-scope.md) | Identity Scope — Strict One-Email-Per-Tenant in a Single KeyCloak Realm | Authentication & Authorization | Accepted | 0006, 0011 | Preserve KeyCloak realm setting `duplicateEmailsAllowed: false`: one email = one tenant across the platform. Cross-tenant duplicate invitations surface as 409 `email-already-on-platform`. Industry pattern (Atlassian/GitHub). Upgrade path for multi-tenant-per-user is realm-per-tenant, not flipping the flag. |
+| [0101](ADR-0101-team-admin-authority-via-membership.md) | Team-Admin Authority Is Per-Team Membership, Not a Realm Role | Authentication & Authorization | Accepted | 0008, 0090, 0100 | Remove the `TeamAdmin` realm role + its `team.metadata.edit`/`team.delete`/`team.members.manage` claims; team-admin authority is conferred solely by an `Admin`-level per-team membership via the `TeamAdminOfThis` resource gate. Realm roles become Viewer/Member/OrgAdmin; team creation stays OrgAdmin-only. Eliminates the silent-403 footgun where a realm-Member promoted to team Admin couldn't manage their team. Amends ADR-0008; supersedes slice-8 spec §5. |
 
 ## By category (quick navigation)
 
 - **Data Platform**: 0001, 0002, 0003, 0004, 0005
-- **Authentication & Authorization**: 0006, 0007, 0008, 0009, 0010, 0100
+- **Authentication & Authorization**: 0006, 0007, 0008, 0009, 0010, 0100, 0101
 - **Multi-Tenancy**: 0011, 0012, 0013, 0014, 0090
 - **Compliance & Retention**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050
 - **Platform Infrastructure**: 0022, 0023, 0024, 0025, 0026, 0099
@@ -280,7 +281,8 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Git integration**: 0035, 0054, 0055, 0057
 - **Scan / import**: 0045, 0054, 0055, 0056, 0067
 - **Status page**: 0005, 0010, 0023, 0051, 0052, 0053, 0076
-- **Identity & auth**: 0006, 0007, 0008, 0009, 0010, 0014, 0042, 0100
+- **Identity & auth**: 0006, 0007, 0008, 0009, 0010, 0014, 0042, 0100, 0101
+- **RBAC / roles / team-admin authority**: 0008, 0101
 - **Infrastructure & deployment**: 0022, 0023, 0024, 0025, 0043, 0085, 0086
 - **Database migrations**: 0001, 0012, 0082, 0085
 - **Helm / packaging / GitOps**: 0043, 0085, 0086
@@ -438,7 +440,8 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Proprietary (no OSS core)** → 0026
 - **Quorum approval** → 0066
 - **Rate limiting** → 0031, 0033, 0055
-- **RBAC (5 roles)** → 0008
+- **RBAC (roles)** → 0008, 0101
+- **Resource-based authorization (per-resource gate)** → 0101
 - **React SPA** → 0039, 0040
 - **Relationship vocabulary (7 types)** → 0068
 - **Relationship origin** → 0067
@@ -451,7 +454,11 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Retention (180 days / 5 years)** → 0017, 0019, 0020
 - **Right to erasure (GDPR)** → 0015, 0019
 - **RLS (Row-Level Security)** → 0012, 0014
-- **Roles (Org Admin / Editor / Contributor / Viewer / Service Account)** → 0008
+- **Roles (Org Admin / Editor / Contributor / Viewer / Service Account)** → 0008 (amended by 0101)
+- **Roles (implemented: Viewer / Member / OrgAdmin / PlatformAdmin / ServiceAccount)** → 0101
+- **Team-admin authority / TeamAdmin role (removed)** → 0101
+- **Team membership (per-team Admin/Member role)** → 0101
+- **TeamAdminOfThis (resource policy)** → 0101
 - **RSS (status page)** → 0047, 0051
 - **Scale envelope** → 0074
 - **Scan engine** → 0054, 0055, 0056
@@ -532,3 +539,4 @@ _No ADRs have been deprecated or superseded yet. When an ADR is superseded by a 
 | 2026-05-08 | ADR-0097 (MSTest v4 supersedes xUnit) accepted — replaces xUnit + FluentAssertions with MSTest v4 native assertions across all 10 xUnit-using test projects; project SDK and VSTest runner unchanged (MTP deferred — Stryker.NET does not support it at the version probed in Phase 0, see stryker-net#3094); ADR-0083 marked superseded |
 | 2026-05-27 | ADR-0099 (Distributed locking + leader-elected periodic tasks) accepted — `IDistributedLock` + `PostgresAdvisoryLock` (Postgres `pg_try_advisory_lock`) + `LeaderElectedPeriodicService` base class for multi-instance-safe periodic background work; landed alongside slice 9 (organization & people management). |
 | 2026-05-29 | ADR-0100 (Identity scope — strict one-email-per-tenant) accepted — KeyCloak realm setting `duplicateEmailsAllowed: false` preserved; cross-tenant duplicate invitations return 409 `email-already-on-platform`; landed as part of slice 9 invitation flow. |
+| 2026-06-09 | ADR-0101 (Team-admin authority via per-team membership) accepted — removes the `TeamAdmin` realm role + its three `team.*` mutation claims; team-admin power is conferred solely by an `Admin`-level per-team membership via the `TeamAdminOfThis` resource gate. Realm roles become Viewer/Member/OrgAdmin; team creation stays OrgAdmin-only. Eliminates the silent-403 footgun (realm-Member promoted to team Admin couldn't manage their team). Amends ADR-0008; supersedes slice-8 design spec §5. |

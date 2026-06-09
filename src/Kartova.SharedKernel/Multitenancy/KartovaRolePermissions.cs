@@ -27,22 +27,8 @@ public static class KartovaRolePermissions
                 KartovaPermissions.OrgUsersRead,
                 KartovaPermissions.OrgUsersSearch,
             }.ToFrozenSet(StringComparer.Ordinal),
-            [KartovaRoles.TeamAdmin] = new[]
-            {
-                // Diverges from Member: gains team metadata/delete/members permissions
-                // (gated to own team via resource auth, ADR-0098 slice 8).
-                KartovaPermissions.CatalogRead,
-                KartovaPermissions.CatalogApplicationsRegister,
-                KartovaPermissions.CatalogApplicationsEditMetadata,
-                KartovaPermissions.CatalogApplicationsLifecycleForward,
-                KartovaPermissions.TeamRead,
-                KartovaPermissions.TeamMetadataEdit,
-                KartovaPermissions.TeamDelete,
-                KartovaPermissions.TeamMembersManage,
-                KartovaPermissions.OrgProfileRead,
-                KartovaPermissions.OrgUsersRead,
-                KartovaPermissions.OrgUsersSearch,
-            }.ToFrozenSet(StringComparer.Ordinal),
+            // OrgAdmin's authority on teams comes from the IsInRole(OrgAdmin) bypass in
+            // TeamAdminOfThisHandler, not from team-mutation claims (ADR-0101).
             [KartovaRoles.OrgAdmin] = new[]
             {
                 KartovaPermissions.CatalogRead,
@@ -52,9 +38,6 @@ public static class KartovaRolePermissions
                 KartovaPermissions.CatalogApplicationsLifecycleReverse,
                 KartovaPermissions.TeamRead,
                 KartovaPermissions.TeamCreate,
-                KartovaPermissions.TeamMetadataEdit,
-                KartovaPermissions.TeamDelete,
-                KartovaPermissions.TeamMembersManage,
                 KartovaPermissions.OrgProfileRead,
                 KartovaPermissions.OrgProfileEdit,
                 KartovaPermissions.OrgInvitationsRead,

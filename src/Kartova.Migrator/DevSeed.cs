@@ -1,4 +1,5 @@
 using Kartova.SharedKernel;
+using Kartova.SharedKernel.Multitenancy;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Npgsql;
@@ -13,6 +14,20 @@ internal static class DevSeed
     // this is dev-fixture data with no production meaning.
     private static readonly Guid OrgATenantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
+    // Fixed Keycloak user id for team-admin@orga.kartova.local (ADR-0101: realm Member who is
+    // team Admin). Mirrors the "id" field added to that user in kartova-realm.json so the
+    // team_members FK aligns with Keycloak's imported user id.
+    // Keycloak convention: the imported user `id` becomes the runtime JWT `sub` claim →
+    // ICurrentUser.UserId → the TeamMemberships lookup that the TeamAdminOfThis resource gate
+    // uses. That's why this GUID MUST stay in sync between kartova-realm.json and this file —
+    // if they drift, the seeded Admin membership won't match the authenticated user's sub.
+    private static readonly Guid TeamAdminUserId = Guid.Parse("aaaabbbb-0001-0001-0001-000000000001");
+
+    // Fixed id for the demo team seeded for team-admin@orga.kartova.local. Pinned so docs/evidence
+    // curl examples and re-seeds reference a stable team id (and ON CONFLICT (id) DO NOTHING makes
+    // re-seeding idempotent).
+    private static readonly Guid DemoTeamId = Guid.Parse("dddddddd-0001-0001-0001-000000000001");
+
     public static async Task RunAsync(IConfiguration config, ILogger logger)
     {
         var connection = KartovaConnectionStrings.RequireMain(config);
@@ -22,9 +37,9 @@ internal static class DevSeed
         // The migrator role owns `organizations` but lacks BYPASSRLS; FORCE applies
         // the policy to the owner too. Toggle off → seed → toggle on. try/finally
         // restores FORCE even if the INSERT fails.
-        await ExecAsync(conn, "ALTER TABLE organizations NO FORCE ROW LEVEL SECURITY;");
         try
         {
+            await ExecAsync(conn, "ALTER TABLE organizations NO FORCE ROW LEVEL SECURITY;");
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = """
                 INSERT INTO organizations (id, tenant_id, name, created_at)
@@ -45,9 +60,9 @@ internal static class DevSeed
         // Pagination requires a non-trivial fixture to be exercisable in `docker compose up`
         // (ADR-0095 §10). Seed ~120 applications for Org A with deterministic varied names so
         // sort-by-name and sort-by-createdAt produce visibly different orderings.
-        await ExecAsync(conn, "ALTER TABLE catalog_applications NO FORCE ROW LEVEL SECURITY;");
         try
         {
+            await ExecAsync(conn, "ALTER TABLE catalog_applications NO FORCE ROW LEVEL SECURITY;");
             await using var checkCmd = conn.CreateCommand();
             checkCmd.CommandText = "SELECT COUNT(*) FROM catalog_applications WHERE tenant_id = $1;";
             checkCmd.Parameters.AddWithValue(OrgATenantId);
@@ -83,6 +98,46 @@ internal static class DevSeed
         finally
         {
             await ExecAsync(conn, "ALTER TABLE catalog_applications FORCE ROW LEVEL SECURITY;");
+        }
+
+        // ADR-0101: team-admin@orga is now a realm-Member who holds the Admin TeamRole on a
+        // demo team. Seed the demo team + Admin membership so docker-compose up demonstrates
+        // the membership-authority model end-to-end.
+        // team_members.user_id has no DB-level FK to users(id), so no users row is required.
+        try
+        {
+            await ExecAsync(conn, "ALTER TABLE teams NO FORCE ROW LEVEL SECURITY;");
+            await ExecAsync(conn, "ALTER TABLE team_members NO FORCE ROW LEVEL SECURITY;");
+            await using var teamCmd = conn.CreateCommand();
+            teamCmd.CommandText = """
+                INSERT INTO teams (id, tenant_id, display_name, description, created_at)
+                VALUES ($1, $2, $3, $4, now())
+                ON CONFLICT (id) DO NOTHING;
+                """;
+            teamCmd.Parameters.AddWithValue(DemoTeamId);
+            teamCmd.Parameters.AddWithValue(OrgATenantId);
+            teamCmd.Parameters.AddWithValue("Demo Team");
+            teamCmd.Parameters.AddWithValue("Seeded demo team for team-admin@orga (ADR-0101).");
+            var teamRows = await teamCmd.ExecuteNonQueryAsync();
+            logger.LogInformation("Dev seed: demo team {Result}.", teamRows == 1 ? "inserted" : "already present");
+
+            await using var memberCmd = conn.CreateCommand();
+            memberCmd.CommandText = """
+                INSERT INTO team_members (team_id, user_id, role, added_at)
+                VALUES ($1, $2, $3, now())
+                ON CONFLICT (team_id, user_id) DO NOTHING;
+                """;
+            memberCmd.Parameters.AddWithValue(DemoTeamId);
+            memberCmd.Parameters.AddWithValue(TeamAdminUserId);
+            memberCmd.Parameters.AddWithValue((byte)TeamRoleKind.Admin);
+            var memberRows = await memberCmd.ExecuteNonQueryAsync();
+            logger.LogInformation("Dev seed: demo team Admin membership for team-admin@orga {Result}.",
+                memberRows == 1 ? "inserted" : "already present");
+        }
+        finally
+        {
+            await ExecAsync(conn, "ALTER TABLE teams FORCE ROW LEVEL SECURITY;");
+            await ExecAsync(conn, "ALTER TABLE team_members FORCE ROW LEVEL SECURITY;");
         }
     }
 

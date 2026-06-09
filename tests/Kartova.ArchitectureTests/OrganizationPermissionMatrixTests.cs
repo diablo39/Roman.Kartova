@@ -9,7 +9,6 @@ public sealed class OrganizationPermissionMatrixTests
     [
         (KartovaRoles.Viewer,    [KartovaPermissions.OrgProfileRead, KartovaPermissions.OrgUsersRead]),
         (KartovaRoles.Member,    [KartovaPermissions.OrgProfileRead, KartovaPermissions.OrgUsersRead, KartovaPermissions.OrgUsersSearch]),
-        (KartovaRoles.TeamAdmin, [KartovaPermissions.OrgProfileRead, KartovaPermissions.OrgUsersRead, KartovaPermissions.OrgUsersSearch]),
         (KartovaRoles.OrgAdmin,  [
             KartovaPermissions.OrgProfileRead, KartovaPermissions.OrgProfileEdit,
             KartovaPermissions.OrgInvitationsRead, KartovaPermissions.OrgInvitationsCreate, KartovaPermissions.OrgInvitationsRevoke,

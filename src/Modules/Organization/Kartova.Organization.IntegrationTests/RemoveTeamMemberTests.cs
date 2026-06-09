@@ -65,13 +65,14 @@ public sealed class RemoveTeamMemberTests : OrganizationIntegrationTestBase
     }
 
     [TestMethod]
-    public async Task TeamAdmin_of_other_team_removing_member_returns_403()
+    public async Task Member_who_is_team_admin_of_other_team_removing_member_returns_403()
     {
-        // Caller is TeamAdmin of team B (passes claim gate — TeamAdmin has
-        // team.members.manage) but is NOT an admin of team A. The resource gate
-        // (TeamAdminOfThis) must short-circuit with 403 before the membership row
-        // is touched. We seed a real member in team A so the path exercised is the
-        // resource gate, not "member doesn't exist". Addresses deep-review MT-2.
+        // Caller is a realm-Member who is Admin of team B but NOT of team A. The
+        // resource gate (TeamAdminOfThis) is now the sole authorization (ADR-0101 —
+        // the claim gate is gone); it must short-circuit with 403 before the
+        // membership row is touched. We seed a real member in team A so the path
+        // exercised is the resource gate, not "member doesn't exist". Addresses
+        // deep-review MT-2.
         await Fx.SeedOrganizationAsync(Tenant.Value, "OrgA-Remove-OtherTeam-403");
         var teamA = await Fx.SeedTeamAsync(Tenant.Value, "Team A");
         var teamB = await Fx.SeedTeamAsync(Tenant.Value, "Team B");
@@ -84,7 +85,7 @@ public sealed class RemoveTeamMemberTests : OrganizationIntegrationTestBase
             var client = Fx.CreateClient();
             var token = Fx.Signer.IssueForTenant(
                 Tenant,
-                new[] { KartovaRoles.TeamAdmin },
+                new[] { KartovaRoles.Member },
                 subject: teamAdminUserId.ToString());
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -109,7 +110,9 @@ public sealed class RemoveTeamMemberTests : OrganizationIntegrationTestBase
         try
         {
             var client = Fx.CreateClient();
-            // Caller is a plain Member — claim gate (team.members.manage) blocks them.
+            // Caller is a plain Member of this team — the resource gate
+            // (TeamAdminOfThis) denies because their membership role is Member,
+            // not Admin (ADR-0101 — the resource gate is now the sole check).
             var token = Fx.Signer.IssueForTenant(
                 Tenant,
                 new[] { KartovaRoles.Member },
@@ -120,6 +123,43 @@ public sealed class RemoveTeamMemberTests : OrganizationIntegrationTestBase
                 $"/api/v1/organizations/teams/{teamId}/members/{memberId}");
 
             Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
+        }
+        finally
+        {
+            await Fx.DeleteTeamsForTenantAsync(Tenant.Value);
+        }
+    }
+
+    [TestMethod]
+    public async Task Member_who_is_team_admin_of_this_team_removes_member_returns_204()
+    {
+        // The footgun fix (ADR-0101, spec §8): a realm-Member who holds an Admin
+        // membership on THIS team can remove members. Pre-change this returned 403
+        // (Member lacked the team.members.manage claim); the resource gate
+        // (TeamAdminOfThis) is now the sole authorization and recognises the
+        // per-team Admin membership.
+        await Fx.SeedOrganizationAsync(Tenant.Value, "OrgA-Remove-MemberAdmin");
+        var teamId = await Fx.SeedTeamAsync(Tenant.Value, "Platform");
+        var actingUserId = Guid.NewGuid();
+        await Fx.SeedTeamMembershipAsync(teamId, actingUserId, AdminRole);
+        var memberId = Guid.NewGuid();
+        await Fx.SeedTeamMembershipAsync(teamId, memberId, MemberRole);
+        try
+        {
+            var client = Fx.CreateClient();
+            // The subject claim must match the seeded Admin membership — the
+            // middleware reads it to populate TeamMemberships, which the resource
+            // policy then queries. The realm role is Member, not TeamAdmin.
+            var token = Fx.Signer.IssueForTenant(
+                Tenant,
+                new[] { KartovaRoles.Member },
+                subject: actingUserId.ToString());
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var resp = await client.DeleteAsync(
+                $"/api/v1/organizations/teams/{teamId}/members/{memberId}");
+
+            Assert.AreEqual(HttpStatusCode.NoContent, resp.StatusCode);
         }
         finally
         {

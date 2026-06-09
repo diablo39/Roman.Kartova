@@ -8,9 +8,6 @@ export const KartovaPermissions = {
   CatalogApplicationsLifecycleReverse: "catalog.applications.lifecycle.reverse",
   TeamRead: "team.read",
   TeamCreate: "team.create",
-  TeamMetadataEdit: "team.metadata.edit",
-  TeamDelete: "team.delete",
-  TeamMembersManage: "team.members.manage",
 
   OrgProfileRead: "org.profile.read",
   OrgProfileEdit: "org.profile.edit",

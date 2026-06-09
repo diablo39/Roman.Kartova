@@ -15,7 +15,7 @@ namespace Kartova.Catalog.IntegrationTests;
 /// Slice 8 — non-OrgAdmin callers must also be members of the target application's team for
 /// mutation endpoints to clear the resource-auth gate (<see cref="KartovaTeamPolicies.ApplicationTeamScoped"/>).
 /// The arrange phase seeds a team in the same tenant, reassigns the seed app to it, and adds
-/// the Member/TeamAdmin test users as team members so the claim-level matrix isn't masked by
+/// the Member test user as a team member so the claim-level matrix isn't masked by
 /// resource-level denial. A separate <see cref="Team_scope_matrix_for_metadata_edit"/> test
 /// covers the orthogonal team-scope dimension (in-team / out-of-team / unassigned).
 /// </summary>
@@ -23,18 +23,15 @@ namespace Kartova.Catalog.IntegrationTests;
 public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
 {
     private const byte TeamRoleMember = 1;
-    private const byte TeamRoleAdmin  = 2;
 
     private const string OrgAdminEmail  = "admin@orga.kartova.local";
     private const string MemberEmail    = "member@orga.kartova.local";
-    private const string TeamAdminEmail = "team-admin@orga.kartova.local";
     private const string ViewerEmail    = "viewer@orga.kartova.local";
 
     private static readonly (string Role, string Email)[] Roles =
     {
         (KartovaRoles.OrgAdmin,  OrgAdminEmail),
         (KartovaRoles.Member,    MemberEmail),
-        (KartovaRoles.TeamAdmin, TeamAdminEmail),
         (KartovaRoles.Viewer,    ViewerEmail),
     };
 
@@ -67,17 +64,15 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
         var seeded = await registerResp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
         var appId = seeded!.Id;
 
-        // Slice 8: bind the seed app to a team in the same tenant and add Member + TeamAdmin
-        // as members of that team. Without these rows the resource gate denies the mutation
+        // Slice 8: bind the seed app to a team in the same tenant and add the Member user
+        // as a member of that team. Without this row the resource gate denies the mutation
         // cells (Decision #9 — null team_id blocks non-OrgAdmin), which would mask the
         // claim-level assertions the matrix is designed to verify.
         var tenant = KartovaApiFixtureBase.TenantFor(OrgAdminEmail);
         var teamId = await Fx.SeedTeamInOrganizationAsync(tenant, "Matrix Team");
         await Fx.SetApplicationTeamAsync(appId, teamId);
-        var memberSub    = await Fx.GetSubClaimAsync(MemberEmail);
-        var teamAdminSub = await Fx.GetSubClaimAsync(TeamAdminEmail);
-        await Fx.SeedTeamMembershipAsync(teamId, memberSub,    TeamRoleMember);
-        await Fx.SeedTeamMembershipAsync(teamId, teamAdminSub, TeamRoleAdmin);
+        var memberSub = await Fx.GetSubClaimAsync(MemberEmail);
+        await Fx.SeedTeamMembershipAsync(teamId, memberSub, TeamRoleMember);
 
         try
         {

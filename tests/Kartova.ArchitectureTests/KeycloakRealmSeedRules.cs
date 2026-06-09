@@ -96,7 +96,7 @@ public sealed class KeycloakRealmSeedRules
     }
 
     [TestMethod]
-    public void Realm_seed_includes_Viewer_and_TeamAdmin_roles_and_dev_users()
+    public void Realm_seed_includes_Viewer_role_excludes_TeamAdmin_role_and_includes_dev_users()
     {
         Assert.IsTrue(File.Exists(SeedPath), $"realm seed not found at {SeedPath}");
         using var doc = JsonDocument.Parse(File.ReadAllText(SeedPath));
@@ -109,7 +109,7 @@ public sealed class KeycloakRealmSeedRules
             .ToHashSet(StringComparer.Ordinal);
 
         Assert.IsTrue(roles.Contains("Viewer"), "Realm must include 'Viewer' role.");
-        Assert.IsTrue(roles.Contains("TeamAdmin"), "Realm must include 'TeamAdmin' role.");
+        Assert.IsFalse(roles.Contains("TeamAdmin"), "TeamAdmin realm role was removed in ADR-0101.");
 
         var usernames = doc.RootElement
             .GetProperty("users")
@@ -120,7 +120,7 @@ public sealed class KeycloakRealmSeedRules
         Assert.IsTrue(usernames.Contains("viewer@orga.kartova.local"),
             "Realm must include a 'viewer@orga' dev user.");
         Assert.IsTrue(usernames.Contains("team-admin@orga.kartova.local"),
-            "Realm must include a 'team-admin@orga' dev user.");
+            "Realm must include a 'team-admin@orga' dev user (now a realm Member, team Admin via membership).");
     }
 
     [TestMethod]

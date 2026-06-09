@@ -1,6 +1,6 @@
 # Kartova — Development Progress Checklist
 
-**Last updated:** 2026-05-22
+**Last updated:** 2026-06-09
 
 ## How to use
 - [ ] = Not started
@@ -48,7 +48,7 @@
 **E-01.F-04: Authentication & Authorization**
 - [x] E-01.F-04.S-01 — KeyCloak configured with OIDC
 - [x] E-01.F-04.S-02 — JWT validation middleware in API
-- [x] E-01.F-04.S-03 — RBAC with five roles (slice 7 — PR #24, 2026-05-22; granular permission model with role→permission map; TeamAdmin forward-compat, ServiceAccount deferred to Phase 5)
+- [x] E-01.F-04.S-03 — RBAC with five roles (slice 7 — PR #24, 2026-05-22; granular permission model with role→permission map; ServiceAccount deferred to Phase 5). Refined by ADR-0101 (2026-06-09): the `TeamAdmin` realm role + its `team.*` mutation claims were removed — team-admin authority is now a per-team `Admin` membership via the `TeamAdminOfThis` resource gate (realm roles: Viewer/Member/OrgAdmin). Eliminates the silent-403 footgun where a realm-Member promoted to team Admin couldn't manage their team.
 - [x] E-01.F-04.S-04 — SSO login via web UI (slice 7 — PR #24, 2026-05-22; existing OIDC redirect flow satisfies the story; signed-out landing page deferred to §15.9)
 - [ ] E-01.F-04.S-05 — BFF cookie-session auth (security hardening, post-MVP)
 
