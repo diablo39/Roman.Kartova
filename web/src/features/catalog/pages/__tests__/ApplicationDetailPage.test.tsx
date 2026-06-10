@@ -48,8 +48,8 @@ describe("ApplicationDetailPage", () => {
         tenantId: "t",
         displayName: "Payment Gateway",
         description: "Handles charges",
-        ownerUserId: "00000000-0000-0000-0000-0000000000u1",
-        owner: {
+        createdByUserId: "00000000-0000-0000-0000-0000000000u1",
+        createdBy: {
           id: "00000000-0000-0000-0000-0000000000u1",
           displayName: "Alice Owner",
           email: "alice@example.com",
@@ -74,15 +74,15 @@ describe("ApplicationDetailPage", () => {
     expect(screen.getByText(/active/i)).toBeInTheDocument();
   });
 
-  it("renders OwnerLink to /users/{id} when owner is present (slice-9 F8)", async () => {
+  it("renders CreatedByLink to /users/{id} when createdBy is present (slice-10 ownership realignment)", async () => {
     const get = vi.fn().mockResolvedValue({
       data: {
         id: "00000000-0000-0000-0000-000000000001",
         tenantId: "t",
         displayName: "Payment Gateway",
         description: "Handles charges",
-        ownerUserId: "00000000-0000-0000-0000-0000000000u1",
-        owner: {
+        createdByUserId: "00000000-0000-0000-0000-0000000000u1",
+        createdBy: {
           id: "00000000-0000-0000-0000-0000000000u1",
           displayName: "Alice Owner",
           email: "alice@example.com",
@@ -106,15 +106,15 @@ describe("ApplicationDetailPage", () => {
     expect(ownerLink).toHaveAttribute("href", "/users/00000000-0000-0000-0000-0000000000u1");
   });
 
-  it("renders 'Unknown user' fallback when owner is null (slice-9 F8)", async () => {
+  it("renders 'Unknown user' fallback when createdBy is null (offboarded creator, slice-10)", async () => {
     const get = vi.fn().mockResolvedValue({
       data: {
         id: "00000000-0000-0000-0000-000000000001",
         tenantId: "t",
         displayName: "Orphaned App",
-        description: "Owner since deleted",
-        ownerUserId: "00000000-0000-0000-0000-0000000000u1",
-        owner: null,
+        description: "Creator since offboarded",
+        createdByUserId: "00000000-0000-0000-0000-0000000000u1",
+        createdBy: null,
         createdAt: "2026-01-01T12:34:56Z",
         lifecycle: "active",
         sunsetDate: null,
@@ -141,7 +141,7 @@ describe("ApplicationDetailPage", () => {
         tenantId: "t",
         displayName: "X",
         description: "d",
-        ownerUserId: "u",
+        createdByUserId: "u",
         createdAt: "2026-01-01T00:00:00Z",
         lifecycle: "active",
         sunsetDate: null,
@@ -199,7 +199,7 @@ describe("ApplicationDetailPage", () => {
         tenantId: "t",
         displayName: "N",
         description: "",
-        ownerUserId: "u",
+        createdByUserId: "u",
         createdAt: "2026-01-01T00:00:00Z",
         lifecycle: "active",
         sunsetDate: null,
@@ -228,7 +228,7 @@ const activeApp = {
   tenantId: "t",
   displayName: "Payment Gateway",
   description: "Handles charges",
-  ownerUserId: "u-1",
+  createdByUserId: "u-1",
   createdAt: "2026-01-01T12:34:56Z",
   lifecycle: "active",
   sunsetDate: null,

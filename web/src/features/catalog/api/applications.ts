@@ -25,8 +25,8 @@ type ApplicationsListParams = {
   limit?: number;
   /** ADR-0073 default-view rule: false (the default) hides Decommissioned rows. Slice 6. */
   includeDecommissioned?: boolean;
-  /** When set, server filters to applications owned by this user (slice-9 E2). */
-  ownerUserId?: string;
+  /** When set, server filters to applications created by this user (slice-10 ownership realignment). */
+  createdByUserId?: string;
 };
 
 export const applicationKeys = {
@@ -50,9 +50,9 @@ export function useApplicationsList(params: ApplicationsListParams) {
             limit: params.limit ?? 50,
             cursor,
             includeDecommissioned: params.includeDecommissioned ?? false,
-            // Only thread `ownerUserId` when set so the wire stays clean for the
-            // default list view (server treats omitted == "no filter").
-            ...(params.ownerUserId ? { ownerUserId: params.ownerUserId } : {}),
+            // Only thread `createdByUserId` when set so the wire stays clean for
+            // the default list view (server treats omitted == "no filter").
+            ...(params.createdByUserId ? { createdByUserId: params.createdByUserId } : {}),
           },
         },
       });
@@ -228,15 +228,15 @@ export function useUnDecommissionApplication(id: string) {
 }
 
 /**
- * PUT /applications/{id}/team — assign or unassign team. Slice 8 (ADR-0098 §6.4).
- * Passing `teamId: null` unassigns. Server returns 422 invalid-team when teamId
- * is non-null and the team doesn't exist in the tenant; 403 when caller lacks
- * the resource-auth gate (Member trying to assign across teams).
+ * PUT /applications/{id}/team — assign team. Slice 8 (ADR-0098 §6.4), updated
+ * slice-10 (teamId is now required — unassign removed per ownership realignment).
+ * Server returns 422 invalid-team when teamId doesn't exist in the tenant;
+ * 403 when caller lacks the resource-auth gate (Member trying to assign across teams).
  */
 export function useAssignApplicationTeam(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (teamId: string | null) => {
+    mutationFn: async (teamId: string) => {
       const { data, error, response } = await apiClient.PUT(
         "/api/v1/catalog/applications/{id}/team",
         { params: { path: { id } }, body: { teamId } }

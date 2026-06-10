@@ -6,7 +6,7 @@ import {
   fromSort, toSort,
 } from "@/components/application/data-table/data-table";
 import { LifecycleBadge } from "./LifecycleBadge";
-import { OwnerLink, type UserDisplayInfo } from "@/features/users/components/OwnerLink";
+import { CreatedByLink, type UserDisplayInfo } from "@/features/users/components/CreatedByLink";
 import type { CursorListResult, SortDirection } from "@/lib/list/types";
 import type { Lifecycle } from "@/features/catalog/api/applications";
 
@@ -14,14 +14,15 @@ export interface ApplicationRow {
   id: string;
   displayName: string;
   description: string;
-  ownerUserId?: string;
+  createdByUserId?: string;
   /**
-   * Embedded owner display info (slice-9 E1 ADR-0098). Enriched server-side by
-   * the list / detail handlers via `IUserDirectory`; `null` when the resolver
-   * could not find the user (deleted), `undefined` when the response was
-   * produced by a write-path handler that didn't run enrichment.
+   * Embedded creator display info (slice-10 ownership realignment, ADR-0098).
+   * Enriched server-side by the list / detail handlers via `IUserDirectory`;
+   * `null` when the resolver could not find the user (offboarded / deleted —
+   * attribution kept as history per ADR-0102), `undefined` when the response
+   * was produced by a write-path handler that didn't run enrichment.
    */
-  owner?: UserDisplayInfo | null;
+  createdBy?: UserDisplayInfo | null;
   createdAt?: string;
   lifecycle: Lifecycle;
   sunsetDate: string | null;
@@ -55,7 +56,7 @@ export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange, teamN
           <Table.Head id="displayName" isRowHeader>Name</Table.Head>
           <Table.Head id="lifecycle">Lifecycle</Table.Head>
           <Table.Head id="team">Team</Table.Head>
-          <Table.Head id="owner">Owner</Table.Head>
+          <Table.Head id="createdBy">Created by</Table.Head>
           <Table.Head id="description">Description</Table.Head>
           <Table.Head id="createdAt">Created</Table.Head>
         </Table.Header>
@@ -95,7 +96,7 @@ export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange, teamN
           <SortableHead id="displayName" isRowHeader>Name</SortableHead>
           <Table.Head id="lifecycle">Lifecycle</Table.Head>
           <Table.Head id="team">Team</Table.Head>
-          <Table.Head id="owner">Owner</Table.Head>
+          <Table.Head id="createdBy">Created by</Table.Head>
           <Table.Head id="description">Description</Table.Head>
           <SortableHead id="createdAt">Created</SortableHead>
         </Table.Header>
@@ -126,7 +127,7 @@ export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange, teamN
                 )}
               </Table.Cell>
               <Table.Cell className="text-sm">
-                <OwnerLink user={app.owner} />
+                <CreatedByLink user={app.createdBy} />
               </Table.Cell>
               <Table.Cell className="text-sm text-tertiary">
                 {app.description || <span className="italic">No description</span>}

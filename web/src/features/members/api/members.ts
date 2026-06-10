@@ -74,12 +74,11 @@ export function useChangeMemberRole() {
 export function useOffboardMember() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { userId: string; successorUserId: string }) => {
+    mutationFn: async (input: { userId: string }) => {
       const { error, response } = await apiClient.DELETE(
         "/api/v1/organizations/users/{id}",
         {
           params: { path: { id: input.userId } },
-          body: { successorUserId: input.successorUserId },
         },
       );
       if (error) throwWithStatus(error, response);

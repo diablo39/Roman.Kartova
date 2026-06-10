@@ -10,7 +10,7 @@ import { usePermissions } from "@/shared/auth/usePermissions";
  *
  *   1. Profile: displayName / email / given+family / createdAt / lastSeenAt
  *   2. Team memberships (from `UserDetailResponse.teams` — no extra fetch)
- *   3. Owned applications (independent `useApplicationsList({ ownerUserId })`)
+ *   3. Applications created (independent `useApplicationsList({ createdByUserId })`)
  *
  * The third card is its own query so a transient apps error doesn't blank
  * out the user profile card — and so the profile is visible while the apps
@@ -29,7 +29,7 @@ export function UserDetailPage() {
   const appsList = useApplicationsList({
     sortBy: "createdAt",
     sortOrder: "desc",
-    ownerUserId: canRead && id ? id : undefined,
+    createdByUserId: canRead && id ? id : undefined,
   });
 
   // ----- 403 placeholder ---------------------------------------------------
@@ -168,10 +168,10 @@ export function UserDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Card 3: owned applications -------------------------------------- */}
+      {/* Card 3: applications created ------------------------------------ */}
       <Card>
         <CardContent className="space-y-3">
-          <h3 className="text-lg font-semibold text-primary">Owned applications</h3>
+          <h3 className="text-lg font-semibold text-primary">Applications created</h3>
           {appsList.isLoading ? (
             <p className="text-sm text-tertiary">Loading…</p>
           ) : appsList.isError ? (
@@ -186,7 +186,7 @@ export function UserDetailPage() {
               </button>
             </div>
           ) : appsList.items.length === 0 ? (
-            <p className="text-sm text-tertiary">Owns no applications.</p>
+            <p className="text-sm text-tertiary">Has not created any applications.</p>
           ) : (
             <ul className="divide-y divide-secondary">
               {appsList.items.map((app) => (

@@ -139,7 +139,7 @@ describe("useOffboardMember", () => {
     vi.restoreAllMocks();
   });
 
-  it("calls DELETE /api/v1/organizations/users/{id} with path id and successorUserId body", async () => {
+  it("calls DELETE /api/v1/organizations/users/{id} with path id only (no body — plain confirm)", async () => {
     const del = vi.fn().mockResolvedValue({ error: undefined, response: { status: 204 } });
     mockApiClient({ DELETE: del });
 
@@ -148,12 +148,12 @@ describe("useOffboardMember", () => {
     });
 
     await act(async () => {
-      await result.current.mutateAsync({ userId: "u1", successorUserId: "u2" });
+      await result.current.mutateAsync({ userId: "u1" });
     });
 
     expect(del).toHaveBeenCalledWith(
       "/api/v1/organizations/users/{id}",
-      { params: { path: { id: "u1" } }, body: { successorUserId: "u2" } },
+      { params: { path: { id: "u1" } } },
     );
   });
 

@@ -12,34 +12,6 @@ vi.mock("sonner", () => ({
 
 import { toast } from "sonner";
 
-// Stub UserSearchCombobox — drives onSelect with a fixture user deterministically,
-// without coupling to the debounced-search wire (mirrors AddMemberDialog.test.tsx).
-const SUCCESSOR = {
-  id: "22222222-3333-4444-8555-666666666666",
-  displayName: "Successor User",
-  email: "successor@example.com",
-} as const;
-
-// Capture the last excludeUserId prop for assertion in tests.
-let capturedExcludeUserId: string | undefined;
-
-vi.mock("@/features/users/components/UserSearchCombobox", () => ({
-  UserSearchCombobox: ({
-    onSelect,
-    excludeUserId,
-  }: {
-    onSelect: (u: typeof SUCCESSOR) => void;
-    excludeUserId?: string;
-  }) => {
-    capturedExcludeUserId = excludeUserId;
-    return (
-      <button type="button" data-testid="mock-successor-pick" onClick={() => onSelect(SUCCESSOR)}>
-        Pick successor
-      </button>
-    );
-  },
-}));
-
 // Mock the offboard mutation hook.
 const mutateAsync = vi.fn();
 vi.mock("@/features/members/api/members", () => ({
@@ -92,39 +64,25 @@ describe("OffboardMemberConfirmDialog", () => {
     expect(screen.getByText(/alice example/i)).toBeInTheDocument();
   });
 
-  it("Remove button is disabled until a successor is selected", () => {
+  it("Remove button is enabled without any selection required", () => {
     setup();
-    expect(screen.getByRole("button", { name: /^remove$/i })).toBeDisabled();
-  });
-
-  it("Remove button becomes enabled after selecting a successor", async () => {
-    setup();
-    await userEvent.click(screen.getByTestId("mock-successor-pick"));
     expect(screen.getByRole("button", { name: /^remove$/i })).not.toBeDisabled();
   });
 
-  it("shows 'Selected:' line after a successor is picked", async () => {
+  it("shows 'created by' attribution copy in the warning text", () => {
     setup();
-    await userEvent.click(screen.getByTestId("mock-successor-pick"));
-    expect(screen.getByText(/selected:/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(`${SUCCESSOR.displayName} (${SUCCESSOR.email})`),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/created by/i)).toBeInTheDocument();
   });
 
-  it("clicking Remove calls mutateAsync with userId and successorUserId, toasts success, and closes", async () => {
+  it("clicking Remove calls mutateAsync with userId only, toasts success, and closes", async () => {
     mutateAsync.mockResolvedValue(undefined);
     const onOpenChange = vi.fn();
     setup({ onOpenChange });
 
-    await userEvent.click(screen.getByTestId("mock-successor-pick"));
     await userEvent.click(screen.getByRole("button", { name: /^remove$/i }));
 
     await waitFor(() =>
-      expect(mutateAsync).toHaveBeenCalledWith({
-        userId: USER_ID,
-        successorUserId: SUCCESSOR.id,
-      }),
+      expect(mutateAsync).toHaveBeenCalledWith({ userId: USER_ID }),
     );
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Member removed"));
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
@@ -139,7 +97,6 @@ describe("OffboardMemberConfirmDialog", () => {
     mutateAsync.mockRejectedValue(problem);
     setup();
 
-    await userEvent.click(screen.getByTestId("mock-successor-pick"));
     await userEvent.click(screen.getByRole("button", { name: /^remove$/i }));
 
     await waitFor(() =>
@@ -154,64 +111,10 @@ describe("OffboardMemberConfirmDialog", () => {
     mutateAsync.mockRejectedValue(problem);
     setup();
 
-    await userEvent.click(screen.getByTestId("mock-successor-pick"));
     await userEvent.click(screen.getByRole("button", { name: /^remove$/i }));
 
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith("Unprocessable Entity"),
     );
-  });
-
-  it("passes the target userId as excludeUserId to UserSearchCombobox so the member cannot pick themselves as successor", () => {
-    capturedExcludeUserId = undefined;
-    setup({ userId: USER_ID });
-    expect(capturedExcludeUserId).toBe(USER_ID);
-  });
-
-  it("resets selected successor when dialog closes", async () => {
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const onOpenChange = vi.fn();
-
-    const { rerender } = render(
-      <QueryClientProvider client={qc}>
-        <OffboardMemberConfirmDialog
-          userId={USER_ID}
-          displayName={DISPLAY_NAME}
-          open={true}
-          onOpenChange={onOpenChange}
-        />
-      </QueryClientProvider>,
-    );
-
-    // Pick a successor.
-    await userEvent.click(screen.getByTestId("mock-successor-pick"));
-    expect(screen.getByText(/selected:/i)).toBeInTheDocument();
-
-    // Close the dialog.
-    rerender(
-      <QueryClientProvider client={qc}>
-        <OffboardMemberConfirmDialog
-          userId={USER_ID}
-          displayName={DISPLAY_NAME}
-          open={false}
-          onOpenChange={onOpenChange}
-        />
-      </QueryClientProvider>,
-    );
-
-    // Reopen — selected successor should be gone.
-    rerender(
-      <QueryClientProvider client={qc}>
-        <OffboardMemberConfirmDialog
-          userId={USER_ID}
-          displayName={DISPLAY_NAME}
-          open={true}
-          onOpenChange={onOpenChange}
-        />
-      </QueryClientProvider>,
-    );
-
-    expect(screen.queryByText(/selected:/i)).toBeNull();
-    expect(screen.getByRole("button", { name: /^remove$/i })).toBeDisabled();
   });
 });

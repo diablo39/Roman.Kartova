@@ -184,13 +184,13 @@ describe("UserDetailPage", () => {
     expect(screen.getByText(/not on any teams/i)).toBeInTheDocument();
   });
 
-  it("shows the empty owned-apps message when the apps list is empty", () => {
+  it("shows the empty created-apps message when the apps list is empty", () => {
     permissions(true);
     userQuery({ data: baseUser });
     appsQuery({ items: [] });
     render(harness());
 
-    expect(screen.getByText(/owns no applications/i)).toBeInTheDocument();
+    expect(screen.getByText(/has not created any applications/i)).toBeInTheDocument();
   });
 
   it("keeps the user card visible when the apps list errors (independent fetches)", () => {
@@ -225,14 +225,14 @@ describe("UserDetailPage", () => {
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 
-  it("threads ownerUserId into useApplicationsList for the owned-apps query", () => {
+  it("threads createdByUserId into useApplicationsList for the created-apps query", () => {
     permissions(true);
     userQuery({ data: baseUser });
     appsQuery({});
     render(harness());
 
     expect(useApplicationsListMock).toHaveBeenCalledWith(
-      expect.objectContaining({ ownerUserId: USER_ID }),
+      expect.objectContaining({ createdByUserId: USER_ID }),
     );
   });
 });

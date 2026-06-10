@@ -14,8 +14,8 @@ const a1: ApplicationRow = {
   id: "00000000-0000-0000-0000-000000000001",
   displayName: "App One",
   description: "first app",
-  ownerUserId: "00000000-0000-0000-0000-0000000000aa",
-  owner: {
+  createdByUserId: "00000000-0000-0000-0000-0000000000aa",
+  createdBy: {
     id: "00000000-0000-0000-0000-0000000000aa",
     displayName: "Alice Admin",
     email: "alice@example.com",
@@ -29,9 +29,9 @@ const a2: ApplicationRow = {
   id: "00000000-0000-0000-0000-000000000002",
   displayName: "App Two",
   description: "second",
-  // Intentionally omit `owner` here so the "Unknown user" fallback is exercised
-  // in the multi-row render test.
-  owner: null,
+  // Intentionally set createdBy: null so the "Unknown user" fallback is exercised
+  // in the multi-row render test (offboarded creator, attribution kept as history).
+  createdBy: null,
 };
 
 function makeList(overrides: Partial<CursorListResult<ApplicationRow>>): CursorListResult<ApplicationRow> {
@@ -168,7 +168,7 @@ describe("ApplicationsTable", () => {
     expect(screen.getByText(/unknown team/i)).toBeInTheDocument();
   });
 
-  it("renders the owner display name as a link to /users/{id} (slice-9 F8)", () => {
+  it("renders the creator display name as a link to /users/{id} (slice-10 ownership realignment)", () => {
     render(withRouter(
       <ApplicationsTable
         list={makeList({ items: [a1] })}
@@ -182,8 +182,8 @@ describe("ApplicationsTable", () => {
     expect(ownerLink).toHaveAttribute("href", "/users/00000000-0000-0000-0000-0000000000aa");
   });
 
-  it("renders 'Unknown user' fallback when owner is null (slice-9 F8)", () => {
-    // a2 has owner: null — the OwnerLink component renders an italic fallback.
+  it("renders 'Unknown user' fallback when createdBy is null (offboarded creator, slice-10)", () => {
+    // a2 has createdBy: null — the CreatedByLink component renders an italic fallback.
     render(withRouter(
       <ApplicationsTable
         list={makeList({ items: [a2] })}
@@ -196,7 +196,7 @@ describe("ApplicationsTable", () => {
     expect(screen.getByText(/unknown user/i)).toBeInTheDocument();
   });
 
-  it("renders an Owner column header", () => {
+  it("renders a 'Created by' column header", () => {
     render(withRouter(
       <ApplicationsTable
         list={makeList({ items: [a1] })}
@@ -206,6 +206,6 @@ describe("ApplicationsTable", () => {
         teamNameById={emptyTeamMap}
       />
     ));
-    expect(screen.getByRole("columnheader", { name: /owner/i })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /created by/i })).toBeInTheDocument();
   });
 });
