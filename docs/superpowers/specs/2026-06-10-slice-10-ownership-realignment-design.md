@@ -25,7 +25,7 @@ So ownership belongs to the **team**; the individual is **provenance** ("created
 | D4 | **Offboarding drops app reassignment.** Created-by is immutable history; offboard = guards → delete KeyCloak user → cascade team memberships → delete projection. The `IApplicationOwnerReassigner` port + impl + `Application.ReassignOwner` + the successor picker are removed. |
 | D5 | **Backfill (pre-production, ADR-0101 — no live tenants):** migration makes `team_id` NOT NULL and backfills existing apps to the seeded demo team; `DevSeed` assigns the 120 seeded apps to the demo team. *Known forward note:* a NOT-NULL team means every tenant must have ≥1 team before it can own apps — the onboarding wizard (E-09) must guarantee a first team. Noted, not solved here. |
 | D6 | **`AssignTeam` becomes reassign-only** (`Guid`, non-null). The slice-8 "unassign to null" carve-out is removed (would create an ownerless app). To delete a team that owns apps, reassign them to another team first (`DeleteTeam` already 409s while apps are assigned). |
-| D7 | **Register requires `teamId`**, validated as "team exists in this tenant" (`IOrganizationTeamExistenceChecker`). Any caller with `catalog.applications.register` may pick **any** tenant team for now; restricting registration to the caller's own teams is the team-scoped-permission refinement → **deferred to E-03.F-05**. |
+| D7 | **Register requires `teamId`**, validated as "team exists in this tenant" (`IOrganizationTeamExistenceChecker`). Registration is **membership-gated**: OrgAdmin may register into any tenant team; Member may register only into teams they belong to. This gate was applied **this slice** (prompted by the security review closing an authz asymmetry vs. `assign-team`). Richer multi-team / co-owner registration rules remain E-03.F-05. |
 
 ## 3. Blast radius
 
@@ -36,7 +36,7 @@ So ownership belongs to the **team**; the individual is **provenance** ("created
 - `DevSeed.cs`: seeded apps get `team_id` = demo team id; `created_by_user_id` unchanged (the seed owner).
 
 ### 3.2 Catalog API
-- `RegisterApplicationRequest(string DisplayName, string Description, Guid TeamId)`. Register handler/delegate: validate team exists (`IOrganizationTeamExistenceChecker`) → 422 `invalid-team` if not; `Application.Create(..., currentUser.UserId, request.TeamId, ...)`.
+- `RegisterApplicationRequest(string DisplayName, string Description, Guid TeamId)`. Register handler/delegate: validate team exists (`IOrganizationTeamExistenceChecker`) → 422 `invalid-team` if not; membership-gated (OrgAdmin any team; Member only teams they belong to) → 403 if gate fails; `Application.Create(..., currentUser.UserId, request.TeamId, ...)`.
 - `ApplicationResponse.Owner` → **`CreatedBy`** (`UserDisplayInfo?`); enrichment via `IUserDirectory` unchanged (resolves the created-by id; null → "former member").
 - List filter `?ownerUserId=` → **`?createdByUserId=`**; `ProblemTypes.InvalidOwner` → `InvalidCreatedBy` (or keep `InvalidOwner` text — rename for clarity).
 - `assign-team` (`PUT /applications/{id}/team`): body `teamId` now required (no null/unassign). Team-scoped auth (`ApplicationTeamScopedHandler`) unchanged.
