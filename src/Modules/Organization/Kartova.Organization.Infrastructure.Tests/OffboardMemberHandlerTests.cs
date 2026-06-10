@@ -4,6 +4,7 @@ using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 
 namespace Kartova.Organization.Infrastructure.Tests;
 
@@ -234,5 +235,62 @@ public sealed class OffboardMemberHandlerTests
         // Both target memberships removed; the other user's membership survives.
         Assert.AreEqual(0, await db.TeamMembers.CountAsync(m => m.UserId == targetId));
         Assert.AreEqual(1, await db.TeamMembers.CountAsync(m => m.UserId == otherUserId));
+    }
+
+    // -------------------------------------------------------------------------
+    // KC-failure rollback: DeleteUserAsync throws → exception propagates;
+    // target row + memberships are NOT deleted (SaveChangesAsync never reached).
+    // Pins spec §7.2 headline limitation: a KC outage cannot leave the DB in a
+    // partially-offboarded state.
+    // -------------------------------------------------------------------------
+
+    [TestMethod]
+    public async Task KeycloakDeleteFailure_propagates_exception_and_target_row_not_deleted()
+    {
+        // Test tier: handler unit test (in-memory OrganizationDbContext + NSubstitute).
+        // The integration harness's KartovaApiFaultInjectionFixture can only inject a
+        // failing ITenantScope — there is no hook to substitute IKeycloakAdminClient at
+        // the integration layer, so a unit test is the correct and most targeted tier here.
+
+        var opts = NewOptions();
+        var targetId = Guid.NewGuid();
+        var successorId = Guid.NewGuid();
+        var actingId = Guid.NewGuid();
+        var teamId = new TeamId(Guid.NewGuid());
+        var clock = TimeProvider.System;
+
+        await using (var seedDb = new OrganizationDbContext(opts))
+        {
+            // Two OrgAdmins so the last-admin guard does not fire.
+            seedDb.Users.Add(SeedUser(targetId, KartovaRoles.OrgAdmin));
+            seedDb.Users.Add(SeedUser(successorId, KartovaRoles.OrgAdmin));
+            seedDb.TeamMembers.Add(TeamMembership.Create(teamId, targetId, TeamRole.Member, clock));
+            await seedDb.SaveChangesAsync();
+        }
+
+        await using var db = new OrganizationDbContext(opts);
+        var (sut, kc, reassigner) = MakeSut();
+
+        // ReassignOwnerAsync succeeds (called before KC delete).
+        reassigner.ReassignOwnerAsync(targetId, successorId, Arg.Any<CancellationToken>()).Returns(1);
+
+        // DeleteUserAsync throws — simulates KC outage after the reassignment flush.
+        kc.DeleteUserAsync(targetId, Arg.Any<CancellationToken>())
+            .ThrowsAsync(new KeycloakAdminException(KeycloakAdminError.Unexpected,
+                "Simulated Keycloak outage"));
+
+        // The exception must propagate — handler does NOT catch it (by design per spec §7.2).
+        await Assert.ThrowsExactlyAsync<KeycloakAdminException>(
+            () => sut.Handle(new OffboardMemberCommand(targetId, successorId, actingId),
+                db, CancellationToken.None));
+
+        // Reassigner was called (it ran before the KC delete).
+        await reassigner.Received(1).ReassignOwnerAsync(targetId, successorId, Arg.Any<CancellationToken>());
+
+        // Target user and membership are still present — SaveChangesAsync was never reached.
+        Assert.IsTrue(await db.Users.AnyAsync(u => u.Id == targetId),
+            "Target user row must still exist: SaveChangesAsync not reached after KC failure.");
+        Assert.AreEqual(1, await db.TeamMembers.CountAsync(m => m.UserId == targetId),
+            "Target membership must still exist: RemoveRange + SaveChangesAsync not reached.");
     }
 }

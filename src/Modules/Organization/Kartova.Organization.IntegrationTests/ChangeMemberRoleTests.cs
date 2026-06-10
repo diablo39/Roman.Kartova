@@ -241,10 +241,10 @@ public sealed class ChangeMemberRoleTests : OrganizationIntegrationTestBase
             }
             Assert.IsNotNull(kcUserId, "Freshly-created invitation must have a KC user id.");
 
-            // The invitation handler inserts a users projection row. The RealmRole defaults
-            // to Viewer (the KC role is assigned on KC directly; the local projection row
-            // reflects the Viewer default until the user first logs in). We only need the
-            // row to exist with a non-OrgAdmin role so the PUT can change it.
+            // The invitation handler inserts a users projection row. The RealmRole is set
+            // to the invited role (Member) at invite time by CreateInvitationHandler — the
+            // realm_role fix (slice-10) removed the Viewer default. We only need the row
+            // to exist with a non-OrgAdmin role so the PUT can change it.
             await using (var db = new OrganizationDbContext(BypassOptions()))
             {
                 var row = await db.Users.SingleOrDefaultAsync(u => u.Id == kcUserId!.Value);

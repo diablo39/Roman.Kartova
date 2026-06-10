@@ -1,7 +1,9 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Kartova.Organization.Contracts;
+using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Pagination;
 using Kartova.Testing.Auth;
@@ -258,6 +260,69 @@ public sealed class ListMembersTests : OrganizationIntegrationTestBase
         finally
         {
             await CleanupAsync(tenantId, [zoeId, quentinId]);
+        }
+    }
+
+    // ---------- Test 6 -------------------------------------------------------
+
+    /// <summary>
+    /// The <c>role</c> filter must be normalized case-insensitively: a lowercase
+    /// <c>?role=viewer</c> must return the same results as <c>?role=Viewer</c>.
+    /// Also verifies that an unknown role value returns 422 with
+    /// <c>type == ProblemTypes.ValidationFailed</c>.
+    /// </summary>
+    [TestMethod]
+    public async Task Role_filter_normalizes_case_and_unknown_role_returns_422()
+    {
+        var (_, tenantId) = await NewTenantAsync("list-members-role-case");
+        var unique = Guid.NewGuid().ToString("N")[..8];
+
+        var viewerId = await Fx.SeedUserInOrganizationAsync(
+            new TenantId(tenantId), $"Viewer User-{unique}", $"viewer-rc-{unique}@example.com",
+            realmRole: KartovaRoles.Viewer);
+        var memberId = await Fx.SeedUserInOrganizationAsync(
+            new TenantId(tenantId), $"Member User-{unique}", $"member-rc-{unique}@example.com",
+            realmRole: KartovaRoles.Member);
+
+        try
+        {
+            var client = Fx.CreateClient();
+            var token = Fx.Signer.IssueForTenant(
+                new TenantId(tenantId), new[] { KartovaRoles.OrgAdmin });
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // Lowercase "viewer" must normalize to "Viewer" and narrow to Viewer rows only.
+            var resp = await client.GetAsync(
+                $"/api/v1/organizations/users?role=viewer&limit=50");
+
+            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode,
+                $"Expected 200 for role=viewer (lowercase). Body: {await resp.Content.ReadAsStringAsync()}");
+
+            var page = await resp.Content.ReadFromJsonAsync<CursorPage<MemberSummaryResponse>>(
+                KartovaApiFixtureBase.WireJson);
+            Assert.IsNotNull(page);
+
+            Assert.IsTrue(page!.Items.All(r => r.Role == KartovaRoles.Viewer),
+                "All returned rows must have Role == Viewer when role=viewer (lowercase) filter is active.");
+            Assert.IsTrue(page.Items.Any(r => r.Id == viewerId),
+                "The seeded Viewer must appear in the filtered result.");
+            Assert.IsFalse(page.Items.Any(r => r.Id == memberId),
+                "The seeded Member must NOT appear when filtering for role=viewer.");
+
+            // Unknown role value must return 422 with ValidationFailed problem type.
+            var resp422 = await client.GetAsync("/api/v1/organizations/users?role=bogus&limit=50");
+            Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp422.StatusCode,
+                $"Expected 422 for role=bogus. Body: {await resp422.Content.ReadAsStringAsync()}");
+
+            await using var stream = await resp422.Content.ReadAsStreamAsync();
+            using var doc = await JsonDocument.ParseAsync(stream);
+            Assert.AreEqual(ProblemTypes.ValidationFailed,
+                doc.RootElement.GetProperty("type").GetString(),
+                "422 response must carry ProblemTypes.ValidationFailed.");
+        }
+        finally
+        {
+            await CleanupAsync(tenantId, [viewerId, memberId]);
         }
     }
 

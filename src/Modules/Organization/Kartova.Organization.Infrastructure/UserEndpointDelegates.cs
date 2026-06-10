@@ -93,6 +93,29 @@ internal static class UserEndpointDelegates
                 statusCode: StatusCodes.Status422UnprocessableEntity);
         }
 
+        // Normalize the role filter: accept the documented camelCase/lowercase variants
+        // (viewer, member, orgAdmin) and resolve them to the PascalCase canonical stored
+        // values (Viewer, Member, OrgAdmin). Unknown values → 422 so clients get precise
+        // feedback instead of a silent empty page. null/empty/whitespace/"all" means
+        // "no filter" and passes null into the query (handler already treats null/"all"
+        // identically). StringComparison.OrdinalIgnoreCase handles every casing variant.
+        string? canonicalRole = null;
+        var trimmedRole = role?.Trim();
+        if (!string.IsNullOrEmpty(trimmedRole)
+            && !string.Equals(trimmedRole, "all", StringComparison.OrdinalIgnoreCase))
+        {
+            canonicalRole = KartovaRoles.All.FirstOrDefault(
+                r => string.Equals(r, trimmedRole, StringComparison.OrdinalIgnoreCase));
+            if (canonicalRole is null)
+            {
+                return Results.Problem(
+                    type: ProblemTypes.ValidationFailed,
+                    title: "Invalid role filter",
+                    detail: $"role must be one of: {string.Join(", ", KartovaRoles.All)}, or 'all'.",
+                    statusCode: StatusCodes.Status422UnprocessableEntity);
+            }
+        }
+
         var (parsedSortBy, parsedSortOrder, effectiveLimit) = CursorListBinding.Bind<MemberSortField>(
             sortBy, sortOrder, limit, MemberSortSpecs.AllowedFieldNames);
 
@@ -101,7 +124,7 @@ internal static class UserEndpointDelegates
             SortOrder: parsedSortOrder ?? SortOrder.Asc,
             Cursor: cursor,
             Limit: effectiveLimit,
-            Role: role,
+            Role: canonicalRole,
             Q: string.IsNullOrEmpty(trimmedQ) ? null : trimmedQ);
 
         var page = await handler.Handle(query, db, ct);
