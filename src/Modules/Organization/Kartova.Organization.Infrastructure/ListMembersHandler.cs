@@ -34,8 +34,7 @@ public sealed class ListMembersHandler
         IQueryable<User> query = db.Users;
         var expectedFilters = new Dictionary<string, string>(StringComparer.Ordinal);
 
-        if (!string.IsNullOrWhiteSpace(q.Role)
-            && !string.Equals(q.Role, "all", StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(q.Role))
         {
             query = query.Where(u => u.RealmRole == q.Role);
             expectedFilters["role"] = q.Role;

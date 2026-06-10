@@ -107,7 +107,9 @@ describe("OffboardMemberConfirmDialog", () => {
     setup();
     await userEvent.click(screen.getByTestId("mock-successor-pick"));
     expect(screen.getByText(/selected:/i)).toBeInTheDocument();
-    expect(screen.getByText(SUCCESSOR.displayName)).toBeInTheDocument();
+    expect(
+      screen.getByText(`${SUCCESSOR.displayName} (${SUCCESSOR.email})`),
+    ).toBeInTheDocument();
   });
 
   it("clicking Remove calls mutateAsync with userId and successorUserId, toasts success, and closes", async () => {

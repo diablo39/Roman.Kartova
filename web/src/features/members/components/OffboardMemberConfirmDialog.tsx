@@ -73,9 +73,8 @@ export function OffboardMemberConfirmDialog({ userId, displayName, open, onOpenC
               <p className="text-xs text-tertiary">
                 Selected:{" "}
                 <span className="font-medium text-secondary">
-                  {successor.displayName || successor.email}
+                  {successor.displayName ? `${successor.displayName} (${successor.email})` : successor.email}
                 </span>
-                {successor.displayName && ` (${successor.email})`}
               </p>
             )}
           </div>

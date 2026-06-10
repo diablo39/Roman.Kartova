@@ -26,15 +26,8 @@ namespace Kartova.SharedKernel.AspNetCore;
 /// handler never sees those — its behavior is unaffected.
 /// </para>
 /// </summary>
-public sealed class KeycloakAdminExceptionHandler : IExceptionHandler
+public sealed class KeycloakAdminExceptionHandler(IProblemDetailsService problemDetails) : IExceptionHandler
 {
-    private readonly IProblemDetailsService _problemDetails;
-
-    public KeycloakAdminExceptionHandler(IProblemDetailsService problemDetails)
-    {
-        _problemDetails = problemDetails;
-    }
-
     public async ValueTask<bool> TryHandleAsync(
         HttpContext httpContext, Exception exception, CancellationToken ct)
     {
@@ -53,7 +46,7 @@ public sealed class KeycloakAdminExceptionHandler : IExceptionHandler
             Detail = "The identity provider could not complete the request. Please retry shortly.",
         };
 
-        return await _problemDetails.TryWriteAsync(new ProblemDetailsContext
+        return await problemDetails.TryWriteAsync(new ProblemDetailsContext
         {
             HttpContext = httpContext,
             ProblemDetails = problem,

@@ -40,9 +40,9 @@ export function useMembersList(params: MembersListParams) {
             sortOrder: params.sortOrder,
             role: params.role,
             q: params.q,
-            // The generated schema types `limit` as `string` (serialised query
-            // param). Mirror `teams.ts` convention and cast here rather than
-            // forcing every caller to stringify.
+            // The ListMembers endpoint serialises `limit` as a string query
+            // param (unlike ListTeams which uses a number), so the String(...)
+            // cast is required here — not a stylistic convention.
             limit: params.limit !== undefined ? String(params.limit) : "50",
             cursor,
           },
