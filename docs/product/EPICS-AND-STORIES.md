@@ -12,12 +12,12 @@ totals:
   phases: 10
   epics: 30
   features: 73
-  stories: 209
+  stories: 212
 mvp_scope:
   phases: [0, 1, 2, 3, 4, 5]
   epics: [E-01, E-02, E-03, E-04, E-05, E-06, E-06a, E-07, E-08, E-09, E-10, E-11, E-12, E-13, E-14, E-14a]
   features: 63
-  stories: 185
+  stories: 188
 post_mvp:
   phases: [6, 7, 8, 9]
   epics: [E-15, E-16, E-17, E-18, E-19, E-20, E-21, E-22, E-23, E-24, E-25, E-26, E-27, E-28]
@@ -33,7 +33,7 @@ phases:
     file: phases/phase-1-core-catalog.md
     epics: [E-02, E-03, E-04, E-05, E-06, E-06a]
     features: 22
-    stories: 55
+    stories: 58
   - id: 2
     name: Auto-Import
     file: phases/phase-2-auto-import.md
@@ -122,7 +122,7 @@ status:
 | Phase | File | Epics | Features | Stories | MVP |
 |-------|------|-------|----------|---------|-----|
 | 0 — Foundation | [phase-0-foundation.md](phases/phase-0-foundation.md) | 1 (E-01) | 8 | 33 | ✅ |
-| 1 — Core Catalog & Notifications | [phase-1-core-catalog.md](phases/phase-1-core-catalog.md) | 6 (E-02..E-06, E-06a) | 22 | 55 | ✅ |
+| 1 — Core Catalog & Notifications | [phase-1-core-catalog.md](phases/phase-1-core-catalog.md) | 6 (E-02..E-06, E-06a) | 22 | 58 | ✅ |
 | 2 — Auto-Import | [phase-2-auto-import.md](phases/phase-2-auto-import.md) | 4 (E-07..E-10) | 11 | 36 | ✅ |
 | 3 — Documentation | [phase-3-documentation.md](phases/phase-3-documentation.md) | 1 (E-11) | 5 | 15 | ✅ |
 | 4 — Status Page | [phase-4-status-page.md](phases/phase-4-status-page.md) | 1 (E-12) | 5 | 16 | ✅ |
@@ -131,7 +131,7 @@ status:
 | 7 — Intelligence | [phase-7-intelligence.md](phases/phase-7-intelligence.md) | 4 (E-17..E-20) | 5 | 13 | — |
 | 8 — Analytics | [phase-8-analytics.md](phases/phase-8-analytics.md) | 4 (E-21..E-24) | 5 | 14 | — |
 | 9 — Advanced | [phase-9-advanced.md](phases/phase-9-advanced.md) | 4 (E-25..E-28) | — | — | — |
-| **Total** |  | **30** | **73** | **209** | **16 / 63 / 185** |
+| **Total** |  | **30** | **73** | **212** | **16 / 63 / 188** |
 
 ---
 
@@ -429,6 +429,7 @@ Full library: [decisions/README.md](../architecture/decisions/README.md).
 | 2026-04-16 | Split into individual phase files and progress checklist created |
 | 2026-04-21 | ADR-0064 accepted — Phase 2 adds Custom Entity (10th type); MVP adds `custom_attributes` JSONB to all nine fixed types |
 | 2026-04-21 | Document restructured for LLM-friendly navigation (YAML front-matter, Epic Index, Feature Index, Keyword Index, Cross-References) |
+| 2026-06-10 | Added E-03.F-01.S-05/S-06/S-07 (member lifecycle management — directory, role change, offboard); Phase 1 stories 55 → 58; Total 209 → 212 (slice 10) |
 
 ### Key changes from Critic audit
 

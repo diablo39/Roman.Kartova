@@ -1,8 +1,8 @@
 ---
 platform: Kartova
 description: SaaS service catalog and developer portal platform (Backstage + Compass + Statuspage)
-adr_count: 101
-last_updated: 2026-06-09
+adr_count: 102
+last_updated: 2026-06-10
 architecture:
   backend: .NET 10 (LTS) / ASP.NET Core + EF Core (ADR-0027)
   backend_pattern: Modular monolith (ADR-0082) with Clean Architecture per module — Domain / Application / Infrastructure / Contracts (ADR-0028); inter-module via Wolverine mediator or Kafka events
@@ -115,8 +115,8 @@ open_source_strategy: fully proprietary, no OSS core / source-available (ADR-002
 # Architecture Decision Records — Kartova
 
 **Status:** Living document
-**Last updated:** 2026-06-09
-**Total accepted:** 101
+**Last updated:** 2026-06-10
+**Total accepted:** 102
 **Convention:** Michael Nygard template (Status / Context / Decision / Rationale / Alternatives / Consequences / References)
 
 ## How to use this index
@@ -228,13 +228,14 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0099](ADR-0099-distributed-locking-leader-elected-periodic-tasks.md) | Distributed Locking and Leader-Elected Periodic Tasks via Postgres Advisory Locks | Platform Infrastructure | Accepted | 0001, 0080, 0082 | Adopt Postgres session-level advisory locks as the distributed-locking primitive. `IDistributedLock` + `PostgresAdvisoryLock` + `LeaderElectedPeriodicService` reusable building blocks for safe multi-instance periodic work (invitation expiry, scorecard recompute, retention purge, etc.). |
 | [0100](ADR-0100-strict-one-email-per-tenant-identity-scope.md) | Identity Scope — Strict One-Email-Per-Tenant in a Single KeyCloak Realm | Authentication & Authorization | Accepted | 0006, 0011 | Preserve KeyCloak realm setting `duplicateEmailsAllowed: false`: one email = one tenant across the platform. Cross-tenant duplicate invitations surface as 409 `email-already-on-platform`. Industry pattern (Atlassian/GitHub). Upgrade path for multi-tenant-per-user is realm-per-tenant, not flipping the flag. |
 | [0101](ADR-0101-team-admin-authority-via-membership.md) | Team-Admin Authority Is Per-Team Membership, Not a Realm Role | Authentication & Authorization | Accepted | 0008, 0090, 0100 | Remove the `TeamAdmin` realm role + its `team.metadata.edit`/`team.delete`/`team.members.manage` claims; team-admin authority is conferred solely by an `Admin`-level per-team membership via the `TeamAdminOfThis` resource gate. Realm roles become Viewer/Member/OrgAdmin; team creation stays OrgAdmin-only. Eliminates the silent-403 footgun where a realm-Member promoted to team Admin couldn't manage their team. Amends ADR-0008; supersedes slice-8 spec §5. |
+| [0102](ADR-0102-user-offboarding-hard-delete.md) | User Offboarding Is Hard Delete | Compliance & Retention | Accepted | 0015, 0018, 0019, 0100, 0101 | Offboarding hard-deletes the KeyCloak identity + local `users` projection after reassigning owned catalog applications to a successor; sits outside ADR-0019's catalog soft-delete scope; erasure-aligned (ADR-0015); audit trail deferred to the ADR-0018 slice (named gap); org must retain ≥ 1 active OrgAdmin. |
 
 ## By category (quick navigation)
 
 - **Data Platform**: 0001, 0002, 0003, 0004, 0005
 - **Authentication & Authorization**: 0006, 0007, 0008, 0009, 0010, 0100, 0101
 - **Multi-Tenancy**: 0011, 0012, 0013, 0014, 0090
-- **Compliance & Retention**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050
+- **Compliance & Retention**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050, 0102
 - **Platform Infrastructure**: 0022, 0023, 0024, 0025, 0026, 0099
 - **API & Integration Architecture**: 0027, 0028, 0029, 0030, 0031, 0032, 0033, 0034, 0035, 0036, 0037, 0038, 0091, 0092, 0095, 0096, 0098
 - **Backend Architecture**: 0080, 0081, 0082, 0089, 0093
@@ -267,10 +268,10 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Design source / mockups**: 0039, 0087
 - **Agent architecture**: 0041, 0042, 0043, 0044, 0045, 0067
 - **API contract**: 0029, 0030, 0031, 0032, 0033, 0034
-- **Compliance (GDPR / MiFID II)**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050, 0078
+- **Compliance (GDPR / MiFID II)**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050, 0078, 0102
 - **Resource identifier / entity ID format**: 0092, 0098
-- **Retention / archival / deletion**: 0017, 0019, 0020, 0073
-- **Audit & logging**: 0018, 0050, 0058
+- **Retention / archival / deletion**: 0017, 0019, 0020, 0073, 0102
+- **Audit & logging**: 0018, 0050, 0058, 0102
 - **Domain model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073
 - **Scale & performance**: 0013, 0031, 0074, 0075, 0076
 - **Availability & SLA**: 0005, 0023, 0053, 0076
@@ -281,7 +282,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Git integration**: 0035, 0054, 0055, 0057
 - **Scan / import**: 0045, 0054, 0055, 0056, 0067
 - **Status page**: 0005, 0010, 0023, 0051, 0052, 0053, 0076
-- **Identity & auth**: 0006, 0007, 0008, 0009, 0010, 0014, 0042, 0100, 0101
+- **Identity & auth**: 0006, 0007, 0008, 0009, 0010, 0014, 0042, 0100, 0101, 0102
 - **RBAC / roles / team-admin authority**: 0008, 0101
 - **Infrastructure & deployment**: 0022, 0023, 0024, 0025, 0043, 0085, 0086
 - **Database migrations**: 0001, 0012, 0082, 0085
@@ -302,7 +303,7 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Apicurio** → 0037
 - **Approval workflow (discovery inbox)** → 0045
 - **ASP.NET Core** → 0027, 0028, 0034, 0060
-- **Audit log** → 0016, 0017, 0018, 0050, 0058, 0073
+- **Audit log** → 0016, 0017, 0018, 0050, 0058, 0073, 0102
 - **Avro / JSON / Protobuf schemas** → 0037
 - **Bearer tokens (long-lived)** → 0042, 0077
 - **Billing** → 0061, 0062, 0063
@@ -345,7 +346,7 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **FluentAssertions (removed)** → 0083, 0097
 - **FluentValidation** → 0027
 - **Four-tier pricing (Free/Starter/Pro/Enterprise)** → 0061
-- **GDPR** → 0015, 0019, 0021, 0062, 0077, 0078
+- **GDPR** → 0015, 0019, 0021, 0062, 0077, 0078, 0102
 - **Git integration** → 0035, 0054, 0055, 0057
 - **GitHub / GitLab / Bitbucket** → 0035, 0057
 - **Grafana Cloud** → 0036
@@ -452,7 +453,7 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **HTTP verbs / PUT / POST / PATCH** → 0096
 - **Named action endpoints** → 0073, 0096
 - **Retention (180 days / 5 years)** → 0017, 0019, 0020
-- **Right to erasure (GDPR)** → 0015, 0019
+- **Right to erasure (GDPR)** → 0015, 0019, 0102
 - **RLS (Row-Level Security)** → 0012, 0014
 - **Roles (Org Admin / Editor / Contributor / Viewer / Service Account)** → 0008 (amended by 0101)
 - **Roles (implemented: Viewer / Member / OrgAdmin / PlatformAdmin / ServiceAccount)** → 0101
@@ -472,7 +473,7 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **SMS** → 0047, 0051
 - **SMTP** → 0049
 - **Slack** → 0048
-- **Soft delete / 30-day purge** → 0019
+- **Soft delete / 30-day purge** → 0019, 0102
 - **SPA (React)** → 0039
 - **SSL / Let's Encrypt / ACME** → 0052
 - **Staging (CD)** → 0025
@@ -496,6 +497,7 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Wolverine (mediator + outbound + outbox)** → 0080
 - **TypeScript (strict)** → 0039
 - **URL-based versioning** → 0030
+- **User offboarding / member removal** → 0102
 - **User-count metering** → 0063
 - **Versioned config (agent)** → 0044
 - **Vite** → 0039
@@ -540,3 +542,4 @@ _No ADRs have been deprecated or superseded yet. When an ADR is superseded by a 
 | 2026-05-27 | ADR-0099 (Distributed locking + leader-elected periodic tasks) accepted — `IDistributedLock` + `PostgresAdvisoryLock` (Postgres `pg_try_advisory_lock`) + `LeaderElectedPeriodicService` base class for multi-instance-safe periodic background work; landed alongside slice 9 (organization & people management). |
 | 2026-05-29 | ADR-0100 (Identity scope — strict one-email-per-tenant) accepted — KeyCloak realm setting `duplicateEmailsAllowed: false` preserved; cross-tenant duplicate invitations return 409 `email-already-on-platform`; landed as part of slice 9 invitation flow. |
 | 2026-06-09 | ADR-0101 (Team-admin authority via per-team membership) accepted — removes the `TeamAdmin` realm role + its three `team.*` mutation claims; team-admin power is conferred solely by an `Admin`-level per-team membership via the `TeamAdminOfThis` resource gate. Realm roles become Viewer/Member/OrgAdmin; team creation stays OrgAdmin-only. Eliminates the silent-403 footgun (realm-Member promoted to team Admin couldn't manage their team). Amends ADR-0008; supersedes slice-8 design spec §5. |
+| 2026-06-10 | ADR-0102 (User offboarding is hard delete) accepted — offboarding hard-deletes the KeyCloak identity + local `users` projection after reassigning owned applications to a named successor; sits outside ADR-0019's catalog soft-delete scope; erasure-aligned with ADR-0015; audit trail deferred to the ADR-0018 slice (named gap); org must retain ≥ 1 active OrgAdmin. Landed with slice 10 (member lifecycle management). |

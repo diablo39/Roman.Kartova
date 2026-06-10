@@ -1,6 +1,6 @@
 # Phase 1: Core Catalog
 
-**Version:** v1.1 | **Epics:** 6 | **Features:** 22 | **Stories:** 55
+**Version:** v1.2 | **Epics:** 6 | **Features:** 22 | **Stories:** 58
 **Dependencies:** Phase 0 (foundation infrastructure)
 
 ---
@@ -67,6 +67,9 @@
 | E-03.F-01.S-02 | As an org admin, I want to invite users to my organization with specific roles so that access is controlled | Invitation sent via email; role assigned on acceptance; invitation expires after 7 days |
 | E-03.F-01.S-03 | As a user, I want owner / member identities surfaced by display name (not GUID), with a click-through to a user-detail page showing their teams + owned applications, so ownership is human-readable | User display names resolved from KeyCloak (firstName + lastName + email); owner Guid renders as a clickable link on ApplicationDetailPage / TeamDetailPage; clicking opens `/users/{id}` showing teams + owned applications; cross-tenant users not visible (filtered by realm + tenant claim) |
 | E-03.F-01.S-04 | As a team admin, I want to search for users by name/email when adding a team member so that I don't have to know GUIDs | `AddMemberDialog` replaces UUID input with typeahead search; backend exposes `GET /api/v1/organizations/users?q=...&limit=...` returning matching users; minimum 2 chars to trigger search; results filtered to current tenant via KeyCloak Admin API + tenant attribute; selected user fills the userId field |
+| E-03.F-01.S-05 | As an OrgAdmin, I want a directory of all org members showing their role and team count, so I can see who has access | Cursor-paginated members list (`GET /users`); each row shows displayName, email, role, team count, last-seen; supports role filter (`viewer`/`member`/`orgAdmin`/`all`) and name/email search; OrgAdmin-only role-change and remove row actions visible |
+| E-03.F-01.S-06 | As an OrgAdmin, I want to change a member's role, so access stays correct as responsibilities change | Role reassigned in KeyCloak and reflected in the `users` projection (`realm_role` write-through cache); cannot demote the last OrgAdmin (409 `last-orgadmin`); change takes effect on next login (token refresh) |
+| E-03.F-01.S-07 | As an OrgAdmin, I want to remove a member and reassign their owned components to a successor, so offboarding is clean and nothing is orphaned | Owned applications reassigned to the chosen successor before deletion; KeyCloak identity and `users` projection row hard-deleted; cannot offboard self (409 `cannot-offboard-self`) or the last OrgAdmin (409 `last-orgadmin`); governed by [ADR-0102](../../architecture/decisions/ADR-0102-user-offboarding-hard-delete.md) |
 
 #### Feature E-03.F-02: Team Management
 
