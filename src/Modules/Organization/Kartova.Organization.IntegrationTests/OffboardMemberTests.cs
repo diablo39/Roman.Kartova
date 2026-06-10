@@ -15,10 +15,9 @@ namespace Kartova.Organization.IntegrationTests;
 
 /// <summary>
 /// Integration tests for <c>DELETE /api/v1/organizations/users/{id}</c> (slice-10 Task 6,
-/// spec §6.7). Verifies the 204 happy path (cross-module owner reassignment + KC delete +
-/// projection removal), the cannot-offboard-self 409, last-OrgAdmin 409, invalid-successor 422,
-/// and permission 403. The happy path requires a real KeyCloak user (DeleteUserAsync must
-/// succeed) — provisioned via the invitation flow (same pattern as <see cref="ChangeMemberRoleTests"/>).
+/// spec §6.7). Verifies the 204 happy path (KC delete + projection removal), the
+/// cannot-offboard-self 409, last-OrgAdmin 409, and permission 403. No body is sent —
+/// application ownership is immutable history (ADR-0102 update).
 /// </summary>
 [TestClass]
 public sealed class OffboardMemberTests : OrganizationIntegrationTestBase
@@ -49,10 +48,10 @@ public sealed class OffboardMemberTests : OrganizationIntegrationTestBase
     }
 #pragma warning restore CA1031
 
-    // ----- Test 1: happy path (204 + reassignment + projection removal) ------
+    // ----- Test 1: happy path (204 + projection removal) ----------------------
 
     [TestMethod]
-    public async Task OrgAdmin_offboards_member_reassigns_apps_returns_204()
+    public async Task OrgAdmin_offboards_member_returns_204_and_removes_projection_row()
     {
         var (adminEmail, tenantId) = await NewTenantAsync("offboard-happy");
         var unique = Guid.NewGuid().ToString("N")[..8];
@@ -62,14 +61,8 @@ public sealed class OffboardMemberTests : OrganizationIntegrationTestBase
             new TenantId(tenantId), $"Existing Admin-{unique}",
             $"existing-admin-{unique}@example.com", KartovaRoles.OrgAdmin);
 
-        // The successor who will inherit the offboarded member's applications.
-        var successorId = await Fx.SeedUserInOrganizationAsync(
-            new TenantId(tenantId), $"Successor-{unique}",
-            $"successor-{unique}@example.com", KartovaRoles.Member);
-
         var memberEmail = $"offboard-me-{unique}@offboard-happy-{unique}.kartova.local";
         Guid? kcUserId = null;
-        Guid? appId = null;
         try
         {
             var adminClient = await Fx.CreateAuthenticatedClientAsync(adminEmail, new[] { KartovaRoles.OrgAdmin });
@@ -93,23 +86,11 @@ public sealed class OffboardMemberTests : OrganizationIntegrationTestBase
             }
             Assert.IsNotNull(kcUserId, "Freshly-created invitation must have a KC user id.");
 
-            // Seed a Catalog application owned by the offboarded member.
-            appId = await Fx.SeedCatalogApplicationOwnedByAsync(tenantId, kcUserId!.Value, $"Payments-{unique}");
-
-            // DELETE /users/{kcUserId}  {successorUserId}
-            var resp = await adminClient.SendAsync(new HttpRequestMessage(
-                HttpMethod.Delete, $"/api/v1/organizations/users/{kcUserId}")
-            {
-                Content = JsonContent.Create(new OffboardMemberRequest(successorId)),
-            });
+            // DELETE /users/{kcUserId}  — no body required
+            var resp = await adminClient.DeleteAsync($"/api/v1/organizations/users/{kcUserId}");
 
             Assert.AreEqual(HttpStatusCode.NoContent, resp.StatusCode,
                 $"Expected 204. Body: {await resp.Content.ReadAsStringAsync()}");
-
-            // The application's owner must now be the successor.
-            var owner = await Fx.ReadCatalogApplicationOwnerAsync(appId.Value);
-            Assert.AreEqual(successorId, owner,
-                "Application owner must be reassigned to the successor.");
 
             // The offboarded user must be gone from the projection.
             await using (var db = new OrganizationDbContext(BypassOptions()))
@@ -120,7 +101,7 @@ public sealed class OffboardMemberTests : OrganizationIntegrationTestBase
         }
         finally
         {
-            await CleanupAsync(tenantId, existingAdminId, successorId);
+            await CleanupAsync(tenantId, existingAdminId);
             if (kcUserId is not null)
             {
                 await Fx.DeleteUserInOrganizationAsync(kcUserId.Value);
@@ -147,19 +128,12 @@ public sealed class OffboardMemberTests : OrganizationIntegrationTestBase
         var otherAdminId = await Fx.SeedUserInOrganizationAsync(
             new TenantId(tenantId), $"Other Admin-{unique}",
             $"other-admin-{unique}@example.com", KartovaRoles.OrgAdmin);
-        var successorId = await Fx.SeedUserInOrganizationAsync(
-            new TenantId(tenantId), $"Successor-{unique}",
-            $"successor-{unique}@example.com", KartovaRoles.Member);
 
         try
         {
             var client = await Fx.CreateAuthenticatedClientAsync(adminEmail, new[] { KartovaRoles.OrgAdmin });
 
-            var resp = await client.SendAsync(new HttpRequestMessage(
-                HttpMethod.Delete, $"/api/v1/organizations/users/{actingUserId}")
-            {
-                Content = JsonContent.Create(new OffboardMemberRequest(successorId)),
-            });
+            var resp = await client.DeleteAsync($"/api/v1/organizations/users/{actingUserId}");
 
             Assert.AreEqual(HttpStatusCode.Conflict, resp.StatusCode,
                 $"Expected 409. Body: {await resp.Content.ReadAsStringAsync()}");
@@ -170,7 +144,7 @@ public sealed class OffboardMemberTests : OrganizationIntegrationTestBase
         }
         finally
         {
-            await CleanupAsync(tenantId, actingUserId, otherAdminId, successorId);
+            await CleanupAsync(tenantId, actingUserId, otherAdminId);
         }
     }
 
@@ -186,18 +160,11 @@ public sealed class OffboardMemberTests : OrganizationIntegrationTestBase
         var orgAdminId = await Fx.SeedUserInOrganizationAsync(
             new TenantId(tenantId), $"Solo Admin-{unique}",
             $"solo-admin-{unique}@example.com", KartovaRoles.OrgAdmin);
-        var successorId = await Fx.SeedUserInOrganizationAsync(
-            new TenantId(tenantId), $"Successor-{unique}",
-            $"successor-{unique}@example.com", KartovaRoles.Member);
 
         try
         {
             var client = await Fx.CreateAuthenticatedClientAsync(adminEmail, new[] { KartovaRoles.OrgAdmin });
-            var resp = await client.SendAsync(new HttpRequestMessage(
-                HttpMethod.Delete, $"/api/v1/organizations/users/{orgAdminId}")
-            {
-                Content = JsonContent.Create(new OffboardMemberRequest(successorId)),
-            });
+            var resp = await client.DeleteAsync($"/api/v1/organizations/users/{orgAdminId}");
 
             Assert.AreEqual(HttpStatusCode.Conflict, resp.StatusCode,
                 $"Expected 409. Body: {await resp.Content.ReadAsStringAsync()}");
@@ -208,46 +175,11 @@ public sealed class OffboardMemberTests : OrganizationIntegrationTestBase
         }
         finally
         {
-            await CleanupAsync(tenantId, orgAdminId, successorId);
+            await CleanupAsync(tenantId, orgAdminId);
         }
     }
 
-    // ----- Test 4: unknown successor → 422 invalid-successor -----------------
-
-    [TestMethod]
-    public async Task Unknown_successor_returns_422_invalid_successor()
-    {
-        var (adminEmail, tenantId) = await NewTenantAsync("offboard-bad-succ");
-        var unique = Guid.NewGuid().ToString("N")[..8];
-
-        var targetId = await Fx.SeedUserInOrganizationAsync(
-            new TenantId(tenantId), $"Target-{unique}",
-            $"target-{unique}@example.com", KartovaRoles.Member);
-
-        try
-        {
-            var client = await Fx.CreateAuthenticatedClientAsync(adminEmail, new[] { KartovaRoles.OrgAdmin });
-            var resp = await client.SendAsync(new HttpRequestMessage(
-                HttpMethod.Delete, $"/api/v1/organizations/users/{targetId}")
-            {
-                // Successor id does not resolve to any user in this tenant.
-                Content = JsonContent.Create(new OffboardMemberRequest(Guid.NewGuid())),
-            });
-
-            Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode,
-                $"Expected 422. Body: {await resp.Content.ReadAsStringAsync()}");
-            await using var stream = await resp.Content.ReadAsStreamAsync();
-            using var doc = await JsonDocument.ParseAsync(stream);
-            Assert.AreEqual(ProblemTypes.InvalidSuccessor,
-                doc.RootElement.GetProperty("type").GetString());
-        }
-        finally
-        {
-            await CleanupAsync(tenantId, targetId);
-        }
-    }
-
-    // ----- Test 5: Member JWT → 403 ------------------------------------------
+    // ----- Test 4: Member JWT → 403 ------------------------------------------
 
     [TestMethod]
     public async Task Member_without_permission_returns_403()
@@ -258,9 +190,6 @@ public sealed class OffboardMemberTests : OrganizationIntegrationTestBase
         var targetId = await Fx.SeedUserInOrganizationAsync(
             new TenantId(tenantId), $"Target-{unique}",
             $"target-{unique}@example.com", KartovaRoles.Viewer);
-        var successorId = await Fx.SeedUserInOrganizationAsync(
-            new TenantId(tenantId), $"Successor-{unique}",
-            $"successor-{unique}@example.com", KartovaRoles.Member);
 
         try
         {
@@ -270,18 +199,14 @@ public sealed class OffboardMemberTests : OrganizationIntegrationTestBase
                 new TenantId(tenantId), new[] { KartovaRoles.Member });
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-            var resp = await client.SendAsync(new HttpRequestMessage(
-                HttpMethod.Delete, $"/api/v1/organizations/users/{targetId}")
-            {
-                Content = JsonContent.Create(new OffboardMemberRequest(successorId)),
-            });
+            var resp = await client.DeleteAsync($"/api/v1/organizations/users/{targetId}");
 
             Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode,
                 $"Expected 403 for Member JWT. Body: {await resp.Content.ReadAsStringAsync()}");
         }
         finally
         {
-            await CleanupAsync(tenantId, targetId, successorId);
+            await CleanupAsync(tenantId, targetId);
         }
     }
 }

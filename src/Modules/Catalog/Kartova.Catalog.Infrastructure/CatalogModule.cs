@@ -162,11 +162,6 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<IApplicationCountByTeamReader, ApplicationCountByTeamReader>();
         services.AddScoped<IApplicationsByTeamReader, ApplicationsByTeamReader>();
 
-        // Cross-module owner-reassignment port (slice-10 Task 6). Consumed by the
-        // Organization module's OffboardMemberHandler to transfer an offboarded
-        // member's applications to a successor before the users projection row is
-        // deleted. Same SharedKernel-port wiring as the readers above.
-        services.AddScoped<IApplicationOwnerReassigner, ApplicationOwnerReassigner>();
     }
 
     public void RegisterForMigrator(IServiceCollection services, IConfiguration configuration)

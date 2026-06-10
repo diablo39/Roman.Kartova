@@ -56,5 +56,4 @@ public static class ProblemTypes
     // Member lifecycle — slice 10.
     public const string LastOrgAdmin       = Base + "last-orgadmin";          // 409
     public const string CannotOffboardSelf = Base + "cannot-offboard-self";   // 409
-    public const string InvalidSuccessor   = Base + "invalid-successor";      // 422
 }

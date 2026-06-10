@@ -19,24 +19,30 @@
       "Regex",
       "Update",
       "String",
-      "Linq"
+      "Linq",
+      "Block"
     ],
     "mutate": [
       "!**/obj/**",
       "!**/bin/**",
       "!**/*.g.cs",
-      "!**/*.designer.cs",
-      "!**/Program.cs",
-      "!**/*.Tests.cs",
-      "!**/*.migrations.cs",
       "!**/*.generated.cs",
-      "!**/*Designer.cs",
+      "!**/Program.cs",
+      "!**/*Module.cs",
+      "!**/*.Tests.cs",
       "!**/Migrations/**",
-      "!**/Connected Services/**"
+      "!**/*Dto.cs",
+      "!**/*Request.cs",
+      "!**/*Response.cs"
     ],
     "ignore-methods": [
       "*ConfigureAwait*",
-      "*Log",
+      "LogTrace",
+      "LogDebug",
+      "LogInformation",
+      "LogWarning",
+      "LogError",
+      "LogCritical",
       "Console.Write*",
       "*Exception.ctor"
     ]

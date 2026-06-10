@@ -188,20 +188,19 @@ internal static class UserEndpointDelegates
 
     /// <summary>
     /// <c>DELETE /users/{id}</c>: OrgAdmin offboards a member (slice-10 Task 6,
-    /// spec §6.7). Reassigns the member's owned catalog applications to
-    /// <c>request.SuccessorUserId</c> (cross-module), deletes the KeyCloak
-    /// identity, cascade-removes the member's team memberships, and deletes the
-    /// local <c>users</c> projection row. Guards: not-found 404,
-    /// cannot-offboard-self 409, last-OrgAdmin 409, invalid-successor 422. The
-    /// acting (caller's) user id comes from <see cref="ICurrentUser.UserId"/> so
-    /// the self-offboard guard compares against the authenticated principal.
+    /// spec §6.7). Deletes the KeyCloak identity, cascade-removes the member's
+    /// team memberships, and deletes the local <c>users</c> projection row.
+    /// Application.CreatedByUserId is immutable history — no ownership reassignment
+    /// occurs (ADR-0102 update). Guards: not-found 404, cannot-offboard-self 409,
+    /// last-OrgAdmin 409. The acting (caller's) user id comes from
+    /// <see cref="ICurrentUser.UserId"/> so the self-offboard guard compares against
+    /// the authenticated principal.
     /// </summary>
     internal static async Task<IResult> OffboardMemberAsync(
-        Guid id, [FromBody] OffboardMemberRequest request,
-        OffboardMemberHandler handler, OrganizationDbContext db, ICurrentUser currentUser, CancellationToken ct)
+        Guid id, OffboardMemberHandler handler, OrganizationDbContext db, ICurrentUser currentUser, CancellationToken ct)
     {
         var result = await handler.Handle(
-            new OffboardMemberCommand(id, request.SuccessorUserId, currentUser.UserId), db, ct);
+            new OffboardMemberCommand(id, currentUser.UserId), db, ct);
         if (result.NotFound)
             return Results.Problem(
                 type: ProblemTypes.ResourceNotFound, title: "Member not found",
@@ -214,11 +213,6 @@ internal static class UserEndpointDelegates
             return Results.Problem(
                 type: ProblemTypes.LastOrgAdmin, title: "Cannot offboard the last OrgAdmin",
                 detail: "The organization must retain at least one OrgAdmin.", statusCode: StatusCodes.Status409Conflict);
-        if (result.InvalidSuccessor)
-            return Results.Problem(
-                type: ProblemTypes.InvalidSuccessor, title: "Invalid successor",
-                detail: "The successor must be an existing member other than the offboarded user.",
-                statusCode: StatusCodes.Status422UnprocessableEntity);
         return Results.NoContent();
     }
 }
@@ -264,7 +258,6 @@ internal static class UserRoutes
             .WithName("OffboardMember")
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict)
-            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+            .ProducesProblem(StatusCodes.Status409Conflict);
     }
 }

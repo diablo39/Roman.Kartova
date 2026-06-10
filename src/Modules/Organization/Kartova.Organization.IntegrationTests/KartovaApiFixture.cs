@@ -323,12 +323,10 @@ public class KartovaApiFixture : KartovaApiFixtureBase
 
     /// <summary>
     /// Seeds one Catalog <see cref="DomainApplication"/> OWNED BY <paramref name="ownerUserId"/>
-    /// for the given tenant (no team). Returns the new app's id. Slice-10 Task 6 — used by
-    /// <c>OffboardMemberTests</c> to drive the cross-module owner-reassignment happy path: the
-    /// Organization module's <c>OffboardMemberHandler</c> calls
-    /// <see cref="Kartova.SharedKernel.Multitenancy.IApplicationOwnerReassigner"/>, which transfers
-    /// this row's owner to the successor. Inserts via EF on a BYPASSRLS connection so RLS does not
-    /// block the seed. Mirrors <see cref="SeedCatalogApplicationAssignedToTeamAsync"/>.
+    /// for the given tenant (no team). Returns the new app's id. Slice-10 — retained for R2
+    /// (rename OwnerUserId → CreatedByUserId) and other Catalog seeding needs. Inserts via EF on
+    /// a BYPASSRLS connection so RLS does not block the seed. Mirrors
+    /// <see cref="SeedCatalogApplicationAssignedToTeamAsync"/>.
     /// </summary>
     public async Task<Guid> SeedCatalogApplicationOwnedByAsync(
         Guid tenantId, Guid ownerUserId, string name)

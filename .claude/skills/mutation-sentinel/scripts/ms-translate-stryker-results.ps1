@@ -442,7 +442,7 @@ if ($entries.Count -eq 0) {
 $reportLines.Add('### Recommendation')
 $reportLines.Add('')
 if ($status -eq 'FAIL') {
-    $reportLines.Add('Feed this report to `/test-generator-gh` to generate targeted tests for the surviving mutants. Expected improvement: 10-25 percentage points per feedback iteration.')
+    $reportLines.Add('Feed this report to `/test-generator` to generate targeted tests for the surviving mutants. Expected improvement: 10-25 percentage points per feedback iteration.')
 } else {
     $reportLines.Add('Mutation score meets the target threshold. Proceed to `/coverage-auditor` for final verification.')
 }
