@@ -29,9 +29,14 @@ const TEAMS = [
   { id: "00000000-0000-0000-0000-000000000011", displayName: "Frontend", description: null },
 ];
 
+const useTeamsListMock = vi.fn();
 vi.mock("@/features/teams/api/teams", () => ({
-  useTeamsList: () => ({
-    items: TEAMS,
+  useTeamsList: (...args: unknown[]) => useTeamsListMock(...args),
+}));
+
+function makeTeamsResult(items: typeof TEAMS) {
+  return {
+    items,
     isLoading: false,
     isError: false,
     hasNext: false,
@@ -42,8 +47,8 @@ vi.mock("@/features/teams/api/teams", () => ({
     refetch: vi.fn(),
     isFetching: false,
     error: null,
-  }),
-}));
+  };
+}
 
 // Mock the register mutation hook — avoids apiClient spy complexity and keeps
 // the test focused on the form contract (field collection + schema validation).
@@ -90,6 +95,7 @@ function setup({
 describe("RegisterApplicationDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useTeamsListMock.mockReturnValue(makeTeamsResult(TEAMS));
   });
 
   it("renders Display Name, Description, Team fields and the Created by pill", () => {
@@ -151,6 +157,31 @@ describe("RegisterApplicationDialog", () => {
     await userEvent.click(screen.getByRole("button", { name: /register application/i }));
 
     expect(await screen.findByText(/display name already taken/i)).toBeInTheDocument();
+  });
+
+  it("shows 'Team is required' and does not call mutateAsync when team is not selected", async () => {
+    setup();
+    await userEvent.type(screen.getByLabelText(/display name/i), "Payment Gateway");
+    await userEvent.type(screen.getByLabelText(/description/i), "Handles charges");
+    // Leave team select at its empty/placeholder value — do NOT call selectOptions.
+    await userEvent.click(screen.getByRole("button", { name: /register application/i }));
+
+    expect(await screen.findByText("Team is required")).toBeInTheDocument();
+    expect(mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("disables submit and shows hint when no teams are available", () => {
+    // Override useTeamsList to return an empty list for this test only.
+    useTeamsListMock.mockReturnValue(makeTeamsResult([]));
+
+    setup();
+
+    expect(screen.getByRole("button", { name: /register application/i })).toBeDisabled();
+    expect(
+      screen.getByText(
+        "No teams available — create a team first before registering an application.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("falls back to a toast when mutation rejects with flat ProblemDetails", async () => {

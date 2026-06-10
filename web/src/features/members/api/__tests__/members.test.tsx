@@ -171,7 +171,7 @@ describe("useOffboardMember", () => {
     });
 
     await expect(
-      result.current.mutateAsync({ userId: "u1", successorUserId: "u2" }),
+      result.current.mutateAsync({ userId: "u1" }),
     ).rejects.toMatchObject({ __status: 409 });
   });
 
@@ -187,7 +187,7 @@ describe("useOffboardMember", () => {
     });
 
     await act(async () => {
-      await result.current.mutateAsync({ userId: "u1", successorUserId: "u2" });
+      await result.current.mutateAsync({ userId: "u1" });
     });
 
     expect(invalidate).toHaveBeenCalledWith({ queryKey: memberKeys.all });
