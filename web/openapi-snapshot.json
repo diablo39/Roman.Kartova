@@ -58,6 +58,16 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       },
@@ -114,7 +124,7 @@
             }
           },
           {
-            "name": "ownerUserId",
+            "name": "createdByUserId",
             "in": "query",
             "schema": {
               "type": "string",
@@ -1706,16 +1716,6 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/OffboardMemberRequest"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "204": {
             "description": "No Content"
@@ -1732,16 +1732,6 @@
           },
           "409": {
             "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Entity",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2079,7 +2069,7 @@
           "tenantId",
           "displayName",
           "description",
-          "ownerUserId",
+          "createdByUserId",
           "createdAt",
           "lifecycle",
           "sunsetDate",
@@ -2102,7 +2092,7 @@
           "description": {
             "type": "string"
           },
-          "ownerUserId": {
+          "createdByUserId": {
             "type": "string",
             "format": "uuid"
           },
@@ -2121,16 +2111,13 @@
             "format": "date-time"
           },
           "teamId": {
-            "type": [
-              "null",
-              "string"
-            ],
+            "type": "string",
             "format": "uuid"
           },
           "version": {
             "type": "string"
           },
-          "owner": {
+          "createdBy": {
             "oneOf": [
               {
                 "type": "null"
@@ -2149,10 +2136,7 @@
         "type": "object",
         "properties": {
           "teamId": {
-            "type": [
-              "null",
-              "string"
-            ],
+            "type": "string",
             "format": "uuid"
           }
         }
@@ -2539,18 +2523,6 @@
           }
         }
       },
-      "OffboardMemberRequest": {
-        "required": [
-          "successorUserId"
-        ],
-        "type": "object",
-        "properties": {
-          "successorUserId": {
-            "type": "string",
-            "format": "uuid"
-          }
-        }
-      },
       "OrgProfileResponse": {
         "required": [
           "id",
@@ -2638,7 +2610,8 @@
       "RegisterApplicationRequest": {
         "required": [
           "displayName",
-          "description"
+          "description",
+          "teamId"
         ],
         "type": "object",
         "properties": {
@@ -2647,6 +2620,10 @@
           },
           "description": {
             "type": "string"
+          },
+          "teamId": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
