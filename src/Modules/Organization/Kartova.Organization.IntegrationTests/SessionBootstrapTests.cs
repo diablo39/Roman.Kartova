@@ -267,4 +267,102 @@ public sealed class SessionBootstrapTests : OrganizationIntegrationTestBase
             await CleanupAsync(seed);
         }
     }
+
+    // ---------- Regression test: realm_role sync on session bootstrap -----------
+
+    /// <summary>
+    /// Regression guard for the slice-10 DoD bug: a user whose JWT carries realm
+    /// role <c>OrgAdmin</c> must have <c>realm_role = 'OrgAdmin'</c> persisted in
+    /// the <c>users</c> table after a session bootstrap, and must appear as
+    /// <c>OrgAdmin</c> in <c>GET /api/v1/organizations/users</c>. The pre-fix
+    /// behaviour was: <c>UpsertAsync</c> never set <c>RealmRole</c>, so the DB
+    /// default <c>'Viewer'</c> remained regardless of the JWT role.
+    /// </summary>
+    [TestMethod]
+    public async Task Session_start_syncs_OrgAdmin_realm_role_to_users_projection()
+    {
+        var (adminEmail, tenantId) = await NewTenantAsync("session-realm-role-sync");
+        // The domain of subjectEmail MUST match adminEmail's domain so that
+        // TenantFor(subjectEmail) == TenantFor(adminEmail) == tenantId (the seeded org's
+        // tenant). Using the same domain ensures the JWT carries the correct tenant claim.
+        var domain = adminEmail.Split('@')[1];
+        var subjectKcId = Guid.NewGuid();
+        var subjectEmail = $"orgadmin@{domain}";
+
+        // Seed an inviter row so the directory listing has a second member.
+        var inviterUserId = await Fx.SeedUserInOrganizationAsync(
+            new TenantId(tenantId), "Inviter User", $"inviter@{domain}",
+            realmRole: KartovaRoles.Member);
+
+        try
+        {
+            // Bootstrap as OrgAdmin — the JWT carries that realm role.
+            var client = await Fx.CreateAuthenticatedClientAsync(
+                subjectEmail,
+                roles: new[] { KartovaRoles.OrgAdmin },
+                subjectOverride: subjectKcId,
+                emailClaim: subjectEmail);
+
+            var bootstrapResp = await client.PostAsync("/api/v1/auth/session", content: null);
+            Assert.AreEqual(
+                System.Net.HttpStatusCode.OK,
+                bootstrapResp.StatusCode,
+                $"Session bootstrap must return 200. Body: {await bootstrapResp.Content.ReadAsStringAsync()}");
+
+            // Verify DB row: realm_role must be OrgAdmin, NOT the default Viewer.
+            await using (var db = new OrganizationDbContext(BypassOptions()))
+            {
+                var userRow = await db.Users.SingleOrDefaultAsync(u => u.Id == subjectKcId);
+                Assert.IsNotNull(userRow, "Session bootstrap must create a users row keyed by the JWT sub.");
+                Assert.AreEqual(
+                    KartovaRoles.OrgAdmin,
+                    userRow!.RealmRole,
+                    $"users.realm_role must be '{KartovaRoles.OrgAdmin}' after bootstrapping with an " +
+                    $"OrgAdmin JWT — was '{userRow.RealmRole}'. " +
+                    "Pre-fix: UpsertAsync never set RealmRole → DB default 'Viewer' persisted.");
+            }
+
+            // Verify via HTTP directory: the bootstrapped user must appear as OrgAdmin.
+            var resp = await client.GetAsync("/api/v1/organizations/users?limit=50");
+            Assert.AreEqual(
+                System.Net.HttpStatusCode.OK,
+                resp.StatusCode,
+                $"GET /users must return 200. Body: {await resp.Content.ReadAsStringAsync()}");
+
+            var page = await resp.Content.ReadFromJsonAsync<Kartova.SharedKernel.Pagination.CursorPage<MemberSummaryResponse>>(
+                KartovaApiFixtureBase.WireJson);
+            Assert.IsNotNull(page, "Directory response must deserialize to CursorPage<MemberSummaryResponse>.");
+
+            var row = page!.Items.SingleOrDefault(r => r.Id == subjectKcId);
+            Assert.IsNotNull(row,
+                "The bootstrapped OrgAdmin user must appear in the members directory.");
+            Assert.AreEqual(
+                KartovaRoles.OrgAdmin,
+                row!.Role,
+                $"Directory row for the bootstrapped user must show Role = '{KartovaRoles.OrgAdmin}', " +
+                $"not '{row.Role}'. Pre-fix: realm_role column stayed at DB default 'Viewer'.");
+        }
+        finally
+        {
+#pragma warning disable CA1031 // best-effort test teardown — log and continue
+            try
+            {
+                await using var db = new OrganizationDbContext(BypassOptions());
+                await db.Database.ExecuteSqlRawAsync(
+                    "DELETE FROM users WHERE tenant_id = {0}", tenantId);
+            }
+            catch (Exception ex)
+            {
+                await Console.Error.WriteLineAsync(
+                    $"[cleanup] users delete failed for tenant {tenantId}: {ex.Message}");
+            }
+            try { await Fx.DeleteOrganizationsForTenantAsync(tenantId); }
+            catch (Exception ex)
+            {
+                await Console.Error.WriteLineAsync(
+                    $"[cleanup] organizations delete failed for tenant {tenantId}: {ex.Message}");
+            }
+#pragma warning restore CA1031
+        }
+    }
 }

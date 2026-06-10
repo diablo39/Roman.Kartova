@@ -156,6 +156,38 @@ public sealed class SessionStartHandlerTests
     }
 
     [TestMethod]
+    public async Task HandleAsync_persists_realm_role_from_JWT_on_bootstrap()
+    {
+        // Regression guard for slice-10 DoD bug: bootstrapping with a JWT carrying
+        // realm role OrgAdmin must write RealmRole = "OrgAdmin" to the users row
+        // (not leave it at the DB default "Viewer").
+        await using var db = NewInMemory(out var tenant);
+        SeedOrg(db);
+
+        var userId = Guid.NewGuid();
+        var directory = Substitute.For<IUserDirectory>();
+        directory.GetAsync(userId, Arg.Any<CancellationToken>())
+            .Returns(new UserDisplayInfo(userId, "Alice Admin", "alice@example.com"));
+
+        var sut = NewSut(
+            db,
+            directory,
+            NewCurrentUser(userId),
+            NewTenantCtx(tenant, new[] { KartovaRoles.OrgAdmin }));
+
+        var response = await sut.HandleAsync(BuildPrincipal(userId), CancellationToken.None);
+
+        // Response Role must match the JWT.
+        Assert.AreEqual(KartovaRoles.OrgAdmin, response.Role,
+            "Response.Role must reflect the OrgAdmin realm role from the JWT.");
+
+        // Persisted row must carry the role — not the column default Viewer.
+        var row = await db.Users.SingleAsync(u => u.Id == userId);
+        Assert.AreEqual(KartovaRoles.OrgAdmin, row.RealmRole,
+            "users.realm_role must be synced from the JWT role on session bootstrap.");
+    }
+
+    [TestMethod]
     public async Task HandleAsync_throws_when_email_claim_missing()
     {
         // Email is a required bootstrap input — the users-projection upsert

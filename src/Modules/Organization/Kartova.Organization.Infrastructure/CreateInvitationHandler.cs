@@ -114,6 +114,7 @@ public sealed class CreateInvitationHandler(
             TenantId = tenant.Id,
             Email = email,
             DisplayName = email,
+            RealmRole = request.Role,
             CreatedAt = clock.GetUtcNow(),
         });
         try

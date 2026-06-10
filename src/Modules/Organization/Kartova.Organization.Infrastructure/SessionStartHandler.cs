@@ -74,7 +74,15 @@ public sealed class SessionStartHandler
                 "Session bootstrap requires an 'email' claim on the JWT.");
         var given = principal.FindFirst("given_name")?.Value;
         var family = principal.FindFirst("family_name")?.Value;
-        await _projection.UpsertAsync(_db, userId, email, given, family, _tenant.Id, ct);
+
+        // Spec §3 Decision #2: each user holds exactly one realm role. Use
+        // ITenantContext.Roles (populated from JWT) rather than ICurrentUser.
+        // Fall back to Viewer to mirror the permission-set fallback below: a
+        // tenant-scoped principal without an explicit realm role gets the
+        // read-only baseline rather than a 500.
+        var role = _tenant.Roles.FirstOrDefault() ?? KartovaRoles.Viewer;
+
+        await _projection.UpsertAsync(_db, userId, email, given, family, role, _tenant.Id, ct);
 
         // 2. Invitation auto-accept: Pending → Accepted if a Pending invitation
         //    exists for this KC user AND is not expired. The expiry guard
@@ -102,13 +110,6 @@ public sealed class SessionStartHandler
                       "Org row missing for tenant. RLS should guarantee at-most-one visible row " +
                       "in a tenant-scoped request — a missing row indicates the tenant has no " +
                       "Organization aggregate seeded (broken provisioning), not a normal 404.");
-
-        // Spec §3 Decision #2: each user holds exactly one realm role. Use
-        // ITenantContext.Roles (populated from JWT) rather than ICurrentUser.
-        // Fall back to Viewer to mirror the permission-set fallback below: a
-        // tenant-scoped principal without an explicit realm role gets the
-        // read-only baseline rather than a 500.
-        var role = _tenant.Roles.FirstOrDefault() ?? KartovaRoles.Viewer;
 
         // Use ForRole (not Map[role]) — Map only contains entries for the three
         // tenant-scoped roles (Viewer/Member/OrgAdmin). PlatformAdmin
