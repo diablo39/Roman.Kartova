@@ -168,7 +168,8 @@ public sealed class UnDecommissionApplicationTests : CatalogIntegrationTestBase
     {
         // Register, deprecate, and decommission as OrgB so the app is in an un-decommissionable state.
         var orgBClient = await Fx.CreateAuthenticatedClientAsync("admin@orgb.kartova.local", new[] { KartovaRoles.OrgAdmin });
-        var otherTenantApp = await RegisterAsync(orgBClient, "Cross Tenant UnDecommission", "Desc.");
+        var otherTenantApp = await RegisterAsync(orgBClient, "Cross Tenant UnDecommission", "Desc.",
+            email: "admin@orgb.kartova.local");
 
         var sunset = DateTimeOffset.UtcNow.AddSeconds(1);
         var deprecateResp = await orgBClient.PostAsJsonAsync(
@@ -192,11 +193,18 @@ public sealed class UnDecommissionApplicationTests : CatalogIntegrationTestBase
         Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
     }
 
-    private static async Task<ApplicationResponse> RegisterAsync(HttpClient client, string displayName, string description)
+    // ADR-0103: register requires a valid owning team in the registering tenant.
+    // Seed the team in that tenant (default OrgA; the cross-tenant test registers as
+    // OrgB and passes its email). BYPASSRLS, idempotent.
+    private async Task<ApplicationResponse> RegisterAsync(
+        HttpClient client, string displayName, string description,
+        string email = "admin@orga.kartova.local")
     {
+        var teamId = await Fx.SeedTeamInOrganizationAsync(
+            Fx.TenantIdForEmail(email), "Lifecycle Team");
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest(displayName, description));
+            new RegisterApplicationRequest(displayName, description, teamId));
         Assert.IsTrue(resp.IsSuccessStatusCode);
         return (await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
     }

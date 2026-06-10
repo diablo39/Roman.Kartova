@@ -195,11 +195,15 @@ public class EditApplicationTests : CatalogIntegrationTestBase
         Assert.AreEqual("EditMetadata", problem.Extensions["attemptedTransition"]!.ToString());
     }
 
-    private static async Task<ApplicationResponse> RegisterAsync(HttpClient client, string displayName, string description)
+    // ADR-0103: register requires a valid owning team in the tenant. All callers
+    // register as OrgA, so seed the team in OrgA's tenant (BYPASSRLS, idempotent).
+    private async Task<ApplicationResponse> RegisterAsync(HttpClient client, string displayName, string description)
     {
+        var teamId = await Fx.SeedTeamInOrganizationAsync(
+            Fx.TenantIdForEmail("admin@orga.kartova.local"), "Lifecycle Team");
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest(displayName, description));
+            new RegisterApplicationRequest(displayName, description, teamId));
         Assert.IsTrue(resp.IsSuccessStatusCode);
         return (await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
     }

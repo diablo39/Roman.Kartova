@@ -57,49 +57,6 @@ internal static class DevSeed
             await ExecAsync(conn, "ALTER TABLE organizations FORCE ROW LEVEL SECURITY;");
         }
 
-        // Pagination requires a non-trivial fixture to be exercisable in `docker compose up`
-        // (ADR-0095 §10). Seed ~120 applications for Org A with deterministic varied names so
-        // sort-by-name and sort-by-createdAt produce visibly different orderings.
-        try
-        {
-            await ExecAsync(conn, "ALTER TABLE catalog_applications NO FORCE ROW LEVEL SECURITY;");
-            await using var checkCmd = conn.CreateCommand();
-            checkCmd.CommandText = "SELECT COUNT(*) FROM catalog_applications WHERE tenant_id = $1;";
-            checkCmd.Parameters.AddWithValue(OrgATenantId);
-            var existing = (long?)await checkCmd.ExecuteScalarAsync() ?? 0L;
-
-            if (existing == 0L)
-            {
-                // Names chosen so alphabetical and chronological orders diverge.
-                var origin = DateTimeOffset.UtcNow.AddMinutes(-120);
-                for (var i = 0; i < 120; i++)
-                {
-                    await using var insertCmd = conn.CreateCommand();
-                    insertCmd.CommandText = """
-                        INSERT INTO catalog_applications (id, tenant_id, display_name, description, owner_user_id, created_at)
-                        VALUES (gen_random_uuid(), $1, $2, $3, gen_random_uuid(), $4);
-                        """;
-                    // Varied display names so the docker-compose smoke renders aren't all-identical.
-                    var letter = (char)('a' + ((119 - i) % 26));
-                    var displayName = char.ToUpper(letter) + $" App {i:D3}";
-                    insertCmd.Parameters.AddWithValue(OrgATenantId);
-                    insertCmd.Parameters.AddWithValue(displayName);
-                    insertCmd.Parameters.AddWithValue($"Seeded application #{i + 1}");
-                    insertCmd.Parameters.AddWithValue(origin.AddMinutes(i));
-                    await insertCmd.ExecuteNonQueryAsync();
-                }
-                logger.LogInformation("Dev seed: inserted 120 applications for Org A.");
-            }
-            else
-            {
-                logger.LogInformation("Dev seed: applications already present (Count={Count}).", existing);
-            }
-        }
-        finally
-        {
-            await ExecAsync(conn, "ALTER TABLE catalog_applications FORCE ROW LEVEL SECURITY;");
-        }
-
         // Seed the users row for team-admin@orga so the realm_role write-through cache
         // (ADR-0102) is populated for the docker-compose smoke scenario. Only this user
         // has a pinned KC id in kartova-realm.json; admin@orga / member@orga get their
@@ -166,6 +123,55 @@ internal static class DevSeed
         {
             await ExecAsync(conn, "ALTER TABLE teams FORCE ROW LEVEL SECURITY;");
             await ExecAsync(conn, "ALTER TABLE team_members FORCE ROW LEVEL SECURITY;");
+        }
+
+        // Pagination requires a non-trivial fixture to be exercisable in `docker compose up`
+        // (ADR-0095 §10). Seed ~120 applications for Org A with deterministic varied names so
+        // sort-by-name and sort-by-createdAt produce visibly different orderings.
+        // Seeded AFTER the demo team (above) because every app now requires a non-null
+        // owning team (ADR-0103) — they are all owned by the demo team.
+        try
+        {
+            await ExecAsync(conn, "ALTER TABLE catalog_applications NO FORCE ROW LEVEL SECURITY;");
+            await using var checkCmd = conn.CreateCommand();
+            checkCmd.CommandText = "SELECT COUNT(*) FROM catalog_applications WHERE tenant_id = $1;";
+            checkCmd.Parameters.AddWithValue(OrgATenantId);
+            var existing = (long?)await checkCmd.ExecuteScalarAsync() ?? 0L;
+
+            if (existing == 0L)
+            {
+                // Names chosen so alphabetical and chronological orders diverge.
+                // ADR-0103: every app has a required owning team — the demo team
+                // (seeded above) owns all 120; created_by_user_id stays a per-app
+                // random id (creation provenance, immutable).
+                var origin = DateTimeOffset.UtcNow.AddMinutes(-120);
+                for (var i = 0; i < 120; i++)
+                {
+                    await using var insertCmd = conn.CreateCommand();
+                    insertCmd.CommandText = """
+                        INSERT INTO catalog_applications (id, tenant_id, display_name, description, created_by_user_id, team_id, created_at)
+                        VALUES (gen_random_uuid(), $1, $2, $3, gen_random_uuid(), $4, $5);
+                        """;
+                    // Varied display names so the docker-compose smoke renders aren't all-identical.
+                    var letter = (char)('a' + ((119 - i) % 26));
+                    var displayName = char.ToUpper(letter) + $" App {i:D3}";
+                    insertCmd.Parameters.AddWithValue(OrgATenantId);
+                    insertCmd.Parameters.AddWithValue(displayName);
+                    insertCmd.Parameters.AddWithValue($"Seeded application #{i + 1}");
+                    insertCmd.Parameters.AddWithValue(DemoTeamId);
+                    insertCmd.Parameters.AddWithValue(origin.AddMinutes(i));
+                    await insertCmd.ExecuteNonQueryAsync();
+                }
+                logger.LogInformation("Dev seed: inserted 120 applications for Org A.");
+            }
+            else
+            {
+                logger.LogInformation("Dev seed: applications already present (Count={Count}).", existing);
+            }
+        }
+        finally
+        {
+            await ExecAsync(conn, "ALTER TABLE catalog_applications FORCE ROW LEVEL SECURITY;");
         }
     }
 

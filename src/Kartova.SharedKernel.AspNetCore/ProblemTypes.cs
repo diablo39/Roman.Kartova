@@ -35,8 +35,8 @@ public static class ProblemTypes
     public const string TeamHasApplications    = Base + "team-has-applications";
     public const string InvalidTeam            = Base + "invalid-team";
 
-    // Catalog ?ownerUserId= filter — slice 9 / E2 (spec §6.5).
-    public const string InvalidOwner           = Base + "invalid-owner";
+    // Catalog ?createdByUserId= filter — slice 9 / E2, renamed slice 10 / ADR-0103.
+    public const string InvalidCreatedBy       = Base + "invalid-created-by";
 
     // Logo upload validation — slice 9 (spec §6.4). One URI per failure mode
     // so SPA / API consumers can dispatch on `type` instead of HTTP status.

@@ -11,13 +11,20 @@ namespace Kartova.Catalog.IntegrationTests;
 [TestClass]
 public class RegisterApplicationTests : CatalogIntegrationTestBase
 {
+    // ADR-0103: register now requires a valid owning team in the tenant. Seed one
+    // and return its id for the happy-path bodies. Each test seeds its own team
+    // (idempotent, BYPASSRLS) to stay independent.
+    private async Task<Guid> SeedTeamForOrgAAsync() =>
+        await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail("admin@orga.kartova.local"), "Reg Team");
+
     [TestMethod]
     public async Task POST_with_valid_payload_creates_row_and_returns_201()
     {
+        var teamId = await SeedTeamForOrgAAsync();
         var client = await Fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest("Payments API", "Payments REST surface."));
+            new RegisterApplicationRequest("Payments API", "Payments REST surface.", teamId));
 
         Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode);
         StringAssert.StartsWith(resp.Headers.Location!.ToString(), "/api/v1/catalog/applications/");
@@ -26,6 +33,7 @@ public class RegisterApplicationTests : CatalogIntegrationTestBase
         Assert.IsNotNull(body);
         Assert.AreEqual("Payments API", body!.DisplayName);
         Assert.AreEqual("Payments REST surface.", body.Description);
+        Assert.AreEqual(teamId, body.TeamId);
         Assert.AreNotEqual(Guid.Empty, body.Id);
 
         // Slice 5 wire-shape pin: lifecycle defaults to Active, no sunset on
@@ -37,33 +45,51 @@ public class RegisterApplicationTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
-    public async Task POST_persists_owner_user_id_from_jwt_sub_claim()
+    public async Task POST_persists_created_by_user_id_from_jwt_sub_claim()
     {
+        var teamId = await SeedTeamForOrgAAsync();
         var client = await Fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
         var subFromToken = await Fx.GetSubClaimAsync("admin@orga.kartova.local");
 
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest("Svc X", "x"));
+            new RegisterApplicationRequest("Svc X", "x", teamId));
         Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode);
 
         var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
-        Assert.AreEqual(subFromToken, body!.OwnerUserId);
+        Assert.AreEqual(subFromToken, body!.CreatedByUserId);
     }
 
     [TestMethod]
     public async Task POST_persists_tenant_id_from_scope_not_payload()
     {
+        var teamId = await SeedTeamForOrgAAsync();
         var client = await Fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
         var tenantFromToken = await Fx.GetTenantIdClaimAsync("admin@orga.kartova.local");
 
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest("Svc Y", "y"));
+            new RegisterApplicationRequest("Svc Y", "y", teamId));
         Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode);
 
         var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
         Assert.AreEqual(tenantFromToken, body!.TenantId);
+    }
+
+    [TestMethod]
+    public async Task POST_with_unknown_teamId_returns_422_invalid_team()
+    {
+        // ADR-0103: the owning team must exist in the tenant. A random uuid that was
+        // never seeded resolves as "not found" via IOrganizationTeamExistenceChecker.
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
+        var resp = await client.PostAsJsonAsync(
+            "/api/v1/catalog/applications",
+            new RegisterApplicationRequest("No Team App", "desc", Guid.NewGuid()));
+
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
+        Assert.AreEqual("application/problem+json", resp.Content.Headers.ContentType!.MediaType);
+        var body = await resp.Content.ReadAsStringAsync();
+        StringAssert.Contains(body, ProblemTypes.InvalidTeam);
     }
 
     [TestMethod]
@@ -73,10 +99,11 @@ public class RegisterApplicationTests : CatalogIntegrationTestBase
     [DataRow("Display", "  ")]
     public async Task POST_with_invalid_payload_returns_400(string displayName, string description)
     {
+        var teamId = await SeedTeamForOrgAAsync();
         var client = await Fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest(displayName, description));
+            new RegisterApplicationRequest(displayName, description, teamId));
 
         Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
         Assert.AreEqual("application/problem+json", resp.Content.Headers.ContentType!.MediaType);
@@ -85,10 +112,11 @@ public class RegisterApplicationTests : CatalogIntegrationTestBase
     [TestMethod]
     public async Task GET_by_id_returns_row_in_same_tenant()
     {
+        var teamId = await SeedTeamForOrgAAsync();
         var client = await Fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
         var post = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest("Svc Z", "z"));
+            new RegisterApplicationRequest("Svc Z", "z", teamId));
         var created = await post.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
 
         var get = await client.GetAsync($"/api/v1/catalog/applications/{created!.Id}");
@@ -143,21 +171,27 @@ public class RegisterApplicationTests : CatalogIntegrationTestBase
         Assert.IsTrue(page!.Items.Any());
     }
 
-    private static async Task<ApplicationResponse> CreateApp(HttpClient c, string name)
+    // All CreateApp callers register as OrgA, so seed the owning team in OrgA's tenant
+    // (ADR-0103: register requires a valid team). BYPASSRLS seed, idempotent per call.
+    private async Task<ApplicationResponse> CreateApp(HttpClient c, string name)
     {
+        var teamId = await SeedTeamForOrgAAsync();
         var post = await c.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest(name, $"desc for {name}"));
+            new RegisterApplicationRequest(name, $"desc for {name}", teamId));
         return (await post.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
     }
 
     [TestMethod]
     public async Task POST_with_invalid_displayName_returns_field_level_problem_details()
     {
+        // Seed a valid team so the request passes the team-existence gate and reaches
+        // the displayName validation (which is what this test asserts on).
+        var teamId = await SeedTeamForOrgAAsync();
         var client = await Fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest("", "desc"));
+            new RegisterApplicationRequest("", "desc", teamId));
 
         Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
         var doc = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
@@ -173,7 +207,7 @@ public class RegisterApplicationTests : CatalogIntegrationTestBase
         using var client = Fx.CreateAnonymousClient();
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest("Name", "desc"));
+            new RegisterApplicationRequest("Name", "desc", Guid.NewGuid()));
 
         Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
     }
@@ -183,10 +217,11 @@ public class RegisterApplicationTests : CatalogIntegrationTestBase
     {
         // OrgA creates a row, OrgB tries to fetch it by id. Must 404 — never leak
         // existence (no 403, no 200). Pins the cross-tenant isolation guarantee.
+        var teamId = await SeedTeamForOrgAAsync();
         var clientA = await Fx.CreateAuthenticatedClientAsync("admin@orga.kartova.local");
         var post = await clientA.PostAsJsonAsync(
             "/api/v1/catalog/applications",
-            new RegisterApplicationRequest("Orga Private", "owned by orga"));
+            new RegisterApplicationRequest("Orga Private", "owned by orga", teamId));
         Assert.AreEqual(HttpStatusCode.Created, post.StatusCode);
         var orgaApp = await post.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
 

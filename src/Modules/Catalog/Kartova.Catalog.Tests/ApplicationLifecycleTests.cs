@@ -15,13 +15,14 @@ namespace Kartova.Catalog.Tests;
 public class ApplicationLifecycleTests
 {
     private static readonly TenantId Tenant = new(Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"));
-    private static readonly Guid Owner = Guid.Parse("bbbbbbbb-0000-0000-0000-000000000001");
+    private static readonly Guid Creator = Guid.Parse("bbbbbbbb-0000-0000-0000-000000000001");
+    private static readonly Guid Team = Guid.Parse("cccccccc-0000-0000-0000-000000000001");
     private static readonly DateTimeOffset Now = new(2026, 5, 6, 12, 0, 0, TimeSpan.Zero);
 
     private static FakeTimeProvider Clock(DateTimeOffset? now = null) => TestClocks.At(now ?? Now);
 
     private static DomainApplication NewActive() =>
-        DomainApplication.Create("Payments API", "Description.", Owner, Tenant, Clock());
+        DomainApplication.Create("Payments API", "Description.", Creator, Team, Tenant, Clock());
 
     [TestMethod]
     public void New_application_starts_in_Active_state_with_null_sunsetDate()
@@ -70,16 +71,16 @@ public class ApplicationLifecycleTests
     }
 
     [TestMethod]
-    public void EditMetadata_does_not_change_OwnerUserId_or_TenantId_or_CreatedAt()
+    public void EditMetadata_does_not_change_CreatedByUserId_or_TenantId_or_CreatedAt()
     {
         var app = NewActive();
-        var origOwner = app.OwnerUserId;
+        var origCreator = app.CreatedByUserId;
         var origTenant = app.TenantId;
         var origCreated = app.CreatedAt;
 
         app.EditMetadata("Different", "Different.");
 
-        Assert.AreEqual(origOwner, app.OwnerUserId);
+        Assert.AreEqual(origCreator, app.CreatedByUserId);
         Assert.AreEqual(origTenant, app.TenantId);
         Assert.AreEqual(origCreated, app.CreatedAt);
     }
@@ -210,27 +211,28 @@ public class ApplicationLifecycleTests
     }
 
     // ---------------------------------------------------------------------
-    // AssignTeam (slice 8). Decommissioned blocks non-null reassign (mirrors
-    // EditMetadata terminal-write guard) but permits null-unassign so OrgAdmin
-    // can release a team before deleting it — see slice-8 boundary-review fix.
+    // AssignTeam (slice 8, ADR-0103). Reassign-only — TeamId is required (set in
+    // the ctor) and there is no unassign. Decommissioned blocks reassignment
+    // (mirrors the EditMetadata terminal-write guard).
     // ---------------------------------------------------------------------
 
     [TestMethod]
-    public void New_application_has_null_TeamId()
+    public void New_application_has_TeamId_from_ctor()
     {
+        // ADR-0103: TeamId is required and set at creation — never null.
         var app = NewActive();
-        Assert.IsNull(app.TeamId);
+        Assert.AreEqual(Team, app.TeamId);
     }
 
     [TestMethod]
-    public void AssignTeam_on_Active_sets_TeamId()
+    public void AssignTeam_on_Active_reassigns_TeamId()
     {
         var app = NewActive();
-        var teamId = Guid.NewGuid();
+        var newTeamId = Guid.NewGuid();
 
-        app.AssignTeam(teamId);
+        app.AssignTeam(newTeamId);
 
-        Assert.AreEqual(teamId, app.TeamId);
+        Assert.AreEqual(newTeamId, app.TeamId);
     }
 
     [TestMethod]
@@ -240,25 +242,12 @@ public class ApplicationLifecycleTests
         // blocks the operation (consistent with EditMetadata).
         var app = NewActive();
         app.Deprecate(Now.AddDays(30), Clock());
-        var teamId = Guid.NewGuid();
+        var newTeamId = Guid.NewGuid();
 
-        app.AssignTeam(teamId);
+        app.AssignTeam(newTeamId);
 
         Assert.AreEqual(Lifecycle.Deprecated, app.Lifecycle);
-        Assert.AreEqual(teamId, app.TeamId);
-    }
-
-    [TestMethod]
-    public void AssignTeam_with_null_unassigns()
-    {
-        // Passing null is how OrgAdmin removes a team assignment. Distinct from
-        // "blocked by lifecycle" — the guard checks state, not the argument.
-        var app = NewActive();
-        app.AssignTeam(Guid.NewGuid());
-
-        app.AssignTeam(null);
-
-        Assert.IsNull(app.TeamId);
+        Assert.AreEqual(newTeamId, app.TeamId);
     }
 
     [TestMethod]
@@ -271,26 +260,5 @@ public class ApplicationLifecycleTests
         var ex = Assert.ThrowsExactly<InvalidLifecycleTransitionException>(
             () => app.AssignTeam(Guid.NewGuid()));
         Assert.AreEqual(Lifecycle.Decommissioned, ex.CurrentLifecycle);
-    }
-
-    [TestMethod]
-    public void AssignTeam_with_null_when_Decommissioned_unassigns()
-    {
-        // Slice-8 boundary-review fix: unassign (null) is the deliberate carve-out
-        // on Decommissioned — OrgAdmin must be able to release a Decommissioned
-        // app from a team before deleting that team, otherwise a team that ever
-        // owned an app since-decommissioned would be permanently undeletable.
-        // The reassign-to-non-null case remains blocked (see prior test).
-        var app = NewActive();
-        var initialTeamId = Guid.NewGuid();
-        app.AssignTeam(initialTeamId);
-        app.Deprecate(Now.AddDays(1), Clock());
-        app.Decommission(Clock(Now.AddDays(2)));
-        Assert.AreEqual(Lifecycle.Decommissioned, app.Lifecycle);
-        Assert.AreEqual(initialTeamId, app.TeamId);
-
-        app.AssignTeam(null);
-
-        Assert.IsNull(app.TeamId);
     }
 }

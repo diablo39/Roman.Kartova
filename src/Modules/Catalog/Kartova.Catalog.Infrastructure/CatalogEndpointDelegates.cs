@@ -31,10 +31,26 @@ internal static class CatalogEndpointDelegates
         CatalogDbContext db,
         ITenantContext tenant,
         ICurrentUser user,
+        IOrganizationTeamExistenceChecker teamChecker,
         CancellationToken ct)
     {
+        // ADR-0103: a new application requires an existing owning team in the
+        // current tenant. Validate before dispatching — IOrganizationTeamExistenceChecker
+        // is RLS-scoped, so a cross-tenant team id resolves as "not found" and hits the
+        // same 422 branch as an unknown id. Mirrors the slice-8 invalid-team envelope
+        // in AssignApplicationTeamAsync.
+        var teamExists = await teamChecker.ExistsAsync(request.TeamId, ct);
+        if (!teamExists)
+        {
+            return Results.Problem(
+                type: ProblemTypes.InvalidTeam,
+                title: "Invalid team",
+                detail: "The supplied teamId does not resolve to a team in the current tenant.",
+                statusCode: StatusCodes.Status422UnprocessableEntity);
+        }
+
         var response = await handler.Handle(
-            new RegisterApplicationCommand(request.DisplayName, request.Description),
+            new RegisterApplicationCommand(request.DisplayName, request.Description, request.TeamId),
             db, tenant, user, ct);
 
         return Results.Created($"/api/v1/catalog/applications/{response.Id}", response);
@@ -66,15 +82,16 @@ internal static class CatalogEndpointDelegates
     /// stable; mismatch returns 400 <c>cursor-filter-mismatch</c>.
     /// </para>
     /// <para>
-    /// <c>ownerUserId</c> — slice 9 / E2 (spec §6.5): optional filter that narrows
-    /// the result set to applications whose <c>OwnerUserId</c> matches the supplied
-    /// guid. When non-null, the value is validated up-front against
-    /// <see cref="IUserDirectory"/> (which is tenant-scoped, so an id from another
-    /// tenant validates as "not found"). A miss surfaces as 422 <c>invalid-owner</c>.
-    /// The validation lives at the endpoint level rather than in the handler so the
-    /// handler's <c>Task&lt;CursorPage&lt;T&gt;&gt;</c> return shape stays compliant
-    /// with the pagination-convention architecture rule (no result-record wrapper).
-    /// Mirrors the slice-8 <c>invalid-team</c> envelope pattern in
+    /// <c>createdByUserId</c> — slice 9 / E2 (spec §6.5), reframed slice 10 /
+    /// ADR-0103: optional filter that narrows the result set to applications whose
+    /// <c>CreatedByUserId</c> matches the supplied guid. When non-null, the value is
+    /// validated up-front against <see cref="IUserDirectory"/> (which is
+    /// tenant-scoped, so an id from another tenant validates as "not found"). A miss
+    /// surfaces as 422 <c>invalid-created-by</c>. The validation lives at the
+    /// endpoint level rather than in the handler so the handler's
+    /// <c>Task&lt;CursorPage&lt;T&gt;&gt;</c> return shape stays compliant with the
+    /// pagination-convention architecture rule (no result-record wrapper). Mirrors
+    /// the slice-8 <c>invalid-team</c> envelope pattern in
     /// <see cref="AssignApplicationTeamAsync"/>.
     /// </para>
     /// </summary>
@@ -84,7 +101,7 @@ internal static class CatalogEndpointDelegates
         [FromQuery] string? cursor,
         [FromQuery] string? limit,
         [FromQuery] bool? includeDecommissioned,
-        [FromQuery] Guid? ownerUserId,
+        [FromQuery] Guid? createdByUserId,
         ListApplicationsHandler handler,
         CatalogDbContext db,
         IUserDirectory directory,
@@ -97,20 +114,20 @@ internal static class CatalogEndpointDelegates
         var (parsedSortBy, parsedSortOrder, effectiveLimit) = CursorListBinding.Bind<ApplicationSortField>(
             sortBy, sortOrder, limit, ApplicationSortSpecs.AllowedFieldNames);
 
-        // Resource gate: when ?ownerUserId= is supplied, validate it resolves to a
+        // Resource gate: when ?createdByUserId= is supplied, validate it resolves to a
         // user in the current tenant BEFORE invoking the handler. IUserDirectory is
         // already RLS-scoped so an id from another tenant returns null; we surface
         // both "unknown id" and "cross-tenant id" with the same 422 envelope. Mirror
         // of the slice-8 AssignApplicationTeam invalid-team pattern below.
-        if (ownerUserId is { } ownerToValidate)
+        if (createdByUserId is { } createdByToValidate)
         {
-            var user = await directory.GetAsync(ownerToValidate, ct);
+            var user = await directory.GetAsync(createdByToValidate, ct);
             if (user is null)
             {
                 return Results.Problem(
-                    type: ProblemTypes.InvalidOwner,
-                    title: "Invalid owner",
-                    detail: "The supplied ownerUserId does not resolve to a user in the current tenant.",
+                    type: ProblemTypes.InvalidCreatedBy,
+                    title: "Invalid created-by",
+                    detail: "The supplied createdByUserId does not resolve to a user in the current tenant.",
                     statusCode: StatusCodes.Status422UnprocessableEntity);
             }
         }
@@ -121,7 +138,7 @@ internal static class CatalogEndpointDelegates
             Cursor: cursor,
             Limit: effectiveLimit,
             IncludeDecommissioned: includeDecommissioned ?? false,
-            OwnerUserId: ownerUserId);
+            CreatedByUserId: createdByUserId);
 
         var page = await handler.Handle(query, db, ct);
         return Results.Ok(page);
@@ -227,8 +244,8 @@ internal static class CatalogEndpointDelegates
     }
 
     /// <summary>
-    /// PUT /applications/{id}/team — assigns (or unassigns) the team that owns
-    /// the application. Slice 8 / ADR-0098 §6.4.
+    /// PUT /applications/{id}/team — reassigns the team that owns the application
+    /// (required, no unassign — ADR-0103). Slice 8 / ADR-0098 §6.4.
     /// <para>
     /// Two-gate authorization: the claim gate
     /// (<c>KartovaPermissions.CatalogApplicationsEditMetadata</c>) is applied
@@ -241,13 +258,10 @@ internal static class CatalogEndpointDelegates
     /// Pre-load + handler-reload mirrors <c>UpdateTeamAsync</c>: the pre-load
     /// is needed to evaluate the resource policy; the handler reload defends
     /// against a concurrent delete between the two reads (defensive 404).
-    /// Invalid team (non-null id that does not exist in the tenant) surfaces
-    /// as 422 <c>invalid-team</c> per spec §6.4. A Decommissioned target app
-    /// throws <c>InvalidLifecycleTransitionException</c> inside the domain
-    /// method ONLY when <c>teamId</c> is non-null — null-unassign succeeds on
-    /// any lifecycle (slice-8 boundary-review carve-out so OrgAdmin can release
-    /// a team before deleting it). The shared lifecycle handler maps the
-    /// non-null Decommissioned throw to 409.
+    /// Invalid team (id that does not exist in the tenant) surfaces as 422
+    /// <c>invalid-team</c> per spec §6.4. A Decommissioned target app throws
+    /// <c>InvalidLifecycleTransitionException</c> inside the domain method; the
+    /// shared lifecycle handler maps it to 409.
     /// </para>
     /// <para>
     /// Slice-8 boundary-review fix SF-2: a target-team membership check runs
@@ -256,7 +270,7 @@ internal static class CatalogEndpointDelegates
     /// belong to — that would orphan them from the app on the very next
     /// request. The SPA picker already hides such targets; this is the
     /// server-side enforcement so non-SPA clients cannot bypass it. OrgAdmin
-    /// and null-teamId (unassign) paths are unaffected.
+    /// is unaffected.
     /// </para>
     /// </summary>
     internal static async Task<IResult> AssignApplicationTeamAsync(
@@ -273,12 +287,9 @@ internal static class CatalogEndpointDelegates
         if (gate is not null) return gate;
 
         // Target-team check (SF-2): block non-OrgAdmin callers from moving the
-        // app to a team they aren't a member of. OrgAdmin always allowed;
-        // null teamId (unassign) always allowed for callers who already passed
-        // the source-team gate above.
-        if (request.TeamId is { } targetTeamId
-            && !user.IsInRole(KartovaRoles.OrgAdmin)
-            && !currentUser.TeamIds.Contains(targetTeamId))
+        // app to a team they aren't a member of. OrgAdmin always allowed.
+        if (!user.IsInRole(KartovaRoles.OrgAdmin)
+            && !currentUser.TeamIds.Contains(request.TeamId))
         {
             return Results.Forbid();
         }

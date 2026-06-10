@@ -15,8 +15,10 @@ namespace Kartova.Catalog.Infrastructure;
 /// already includes <c>typeof(CatalogModule).Assembly</c>, so this handler is
 /// picked up automatically.
 ///
-/// Tenant id and owner user id are sourced from <see cref="ITenantScope"/> and
-/// <see cref="ICurrentUser"/> respectively (ADR-0090) — not from the payload.
+/// Tenant id and created-by user id are sourced from <see cref="ITenantScope"/> and
+/// <see cref="ICurrentUser"/> respectively (ADR-0090) — not from the payload. The
+/// owning team id (<c>cmd.TeamId</c>, required per ADR-0103) does come from the
+/// payload; the delegate validates it exists in the tenant before dispatching here.
 /// </summary>
 public sealed class RegisterApplicationHandler
 {
@@ -32,7 +34,7 @@ public sealed class RegisterApplicationHandler
         CancellationToken ct)
     {
         var app = Kartova.Catalog.Domain.Application.Create(
-            cmd.DisplayName, cmd.Description, user.UserId, tenant.Id, _clock);
+            cmd.DisplayName, cmd.Description, user.UserId, cmd.TeamId, tenant.Id, _clock);
         db.Applications.Add(app);
         await db.SaveChangesAsync(ct);
         return app.ToResponse();

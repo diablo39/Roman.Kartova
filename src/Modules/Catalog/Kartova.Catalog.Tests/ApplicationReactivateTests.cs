@@ -14,21 +14,22 @@ namespace Kartova.Catalog.Tests;
 public sealed class ApplicationReactivateTests
 {
     private static readonly TenantId Tenant = new(Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"));
-    private static readonly Guid Owner = Guid.Parse("bbbbbbbb-0000-0000-0000-000000000001");
+    private static readonly Guid Creator = Guid.Parse("bbbbbbbb-0000-0000-0000-000000000001");
+    private static readonly Guid Team = Guid.Parse("cccccccc-0000-0000-0000-000000000001");
     private static readonly DateTimeOffset Now = new(2026, 5, 22, 12, 0, 0, TimeSpan.Zero);
 
     private static FakeTimeProvider Clock(DateTimeOffset? now = null) => TestClocks.At(now ?? Now);
 
     private static DomainApplication NewDeprecated(DateTimeOffset sunsetDate)
     {
-        var app = DomainApplication.Create("My App", "Desc.", Owner, Tenant, Clock());
+        var app = DomainApplication.Create("My App", "Desc.", Creator, Team, Tenant, Clock());
         app.Deprecate(sunsetDate, Clock());
         return app;
     }
 
     private static DomainApplication NewDecommissioned()
     {
-        var app = DomainApplication.Create("My App", "Desc.", Owner, Tenant, Clock());
+        var app = DomainApplication.Create("My App", "Desc.", Creator, Team, Tenant, Clock());
         app.Deprecate(Now.AddDays(7), Clock());
         app.Decommission(Clock(Now.AddDays(8)));
         return app;
@@ -59,7 +60,7 @@ public sealed class ApplicationReactivateTests
     [TestMethod]
     public void Reactivate_from_Active_throws_InvalidLifecycleTransitionException()
     {
-        var app = DomainApplication.Create("My App", "Desc.", Owner, Tenant, Clock());
+        var app = DomainApplication.Create("My App", "Desc.", Creator, Team, Tenant, Clock());
 
         var ex = Assert.ThrowsExactly<InvalidLifecycleTransitionException>(() => app.Reactivate());
         Assert.AreEqual(Lifecycle.Active, ex.CurrentLifecycle);

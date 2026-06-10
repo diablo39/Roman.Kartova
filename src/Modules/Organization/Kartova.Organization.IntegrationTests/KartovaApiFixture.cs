@@ -308,13 +308,14 @@ public class KartovaApiFixture : KartovaApiFixtureBase
             .Options;
         await using var db = new CatalogDbContext(opts);
 
+        // ADR-0103: TeamId is required and set at creation (no separate AssignTeam needed).
         var app = DomainApplication.Create(
             displayName: name,
             description: "seeded for DeleteTeam 409 path",
-            ownerUserId: Guid.NewGuid(),
+            createdByUserId: Guid.NewGuid(),
+            teamId: teamId,
             tenantId: new TenantId(tenantId),
             createdAt: DateTimeOffset.UtcNow);
-        app.AssignTeam(teamId);
 
         db.Applications.Add(app);
         await db.SaveChangesAsync();
@@ -322,14 +323,14 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     }
 
     /// <summary>
-    /// Seeds one Catalog <see cref="DomainApplication"/> OWNED BY <paramref name="ownerUserId"/>
-    /// for the given tenant (no team). Returns the new app's id. Slice-10 — retained for R2
-    /// (rename OwnerUserId → CreatedByUserId) and other Catalog seeding needs. Inserts via EF on
+    /// Seeds one Catalog <see cref="DomainApplication"/> with the given
+    /// <paramref name="createdByUserId"/> (creation provenance, ADR-0103) and a required
+    /// owning <paramref name="teamId"/>. Returns the new app's id. Inserts via EF on
     /// a BYPASSRLS connection so RLS does not block the seed. Mirrors
     /// <see cref="SeedCatalogApplicationAssignedToTeamAsync"/>.
     /// </summary>
     public async Task<Guid> SeedCatalogApplicationOwnedByAsync(
-        Guid tenantId, Guid ownerUserId, string name)
+        Guid tenantId, Guid createdByUserId, Guid teamId, string name)
     {
         var opts = new DbContextOptionsBuilder<CatalogDbContext>()
             .UseNpgsql(BypassConnectionString)
@@ -338,32 +339,15 @@ public class KartovaApiFixture : KartovaApiFixtureBase
 
         var app = DomainApplication.Create(
             displayName: name,
-            description: "seeded for Offboard owner-reassignment path",
-            ownerUserId: ownerUserId,
+            description: "seeded with explicit created-by + team",
+            createdByUserId: createdByUserId,
+            teamId: teamId,
             tenantId: new TenantId(tenantId),
             createdAt: DateTimeOffset.UtcNow);
 
         db.Applications.Add(app);
         await db.SaveChangesAsync();
         return app.Id.Value;
-    }
-
-    /// <summary>
-    /// Reads the <c>owner_user_id</c> of a Catalog application via BYPASSRLS. Slice-10 Task 6 —
-    /// lets <c>OffboardMemberTests</c> verify the owner was reassigned to the successor without
-    /// going through the request-scoped (RLS-filtered) DbContext.
-    /// </summary>
-    public async Task<Guid?> ReadCatalogApplicationOwnerAsync(Guid applicationId)
-    {
-        var opts = new DbContextOptionsBuilder<CatalogDbContext>()
-            .UseNpgsql(BypassConnectionString)
-            .Options;
-        await using var db = new CatalogDbContext(opts);
-        var owners = await db.Applications
-            .Where(a => EF.Property<Guid>(a, "_id") == applicationId)
-            .Select(a => a.OwnerUserId)
-            .ToListAsync();
-        return owners.Count == 0 ? null : owners[0];
     }
 
     /// <summary>

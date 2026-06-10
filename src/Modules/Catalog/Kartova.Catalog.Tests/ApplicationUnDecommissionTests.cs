@@ -14,7 +14,8 @@ namespace Kartova.Catalog.Tests;
 public sealed class ApplicationUnDecommissionTests
 {
     private static readonly TenantId Tenant = new(Guid.Parse("aaaaaaaa-0000-0000-0000-000000000002"));
-    private static readonly Guid Owner = Guid.Parse("bbbbbbbb-0000-0000-0000-000000000002");
+    private static readonly Guid Creator = Guid.Parse("bbbbbbbb-0000-0000-0000-000000000002");
+    private static readonly Guid Team = Guid.Parse("cccccccc-0000-0000-0000-000000000002");
     private static readonly DateTimeOffset Now = new(2026, 5, 22, 12, 0, 0, TimeSpan.Zero);
 
     private static FakeTimeProvider Clock(DateTimeOffset? now = null) => TestClocks.At(now ?? Now);
@@ -22,7 +23,7 @@ public sealed class ApplicationUnDecommissionTests
     private static (DomainApplication app, FakeTimeProvider clock) NewDecommissioned()
     {
         var clock = new FakeTimeProvider(Now);
-        var app = DomainApplication.Create("My App", "Desc.", Owner, Tenant, clock);
+        var app = DomainApplication.Create("My App", "Desc.", Creator, Team, Tenant, clock);
         app.Deprecate(Now.AddDays(7), clock);
         clock.SetUtcNow(Now.AddDays(8));
         app.Decommission(clock);
@@ -44,7 +45,7 @@ public sealed class ApplicationUnDecommissionTests
     [TestMethod]
     public void UnDecommission_from_Active_throws_InvalidLifecycleTransitionException()
     {
-        var app = DomainApplication.Create("My App", "Desc.", Owner, Tenant, Clock());
+        var app = DomainApplication.Create("My App", "Desc.", Creator, Team, Tenant, Clock());
 
         var ex = Assert.ThrowsExactly<InvalidLifecycleTransitionException>(
             () => app.UnDecommission(Now.AddDays(30), Clock()));
@@ -56,7 +57,7 @@ public sealed class ApplicationUnDecommissionTests
     [TestMethod]
     public void UnDecommission_from_Deprecated_throws_InvalidLifecycleTransitionException()
     {
-        var app = DomainApplication.Create("My App", "Desc.", Owner, Tenant, Clock());
+        var app = DomainApplication.Create("My App", "Desc.", Creator, Team, Tenant, Clock());
         app.Deprecate(Now.AddDays(7), Clock());
 
         var ex = Assert.ThrowsExactly<InvalidLifecycleTransitionException>(

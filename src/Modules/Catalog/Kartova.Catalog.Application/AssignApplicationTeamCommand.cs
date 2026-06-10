@@ -3,10 +3,10 @@ using DomainApplication = Kartova.Catalog.Domain.Application;
 namespace Kartova.Catalog.Application;
 
 /// <summary>
-/// Assign (or unassign) the team that owns a catalog application. <c>TeamId</c>
-/// is nullable: <c>null</c> means "unassign". Slice 8 / ADR-0098 §6.
+/// Reassign the team that owns a catalog application. <c>TeamId</c> is required
+/// (ADR-0103: no ownerless apps — there is no unassign). Slice 8 / ADR-0098 §6.
 /// </summary>
-public sealed record AssignApplicationTeamCommand(Guid Id, Guid? TeamId);
+public sealed record AssignApplicationTeamCommand(Guid Id, Guid TeamId);
 
 /// <summary>
 /// Result envelope for <see cref="AssignApplicationTeamCommand"/>. Three terminal
