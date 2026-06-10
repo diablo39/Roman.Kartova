@@ -1,6 +1,7 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 
@@ -81,9 +82,46 @@ describe("MembersListPage", () => {
     render(<MembersListPage />, { wrapper: harness(qc) });
 
     await waitFor(() => expect(screen.getByText("Bob")).toBeInTheDocument());
-    expect(screen.getByText("Member")).toBeInTheDocument();
+    // "Member" appears in both the role option and the table cell — assert at least one table cell contains it.
+    expect(screen.getAllByText("Member").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole("button", { name: /change role/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /remove/i })).toBeInTheDocument();
+  });
+
+  it("passes role to apiClient.GET when role filter is changed", async () => {
+    mockPermissions([KartovaPermissions.OrgUsersRead]);
+
+    const get = vi.fn().mockResolvedValue({
+      data: pageOf([]),
+      error: undefined,
+    });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get,
+      POST: vi.fn(),
+      PUT: vi.fn(),
+      DELETE: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<MembersListPage />, { wrapper: harness(qc) });
+
+    // Wait for initial load.
+    await waitFor(() => expect(get).toHaveBeenCalled());
+    get.mockClear();
+
+    // Select "OrgAdmin" from the role filter.
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: /filter by role/i }), "OrgAdmin");
+
+    await waitFor(() =>
+      expect(get).toHaveBeenCalledWith(
+        "/api/v1/organizations/users",
+        expect.objectContaining({
+          params: expect.objectContaining({
+            query: expect.objectContaining({ role: "OrgAdmin" }),
+          }),
+        }),
+      ),
+    );
   });
 
   it("hides Change role and Remove buttons when caller only has OrgUsersRead", async () => {

@@ -20,12 +20,24 @@ const SUCCESSOR = {
   email: "successor@example.com",
 } as const;
 
+// Capture the last excludeUserId prop for assertion in tests.
+let capturedExcludeUserId: string | undefined;
+
 vi.mock("@/features/users/components/UserSearchCombobox", () => ({
-  UserSearchCombobox: ({ onSelect }: { onSelect: (u: typeof SUCCESSOR) => void }) => (
-    <button type="button" data-testid="mock-successor-pick" onClick={() => onSelect(SUCCESSOR)}>
-      Pick successor
-    </button>
-  ),
+  UserSearchCombobox: ({
+    onSelect,
+    excludeUserId,
+  }: {
+    onSelect: (u: typeof SUCCESSOR) => void;
+    excludeUserId?: string;
+  }) => {
+    capturedExcludeUserId = excludeUserId;
+    return (
+      <button type="button" data-testid="mock-successor-pick" onClick={() => onSelect(SUCCESSOR)}>
+        Pick successor
+      </button>
+    );
+  },
 }));
 
 // Mock the offboard mutation hook.
@@ -146,6 +158,12 @@ describe("OffboardMemberConfirmDialog", () => {
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith("Unprocessable Entity"),
     );
+  });
+
+  it("passes the target userId as excludeUserId to UserSearchCombobox so the member cannot pick themselves as successor", () => {
+    capturedExcludeUserId = undefined;
+    setup({ userId: USER_ID });
+    expect(capturedExcludeUserId).toBe(USER_ID);
   });
 
   it("resets selected successor when dialog closes", async () => {

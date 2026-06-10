@@ -67,6 +67,7 @@ export function OffboardMemberConfirmDialog({ userId, displayName, open, onOpenC
             <UserSearchCombobox
               onSelect={(user) => setSuccessor(user)}
               placeholder="Search for a successor…"
+              excludeUserId={userId}
             />
             {successor && (
               <p className="text-xs text-tertiary">

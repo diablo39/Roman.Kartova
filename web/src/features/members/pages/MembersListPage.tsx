@@ -11,6 +11,16 @@ import { KartovaPermissions } from "@/shared/auth/permissions";
 
 const ALLOWED_SORT_FIELDS = ["displayName", "role", "createdAt"] as const;
 
+const ROLE_OPTIONS = [
+  { label: "All roles", value: "all" },
+  { label: "Viewer", value: "Viewer" },
+  { label: "Member", value: "Member" },
+  { label: "OrgAdmin", value: "OrgAdmin" },
+] as const;
+
+/** Debounce window (ms) — matches UserSearchCombobox. */
+const DEBOUNCE_MS = 250;
+
 export function MembersListPage() {
   const { sortBy, sortOrder } = useListUrlState({
     defaultSortBy: "displayName",
@@ -18,7 +28,20 @@ export function MembersListPage() {
     allowedSortFields: ALLOWED_SORT_FIELDS,
   });
 
-  const list = useMembersList({ sortBy, sortOrder });
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [searchInput, setSearchInput] = useState<string>("");
+  const [debouncedQ, setDebouncedQ] = useState<string>("");
+
+  // Debounce searchInput → debouncedQ, mirroring UserSearchCombobox's pattern.
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebouncedQ(searchInput), DEBOUNCE_MS);
+    return () => window.clearTimeout(id);
+  }, [searchInput]);
+
+  const effectiveRole = roleFilter === "all" ? undefined : roleFilter;
+  const effectiveQ = debouncedQ.trim().length >= 2 ? debouncedQ.trim() : undefined;
+
+  const list = useMembersList({ sortBy, sortOrder, role: effectiveRole, q: effectiveQ });
 
   const { hasPermission, isLoading: permissionsLoading } = usePermissions();
   const canChangeRole = !permissionsLoading && hasPermission(KartovaPermissions.OrgUsersRoleChange);
@@ -37,6 +60,29 @@ export function MembersListPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold text-primary">Members</h2>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <select
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value)}
+          aria-label="Filter by role"
+          className="rounded-lg border border-secondary bg-primary px-3 py-2 text-sm text-primary shadow-xs outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+        >
+          {ROLE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <input
+          type="text"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="Search by name or email…"
+          aria-label="Search members"
+          className="w-72 rounded-lg border border-secondary bg-primary px-3 py-2 text-sm text-primary shadow-xs outline-none placeholder:text-tertiary focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+        />
       </div>
 
       {list.isError ? (

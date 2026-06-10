@@ -18,6 +18,11 @@ interface Props {
   onSelect: (user: UserSummaryResponse) => void;
   /** Placeholder for the visible input. */
   placeholder?: string;
+  /**
+   * Optional user id to exclude from rendered suggestions. Prevents the
+   * offboard flow from offering a member as their own successor.
+   */
+  excludeUserId?: string;
 }
 
 /**
@@ -53,7 +58,7 @@ const DEBOUNCE_MS = 250;
  *   - Click-outside closes the dropdown (mousedown listener on document so
  *     the click that *opens* a different focus target wins).
  */
-export function UserSearchCombobox({ onSelect, placeholder = "Search users…" }: Props) {
+export function UserSearchCombobox({ onSelect, placeholder = "Search users…", excludeUserId }: Props) {
   const listboxId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -98,7 +103,9 @@ export function UserSearchCombobox({ onSelect, placeholder = "Search users…" }
     setActiveIndex(null);
   };
 
-  const results = search.data ?? [];
+  const results = (search.data ?? []).filter(
+    (u) => !excludeUserId || u.id !== excludeUserId,
+  );
   // Dropdown is "active" when the user is interacting with the box AND has
   // typed enough to meaningfully render something — keeps the focus->no-query
   // gap from flashing a noisy empty dropdown.
