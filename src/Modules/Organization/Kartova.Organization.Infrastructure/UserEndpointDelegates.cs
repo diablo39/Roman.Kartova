@@ -130,6 +130,38 @@ internal static class UserEndpointDelegates
         }
         return Results.Ok(user);
     }
+
+    /// <summary>
+    /// <c>PUT /users/{id}/role</c>: OrgAdmin changes a member's realm role
+    /// (Viewer / Member / OrgAdmin). KeyCloak is the source of truth; the
+    /// <c>users.realm_role</c> projection column is a write-through cache
+    /// (ADR-0102 / slice-10 Task 5). Guard: cannot demote the last OrgAdmin.
+    /// </summary>
+    internal static async Task<IResult> ChangeMemberRoleAsync(
+        Guid id, [FromBody] UpdateMemberRoleRequest request,
+        ChangeMemberRoleHandler handler, OrganizationDbContext db, CancellationToken ct)
+    {
+        var result = await handler.Handle(new ChangeMemberRoleCommand(id, request.Role), db, ct);
+        if (result.InvalidRole)
+            return Results.Problem(
+                type: ProblemTypes.ValidationFailed,
+                title: "Invalid role",
+                detail: $"Role must be one of: {string.Join(", ", KartovaRoles.All)}.",
+                statusCode: StatusCodes.Status422UnprocessableEntity);
+        if (result.NotFound)
+            return Results.Problem(
+                type: ProblemTypes.ResourceNotFound,
+                title: "Member not found",
+                detail: $"No member with id {id}.",
+                statusCode: StatusCodes.Status404NotFound);
+        if (result.LastOrgAdmin)
+            return Results.Problem(
+                type: ProblemTypes.LastOrgAdmin,
+                title: "Cannot demote the last OrgAdmin",
+                detail: "The organization must retain at least one OrgAdmin.",
+                statusCode: StatusCodes.Status409Conflict);
+        return Results.NoContent();
+    }
 }
 
 /// <summary>
@@ -159,5 +191,13 @@ internal static class UserRoutes
             .WithName("GetUserDetail")
             .Produces<UserDetailResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound);
+
+        tenant.MapPut("/users/{id:guid}/role", UserEndpointDelegates.ChangeMemberRoleAsync)
+            .RequireAuthorization(KartovaPermissions.OrgUsersRoleChange)
+            .WithName("ChangeMemberRole")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
     }
 }

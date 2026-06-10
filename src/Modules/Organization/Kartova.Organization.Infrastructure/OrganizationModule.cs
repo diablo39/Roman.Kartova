@@ -118,6 +118,7 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
         services.AddScoped<GetTeamHandler>();
         services.AddScoped<ListTeamsHandler>();
         services.AddScoped<ListMembersHandler>();
+        services.AddScoped<ChangeMemberRoleHandler>();
 
         // Invitation lifecycle handlers (slice 9 spec §6.7) — same direct-
         // dispatch pattern as the Team handlers above.
