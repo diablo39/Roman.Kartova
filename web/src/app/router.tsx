@@ -12,6 +12,7 @@ import { InvitationsPage } from "@/features/organization/pages/InvitationsPage";
 import { UserDetailPage } from "@/features/users/pages/UserDetailPage";
 import { CallbackPage } from "./CallbackPage";
 import { AcceptInvitationPage } from "@/features/invitations/pages/AcceptInvitationPage";
+import { MembersListPage } from "@/features/members/pages/MembersListPage";
 
 function ProtectedShell() {
   return (
@@ -44,6 +45,7 @@ export function AppRoutes() {
         <Route path="/settings/organization" element={<OrganizationSettingsPage />} />
         <Route path="/settings/invitations" element={<InvitationsPage />} />
         <Route path="/users/:id" element={<UserDetailPage />} />
+        <Route path="/members" element={<MembersListPage />} />
       </Route>
       <Route path="*" element={<div className="p-8 text-sm">Not found</div>} />
     </Routes>
