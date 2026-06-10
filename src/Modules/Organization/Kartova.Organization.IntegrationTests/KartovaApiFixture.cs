@@ -104,9 +104,9 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     /// </para>
     /// </summary>
     public async Task<Guid> SeedUserInOrganizationAsync(
-        TenantId tenantId, string displayName, string email, string realmRole = "Viewer")
+        TenantId tenantId, string displayName, string email, string realmRole = "Viewer", Guid? userId = null)
     {
-        var userId = Guid.NewGuid();
+        var resolvedUserId = userId ?? Guid.NewGuid();
         await using var conn = new NpgsqlConnection(BypassConnectionString);
         await conn.OpenAsync();
         await using var cmd = conn.CreateCommand();
@@ -114,13 +114,13 @@ public class KartovaApiFixture : KartovaApiFixtureBase
             INSERT INTO users (id, tenant_id, email, display_name, realm_role, created_at)
             VALUES ($1, $2, $3, $4, $5, NOW())
             """;
-        cmd.Parameters.AddWithValue(userId);
+        cmd.Parameters.AddWithValue(resolvedUserId);
         cmd.Parameters.AddWithValue(tenantId.Value);
         cmd.Parameters.AddWithValue(email);
         cmd.Parameters.AddWithValue(displayName);
         cmd.Parameters.AddWithValue(realmRole);
         await cmd.ExecuteNonQueryAsync();
-        return userId;
+        return resolvedUserId;
     }
 
     /// <summary>
@@ -319,6 +319,53 @@ public class KartovaApiFixture : KartovaApiFixtureBase
         db.Applications.Add(app);
         await db.SaveChangesAsync();
         return app.Id.Value;
+    }
+
+    /// <summary>
+    /// Seeds one Catalog <see cref="DomainApplication"/> OWNED BY <paramref name="ownerUserId"/>
+    /// for the given tenant (no team). Returns the new app's id. Slice-10 Task 6 — used by
+    /// <c>OffboardMemberTests</c> to drive the cross-module owner-reassignment happy path: the
+    /// Organization module's <c>OffboardMemberHandler</c> calls
+    /// <see cref="Kartova.SharedKernel.Multitenancy.IApplicationOwnerReassigner"/>, which transfers
+    /// this row's owner to the successor. Inserts via EF on a BYPASSRLS connection so RLS does not
+    /// block the seed. Mirrors <see cref="SeedCatalogApplicationAssignedToTeamAsync"/>.
+    /// </summary>
+    public async Task<Guid> SeedCatalogApplicationOwnedByAsync(
+        Guid tenantId, Guid ownerUserId, string name)
+    {
+        var opts = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseNpgsql(BypassConnectionString)
+            .Options;
+        await using var db = new CatalogDbContext(opts);
+
+        var app = DomainApplication.Create(
+            displayName: name,
+            description: "seeded for Offboard owner-reassignment path",
+            ownerUserId: ownerUserId,
+            tenantId: new TenantId(tenantId),
+            createdAt: DateTimeOffset.UtcNow);
+
+        db.Applications.Add(app);
+        await db.SaveChangesAsync();
+        return app.Id.Value;
+    }
+
+    /// <summary>
+    /// Reads the <c>owner_user_id</c> of a Catalog application via BYPASSRLS. Slice-10 Task 6 —
+    /// lets <c>OffboardMemberTests</c> verify the owner was reassigned to the successor without
+    /// going through the request-scoped (RLS-filtered) DbContext.
+    /// </summary>
+    public async Task<Guid?> ReadCatalogApplicationOwnerAsync(Guid applicationId)
+    {
+        var opts = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseNpgsql(BypassConnectionString)
+            .Options;
+        await using var db = new CatalogDbContext(opts);
+        var owners = await db.Applications
+            .Where(a => EF.Property<Guid>(a, "_id") == applicationId)
+            .Select(a => a.OwnerUserId)
+            .ToListAsync();
+        return owners.Count == 0 ? null : owners[0];
     }
 
     /// <summary>

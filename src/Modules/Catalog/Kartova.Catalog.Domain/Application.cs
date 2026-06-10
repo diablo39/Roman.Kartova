@@ -154,6 +154,23 @@ public sealed class Application : ITenantOwned, ITeamScopedResource
         TeamId = teamId;
     }
 
+    /// <summary>
+    /// Transfers ownership of this application to <paramref name="newOwnerUserId"/>. Used by the
+    /// cross-module <see cref="Kartova.SharedKernel.Multitenancy.IApplicationOwnerReassigner"/> port
+    /// when the Organization module offboards a member (slice-10 Task 6). No lifecycle guard:
+    /// ownership transfer is valid in any state — a Decommissioned app still needs a live owner so
+    /// the offboarded user's projection row can be removed.
+    /// </summary>
+    public void ReassignOwner(Guid newOwnerUserId)
+    {
+        if (newOwnerUserId == Guid.Empty)
+        {
+            throw new ArgumentException("newOwnerUserId is required.", nameof(newOwnerUserId));
+        }
+
+        OwnerUserId = newOwnerUserId;
+    }
+
     public void UnDecommission(DateTimeOffset newSunsetDate, TimeProvider clock)
     {
         if (Lifecycle != Lifecycle.Decommissioned)

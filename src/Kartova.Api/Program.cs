@@ -145,6 +145,14 @@ public class Program
         // Maps InvalidSortFieldException and InvalidCursorException to RFC 7807 400.
         builder.Services.AddExceptionHandler<PagingExceptionHandler>();
 
+        // KeyCloak upstream-failure → 502 mapping — slice-10 Task 6 (Part D).
+        // Maps an uncaught KeycloakAdminException (from ChangeMemberRoleHandler /
+        // OffboardMemberHandler) to RFC 7807 502 instead of a generic 500. Handlers
+        // that catch KC failures locally (CreateInvitationHandler) are unaffected —
+        // this only fires on exceptions that escape a handler. Order is immaterial:
+        // it matches solely on KeycloakAdminException, disjoint from the handlers above.
+        builder.Services.AddExceptionHandler<KeycloakAdminExceptionHandler>();
+
         // Admin bypass DbContext — separate BYPASSRLS connection string (ADR-0090).
         // Registered here (not in OrganizationModule) because OrganizationModule.Infrastructure
         // cannot project-reference Infrastructure.Admin (would be circular).
