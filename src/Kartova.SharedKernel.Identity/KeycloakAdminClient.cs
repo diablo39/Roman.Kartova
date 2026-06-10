@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Duende.IdentityModel.Client;
+using Kartova.SharedKernel.Multitenancy;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -158,6 +159,38 @@ internal sealed class KeycloakAdminClient(
             throw new KeycloakAdminException(KeycloakAdminError.Unauthorized, "Admin client unauthorized.");
         if (!resp.IsSuccessStatusCode)
             throw new KeycloakAdminException(KeycloakAdminError.Unexpected, $"KeyCloak update-user returned {(int)resp.StatusCode}.");
+    }
+
+    public async Task ChangeRealmRoleAsync(Guid userId, string newRole, CancellationToken ct)
+    {
+        var token = await GetTokenAsync(ct);
+
+        using var listReq = new HttpRequestMessage(HttpMethod.Get,
+            $"/admin/realms/{_realm}/users/{userId}/role-mappings/realm");
+        listReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var listResp = await http.SendAsync(listReq, ct);
+        if (listResp.StatusCode == HttpStatusCode.NotFound)
+            throw new KeycloakAdminException(KeycloakAdminError.NotFound, $"User {userId} not found.");
+        if (!listResp.IsSuccessStatusCode)
+            throw new KeycloakAdminException(KeycloakAdminError.Unexpected, $"KeyCloak list-roles returned {(int)listResp.StatusCode}.");
+        var current = await listResp.Content.ReadFromJsonAsync<RealmRole[]>(JsonOpts, ct) ?? [];
+
+        var toRemove = KeycloakRoleChange
+            .RolesToRemove(current.Select(r => (r.Id, r.Name)), newRole)
+            .Select(t => new RealmRole(t.Id, t.Name))
+            .ToArray();
+        if (toRemove.Length > 0)
+        {
+            using var delReq = new HttpRequestMessage(HttpMethod.Delete,
+                $"/admin/realms/{_realm}/users/{userId}/role-mappings/realm")
+            { Content = JsonContent.Create(toRemove, options: JsonOpts) };
+            delReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var delResp = await http.SendAsync(delReq, ct);
+            if (!delResp.IsSuccessStatusCode)
+                throw new KeycloakAdminException(KeycloakAdminError.Unexpected, $"KeyCloak remove-roles returned {(int)delResp.StatusCode}.");
+        }
+
+        await AssignRealmRoleAsync(userId, newRole, ct);
     }
 
     private async Task<string> GetTokenAsync(CancellationToken ct)

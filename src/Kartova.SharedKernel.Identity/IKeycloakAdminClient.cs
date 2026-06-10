@@ -132,4 +132,18 @@ public interface IKeycloakAdminClient
     /// Used to finalize an invited user after they set their password.</summary>
     /// <exception cref="KeycloakAdminException">NotFound (user gone) / Unauthorized / Unexpected.</exception>
     Task UpdateUserAsync(Guid userId, UpdateKeycloakUserRequest request, CancellationToken ct);
+
+    /// <summary>
+    /// Removes every Kartova business realm role (Viewer/Member/OrgAdmin) the user currently holds
+    /// that differs from <paramref name="newRole"/>, then assigns <paramref name="newRole"/>.
+    /// KeyCloak is the source of truth for realm roles.
+    /// </summary>
+    /// <param name="userId">KeyCloak user id.</param>
+    /// <param name="newRole">Target realm role name — must be one of <c>KartovaRoles.All</c>.</param>
+    /// <param name="ct">Cancellation token tied to the request lifetime.</param>
+    /// <exception cref="KeycloakAdminException">
+    /// Thrown with <see cref="KeycloakAdminError.NotFound"/> when the user or role is not found;
+    /// <see cref="KeycloakAdminError.Unexpected"/> for any other non-2xx response.
+    /// </exception>
+    Task ChangeRealmRoleAsync(Guid userId, string newRole, CancellationToken ct);
 }
