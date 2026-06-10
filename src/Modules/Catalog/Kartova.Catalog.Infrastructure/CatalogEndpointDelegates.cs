@@ -30,7 +30,8 @@ internal static class CatalogEndpointDelegates
         RegisterApplicationHandler handler,
         CatalogDbContext db,
         ITenantContext tenant,
-        ICurrentUser user,
+        ClaimsPrincipal caller,
+        ICurrentUser currentUser,
         IOrganizationTeamExistenceChecker teamChecker,
         CancellationToken ct)
     {
@@ -49,9 +50,21 @@ internal static class CatalogEndpointDelegates
                 statusCode: StatusCodes.Status422UnprocessableEntity);
         }
 
+        // Target-team membership gate (mirrors assign-team SF-2): a non-OrgAdmin
+        // caller cannot register a new application into a team they do not belong to —
+        // that would immediately leave them without access to the app they just created.
+        // The SPA picker already hides teams the caller is not a member of; this is
+        // the server-side enforcement so non-SPA clients cannot bypass it.
+        // OrgAdmin is unaffected (global scope, never team-restricted).
+        if (!caller.IsInRole(KartovaRoles.OrgAdmin)
+            && !currentUser.TeamIds.Contains(request.TeamId))
+        {
+            return Results.Forbid();
+        }
+
         var response = await handler.Handle(
             new RegisterApplicationCommand(request.DisplayName, request.Description, request.TeamId),
-            db, tenant, user, ct);
+            db, tenant, currentUser, ct);
 
         return Results.Created($"/api/v1/catalog/applications/{response.Id}", response);
     }

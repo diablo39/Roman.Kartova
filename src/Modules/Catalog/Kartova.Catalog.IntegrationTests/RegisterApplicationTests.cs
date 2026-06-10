@@ -1,8 +1,10 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Pagination;
 using Kartova.Testing.Auth;
 
@@ -249,5 +251,104 @@ public class RegisterApplicationTests : CatalogIntegrationTestBase
 
         var orgbTenantId = await Fx.GetTenantIdClaimAsync("admin@orgb.kartova.local");
         Assert.IsTrue(rows.All(x => x.TenantId == orgbTenantId));
+    }
+
+    // ── Membership gate tests (mirrors assign-team SF-2) ────────────────────
+
+    // OrgAdmin 201: existing happy-path tests (POST_with_valid_payload_creates_row_and_returns_201
+    // et al.) already cover this — they all use CreateAuthenticatedClientAsync which defaults to
+    // OrgAdmin. The explicit test below documents the gate semantics.
+    [TestMethod]
+    public async Task POST_OrgAdmin_registers_into_any_team_returns_201()
+    {
+        // OrgAdmin is unaffected by the membership gate — they may register an app
+        // into any tenant team regardless of personal team membership.
+        // Note: subject must be a valid Guid because RegisterApplicationHandler uses
+        // ICurrentUser.UserId (Guid.Parse("sub")) for the createdByUserId column.
+        var tenant = new TenantId(Guid.Parse("aaaaaaaa-0040-0040-0040-000000000001"));
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenant, "Reg-Gate-OrgAdmin");
+        try
+        {
+            var client = Fx.CreateClient();
+            var token = Fx.Signer.IssueForTenant(
+                tenant,
+                new[] { KartovaRoles.OrgAdmin },
+                subject: Guid.NewGuid().ToString());
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var resp = await client.PostAsJsonAsync(
+                "/api/v1/catalog/applications",
+                new RegisterApplicationRequest("Gate-OrgAdmin App", "desc", teamId));
+
+            Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode);
+        }
+        finally
+        {
+            await Fx.DeleteApplicationsByPrefixAsync(tenant, "Gate-OrgAdmin App");
+            await Fx.DeleteTeamsForTenantAsync(tenant.Value);
+        }
+    }
+
+    [TestMethod]
+    public async Task POST_Member_who_IS_member_of_team_registers_into_that_team_returns_201()
+    {
+        // Control case: a Member that belongs to team T may register an app into T.
+        // TeamIds is populated by ITeamMembershipReader from the DB (not the JWT), so
+        // we must seed a team_members row AND issue a JWT whose sub matches the seeded userId.
+        var tenant = new TenantId(Guid.Parse("aaaaaaaa-0040-0040-0040-000000000002"));
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenant, "Reg-Gate-MemberIn");
+        var memberId = Guid.NewGuid();
+        await Fx.SeedTeamMembershipAsync(teamId, memberId, roleByte: 1 /* Member */);
+        try
+        {
+            var client = Fx.CreateClient();
+            var token = Fx.Signer.IssueForTenant(
+                tenant,
+                new[] { KartovaRoles.Member },
+                subject: memberId.ToString());
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var resp = await client.PostAsJsonAsync(
+                "/api/v1/catalog/applications",
+                new RegisterApplicationRequest("Gate-MemberIn App", "desc", teamId));
+
+            Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode);
+        }
+        finally
+        {
+            await Fx.DeleteApplicationsByPrefixAsync(tenant, "Gate-MemberIn App");
+            await Fx.DeleteTeamsForTenantAsync(tenant.Value);
+        }
+    }
+
+    [TestMethod]
+    public async Task POST_Member_who_is_NOT_member_of_team_registers_into_that_team_returns_403()
+    {
+        // Security fix: a Member that does NOT belong to the target team must be
+        // rejected with 403 before the application row is created. This closes the
+        // authz asymmetry between register and assign-team (SF-2 mirror).
+        var tenant = new TenantId(Guid.Parse("aaaaaaaa-0040-0040-0040-000000000003"));
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenant, "Reg-Gate-MemberOut");
+        try
+        {
+            var client = Fx.CreateClient();
+            // Caller has a valid Member JWT but no team_members row for this team —
+            // ITeamMembershipReader returns an empty set, so TeamIds.Contains(teamId) = false.
+            var token = Fx.Signer.IssueForTenant(
+                tenant,
+                new[] { KartovaRoles.Member },
+                subject: Guid.NewGuid().ToString());
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var resp = await client.PostAsJsonAsync(
+                "/api/v1/catalog/applications",
+                new RegisterApplicationRequest("Gate-MemberOut App", "desc", teamId));
+
+            Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
+        }
+        finally
+        {
+            await Fx.DeleteTeamsForTenantAsync(tenant.Value);
+        }
     }
 }

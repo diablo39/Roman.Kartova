@@ -33,6 +33,10 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .WithName("RegisterApplication")
               .Produces<ApplicationResponse>(StatusCodes.Status201Created)
               .ProducesProblem(StatusCodes.Status400BadRequest)
+              // Membership gate (mirrors assign-team SF-2): non-OrgAdmin callers that
+              // are not a member of the supplied teamId are rejected with 403 before
+              // the handler runs. OrgAdmin is unaffected.
+              .ProducesProblem(StatusCodes.Status403Forbidden)
               // ADR-0103: 422 invalid-team when the supplied teamId does not resolve
               // to a team in the current tenant.
               .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
