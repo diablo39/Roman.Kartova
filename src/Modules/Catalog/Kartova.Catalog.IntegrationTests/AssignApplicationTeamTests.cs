@@ -55,16 +55,18 @@ public sealed class AssignApplicationTeamTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
-    public async Task OrgAdmin_unassigns_Decommissioned_app_team_returns_200()
+    public async Task Reassigning_Decommissioned_app_to_another_team_returns_409()
     {
-        // Slice-8 boundary-review carve-out: AssignTeam(null) is allowed on any
-        // lifecycle, including Decommissioned, so OrgAdmin can release a team
-        // before deleting it. This endpoint-level test mirrors the domain unit
-        // test (Application.AssignTeam_null_when_Decommissioned_does_not_throw).
+        // ADR-0103: AssignTeam is reassign-only and blocked on Decommissioned
+        // (terminal-write guard). Reassigning a Decommissioned app surfaces the
+        // shared lifecycle-conflict 409 (mirrors the domain unit test
+        // AssignTeam_when_Decommissioned_throws). Replaces the slice-8 unassign
+        // carve-out, which ADR-0103 removed (no ownerless apps).
         var tenant = new TenantId(Guid.Parse("aaaaaaaa-0020-0020-0020-000000000001"));
         var teamId = await Fx.SeedTeamInOrganizationAsync(tenant, "TeamForDecomm");
+        var otherTeamId = await Fx.SeedTeamInOrganizationAsync(tenant, "OtherTeamForDecomm");
         var appId = await Fx.SeedSingleApplicationAsync(tenant, Guid.NewGuid(), teamId,
-            namePrefix: "decomm-unassign");
+            namePrefix: "decomm-reassign");
         await Fx.SetApplicationLifecycleAsync(appId, Lifecycle.Decommissioned);
         try
         {
@@ -74,19 +76,13 @@ public sealed class AssignApplicationTeamTests : CatalogIntegrationTestBase
 
             var resp = await client.PutAsJsonAsync(
                 $"/api/v1/catalog/applications/{appId}/team",
-                new AssignTeamRequest(null));
+                new AssignTeamRequest(otherTeamId));
 
-            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
-
-            // Confirm persistence: GET reflects teamId=null.
-            var getResp = await client.GetAsync($"/api/v1/catalog/applications/{appId}");
-            Assert.AreEqual(HttpStatusCode.OK, getResp.StatusCode);
-            var body = await getResp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
-            Assert.IsNull(body!.TeamId);
+            Assert.AreEqual(HttpStatusCode.Conflict, resp.StatusCode);
         }
         finally
         {
-            await Fx.DeleteApplicationsByPrefixAsync(tenant, "decomm-unassign");
+            await Fx.DeleteApplicationsByPrefixAsync(tenant, "decomm-reassign");
             await Fx.DeleteTeamsForTenantAsync(tenant.Value);
         }
     }
@@ -263,40 +259,4 @@ public sealed class AssignApplicationTeamTests : CatalogIntegrationTestBase
         }
     }
 
-    [TestMethod]
-    public async Task Member_in_team_A_unassigning_app_succeeds_even_if_caller_only_in_source_team()
-    {
-        // SF-2 boundary: null teamId (unassign) is always allowed for callers
-        // who pass the source-team gate, regardless of target-team membership
-        // (there is no target team). Otherwise a team Member could never release
-        // an app from their team without being a Member of "nothing".
-        var tenant = new TenantId(Guid.Parse("aaaaaaaa-0030-0030-0030-000000000003"));
-        var teamA = await Fx.SeedTeamInOrganizationAsync(tenant, "Team A only");
-
-        var memberId = Guid.NewGuid();
-        await Fx.SeedTeamMembershipAsync(teamA, memberId, MemberRole);
-
-        var appId = await Fx.SeedSingleApplicationAsync(tenant, Guid.NewGuid(), teamId: teamA,
-            namePrefix: "sf2-unassign");
-        try
-        {
-            var client = Fx.CreateClient();
-            var token = Fx.Signer.IssueForTenant(
-                tenant,
-                new[] { KartovaRoles.Member },
-                subject: memberId.ToString());
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-            var resp = await client.PutAsJsonAsync(
-                $"/api/v1/catalog/applications/{appId}/team",
-                new AssignTeamRequest(null));
-
-            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
-        }
-        finally
-        {
-            await Fx.DeleteApplicationsByPrefixAsync(tenant, "sf2-unassign");
-            await Fx.DeleteTeamsForTenantAsync(tenant.Value);
-        }
-    }
 }

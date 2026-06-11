@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Http.Headers;
+using Kartova.SharedKernel.Multitenancy;
 using Kartova.Testing.Auth;
 
 namespace Kartova.Organization.IntegrationTests;
@@ -23,7 +24,7 @@ public class StreamingDurabilityTests : OrganizationFaultInjectionTestBase
         {
             var client = Fx.CreateClient();
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-                "Bearer", Fx.Signer.IssueForTenant(SeededOrgs.OrgA, new[] { "OrgAdmin" }));
+                "Bearer", Fx.Signer.IssueForTenant(SeededOrgs.OrgA, new[] { KartovaRoles.OrgAdmin }));
 
             var resp = await client.GetAsync("/__test/stream");
 

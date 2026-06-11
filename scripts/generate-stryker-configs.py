@@ -28,12 +28,15 @@ Skipped projects
   test. Re-add to ROUTES + `mutation-targets.json` once a slice introduces
   tenant-scoped messaging.
 
-Root `stryker-config.json` (kept)
----------------------------------
-Used by direct `dotnet stryker` invocations (no manifest, no module routing).
-Lists only the unit test projects so manual local runs stay fast. The
-mutation-sentinel skill goes through `mutation-targets.json` and never
-references the root config.
+Root `stryker-config.json`
+--------------------------
+Now generated from the same BASE as the per-module configs (see the
+`stryker-config.json` route below), so it can never drift on shared deltas
+(mutate excludes, ignore-mutations, ignore-methods) — `--validate` covers it
+like every other route. Used by direct `dotnet stryker` invocations (no
+manifest, no module routing); it lists only the unit test projects so manual
+local runs stay fast. The mutation-sentinel skill goes through
+`mutation-targets.json` and never references the root config.
 """
 from __future__ import annotations
 
@@ -60,18 +63,26 @@ BASE: dict = {
             "!**/obj/**",
             "!**/bin/**",
             "!**/*.g.cs",
-            "!**/*.designer.cs",
-            "!**/Program.cs",
-            "!**/*.Tests.cs",
-            "!**/*.migrations.cs",
             "!**/*.generated.cs",
-            "!**/*Designer.cs",
+            "!**/Program.cs",
+            "!**/*Module.cs",  # IModule composition roots — DI/Wolverine wiring, parallel to Program.cs (per CLAUDE.md)
+            "!**/*.Tests.cs",
             "!**/Migrations/**",
-            "!**/Connected Services/**",
+            "!**/*Dto.cs",  # pure data carriers — coverage-excluded per CLAUDE.md, low-value to mutate
+            "!**/*Request.cs",
+            "!**/*Response.cs",
         ],
         "ignore-methods": [
             "*ConfigureAwait*",
-            "*Log",
+            # ILogger calls — argument mutations are noise. Enumerated rather
+            # than `*Log` (suffix-only; never matched LogInformation/LogError/…)
+            # or `*Log*` (would also swallow Login/Logout call sites).
+            "LogTrace",
+            "LogDebug",
+            "LogInformation",
+            "LogWarning",
+            "LogError",
+            "LogCritical",
             "Console.Write*",
             "*Exception.ctor",
         ],
@@ -82,6 +93,16 @@ BASE: dict = {
 # Test-project paths are written exactly as Stryker expects them (relative,
 # leading `./`).
 ROUTES: dict[str, list[str]] = {
+    # Root config: used by direct `dotnet stryker` invocations (no --project,
+    # no manifest). Mutates the whole solution but lists only the fast unit
+    # test projects as oracles. Generated here so it shares BASE deltas with
+    # the per-module configs and is covered by --validate (it previously
+    # drifted by hand — e.g. missing the `Block` ignore).
+    "stryker-config.json": [
+        "./src/Modules/Catalog/Kartova.Catalog.Tests/Kartova.Catalog.Tests.csproj",
+        "./src/Modules/Organization/Kartova.Organization.Tests/Kartova.Organization.Tests.csproj",
+    ],
+
     # Web host: every endpoint runs through Kartova.Api, exercised by all
     # three integration test projects (Keycloak end-to-end + module-level).
     "src/Kartova.Api/stryker-config.json": [

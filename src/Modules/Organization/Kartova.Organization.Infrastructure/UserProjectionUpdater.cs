@@ -16,6 +16,7 @@ public sealed class UserProjectionUpdater(
         string email,
         string? givenName,
         string? familyName,
+        string realmRole,
         TenantId tenantId,
         CancellationToken ct)
     {
@@ -33,6 +34,7 @@ public sealed class UserProjectionUpdater(
                 GivenName = givenName,
                 FamilyName = familyName,
                 DisplayName = displayName,
+                RealmRole = realmRole,
                 LastSeenAt = now,
                 CreatedAt = now,
             });
@@ -43,6 +45,7 @@ public sealed class UserProjectionUpdater(
             existing.GivenName = givenName;
             existing.FamilyName = familyName;
             existing.DisplayName = displayName;
+            existing.RealmRole = realmRole;
             existing.LastSeenAt = now;
         }
         try

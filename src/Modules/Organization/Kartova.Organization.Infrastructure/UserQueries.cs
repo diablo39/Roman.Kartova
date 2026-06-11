@@ -14,10 +14,10 @@ namespace Kartova.Organization.Infrastructure;
 /// the current tenant.
 /// </summary>
 /// <remarks>
-/// Search uses <c>string.ToLower().Contains(...)</c> rather than
-/// <c>EF.Functions.ILike</c> so both the Postgres provider (which translates
-/// to <c>LOWER(...) LIKE</c>) and the InMemory provider used by unit tests
-/// execute the predicate. <c>ILike</c> is Npgsql-only and throws on InMemory.
+/// Search uses the shared <see cref="UserSearch.WhereTextMatches"/> predicate
+/// (<c>string.ToLower().Contains(...)</c> rather than <c>EF.Functions.ILike</c>) so both the
+/// Postgres provider (translates to <c>LOWER(...) LIKE</c>) and the InMemory provider used by
+/// unit tests execute it. <c>ILike</c> is Npgsql-only and throws on InMemory.
 /// </remarks>
 [BoundedListResult(
     "Typeahead search cap is 20 results (Math.Clamp at SearchAsync); not user-controlled paging.")]
@@ -47,8 +47,7 @@ public sealed class UserQueries
 
         return await _db.Users
             .AsNoTracking()
-            .Where(u => u.DisplayName.ToLower().Contains(lowered)
-                     || u.Email.ToLower().Contains(lowered))
+            .WhereTextMatches(lowered)
             .OrderBy(u => u.DisplayName)
             .Take(clipped)
             .Select(u => new UserSummaryResponse(u.Id, u.DisplayName, u.Email))

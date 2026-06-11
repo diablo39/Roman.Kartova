@@ -25,7 +25,8 @@ namespace Kartova.Catalog.Tests;
 public class ListApplicationsHandlerFilterTests
 {
     private static readonly TenantId Tenant = new(Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"));
-    private static readonly Guid Owner = Guid.Parse("bbbbbbbb-0000-0000-0000-000000000001");
+    private static readonly Guid Creator = Guid.Parse("bbbbbbbb-0000-0000-0000-000000000001");
+    private static readonly Guid Team = Guid.Parse("cccccccc-0000-0000-0000-000000000001");
 
     private static readonly DateTimeOffset BaseTime =
         new(2026, 5, 7, 12, 0, 0, TimeSpan.Zero);
@@ -50,7 +51,8 @@ public class ListApplicationsHandlerFilterTests
         var active = DomainApplication.Create(
             displayName: "Active App",
             description: "An active application.",
-            ownerUserId: Owner,
+            createdByUserId: Creator,
+            teamId: Team,
             tenantId: Tenant,
             clock: activeClock);
 
@@ -60,7 +62,8 @@ public class ListApplicationsHandlerFilterTests
         var decomm = DomainApplication.Create(
             displayName: "Decomm App",
             description: "A decommissioned application.",
-            ownerUserId: Owner,
+            createdByUserId: Creator,
+            teamId: Team,
             tenantId: Tenant,
             clock: Clock(BaseTime.AddMinutes(1)));
         decomm.Deprecate(sunsetDate: BaseTime.AddMinutes(15), clock: sunsetClock);

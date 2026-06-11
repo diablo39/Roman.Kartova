@@ -117,6 +117,9 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
         services.AddScoped<UpdateTeamMemberHandler>();
         services.AddScoped<GetTeamHandler>();
         services.AddScoped<ListTeamsHandler>();
+        services.AddScoped<ListMembersHandler>();
+        services.AddScoped<ChangeMemberRoleHandler>();
+        services.AddScoped<OffboardMemberHandler>();
 
         // Invitation lifecycle handlers (slice 9 spec §6.7) — same direct-
         // dispatch pattern as the Team handlers above.
@@ -130,6 +133,11 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
         // OidcCallbackHandler always hits /auth/session first after the KC
         // roundtrip, so no separate per-request pipeline hook is needed.
         services.AddScoped<UserProjectionUpdater>();
+
+        // ADR-0100 one-email-per-tenant breach (raised by UserProjectionUpdater on the
+        // session-bootstrap path) → typed RFC-7807 500 with a generic, PII-free detail.
+        // Registered here (not in Program.cs) because the exception type lives in this module.
+        services.AddExceptionHandler<OneEmailPerTenantExceptionHandler>();
 
         // Cross-module port (ADR-0098 + slice-9 spec §3): exposes the local users
         // projection so Catalog/Team responses can attach display names + emails

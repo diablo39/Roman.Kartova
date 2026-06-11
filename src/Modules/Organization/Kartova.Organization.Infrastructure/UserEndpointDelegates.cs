@@ -3,6 +3,8 @@ using Kartova.Organization.Contracts;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
+using Kartova.SharedKernel.Pagination;
+using Kartova.SharedKernel.Postgres.Pagination;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -62,6 +64,74 @@ internal static class UserEndpointDelegates
     }
 
     /// <summary>
+    /// <c>GET /users</c>: cursor-paginated members directory for the current
+    /// tenant. Supports optional <c>role</c> (narrows by realm role) and
+    /// <c>q</c> (infix on display_name + email) filters. Requires
+    /// <c>org.users.read</c> — Viewer and above. ADR-0095.
+    /// </summary>
+    internal static async Task<IResult> ListMembersAsync(
+        [FromQuery] string? sortBy,
+        [FromQuery] string? sortOrder,
+        [FromQuery] string? cursor,
+        [FromQuery] string? limit,
+        [FromQuery] string? role,
+        [FromQuery] string? q,
+        ListMembersHandler handler,
+        OrganizationDbContext db,
+        CancellationToken ct)
+    {
+        // Mirror the typeahead's min-length floor: a non-null q shorter than 2
+        // chars can't use the trigram GIN index and is almost always a mistake.
+        // null/empty/whitespace q is still allowed and means "no filter".
+        var trimmedQ = q?.Trim();
+        if (trimmedQ is { Length: > 0 and < 2 })
+        {
+            return Results.Problem(
+                type: ProblemTypes.ValidationFailed,
+                title: "Invalid search query",
+                detail: "Query 'q' must be at least 2 characters.",
+                statusCode: StatusCodes.Status422UnprocessableEntity);
+        }
+
+        // Normalize the role filter: accept the documented camelCase/lowercase variants
+        // (viewer, member, orgAdmin) and resolve them to the PascalCase canonical stored
+        // values (Viewer, Member, OrgAdmin). Unknown values → 422 so clients get precise
+        // feedback instead of a silent empty page. null/empty/whitespace/"all" means
+        // "no filter" and passes null into the query (handler already treats null/"all"
+        // identically). StringComparison.OrdinalIgnoreCase handles every casing variant.
+        string? canonicalRole = null;
+        var trimmedRole = role?.Trim();
+        if (!string.IsNullOrEmpty(trimmedRole)
+            && !string.Equals(trimmedRole, ListFilters.All, StringComparison.OrdinalIgnoreCase))
+        {
+            canonicalRole = KartovaRoles.All.FirstOrDefault(
+                r => string.Equals(r, trimmedRole, StringComparison.OrdinalIgnoreCase));
+            if (canonicalRole is null)
+            {
+                return Results.Problem(
+                    type: ProblemTypes.ValidationFailed,
+                    title: "Invalid role filter",
+                    detail: $"role must be one of: {string.Join(", ", KartovaRoles.All)}, or '{ListFilters.All}'.",
+                    statusCode: StatusCodes.Status422UnprocessableEntity);
+            }
+        }
+
+        var (parsedSortBy, parsedSortOrder, effectiveLimit) = CursorListBinding.Bind<MemberSortField>(
+            sortBy, sortOrder, limit, MemberSortSpecs.AllowedFieldNames);
+
+        var query = new ListMembersQuery(
+            SortBy: parsedSortBy ?? MemberSortField.DisplayName,
+            SortOrder: parsedSortOrder ?? SortOrder.Asc,
+            Cursor: cursor,
+            Limit: effectiveLimit,
+            Role: canonicalRole,
+            Q: string.IsNullOrEmpty(trimmedQ) ? null : trimmedQ);
+
+        var page = await handler.Handle(query, db, ct);
+        return Results.Ok(page);
+    }
+
+    /// <summary>
     /// <c>GET /users/{id}</c>: returns the user's profile plus team
     /// memberships scoped to the current tenant (RLS-filtered). 404 surfaces
     /// the same envelope whether the id is unknown or visible only in another
@@ -83,6 +153,70 @@ internal static class UserEndpointDelegates
         }
         return Results.Ok(user);
     }
+
+    /// <summary>
+    /// <c>PUT /users/{id}/role</c>: OrgAdmin changes a member's realm role
+    /// (Viewer / Member / OrgAdmin). KeyCloak is the source of truth; the
+    /// <c>users.realm_role</c> projection column is a write-through cache
+    /// (ADR-0102 / slice-10 Task 5). Guard: cannot demote the last OrgAdmin.
+    /// </summary>
+    internal static async Task<IResult> ChangeMemberRoleAsync(
+        Guid id, [FromBody] UpdateMemberRoleRequest request,
+        ChangeMemberRoleHandler handler, OrganizationDbContext db, CancellationToken ct)
+    {
+        var outcome = await handler.Handle(new ChangeMemberRoleCommand(id, request.Role), db, ct);
+        return outcome switch
+        {
+            ChangeMemberRoleOutcome.Success => Results.NoContent(),
+            ChangeMemberRoleOutcome.InvalidRole => Results.Problem(
+                type: ProblemTypes.ValidationFailed,
+                title: "Invalid role",
+                detail: $"Role must be one of: {string.Join(", ", KartovaRoles.All)}.",
+                statusCode: StatusCodes.Status422UnprocessableEntity),
+            ChangeMemberRoleOutcome.NotFound => Results.Problem(
+                type: ProblemTypes.ResourceNotFound,
+                title: "Member not found",
+                detail: $"No member with id {id}.",
+                statusCode: StatusCodes.Status404NotFound),
+            ChangeMemberRoleOutcome.LastOrgAdmin => Results.Problem(
+                type: ProblemTypes.LastOrgAdmin,
+                title: "Cannot demote the last OrgAdmin",
+                detail: "The organization must retain at least one OrgAdmin.",
+                statusCode: StatusCodes.Status409Conflict),
+            _ => throw new InvalidOperationException($"Unhandled {nameof(ChangeMemberRoleOutcome)}: {outcome}"),
+        };
+    }
+
+    /// <summary>
+    /// <c>DELETE /users/{id}</c>: OrgAdmin offboards a member (slice-10 Task 6,
+    /// spec §6.7). Deletes the KeyCloak identity, cascade-removes the member's
+    /// team memberships, and deletes the local <c>users</c> projection row.
+    /// Application.CreatedByUserId is immutable history — no ownership reassignment
+    /// occurs (ADR-0102 update). Guards: not-found 404, cannot-offboard-self 409,
+    /// last-OrgAdmin 409. The acting (caller's) user id comes from
+    /// <see cref="ICurrentUser.UserId"/> so the self-offboard guard compares against
+    /// the authenticated principal.
+    /// </summary>
+    internal static async Task<IResult> OffboardMemberAsync(
+        Guid id, OffboardMemberHandler handler, OrganizationDbContext db, ICurrentUser currentUser, CancellationToken ct)
+    {
+        var outcome = await handler.Handle(
+            new OffboardMemberCommand(new OffboardTargetUserId(id), new OffboardActingUserId(currentUser.UserId)), db, ct);
+        return outcome switch
+        {
+            OffboardMemberOutcome.Offboarded => Results.NoContent(),
+            OffboardMemberOutcome.NotFound => Results.Problem(
+                type: ProblemTypes.ResourceNotFound, title: "Member not found",
+                detail: $"No member with id {id}.", statusCode: StatusCodes.Status404NotFound),
+            OffboardMemberOutcome.CannotOffboardSelf => Results.Problem(
+                type: ProblemTypes.CannotOffboardSelf, title: "Cannot offboard yourself",
+                detail: "You cannot remove your own membership.", statusCode: StatusCodes.Status409Conflict),
+            OffboardMemberOutcome.LastOrgAdmin => Results.Problem(
+                type: ProblemTypes.LastOrgAdmin, title: "Cannot offboard the last OrgAdmin",
+                detail: "The organization must retain at least one OrgAdmin.", statusCode: StatusCodes.Status409Conflict),
+            _ => throw new InvalidOperationException($"Unhandled {nameof(OffboardMemberOutcome)}: {outcome}"),
+        };
+    }
 }
 
 /// <summary>
@@ -96,7 +230,12 @@ internal static class UserRoutes
 {
     public static void MapTo(RouteGroupBuilder tenant)
     {
-        tenant.MapGet("/users", UserEndpointDelegates.SearchUsersAsync)
+        tenant.MapGet("/users", UserEndpointDelegates.ListMembersAsync)
+            .RequireAuthorization(KartovaPermissions.OrgUsersRead)
+            .WithName("ListMembers")
+            .Produces<CursorPage<MemberSummaryResponse>>(StatusCodes.Status200OK);
+
+        tenant.MapGet("/users/search", UserEndpointDelegates.SearchUsersAsync)
             .RequireAuthorization(KartovaPermissions.OrgUsersSearch)
             .WithName("SearchUsers")
             .Produces<IReadOnlyList<UserSummaryResponse>>(StatusCodes.Status200OK)
@@ -107,5 +246,20 @@ internal static class UserRoutes
             .WithName("GetUserDetail")
             .Produces<UserDetailResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound);
+
+        tenant.MapPut("/users/{id:guid}/role", UserEndpointDelegates.ChangeMemberRoleAsync)
+            .RequireAuthorization(KartovaPermissions.OrgUsersRoleChange)
+            .WithName("ChangeMemberRole")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        tenant.MapDelete("/users/{id:guid}", UserEndpointDelegates.OffboardMemberAsync)
+            .RequireAuthorization(KartovaPermissions.OrgUsersRemove)
+            .WithName("OffboardMember")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
     }
 }

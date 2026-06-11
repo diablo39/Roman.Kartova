@@ -28,7 +28,7 @@ public sealed class UserProjectionUpdaterTests
         var tenant = new TenantId(Guid.NewGuid());
 
         await sut.UpsertAsync(db, new Guid("11111111-1111-1111-1111-111111111111"),
-            "alice@example.com", "Alice", "Smith", tenant, CancellationToken.None);
+            "alice@example.com", "Alice", "Smith", KartovaRoles.Member, tenant, CancellationToken.None);
 
         var u = await db.Users.SingleAsync();
         Assert.AreEqual("Alice Smith", u.DisplayName);
@@ -43,7 +43,7 @@ public sealed class UserProjectionUpdaterTests
         var sut = new UserProjectionUpdater(new FakeTimeProvider(), NullLogger<UserProjectionUpdater>.Instance);
         var tenant = new TenantId(Guid.NewGuid());
 
-        await sut.UpsertAsync(db, Guid.NewGuid(), "noname@example.com", null, null, tenant, CancellationToken.None);
+        await sut.UpsertAsync(db, Guid.NewGuid(), "noname@example.com", null, null, KartovaRoles.Viewer, tenant, CancellationToken.None);
 
         var u = await db.Users.SingleAsync();
         Assert.AreEqual("noname@example.com", u.DisplayName);
@@ -58,9 +58,9 @@ public sealed class UserProjectionUpdaterTests
         var tenant = new TenantId(Guid.NewGuid());
         var id = Guid.NewGuid();
 
-        await sut.UpsertAsync(db, id, "alice@example.com", "Alice", "Smith", tenant, CancellationToken.None);
+        await sut.UpsertAsync(db, id, "alice@example.com", "Alice", "Smith", KartovaRoles.Member, tenant, CancellationToken.None);
         clock.Advance(TimeSpan.FromMinutes(30));
-        await sut.UpsertAsync(db, id, "alice@example.com", "Alice", "JONES", tenant, CancellationToken.None);
+        await sut.UpsertAsync(db, id, "alice@example.com", "Alice", "JONES", KartovaRoles.Member, tenant, CancellationToken.None);
 
         var u = await db.Users.SingleAsync();
         Assert.AreEqual("Alice JONES", u.DisplayName);
@@ -99,12 +99,53 @@ public sealed class UserProjectionUpdaterTests
         var userId = Guid.NewGuid();
 
         var ex = await Assert.ThrowsExactlyAsync<OneEmailPerTenantViolationException>(
-            () => sut.UpsertAsync(db, userId, "user@example.com", null, null, tenant, CancellationToken.None));
+            () => sut.UpsertAsync(db, userId, "user@example.com", null, null, KartovaRoles.Viewer, tenant, CancellationToken.None));
 
         Assert.AreEqual(tenant.Value, ex.TenantId);
         Assert.AreEqual("user@example.com", ex.Email);
         Assert.IsInstanceOfType<DbUpdateException>(ex.InnerException);
         Assert.AreSame(inner, ex.InnerException);
+    }
+
+    [TestMethod]
+    public async Task Upsert_inserts_new_user_with_supplied_realm_role()
+    {
+        // Fix for slice-10 DoD bug: realm_role must be persisted on INSERT from
+        // the passed realmRole parameter, not left at the column default 'Viewer'.
+        await using var db = NewInMemory();
+        var sut = new UserProjectionUpdater(new FakeTimeProvider(), NullLogger<UserProjectionUpdater>.Instance);
+        var tenant = new TenantId(Guid.NewGuid());
+
+        await sut.UpsertAsync(db, Guid.NewGuid(), "admin@example.com", "Admin", "User",
+            KartovaRoles.OrgAdmin, tenant, CancellationToken.None);
+
+        var u = await db.Users.SingleAsync();
+        Assert.AreEqual(KartovaRoles.OrgAdmin, u.RealmRole,
+            "INSERT must persist the supplied realmRole, not the domain default 'Viewer'.");
+    }
+
+    [TestMethod]
+    public async Task Upsert_overwrites_realm_role_on_update()
+    {
+        // Fix for slice-10 DoD bug: realm_role must be overwritten on UPDATE so
+        // out-of-band role changes reflect at the user's next login (accepted
+        // token-TTL staleness, ADR-0102/D3).
+        await using var db = NewInMemory();
+        var sut = new UserProjectionUpdater(new FakeTimeProvider(), NullLogger<UserProjectionUpdater>.Instance);
+        var tenant = new TenantId(Guid.NewGuid());
+        var id = Guid.NewGuid();
+
+        // First login as Member.
+        await sut.UpsertAsync(db, id, "user@example.com", "User", "One",
+            KartovaRoles.Member, tenant, CancellationToken.None);
+
+        // Second login promoted to OrgAdmin — realm_role must be overwritten.
+        await sut.UpsertAsync(db, id, "user@example.com", "User", "One",
+            KartovaRoles.OrgAdmin, tenant, CancellationToken.None);
+
+        var u = await db.Users.SingleAsync();
+        Assert.AreEqual(KartovaRoles.OrgAdmin, u.RealmRole,
+            "UPDATE must overwrite the previous realm_role so a promotion is reflected at next login.");
     }
 
     /// <summary>

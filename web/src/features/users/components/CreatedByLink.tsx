@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import type { components } from "@/generated/openapi";
 
 /**
- * Wire shape of an embedded owner reference (e.g. `ApplicationResponse.owner`).
+ * Wire shape of an embedded creator reference (e.g. `ApplicationResponse.createdBy`).
  * Sourced directly from the OpenAPI codegen so a backend rename flows here
  * without a manual touch.
  */
@@ -10,13 +10,11 @@ type UserDisplayInfo = components["schemas"]["UserDisplayInfo"];
 
 interface Props {
   /**
-   * The owner's display info as embedded in the parent resource response.
-   * May be `null` (resource exists but has no owner — e.g. deleted user) or
-   * `undefined` (parent row is still loading).
+   * The creator's display info as embedded in the parent resource response.
+   * May be `null` (creator account deleted / offboarded — attribution kept as
+   * history per ADR-0102) or `undefined` (parent row is still loading).
    *
-   * Both null and undefined render the same "Unknown user" fallback — the
-   * caller can distinguish them at its own layer (skeleton vs. fallback) if
-   * needed.
+   * Both null and undefined render the same "Unknown user" fallback.
    */
   user: UserDisplayInfo | null | undefined;
 }
@@ -26,9 +24,10 @@ interface Props {
  * already carries the display info via the resource envelope (ADR-0098).
  *
  * Label preference: `displayName` first, then `email` as a fallback for users
- * whose display name hasn't been set yet (slice-9 spec §4.1).
+ * whose display name hasn't been set yet (slice-9 spec §4.1). The "Unknown user"
+ * fallback also covers offboarded creators whose account no longer resolves.
  */
-export function OwnerLink({ user }: Props) {
+export function CreatedByLink({ user }: Props) {
   if (!user) {
     return <span className="text-tertiary italic">Unknown user</span>;
   }

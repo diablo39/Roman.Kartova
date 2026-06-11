@@ -50,6 +50,14 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
     [TestMethod]
     public async Task Every_role_endpoint_cell_matches_KartovaRolePermissions_Map()
     {
+        // Slice 8 / ADR-0103: seed a team in the same tenant FIRST (register now requires
+        // a valid owning team), then register the seed app owned by it and add the Member
+        // user as a member of that team. Without the membership the resource gate denies
+        // the mutation cells, which would mask the claim-level assertions the matrix is
+        // designed to verify.
+        var tenant = KartovaApiFixtureBase.TenantFor(OrgAdminEmail);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenant, "Matrix Team");
+
         // Seed a fixture Application as OrgAdmin so {id} substitution works on per-role calls.
         var seederClient = await Fx.CreateAuthenticatedClientAsync(OrgAdminEmail, new[] { KartovaRoles.OrgAdmin });
         var registerResp = await seederClient.PostAsJsonAsync(
@@ -58,19 +66,13 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
             {
                 displayName = "Matrix App",
                 description = "Seed for permission matrix test.",
+                teamId,
             });
         Assert.IsTrue(registerResp.IsSuccessStatusCode,
             $"Seed registration must succeed (was {registerResp.StatusCode}).");
         var seeded = await registerResp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
         var appId = seeded!.Id;
 
-        // Slice 8: bind the seed app to a team in the same tenant and add the Member user
-        // as a member of that team. Without this row the resource gate denies the mutation
-        // cells (Decision #9 — null team_id blocks non-OrgAdmin), which would mask the
-        // claim-level assertions the matrix is designed to verify.
-        var tenant = KartovaApiFixtureBase.TenantFor(OrgAdminEmail);
-        var teamId = await Fx.SeedTeamInOrganizationAsync(tenant, "Matrix Team");
-        await Fx.SetApplicationTeamAsync(appId, teamId);
         var memberSub = await Fx.GetSubClaimAsync(MemberEmail);
         await Fx.SeedTeamMembershipAsync(teamId, memberSub, TeamRoleMember);
 
@@ -123,8 +125,8 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
     /// <list type="bullet">
     ///   <item>Member in team-A vs app in team-A → not 403 (gate succeeds).</item>
     ///   <item>Member in team-A vs app in team-B → 403 (different team).</item>
-    ///   <item>Member in team-A vs unassigned app → 403 (Decision #9 — null team_id blocks non-OrgAdmin).</item>
-    ///   <item>OrgAdmin vs unassigned app → not 403 (OrgAdmin shortcut bypasses team check).</item>
+    ///   <item>Member in team-A vs app in an unrelated team → 403 (non-OrgAdmin not a member).</item>
+    ///   <item>OrgAdmin vs app in an unrelated team → not 403 (OrgAdmin shortcut bypasses team check).</item>
     /// </list>
     /// </summary>
     [TestMethod]
@@ -139,7 +141,9 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
             namePrefix: "matrix-scope-a");
         var appInTeamB   = await Fx.SeedSingleApplicationAsync(tenant, Guid.NewGuid(), teamB,
             namePrefix: "matrix-scope-b");
-        var appUnassigned = await Fx.SeedSingleApplicationAsync(tenant, Guid.NewGuid(), teamId: null,
+        // ADR-0103: no unassigned apps. Seed an app owned by an unrelated (random) team
+        // the Member is not in — the gate must still 403 for the Member and pass for OrgAdmin.
+        var appUnrelatedTeam = await Fx.SeedSingleApplicationAsync(tenant, Guid.NewGuid(), teamId: null,
             namePrefix: "matrix-scope-u");
 
         var memberSub = await Fx.GetSubClaimAsync(MemberEmail);
@@ -162,15 +166,15 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
             Assert.AreEqual(HttpStatusCode.Forbidden, memberWrongTeamResp.StatusCode,
                 $"Member in team-A on app in team-B should be 403. Actual: {memberWrongTeamResp.StatusCode}");
 
-            // Member in team-A vs unassigned app → 403 (Decision #9).
-            var memberUnassignedResp = await SendEditMetadata(memberClient, appUnassigned);
-            Assert.AreEqual(HttpStatusCode.Forbidden, memberUnassignedResp.StatusCode,
-                $"Member on unassigned app should be 403. Actual: {memberUnassignedResp.StatusCode}");
+            // Member in team-A vs app in an unrelated team → 403 (non-OrgAdmin not a member).
+            var memberUnrelatedResp = await SendEditMetadata(memberClient, appUnrelatedTeam);
+            Assert.AreEqual(HttpStatusCode.Forbidden, memberUnrelatedResp.StatusCode,
+                $"Member on app in an unrelated team should be 403. Actual: {memberUnrelatedResp.StatusCode}");
 
-            // OrgAdmin vs unassigned app → not 403 (OrgAdmin shortcut bypasses team check).
-            var orgAdminUnassignedResp = await SendEditMetadata(adminClient, appUnassigned);
-            Assert.AreNotEqual(HttpStatusCode.Forbidden, orgAdminUnassignedResp.StatusCode,
-                $"OrgAdmin on unassigned app should not be 403. Actual: {orgAdminUnassignedResp.StatusCode}");
+            // OrgAdmin vs app in an unrelated team → not 403 (OrgAdmin shortcut bypasses team check).
+            var orgAdminUnrelatedResp = await SendEditMetadata(adminClient, appUnrelatedTeam);
+            Assert.AreNotEqual(HttpStatusCode.Forbidden, orgAdminUnrelatedResp.StatusCode,
+                $"OrgAdmin on app in an unrelated team should not be 403. Actual: {orgAdminUnrelatedResp.StatusCode}");
         }
         finally
         {

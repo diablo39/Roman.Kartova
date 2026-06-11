@@ -55,7 +55,7 @@ public class KartovaApiFixture : KartovaApiFixtureBase
         // by issuing a token directly via the TestJwtSigner — mirrors what
         // CreateAuthenticatedClientAsync does but without the async wrapper.
         var tenant = TenantFor(email);
-        var token = Signer.IssueForTenant(tenant, ["OrgAdmin"], subject: SubFor(email).ToString());
+        var token = Signer.IssueForTenant(tenant, [KartovaRoles.OrgAdmin], subject: SubFor(email).ToString());
         var client = CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
@@ -85,10 +85,13 @@ public class KartovaApiFixture : KartovaApiFixtureBase
         var origin = DateTimeOffset.UtcNow.AddMinutes(-count);
         for (var i = 0; i < count; i++)
         {
+            // ADR-0103: TeamId is required. These pagination/RLS fixtures never join to
+            // a teams row, so a fresh id satisfies the non-null invariant (no FK exists).
             db.Applications.Add(DomainApplication.Create(
                 displayName: $"{namePrefix}{i:D3}",
                 description: "seeded for pagination tests",
-                ownerUserId: Guid.NewGuid(),
+                createdByUserId: Guid.NewGuid(),
+                teamId: Guid.NewGuid(),
                 tenantId: tenantId,
                 createdAt: origin.AddMinutes(i)));
         }
@@ -134,7 +137,8 @@ public class KartovaApiFixture : KartovaApiFixtureBase
             var app = DomainApplication.Create(
                 displayName: $"{namePrefix}{i:D3}",
                 description: "seeded for filter tests",
-                ownerUserId: Guid.NewGuid(),
+                createdByUserId: Guid.NewGuid(),
+                teamId: Guid.NewGuid(),
                 tenantId: tenantId,
                 createdAt: origin.AddMinutes(i));
 
@@ -189,11 +193,14 @@ public class KartovaApiFixture : KartovaApiFixtureBase
 
     /// <summary>
     /// Seeds a single Catalog application for a tenant and returns its id.
-    /// Used by slice-8 assign-team tests that need exactly one row, optionally
-    /// pre-assigned to a team. Bypass-RLS so RLS does not block the insert.
+    /// Used by slice-8 assign-team tests that need exactly one row. ADR-0103:
+    /// TeamId is required — when <paramref name="teamId"/> is null the app is
+    /// owned by a fresh, unrelated team id (callers that don't care about team
+    /// membership); pass an explicit team id when the test joins to a teams row.
+    /// Bypass-RLS so RLS does not block the insert.
     /// </summary>
     public async Task<Guid> SeedSingleApplicationAsync(
-        TenantId tenantId, Guid ownerUserId, Guid? teamId, string? namePrefix = null)
+        TenantId tenantId, Guid createdByUserId, Guid? teamId, string? namePrefix = null)
     {
         var opts = new DbContextOptionsBuilder<CatalogDbContext>()
             .UseNpgsql(BypassConnectionString)
@@ -204,10 +211,10 @@ public class KartovaApiFixture : KartovaApiFixtureBase
         var app = DomainApplication.Create(
             displayName: name,
             description: "seeded for assign-team tests",
-            ownerUserId: ownerUserId,
+            createdByUserId: createdByUserId,
+            teamId: teamId ?? Guid.NewGuid(),
             tenantId: tenantId,
             createdAt: DateTimeOffset.UtcNow);
-        if (teamId is { } tid) app.AssignTeam(tid);
 
         db.Applications.Add(app);
         await db.SaveChangesAsync();
@@ -290,25 +297,6 @@ public class KartovaApiFixture : KartovaApiFixtureBase
         await db.Database.ExecuteSqlRawAsync(
             "INSERT INTO team_members (team_id, user_id, role, added_at) VALUES ({0}, {1}, {2}, NOW()) ON CONFLICT (team_id, user_id) DO NOTHING",
             teamId, userId, (int)roleByte);
-    }
-
-    /// <summary>
-    /// Reassigns an existing catalog application to a team (or unassigns when
-    /// <paramref name="teamId"/> is null). Bypass-RLS so the update is not
-    /// filtered by the missing tenant scope. Slice 8 — used by the permission
-    /// matrix test to bind a freshly-registered seed app to a team without
-    /// going through the assign-team HTTP endpoint (which would itself require
-    /// team membership for non-OrgAdmin callers).
-    /// </summary>
-    public async Task SetApplicationTeamAsync(Guid applicationId, Guid? teamId)
-    {
-        var opts = new DbContextOptionsBuilder<CatalogDbContext>()
-            .UseNpgsql(BypassConnectionString)
-            .Options;
-        await using var db = new CatalogDbContext(opts);
-        await db.Database.ExecuteSqlRawAsync(
-            "UPDATE catalog_applications SET team_id = {0} WHERE id = {1}",
-            (object?)teamId ?? DBNull.Value, applicationId);
     }
 
     /// <summary>

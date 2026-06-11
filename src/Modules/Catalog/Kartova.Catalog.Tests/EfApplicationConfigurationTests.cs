@@ -137,10 +137,15 @@ public class EfApplicationConfigurationTests
         Assert.IsFalse(description.IsNullable, "Description is required");
         Assert.AreEqual("description", description.GetColumnName());
 
-        // OwnerUserId
-        var ownerUserId = entity.FindProperty("OwnerUserId")!;
-        Assert.IsFalse(ownerUserId.IsNullable, "OwnerUserId is required");
-        Assert.AreEqual("owner_user_id", ownerUserId.GetColumnName());
+        // CreatedByUserId (ADR-0103: renamed from OwnerUserId)
+        var createdByUserId = entity.FindProperty("CreatedByUserId")!;
+        Assert.IsFalse(createdByUserId.IsNullable, "CreatedByUserId is required");
+        Assert.AreEqual("created_by_user_id", createdByUserId.GetColumnName());
+
+        // TeamId (ADR-0103: now the required owner — non-nullable)
+        var teamId = entity.FindProperty("TeamId")!;
+        Assert.IsFalse(teamId.IsNullable, "TeamId is required (the owning team)");
+        Assert.AreEqual("team_id", teamId.GetColumnName());
 
         // TenantId
         var tenantId = entity.FindProperty("TenantId")!;

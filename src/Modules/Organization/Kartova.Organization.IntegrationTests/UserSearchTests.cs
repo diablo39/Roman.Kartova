@@ -226,7 +226,7 @@ public sealed class UserSearchTests : OrganizationIntegrationTestBase
             var client = await Fx.CreateAuthenticatedClientAsync(
                 adminEmail, new[] { KartovaRoles.OrgAdmin });
 
-            var resp = await client.GetAsync("/api/v1/organizations/users?q=");
+            var resp = await client.GetAsync("/api/v1/organizations/users/search?q=");
             Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
 
             await using var stream = await resp.Content.ReadAsStreamAsync();
@@ -257,7 +257,7 @@ public sealed class UserSearchTests : OrganizationIntegrationTestBase
             var client = await Fx.CreateAuthenticatedClientAsync(
                 adminEmail, new[] { KartovaRoles.OrgAdmin });
 
-            var resp = await client.GetAsync("/api/v1/organizations/users?q=a");
+            var resp = await client.GetAsync("/api/v1/organizations/users/search?q=a");
             Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
 
             await using var stream = await resp.Content.ReadAsStreamAsync();
@@ -291,7 +291,7 @@ public sealed class UserSearchTests : OrganizationIntegrationTestBase
         // contains spaces or other URL-reserved characters; current cases are
         // ASCII-safe but the helper stays defensive.
         var resp = await client.GetAsync(
-            $"/api/v1/organizations/users?q={Uri.EscapeDataString(q)}");
+            $"/api/v1/organizations/users/search?q={Uri.EscapeDataString(q)}");
         Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode,
             $"Search `q={q}` must return 200 OK.");
         var body = await resp.Content.ReadFromJsonAsync<List<UserSummaryResponse>>(

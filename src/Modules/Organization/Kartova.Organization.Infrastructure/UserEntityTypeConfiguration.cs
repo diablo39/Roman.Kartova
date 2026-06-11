@@ -24,6 +24,7 @@ internal sealed class UserEntityTypeConfiguration : IEntityTypeConfiguration<Use
         b.Property(x => x.DisplayName).HasColumnName("display_name").HasMaxLength(256).IsRequired();
         b.Property(x => x.LastSeenAt).HasColumnName("last_seen_at");
         b.Property(x => x.CreatedAt).HasColumnName("created_at");
+        b.Property(x => x.RealmRole).HasColumnName("realm_role").HasMaxLength(32).IsRequired();
 
         b.HasIndex(x => new { x.TenantId, x.Email })
             .IsUnique()

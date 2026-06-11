@@ -14,6 +14,7 @@ public sealed class User : ITenantOwned
     public string DisplayName { get; set; } = "";     // denormalized: "given_name family_name" || email
     public DateTimeOffset? LastSeenAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+    public string RealmRole { get; set; } = KartovaRoles.Viewer;   // write-through cache of the KeyCloak realm role (ADR-0102)
 
     public static string ComputeDisplayName(string? given, string? family, string email)
     {

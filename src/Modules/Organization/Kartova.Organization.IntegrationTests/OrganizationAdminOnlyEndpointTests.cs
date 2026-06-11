@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Kartova.Organization.Contracts;
+using Kartova.SharedKernel.Multitenancy;
 using Kartova.Testing.Auth;
 
 namespace Kartova.Organization.IntegrationTests;
@@ -23,7 +24,7 @@ public class OrganizationAdminOnlyEndpointTests : OrganizationIntegrationTestBas
     {
         // Arrange — OrgAdmin role satisfies RequireRole(KartovaRoles.OrgAdmin).
         var client = Fx.CreateClient();
-        var token = Fx.Signer.IssueForTenant(SeededOrgs.OrgA, new[] { "OrgAdmin" });
+        var token = Fx.Signer.IssueForTenant(SeededOrgs.OrgA, new[] { KartovaRoles.OrgAdmin });
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
@@ -60,7 +61,7 @@ public class OrganizationAdminOnlyEndpointTests : OrganizationIntegrationTestBas
     {
         // Arrange — Member does NOT have OrgAdmin role; route requires OrgAdmin.
         var client = Fx.CreateClient();
-        var token = Fx.Signer.IssueForTenant(SeededOrgs.OrgA, new[] { "Member" });
+        var token = Fx.Signer.IssueForTenant(SeededOrgs.OrgA, new[] { KartovaRoles.Member });
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act

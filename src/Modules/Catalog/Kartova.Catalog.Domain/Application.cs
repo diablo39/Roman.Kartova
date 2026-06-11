@@ -16,11 +16,11 @@ public sealed class Application : ITenantOwned, ITeamScopedResource
     public TenantId TenantId { get; private set; }
     public string DisplayName { get; private set; } = string.Empty;
     public string Description { get; private set; } = string.Empty;
-    public Guid OwnerUserId { get; private set; }
+    public Guid CreatedByUserId { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public Lifecycle Lifecycle { get; private set; } = Lifecycle.Active;
     public DateTimeOffset? SunsetDate { get; private set; }
-    public Guid? TeamId { get; private set; }
+    public Guid TeamId { get; private set; }
     public uint Version { get; private set; }
 
     Guid? ITeamScopedResource.TeamId => TeamId;
@@ -30,24 +30,26 @@ public sealed class Application : ITenantOwned, ITeamScopedResource
         TenantId tenantId,
         string displayName,
         string description,
-        Guid ownerUserId,
+        Guid createdByUserId,
+        Guid teamId,
         DateTimeOffset createdAt)
     {
         _id = id.Value;
         TenantId = tenantId;
         DisplayName = displayName;
         Description = description;
-        OwnerUserId = ownerUserId;
+        CreatedByUserId = createdByUserId;
+        TeamId = teamId;
         CreatedAt = createdAt;
     }
 
     // EF constructor
     private Application() { }
 
-    public static Application Create(string displayName, string description, Guid ownerUserId, TenantId tenantId, TimeProvider clock)
+    public static Application Create(string displayName, string description, Guid createdByUserId, Guid teamId, TenantId tenantId, TimeProvider clock)
     {
         ArgumentNullException.ThrowIfNull(clock);
-        return Create(displayName, description, ownerUserId, tenantId, clock.GetUtcNow());
+        return Create(displayName, description, createdByUserId, teamId, tenantId, clock.GetUtcNow());
     }
 
     /// <summary>
@@ -58,15 +60,20 @@ public sealed class Application : ITenantOwned, ITeamScopedResource
     public static Application Create(
         string displayName,
         string description,
-        Guid ownerUserId,
+        Guid createdByUserId,
+        Guid teamId,
         TenantId tenantId,
         DateTimeOffset createdAt)
     {
         ValidateDisplayName(displayName);
         ValidateDescription(description);
-        if (ownerUserId == Guid.Empty)
+        if (createdByUserId == Guid.Empty)
         {
-            throw new ArgumentException("ownerUserId is required.", nameof(ownerUserId));
+            throw new ArgumentException("createdByUserId is required.", nameof(createdByUserId));
+        }
+        if (teamId == Guid.Empty)
+        {
+            throw new ArgumentException("teamId is required.", nameof(teamId));
         }
 
         return new Application(
@@ -74,7 +81,8 @@ public sealed class Application : ITenantOwned, ITeamScopedResource
             tenantId,
             displayName,
             description,
-            ownerUserId,
+            createdByUserId,
+            teamId,
             createdAt);
     }
 
@@ -137,16 +145,13 @@ public sealed class Application : ITenantOwned, ITeamScopedResource
     }
 
     /// <summary>
-    /// Assigns this application to a team (or unassigns when <paramref name="teamId"/> is null).
-    /// Reassigning to a non-null team is blocked on Decommissioned (terminal-write guard,
-    /// consistent with EditMetadata). Unassigning (null) is allowed on any lifecycle so
-    /// OrgAdmin can release Decommissioned apps from a team before deleting the team —
-    /// without this carve-out, a team that ever owned an app since-decommissioned would
-    /// be undeletable forever (slice-8 boundary-review fix).
+    /// Reassigns this application to another team. <c>TeamId</c> is required (the
+    /// owner) — there is no unassign (ADR-0103: no ownerless apps). Reassignment is
+    /// blocked on Decommissioned (terminal-write guard, consistent with EditMetadata).
     /// </summary>
-    public void AssignTeam(Guid? teamId)
+    public void AssignTeam(Guid teamId)
     {
-        if (teamId is not null && Lifecycle == Lifecycle.Decommissioned)
+        if (Lifecycle == Lifecycle.Decommissioned)
         {
             throw new InvalidLifecycleTransitionException(Lifecycle, nameof(AssignTeam));
         }

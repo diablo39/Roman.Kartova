@@ -104,22 +104,23 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     /// </para>
     /// </summary>
     public async Task<Guid> SeedUserInOrganizationAsync(
-        TenantId tenantId, string displayName, string email)
+        TenantId tenantId, string displayName, string email, string realmRole = KartovaRoles.Viewer, Guid? userId = null)
     {
-        var userId = Guid.NewGuid();
+        var resolvedUserId = userId ?? Guid.NewGuid();
         await using var conn = new NpgsqlConnection(BypassConnectionString);
         await conn.OpenAsync();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            INSERT INTO users (id, tenant_id, email, display_name, created_at)
-            VALUES ($1, $2, $3, $4, NOW())
+            INSERT INTO users (id, tenant_id, email, display_name, realm_role, created_at)
+            VALUES ($1, $2, $3, $4, $5, NOW())
             """;
-        cmd.Parameters.AddWithValue(userId);
+        cmd.Parameters.AddWithValue(resolvedUserId);
         cmd.Parameters.AddWithValue(tenantId.Value);
         cmd.Parameters.AddWithValue(email);
         cmd.Parameters.AddWithValue(displayName);
+        cmd.Parameters.AddWithValue(realmRole);
         await cmd.ExecuteNonQueryAsync();
-        return userId;
+        return resolvedUserId;
     }
 
     /// <summary>
@@ -307,13 +308,42 @@ public class KartovaApiFixture : KartovaApiFixtureBase
             .Options;
         await using var db = new CatalogDbContext(opts);
 
+        // ADR-0103: TeamId is required and set at creation (no separate AssignTeam needed).
         var app = DomainApplication.Create(
             displayName: name,
             description: "seeded for DeleteTeam 409 path",
-            ownerUserId: Guid.NewGuid(),
+            createdByUserId: Guid.NewGuid(),
+            teamId: teamId,
             tenantId: new TenantId(tenantId),
             createdAt: DateTimeOffset.UtcNow);
-        app.AssignTeam(teamId);
+
+        db.Applications.Add(app);
+        await db.SaveChangesAsync();
+        return app.Id.Value;
+    }
+
+    /// <summary>
+    /// Seeds one Catalog <see cref="DomainApplication"/> with the given
+    /// <paramref name="createdByUserId"/> (creation provenance, ADR-0103) and a required
+    /// owning <paramref name="teamId"/>. Returns the new app's id. Inserts via EF on
+    /// a BYPASSRLS connection so RLS does not block the seed. Mirrors
+    /// <see cref="SeedCatalogApplicationAssignedToTeamAsync"/>.
+    /// </summary>
+    public async Task<Guid> SeedCatalogApplicationOwnedByAsync(
+        Guid tenantId, Guid createdByUserId, Guid teamId, string name)
+    {
+        var opts = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseNpgsql(BypassConnectionString)
+            .Options;
+        await using var db = new CatalogDbContext(opts);
+
+        var app = DomainApplication.Create(
+            displayName: name,
+            description: "seeded with explicit created-by + team",
+            createdByUserId: createdByUserId,
+            teamId: teamId,
+            tenantId: new TenantId(tenantId),
+            createdAt: DateTimeOffset.UtcNow);
 
         db.Applications.Add(app);
         await db.SaveChangesAsync();

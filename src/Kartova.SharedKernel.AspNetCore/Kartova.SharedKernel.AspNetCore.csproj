@@ -17,6 +17,13 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Kartova.SharedKernel\Kartova.SharedKernel.csproj" />
+    <!-- KeycloakAdminExceptionHandler maps the host-agnostic KeycloakAdminException
+         (from Kartova.SharedKernel.Identity) → RFC 7807 502 (slice-10 Task 6, Part D).
+         Identity is a sibling host-agnostic library on top of Kartova.SharedKernel and
+         does NOT reference AspNetCore (enforced by
+         ModuleBoundaryTests.Kartova_SharedKernel_Identity_does_not_reference_AspNetCore),
+         so this reference introduces no dependency cycle. -->
+    <ProjectReference Include="..\Kartova.SharedKernel.Identity\Kartova.SharedKernel.Identity.csproj" />
   </ItemGroup>
 
   <ItemGroup>

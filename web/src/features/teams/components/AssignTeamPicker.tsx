@@ -46,10 +46,12 @@ export function AssignTeamPicker({ applicationId, currentTeamId, disabled = fals
     currentTeamId != null && !visibleTeams.some((t) => t.id === currentTeamId);
 
   const onChange = async (value: string) => {
-    const newTeamId = value === "__unassigned__" ? null : value;
+    // Team is now required — empty string means the placeholder was selected;
+    // ignore it (the submit guard ensures a real teamId is present on register).
+    if (!value) return;
     try {
-      await mutation.mutateAsync(newTeamId);
-      toast.success(newTeamId ? "Team assigned" : "Team unassigned");
+      await mutation.mutateAsync(value);
+      toast.success("Team assigned");
     } catch (err) {
       const problem = err as { __status?: number; detail?: string };
       if (problem.__status === 422) {
@@ -72,11 +74,12 @@ export function AssignTeamPicker({ applicationId, currentTeamId, disabled = fals
       <select
         id="assign-team"
         className="rounded-md border border-secondary px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-60"
-        value={currentTeamId ?? "__unassigned__"}
+        value={currentTeamId ?? ""}
         onChange={(e) => void onChange(e.target.value)}
         disabled={!canEdit || mutation.isPending}
       >
-        <option value="__unassigned__">Unassigned</option>
+        {/* Placeholder shown only when no team is currently assigned (legacy data). */}
+        {!currentTeamId && <option value="" disabled>Select a team…</option>}
         {needsSyntheticCurrentOption && currentTeamId && (
           <option value={currentTeamId}>{currentTeamName}</option>
         )}

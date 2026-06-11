@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Kartova.Organization.Contracts;
+using Kartova.SharedKernel.Multitenancy;
 using Kartova.Testing.Auth;
 using Npgsql;
 
@@ -18,13 +19,13 @@ public class TenantIsolationTests : OrganizationIntegrationTestBase
 
         var client = Fx.CreateClient();
 
-        var tokenA = Fx.Signer.IssueForTenant(SeededOrgs.OrgA, new[] { "OrgAdmin" });
+        var tokenA = Fx.Signer.IssueForTenant(SeededOrgs.OrgA, new[] { KartovaRoles.OrgAdmin });
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenA);
         var respA = await client.GetAsync("/api/v1/organizations/me");
         Assert.AreEqual(HttpStatusCode.OK, respA.StatusCode);
         Assert.AreEqual("Org A", (await respA.Content.ReadFromJsonAsync<OrgProfileResponse>())!.DisplayName);
 
-        var tokenB = Fx.Signer.IssueForTenant(SeededOrgs.OrgB, new[] { "OrgAdmin" });
+        var tokenB = Fx.Signer.IssueForTenant(SeededOrgs.OrgB, new[] { KartovaRoles.OrgAdmin });
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenB);
         var respB = await client.GetAsync("/api/v1/organizations/me");
         Assert.AreEqual(HttpStatusCode.OK, respB.StatusCode);

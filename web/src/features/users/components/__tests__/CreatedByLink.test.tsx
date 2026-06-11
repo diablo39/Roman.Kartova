@@ -2,28 +2,28 @@ import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
-import { OwnerLink } from "../OwnerLink";
+import { CreatedByLink } from "../CreatedByLink";
 
 function renderInRouter(ui: React.ReactNode) {
   return render(<MemoryRouter>{ui}</MemoryRouter>);
 }
 
-describe("OwnerLink", () => {
-  it("renders the fallback when user is null", () => {
-    renderInRouter(<OwnerLink user={null} />);
+describe("CreatedByLink", () => {
+  it("renders the fallback when user is null (offboarded creator)", () => {
+    renderInRouter(<CreatedByLink user={null} />);
     expect(screen.getByText("Unknown user")).toBeInTheDocument();
     expect(screen.queryByRole("link")).toBeNull();
   });
 
   it("renders the fallback when user is undefined (loading state)", () => {
-    renderInRouter(<OwnerLink user={undefined} />);
+    renderInRouter(<CreatedByLink user={undefined} />);
     expect(screen.getByText("Unknown user")).toBeInTheDocument();
     expect(screen.queryByRole("link")).toBeNull();
   });
 
   it("renders a link to /users/:id with displayName as the label", () => {
     renderInRouter(
-      <OwnerLink
+      <CreatedByLink
         user={{ id: "u-1", displayName: "Alice", email: "alice@example.com" }}
       />,
     );
@@ -34,7 +34,7 @@ describe("OwnerLink", () => {
 
   it("falls back to email when displayName is an empty string", () => {
     renderInRouter(
-      <OwnerLink
+      <CreatedByLink
         user={{ id: "u-2", displayName: "", email: "bob@example.com" }}
       />,
     );

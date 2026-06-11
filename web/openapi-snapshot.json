@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:8080/"
+      "url": "http://localhost:5021/"
     }
   ],
   "paths": {
@@ -51,6 +51,16 @@
           },
           "400": {
             "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -114,7 +124,7 @@
             }
           },
           {
-            "name": "ownerUserId",
+            "name": "createdByUserId",
             "in": "query",
             "schema": {
               "type": "string",
@@ -1537,6 +1547,70 @@
         "tags": [
           "UserEndpointDelegates"
         ],
+        "operationId": "ListMembers",
+        "parameters": [
+          {
+            "name": "sortBy",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CursorPageOfMemberSummaryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/users/search": {
+      "get": {
+        "tags": [
+          "UserEndpointDelegates"
+        ],
         "operationId": "SearchUsers",
         "parameters": [
           {
@@ -1616,6 +1690,112 @@
           },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "UserEndpointDelegates"
+        ],
+        "operationId": "OffboardMember",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/users/{id}/role": {
+      "put": {
+        "tags": [
+          "UserEndpointDelegates"
+        ],
+        "operationId": "ChangeMemberRole",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMemberRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1708,10 +1888,24 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "410": {
-            "description": "Gone"
+            "description": "Gone",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       },
@@ -1742,16 +1936,44 @@
             }
           },
           "400": {
-            "description": "Bad Request"
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "410": {
-            "description": "Gone"
+            "description": "Gone",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "502": {
-            "description": "Bad Gateway"
+            "description": "Bad Gateway",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -1759,6 +1981,31 @@
   },
   "components": {
     "schemas": {
+      "AcceptedInvitationInfo": {
+        "required": [
+          "orgDisplayName",
+          "invitedBy",
+          "invitedAt",
+          "acceptedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "orgDisplayName": {
+            "type": "string"
+          },
+          "invitedBy": {
+            "$ref": "#/components/schemas/UserDisplayInfo"
+          },
+          "invitedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "acceptedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "AcceptInvitationRequest": {
         "required": [
           "token",
@@ -1786,31 +2033,6 @@
         "properties": {
           "email": {
             "type": "string"
-          }
-        }
-      },
-      "AcceptedInvitationInfo": {
-        "required": [
-          "orgDisplayName",
-          "invitedBy",
-          "invitedAt",
-          "acceptedAt"
-        ],
-        "type": "object",
-        "properties": {
-          "orgDisplayName": {
-            "type": "string"
-          },
-          "invitedBy": {
-            "$ref": "#/components/schemas/UserDisplayInfo"
-          },
-          "invitedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "acceptedAt": {
-            "type": "string",
-            "format": "date-time"
           }
         }
       },
@@ -1847,7 +2069,7 @@
           "tenantId",
           "displayName",
           "description",
-          "ownerUserId",
+          "createdByUserId",
           "createdAt",
           "lifecycle",
           "sunsetDate",
@@ -1870,7 +2092,7 @@
           "description": {
             "type": "string"
           },
-          "ownerUserId": {
+          "createdByUserId": {
             "type": "string",
             "format": "uuid"
           },
@@ -1889,16 +2111,13 @@
             "format": "date-time"
           },
           "teamId": {
-            "type": [
-              "null",
-              "string"
-            ],
+            "type": "string",
             "format": "uuid"
           },
           "version": {
             "type": "string"
           },
-          "owner": {
+          "createdBy": {
             "oneOf": [
               {
                 "type": "null"
@@ -1917,10 +2136,7 @@
         "type": "object",
         "properties": {
           "teamId": {
-            "type": [
-              "null",
-              "string"
-            ],
+            "type": "string",
             "format": "uuid"
           }
         }
@@ -2024,6 +2240,34 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/InvitationResponse"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "prevCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "CursorPageOfMemberSummaryResponse": {
+        "required": [
+          "items",
+          "nextCursor",
+          "prevCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemberSummaryResponse"
             }
           },
           "nextCursor": {
@@ -2189,6 +2433,52 @@
           "decommissioned"
         ]
       },
+      "MemberSummaryResponse": {
+        "required": [
+          "id",
+          "displayName",
+          "email",
+          "role",
+          "teamCount",
+          "lastSeenAt",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "teamCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "lastSeenAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "MePermissionsResponse": {
         "required": [
           "role",
@@ -2320,7 +2610,8 @@
       "RegisterApplicationRequest": {
         "required": [
           "displayName",
-          "description"
+          "description",
+          "teamId"
         ],
         "type": "object",
         "properties": {
@@ -2329,6 +2620,10 @@
           },
           "description": {
             "type": "string"
+          },
+          "teamId": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -2504,6 +2799,17 @@
           "sunsetDate": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "UpdateMemberRoleRequest": {
+        "required": [
+          "role"
+        ],
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string"
           }
         }
       },

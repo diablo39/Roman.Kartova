@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Kartova.Organization.Contracts;
+using Kartova.SharedKernel.Multitenancy;
 using Kartova.Testing.Auth;
 
 namespace Kartova.Organization.IntegrationTests;
@@ -16,7 +17,7 @@ public class OrganizationEndpointHappyPathTests : OrganizationIntegrationTestBas
         await Fx.SeedOrganizationAsync(SeededOrgs.OrgB.Value, "Org B");
 
         var client = Fx.CreateClient();
-        var token = Fx.Signer.IssueForTenant(SeededOrgs.OrgA, new[] { "OrgAdmin" });
+        var token = Fx.Signer.IssueForTenant(SeededOrgs.OrgA, new[] { KartovaRoles.OrgAdmin });
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var response = await client.GetAsync("/api/v1/organizations/me");

@@ -19,7 +19,8 @@ namespace Kartova.Catalog.Tests;
 public sealed class AssignApplicationTeamResultTests
 {
     private static readonly TenantId Tenant = new(Guid.Parse("aaaaaaaa-0000-0000-0000-000000000099"));
-    private static readonly Guid Owner = Guid.Parse("bbbbbbbb-0000-0000-0000-000000000099");
+    private static readonly Guid Creator = Guid.Parse("bbbbbbbb-0000-0000-0000-000000000099");
+    private static readonly Guid Team = Guid.Parse("cccccccc-0000-0000-0000-000000000099");
 
     [TestMethod]
     public void NotFound_factory_sets_only_IsNotFound()
@@ -49,7 +50,8 @@ public sealed class AssignApplicationTeamResultTests
         var app = DomainApplication.Create(
             "Display",
             "Description",
-            Owner,
+            Creator,
+            Team,
             Tenant,
             new DateTimeOffset(2026, 5, 26, 12, 0, 0, TimeSpan.Zero));
 

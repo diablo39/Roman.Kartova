@@ -32,7 +32,14 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .RequireAuthorization(KartovaPermissions.CatalogApplicationsRegister)
               .WithName("RegisterApplication")
               .Produces<ApplicationResponse>(StatusCodes.Status201Created)
-              .ProducesProblem(StatusCodes.Status400BadRequest);
+              .ProducesProblem(StatusCodes.Status400BadRequest)
+              // Membership gate (mirrors assign-team SF-2): non-OrgAdmin callers that
+              // are not a member of the supplied teamId are rejected with 403 before
+              // the handler runs. OrgAdmin is unaffected.
+              .ProducesProblem(StatusCodes.Status403Forbidden)
+              // ADR-0103: 422 invalid-team when the supplied teamId does not resolve
+              // to a team in the current tenant.
+              .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         tenant.MapGet("/applications/{id:guid}", CatalogEndpointDelegates.GetApplicationByIdAsync)
               .RequireAuthorization(KartovaPermissions.CatalogRead)
               .WithName("GetApplicationById")
@@ -43,10 +50,10 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .WithName("ListApplications")
               // CursorPage<T> envelope — ADR-0095: items + nextCursor + prevCursor.
               .Produces<CursorPage<ApplicationResponse>>(StatusCodes.Status200OK)
-              // Slice 9 / E2 (spec §6.5): ?ownerUserId= validation produces a 422
-              // invalid-owner envelope when the supplied id does not resolve to a
-              // user in the current tenant (cross-tenant ids hit the same branch
-              // because IUserDirectory is RLS-scoped).
+              // Slice 9 / E2 (spec §6.5), renamed slice 10 / ADR-0103: ?createdByUserId=
+              // validation produces a 422 invalid-created-by envelope when the supplied
+              // id does not resolve to a user in the current tenant (cross-tenant ids hit
+              // the same branch because IUserDirectory is RLS-scoped).
               .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
               // sortBy/sortOrder enum schemas + bounded-integer limit schema are emitted
               // in the OpenAPI doc by Kartova.Api.OpenApi.CursorListQueryParameterTransformer

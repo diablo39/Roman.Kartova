@@ -263,7 +263,7 @@ public abstract class KartovaApiFixtureBase
         var tenant = TenantFor(email);
         var token = Signer.IssueForTenant(
             tenant,
-            roles ?? new[] { "OrgAdmin" },
+            roles ?? new[] { KartovaRoles.OrgAdmin },
             subject: sub.ToString(),
             email: emailClaim);
 

@@ -20,6 +20,7 @@
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Kartova.SharedKernel\Kartova.SharedKernel.csproj" />
     <ProjectReference Include="..\..\src\Kartova.SharedKernel.Identity\Kartova.SharedKernel.Identity.csproj" />
   </ItemGroup>
 </Project>

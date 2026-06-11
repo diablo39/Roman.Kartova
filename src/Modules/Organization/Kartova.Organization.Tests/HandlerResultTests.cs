@@ -87,71 +87,8 @@ public sealed class HandlerResultTests
         Assert.AreEqual(when, r.AddedAt);
     }
 
-    // ---------------------------------------------------------------------
-    // RemoveTeamMemberResult
-    // ---------------------------------------------------------------------
-
-    [TestMethod]
-    public void RemoveTeamMemberResult_TeamNotFound_shape()
-    {
-        var r = new RemoveTeamMemberResult(Removed: false, TeamNotFound: true, MemberNotFound: false);
-
-        Assert.IsFalse(r.Removed);
-        Assert.IsTrue(r.TeamNotFound);
-        Assert.IsFalse(r.MemberNotFound);
-    }
-
-    [TestMethod]
-    public void RemoveTeamMemberResult_MemberNotFound_shape()
-    {
-        var r = new RemoveTeamMemberResult(Removed: false, TeamNotFound: false, MemberNotFound: true);
-
-        Assert.IsFalse(r.Removed);
-        Assert.IsFalse(r.TeamNotFound);
-        Assert.IsTrue(r.MemberNotFound);
-    }
-
-    [TestMethod]
-    public void RemoveTeamMemberResult_Success_shape()
-    {
-        var r = new RemoveTeamMemberResult(Removed: true, TeamNotFound: false, MemberNotFound: false);
-
-        Assert.IsTrue(r.Removed);
-        Assert.IsFalse(r.TeamNotFound);
-        Assert.IsFalse(r.MemberNotFound);
-    }
-
-    // ---------------------------------------------------------------------
-    // UpdateTeamMemberResult
-    // ---------------------------------------------------------------------
-
-    [TestMethod]
-    public void UpdateTeamMemberResult_TeamNotFound_shape()
-    {
-        var r = new UpdateTeamMemberResult(Updated: false, TeamNotFound: true, MemberNotFound: false);
-
-        Assert.IsFalse(r.Updated);
-        Assert.IsTrue(r.TeamNotFound);
-        Assert.IsFalse(r.MemberNotFound);
-    }
-
-    [TestMethod]
-    public void UpdateTeamMemberResult_MemberNotFound_shape()
-    {
-        var r = new UpdateTeamMemberResult(Updated: false, TeamNotFound: false, MemberNotFound: true);
-
-        Assert.IsFalse(r.Updated);
-        Assert.IsFalse(r.TeamNotFound);
-        Assert.IsTrue(r.MemberNotFound);
-    }
-
-    [TestMethod]
-    public void UpdateTeamMemberResult_Success_shape()
-    {
-        var r = new UpdateTeamMemberResult(Updated: true, TeamNotFound: false, MemberNotFound: false);
-
-        Assert.IsTrue(r.Updated);
-        Assert.IsFalse(r.TeamNotFound);
-        Assert.IsFalse(r.MemberNotFound);
-    }
+    // RemoveTeamMemberResult / UpdateTeamMemberResult shape tests removed: those results
+    // are now enums (RemoveTeamMemberOutcome / UpdateTeamMemberOutcome) per ADR-0104, so
+    // there is no boolean-flag construction left to assert. Branch behavior is covered by
+    // the integration tests (RemoveTeamMemberTests / UpdateTeamMemberTests → HTTP status).
 }

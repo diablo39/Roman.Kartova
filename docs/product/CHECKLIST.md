@@ -1,6 +1,6 @@
 # Kartova — Development Progress Checklist
 
-**Last updated:** 2026-06-09
+**Last updated:** 2026-06-10
 
 ## How to use
 - [ ] = Not started
@@ -12,7 +12,7 @@
 | Phase | Status | Progress |
 |-------|--------|----------|
 | Phase 0: Foundation | In Progress | 10/33 |
-| Phase 1: Core Catalog & Notifications | In Progress | 10/57 |
+| Phase 1: Core Catalog & Notifications | In Progress | 13/60 |
 | Phase 2: Auto-Import | Not Started | 0/36 |
 | Phase 3: Documentation | Not Started | 0/15 |
 | Phase 4: Status Page | Not Started | 0/16 |
@@ -21,7 +21,7 @@
 | Phase 7: Intelligence | Not Started | 0/13 |
 | Phase 8: Analytics | Not Started | 0/14 |
 | Phase 9: Advanced | Not Started | 0/0 |
-| **Total** | | **17/211** |
+| **Total** | | **20/214** |
 
 ---
 
@@ -91,7 +91,7 @@
 ### E-02: Entity Registry
 
 **E-02.F-01: Application Entity Management**
-- [x] E-02.F-01.S-01 — Register new application in catalog (slice 3 — PR #10, 2026-04-30; UI surface added in slice 4 — PR #17, 2026-04-30; TimeProvider on Application.Create — slice 6, PR #22, 2026-05-07)
+- [x] E-02.F-01.S-01 — Register new application in catalog (slice 3 — PR #10, 2026-04-30; UI surface added in slice 4 — PR #17, 2026-04-30; TimeProvider on Application.Create — slice 6, PR #22, 2026-05-07; slice-10 amendment 2026-06-10: required owning team (`TeamId`), created-by provenance (`CreatedByUserId` immutable), membership-gated registration — ADR-0103)
 - [x] E-02.F-01.S-02 — Application detail page with metadata (slice 4 — PR #17, 2026-04-30; header + metadata only, tabs deferred)
 - [x] E-02.F-01.S-03 — Edit application metadata (slice 5 — PR #21, 2026-05-06; PUT /api/v1/catalog/applications/{id} with If-Match/ETag optimistic concurrency, ADR-0096)
 - [x] E-02.F-01.S-04 — Application lifecycle status transitions (slice 5 — PR #21, 2026-05-06; ADR-0073 Active → Deprecated → Decommissioned linear forward, sunsetDate strict; admin override + audit + notifications deferred to follow-up slices; default-view filter — slice 6, PR #22, 2026-05-07; backward transitions (Reactivate, UnDecommission) — slice 7, PR #24, 2026-05-22; sunset-date admin override remains follow-up §15.1)
@@ -124,6 +124,9 @@
 - [x] E-03.F-01.S-02 — Invite users with specific roles (slice 9 — PR #TBD, 2026-05-29; KeyCloak admin client with `username` field, copy-link UX, three-way 409 conflict model, UNIQUE partial index closes race, hourly expiry sweep via PostgresAdvisoryLock leader election; plus accept-invitation set-password flow (opaque tokenized link + Kartova-hosted set-password page; slice-9 sub-slice, 2026-06-01))
 - [x] E-03.F-01.S-03 — View user details (slice 9 — PR #TBD, 2026-05-29; `GET /users/{id}` with teams + memberships via two-query client-side join over RLS-scoped Npgsql)
 - [x] E-03.F-01.S-04 — User search for team-member add (slice 9 — PR #TBD, 2026-05-29; `GET /users?q=...&limit=...` typeahead with case-insensitive substring match across DisplayName + Email; `UserSearchCombobox` SPA component replaces raw UUID input)
+- [x] E-03.F-01.S-05 — Members directory (slice 10 — 2026-06-10; cursor-paginated `GET /users` with role filter + search; displayName/email/role/teamCount/lastSeenAt columns; OrgAdmin-only row actions)
+- [x] E-03.F-01.S-06 — Change member role (slice 10 — 2026-06-10; `PUT /users/{id}/role` writes through to KeyCloak + `realm_role` projection; last-OrgAdmin guard; takes effect on next token refresh)
+- [x] E-03.F-01.S-07 — Offboard member (slice 10 — 2026-06-10; `DELETE /users/{id}` no successor; hard-delete per ADR-0102; team retains owned apps, created-by is immutable history — ADR-0103; last-OrgAdmin + self-offboard guards; slice-10 amendment 2026-06-10: no app reassignment, no IApplicationOwnerReassigner port)
 
 **E-03.F-02: Team Management**
 - [x] E-03.F-02.S-01 — Create and manage team profile (slice 8 — PR #TBD, 2026-05-26; `teams` table + `DisplayName`/`Description`; OrgAdmin creates, TeamAdmin renames own team)

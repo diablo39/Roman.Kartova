@@ -1,8 +1,8 @@
 ---
 platform: Kartova
 description: SaaS service catalog and developer portal platform (Backstage + Compass + Statuspage)
-adr_count: 101
-last_updated: 2026-06-09
+adr_count: 103
+last_updated: 2026-06-10
 architecture:
   backend: .NET 10 (LTS) / ASP.NET Core + EF Core (ADR-0027)
   backend_pattern: Modular monolith (ADR-0082) with Clean Architecture per module — Domain / Application / Infrastructure / Contracts (ADR-0028); inter-module via Wolverine mediator or Kafka events
@@ -97,7 +97,7 @@ pricing:
 domain_model:
   entity_types: 9 fixed + JSONB custom_attributes (MVP); 10th Custom Entity in Phase 2 (ADR-0064)
   org_structure: hybrid hierarchy (Org → Team → System → Component) + cross-cutting tags (ADR-0065)
-  ownership: multi-team with platform flag + quorum approval (ADR-0066)
+  ownership: application owner is a required team (`Application.TeamId`); individual is created-by provenance (`CreatedByUserId`) — immutable (ADR-0103); multi-team co-ownership with platform flag + quorum approval deferred to E-03.F-05 (ADR-0066)
   relationships: fixed 7-type vocabulary (depends-on / owns / consumes / produces / exposes / implements / part-of) (ADR-0068)
   relationship_origin: manual | scan | agent, immutable (ADR-0067)
   required_fields: owner, lifecycle, etc. enforced on all creation paths (ADR-0069)
@@ -115,8 +115,8 @@ open_source_strategy: fully proprietary, no OSS core / source-available (ADR-002
 # Architecture Decision Records — Kartova
 
 **Status:** Living document
-**Last updated:** 2026-06-09
-**Total accepted:** 101
+**Last updated:** 2026-06-10
+**Total accepted:** 103
 **Convention:** Michael Nygard template (Status / Context / Decision / Rationale / Alternatives / Consequences / References)
 
 ## How to use this index
@@ -228,13 +228,16 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0099](ADR-0099-distributed-locking-leader-elected-periodic-tasks.md) | Distributed Locking and Leader-Elected Periodic Tasks via Postgres Advisory Locks | Platform Infrastructure | Accepted | 0001, 0080, 0082 | Adopt Postgres session-level advisory locks as the distributed-locking primitive. `IDistributedLock` + `PostgresAdvisoryLock` + `LeaderElectedPeriodicService` reusable building blocks for safe multi-instance periodic work (invitation expiry, scorecard recompute, retention purge, etc.). |
 | [0100](ADR-0100-strict-one-email-per-tenant-identity-scope.md) | Identity Scope — Strict One-Email-Per-Tenant in a Single KeyCloak Realm | Authentication & Authorization | Accepted | 0006, 0011 | Preserve KeyCloak realm setting `duplicateEmailsAllowed: false`: one email = one tenant across the platform. Cross-tenant duplicate invitations surface as 409 `email-already-on-platform`. Industry pattern (Atlassian/GitHub). Upgrade path for multi-tenant-per-user is realm-per-tenant, not flipping the flag. |
 | [0101](ADR-0101-team-admin-authority-via-membership.md) | Team-Admin Authority Is Per-Team Membership, Not a Realm Role | Authentication & Authorization | Accepted | 0008, 0090, 0100 | Remove the `TeamAdmin` realm role + its `team.metadata.edit`/`team.delete`/`team.members.manage` claims; team-admin authority is conferred solely by an `Admin`-level per-team membership via the `TeamAdminOfThis` resource gate. Realm roles become Viewer/Member/OrgAdmin; team creation stays OrgAdmin-only. Eliminates the silent-403 footgun where a realm-Member promoted to team Admin couldn't manage their team. Amends ADR-0008; supersedes slice-8 spec §5. |
+| [0102](ADR-0102-user-offboarding-hard-delete.md) | User Offboarding Is Hard Delete | Compliance & Retention | Accepted | 0015, 0018, 0019, 0100, 0101, 0103 | Offboarding hard-deletes the KeyCloak identity + local `users` projection; owned applications are unaffected (the team retains them per ADR-0103; created-by is immutable history); sits outside ADR-0019's catalog soft-delete scope; erasure-aligned (ADR-0015); audit trail deferred to the ADR-0018 slice (named gap); org must retain ≥ 1 active OrgAdmin. |
+| [0103](ADR-0103-application-ownership-required-team.md) | Application Ownership Is a Required Team; the Individual Is Created-By Provenance | Domain Model | Accepted | 0066, 0082, 0101, 0102 | `Application.TeamId` is required (the owning team; no ownerless apps); the individual is `CreatedByUserId` — immutable provenance, never reassigned or nulled; registration is membership-gated (OrgAdmin any team, Member only their teams); offboarding does not reassign apps (ADR-0102). Aligns with Backstage (`spec.owner` = Group) and Compass (Owner = Atlassian Team). |
+| [0104](ADR-0104-payload-free-outcomes-are-enums.md) | Payload-Free Operation Outcomes Are Enums, Not Boolean-Flag Result Records | Code Conventions | Accepted | 0082, 0095, 0097 | Application-layer results with no success payload + mutually-exclusive terminal states are a C# `enum` (one member per outcome), not a `record` of parallel `bool` flags; results that carry data on success stay records (e.g. `AssignApplicationTeamResult`). Endpoints map outcomes via an exhaustive `switch` + `_ => throw` guard. Removes representable illegal states and tautological factory-shape tests. Review-enforced. |
 
 ## By category (quick navigation)
 
 - **Data Platform**: 0001, 0002, 0003, 0004, 0005
 - **Authentication & Authorization**: 0006, 0007, 0008, 0009, 0010, 0100, 0101
 - **Multi-Tenancy**: 0011, 0012, 0013, 0014, 0090
-- **Compliance & Retention**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050
+- **Compliance & Retention**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050, 0102
 - **Platform Infrastructure**: 0022, 0023, 0024, 0025, 0026, 0099
 - **API & Integration Architecture**: 0027, 0028, 0029, 0030, 0031, 0032, 0033, 0034, 0035, 0036, 0037, 0038, 0091, 0092, 0095, 0096, 0098
 - **Backend Architecture**: 0080, 0081, 0082, 0089, 0093
@@ -246,7 +249,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Scan / Import Architecture**: 0054, 0055, 0056, 0057
 - **Observability & Monitoring**: 0058, 0059, 0060
 - **Billing**: 0061, 0062, 0063
-- **Domain Model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073
+- **Domain Model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073, 0103
 - **Scale & Performance**: 0074, 0075, 0076
 - **Non-Functional / Cross-Cutting**: 0077, 0078, 0079
 - **Testing & Quality**: 0083, 0097
@@ -267,11 +270,11 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Design source / mockups**: 0039, 0087
 - **Agent architecture**: 0041, 0042, 0043, 0044, 0045, 0067
 - **API contract**: 0029, 0030, 0031, 0032, 0033, 0034
-- **Compliance (GDPR / MiFID II)**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050, 0078
+- **Compliance (GDPR / MiFID II)**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050, 0078, 0102
 - **Resource identifier / entity ID format**: 0092, 0098
-- **Retention / archival / deletion**: 0017, 0019, 0020, 0073
-- **Audit & logging**: 0018, 0050, 0058
-- **Domain model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073
+- **Retention / archival / deletion**: 0017, 0019, 0020, 0073, 0102
+- **Audit & logging**: 0018, 0050, 0058, 0102
+- **Domain model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073, 0103
 - **Scale & performance**: 0013, 0031, 0074, 0075, 0076
 - **Availability & SLA**: 0005, 0023, 0053, 0076
 - **Billing & pricing**: 0061, 0062, 0063
@@ -281,8 +284,9 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Git integration**: 0035, 0054, 0055, 0057
 - **Scan / import**: 0045, 0054, 0055, 0056, 0067
 - **Status page**: 0005, 0010, 0023, 0051, 0052, 0053, 0076
-- **Identity & auth**: 0006, 0007, 0008, 0009, 0010, 0014, 0042, 0100, 0101
-- **RBAC / roles / team-admin authority**: 0008, 0101
+- **Identity & auth**: 0006, 0007, 0008, 0009, 0010, 0014, 0042, 0100, 0101, 0102
+- **Membership-gated registration**: 0103
+- **RBAC / roles / team-admin authority**: 0008, 0101, 0103
 - **Infrastructure & deployment**: 0022, 0023, 0024, 0025, 0043, 0085, 0086
 - **Database migrations**: 0001, 0012, 0082, 0085
 - **Helm / packaging / GitOps**: 0043, 0085, 0086
@@ -302,8 +306,9 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Apicurio** → 0037
 - **Approval workflow (discovery inbox)** → 0045
 - **ASP.NET Core** → 0027, 0028, 0034, 0060
-- **Audit log** → 0016, 0017, 0018, 0050, 0058, 0073
+- **Audit log** → 0016, 0017, 0018, 0050, 0058, 0073, 0102
 - **Avro / JSON / Protobuf schemas** → 0037
+- **Backstage / Compass (reference products — ownership model)** → 0103
 - **Bearer tokens (long-lived)** → 0042, 0077
 - **Billing** → 0061, 0062, 0063
 - **Blast radius / Impact analysis** → 0040, 0067, 0068
@@ -345,7 +350,7 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **FluentAssertions (removed)** → 0083, 0097
 - **FluentValidation** → 0027
 - **Four-tier pricing (Free/Starter/Pro/Enterprise)** → 0061
-- **GDPR** → 0015, 0019, 0021, 0062, 0077, 0078
+- **GDPR** → 0015, 0019, 0021, 0062, 0077, 0078, 0102
 - **Git integration** → 0035, 0054, 0055, 0057
 - **GitHub / GitLab / Bitbucket** → 0035, 0057
 - **Grafana Cloud** → 0036
@@ -422,7 +427,7 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **MiFID II** → 0016, 0017, 0018, 0050, 0062
 - **MinIO** → 0004
 - **mTLS (NOT used)** → 0033, 0042, 0077
-- **Multi-ownership / quorum** → 0066
+- **Multi-ownership / quorum** → 0066, 0103
 - **Multi-tenancy** → 0011, 0012, 0013, 0014
 - **Notifications engine** → 0047, 0048, 0049, 0050, 0051
 - **Notification log (MiFID)** → 0050
@@ -452,11 +457,14 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **HTTP verbs / PUT / POST / PATCH** → 0096
 - **Named action endpoints** → 0073, 0096
 - **Retention (180 days / 5 years)** → 0017, 0019, 0020
-- **Right to erasure (GDPR)** → 0015, 0019
+- **Right to erasure (GDPR)** → 0015, 0019, 0102
+- **Required-owner (application / entity)** → 0069, 0103
+- **CreatedByUserId / created-by provenance** → 0103
 - **RLS (Row-Level Security)** → 0012, 0014
 - **Roles (Org Admin / Editor / Contributor / Viewer / Service Account)** → 0008 (amended by 0101)
 - **Roles (implemented: Viewer / Member / OrgAdmin / PlatformAdmin / ServiceAccount)** → 0101
 - **Team-admin authority / TeamAdmin role (removed)** → 0101
+- **Team ownership (required, application)** → 0103
 - **Team membership (per-team Admin/Member role)** → 0101
 - **TeamAdminOfThis (resource policy)** → 0101
 - **RSS (status page)** → 0047, 0051
@@ -472,7 +480,7 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **SMS** → 0047, 0051
 - **SMTP** → 0049
 - **Slack** → 0048
-- **Soft delete / 30-day purge** → 0019
+- **Soft delete / 30-day purge** → 0019, 0102
 - **SPA (React)** → 0039
 - **SSL / Let's Encrypt / ACME** → 0052
 - **Staging (CD)** → 0025
@@ -496,6 +504,7 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Wolverine (mediator + outbound + outbox)** → 0080
 - **TypeScript (strict)** → 0039
 - **URL-based versioning** → 0030
+- **User offboarding / member removal** → 0102, 0103
 - **User-count metering** → 0063
 - **Versioned config (agent)** → 0044
 - **Vite** → 0039
@@ -540,3 +549,6 @@ _No ADRs have been deprecated or superseded yet. When an ADR is superseded by a 
 | 2026-05-27 | ADR-0099 (Distributed locking + leader-elected periodic tasks) accepted — `IDistributedLock` + `PostgresAdvisoryLock` (Postgres `pg_try_advisory_lock`) + `LeaderElectedPeriodicService` base class for multi-instance-safe periodic background work; landed alongside slice 9 (organization & people management). |
 | 2026-05-29 | ADR-0100 (Identity scope — strict one-email-per-tenant) accepted — KeyCloak realm setting `duplicateEmailsAllowed: false` preserved; cross-tenant duplicate invitations return 409 `email-already-on-platform`; landed as part of slice 9 invitation flow. |
 | 2026-06-09 | ADR-0101 (Team-admin authority via per-team membership) accepted — removes the `TeamAdmin` realm role + its three `team.*` mutation claims; team-admin power is conferred solely by an `Admin`-level per-team membership via the `TeamAdminOfThis` resource gate. Realm roles become Viewer/Member/OrgAdmin; team creation stays OrgAdmin-only. Eliminates the silent-403 footgun (realm-Member promoted to team Admin couldn't manage their team). Amends ADR-0008; supersedes slice-8 design spec §5. |
+| 2026-06-10 | ADR-0102 (User offboarding is hard delete) accepted — offboarding hard-deletes the KeyCloak identity + local `users` projection; owned applications are unaffected (team retains them per ADR-0103; created-by is immutable history); sits outside ADR-0019's catalog soft-delete scope; erasure-aligned with ADR-0015; audit trail deferred to the ADR-0018 slice (named gap); org must retain ≥ 1 active OrgAdmin. Landed with slice 10 (member lifecycle management). |
+| 2026-06-10 | ADR-0103 (Application ownership is a required team; individual is created-by provenance) accepted — `Application.TeamId` required (owning team, no ownerless apps); `CreatedByUserId` immutable provenance; registration membership-gated (OrgAdmin any team, Member own teams only); offboarding drops app reassignment (team retains). Aligns with Backstage/Compass ownership model. ADR-0102 updated accordingly. Landed with slice 10 (ownership realignment amendment). |
+| 2026-06-11 | ADR-0104 (Payload-free operation outcomes are enums) accepted — results with no success payload (`ChangeMemberRoleOutcome`, `OffboardMemberOutcome`) are C# enums, not boolean-flag records; payload-carrying results (`AssignApplicationTeamResult`) stay records; endpoints map via an exhaustive `switch` + `_ => throw`. Removes representable illegal states + the two tautological result-shape test files. Landed with slice 10 (member-lifecycle review follow-up). |

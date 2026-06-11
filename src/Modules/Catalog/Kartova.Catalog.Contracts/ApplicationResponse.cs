@@ -7,20 +7,23 @@ namespace Kartova.Catalog.Contracts;
 /// <summary>
 /// API response shape for a single Catalog application.
 /// <para>
-/// Slice 9 / E1 (ADR-0098): the optional <see cref="Owner"/> projection is enriched
-/// by the list + detail handlers via <c>IUserDirectory</c> (cross-module port
-/// implemented in the Organization module). Write-path handlers (register, edit,
-/// deprecate, decommission, reactivate, undecommission, assign-team) currently
-/// return a response with <see cref="Owner"/> = null — they materialize via the
-/// no-argument <c>ToResponse()</c> extension, which omits the enrichment to keep
-/// the write path free of an extra lookup. Consumers must treat the field as
-/// optional.
+/// ADR-0103: <see cref="CreatedByUserId"/> is immutable creation provenance (the
+/// individual who registered the app); <see cref="TeamId"/> is the required owning
+/// team. The optional <see cref="CreatedBy"/> projection is enriched by the list +
+/// detail handlers via <c>IUserDirectory</c> (cross-module port implemented in the
+/// Organization module). Write-path handlers (register, edit, deprecate,
+/// decommission, reactivate, undecommission, assign-team) return a response with
+/// <see cref="CreatedBy"/> = null — they materialize via the no-argument
+/// <c>ToResponse()</c> extension, which omits the enrichment to keep the write path
+/// free of an extra lookup. Consumers must treat the field as optional (and a
+/// once-resolving id may stop resolving after the creator is offboarded — render
+/// "former member").
 /// </para>
 /// <para>
-/// Owner is declared as an init-only property after the positional list (not as
+/// CreatedBy is declared as an init-only property after the positional list (not as
 /// a positional parameter with a default) so the constructor arity remains stable
 /// and existing positional call sites compile unchanged. Callers that need the
-/// enrichment populate it with the record <c>with { Owner = ... }</c> idiom.
+/// enrichment populate it with the record <c>with { CreatedBy = ... }</c> idiom.
 /// </para>
 /// </summary>
 [ExcludeFromCodeCoverage]
@@ -29,12 +32,12 @@ public sealed record ApplicationResponse(
     Guid TenantId,
     string DisplayName,
     string Description,
-    Guid OwnerUserId,
+    Guid CreatedByUserId,
     DateTimeOffset CreatedAt,
     Lifecycle Lifecycle,
     DateTimeOffset? SunsetDate,
-    Guid? TeamId,
+    Guid TeamId,
     string Version)
 {
-    public UserDisplayInfo? Owner { get; init; }
+    public UserDisplayInfo? CreatedBy { get; init; }
 }

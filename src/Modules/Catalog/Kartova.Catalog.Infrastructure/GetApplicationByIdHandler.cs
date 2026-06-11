@@ -11,10 +11,10 @@ namespace Kartova.Catalog.Infrastructure;
 /// <see cref="CatalogDbContext"/>. Returns null when the row is invisible in
 /// the current tenant scope — RLS auto-filters cross-tenant rows.
 /// <para>
-/// Slice 9 / E1 (ADR-0098): the response is enriched with the owner's display
-/// name via the <see cref="IUserDirectory"/> cross-module port. When the owning
+/// Slice 9 / E1 (ADR-0098): the response is enriched with the creator's display
+/// name via the <see cref="IUserDirectory"/> cross-module port. When the creating
 /// user has been deleted from the directory (no matching <c>users</c> row),
-/// <c>Owner</c> is left null — the wire contract treats the field as optional.
+/// <c>CreatedBy</c> is left null — the wire contract treats the field as optional.
 /// </para>
 /// </summary>
 public sealed class GetApplicationByIdHandler(IUserDirectory directory)
@@ -31,7 +31,7 @@ public sealed class GetApplicationByIdHandler(IUserDirectory directory)
             ApplicationSortSpecs.IdEquals(q.Id), ct);
         if (app is null) return null;
 
-        var owner = await directory.GetAsync(app.OwnerUserId, ct);
-        return app.ToResponse() with { Owner = owner };
+        var creator = await directory.GetAsync(app.CreatedByUserId, ct);
+        return app.ToResponse() with { CreatedBy = creator };
     }
 }

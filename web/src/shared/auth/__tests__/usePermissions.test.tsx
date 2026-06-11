@@ -79,6 +79,8 @@ describe("usePermissions", () => {
           "org.invitations.revoke",
           "org.users.read",
           "org.users.search",
+          "org.users.role.change",
+          "org.users.remove",
         ],
         teamMemberships: [],
       },

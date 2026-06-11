@@ -13,7 +13,7 @@ public static class ApplicationResponseExtensions
             app.TenantId.Value,
             app.DisplayName,
             app.Description,
-            app.OwnerUserId,
+            app.CreatedByUserId,
             app.CreatedAt,
             app.Lifecycle,
             app.SunsetDate,

@@ -48,7 +48,7 @@ describe("catalog hooks", () => {
 
   describe("useApplicationsList", () => {
     it("calls GET /api/v1/catalog/applications with query params and exposes items", async () => {
-      const page = { items: [{ id: "a1", displayName: "X", tenantId: "t", description: "", ownerUserId: "u", createdAt: "2026-01-01T00:00:00Z" }], nextCursor: null, prevCursor: null };
+      const page = { items: [{ id: "a1", displayName: "X", tenantId: "t", description: "", createdByUserId: "u", createdAt: "2026-01-01T00:00:00Z" }], nextCursor: null, prevCursor: null };
       const get = vi.fn().mockResolvedValue({ data: page, error: undefined });
       mockApiClient({ GET: get });
 
@@ -67,14 +67,14 @@ describe("catalog hooks", () => {
       expect(result.current.items).toHaveLength(1);
     });
 
-    it("threads ownerUserId into the wire query when provided (slice-9 E2)", async () => {
+    it("threads createdByUserId into the wire query when provided (slice-10 ownership realignment)", async () => {
       const page = { items: [], nextCursor: null, prevCursor: null };
       const get = vi.fn().mockResolvedValue({ data: page, error: undefined });
       mockApiClient({ GET: get });
 
       const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
       const { result } = renderHook(
-        () => useApplicationsList({ ...DEFAULT_PARAMS, ownerUserId: "abc-123" }),
+        () => useApplicationsList({ ...DEFAULT_PARAMS, createdByUserId: "abc-123" }),
         { wrapper: makeWrapper(qc) },
       );
 
@@ -83,13 +83,13 @@ describe("catalog hooks", () => {
         "/api/v1/catalog/applications",
         expect.objectContaining({
           params: expect.objectContaining({
-            query: expect.objectContaining({ ownerUserId: "abc-123" }),
+            query: expect.objectContaining({ createdByUserId: "abc-123" }),
           }),
         }),
       );
     });
 
-    it("omits ownerUserId from the wire query when not provided", async () => {
+    it("omits createdByUserId from the wire query when not provided", async () => {
       const page = { items: [], nextCursor: null, prevCursor: null };
       const get = vi.fn().mockResolvedValue({ data: page, error: undefined });
       mockApiClient({ GET: get });
@@ -101,7 +101,7 @@ describe("catalog hooks", () => {
 
       await waitFor(() => expect(result.current.isLoading).toBe(false));
       const sentQuery = get.mock.calls[0]?.[1].params.query;
-      expect(sentQuery).not.toHaveProperty("ownerUserId");
+      expect(sentQuery).not.toHaveProperty("createdByUserId");
     });
 
     it("surfaces error when API returns error", async () => {
@@ -159,11 +159,11 @@ describe("catalog hooks", () => {
         wrapper: makeWrapper(qc),
       });
 
-      await result.current.mutateAsync({ displayName: "N", description: "" });
+      await result.current.mutateAsync({ displayName: "N", description: "", teamId: "team-1" });
 
       expect(post).toHaveBeenCalledWith(
         "/api/v1/catalog/applications",
-        { body: { displayName: "N", description: "" } }
+        { body: { displayName: "N", description: "", teamId: "team-1" } }
       );
       // Invalidation uses applicationKeys.all (prefix), covering all parameterized list keys.
       expect(invalidate).toHaveBeenCalledWith({ queryKey: applicationKeys.all });
@@ -182,7 +182,7 @@ describe("catalog hooks", () => {
       });
 
       await expect(
-        result.current.mutateAsync({ displayName: "N", description: "" })
+        result.current.mutateAsync({ displayName: "N", description: "", teamId: "team-1" })
       ).rejects.toMatchObject({ status: 400 });
     });
   });

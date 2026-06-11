@@ -27,11 +27,11 @@ const baseApp: ApplicationResponse = {
   tenantId: "t",
   displayName: "App",
   description: "d",
-  ownerUserId: "u",
+  createdByUserId: "u",
   createdAt: "2026-04-30T00:00:00Z",
   lifecycle: "active",
   sunsetDate: null,
-  teamId: null,
+  teamId: "team-1",
   version: "v1",
 };
 

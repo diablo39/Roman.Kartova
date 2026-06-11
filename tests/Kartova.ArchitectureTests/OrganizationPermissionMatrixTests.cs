@@ -13,6 +13,7 @@ public sealed class OrganizationPermissionMatrixTests
             KartovaPermissions.OrgProfileRead, KartovaPermissions.OrgProfileEdit,
             KartovaPermissions.OrgInvitationsRead, KartovaPermissions.OrgInvitationsCreate, KartovaPermissions.OrgInvitationsRevoke,
             KartovaPermissions.OrgUsersRead, KartovaPermissions.OrgUsersSearch,
+            KartovaPermissions.OrgUsersRoleChange, KartovaPermissions.OrgUsersRemove,
         ]),
     ];
 

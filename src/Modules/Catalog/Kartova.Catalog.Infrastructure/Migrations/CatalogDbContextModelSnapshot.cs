@@ -32,6 +32,10 @@ namespace Kartova.Catalog.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(4096)
@@ -50,15 +54,11 @@ namespace Kartova.Catalog.Infrastructure.Migrations
                         .HasDefaultValue((short)1)
                         .HasColumnName("lifecycle");
 
-                    b.Property<Guid>("OwnerUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("owner_user_id");
-
                     b.Property<DateTimeOffset?>("SunsetDate")
                         .HasColumnType("timestamptz")
                         .HasColumnName("sunset_date");
 
-                    b.Property<Guid?>("TeamId")
+                    b.Property<Guid>("TeamId")
                         .HasColumnType("uuid")
                         .HasColumnName("team_id");
 

@@ -92,7 +92,7 @@ describe("UserSearchCombobox", () => {
 
     await waitFor(() => expect(get).toHaveBeenCalledTimes(1));
     expect(get).toHaveBeenCalledWith(
-      "/api/v1/organizations/users",
+      "/api/v1/organizations/users/search",
       expect.objectContaining({ params: { query: { q: "al", limit: 10 } } }),
     );
   });

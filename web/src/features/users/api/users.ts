@@ -72,7 +72,7 @@ export function useUserSearch(
     enabled,
     queryFn: async ({ signal }) => {
       const { data, error, response } = await apiClient.GET(
-        "/api/v1/organizations/users",
+        "/api/v1/organizations/users/search",
         { params: { query: { q, limit } }, signal },
       );
       if (error) throwWithStatus(error, response);

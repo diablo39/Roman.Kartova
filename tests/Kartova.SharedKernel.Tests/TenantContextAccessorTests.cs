@@ -44,7 +44,7 @@ public class TenantContextAccessorTests
         var id = NewTenantId();
 
         // Act
-        sut.Populate(id, new[] { "OrgAdmin" });
+        sut.Populate(id, new[] { KartovaRoles.OrgAdmin });
 
         // Assert — MC/DC pair partner: A=T, B=T -> true
         Assert.IsTrue(sut.IsTenantScoped);
@@ -57,7 +57,7 @@ public class TenantContextAccessorTests
         var sut = new TenantContextAccessor();
 
         // Act
-        sut.Populate(TenantId.Empty, new[] { "Member" });
+        sut.Populate(TenantId.Empty, new[] { KartovaRoles.Member });
 
         // Assert — MC/DC pair partner: A=T, B=F -> false.
         // Flipping B from T (T1) to F while holding A=T flips the decision, proving B
@@ -104,7 +104,7 @@ public class TenantContextAccessorTests
     {
         // Arrange
         var sut = new TenantContextAccessor();
-        var roles = new[] { "OrgAdmin", "Member", "Viewer" };
+        var roles = new[] { KartovaRoles.OrgAdmin, KartovaRoles.Member, KartovaRoles.Viewer };
 
         // Act
         sut.Populate(NewTenantId(), roles);
@@ -188,7 +188,7 @@ public class TenantContextAccessorTests
     {
         // Arrange
         var sut = new TenantContextAccessor();
-        sut.Populate(NewTenantId(), new[] { "OrgAdmin", "Member" });
+        sut.Populate(NewTenantId(), new[] { KartovaRoles.OrgAdmin, KartovaRoles.Member });
 
         // Act
         sut.Clear();

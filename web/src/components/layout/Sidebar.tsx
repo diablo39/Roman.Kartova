@@ -56,6 +56,7 @@ function DisabledItem({ label }: { label: string }) {
 export function Sidebar() {
   const { hasPermission } = usePermissions();
   const canSeeTeams = hasPermission(KartovaPermissions.TeamRead);
+  const canSeeMembers = hasPermission(KartovaPermissions.OrgUsersRead);
   const canSeeOrgSettings = hasPermission(KartovaPermissions.OrgProfileRead);
   const canSeeInvitations = hasPermission(KartovaPermissions.OrgInvitationsRead);
 
@@ -72,6 +73,11 @@ export function Sidebar() {
           {canSeeTeams && (
             <li>
               <NavItemLink to="/teams" label="Teams" />
+            </li>
+          )}
+          {canSeeMembers && (
+            <li>
+              <NavItemLink to="/members" label="Members" />
             </li>
           )}
           <li>

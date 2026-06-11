@@ -49,7 +49,7 @@ public sealed class TenantScopeBeginMiddlewareTests
             .Returns(Task.FromResult(handle));
 
         var tenantContext = new TenantContextAccessor();
-        tenantContext.Populate(tenantId, new[] { "OrgAdmin" });
+        tenantContext.Populate(tenantId, new[] { KartovaRoles.OrgAdmin });
 
         var services = new ServiceCollection();
         services.AddSingleton<ITenantContext>(tenantContext);
@@ -96,7 +96,7 @@ public sealed class TenantScopeBeginMiddlewareTests
         scope.BeginAsync(Arg.Any<TenantId>(), Arg.Any<CancellationToken>()).Returns(handle);
 
         var tenantContext = new TenantContextAccessor();
-        tenantContext.Populate(tenantId, new[] { "OrgAdmin" });
+        tenantContext.Populate(tenantId, new[] { KartovaRoles.OrgAdmin });
 
         var services = new ServiceCollection();
         services.AddSingleton<ITenantContext>(tenantContext);
@@ -140,7 +140,7 @@ public sealed class TenantScopeBeginMiddlewareTests
             .Returns(Task.FromResult(handle));
 
         var tenantContext = new TenantContextAccessor();
-        tenantContext.Populate(tenantId, new[] { "OrgAdmin" });
+        tenantContext.Populate(tenantId, new[] { KartovaRoles.OrgAdmin });
 
         var services = new ServiceCollection();
         services.AddSingleton<ITenantContext>(tenantContext);

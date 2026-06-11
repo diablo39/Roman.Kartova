@@ -45,6 +45,7 @@ public static class KartovaRolePermissions
                 KartovaPermissions.OrgInvitationsRevoke,
                 KartovaPermissions.OrgUsersRead,
                 KartovaPermissions.OrgUsersSearch,
+                KartovaPermissions.OrgUsersRoleChange, KartovaPermissions.OrgUsersRemove,
             }.ToFrozenSet(StringComparer.Ordinal),
             // PlatformAdmin: orthogonal — operates outside tenant scope. No entry.
             // ServiceAccount: no realm role yet (ADR-0009). No entry.

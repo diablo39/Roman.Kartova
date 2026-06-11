@@ -53,10 +53,10 @@ public sealed class EfApplicationConfiguration : IEntityTypeConfiguration<Kartov
         b.HasIndex(x => new { x.TenantId, x.DisplayName })
             .HasDatabaseName("ix_catalog_applications_tenant_id_display_name");
         b.Property(x => x.Description).HasColumnName("description").HasMaxLength(4096).IsRequired();
-        b.Property(x => x.OwnerUserId).HasColumnName("owner_user_id").IsRequired();
-        // Optional team assignment (slice 8). Guid? maps to PostgreSQL uuid NULL.
-        // Indexed for ApplicationCountByTeamReader / ApplicationsByTeamReader hot paths.
-        b.Property(x => x.TeamId).HasColumnName("team_id");
+        b.Property(x => x.CreatedByUserId).HasColumnName("created_by_user_id").IsRequired();
+        // Required team owner (ADR-0103). Indexed for ApplicationCountByTeamReader /
+        // ApplicationsByTeamReader hot paths.
+        b.Property(x => x.TeamId).HasColumnName("team_id").IsRequired();
         b.HasIndex(x => x.TeamId).HasDatabaseName("idx_catalog_applications_team");
         b.Property(x => x.CreatedAt).HasColumnName("created_at").IsRequired();
 

@@ -15,12 +15,12 @@ namespace Kartova.Catalog.Infrastructure;
 /// (ADR-0095).
 /// <para>
 /// Slice 9 / E1 (ADR-0098): each returned row is enriched with the
-/// owner's display name via the <see cref="IUserDirectory"/> cross-module port.
+/// creator's display name via the <see cref="IUserDirectory"/> cross-module port.
 /// The lookup is batched (<see cref="IUserDirectory.GetManyAsync"/>) over the
-/// distinct owner ids on the current page so it costs at most one extra round
+/// distinct created-by ids on the current page so it costs at most one extra round
 /// trip regardless of page size. The port returns null entries for ids that
-/// have no matching <c>users</c> row (e.g., the user was deleted after the
-/// application was registered) — those rows carry <c>Owner = null</c> in the
+/// have no matching <c>users</c> row (e.g., the creator was offboarded after the
+/// application was registered) — those rows carry <c>CreatedBy = null</c> in the
 /// response, which the wire contract allows.
 /// </para>
 /// </summary>
@@ -52,33 +52,34 @@ public sealed class ListApplicationsHandler(IUserDirectory directory)
             source = source.Where(a => a.Lifecycle != Lifecycle.Decommissioned);
         }
 
-        // Slice 9 / E2 (spec §6.5): optional ownerUserId filter. Endpoint-level
-        // IUserDirectory validation guarantees that, if non-null, the supplied
-        // id resolves to a user in the current tenant — so by the time we get
-        // here the predicate is safe to apply. RLS still scopes the row set, so
-        // a leak-by-construction (e.g., owner row from another tenant) would
-        // still produce an empty page rather than expose cross-tenant data.
-        // Slice 9 / S5 carry-forward: ownerUserId is encoded into the generic
+        // Slice 9 / E2 (spec §6.5), reframed slice 10 / ADR-0103: optional
+        // createdByUserId filter. Endpoint-level IUserDirectory validation
+        // guarantees that, if non-null, the supplied id resolves to a user in the
+        // current tenant — so by the time we get here the predicate is safe to
+        // apply. RLS still scopes the row set, so a leak-by-construction (e.g., a
+        // created-by row from another tenant) would still produce an empty page
+        // rather than expose cross-tenant data.
+        // Slice 9 / S5 carry-forward: createdByUserId is encoded into the generic
         // filter map below (CursorCodec `f`); ToCursorPagedAsync replays the map
         // on cursor decode and trips CursorFilterMismatchException if the request
-        // changes the owner mid-pagination. Same mechanism as includeDecommissioned.
-        if (q.OwnerUserId is { } ownerUserId)
+        // changes it mid-pagination. Same mechanism as includeDecommissioned.
+        if (q.CreatedByUserId is { } createdByUserId)
         {
-            source = source.Where(a => a.OwnerUserId == ownerUserId);
+            source = source.Where(a => a.CreatedByUserId == createdByUserId);
         }
 
         // Filter state the cursor is issued under (ADR-0095). The owning module
         // owns the keys/values; the shared codec treats them as opaque. Always-
         // applied dimensions (includeDecommissioned) are always present; optional
-        // filters (ownerUserId) only when applied. A change mid-pagination trips
+        // filters (createdByUserId) only when applied. A change mid-pagination trips
         // CursorFilterMismatchException inside ToCursorPagedAsync.
         var filters = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["includeDecommissioned"] = q.IncludeDecommissioned ? "true" : "false",
         };
-        if (q.OwnerUserId is { } owner)
+        if (q.CreatedByUserId is { } createdBy)
         {
-            filters["ownerUserId"] = owner.ToString("D");
+            filters["createdByUserId"] = createdBy.ToString("D");
         }
 
         var page = await source
@@ -87,18 +88,18 @@ public sealed class ListApplicationsHandler(IUserDirectory directory)
                 ApplicationSortSpecs.IdSelector, IdExtractor, ct,
                 expectedFilters: filters);
 
-        // Batch-fetch owners for the entire page in a single round trip. HashSet
-        // de-duplicates in one allocation so multiple apps owned by the same user
+        // Batch-fetch creators for the entire page in a single round trip. HashSet
+        // de-duplicates in one allocation so multiple apps created by the same user
         // cost only one entry in the lookup payload.
-        var ownerIds = new HashSet<Guid>(page.Items.Select(a => a.OwnerUserId));
-        var owners = await directory.GetManyAsync(ownerIds, ct);
+        var creatorIds = new HashSet<Guid>(page.Items.Select(a => a.CreatedByUserId));
+        var creators = await directory.GetManyAsync(creatorIds, ct);
 
         var items = page.Items
             .Select(r =>
             {
                 var resp = r.ToResponse();
-                return owners.TryGetValue(r.OwnerUserId, out var owner)
-                    ? resp with { Owner = owner }
+                return creators.TryGetValue(r.CreatedByUserId, out var creator)
+                    ? resp with { CreatedBy = creator }
                     : resp;
             })
             .ToList();

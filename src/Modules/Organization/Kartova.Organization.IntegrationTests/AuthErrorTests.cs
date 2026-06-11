@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using Kartova.SharedKernel.Multitenancy;
 using Kartova.Testing.Auth;
 
 namespace Kartova.Organization.IntegrationTests;
@@ -58,7 +59,7 @@ public class AuthErrorTests : OrganizationIntegrationTestBase
         await Fx.SeedOrganizationAsync(SeededOrgs.OrgA.Value, "Org A");
         var client = Fx.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer", Fx.Signer.IssueForTenant(SeededOrgs.OrgA, new[] { "Member" }));
+            "Bearer", Fx.Signer.IssueForTenant(SeededOrgs.OrgA, new[] { KartovaRoles.Member }));
         var resp = await client.GetAsync("/api/v1/organizations/me/admin-only");
         Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
     }

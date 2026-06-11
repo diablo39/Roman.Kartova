@@ -90,4 +90,22 @@ public sealed class KartovaRolePermissionsTests
         var perms = KartovaRolePermissions.ForRole("not-a-real-role");
         Assert.AreEqual(0, perms.Count);
     }
+
+    [TestMethod]
+    public void OrgAdmin_has_user_management_permissions()
+    {
+        var perms = KartovaRolePermissions.ForRole(KartovaRoles.OrgAdmin);
+        Assert.IsTrue(perms.Contains(KartovaPermissions.OrgUsersRoleChange));
+        Assert.IsTrue(perms.Contains(KartovaPermissions.OrgUsersRemove));
+    }
+
+    [TestMethod]
+    [DataRow("Viewer")]
+    [DataRow("Member")]
+    public void NonAdmin_roles_lack_user_management_permissions(string role)
+    {
+        var perms = KartovaRolePermissions.ForRole(role);
+        Assert.IsFalse(perms.Contains(KartovaPermissions.OrgUsersRoleChange));
+        Assert.IsFalse(perms.Contains(KartovaPermissions.OrgUsersRemove));
+    }
 }

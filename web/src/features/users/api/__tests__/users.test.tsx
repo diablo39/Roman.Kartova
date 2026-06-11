@@ -90,7 +90,7 @@ describe("useUserSearch", () => {
     vi.restoreAllMocks();
   });
 
-  it("calls GET /api/v1/organizations/users with q + limit and returns the array", async () => {
+  it("calls GET /api/v1/organizations/users/search with q + limit and returns the array", async () => {
     const results = [
       { id: "u1", displayName: "Alice", email: "alice@example.com" },
       { id: "u2", displayName: "Alex", email: "alex@example.com" },
@@ -104,7 +104,7 @@ describe("useUserSearch", () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(get).toHaveBeenCalledWith(
-      "/api/v1/organizations/users",
+      "/api/v1/organizations/users/search",
       expect.objectContaining({ params: { query: { q: "al", limit: 5 } } }),
     );
     expect(result.current.data).toEqual(results);

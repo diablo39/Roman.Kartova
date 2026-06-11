@@ -9,6 +9,10 @@ export const registerApplicationSchema = z.object({
     .string()
     .min(1, "Description is required")
     .max(4096, "Description must be at most 4096 chars"),
+  teamId: z
+    .string()
+    .uuid("Team is required")
+    .min(1, "Team is required"),
 });
 
 export type RegisterApplicationInput = z.infer<typeof registerApplicationSchema>;

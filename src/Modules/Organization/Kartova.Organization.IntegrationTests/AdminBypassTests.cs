@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Kartova.Organization.Contracts;
+using Kartova.SharedKernel.Multitenancy;
 using Kartova.Testing.Auth;
 
 namespace Kartova.Organization.IntegrationTests;
@@ -29,7 +30,7 @@ public class AdminBypassTests : OrganizationIntegrationTestBase
     {
         var client = Fx.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer", Fx.Signer.IssueForTenant(SeededOrgs.OrgA, new[] { "OrgAdmin" }));
+            "Bearer", Fx.Signer.IssueForTenant(SeededOrgs.OrgA, new[] { KartovaRoles.OrgAdmin }));
 
         var resp = await client.PostAsJsonAsync("/api/v1/admin/organizations", new { name = "Denied" });
         Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
