@@ -164,26 +164,27 @@ internal static class UserEndpointDelegates
         Guid id, [FromBody] UpdateMemberRoleRequest request,
         ChangeMemberRoleHandler handler, OrganizationDbContext db, CancellationToken ct)
     {
-        var result = await handler.Handle(new ChangeMemberRoleCommand(id, request.Role), db, ct);
-        if (result.InvalidRole)
-            return Results.Problem(
+        var outcome = await handler.Handle(new ChangeMemberRoleCommand(id, request.Role), db, ct);
+        return outcome switch
+        {
+            ChangeMemberRoleOutcome.Success => Results.NoContent(),
+            ChangeMemberRoleOutcome.InvalidRole => Results.Problem(
                 type: ProblemTypes.ValidationFailed,
                 title: "Invalid role",
                 detail: $"Role must be one of: {string.Join(", ", KartovaRoles.All)}.",
-                statusCode: StatusCodes.Status422UnprocessableEntity);
-        if (result.NotFound)
-            return Results.Problem(
+                statusCode: StatusCodes.Status422UnprocessableEntity),
+            ChangeMemberRoleOutcome.NotFound => Results.Problem(
                 type: ProblemTypes.ResourceNotFound,
                 title: "Member not found",
                 detail: $"No member with id {id}.",
-                statusCode: StatusCodes.Status404NotFound);
-        if (result.LastOrgAdmin)
-            return Results.Problem(
+                statusCode: StatusCodes.Status404NotFound),
+            ChangeMemberRoleOutcome.LastOrgAdmin => Results.Problem(
                 type: ProblemTypes.LastOrgAdmin,
                 title: "Cannot demote the last OrgAdmin",
                 detail: "The organization must retain at least one OrgAdmin.",
-                statusCode: StatusCodes.Status409Conflict);
-        return Results.NoContent();
+                statusCode: StatusCodes.Status409Conflict),
+            _ => throw new InvalidOperationException($"Unhandled {nameof(ChangeMemberRoleOutcome)}: {outcome}"),
+        };
     }
 
     /// <summary>
@@ -199,21 +200,22 @@ internal static class UserEndpointDelegates
     internal static async Task<IResult> OffboardMemberAsync(
         Guid id, OffboardMemberHandler handler, OrganizationDbContext db, ICurrentUser currentUser, CancellationToken ct)
     {
-        var result = await handler.Handle(
+        var outcome = await handler.Handle(
             new OffboardMemberCommand(new OffboardTargetUserId(id), new OffboardActingUserId(currentUser.UserId)), db, ct);
-        if (result.NotFound)
-            return Results.Problem(
+        return outcome switch
+        {
+            OffboardMemberOutcome.Offboarded => Results.NoContent(),
+            OffboardMemberOutcome.NotFound => Results.Problem(
                 type: ProblemTypes.ResourceNotFound, title: "Member not found",
-                detail: $"No member with id {id}.", statusCode: StatusCodes.Status404NotFound);
-        if (result.CannotOffboardSelf)
-            return Results.Problem(
+                detail: $"No member with id {id}.", statusCode: StatusCodes.Status404NotFound),
+            OffboardMemberOutcome.CannotOffboardSelf => Results.Problem(
                 type: ProblemTypes.CannotOffboardSelf, title: "Cannot offboard yourself",
-                detail: "You cannot remove your own membership.", statusCode: StatusCodes.Status409Conflict);
-        if (result.LastOrgAdmin)
-            return Results.Problem(
+                detail: "You cannot remove your own membership.", statusCode: StatusCodes.Status409Conflict),
+            OffboardMemberOutcome.LastOrgAdmin => Results.Problem(
                 type: ProblemTypes.LastOrgAdmin, title: "Cannot offboard the last OrgAdmin",
-                detail: "The organization must retain at least one OrgAdmin.", statusCode: StatusCodes.Status409Conflict);
-        return Results.NoContent();
+                detail: "The organization must retain at least one OrgAdmin.", statusCode: StatusCodes.Status409Conflict),
+            _ => throw new InvalidOperationException($"Unhandled {nameof(OffboardMemberOutcome)}: {outcome}"),
+        };
     }
 }
 

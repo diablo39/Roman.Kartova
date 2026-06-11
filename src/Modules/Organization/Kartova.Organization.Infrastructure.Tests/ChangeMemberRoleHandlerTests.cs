@@ -47,7 +47,7 @@ public sealed class ChangeMemberRoleHandlerTests
         var result = await sut.Handle(
             new ChangeMemberRoleCommand(Guid.NewGuid(), "BogusRole"), db, CancellationToken.None);
 
-        Assert.AreEqual(ChangeMemberRoleResult.InvalidRoleResult, result);
+        Assert.AreEqual(ChangeMemberRoleOutcome.InvalidRole, result);
         await kc.DidNotReceive().ChangeRealmRoleAsync(
             Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
@@ -66,7 +66,7 @@ public sealed class ChangeMemberRoleHandlerTests
         var result = await sut.Handle(
             new ChangeMemberRoleCommand(Guid.NewGuid(), KartovaRoles.Member), db, CancellationToken.None);
 
-        Assert.AreEqual(ChangeMemberRoleResult.NotFoundResult, result);
+        Assert.AreEqual(ChangeMemberRoleOutcome.NotFound, result);
         await kc.DidNotReceive().ChangeRealmRoleAsync(
             Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
@@ -95,7 +95,7 @@ public sealed class ChangeMemberRoleHandlerTests
         var result = await sut.Handle(
             new ChangeMemberRoleCommand(userId, KartovaRoles.Member), db, CancellationToken.None);
 
-        Assert.AreEqual(ChangeMemberRoleResult.LastOrgAdminResult, result);
+        Assert.AreEqual(ChangeMemberRoleOutcome.LastOrgAdmin, result);
 
         // KC must not be called — guard fires before the side-effect.
         await kc.DidNotReceive().ChangeRealmRoleAsync(
@@ -131,7 +131,7 @@ public sealed class ChangeMemberRoleHandlerTests
         var result = await sut.Handle(
             new ChangeMemberRoleCommand(userId, KartovaRoles.OrgAdmin), db, CancellationToken.None);
 
-        Assert.AreEqual(ChangeMemberRoleResult.Success, result);
+        Assert.AreEqual(ChangeMemberRoleOutcome.Success, result);
 
         // KC must have been called exactly once with the correct arguments.
         await kc.Received(1).ChangeRealmRoleAsync(

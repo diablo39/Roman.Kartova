@@ -32,15 +32,15 @@ namespace Kartova.Organization.Infrastructure;
 /// </summary>
 public sealed class OffboardMemberHandler(IKeycloakAdminClient keycloak)
 {
-    public async Task<OffboardMemberResult> Handle(
+    public async Task<OffboardMemberOutcome> Handle(
         OffboardMemberCommand cmd, OrganizationDbContext db, CancellationToken ct)
     {
         var target = await db.Users.FirstOrDefaultAsync(u => u.Id == cmd.Target.Value, ct);
-        if (target is null) return OffboardMemberResult.NotFoundResult;
-        if (cmd.Target.Value == cmd.Actor.Value) return OffboardMemberResult.SelfResult;
+        if (target is null) return OffboardMemberOutcome.NotFound;
+        if (cmd.Target.Value == cmd.Actor.Value) return OffboardMemberOutcome.CannotOffboardSelf;
 
         if (await OrgAdminFloor.IsLastOrgAdminAsync(db, target, ct))
-            return OffboardMemberResult.LastOrgAdminResult;
+            return OffboardMemberOutcome.LastOrgAdmin;
 
         try
         {
@@ -58,6 +58,6 @@ public sealed class OffboardMemberHandler(IKeycloakAdminClient keycloak)
         db.Users.Remove(target);
         await db.SaveChangesAsync(ct);
 
-        return OffboardMemberResult.Success;
+        return OffboardMemberOutcome.Offboarded;
     }
 }

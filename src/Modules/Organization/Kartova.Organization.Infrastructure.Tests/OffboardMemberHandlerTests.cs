@@ -61,7 +61,7 @@ public sealed class OffboardMemberHandlerTests
             new OffboardMemberCommand(new OffboardTargetUserId(Guid.NewGuid()), new OffboardActingUserId(Guid.NewGuid())),
             db, CancellationToken.None);
 
-        Assert.AreEqual(OffboardMemberResult.NotFoundResult, result);
+        Assert.AreEqual(OffboardMemberOutcome.NotFound, result);
         await AssertNoSideEffects(kc);
     }
 
@@ -88,7 +88,7 @@ public sealed class OffboardMemberHandlerTests
             new OffboardMemberCommand(new OffboardTargetUserId(userId), new OffboardActingUserId(userId)),
             db, CancellationToken.None);
 
-        Assert.AreEqual(OffboardMemberResult.SelfResult, result);
+        Assert.AreEqual(OffboardMemberOutcome.CannotOffboardSelf, result);
         await AssertNoSideEffects(kc);
     }
 
@@ -117,7 +117,7 @@ public sealed class OffboardMemberHandlerTests
             new OffboardMemberCommand(new OffboardTargetUserId(adminId), new OffboardActingUserId(actingId)),
             db, CancellationToken.None);
 
-        Assert.AreEqual(OffboardMemberResult.LastOrgAdminResult, result);
+        Assert.AreEqual(OffboardMemberOutcome.LastOrgAdmin, result);
         await AssertNoSideEffects(kc);
 
         // Target must remain in the projection.
@@ -161,7 +161,7 @@ public sealed class OffboardMemberHandlerTests
             new OffboardMemberCommand(new OffboardTargetUserId(targetId), new OffboardActingUserId(actingId)),
             db, CancellationToken.None);
 
-        Assert.IsTrue(result.Offboarded);
+        Assert.AreEqual(OffboardMemberOutcome.Offboarded, result);
 
         // KeyCloak identity deleted exactly once for the target.
         await kc.Received(1).DeleteUserAsync(targetId, Arg.Any<CancellationToken>());
@@ -264,7 +264,7 @@ public sealed class OffboardMemberHandlerTests
             db, CancellationToken.None);
 
         // Treated as success — local projection + memberships removed despite the KC 404.
-        Assert.IsTrue(result.Offboarded);
+        Assert.AreEqual(OffboardMemberOutcome.Offboarded, result);
         await kc.Received(1).DeleteUserAsync(targetId, Arg.Any<CancellationToken>());
         Assert.IsFalse(await db.Users.AnyAsync(u => u.Id == targetId),
             "Idempotent NotFound: the orphaned local projection row must still be removed.");

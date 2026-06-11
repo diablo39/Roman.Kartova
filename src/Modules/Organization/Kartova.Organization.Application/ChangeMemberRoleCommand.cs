@@ -2,10 +2,15 @@ namespace Kartova.Organization.Application;
 
 public sealed record ChangeMemberRoleCommand(Guid UserId, string Role);
 
-public sealed record ChangeMemberRoleResult(bool Changed, bool NotFound, bool InvalidRole, bool LastOrgAdmin)
+/// <summary>
+/// Mutually-exclusive terminal outcomes of a change-role command. Modeled as an enum (not a
+/// boolean-flag record) per ADR-0104: the operation returns no success payload, so an enum makes
+/// illegal states (e.g. two flags true) unrepresentable and the endpoint switch exhaustive.
+/// </summary>
+public enum ChangeMemberRoleOutcome
 {
-    public static ChangeMemberRoleResult Success => new(true, false, false, false);
-    public static ChangeMemberRoleResult NotFoundResult => new(false, true, false, false);
-    public static ChangeMemberRoleResult InvalidRoleResult => new(false, false, true, false);
-    public static ChangeMemberRoleResult LastOrgAdminResult => new(false, false, false, true);
+    Success,
+    NotFound,
+    InvalidRole,
+    LastOrgAdmin,
 }

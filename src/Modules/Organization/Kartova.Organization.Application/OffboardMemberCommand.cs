@@ -13,11 +13,15 @@ public readonly record struct OffboardActingUserId(Guid Value);
 
 public sealed record OffboardMemberCommand(OffboardTargetUserId Target, OffboardActingUserId Actor);
 
-public sealed record OffboardMemberResult(
-    bool Offboarded, bool NotFound, bool CannotOffboardSelf, bool LastOrgAdmin)
+/// <summary>
+/// Mutually-exclusive terminal outcomes of an offboard command. Modeled as an enum (not a
+/// boolean-flag record) per ADR-0104: the operation returns no success payload, so an enum makes
+/// illegal states unrepresentable and the endpoint switch exhaustive.
+/// </summary>
+public enum OffboardMemberOutcome
 {
-    public static OffboardMemberResult Success => new(true, false, false, false);
-    public static OffboardMemberResult NotFoundResult => new(false, true, false, false);
-    public static OffboardMemberResult SelfResult => new(false, false, true, false);
-    public static OffboardMemberResult LastOrgAdminResult => new(false, false, false, true);
+    Offboarded,
+    NotFound,
+    CannotOffboardSelf,
+    LastOrgAdmin,
 }
