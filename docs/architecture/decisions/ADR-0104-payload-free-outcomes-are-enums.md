@@ -31,7 +31,7 @@ This shape was copied from `AssignApplicationTeamResult`, which carries a **succ
 
 2. **Results that carry data on success remain `record`s** (or a discriminated result type). The discriminator is *"does the success case transport a payload?"* — yes → record (e.g. `AssignApplicationTeamResult` returns the app); no → enum.
 
-3. **Endpoint delegates map the outcome with a `switch` expression** that lists every enum member explicitly plus a `_ => throw new InvalidOperationException(...)` guard, so an unmapped future outcome fails loudly (a 500 surfaced in tests) rather than silently mapping to the success path.
+3. **Endpoint delegates map the outcome with a `switch` expression** that lists every enum member explicitly plus a `_ => throw new InvalidOperationException(...)` guard, so an unmapped future outcome fails loudly (HTTP 500) rather than silently mapping to the success path.
 
 4. Enforcement is by code review + this ADR (not an automated NetArchTest rule — "a record whose properties are all `bool`" is not reliably distinguishable from a legitimate boolean-bearing DTO).
 
@@ -52,7 +52,8 @@ This shape was copied from `AssignApplicationTeamResult`, which carries a **succ
 
 ### Neutral
 
-- Payload-carrying results are unchanged: `AssignApplicationTeamResult` (returns the assigned application) stays a record. So does anything modeled on ADR-0095 `CursorPage<T>` / result envelopes — those transport data and are out of scope.
+- Payload-carrying results are unchanged: `AssignApplicationTeamResult` (returns the assigned application) stays a record. So does anything modeled on ADR-0095 `CursorPage<T>` / result envelopes — those transport data and are out of scope. `DeleteTeamResult` (carries `ApplicationsAssigned`) and `AddTeamMemberResult` (carries `AddedAt`) are likewise exempt — each transports data on a terminal path.
+- **Known pre-existing exceptions, deferred:** `RemoveTeamMemberResult` and `UpdateTeamMemberResult` (slice 8) are payload-free boolean-flag records that this convention retroactively condemns. They are carried forward unconverted here to keep this change scoped to the member-lifecycle results that motivated the ADR; converting them (and dropping their shape tests) is tracked as follow-up debt, not a regression introduced here.
 
 ## Alternatives Considered
 
