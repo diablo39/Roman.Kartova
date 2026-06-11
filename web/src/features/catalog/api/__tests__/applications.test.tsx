@@ -48,7 +48,7 @@ describe("catalog hooks", () => {
 
   describe("useApplicationsList", () => {
     it("calls GET /api/v1/catalog/applications with query params and exposes items", async () => {
-      const page = { items: [{ id: "a1", displayName: "X", tenantId: "t", description: "", ownerUserId: "u", createdAt: "2026-01-01T00:00:00Z" }], nextCursor: null, prevCursor: null };
+      const page = { items: [{ id: "a1", displayName: "X", tenantId: "t", description: "", createdByUserId: "u", createdAt: "2026-01-01T00:00:00Z" }], nextCursor: null, prevCursor: null };
       const get = vi.fn().mockResolvedValue({ data: page, error: undefined });
       mockApiClient({ GET: get });
 
@@ -159,11 +159,11 @@ describe("catalog hooks", () => {
         wrapper: makeWrapper(qc),
       });
 
-      await result.current.mutateAsync({ displayName: "N", description: "" });
+      await result.current.mutateAsync({ displayName: "N", description: "", teamId: "team-1" });
 
       expect(post).toHaveBeenCalledWith(
         "/api/v1/catalog/applications",
-        { body: { displayName: "N", description: "" } }
+        { body: { displayName: "N", description: "", teamId: "team-1" } }
       );
       // Invalidation uses applicationKeys.all (prefix), covering all parameterized list keys.
       expect(invalidate).toHaveBeenCalledWith({ queryKey: applicationKeys.all });
@@ -182,7 +182,7 @@ describe("catalog hooks", () => {
       });
 
       await expect(
-        result.current.mutateAsync({ displayName: "N", description: "" })
+        result.current.mutateAsync({ displayName: "N", description: "", teamId: "team-1" })
       ).rejects.toMatchObject({ status: 400 });
     });
   });

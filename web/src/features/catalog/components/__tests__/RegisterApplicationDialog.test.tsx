@@ -136,7 +136,7 @@ describe("RegisterApplicationDialog", () => {
         expect.objectContaining({
           displayName: "Payment Gateway",
           description: "Handles charges",
-          teamId: TEAMS[0].id,
+          teamId: TEAMS[0]!.id,
         }),
       ),
     );

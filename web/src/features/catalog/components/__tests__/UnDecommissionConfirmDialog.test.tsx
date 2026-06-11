@@ -14,11 +14,11 @@ const baseApp: ApplicationResponse = {
   tenantId: "t1",
   displayName: "Payments",
   description: "Payments service.",
-  ownerUserId: "u1",
+  createdByUserId: "u1",
   createdAt: "2026-04-30T00:00:00Z",
   lifecycle: "decommissioned",
   sunsetDate: "2026-01-01T00:00:00Z",
-  teamId: null,
+  teamId: "team-1",
   version: "v1",
 };
 
