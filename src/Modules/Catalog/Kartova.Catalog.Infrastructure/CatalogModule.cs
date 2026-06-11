@@ -168,7 +168,6 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         // implemented here against the Catalog DbContext.
         services.AddScoped<IApplicationCountByTeamReader, ApplicationCountByTeamReader>();
         services.AddScoped<IApplicationsByTeamReader, ApplicationsByTeamReader>();
-
     }
 
     public void RegisterForMigrator(IServiceCollection services, IConfiguration configuration)

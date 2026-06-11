@@ -17,11 +17,11 @@ public sealed class ChangeMemberRoleHandler(IKeycloakAdminClient keycloak)
         var user = await db.Users.FirstOrDefaultAsync(u => u.Id == cmd.UserId, ct);
         if (user is null) return ChangeMemberRoleResult.NotFoundResult;
 
-        if (user.RealmRole == KartovaRoles.OrgAdmin && cmd.Role != KartovaRoles.OrgAdmin)
-        {
-            var orgAdminCount = await db.Users.CountAsync(u => u.RealmRole == KartovaRoles.OrgAdmin, ct);
-            if (orgAdminCount <= 1) return ChangeMemberRoleResult.LastOrgAdminResult;
-        }
+        // Demotion only: promoting *to* OrgAdmin can never breach the floor, so skip the
+        // count query in that case (short-circuit). The OrgAdmin-floor invariant itself
+        // lives in OrgAdminFloor, shared with OffboardMemberHandler.
+        if (cmd.Role != KartovaRoles.OrgAdmin && await OrgAdminFloor.IsLastOrgAdminAsync(db, user, ct))
+            return ChangeMemberRoleResult.LastOrgAdminResult;
 
         await keycloak.ChangeRealmRoleAsync(cmd.UserId, cmd.Role, ct);   // source of truth
         user.RealmRole = cmd.Role;                                        // write-through cache

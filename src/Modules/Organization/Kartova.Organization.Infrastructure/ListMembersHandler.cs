@@ -13,9 +13,9 @@ namespace Kartova.Organization.Infrastructure;
 /// for the returned page. RLS auto-scopes all queries to the current tenant
 /// (ADR-0090) — no explicit tenant predicate is added here.
 /// <para>
-/// Case-insensitive infix search uses <c>string.ToLower().Contains()</c> so the
-/// predicate works on both the Npgsql provider (translates to <c>LOWER(col) LIKE</c>)
-/// and any in-memory test provider — mirrors <see cref="UserQueries.SearchAsync"/>.
+/// Case-insensitive infix search uses the shared <see cref="UserSearch.WhereTextMatches"/>
+/// predicate (over DisplayName + Email), the same one backing
+/// <see cref="UserQueries.SearchAsync"/>.
 /// </para>
 /// <para>
 /// Applied filters are registered in <c>expectedFilters</c> per ADR-0095
@@ -43,10 +43,7 @@ public sealed class ListMembersHandler
         if (!string.IsNullOrWhiteSpace(q.Q))
         {
             var term = q.Q.Trim();
-            var lowered = term.ToLowerInvariant();
-            query = query.Where(u =>
-                u.DisplayName.ToLower().Contains(lowered) ||
-                u.Email.ToLower().Contains(lowered));
+            query = query.WhereTextMatches(term.ToLowerInvariant());
             expectedFilters["q"] = term;
         }
 

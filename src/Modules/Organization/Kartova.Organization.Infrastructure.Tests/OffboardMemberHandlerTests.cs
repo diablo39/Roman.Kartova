@@ -225,4 +225,49 @@ public sealed class OffboardMemberHandlerTests
         Assert.AreEqual(1, await db.TeamMembers.CountAsync(m => m.UserId == targetId),
             "Target membership must still exist: RemoveRange + SaveChangesAsync not reached.");
     }
+
+    // -------------------------------------------------------------------------
+    // SF-2 idempotency: a KC NotFound (identity already gone — drift, or a prior
+    // partial offboard) is success-equivalent. The handler must NOT propagate it
+    // (that would mask a permanent 404 as a transient 502); it completes the local
+    // cleanup instead, reconciling an orphaned projection row.
+    // -------------------------------------------------------------------------
+
+    [TestMethod]
+    public async Task KeycloakDeleteNotFound_is_idempotent_and_completes_local_cleanup()
+    {
+        var opts = NewOptions();
+        var targetId = Guid.NewGuid();
+        var actingId = Guid.NewGuid();
+        var teamId = new TeamId(Guid.NewGuid());
+        var clock = TimeProvider.System;
+
+        await using (var seedDb = new OrganizationDbContext(opts))
+        {
+            // Two OrgAdmins so the last-admin guard does not fire.
+            seedDb.Users.Add(SeedUser(targetId, KartovaRoles.OrgAdmin));
+            seedDb.Users.Add(SeedUser(actingId, KartovaRoles.OrgAdmin));
+            seedDb.TeamMembers.Add(TeamMembership.Create(teamId, targetId, TeamRole.Member, clock));
+            await seedDb.SaveChangesAsync();
+        }
+
+        await using var db = new OrganizationDbContext(opts);
+        var (sut, kc) = MakeSut();
+
+        // KC reports the identity is already gone.
+        kc.DeleteUserAsync(targetId, Arg.Any<CancellationToken>())
+            .ThrowsAsync(new KeycloakAdminException(KeycloakAdminError.NotFound,
+                "User already gone"));
+
+        var result = await sut.Handle(
+            new OffboardMemberCommand(targetId, actingId),
+            db, CancellationToken.None);
+
+        // Treated as success — local projection + memberships removed despite the KC 404.
+        Assert.IsTrue(result.Offboarded);
+        await kc.Received(1).DeleteUserAsync(targetId, Arg.Any<CancellationToken>());
+        Assert.IsFalse(await db.Users.AnyAsync(u => u.Id == targetId),
+            "Idempotent NotFound: the orphaned local projection row must still be removed.");
+        Assert.AreEqual(0, await db.TeamMembers.CountAsync(m => m.UserId == targetId));
+    }
 }

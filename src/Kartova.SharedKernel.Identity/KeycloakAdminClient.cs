@@ -73,7 +73,17 @@ internal sealed class KeycloakAdminClient(
     public async Task AssignRealmRoleAsync(Guid userId, string roleName, CancellationToken ct)
     {
         var token = await GetTokenAsync(ct);
+        await AssignRealmRoleCoreAsync(userId, roleName, token, ct);
+    }
 
+    /// <summary>
+    /// Core assign step (GET role definition → POST role-mapping). Accepts an
+    /// already-fetched admin token so a caller that performs several admin calls in one
+    /// logical operation (e.g. <see cref="ChangeRealmRoleAsync"/>) fetches the token once
+    /// instead of per sub-call.
+    /// </summary>
+    private async Task AssignRealmRoleCoreAsync(Guid userId, string roleName, string token, CancellationToken ct)
+    {
         using var roleReq = new HttpRequestMessage(HttpMethod.Get, $"/admin/realms/{_realm}/roles/{Uri.EscapeDataString(roleName)}");
         roleReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using var roleResp = await http.SendAsync(roleReq, ct);
@@ -179,6 +189,18 @@ internal sealed class KeycloakAdminClient(
             .RolesToRemove(current.Select(r => (r.Id, r.Name)), newRole)
             .Select(t => new RealmRole(t.Id, t.Name))
             .ToArray();
+
+        // Assign the new role FIRST, then strip the old ones (single shared token).
+        // Ordering is deliberate: assigning a role-mapping is idempotent, so a retry is
+        // safe, and if the remove step fails *after* a successful assign the user is left
+        // holding both the new and old roles — over-privileged-but-present, recoverable on
+        // the next successful change. The reverse order (DELETE then POST) would, on a
+        // mid-operation failure, leave the user with zero realm roles; the 502 reads as
+        // "nothing happened, retry" while SessionStartHandler would silently heal the
+        // empty role to Viewer on the victim's next login. Present-and-wrong beats
+        // silently-absent.
+        await AssignRealmRoleCoreAsync(userId, newRole, token, ct);
+
         if (toRemove.Length > 0)
         {
             using var delReq = new HttpRequestMessage(HttpMethod.Delete,
@@ -187,10 +209,13 @@ internal sealed class KeycloakAdminClient(
             delReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             using var delResp = await http.SendAsync(delReq, ct);
             if (!delResp.IsSuccessStatusCode)
+            {
+                logger.LogError(
+                    "KeyCloak remove-roles returned {Status} for user {UserId} after assigning '{NewRole}'; the user temporarily holds extra realm roles ({StaleRoles}) until the next successful role change.",
+                    (int)delResp.StatusCode, userId, newRole, string.Join(", ", toRemove.Select(r => r.Name)));
                 throw new KeycloakAdminException(KeycloakAdminError.Unexpected, $"KeyCloak remove-roles returned {(int)delResp.StatusCode}.");
+            }
         }
-
-        await AssignRealmRoleAsync(userId, newRole, ct);
     }
 
     private async Task<string> GetTokenAsync(CancellationToken ct)

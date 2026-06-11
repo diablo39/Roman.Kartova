@@ -56,4 +56,8 @@ public static class ProblemTypes
     // Member lifecycle — slice 10.
     public const string LastOrgAdmin       = Base + "last-orgadmin";          // 409
     public const string CannotOffboardSelf = Base + "cannot-offboard-self";   // 409
+
+    // ADR-0100 one-email-per-tenant data-integrity breach (config drift / out-of-band
+    // import). Server-side, not client-fixable → typed 500 with a generic, PII-free detail.
+    public const string OneEmailPerTenant  = Base + "one-email-per-tenant";   // 500
 }

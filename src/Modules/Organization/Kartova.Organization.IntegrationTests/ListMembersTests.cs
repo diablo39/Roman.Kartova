@@ -373,4 +373,118 @@ public sealed class ListMembersTests : OrganizationIntegrationTestBase
             await CleanupAsync(tenantId, [userId]);
         }
     }
+
+    // ---------- Test 7 (MT-1) ------------------------------------------------
+
+    /// <summary>
+    /// ADR-0095 cursor-filter-replay contract: a cursor issued under one filter set must be
+    /// rejected (400 <c>cursor-filter-mismatch</c>) when replayed with a different filter —
+    /// otherwise paging silently skips/duplicates rows. The members directory builds
+    /// <c>expectedFilters</c> for <c>role</c>/<c>q</c> in <c>ListMembersHandler</c>; this locks it
+    /// (a regression that dropped <c>expectedFilters</c> would otherwise survive every other test).
+    /// </summary>
+    [TestMethod]
+    public async Task Cursor_replayed_with_different_role_filter_returns_400_cursor_filter_mismatch()
+    {
+        var (_, tenantId) = await NewTenantAsync("list-members-cursor-mismatch");
+        var unique = Guid.NewGuid().ToString("N")[..8];
+
+        // Three Members so a limit=2 page over the role=Member filter yields a NextCursor.
+        var m1 = await Fx.SeedUserInOrganizationAsync(
+            new TenantId(tenantId), $"AAA Member-{unique}", $"m1-{unique}@example.com",
+            realmRole: KartovaRoles.Member);
+        var m2 = await Fx.SeedUserInOrganizationAsync(
+            new TenantId(tenantId), $"BBB Member-{unique}", $"m2-{unique}@example.com",
+            realmRole: KartovaRoles.Member);
+        var m3 = await Fx.SeedUserInOrganizationAsync(
+            new TenantId(tenantId), $"CCC Member-{unique}", $"m3-{unique}@example.com",
+            realmRole: KartovaRoles.Member);
+
+        try
+        {
+            var client = Fx.CreateClient();
+            var token = Fx.Signer.IssueForTenant(
+                new TenantId(tenantId), new[] { KartovaRoles.OrgAdmin });
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // Page 1 under the role=Member filter.
+            var p1 = await client.GetAsync(
+                "/api/v1/organizations/users?role=Member&sortBy=displayName&sortOrder=asc&limit=2");
+            Assert.AreEqual(HttpStatusCode.OK, p1.StatusCode,
+                $"Expected 200 for page 1. Body: {await p1.Content.ReadAsStringAsync()}");
+
+            var page1 = await p1.Content.ReadFromJsonAsync<CursorPage<MemberSummaryResponse>>(
+                KartovaApiFixtureBase.WireJson);
+            Assert.IsNotNull(page1);
+            Assert.IsNotNull(page1!.NextCursor,
+                "limit=2 over 3 matching members must yield a NextCursor to replay.");
+
+            // Replay the cursor but flip the role filter → must be rejected, not silently served.
+            var mismatch = await client.GetAsync(
+                "/api/v1/organizations/users?role=OrgAdmin&sortBy=displayName&sortOrder=asc&limit=2"
+                + $"&cursor={Uri.EscapeDataString(page1.NextCursor!)}");
+
+            Assert.AreEqual(HttpStatusCode.BadRequest, mismatch.StatusCode,
+                $"Replaying a cursor with a changed filter must return 400. Body: {await mismatch.Content.ReadAsStringAsync()}");
+
+            await using var stream = await mismatch.Content.ReadAsStreamAsync();
+            using var doc = await JsonDocument.ParseAsync(stream);
+            Assert.AreEqual(ProblemTypes.CursorFilterMismatch,
+                doc.RootElement.GetProperty("type").GetString(),
+                "400 response must carry ProblemTypes.CursorFilterMismatch.");
+        }
+        finally
+        {
+            await CleanupAsync(tenantId, [m1, m2, m3]);
+        }
+    }
+
+    // ---------- Test 8 (MT-3) ------------------------------------------------
+
+    /// <summary>
+    /// The team-count enrichment must aggregate across <em>all</em> of a member's teams, not
+    /// cap at 1. A member in two teams must report <c>TeamCount == 2</c> (a mutant collapsing the
+    /// <c>GROUP BY … COUNT</c> to a constant 1 survives the single-team Test 1).
+    /// </summary>
+    [TestMethod]
+    public async Task Member_in_two_teams_reports_team_count_of_two()
+    {
+        var (_, tenantId) = await NewTenantAsync("list-members-teamcount-multi");
+        var unique = Guid.NewGuid().ToString("N")[..8];
+
+        var memberId = await Fx.SeedUserInOrganizationAsync(
+            new TenantId(tenantId), $"Multi Team-{unique}", $"multi-{unique}@example.com",
+            realmRole: KartovaRoles.Member);
+
+        var teamA = await Fx.SeedTeamAsync(tenantId, $"TeamA-{unique}");
+        var teamB = await Fx.SeedTeamAsync(tenantId, $"TeamB-{unique}");
+        await Fx.SeedTeamMembershipAsync(teamA, memberId, TeamMemberRole);
+        await Fx.SeedTeamMembershipAsync(teamB, memberId, TeamMemberRole);
+
+        try
+        {
+            var client = Fx.CreateClient();
+            var token = Fx.Signer.IssueForTenant(
+                new TenantId(tenantId), new[] { KartovaRoles.OrgAdmin });
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var resp = await client.GetAsync(
+                "/api/v1/organizations/users?sortBy=displayName&sortOrder=asc&limit=50");
+            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode,
+                $"Expected 200. Body: {await resp.Content.ReadAsStringAsync()}");
+
+            var page = await resp.Content.ReadFromJsonAsync<CursorPage<MemberSummaryResponse>>(
+                KartovaApiFixtureBase.WireJson);
+            Assert.IsNotNull(page);
+
+            var row = page!.Items.SingleOrDefault(r => r.Id == memberId);
+            Assert.IsNotNull(row, "The multi-team member must appear in the directory.");
+            Assert.AreEqual(2, row!.TeamCount,
+                "Member belongs to two teams — TeamCount must aggregate to 2, not cap at 1.");
+        }
+        finally
+        {
+            await CleanupAsync(tenantId, [memberId]);
+        }
+    }
 }

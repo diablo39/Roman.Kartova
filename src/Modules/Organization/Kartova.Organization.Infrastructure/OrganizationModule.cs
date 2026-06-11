@@ -134,6 +134,11 @@ public sealed class OrganizationModule : IModule, IModuleEndpoints
         // roundtrip, so no separate per-request pipeline hook is needed.
         services.AddScoped<UserProjectionUpdater>();
 
+        // ADR-0100 one-email-per-tenant breach (raised by UserProjectionUpdater on the
+        // session-bootstrap path) → typed RFC-7807 500 with a generic, PII-free detail.
+        // Registered here (not in Program.cs) because the exception type lives in this module.
+        services.AddExceptionHandler<OneEmailPerTenantExceptionHandler>();
+
         // Cross-module port (ADR-0098 + slice-9 spec §3): exposes the local users
         // projection so Catalog/Team responses can attach display names + emails
         // without referencing Organization internals.

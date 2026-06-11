@@ -32,6 +32,7 @@ internal static class CatalogEndpointDelegates
         ITenantContext tenant,
         ClaimsPrincipal caller,
         ICurrentUser currentUser,
+        IAuthorizationService auth,
         IOrganizationTeamExistenceChecker teamChecker,
         CancellationToken ct)
     {
@@ -50,17 +51,14 @@ internal static class CatalogEndpointDelegates
                 statusCode: StatusCodes.Status422UnprocessableEntity);
         }
 
-        // Target-team membership gate (mirrors assign-team SF-2): a non-OrgAdmin
-        // caller cannot register a new application into a team they do not belong to —
-        // that would immediately leave them without access to the app they just created.
-        // The SPA picker already hides teams the caller is not a member of; this is
-        // the server-side enforcement so non-SPA clients cannot bypass it.
-        // OrgAdmin is unaffected (global scope, never team-restricted).
-        if (!caller.IsInRole(KartovaRoles.OrgAdmin)
-            && !currentUser.TeamIds.Contains(request.TeamId))
-        {
-            return Results.Forbid();
-        }
+        // Target-team membership gate (mirrors assign-team): a non-OrgAdmin caller cannot
+        // register a new application into a team they do not belong to — that would
+        // immediately leave them without access to the app they just created. The SPA picker
+        // already hides such teams; this is the server-side enforcement. Reuses the shared
+        // ApplicationTeamScoped policy via AuthorizeTargetTeamAsync so the OrgAdmin-OR-member
+        // rule is defined exactly once (OrgAdmin is unaffected — global scope).
+        if (await AuthorizeTargetTeamAsync(auth, caller, request.TeamId) is { } forbidden)
+            return forbidden;
 
         var response = await handler.Handle(
             new RegisterApplicationCommand(request.DisplayName, request.Description, request.TeamId),
@@ -293,19 +291,16 @@ internal static class CatalogEndpointDelegates
         CatalogDbContext db,
         IAuthorizationService auth,
         ClaimsPrincipal user,
-        ICurrentUser currentUser,
         CancellationToken ct)
     {
         var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
         if (gate is not null) return gate;
 
-        // Target-team check (SF-2): block non-OrgAdmin callers from moving the
-        // app to a team they aren't a member of. OrgAdmin always allowed.
-        if (!user.IsInRole(KartovaRoles.OrgAdmin)
-            && !currentUser.TeamIds.Contains(request.TeamId))
-        {
-            return Results.Forbid();
-        }
+        // Target-team membership gate: block non-OrgAdmin callers from moving the app to a
+        // team they aren't a member of. Reuses the same shared ApplicationTeamScoped policy
+        // as the source-team gate above (see AuthorizeTargetTeamAsync). OrgAdmin always allowed.
+        if (await AuthorizeTargetTeamAsync(auth, user, request.TeamId) is { } forbidden)
+            return forbidden;
 
         var result = await handler.Handle(
             new AssignApplicationTeamCommand(id, request.TeamId), db, ct);
@@ -347,4 +342,23 @@ internal static class CatalogEndpointDelegates
 
         return null;
     }
+
+    /// <summary>
+    /// Runs the shared <see cref="KartovaTeamPolicies.ApplicationTeamScoped"/> resource gate
+    /// against a <em>target</em> team id (a team the caller wants to register into or reassign
+    /// to), by wrapping it in an <see cref="ITeamScopedResource"/>. Returns <c>null</c> when the
+    /// caller is OrgAdmin or a member of that team; otherwise <c>Results.Forbid()</c> (403).
+    /// Keeps the OrgAdmin-OR-member rule in one place — the same policy/handler that gates the
+    /// source app in <see cref="LoadAndAuthorizeApplicationAsync"/> — so register and assign-team
+    /// cannot drift from it.
+    /// </summary>
+    private static async Task<IResult?> AuthorizeTargetTeamAsync(
+        IAuthorizationService auth, ClaimsPrincipal user, Guid teamId)
+    {
+        var gate = await auth.AuthorizeAsync(user, new TargetTeam(teamId), KartovaTeamPolicies.ApplicationTeamScoped);
+        return gate.Succeeded ? null : Results.Forbid();
+    }
+
+    /// <summary>Lightweight <see cref="ITeamScopedResource"/> over a target team id.</summary>
+    private sealed record TargetTeam(Guid? TeamId) : ITeamScopedResource;
 }

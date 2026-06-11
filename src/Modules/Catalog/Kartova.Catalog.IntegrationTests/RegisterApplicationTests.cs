@@ -351,4 +351,31 @@ public class RegisterApplicationTests : CatalogIntegrationTestBase
             await Fx.DeleteTeamsForTenantAsync(tenant.Value);
         }
     }
+
+    [TestMethod]
+    public async Task POST_Member_with_unknown_teamId_returns_422_not_403()
+    {
+        // Ordering pin (MT-2): team-existence (422 invalid-team) is evaluated BEFORE the
+        // membership gate (403). A Member supplying a team that does not exist must get 422 —
+        // the existence check wins — never 403. Guards against a refactor that swaps the two
+        // checks (which would flip a non-member's unknown-team response from 422 to 403).
+        var tenant = new TenantId(Guid.Parse("aaaaaaaa-0040-0040-0040-000000000004"));
+        var client = Fx.CreateClient();
+        // Valid Member JWT, no team membership, and a team id that was never seeded.
+        var token = Fx.Signer.IssueForTenant(
+            tenant,
+            new[] { KartovaRoles.Member },
+            subject: Guid.NewGuid().ToString());
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var resp = await client.PostAsJsonAsync(
+            "/api/v1/catalog/applications",
+            new RegisterApplicationRequest("Gate-MemberUnknownTeam App", "desc", Guid.NewGuid()));
+
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode,
+            $"Member + unknown team must be 422 (existence before membership gate), not 403. "
+            + $"Body: {await resp.Content.ReadAsStringAsync()}");
+        var body = await resp.Content.ReadAsStringAsync();
+        StringAssert.Contains(body, ProblemTypes.InvalidTeam);
+    }
 }
