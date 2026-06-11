@@ -77,7 +77,7 @@ internal static class DevSeed
             userCmd.Parameters.AddWithValue(OrgATenantId);
             userCmd.Parameters.AddWithValue("team-admin@orga.kartova.local");
             userCmd.Parameters.AddWithValue("Team Admin");
-            userCmd.Parameters.AddWithValue("Member");
+            userCmd.Parameters.AddWithValue(KartovaRoles.Member);
             var userRows = await userCmd.ExecuteNonQueryAsync();
             logger.LogInformation("Dev seed: team-admin@orga users row {Result}.", userRows == 1 ? "inserted" : "updated");
         }
