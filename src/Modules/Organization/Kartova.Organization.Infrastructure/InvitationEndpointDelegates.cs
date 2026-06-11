@@ -57,7 +57,7 @@ internal static class InvitationEndpointDelegates
         InvitationStatus? parsedStatus = InvitationStatus.Pending;
         if (!string.IsNullOrEmpty(status))
         {
-            if (string.Equals(status, "all", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(status, ListFilters.All, StringComparison.OrdinalIgnoreCase))
             {
                 parsedStatus = null;
             }

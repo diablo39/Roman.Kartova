@@ -104,7 +104,7 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     /// </para>
     /// </summary>
     public async Task<Guid> SeedUserInOrganizationAsync(
-        TenantId tenantId, string displayName, string email, string realmRole = "Viewer", Guid? userId = null)
+        TenantId tenantId, string displayName, string email, string realmRole = KartovaRoles.Viewer, Guid? userId = null)
     {
         var resolvedUserId = userId ?? Guid.NewGuid();
         await using var conn = new NpgsqlConnection(BypassConnectionString);

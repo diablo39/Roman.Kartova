@@ -55,7 +55,7 @@ public class KartovaApiFixture : KartovaApiFixtureBase
         // by issuing a token directly via the TestJwtSigner — mirrors what
         // CreateAuthenticatedClientAsync does but without the async wrapper.
         var tenant = TenantFor(email);
-        var token = Signer.IssueForTenant(tenant, ["OrgAdmin"], subject: SubFor(email).ToString());
+        var token = Signer.IssueForTenant(tenant, [KartovaRoles.OrgAdmin], subject: SubFor(email).ToString());
         var client = CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;

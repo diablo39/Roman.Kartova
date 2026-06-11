@@ -1,4 +1,5 @@
 using Kartova.SharedKernel.Identity;
+using Kartova.SharedKernel.Multitenancy;
 using Kartova.Testing.Auth;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -186,7 +187,7 @@ public sealed class KeycloakAdminClientIntegrationTests
             // (KC's GET /users/{id} returns the user representation without realm-role
             // expansion unless ?briefRepresentation=false&userProfileMetadata=true and a
             // role-mappings sub-resource fetch). The wire-contract test is "no exception".
-            await client.AssignRealmRoleAsync(createdId.Value, "Member", CancellationToken.None);
+            await client.AssignRealmRoleAsync(createdId.Value, KartovaRoles.Member, CancellationToken.None);
         }
         finally
         {

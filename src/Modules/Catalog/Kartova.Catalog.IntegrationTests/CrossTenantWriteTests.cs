@@ -29,7 +29,7 @@ public sealed class CrossTenantWriteTests : CatalogIntegrationTestBase
 
         // Populate ITenantContext as the auth/claims-transformation pipeline would.
         var tenantContext = (TenantContextAccessor)sp.GetRequiredService<ITenantContext>();
-        tenantContext.Populate(orgaTenant, new[] { "OrgAdmin" });
+        tenantContext.Populate(orgaTenant, new[] { KartovaRoles.OrgAdmin });
 
         await using var handle = await tenantScope.BeginAsync(orgaTenant, default);
 

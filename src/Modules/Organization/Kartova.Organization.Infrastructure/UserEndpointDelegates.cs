@@ -102,7 +102,7 @@ internal static class UserEndpointDelegates
         string? canonicalRole = null;
         var trimmedRole = role?.Trim();
         if (!string.IsNullOrEmpty(trimmedRole)
-            && !string.Equals(trimmedRole, "all", StringComparison.OrdinalIgnoreCase))
+            && !string.Equals(trimmedRole, ListFilters.All, StringComparison.OrdinalIgnoreCase))
         {
             canonicalRole = KartovaRoles.All.FirstOrDefault(
                 r => string.Equals(r, trimmedRole, StringComparison.OrdinalIgnoreCase));
@@ -111,7 +111,7 @@ internal static class UserEndpointDelegates
                 return Results.Problem(
                     type: ProblemTypes.ValidationFailed,
                     title: "Invalid role filter",
-                    detail: $"role must be one of: {string.Join(", ", KartovaRoles.All)}, or 'all'.",
+                    detail: $"role must be one of: {string.Join(", ", KartovaRoles.All)}, or '{ListFilters.All}'.",
                     statusCode: StatusCodes.Status422UnprocessableEntity);
             }
         }
