@@ -195,16 +195,17 @@ internal static class TeamEndpointDelegates
         if (gate is not null) return gate;
 
         var result = await handler.Handle(new RemoveTeamMemberCommand(id, userId), db, ct);
-        if (result.TeamNotFound) return TeamNotFound();
-        if (result.MemberNotFound)
+        return result switch
         {
-            return Results.Problem(
+            RemoveTeamMemberOutcome.Removed => Results.NoContent(),
+            RemoveTeamMemberOutcome.TeamNotFound => TeamNotFound(),
+            RemoveTeamMemberOutcome.MemberNotFound => Results.Problem(
                 type: ProblemTypes.ResourceNotFound,
                 title: "Membership not found",
                 detail: "No membership exists for this user on this team.",
-                statusCode: StatusCodes.Status404NotFound);
-        }
-        return Results.NoContent();
+                statusCode: StatusCodes.Status404NotFound),
+            _ => throw new InvalidOperationException($"Unhandled {nameof(RemoveTeamMemberOutcome)}: {result}"),
+        };
     }
 
     internal static async Task<IResult> UpdateTeamMemberAsync(
@@ -223,16 +224,17 @@ internal static class TeamEndpointDelegates
         if (!TryParseRole(request.Role, out var role, out var roleError)) return roleError;
 
         var result = await handler.Handle(new UpdateTeamMemberCommand(id, userId, role), db, ct);
-        if (result.TeamNotFound) return TeamNotFound();
-        if (result.MemberNotFound)
+        return result switch
         {
-            return Results.Problem(
+            UpdateTeamMemberOutcome.Updated => Results.NoContent(),
+            UpdateTeamMemberOutcome.TeamNotFound => TeamNotFound(),
+            UpdateTeamMemberOutcome.MemberNotFound => Results.Problem(
                 type: ProblemTypes.ResourceNotFound,
                 title: "Membership not found",
                 detail: "No membership exists for this user on this team.",
-                statusCode: StatusCodes.Status404NotFound);
-        }
-        return Results.NoContent();
+                statusCode: StatusCodes.Status404NotFound),
+            _ => throw new InvalidOperationException($"Unhandled {nameof(UpdateTeamMemberOutcome)}: {result}"),
+        };
     }
 
     // ----- shared helpers -----------------------------------------------

@@ -53,7 +53,7 @@ This shape was copied from `AssignApplicationTeamResult`, which carries a **succ
 ### Neutral
 
 - Payload-carrying results are unchanged: `AssignApplicationTeamResult` (returns the assigned application) stays a record. So does anything modeled on ADR-0095 `CursorPage<T>` / result envelopes — those transport data and are out of scope. `DeleteTeamResult` (carries `ApplicationsAssigned`) and `AddTeamMemberResult` (carries `AddedAt`) are likewise exempt — each transports data on a terminal path.
-- **Known pre-existing exceptions, deferred:** `RemoveTeamMemberResult` and `UpdateTeamMemberResult` (slice 8) are payload-free boolean-flag records that this convention retroactively condemns. They are carried forward unconverted here to keep this change scoped to the member-lifecycle results that motivated the ADR; converting them (and dropping their shape tests) is tracked as follow-up debt, not a regression introduced here.
+- **The codebase is consistent with this convention.** The slice-8 payload-free records `RemoveTeamMemberResult` / `UpdateTeamMemberResult` were converted to `RemoveTeamMemberOutcome` / `UpdateTeamMemberOutcome` (and their tautological shape tests removed) alongside the member-lifecycle results, so no payload-free boolean-flag result records remain. The exempt payload-carrying records noted above (`AssignApplicationTeamResult`, `DeleteTeamResult`, `AddTeamMemberResult`) are the only result *records* left, each justified by a success payload.
 
 ## Alternatives Considered
 
