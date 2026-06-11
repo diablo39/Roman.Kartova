@@ -35,16 +35,16 @@ public sealed class OffboardMemberHandler(IKeycloakAdminClient keycloak)
     public async Task<OffboardMemberResult> Handle(
         OffboardMemberCommand cmd, OrganizationDbContext db, CancellationToken ct)
     {
-        var target = await db.Users.FirstOrDefaultAsync(u => u.Id == cmd.UserId, ct);
+        var target = await db.Users.FirstOrDefaultAsync(u => u.Id == cmd.Target.Value, ct);
         if (target is null) return OffboardMemberResult.NotFoundResult;
-        if (cmd.UserId == cmd.ActingUserId) return OffboardMemberResult.SelfResult;
+        if (cmd.Target.Value == cmd.Actor.Value) return OffboardMemberResult.SelfResult;
 
         if (await OrgAdminFloor.IsLastOrgAdminAsync(db, target, ct))
             return OffboardMemberResult.LastOrgAdminResult;
 
         try
         {
-            await keycloak.DeleteUserAsync(cmd.UserId, ct);
+            await keycloak.DeleteUserAsync(cmd.Target.Value, ct);
         }
         catch (KeycloakAdminException ex) when (ex.Error == KeycloakAdminError.NotFound)
         {
@@ -53,7 +53,7 @@ public sealed class OffboardMemberHandler(IKeycloakAdminClient keycloak)
             // the local cleanup rather than masking a permanent 404 as a transient 502.
         }
 
-        var memberships = await db.TeamMembers.Where(m => m.UserId == cmd.UserId).ToListAsync(ct);
+        var memberships = await db.TeamMembers.Where(m => m.UserId == cmd.Target.Value).ToListAsync(ct);
         db.TeamMembers.RemoveRange(memberships);
         db.Users.Remove(target);
         await db.SaveChangesAsync(ct);

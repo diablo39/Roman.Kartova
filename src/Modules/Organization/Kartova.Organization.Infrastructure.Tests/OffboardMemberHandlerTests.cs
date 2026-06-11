@@ -58,7 +58,7 @@ public sealed class OffboardMemberHandlerTests
         var (sut, kc) = MakeSut();
 
         var result = await sut.Handle(
-            new OffboardMemberCommand(Guid.NewGuid(), Guid.NewGuid()),
+            new OffboardMemberCommand(new OffboardTargetUserId(Guid.NewGuid()), new OffboardActingUserId(Guid.NewGuid())),
             db, CancellationToken.None);
 
         Assert.AreEqual(OffboardMemberResult.NotFoundResult, result);
@@ -85,7 +85,7 @@ public sealed class OffboardMemberHandlerTests
 
         // ActingUserId == UserId → self.
         var result = await sut.Handle(
-            new OffboardMemberCommand(userId, userId),
+            new OffboardMemberCommand(new OffboardTargetUserId(userId), new OffboardActingUserId(userId)),
             db, CancellationToken.None);
 
         Assert.AreEqual(OffboardMemberResult.SelfResult, result);
@@ -114,7 +114,7 @@ public sealed class OffboardMemberHandlerTests
         var (sut, kc) = MakeSut();
 
         var result = await sut.Handle(
-            new OffboardMemberCommand(adminId, actingId),
+            new OffboardMemberCommand(new OffboardTargetUserId(adminId), new OffboardActingUserId(actingId)),
             db, CancellationToken.None);
 
         Assert.AreEqual(OffboardMemberResult.LastOrgAdminResult, result);
@@ -158,7 +158,7 @@ public sealed class OffboardMemberHandlerTests
         var (sut, kc) = MakeSut();
 
         var result = await sut.Handle(
-            new OffboardMemberCommand(targetId, actingId),
+            new OffboardMemberCommand(new OffboardTargetUserId(targetId), new OffboardActingUserId(actingId)),
             db, CancellationToken.None);
 
         Assert.IsTrue(result.Offboarded);
@@ -216,7 +216,7 @@ public sealed class OffboardMemberHandlerTests
 
         // The exception must propagate — handler does NOT catch it (by design per spec §7.2).
         await Assert.ThrowsExactlyAsync<KeycloakAdminException>(
-            () => sut.Handle(new OffboardMemberCommand(targetId, actingId),
+            () => sut.Handle(new OffboardMemberCommand(new OffboardTargetUserId(targetId), new OffboardActingUserId(actingId)),
                 db, CancellationToken.None));
 
         // Target user and membership are still present — SaveChangesAsync was never reached.
@@ -260,7 +260,7 @@ public sealed class OffboardMemberHandlerTests
                 "User already gone"));
 
         var result = await sut.Handle(
-            new OffboardMemberCommand(targetId, actingId),
+            new OffboardMemberCommand(new OffboardTargetUserId(targetId), new OffboardActingUserId(actingId)),
             db, CancellationToken.None);
 
         // Treated as success — local projection + memberships removed despite the KC 404.

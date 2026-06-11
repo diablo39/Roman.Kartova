@@ -200,7 +200,7 @@ internal static class UserEndpointDelegates
         Guid id, OffboardMemberHandler handler, OrganizationDbContext db, ICurrentUser currentUser, CancellationToken ct)
     {
         var result = await handler.Handle(
-            new OffboardMemberCommand(id, currentUser.UserId), db, ct);
+            new OffboardMemberCommand(new OffboardTargetUserId(id), new OffboardActingUserId(currentUser.UserId)), db, ct);
         if (result.NotFound)
             return Results.Problem(
                 type: ProblemTypes.ResourceNotFound, title: "Member not found",
