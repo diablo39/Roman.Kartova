@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace Kartova.SharedKernel.Audit;
 
 /// <summary>
@@ -10,6 +12,7 @@ namespace Kartova.SharedKernel.Audit;
 /// numbers like <c>1.0</c>→<c>1</c>; all-string values sidestep that — see the design
 /// spec §5). Use <c>null</c> values for "absent".</para>
 /// </summary>
+[ExcludeFromCodeCoverage]
 public sealed record AuditEntry(
     string Action,
     string TargetType,
