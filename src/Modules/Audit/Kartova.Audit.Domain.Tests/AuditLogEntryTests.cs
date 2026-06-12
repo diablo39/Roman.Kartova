@@ -40,11 +40,78 @@ public class AuditLogEntryTests
     }
 
     [TestMethod]
-    public void Create_rejects_wrong_length_prev_hash()
+    [DataRow(0)]
+    [DataRow(16)]
+    [DataRow(33)]
+    public void Create_rejects_wrong_length_prev_hash(int length)
     {
         Assert.ThrowsExactly<ArgumentException>(() => AuditLogEntry.Create(
             Guid.NewGuid(), Tenant, seq: 1, DateTimeOffset.UtcNow, AuditActorType.User, Guid.NewGuid(),
             actorDisplay: null, action: "a", targetType: "User", targetId: "x",
-            data: null, prevHash: new byte[16]));
+            data: null, prevHash: new byte[length]));
+    }
+
+    [TestMethod]
+    public void Create_rejects_empty_id()
+    {
+        Assert.ThrowsExactly<ArgumentException>(() => AuditLogEntry.Create(
+            Guid.Empty, Tenant, seq: 1, DateTimeOffset.UtcNow, AuditActorType.User, Guid.NewGuid(),
+            actorDisplay: null, action: "a", targetType: "User", targetId: "x",
+            data: null, prevHash: AuditRowHasher.GenesisHash));
+    }
+
+    [TestMethod]
+    public void Create_rejects_empty_tenant_id()
+    {
+        Assert.ThrowsExactly<ArgumentException>(() => AuditLogEntry.Create(
+            Guid.NewGuid(), Guid.Empty, seq: 1, DateTimeOffset.UtcNow, AuditActorType.User, Guid.NewGuid(),
+            actorDisplay: null, action: "a", targetType: "User", targetId: "x",
+            data: null, prevHash: AuditRowHasher.GenesisHash));
+    }
+
+    [TestMethod]
+    public void Create_rejects_null_action()
+    {
+        // ArgumentException.ThrowIfNullOrWhiteSpace throws ArgumentNullException (a subclass) for null
+        Assert.ThrowsExactly<ArgumentNullException>(() => AuditLogEntry.Create(
+            Guid.NewGuid(), Tenant, seq: 1, DateTimeOffset.UtcNow, AuditActorType.User, Guid.NewGuid(),
+            actorDisplay: null, action: null!, targetType: "User", targetId: "x",
+            data: null, prevHash: AuditRowHasher.GenesisHash));
+    }
+
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("   ")]
+    public void Create_rejects_blank_action(string action)
+    {
+        Assert.ThrowsExactly<ArgumentException>(() => AuditLogEntry.Create(
+            Guid.NewGuid(), Tenant, seq: 1, DateTimeOffset.UtcNow, AuditActorType.User, Guid.NewGuid(),
+            actorDisplay: null, action: action, targetType: "User", targetId: "x",
+            data: null, prevHash: AuditRowHasher.GenesisHash));
+    }
+
+    [TestMethod]
+    public void Create_round_trips_all_stored_fields()
+    {
+        var id = Guid.NewGuid();
+        var actor = Guid.NewGuid();
+        var when = new DateTimeOffset(2026, 6, 12, 9, 0, 0, TimeSpan.Zero);
+        var data = new Dictionary<string, string?> { ["k"] = "v" };
+
+        var entry = AuditLogEntry.Create(
+            id, Tenant, seq: 7, when, AuditActorType.System, actor, actorDisplay: "Ada",
+            action: "x.done", targetType: "Team", targetId: "t1", data, AuditRowHasher.GenesisHash);
+
+        Assert.AreEqual(id, entry.Id);
+        Assert.AreEqual(Tenant, entry.TenantId);
+        Assert.AreEqual(7, entry.Seq);
+        Assert.AreEqual(when, entry.OccurredAt);
+        Assert.AreEqual(AuditActorType.System, entry.ActorType);
+        Assert.AreEqual(actor, entry.ActorId);
+        Assert.AreEqual("Ada", entry.ActorDisplay);
+        Assert.AreEqual("x.done", entry.Action);
+        Assert.AreEqual("Team", entry.TargetType);
+        Assert.AreEqual("t1", entry.TargetId);
+        Assert.AreSame(data, entry.Data);
     }
 }

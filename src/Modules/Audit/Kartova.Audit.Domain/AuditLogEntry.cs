@@ -38,6 +38,8 @@ public sealed class AuditLogEntry
         IReadOnlyDictionary<string, string?>? data,
         byte[] prevHash)
     {
+        if (id == Guid.Empty) throw new ArgumentException("id must not be empty.", nameof(id));
+        if (tenantId == Guid.Empty) throw new ArgumentException("tenantId must not be empty.", nameof(tenantId));
         ArgumentNullException.ThrowIfNull(prevHash);
         ArgumentException.ThrowIfNullOrWhiteSpace(action);
         ArgumentException.ThrowIfNullOrWhiteSpace(targetType);
@@ -59,7 +61,7 @@ public sealed class AuditLogEntry
             TargetType = targetType,
             TargetId = targetId,
             Data = data,
-            PrevHash = prevHash,
+            PrevHash = prevHash.ToArray(), // defensive copy — caller may reuse the buffer
             RowHash = AuditRowHasher.ComputeRowHash(
                 tenantId, seq, occurredAt, actorType, actorId, action, targetType, targetId, data, prevHash),
         };
