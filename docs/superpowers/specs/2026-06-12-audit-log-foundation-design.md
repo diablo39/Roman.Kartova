@@ -77,7 +77,7 @@ Endpoint delegate ──► business handler (e.g. OffboardMemberHandler)   [Pha
 | `action` | `text` NOT NULL | Taxonomy string, e.g. `member.offboarded`. (Values defined in Phase 2.) |
 | `target_type` | `text` NOT NULL | e.g. `User`, `Team`, `Application`. |
 | `target_id` | `text` NOT NULL | String to accommodate non-uuid targets. |
-| `data` | `jsonb` NULL | Action-specific structured diff (before/after where relevant). |
+| `data` | `jsonb` NULL | Action-specific structured diff (before/after where relevant). Chosen over `text` for forensic queryability (`data->>'...'`, `@>`, GIN-indexable — the audit log's primary later use) + write-time JSON validation. Hash stability requirement in §5. |
 | `prev_hash` | `bytea` NOT NULL | Predecessor's `row_hash`; all-zero (32 bytes) for genesis. |
 | `row_hash` | `bytea` NOT NULL | `SHA-256` over canonical serialization (see §5). |
 
@@ -92,6 +92,7 @@ Endpoint delegate ──► business handler (e.g. OffboardMemberHandler)   [Pha
 ## 5. Hash chain + verification
 
 - **Canonical serialization:** a stable, field-ordered byte encoding of `(tenant_id, seq, occurred_at, actor_type, actor_id, action, target_type, target_id, data, prev_hash)`. JSONB `data` is serialized via a canonical (sorted-key, no-insignificant-whitespace) form so the hash is reproducible. Encoding is centralized in one function so the writer and verifier agree by construction.
+- **JSONB hash-stability requirement (critical):** because Postgres `jsonb` normalizes on store (drops whitespace, sorts/dedupes keys, reformats numbers: `1.0`→`1`, `1e3`→`1000`), the verifier reads back a *normalized* `data` and re-canonicalizes it. For the recomputed `row_hash` to match the stored one, the **canonicalizer must be a fixed point under jsonb normalization** — sorted keys (already specified) and a canonical number form — and audit payloads **must avoid ambiguous numeric representations** (values are strings / GUIDs / enums / booleans; no raw floats). For our events (role names, GUIDs, booleans) this holds trivially. An integration test (Testcontainers) round-trips representative payloads through Postgres `jsonb` and asserts the canonical form (and thus `row_hash`) is unchanged, guarding against false tamper alarms.
 - `row_hash = SHA-256(canonical_bytes)`.
 - **`IAuditChainVerifier.VerifyAsync(tenantId, ct)`** walks the tenant's rows ordered by `seq` and asserts: (a) `seq` is contiguous from 1, (b) each row's `prev_hash` equals the prior row's `row_hash`, (c) each recomputed `row_hash` matches the stored value. Returns a result describing the first break (seq + reason) or "intact". Phase 1 ships it as an injectable service exercised by tests; the regulator-facing wrapper is deferred (§2).
 
