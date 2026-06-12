@@ -1,0 +1,67 @@
+using System.Collections.Generic;
+using Kartova.Audit.Domain;
+
+namespace Kartova.Audit.Domain.Tests;
+
+[TestClass]
+public class AuditRowHasherTests
+{
+    private static readonly Guid Tenant = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid Actor = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static readonly DateTimeOffset When = new(2026, 6, 12, 9, 30, 0, TimeSpan.Zero);
+
+    private static byte[] Hash(IReadOnlyDictionary<string, string?>? data, byte[] prev) =>
+        AuditRowHasher.ComputeRowHash(
+            Tenant, seq: 1, When, AuditActorType.User, Actor,
+            action: "member.role_changed", targetType: "User", targetId: Actor.ToString(),
+            data, prev);
+
+    [TestMethod]
+    public void GenesisHash_is_32_zero_bytes()
+    {
+        Assert.AreEqual(32, AuditRowHasher.GenesisHash.Length);
+        CollectionAssert.AreEqual(new byte[32], AuditRowHasher.GenesisHash);
+    }
+
+    [TestMethod]
+    public void ComputeRowHash_is_deterministic()
+    {
+        var data = new Dictionary<string, string?> { ["old_role"] = "Member", ["new_role"] = "OrgAdmin" };
+        var a = Hash(data, AuditRowHasher.GenesisHash);
+        var b = Hash(data, AuditRowHasher.GenesisHash);
+        CollectionAssert.AreEqual(a, b);
+        Assert.AreEqual(32, a.Length);
+    }
+
+    [TestMethod]
+    public void ComputeRowHash_is_independent_of_data_key_insertion_order()
+    {
+        var ordered = new Dictionary<string, string?> { ["new_role"] = "OrgAdmin", ["old_role"] = "Member" };
+        var reversed = new Dictionary<string, string?> { ["old_role"] = "Member", ["new_role"] = "OrgAdmin" };
+        CollectionAssert.AreEqual(Hash(ordered, AuditRowHasher.GenesisHash), Hash(reversed, AuditRowHasher.GenesisHash));
+    }
+
+    [TestMethod]
+    public void ComputeRowHash_changes_when_prev_hash_changes()
+    {
+        var data = new Dictionary<string, string?> { ["k"] = "v" };
+        var genesis = Hash(data, AuditRowHasher.GenesisHash);
+        var chained = Hash(data, genesis);
+        CollectionAssert.AreNotEqual(genesis, chained);
+    }
+
+    [TestMethod]
+    public void ComputeRowHash_changes_when_payload_changes()
+    {
+        var d1 = new Dictionary<string, string?> { ["new_role"] = "OrgAdmin" };
+        var d2 = new Dictionary<string, string?> { ["new_role"] = "Viewer" };
+        CollectionAssert.AreNotEqual(Hash(d1, AuditRowHasher.GenesisHash), Hash(d2, AuditRowHasher.GenesisHash));
+    }
+
+    [TestMethod]
+    public void ComputeRowHash_handles_null_data()
+    {
+        var h = Hash(null, AuditRowHasher.GenesisHash);
+        Assert.AreEqual(32, h.Length);
+    }
+}
