@@ -64,4 +64,20 @@ public class AuditRowHasherTests
         var h = Hash(null, AuditRowHasher.GenesisHash);
         Assert.AreEqual(32, h.Length);
     }
+
+    // Golden value pins the canonical encoding so a silent format change (field order, timestamp
+    // format, key sort, prev_hash encoding) is caught — such a change would orphan already-stored
+    // rows. Expected value computed once from the real serializer and frozen.
+    [TestMethod]
+    public void ComputeRowHash_matches_pinned_golden_value()
+    {
+        var data = new Dictionary<string, string?> { ["old_role"] = "Member", ["new_role"] = "OrgAdmin" };
+        var actual = AuditRowHasher.ComputeRowHash(
+            Tenant, seq: 1, When, AuditActorType.User, Actor,
+            action: "member.role_changed", targetType: "User", targetId: Actor.ToString(),
+            data, AuditRowHasher.GenesisHash);
+
+        const string KnownHashHex = "A52E421EF6EA5484B75C66538EAF0A1E77FA0EE04FEC80210B22B453AA6E051C";
+        Assert.AreEqual(KnownHashHex, Convert.ToHexString(actual));
+    }
 }

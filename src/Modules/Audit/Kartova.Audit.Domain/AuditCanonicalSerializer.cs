@@ -36,7 +36,12 @@ public static class AuditCanonicalSerializer
             w.WriteStartObject();
             w.WriteString("tenant_id", tenantId.ToString("D"));
             w.WriteNumber("seq", seq);
-            w.WriteString("occurred_at", occurredAt.ToUniversalTime().ToString(TimestampFormat, CultureInfo.InvariantCulture));
+            // Truncate to microseconds (Postgres timestamptz resolution) so the canonical form is
+            // stable across a DB round-trip even if a caller passes a sub-µs DateTimeOffset. The
+            // writer also truncates the value it STORES, so the stored and hashed timestamps agree.
+            var occurredAtUtc = occurredAt.ToUniversalTime();
+            var occurredAtMicros = new DateTimeOffset(occurredAtUtc.Ticks - (occurredAtUtc.Ticks % 10), TimeSpan.Zero);
+            w.WriteString("occurred_at", occurredAtMicros.ToString(TimestampFormat, CultureInfo.InvariantCulture));
             w.WriteString("actor_type", actorType.ToString());
             if (actorId is { } a) w.WriteString("actor_id", a.ToString("D"));
             else w.WriteNull("actor_id");
