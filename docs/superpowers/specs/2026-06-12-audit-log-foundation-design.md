@@ -67,7 +67,7 @@ Endpoint delegate ──► business handler (e.g. OffboardMemberHandler)   [Pha
 
 | Column | Type | Notes |
 |--------|------|-------|
-| `id` | `uuid` PK | App-generated (deterministic GUID v7 not required). |
+| `id` | `uuid` PK | App-generated **GUID v7** (`Guid.CreateVersion7(occurredAt)`, .NET 10) — time-ordered so `id` insertion order tracks `seq`/`occurred_at`, giving B-tree index locality and append-friendly page writes. Seeded from the same `TimeProvider` timestamp as `occurred_at`. |
 | `tenant_id` | `uuid` NOT NULL | RLS discriminator. |
 | `seq` | `bigint` NOT NULL | Per-tenant monotonic chain position (starts at 1). |
 | `occurred_at` | `timestamptz` NOT NULL | UTC, via `TimeProvider` — never `DateTime.UtcNow`. |
