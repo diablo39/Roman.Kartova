@@ -61,10 +61,25 @@ public class AuditChainInspectorTests
     public void Detects_tampered_row_hash()
     {
         var rows = Chain(2);
+        // Unit-only forgery; requires a settable RowHash backing field.
         typeof(AuditLogEntry).GetProperty(nameof(AuditLogEntry.RowHash))!
             .SetValue(rows[0], new byte[32]); // forge row 1's stored hash
         var result = AuditChainInspector.Inspect(rows);
         Assert.IsFalse(result.Intact);
         Assert.AreEqual(1, result.FirstBrokenSeq);
+    }
+
+    [TestMethod]
+    public void Detects_tampered_row_hash_on_last_row()
+    {
+        var rows = Chain(3);
+        // Unit-only forgery (simulates post-write tampering the DB grants prevent in prod):
+        // requires AuditLogEntry.RowHash to have a settable backing field. If this throws
+        // "Property set method not found", replace with an internal test-factory overload.
+        typeof(AuditLogEntry).GetProperty(nameof(AuditLogEntry.RowHash))!
+            .SetValue(rows[2], new byte[32]); // forge seq 3 (last row)
+        var result = AuditChainInspector.Inspect(rows);
+        Assert.IsFalse(result.Intact);
+        Assert.AreEqual(3, result.FirstBrokenSeq);
     }
 }
