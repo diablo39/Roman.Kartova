@@ -135,6 +135,19 @@ public class AuditRowHasherTests
         CollectionAssert.AreNotEqual(nullActorHash, nonNullActorHash);
     }
 
+    [TestMethod]
+    public void ComputeRowHash_null_actor_id_matches_pinned_golden_value()
+    {
+        var data = new Dictionary<string, string?> { ["k"] = "v" };
+        var actual = AuditRowHasher.ComputeRowHash(
+            Tenant, seq: 1, When, AuditActorType.System, actorId: null,
+            action: "system.purge", targetType: "Tenant", targetId: Tenant.ToString(),
+            data, AuditRowHasher.GenesisHash);
+
+        const string KnownHashHex = "39B1C3079F142478D07D78B049F71F176C0988D565F715804A65751C6A33E9C3";
+        Assert.AreEqual(KnownHashHex, Convert.ToHexString(actual));
+    }
+
     // Survivor 3: AuditCanonicalSerializer.cs:63 — NoCoverage: `w.WriteNull(key)` for null dict value
     // No test had a data dictionary with a null value.
     [TestMethod]
