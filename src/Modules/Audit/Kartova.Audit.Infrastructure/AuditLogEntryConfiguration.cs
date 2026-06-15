@@ -24,8 +24,8 @@ internal sealed class AuditLogEntryConfiguration : IEntityTypeConfiguration<Audi
         builder.Property(x => x.Action).HasColumnName("action");
         builder.Property(x => x.TargetType).HasColumnName("target_type");
         builder.Property(x => x.TargetId).HasColumnName("target_id");
-        builder.Property(x => x.PrevHash).HasColumnName("prev_hash");
-        builder.Property(x => x.RowHash).HasColumnName("row_hash");
+        builder.Property(x => x.PrevHash).HasColumnName("prev_hash").HasColumnType("bytea");
+        builder.Property(x => x.RowHash).HasColumnName("row_hash").HasColumnType("bytea");
 
         // data: stored as jsonb (forensic queryability + write-time validation). The converter
         // round-trips through System.Text.Json; the chain hash is computed by the domain
@@ -38,7 +38,7 @@ internal sealed class AuditLogEntryConfiguration : IEntityTypeConfiguration<Audi
         var dataComparer = new ValueComparer<IReadOnlyDictionary<string, string?>?>(
             (a, b) => JsonSerializer.Serialize(a, (JsonSerializerOptions?)null) == JsonSerializer.Serialize(b, (JsonSerializerOptions?)null),
             v => v == null ? 0 : JsonSerializer.Serialize(v, (JsonSerializerOptions?)null).GetHashCode(),
-            v => v);
+            v => v == null ? null : new Dictionary<string, string?>(v));
 
         builder.Property(x => x.Data)
             .HasColumnName("data")
