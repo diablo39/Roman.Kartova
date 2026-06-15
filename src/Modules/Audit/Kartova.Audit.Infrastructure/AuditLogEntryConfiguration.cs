@@ -36,8 +36,14 @@ internal sealed class AuditLogEntryConfiguration : IEntityTypeConfiguration<Audi
             v => v == null ? null : JsonSerializer.Deserialize<Dictionary<string, string?>>(v, (JsonSerializerOptions?)null));
 
         var dataComparer = new ValueComparer<IReadOnlyDictionary<string, string?>?>(
-            (a, b) => JsonSerializer.Serialize(a, (JsonSerializerOptions?)null) == JsonSerializer.Serialize(b, (JsonSerializerOptions?)null),
-            v => v == null ? 0 : JsonSerializer.Serialize(v, (JsonSerializerOptions?)null).GetHashCode(),
+            // Order-independent set equality — matches the order-independent canonical hash (sorted keys).
+            (a, b) => ReferenceEquals(a, b)
+                || (a != null && b != null
+                    && a.Count == b.Count
+                    && a.All(kv => b.ContainsKey(kv.Key) && b[kv.Key] == kv.Value)),
+            // XOR of per-entry hashes → order-independent, consistent with the Equals above.
+            v => v == null ? 0 : v.Aggregate(0, (acc, kv) => acc ^ HashCode.Combine(kv.Key, kv.Value)),
+            // Deep copy so EF change-tracking can't be fooled by a mutated source dictionary.
             v => v == null ? null : new Dictionary<string, string?>(v));
 
         builder.Property(x => x.Data)
