@@ -91,6 +91,15 @@ public class AuditLogEntryTests
     }
 
     [TestMethod]
+    public void Create_rejects_user_actor_with_empty_actor_id()
+    {
+        Assert.ThrowsExactly<ArgumentException>(() => AuditLogEntry.Create(
+            Guid.NewGuid(), Tenant, seq: 1, DateTimeOffset.UtcNow, AuditActorType.User, Guid.Empty,
+            actorDisplay: null, action: "a", targetType: "User", targetId: "x",
+            data: null, prevHash: AuditRowHasher.GenesisHash));
+    }
+
+    [TestMethod]
     public void Create_round_trips_all_stored_fields()
     {
         var id = Guid.NewGuid();

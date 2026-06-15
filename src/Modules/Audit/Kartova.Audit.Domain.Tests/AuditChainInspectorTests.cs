@@ -7,11 +7,12 @@ namespace Kartova.Audit.Domain.Tests;
 public class AuditChainInspectorTests
 {
     private static readonly Guid Tenant = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid Actor = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
     private static AuditLogEntry Row(long seq, byte[] prev, string action = "a") =>
         AuditLogEntry.Create(
             Guid.NewGuid(), Tenant, seq, new DateTimeOffset(2026, 6, 12, 9, 0, 0, TimeSpan.Zero),
-            AuditActorType.User, Guid.Empty, actorDisplay: null,
+            AuditActorType.User, Actor, actorDisplay: null,
             action, targetType: "User", targetId: "x",
             data: new Dictionary<string, string?> { ["k"] = "v" }, prev);
 

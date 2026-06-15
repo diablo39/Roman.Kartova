@@ -47,6 +47,8 @@ public sealed class AuditLogEntry
         ArgumentOutOfRangeException.ThrowIfLessThan(seq, 1);
         if (prevHash.Length != 32)
             throw new ArgumentException("prevHash must be 32 bytes (SHA-256).", nameof(prevHash));
+        if (actorType == AuditActorType.User && (actorId is null || actorId == Guid.Empty))
+            throw new ArgumentException("A User actor requires a non-empty actorId.", nameof(actorId));
 
         return new AuditLogEntry
         {
