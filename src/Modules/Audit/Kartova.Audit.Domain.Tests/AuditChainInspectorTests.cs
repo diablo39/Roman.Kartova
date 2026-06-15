@@ -52,6 +52,7 @@ public class AuditChainInspectorTests
         var result = AuditChainInspector.Inspect(rows);
         Assert.IsFalse(result.Intact);
         Assert.AreEqual(3, result.FirstBrokenSeq);
+        Assert.AreEqual("non-contiguous seq (expected 2)", result.Reason);
     }
 
     [TestMethod]
@@ -63,6 +64,7 @@ public class AuditChainInspectorTests
         var result = AuditChainInspector.Inspect(rows);
         Assert.IsFalse(result.Intact);
         Assert.AreEqual(2, result.FirstBrokenSeq);
+        Assert.AreEqual("prev_hash does not match prior row_hash", result.Reason);
     }
 
     [TestMethod]
@@ -89,5 +91,32 @@ public class AuditChainInspectorTests
         var result = AuditChainInspector.Inspect(rows);
         Assert.IsFalse(result.Intact);
         Assert.AreEqual(3, result.FirstBrokenSeq);
+    }
+
+    [TestMethod]
+    public void Single_row_genesis_chain_is_intact()
+    {
+        Assert.IsTrue(AuditChainInspector.Inspect(Chain(1)).Intact);
+    }
+
+    [TestMethod]
+    public void Chain_starting_at_seq_2_is_broken_at_2()
+    {
+        var rows = new List<AuditLogEntry> { Row(2, AuditRowHasher.GenesisHash) };
+        var result = AuditChainInspector.Inspect(rows);
+        Assert.IsFalse(result.Intact);
+        Assert.AreEqual(2, result.FirstBrokenSeq);
+    }
+
+    [TestMethod]
+    public void Detects_tampered_row_hash_on_middle_row()
+    {
+        var rows = Chain(3);
+        // Unit-only forgery; requires a settable RowHash backing field.
+        typeof(AuditLogEntry).GetProperty(nameof(AuditLogEntry.RowHash))!
+            .SetValue(rows[1], new byte[32]);
+        var result = AuditChainInspector.Inspect(rows);
+        Assert.IsFalse(result.Intact);
+        Assert.AreEqual(2, result.FirstBrokenSeq);
     }
 }

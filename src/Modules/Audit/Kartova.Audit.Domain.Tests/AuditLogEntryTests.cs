@@ -91,6 +91,15 @@ public class AuditLogEntryTests
     }
 
     [TestMethod]
+    public void Create_rejects_undefined_actor_type()
+    {
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => AuditLogEntry.Create(
+            Guid.NewGuid(), Tenant, seq: 1, DateTimeOffset.UtcNow, (AuditActorType)99, Guid.NewGuid(),
+            actorDisplay: null, action: "a", targetType: "User", targetId: "x",
+            data: null, prevHash: AuditRowHasher.GenesisHash));
+    }
+
+    [TestMethod]
     public void Create_rejects_user_actor_with_empty_actor_id()
     {
         Assert.ThrowsExactly<ArgumentException>(() => AuditLogEntry.Create(
