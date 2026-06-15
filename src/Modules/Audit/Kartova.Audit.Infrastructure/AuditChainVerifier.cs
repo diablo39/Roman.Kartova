@@ -14,6 +14,7 @@ public sealed class AuditChainVerifier(AuditDbContext db)
     public async Task<AuditChainVerificationResult> VerifyAsync(TenantId tenantId, CancellationToken ct)
     {
         var rows = await db.AuditEntries
+            .AsNoTracking()
             .Where(e => e.TenantId == tenantId.Value)
             .OrderBy(e => e.Seq)
             .ToListAsync(ct);
