@@ -24,6 +24,13 @@ public class AuditChainInspectorTests
         return rows;
     }
 
+    // Survivor 4: AuditChainInspector.cs:13 — Statement mutation: `ArgumentNullException.ThrowIfNull` removed
+    [TestMethod]
+    public void Inspect_throws_for_null_input()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() => AuditChainInspector.Inspect(null!));
+    }
+
     [TestMethod]
     public void Empty_chain_is_intact()
     {

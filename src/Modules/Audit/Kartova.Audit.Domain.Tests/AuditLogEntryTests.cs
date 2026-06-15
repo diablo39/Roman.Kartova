@@ -99,6 +99,59 @@ public class AuditLogEntryTests
             data: null, prevHash: AuditRowHasher.GenesisHash));
     }
 
+    // Survivors 5-7: AuditLogEntry.cs:43,45,46 — guard statements removed by mutant
+    // Line 43: ArgumentNullException.ThrowIfNull(prevHash)
+    [TestMethod]
+    public void Create_rejects_null_prev_hash()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() => AuditLogEntry.Create(
+            Guid.NewGuid(), Tenant, seq: 1, DateTimeOffset.UtcNow, AuditActorType.User, Guid.NewGuid(),
+            actorDisplay: null, action: "a", targetType: "User", targetId: "x",
+            data: null, prevHash: null!));
+    }
+
+    // Line 45: ArgumentException.ThrowIfNullOrWhiteSpace(targetType) — null throws ArgumentNullException
+    [TestMethod]
+    public void Create_rejects_null_target_type()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() => AuditLogEntry.Create(
+            Guid.NewGuid(), Tenant, seq: 1, DateTimeOffset.UtcNow, AuditActorType.User, Guid.NewGuid(),
+            actorDisplay: null, action: "a", targetType: null!, targetId: "x",
+            data: null, prevHash: AuditRowHasher.GenesisHash));
+    }
+
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("   ")]
+    public void Create_rejects_blank_target_type(string targetType)
+    {
+        Assert.ThrowsExactly<ArgumentException>(() => AuditLogEntry.Create(
+            Guid.NewGuid(), Tenant, seq: 1, DateTimeOffset.UtcNow, AuditActorType.User, Guid.NewGuid(),
+            actorDisplay: null, action: "a", targetType: targetType, targetId: "x",
+            data: null, prevHash: AuditRowHasher.GenesisHash));
+    }
+
+    // Line 46: ArgumentException.ThrowIfNullOrWhiteSpace(targetId) — null throws ArgumentNullException
+    [TestMethod]
+    public void Create_rejects_null_target_id()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() => AuditLogEntry.Create(
+            Guid.NewGuid(), Tenant, seq: 1, DateTimeOffset.UtcNow, AuditActorType.User, Guid.NewGuid(),
+            actorDisplay: null, action: "a", targetType: "User", targetId: null!,
+            data: null, prevHash: AuditRowHasher.GenesisHash));
+    }
+
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("   ")]
+    public void Create_rejects_blank_target_id(string targetId)
+    {
+        Assert.ThrowsExactly<ArgumentException>(() => AuditLogEntry.Create(
+            Guid.NewGuid(), Tenant, seq: 1, DateTimeOffset.UtcNow, AuditActorType.User, Guid.NewGuid(),
+            actorDisplay: null, action: "a", targetType: "User", targetId: targetId,
+            data: null, prevHash: AuditRowHasher.GenesisHash));
+    }
+
     [TestMethod]
     public void Create_round_trips_all_stored_fields()
     {

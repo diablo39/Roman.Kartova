@@ -80,4 +80,86 @@ public class AuditRowHasherTests
         const string KnownHashHex = "A52E421EF6EA5484B75C66538EAF0A1E77FA0EE04FEC80210B22B453AA6E051C";
         Assert.AreEqual(KnownHashHex, Convert.ToHexString(actual));
     }
+
+    // Survivor 1: AuditCanonicalSerializer.cs:43 — arithmetic mutation `Ticks - (Ticks % 10)` → `+`
+    // A µs-aligned base time (Ticks % 10 == 0) makes + and − identical; use a sub-µs offset to
+    // distinguish floor (correct) from ceil (mutant).
+    [TestMethod]
+    public void ComputeRowHash_sub_microsecond_timestamp_is_floored_to_microsecond_boundary()
+    {
+        // Base time whose Ticks are exactly µs-aligned (% 10 == 0).
+        var baseTime = new DateTimeOffset(2026, 6, 12, 9, 30, 0, TimeSpan.Zero);
+        Assert.AreEqual(0, baseTime.Ticks % 10, "precondition: base time is µs-aligned");
+
+        var subMicros = baseTime + TimeSpan.FromTicks(3); // Ticks % 10 == 3  → floor == base, ceil == base+10
+        var floor     = baseTime;                          // Ticks − 3 → same as base
+        var ceil      = baseTime + TimeSpan.FromTicks(10); // Ticks + 3 → base+10 (what the + mutant produces)
+
+        var actualHash = AuditRowHasher.ComputeRowHash(
+            Tenant, seq: 1, subMicros, AuditActorType.User, Actor,
+            action: "member.role_changed", targetType: "User", targetId: Actor.ToString(),
+            data: null, AuditRowHasher.GenesisHash);
+
+        var floorHash = AuditRowHasher.ComputeRowHash(
+            Tenant, seq: 1, floor, AuditActorType.User, Actor,
+            action: "member.role_changed", targetType: "User", targetId: Actor.ToString(),
+            data: null, AuditRowHasher.GenesisHash);
+
+        var ceilHash = AuditRowHasher.ComputeRowHash(
+            Tenant, seq: 1, ceil, AuditActorType.User, Actor,
+            action: "member.role_changed", targetType: "User", targetId: Actor.ToString(),
+            data: null, AuditRowHasher.GenesisHash);
+
+        // Correct code floors → actualHash == floorHash
+        CollectionAssert.AreEqual(floorHash, actualHash);
+        // The + mutant would produce ceilHash instead; verify floor and ceil differ
+        CollectionAssert.AreNotEqual(floorHash, ceilHash);
+    }
+
+    // Survivor 2: AuditCanonicalSerializer.cs:47 — NoCoverage: `else w.WriteNull("actor_id")`
+    // No test previously passed a null actorId through the hasher.
+    [TestMethod]
+    public void ComputeRowHash_null_actor_id_produces_32_byte_hash_distinct_from_non_null()
+    {
+        var nullActorHash = AuditRowHasher.ComputeRowHash(
+            Tenant, seq: 1, When, AuditActorType.System, actorId: null,
+            action: "svc.started", targetType: "Service", targetId: "svc-1",
+            data: null, AuditRowHasher.GenesisHash);
+
+        var nonNullActorHash = AuditRowHasher.ComputeRowHash(
+            Tenant, seq: 1, When, AuditActorType.System, actorId: Actor,
+            action: "svc.started", targetType: "Service", targetId: "svc-1",
+            data: null, AuditRowHasher.GenesisHash);
+
+        Assert.AreEqual(32, nullActorHash.Length);
+        CollectionAssert.AreNotEqual(nullActorHash, nonNullActorHash);
+    }
+
+    // Survivor 3: AuditCanonicalSerializer.cs:63 — NoCoverage: `w.WriteNull(key)` for null dict value
+    // No test had a data dictionary with a null value.
+    [TestMethod]
+    public void ComputeRowHash_null_dict_value_is_distinct_from_empty_string_and_absent_key()
+    {
+        var nullValueHash = AuditRowHasher.ComputeRowHash(
+            Tenant, seq: 1, When, AuditActorType.User, Actor,
+            action: "a", targetType: "T", targetId: "x",
+            data: new Dictionary<string, string?> { ["k"] = null },
+            AuditRowHasher.GenesisHash);
+
+        var emptyStringHash = AuditRowHasher.ComputeRowHash(
+            Tenant, seq: 1, When, AuditActorType.User, Actor,
+            action: "a", targetType: "T", targetId: "x",
+            data: new Dictionary<string, string?> { ["k"] = "" },
+            AuditRowHasher.GenesisHash);
+
+        var absentKeyHash = AuditRowHasher.ComputeRowHash(
+            Tenant, seq: 1, When, AuditActorType.User, Actor,
+            action: "a", targetType: "T", targetId: "x",
+            data: new Dictionary<string, string?>(),
+            AuditRowHasher.GenesisHash);
+
+        Assert.AreEqual(32, nullValueHash.Length);
+        CollectionAssert.AreNotEqual(nullValueHash, emptyStringHash);
+        CollectionAssert.AreNotEqual(nullValueHash, absentKeyHash);
+    }
 }
