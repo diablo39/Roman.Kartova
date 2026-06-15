@@ -1,5 +1,7 @@
 using System.Reflection;
 using Kartova.Api;
+using Kartova.Audit.Domain;
+using Kartova.Audit.Infrastructure;
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
@@ -46,6 +48,12 @@ internal static class AssemblyRegistry
         public static readonly Assembly Contracts = typeof(OrganizationDto).Assembly;
     }
 
+    public static class Audit
+    {
+        public static readonly Assembly Domain = typeof(AuditLogEntry).Assembly;
+        public static readonly Assembly Infrastructure = typeof(AuditModule).Assembly;
+    }
+
     public static IEnumerable<Assembly> AllProduction()
     {
         yield return SharedKernel;
@@ -63,6 +71,8 @@ internal static class AssemblyRegistry
         yield return Organization.Infrastructure;
         yield return Organization.InfrastructureAdmin;
         yield return Organization.Contracts;
+        yield return Audit.Domain;
+        yield return Audit.Infrastructure;
     }
 
     public static IEnumerable<Assembly> AllContracts()

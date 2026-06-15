@@ -36,6 +36,8 @@
     <ProjectReference Include="..\..\src\Modules\Organization\Kartova.Organization.Infrastructure\Kartova.Organization.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Modules\Organization\Kartova.Organization.Infrastructure.Admin\Kartova.Organization.Infrastructure.Admin.csproj" />
     <ProjectReference Include="..\..\src\Modules\Organization\Kartova.Organization.Contracts\Kartova.Organization.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Audit\Kartova.Audit.Domain\Kartova.Audit.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Audit\Kartova.Audit.Infrastructure\Kartova.Audit.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

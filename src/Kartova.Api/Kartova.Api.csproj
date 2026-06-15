@@ -24,6 +24,7 @@
     <ProjectReference Include="..\Kartova.SharedKernel.Wolverine\Kartova.SharedKernel.Wolverine.csproj" />
     <ProjectReference Include="..\Modules\Catalog\Kartova.Catalog.Infrastructure\Kartova.Catalog.Infrastructure.csproj" />
     <ProjectReference Include="..\Modules\Organization\Kartova.Organization.Infrastructure\Kartova.Organization.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Audit\Kartova.Audit.Infrastructure\Kartova.Audit.Infrastructure.csproj" />
     <ProjectReference Include="..\Modules\Organization\Kartova.Organization.Infrastructure.Admin\Kartova.Organization.Infrastructure.Admin.csproj" />
   </ItemGroup>
 

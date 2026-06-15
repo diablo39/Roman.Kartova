@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using JasperFx;
+using Kartova.Audit.Infrastructure;
 using Kartova.Catalog.Infrastructure;
 using Kartova.Organization.Application;
 using Kartova.Organization.Infrastructure;
@@ -33,6 +34,7 @@ public class Program
         [
             new CatalogModule(),
             new OrganizationModule(),
+            new AuditModule(),
         ];
 
         foreach (var module in modules)
