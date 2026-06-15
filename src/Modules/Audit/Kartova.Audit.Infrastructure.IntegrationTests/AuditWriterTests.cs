@@ -85,6 +85,16 @@ public class AuditWriterTests
         return await tenantScope.BeginAsync(tenant, ct);
     }
 
+    private static async Task<long> CountRowsAsync(string bypassConnectionString, Guid tenantId)
+    {
+        await using var conn = new Npgsql.NpgsqlConnection(bypassConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT count(*) FROM audit_log WHERE tenant_id = $1";
+        cmd.Parameters.AddWithValue(tenantId);
+        return (long)(await cmd.ExecuteScalarAsync())!;
+    }
+
     private static AuditEntry SampleEntry(Guid target) => new(
         Action: "member.role_changed",
         TargetType: "User",
@@ -116,6 +126,8 @@ public class AuditWriterTests
             var verifier = scope.ServiceProvider.GetRequiredService<AuditChainVerifier>();
             var result = await verifier.VerifyAsync(tenant, CancellationToken.None);
             Assert.IsTrue(result.Intact, $"Chain broken: seq={result.FirstBrokenSeq} reason={result.Reason}");
+            Assert.AreEqual(3L, await CountRowsAsync(Fx.BypassConnectionString, tenant.Value),
+                "three committed appends must persist exactly three rows");
         }
     }
 
@@ -170,6 +182,8 @@ public class AuditWriterTests
             var verifier = scope.ServiceProvider.GetRequiredService<AuditChainVerifier>();
             var result = await verifier.VerifyAsync(tenant, CancellationToken.None);
             Assert.IsTrue(result.Intact, $"Chain should be intact (empty): seq={result.FirstBrokenSeq} reason={result.Reason}");
+            Assert.AreEqual(0L, await CountRowsAsync(Fx.BypassConnectionString, tenant.Value),
+                "rolled-back append must leave zero rows");
         }
     }
 }
