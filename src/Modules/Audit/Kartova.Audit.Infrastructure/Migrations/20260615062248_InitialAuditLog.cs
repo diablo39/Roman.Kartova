@@ -54,10 +54,11 @@ namespace Kartova.Audit.Infrastructure.Migrations
 ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_log FORCE ROW LEVEL SECURITY;
 
--- Tenant isolation. With no WITH CHECK clause, the USING expression is also applied to
--- INSERTed rows (PostgreSQL CREATE POLICY semantics) — matching the users-table pattern.
+-- Tenant isolation. USING gates SELECTs; WITH CHECK explicitly gates INSERTed rows so
+-- the insert-tenant constraint is self-documenting and matches spec §4.
 CREATE POLICY tenant_isolation ON audit_log
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
 
 -- ADR-0018 insert-only: the app + bypass roles inherit SELECT,INSERT,UPDATE,DELETE from the
 -- migrator's default privileges (docker/postgres/init.sql). Strip every mutating privilege so
