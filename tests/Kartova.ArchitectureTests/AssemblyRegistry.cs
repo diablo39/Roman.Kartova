@@ -90,5 +90,6 @@ internal static class AssemblyRegistry
     [
         Catalog.Infrastructure,
         Organization.Infrastructure,
+        Audit.Infrastructure,
     ];
 }

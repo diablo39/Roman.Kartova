@@ -27,6 +27,8 @@ public sealed class AuditModule : IModule, IModuleEndpoints
 {
     public string Name => "audit";
 
+    // "audit" is a functional namespace, not a plural collection resource (cf. Catalog's "catalog").
+    // The actual read-endpoint route shape is a Phase 2 decision; no HTTP surface exists yet.
     public string Slug => "audit";
 
     public Type DbContextType => typeof(AuditDbContext);
