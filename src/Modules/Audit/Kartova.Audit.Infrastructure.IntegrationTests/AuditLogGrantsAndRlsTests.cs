@@ -109,6 +109,28 @@ VALUES ($1, $2, $3, now(), 'User', $4, NULL, 'test.action', 'User', $5, NULL, $6
     }
 
     [TestMethod]
+    public async Task Bypass_role_cannot_update_audit_log()
+    {
+        await using var conn = new NpgsqlConnection(Fx.BypassConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE audit_log SET action = 'tampered'";
+        var ex = await Assert.ThrowsExactlyAsync<PostgresException>(() => cmd.ExecuteNonQueryAsync());
+        Assert.AreEqual("42501", ex.SqlState, $"Expected 42501 (insufficient_privilege), got: {ex.SqlState}");
+    }
+
+    [TestMethod]
+    public async Task Bypass_role_cannot_delete_audit_log()
+    {
+        await using var conn = new NpgsqlConnection(Fx.BypassConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM audit_log";
+        var ex = await Assert.ThrowsExactlyAsync<PostgresException>(() => cmd.ExecuteNonQueryAsync());
+        Assert.AreEqual("42501", ex.SqlState, $"Expected 42501 (insufficient_privilege), got: {ex.SqlState}");
+    }
+
+    [TestMethod]
     public async Task Rls_hides_other_tenants_rows()
     {
         // Insert as tenant A (unique seq to avoid collision with other tests).

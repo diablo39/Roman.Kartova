@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Kartova.Audit.Domain;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.EntityFrameworkCore;
@@ -13,11 +14,21 @@ public sealed class AuditChainVerifier(AuditDbContext db)
 {
     public async Task<AuditChainVerificationResult> VerifyAsync(TenantId tenantId, CancellationToken ct)
     {
-        var rows = await db.AuditEntries
-            .AsNoTracking()
-            .Where(e => e.TenantId == tenantId.Value)
-            .OrderBy(e => e.Seq)
-            .ToListAsync(ct);
+        List<AuditLogEntry> rows;
+        try
+        {
+            rows = await db.AuditEntries
+                .AsNoTracking()
+                .Where(e => e.TenantId == tenantId.Value)
+                .OrderBy(e => e.Seq)
+                .ToListAsync(ct);
+        }
+        catch (JsonException ex)
+        {
+            // A row's jsonb `data` failed to deserialize — possible tamper or corruption.
+            // Surface as a broken chain (unverifiable) rather than an opaque crash.
+            return AuditChainVerificationResult.Broken(0, $"data column deserialization failed: {ex.Message}");
+        }
 
         return AuditChainInspector.Inspect(rows);
     }

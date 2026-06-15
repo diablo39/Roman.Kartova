@@ -258,6 +258,88 @@ public class AuditWriterTests
     }
 
     /// <summary>
+    /// GAP-1: storage-layer tamper detection — verifier detects a row whose stored row_hash
+    /// does not match a recomputation of its fields, proving the hash check catches DB-level
+    /// mutations that bypass application code (the only mutation vector since UPDATE is revoked
+    /// for the app role, but the bypass role can INSERT a bad row directly).
+    /// </summary>
+    [TestMethod]
+    public async Task Verify_detects_db_level_row_hash_tamper()
+    {
+        var tenant = new TenantId(Guid.NewGuid());
+
+        // Insert a structurally-valid row with a row_hash that does NOT match its fields,
+        // simulating storage-layer tampering. The bypass role is used because the app role
+        // has UPDATE revoked — the only way to produce a bad hash in production is via
+        // a direct bypass-role INSERT (e.g. a compromised DBA).
+        await using (var conn = new NpgsqlConnection(Fx.BypassConnectionString))
+        {
+            await conn.OpenAsync();
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+INSERT INTO audit_log (id, tenant_id, seq, occurred_at, actor_type, actor_id, actor_display,
+                       action, target_type, target_id, data, prev_hash, row_hash)
+VALUES (gen_random_uuid(), $1, 1, now(), 'User', gen_random_uuid(), NULL, 'x.tampered', 'User', 'x',
+        NULL, $2, $3)";
+            cmd.Parameters.AddWithValue(tenant.Value);
+            cmd.Parameters.AddWithValue(new byte[32]); // prev_hash = genesis zeros
+            cmd.Parameters.AddWithValue(new byte[32]); // row_hash = bogus (won't match recompute)
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        await using var sp = BuildProvider(Guid.NewGuid());
+        using var scope = sp.CreateScope();
+        await using var handle = await BeginScopeAsync(scope.ServiceProvider, tenant);
+        var verifier = scope.ServiceProvider.GetRequiredService<AuditChainVerifier>();
+        var result = await verifier.VerifyAsync(tenant, CancellationToken.None);
+
+        Assert.IsFalse(result.Intact, "a row whose stored row_hash doesn't match its fields must be detected");
+        Assert.AreEqual(1L, result.FirstBrokenSeq);
+        StringAssert.Contains(result.Reason, "row_hash");
+    }
+
+    /// <summary>
+    /// IMP-3: concurrent appends for the same tenant are serialized by the per-tenant advisory
+    /// lock, so seq numbers are contiguous and the chain verifies intact even when two callers
+    /// race. Each append runs in its own scope (own connection + transaction) so the xact lock
+    /// is released between rows — that's the realistic production pattern.
+    /// </summary>
+    [TestMethod]
+    public async Task Concurrent_appends_for_same_tenant_serialize_without_collision()
+    {
+        var tenant = new TenantId(Guid.NewGuid());
+
+        // Each call appends 3 rows one-at-a-time, each in its own scope/transaction.
+        async Task AppendThreeAsync()
+        {
+            await using var sp = BuildProvider(Guid.NewGuid());
+            for (var i = 0; i < 3; i++)
+            {
+                using var scope = sp.CreateScope();
+                await using var handle = await BeginScopeAsync(scope.ServiceProvider, tenant);
+                var writer = scope.ServiceProvider.GetRequiredService<AuditWriter>();
+                await writer.AppendAsync(SampleEntry(Guid.NewGuid()), CancellationToken.None);
+                await handle.CommitAsync(CancellationToken.None);
+            }
+        }
+
+        await Task.WhenAll(AppendThreeAsync(), AppendThreeAsync());
+
+        // 6 rows must have committed without a unique-constraint collision on (tenant_id, seq).
+        Assert.AreEqual(6L, await CountRowsAsync(Fx.BypassConnectionString, tenant.Value),
+            "both concurrent appenders must commit all 3 rows each (6 total)");
+
+        // The chain must be intact: seq 1..6 contiguous, hashes valid.
+        await using var verifySp = BuildProvider(Guid.NewGuid());
+        using var vscope = verifySp.CreateScope();
+        await using var vhandle = await BeginScopeAsync(vscope.ServiceProvider, tenant);
+        var verifier = vscope.ServiceProvider.GetRequiredService<AuditChainVerifier>();
+        var result = await verifier.VerifyAsync(tenant, CancellationToken.None);
+        Assert.IsTrue(result.Intact,
+            $"chain must be intact after concurrent appends: seq={result.FirstBrokenSeq} reason={result.Reason}");
+    }
+
+    /// <summary>
     /// Proves that seq and prev_hash chains are genuinely per-tenant: two tenants can each
     /// start at seq 1 independently, and their chains verify correctly in isolation.
     /// </summary>
