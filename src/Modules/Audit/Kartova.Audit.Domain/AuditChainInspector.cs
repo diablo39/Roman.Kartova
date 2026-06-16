@@ -1,10 +1,11 @@
 namespace Kartova.Audit.Domain;
 
 /// <summary>
-/// Pure verification of a tenant's audit chain. Given rows ordered by <c>Seq</c>, asserts the
-/// sequence is contiguous from 1, each row's <c>PrevHash</c> equals the prior row's <c>RowHash</c>,
-/// and each stored <c>RowHash</c> recomputes from the row's fields. DB I/O lives in the
-/// Infrastructure verifier; this function is the testable core.
+/// Pure verification of a tenant's audit chain held in memory. Given rows ordered by <c>Seq</c>,
+/// asserts the sequence is contiguous from 1, each row's <c>PrevHash</c> equals the prior row's
+/// <c>RowHash</c>, and each stored <c>RowHash</c> recomputes from the row's fields. The walk logic
+/// lives in <see cref="AuditChainWalker"/>; the streaming Infrastructure verifier drives the same
+/// walker so the two paths cannot diverge.
 /// </summary>
 public static class AuditChainInspector
 {
@@ -12,28 +13,13 @@ public static class AuditChainInspector
     {
         ArgumentNullException.ThrowIfNull(rowsOrderedBySeq);
 
-        long expectedSeq = 1;
-        var prev = AuditRowHasher.GenesisHash;
-
+        var walker = new AuditChainWalker();
         foreach (var row in rowsOrderedBySeq)
         {
-            if (row.Seq != expectedSeq)
-                return AuditChainVerificationResult.Broken(row.Seq, $"non-contiguous seq (expected {expectedSeq})");
-
-            if (!row.PrevHash.AsSpan().SequenceEqual(prev))
-                return AuditChainVerificationResult.Broken(row.Seq, "prev_hash does not match prior row_hash");
-
-            var recomputed = AuditRowHasher.ComputeRowHash(
-                row.TenantId, row.Seq, row.OccurredAt, row.ActorType, row.ActorId,
-                row.Action, row.TargetType, row.TargetId, row.Data, row.PrevHash);
-
-            if (!recomputed.AsSpan().SequenceEqual(row.RowHash))
-                return AuditChainVerificationResult.Broken(row.Seq, "row_hash does not match recomputed hash");
-
-            prev = row.RowHash;
-            expectedSeq++;
+            if (!walker.Step(row))
+                break;
         }
 
-        return AuditChainVerificationResult.Ok;
+        return walker.Result;
     }
 }

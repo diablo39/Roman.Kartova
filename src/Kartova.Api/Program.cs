@@ -172,6 +172,13 @@ public class Program
         builder.Services.AddPostgresDistributedLocks();
         builder.Services.AddHostedService<ExpireInvitationsHostedService>();
 
+        // Audit chain checkpoint sweep (ADR-0105). Cross-tenant enumeration runs on a BYPASSRLS
+        // context; each due tenant is checkpointed through the tenant-scoped path (RLS WITH CHECK).
+        // Registered in the composition root (not AuditModule) so the BYPASSRLS context is never
+        // injected into tenant-scoped code — same rationale as AdminOrganizationDbContext above.
+        builder.Services.AddDbContext<AdminAuditDbContext>(opts => opts.UseNpgsql(bypassConnection));
+        builder.Services.AddHostedService<AuditCheckpointHostedService>();
+
         // Wolverine — in-process CQRS mediator only.
         // Postgres persistence (outbox) is deferred until a slice publishes domain events.
         // See ADR-0080 and docs/superpowers/specs/2026-04-24-defer-wolverine-persistence-design.md.

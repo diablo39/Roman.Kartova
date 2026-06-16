@@ -42,6 +42,7 @@ public sealed class AuditModule : IModule, IModuleEndpoints
 
         services.AddScoped<IAuditWriter, AuditWriter>();
         services.AddScoped<AuditChainVerifier>();
+        services.AddScoped<AuditCheckpointer>();
     }
 
     public void RegisterForMigrator(IServiceCollection services, IConfiguration configuration)
