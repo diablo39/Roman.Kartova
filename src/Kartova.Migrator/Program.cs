@@ -1,3 +1,4 @@
+using Kartova.Audit.Infrastructure;
 using Kartova.Catalog.Infrastructure;
 using Kartova.Migrator;
 using Kartova.Organization.Infrastructure;
@@ -14,6 +15,7 @@ IModule[] modules =
 [
     new CatalogModule(),
     new OrganizationModule(),
+    new AuditModule(),
 ];
 
 foreach (var module in modules)

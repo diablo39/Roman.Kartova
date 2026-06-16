@@ -9,6 +9,12 @@
     <Project Path="src/Kartova.SharedKernel.Wolverine/Kartova.SharedKernel.Wolverine.csproj" />
   </Folder>
   <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Audit/">
+    <Project Path="src/Modules/Audit/Kartova.Audit.Domain.Tests/Kartova.Audit.Domain.Tests.csproj" />
+    <Project Path="src/Modules/Audit/Kartova.Audit.Domain/Kartova.Audit.Domain.csproj" />
+    <Project Path="src/Modules/Audit/Kartova.Audit.Infrastructure.IntegrationTests/Kartova.Audit.Infrastructure.IntegrationTests.csproj" />
+    <Project Path="src/Modules/Audit/Kartova.Audit.Infrastructure/Kartova.Audit.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Catalog/">
     <Project Path="src/Modules/Catalog/Kartova.Catalog.Application/Kartova.Catalog.Application.csproj" />
     <Project Path="src/Modules/Catalog/Kartova.Catalog.Contracts/Kartova.Catalog.Contracts.csproj" />

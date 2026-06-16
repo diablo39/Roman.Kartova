@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using JasperFx;
+using Kartova.Audit.Infrastructure;
 using Kartova.Catalog.Infrastructure;
 using Kartova.Organization.Application;
 using Kartova.Organization.Infrastructure;
@@ -33,6 +34,7 @@ public class Program
         [
             new CatalogModule(),
             new OrganizationModule(),
+            new AuditModule(),
         ];
 
         foreach (var module in modules)
@@ -169,6 +171,13 @@ public class Program
         // AddOrganizationAdmin(IServiceCollection) composition extension.
         builder.Services.AddPostgresDistributedLocks();
         builder.Services.AddHostedService<ExpireInvitationsHostedService>();
+
+        // Audit chain checkpoint sweep (ADR-0105). Cross-tenant enumeration runs on a BYPASSRLS
+        // context; each due tenant is checkpointed through the tenant-scoped path (RLS WITH CHECK).
+        // Registered in the composition root (not AuditModule) so the BYPASSRLS context is never
+        // injected into tenant-scoped code — same rationale as AdminOrganizationDbContext above.
+        builder.Services.AddDbContext<AdminAuditDbContext>(opts => opts.UseNpgsql(bypassConnection));
+        builder.Services.AddHostedService<AuditCheckpointHostedService>();
 
         // Wolverine — in-process CQRS mediator only.
         // Postgres persistence (outbox) is deferred until a slice publishes domain events.

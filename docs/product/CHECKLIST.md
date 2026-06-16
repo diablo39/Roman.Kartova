@@ -43,7 +43,7 @@
 **E-01.F-03: Database Foundation**
 - [x] E-01.F-03.S-01 — Multi-tenant database schema with tenant isolation
 - [ ] E-01.F-03.S-02 — Database migration framework
-- [ ] E-01.F-03.S-03 — Append-only audit log table (MiFID II)
+- [~] E-01.F-03.S-03 — Append-only audit log table (MiFID II) — Phase 1 foundation (audit-log-foundation, 2026-06-12): Kartova.Audit module, insert-only/RLS audit_log table (DB-enforced REVOKE + tenant_isolation policy), IAuditWriter (sync in-transaction, fail-closed), per-tenant SHA-256 hash chain + AuditChainVerifier (ADR-0018). Event wiring = Phase 2.
 
 **E-01.F-04: Authentication & Authorization**
 - [x] E-01.F-04.S-01 — KeyCloak configured with OIDC

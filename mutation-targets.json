@@ -21,6 +21,11 @@
           "configFile": "src/Kartova.SharedKernel.Postgres/stryker-config.json"
         },
         {
+          "name": "Kartova.Audit.Domain",
+          "path": "src/Modules/Audit/Kartova.Audit.Domain/Kartova.Audit.Domain.csproj",
+          "configFile": "src/Modules/Audit/stryker-config.json"
+        },
+        {
           "name": "Kartova.Catalog.Domain",
           "path": "src/Modules/Catalog/Kartova.Catalog.Domain/Kartova.Catalog.Domain.csproj",
           "configFile": "src/Modules/Catalog/stryker-config.json"
