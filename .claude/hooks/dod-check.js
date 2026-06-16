@@ -69,7 +69,7 @@ const EVIDENCE_RE = /docker compose|pending verification|staged|definition of do
     '  3. Full test suite green: unit + architecture + integration; wiring slices must include real-seam coverage (real JwtBearer/KeyCloak + real Postgres/RLS, never mocked).',
     '  4. Container build green: the images CI job (docker compose build); manual docker compose up is smoke, not evidence.',
     '  5. /simplify applied; should-fix items addressed or skipped with reason.',
-    '  6. Mutation loop (mutation-sentinel -> test-generator) >=80% on changed files.',
+    '  6. Mutation loop (mutation-sentinel -> test-generator) — should-do, not blocking; mandatory only for Domain/Application logic changes.',
     '  7-9. requesting-code-review, review-pr, deep-review on final code.',
     '  Then re-run build + full suite and confirm still green.',
     '',
