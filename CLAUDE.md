@@ -18,6 +18,7 @@
 | Google Stitch prompts | [docs/design/STITCH-PROMPTS.md](docs/design/STITCH-PROMPTS.md) |
 | UI mockups (Stitch output, canonical) | `docs/ui-screens/{screen-name}/{code.html, screen.png}` |
 | Per-slice implementation specs & plans | `docs/superpowers/specs/YYYY-MM-DD-*-design.md` + `docs/superpowers/plans/YYYY-MM-DD-*-plan.md` |
+| Testing strategy (tiers, real-seam rule, fixtures) | [docs/TESTING-STRATEGY.md](docs/TESTING-STRATEGY.md) |
 
 ## Conventions
 
@@ -59,6 +60,7 @@ MVP = phases 0–5 (Foundation → Core Catalog → Auto-Import → Docs → Sta
 - **List endpoints & list screens:** every new list endpoint exposes `sortBy` / `sortOrder` / `cursor` / `limit` and returns `CursorPage<T>` (ADR-0095). Every new list screen wires `useCursorList` + `useListUrlState` + `<DataTable>`. Treat as part of "first cut" — not a follow-up phase. Bounded lists may return flat arrays only when decorated with `[BoundedListResult]` + inline justification.
 - **When proposing new ADRs:** preview decision before saving (user reviews first)
 - **Implementation work:** Superpowers workflow — `superpowers:brainstorming` → `docs/superpowers/specs/YYYY-MM-DD-*-design.md`, then `superpowers:writing-plans` → `docs/superpowers/plans/YYYY-MM-DD-*-plan.md`, then `superpowers:executing-plans` (ticks checkboxes in-place). Roadmap/scope lives in `docs/product/` (EPICS-AND-STORIES.md, CHECKLIST.md, phases/). **GSD is not used** — existing product docs already cover milestone/phase-level tracking.
+- **Slice specs & test artifacts:** any slice wiring HTTP/auth/DB/middleware MUST, in its design's *Testing Strategy* section, apply [docs/TESTING-STRATEGY.md](docs/TESTING-STRATEGY.md) and name the gate-5 artifacts as deliverables (real-seam integration tests — `KartovaApiFixtureBase`, real Postgres/RLS + real JWT validation; ≥1 happy + ≥1 negative case; container-build coverage for any Dockerfile/`COPY` change). `writing-plans` then emits one task per named artifact (its spec-coverage self-review enforces this). Spec/plan DoD sections **link** CLAUDE.md's nine gates — never restate them.
 - **Per slice:** scope one vertical slice end-to-end (walking skeleton → auth → first CRUD → CI/CD+helm → compliance). After executing a plan, update `docs/product/CHECKLIST.md` to reflect completed stories.
 - **Compliance:** GDPR + MiFID II from day one — not bolted on later (see E-01.F-05)
 - **Definition of Done:** "complete" / "finished" / "ready to merge" only when ALL nine gates are green and citable by command + output.
