@@ -66,7 +66,7 @@ MVP = phases 0–5 (Foundation → Core Catalog → Auto-Import → Docs → Sta
   2. Per-task subagent reviews (spec-compliance + code-quality) — **never skipped as "trivial"**.
   3. `/superpowers:requesting-code-review` at slice boundary against the **full branch diff** (spec + plan as context).
   4. Full test suite green: unit + architecture + integration (Testcontainers).
-  5. Slices wiring HTTP/auth/DB/middleware/pipeline: `docker compose up` + real HTTP happy-path + one negative-path, output captured — unit/arch tests are the **wrong layer of evidence** here (they miss filter-vs-binding order, JWT issuer/audience, `SET LOCAL` semantics, Dockerfile restore gaps).
+  5. Slices wiring HTTP/auth/DB/middleware/pipeline: deterministic **integration tests against the real seam** (Testcontainers + API fixture, real `JwtBearer`/KeyCloak + real Postgres/RLS — never the fake auth handler or mocked DbContext) cover filter-vs-binding order, JWT issuer/audience, and `SET LOCAL` semantics. Container build (Dockerfile/restore gaps) is gated by the `images` CI job (`docker compose build`) — the one seam unit/arch/integration can't reach. Manual `docker compose up` is a **bootstrapping smoke, not the evidence**; any wiring bug found manually is codified as a regression test (manual once, automated forever).
   6. `/simplify` against the branch diff; should-fix items (reuse/quality/efficiency) addressed or skipped with a reason.
   7. Mutation loop on changed files: `/misc:mutation-sentinel` → `/misc:test-generator`; score ≥80% (`stryker-config.json`); document survivors.
   8. `/pr-review-toolkit:review-pr`.

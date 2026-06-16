@@ -31,6 +31,22 @@ jobs:
       - name: Test (architecture + unit + integration, all modules)
         run: dotnet test Kartova.slnx --configuration Release --no-build --verbosity normal
 
+  images:
+    name: Container images (build — Dockerfile/restore gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Builds the real images the way docker-compose builds them (same context,
+      # Dockerfiles, build args). Catches Dockerfile/restore gaps — missing csproj
+      # in the COPY layer, broken restore, bad COPY paths — that arch/unit/integration
+      # tests structurally cannot, because those run on the host, never in the image.
+      - name: Build API + Migrator images (compose = single source of truth)
+        run: docker compose build migrator api
+
+      - name: Build web image
+        run: docker build -f web/Dockerfile -t kartova/web:ci web
+
   stryker-config-drift:
     name: Stryker config drift
     runs-on: ubuntu-latest

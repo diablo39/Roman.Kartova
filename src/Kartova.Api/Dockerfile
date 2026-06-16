@@ -26,6 +26,8 @@ COPY src/Modules/Organization/Kartova.Organization.Application/*.csproj src/Modu
 COPY src/Modules/Organization/Kartova.Organization.Contracts/*.csproj src/Modules/Organization/Kartova.Organization.Contracts/
 COPY src/Modules/Organization/Kartova.Organization.Infrastructure/*.csproj src/Modules/Organization/Kartova.Organization.Infrastructure/
 COPY src/Modules/Organization/Kartova.Organization.Infrastructure.Admin/*.csproj src/Modules/Organization/Kartova.Organization.Infrastructure.Admin/
+COPY src/Modules/Audit/Kartova.Audit.Domain/*.csproj src/Modules/Audit/Kartova.Audit.Domain/
+COPY src/Modules/Audit/Kartova.Audit.Infrastructure/*.csproj src/Modules/Audit/Kartova.Audit.Infrastructure/
 
 RUN dotnet restore src/Kartova.Api/Kartova.Api.csproj
 
