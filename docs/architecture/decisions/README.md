@@ -121,7 +121,7 @@ open_source_strategy: fully proprietary, no OSS core / source-available (ADR-002
 
 ## How to use this index
 
-LLM agents and humans can scan the table below to identify ADRs relevant to a topic. Each row links to the full ADR file. For candidate/pending state, see [ADR-CANDIDATES.md](../ADR-CANDIDATES.md) (all resolved as of 2026-04-21).
+LLM agents and humans can scan the table below to identify ADRs relevant to a topic. Each row links to the full ADR file.
 
 ## Index
 

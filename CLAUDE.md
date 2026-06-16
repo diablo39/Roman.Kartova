@@ -14,7 +14,6 @@
 | Phase files (0–9) | `docs/product/phases/phase-N-*.md` |
 | ADR library + keyword index | [docs/architecture/decisions/README.md](docs/architecture/decisions/README.md) |
 | Individual ADRs | `docs/architecture/decisions/ADR-NNNN-*.md` |
-| ADR candidates (historical) | [docs/architecture/ADR-CANDIDATES.md](docs/architecture/ADR-CANDIDATES.md) |
 | Design system (tokens, nav specs) | [docs/design/DESIGN.md](docs/design/DESIGN.md) |
 | Google Stitch prompts | [docs/design/STITCH-PROMPTS.md](docs/design/STITCH-PROMPTS.md) |
 | UI mockups (Stitch output, canonical) | `docs/ui-screens/{screen-name}/{code.html, screen.png}` |
@@ -27,7 +26,7 @@
 - Dates: always absolute (`2026-04-21`), never relative
 - Windows shell: `cmd //c` (double slash — MSYS path-translation workaround) or PowerShell wrappers for `dotnet` commands in Git Bash. Git Bash lacks `grep -P` (use `-E` or `Select-String`)
 - Solution file: `Kartova.slnx` (XML format, .NET 10 default — see ADR-0082). Classic `.sln` not used
-- Coverage exclusion: every type in a `*.Contracts` assembly and every `*Dto`/`*Request`/`*Response` type in production code MUST carry `[ExcludeFromCodeCoverage]`. Pure data carriers, design-time `IDesignTimeDbContextFactory<>` factories, `IModule` composition classes (`*Module.cs` — DI/Wolverine wiring is composition-root code, parallel to `Program.cs` which is excluded from mutation), and test infrastructure are also excluded. Enforced by `tests/Kartova.ArchitectureTests/ContractsCoverageRules.cs` — adding a new DTO without the attribute fails the architecture suite.
+- Coverage exclusion: `*.Contracts` types, every `*Dto`/`*Request`/`*Response`, design-time `IDesignTimeDbContextFactory<>` factories, `IModule` composition classes (`*Module.cs`), and test infrastructure MUST carry `[ExcludeFromCodeCoverage]`. Enforced by `tests/Kartova.ArchitectureTests/ContractsCoverageRules.cs` (fails the arch suite if missing).
 
 ## Architectural guardrails
 
@@ -60,7 +59,7 @@ Post-MVP: 6 Agent · 7 Intelligence · 8 Analytics · 9 Advanced
 
 - **Before architectural suggestions:** check ADR keyword index in `docs/architecture/decisions/README.md`
 - **C# code intelligence:** Use the `roslyn-codelens` MCP tools (`find_callers`, `find_references`, `find_implementations`, `get_type_hierarchy`, `search_symbols`, `analyze_method`, `analyze_change_impact`, `find_unused_symbols`, etc.) as the default for navigation, impact analysis, and refactor planning in C# code — before extending a hot method, renaming a constant, modifying a domain method, or scoping a refactor. Grep/Read remain fine for one-off lookups, but the moment "who calls / who references / where is this implemented" matters, prefer codelens. The active solution is `Kartova.slnx` (auto-loaded).
-- **Frontend / UI work:** read local mockup first from `docs/ui-screens/{screen}/code.html` + `screen.png` (canonical snapshot, per ADR-0087); escalate to Stitch MCP only when screen is missing locally or user asks for sync. Map Stitch HTML → shadcn/ui components (ADR-0088). Verify with Playwright MCP (**cold-start dev server first** — HMR cache can mask config errors — then navigate → interact → snapshot → check console) before claiming done (ADR-0084).
+- **Frontend / UI work:** read local mockup first from `docs/ui-screens/{screen}/code.html` + `screen.png` (canonical snapshot, per ADR-0087); escalate to Stitch MCP only when screen is missing locally or user asks for sync. Map Stitch HTML → Untitled UI / react-aria-components (ADR-0094, supersedes the shadcn/ui mapping in ADR-0088). Verify with Playwright MCP (**cold-start dev server first** — HMR cache can mask config errors — then navigate → interact → snapshot → check console) before claiming done (ADR-0084).
 - **Before adding features:** verify they're not already scoped in `EPICS-AND-STORIES.md`; map each feature to its owning module (ADR-0082)
 - **Tenant scope & DB access:** All tenant-scoped DB work runs inside `ITenantScope` (one open connection + transaction per request, `SET LOCAL app.current_tenant_id` on `Begin`). Register module DbContexts via `AddModuleDbContext<T>` — never raw `AddDbContext` for tenant-owned data. Transport adapters (ASP.NET endpoint filter, Wolverine/Kafka middleware) call `Begin`/`CommitAsync` — handlers never touch the scope. See ADR-0090.
 - **Cross-module interactions:** only via Wolverine `IMessageBus` (in-process) or Kafka events; never direct references to other modules' Domain/Application/Infrastructure
@@ -69,15 +68,15 @@ Post-MVP: 6 Agent · 7 Intelligence · 8 Analytics · 9 Advanced
 - **Implementation work:** Superpowers workflow — `superpowers:brainstorming` → `docs/superpowers/specs/YYYY-MM-DD-*-design.md`, then `superpowers:writing-plans` → `docs/superpowers/plans/YYYY-MM-DD-*-plan.md`, then `superpowers:executing-plans` (ticks checkboxes in-place). Roadmap/scope lives in `docs/product/` (EPICS-AND-STORIES.md, CHECKLIST.md, phases/). **GSD is not used** — existing product docs already cover milestone/phase-level tracking.
 - **Per slice:** scope one vertical slice end-to-end (walking skeleton → auth → first CRUD → CI/CD+helm → compliance). After executing a plan, update `docs/product/CHECKLIST.md` to reflect completed stories.
 - **Compliance:** GDPR + MiFID II from day one — not bolted on later (see E-01.F-05)
-- **Definition of Done:** An implementation is "complete" / "finished" / "ready to merge" only when ALL of the following are green and can be cited by command + output:
-  1. Full solution build with `TreatWarningsAsErrors=true` (0 warnings, 0 errors).
-  2. Per-task subagent reviews (spec-compliance + code-quality) executed — **never skipped on grounds of "trivial"**; review is cheap and its purpose is to force the pause that catches rationalization.
-  3. `/superpowers:requesting-code-review` invoked at slice boundary against the **full branch diff** with spec + plan as context — catches cross-task design issues the per-task loop can't see (e.g., interaction between filter defined in Task N and wiring in Task M).
+- **Definition of Done:** "complete" / "finished" / "ready to merge" only when ALL nine gates are green and citable by command + output. Full rationale per gate: [docs/DEFINITION-OF-DONE.md](docs/DEFINITION-OF-DONE.md).
+  1. Full solution build, `TreatWarningsAsErrors=true` (0 warnings, 0 errors).
+  2. Per-task subagent reviews (spec-compliance + code-quality) — **never skipped as "trivial"**.
+  3. `/superpowers:requesting-code-review` at slice boundary against the **full branch diff** (spec + plan as context).
   4. Full test suite green: unit + architecture + integration (Testcontainers).
-  5. For any slice that wires HTTP / auth / DB / middleware / pipeline: at least one `docker compose up` + real HTTP happy-path + one negative-path, output captured and confirmed. Unit + architecture tests alone are the wrong layer of evidence for these slices — they won't catch filter-vs-binding order, JWT issuer/audience, `SET LOCAL` semantics, or Dockerfile restore gaps.
-  6. `/simplify` skill run against the branch diff — surfaces reuse, code-quality, and efficiency findings the spec-and-quality reviews don't target. Should-fix items from each of the three review lenses (reuse / quality / efficiency) addressed or explicitly skipped with a reason.
-  7. Mutation feedback loop run on changed files: `/misc:mutation-sentinel` (find surviving mutants) → `/misc:test-generator` (strengthen tests until mutants are killed). Mutation score must meet the repo target (≥80% per `stryker-config.json`). Document the score and any surviving mutants accepted as low-value.
-  8. `/pr-review-toolkit:review-pr` skill
-  9. `/deep-review` skill run against the branch diff with spec / plan / ADRs / tests as context — produces a fixed-schema report (Blocking / Should-fix / Nits / Missing tests / What looks good). Blocking and Should-fix items addressed before merge; nits triaged.
-  
-  Until all nine are green, the honest status is **"implementation staged, verification pending"** — never "slice N complete". If a step cannot be run locally (e.g., Docker unavailable on this machine), say so explicitly and flag as *pending user verification*, never imply completion. A Stop hook at `.claude/hooks/dod-check.js` blocks turns that assert completion without citing verification evidence.
+  5. Slices wiring HTTP/auth/DB/middleware/pipeline: `docker compose up` + real HTTP happy-path + one negative-path, output captured.
+  6. `/simplify` against the branch diff; should-fix items (reuse/quality/efficiency) addressed or skipped with a reason.
+  7. Mutation loop on changed files: `/misc:mutation-sentinel` → `/misc:test-generator`; score ≥80% (`stryker-config.json`); document survivors.
+  8. `/pr-review-toolkit:review-pr`.
+  9. `/deep-review` against the branch diff (spec/plan/ADRs/tests); Blocking + Should-fix addressed, nits triaged.
+
+  Until all nine are green, the honest status is **"implementation staged, verification pending"** — never "slice N complete". Steps that can't run locally (e.g., Docker unavailable) → flag *pending user verification*, never imply completion. Stop hook `.claude/hooks/dod-check.js` blocks completion claims lacking verification evidence.
