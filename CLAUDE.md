@@ -63,15 +63,15 @@ MVP = phases 0–5 (Foundation → Core Catalog → Auto-Import → Docs → Sta
 - **Slice specs & test artifacts:** any slice wiring HTTP/auth/DB/middleware MUST, in its design's *Testing Strategy* section, apply [docs/TESTING-STRATEGY.md](docs/TESTING-STRATEGY.md) and name the gate-5 artifacts as deliverables (real-seam integration tests — `KartovaApiFixtureBase`, real Postgres/RLS + real JWT validation; ≥1 happy + ≥1 negative case; container-build coverage for any Dockerfile/`COPY` change). `writing-plans` then emits one task per named artifact (its spec-coverage self-review enforces this). Spec/plan DoD sections **link** CLAUDE.md's nine gates — never restate them.
 - **Per slice:** scope one vertical slice end-to-end (walking skeleton → auth → first CRUD → CI/CD+helm → compliance). After executing a plan, update `docs/product/CHECKLIST.md` to reflect completed stories.
 - **Compliance:** GDPR + MiFID II from day one — not bolted on later (see E-01.F-05)
-- **Definition of Done:** "complete" / "finished" / "ready to merge" only when ALL nine gates are green and citable by command + output.
+- **Definition of Done:** "complete" / "finished" / "ready to merge" only when ALL nine gates are green and citable by command + output. Order is fail-fast: cheap checks first, code-mutating gates before the final re-verify.
   1. Full solution build, `TreatWarningsAsErrors=true` (0 warnings, 0 errors).
-  2. Per-task subagent reviews (spec-compliance + code-quality) — **never skipped as "trivial"**.
-  3. `/superpowers:requesting-code-review` at slice boundary against the **full branch diff** (spec + plan as context).
-  4. Full test suite green: unit + architecture + integration (Testcontainers).
-  5. Slices wiring HTTP/auth/DB/middleware/pipeline: deterministic **integration tests against the real seam** (Testcontainers + API fixture, real `JwtBearer`/KeyCloak + real Postgres/RLS — never the fake auth handler or mocked DbContext) cover filter-vs-binding order, JWT issuer/audience, and `SET LOCAL` semantics. Container build (Dockerfile/restore gaps) is gated by the `images` CI job (`docker compose build`) — the one seam unit/arch/integration can't reach. Manual `docker compose up` is a **bootstrapping smoke, not the evidence**; any wiring bug found manually is codified as a regression test (manual once, automated forever).
-  6. `/simplify` against the branch diff; should-fix items (reuse/quality/efficiency) addressed or skipped with a reason.
-  7. Mutation loop on changed files: `/misc:mutation-sentinel` → `/misc:test-generator`; score ≥80% (`stryker-config.json`); document survivors.
+  2. Per-task subagent reviews (spec-compliance + code-quality), interleaved during dev. **Never skipped as "trivial".**
+  3. Full test suite green: unit + architecture + integration (Testcontainers). Wiring slices (HTTP/auth/DB/middleware) MUST hit the **real seam**. Real `JwtBearer`/KeyCloak + real Postgres/RLS — never the fake auth handler or mocked DbContext. Covers filter-vs-binding order, JWT issuer/audience, `SET LOCAL`.
+  4. **Container build green:** the `images` CI job (`docker compose build`). It catches Dockerfile/restore gaps — the one seam tests can't reach. Manual `docker compose up` is smoke, not evidence. Any bug it finds becomes a regression test.
+  5. `/simplify` against the branch diff. Should-fix items (reuse/quality/efficiency) addressed or skipped with a reason.
+  6. Mutation loop on changed files: `/misc:mutation-sentinel` → `/misc:test-generator`. Score ≥80% (`stryker-config.json`). Document survivors.
+  7. `/superpowers:requesting-code-review` at slice boundary, against the **full branch diff** (spec + plan as context). Runs on green, final code — so it catches design issues, not test failures.
   8. `/pr-review-toolkit:review-pr`.
-  9. `/deep-review` against the branch diff (spec/plan/ADRs/tests); Blocking + Should-fix addressed, nits triaged.
+  9. `/deep-review` against the branch diff (spec/plan/ADRs/tests). Blocking + Should-fix addressed, nits triaged.
 
-  Until all nine are green, the honest status is **"implementation staged, verification pending"** — never "slice N complete". Steps that can't run locally (e.g., Docker unavailable) → flag *pending user verification*, never imply completion. Stop hook `.claude/hooks/dod-check.js` blocks completion claims lacking verification evidence.
+  **Terminal re-verify:** gates 5–9 may apply fixes that invalidate the green claims from 1 + 3. So after gate 9, re-run build + full suite and confirm green. Until all nine pass, the honest status is **"implementation staged, verification pending"** — never "slice N complete". Steps that can't run locally (e.g., no Docker) → flag *pending user verification*. Stop hook `.claude/hooks/dod-check.js` blocks completion claims that lack evidence.
