@@ -46,7 +46,7 @@ function lastAssistantText(transcriptPath) {
 }
 
 const CLAIM_RE = /slice \d+ complete|implementation complete|all done|ready to merge|finished implementing|fully finished|implementation is (complete|finished|ready)|✅ done|\bdone\.$/im;
-const EVIDENCE_RE = /docker compose|pending verification|staged|definition of done|verification pending|e2e smoke|end-to-end/i;
+const EVIDENCE_RE = /docker compose|docker build|images (ci|job|build)|real[- ]seam|integration test|test suite|build green|suite green|treatwarningsaserrors|pending verification|staged|definition of done|verification pending|e2e smoke|end-to-end/i;
 
 (async () => {
   const raw = await readAll(process.stdin);
@@ -63,13 +63,13 @@ const EVIDENCE_RE = /docker compose|pending verification|staged|definition of do
   if (EVIDENCE_RE.test(text)) process.exit(0);
 
   const reason = [
-    'Completion claim detected without verification evidence. Definition of Done (CLAUDE.md) requires ALL of:',
+    'Completion claim detected without verification evidence. Definition of Done (CLAUDE.md) — the eight always-blocking gates (gate 6 is conditional):',
     '  1. Full solution build green with TreatWarningsAsErrors=true.',
     '  2. Per-task subagent reviews (spec-compliance + code-quality) executed — no skipping on grounds of "trivial".',
     '  3. Full test suite green: unit + architecture + integration; wiring slices must include real-seam coverage (real JwtBearer/KeyCloak + real Postgres/RLS, never mocked).',
     '  4. Container build green: the images CI job (docker compose build); manual docker compose up is smoke, not evidence.',
     '  5. /simplify applied; should-fix items addressed or skipped with reason.',
-    '  6. Mutation loop (mutation-sentinel -> test-generator) — should-do, not blocking; mandatory only for Domain/Application logic changes.',
+    '  6. Mutation loop (mutation-sentinel -> test-generator) — conditional: blocking only for Domain/Application logic changes, else should-do.',
     '  7-9. requesting-code-review, review-pr, deep-review on final code.',
     '  Then re-run build + full suite and confirm still green.',
     '',
