@@ -231,6 +231,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0102](ADR-0102-user-offboarding-hard-delete.md) | User Offboarding Is Hard Delete | Compliance & Retention | Accepted | 0015, 0018, 0019, 0100, 0101, 0103 | Offboarding hard-deletes the KeyCloak identity + local `users` projection; owned applications are unaffected (the team retains them per ADR-0103; created-by is immutable history); sits outside ADR-0019's catalog soft-delete scope; erasure-aligned (ADR-0015); audit trail deferred to the ADR-0018 slice (named gap); org must retain ≥ 1 active OrgAdmin. |
 | [0103](ADR-0103-application-ownership-required-team.md) | Application Ownership Is a Required Team; the Individual Is Created-By Provenance | Domain Model | Accepted | 0066, 0082, 0101, 0102 | `Application.TeamId` is required (the owning team; no ownerless apps); the individual is `CreatedByUserId` — immutable provenance, never reassigned or nulled; registration is membership-gated (OrgAdmin any team, Member only their teams); offboarding does not reassign apps (ADR-0102). Aligns with Backstage (`spec.owner` = Group) and Compass (Owner = Atlassian Team). |
 | [0104](ADR-0104-payload-free-outcomes-are-enums.md) | Payload-Free Operation Outcomes Are Enums, Not Boolean-Flag Result Records | Code Conventions | Accepted | 0082, 0095, 0097 | Application-layer results with no success payload + mutually-exclusive terminal states are a C# `enum` (one member per outcome), not a `record` of parallel `bool` flags; results that carry data on success stay records (e.g. `AssignApplicationTeamResult`). Endpoints map outcomes via an exhaustive `switch` + `_ => throw` guard. Removes representable illegal states and tautological factory-shape tests. Review-enforced. |
+| [0105](ADR-0105-audit-chain-checkpoints-and-external-anchoring.md) | Audit-Chain Checkpoints and External Anchoring | Security / Compliance | Accepted | 0001, 0018, 0090, 0099 | Two-tier checkpointing for the per-tenant audit hash chain. Tier 1 (now): an insert-only, RLS-scoped `audit_checkpoint` table snapshots a verified chain head so routine verification re-walks only the tail since the last checkpoint (O(tail) not O(whole chain)); written by a daily `LeaderElectedPeriodicService` sweep. Tier 2 (deferred): export checkpoint hashes to a WORM/signed store outside the DB trust boundary to detect rollback/truncation. |
 
 ## By category (quick navigation)
 
@@ -273,7 +274,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Compliance (GDPR / MiFID II)**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050, 0078, 0102
 - **Resource identifier / entity ID format**: 0092, 0098
 - **Retention / archival / deletion**: 0017, 0019, 0020, 0073, 0102
-- **Audit & logging**: 0018, 0050, 0058, 0102
+- **Audit & logging**: 0018, 0050, 0058, 0102, 0105
 - **Domain model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073, 0103
 - **Scale & performance**: 0013, 0031, 0074, 0075, 0076
 - **Availability & SLA**: 0005, 0023, 0053, 0076
@@ -306,7 +307,8 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Apicurio** → 0037
 - **Approval workflow (discovery inbox)** → 0045
 - **ASP.NET Core** → 0027, 0028, 0034, 0060
-- **Audit log** → 0016, 0017, 0018, 0050, 0058, 0073, 0102
+- **Audit log** → 0016, 0017, 0018, 0050, 0058, 0073, 0102, 0105
+- **Audit checkpoint / chain verification** → 0018, 0105
 - **Avro / JSON / Protobuf schemas** → 0037
 - **Backstage / Compass (reference products — ownership model)** → 0103
 - **Bearer tokens (long-lived)** → 0042, 0077
@@ -355,7 +357,7 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **GitHub / GitLab / Bitbucket** → 0035, 0057
 - **Grafana Cloud** → 0036
 - **Graph explorer (dependency)** → 0040
-- **Hash chaining (audit)** → 0018
+- **Hash chaining (audit)** → 0018, 0105
 - **Health checks (live / ready / startup)** → 0060
 - **Heartbeat endpoint** → 0042
 - **Helm** → 0022, 0043, 0085, 0086
@@ -552,3 +554,4 @@ _No ADRs have been deprecated or superseded yet. When an ADR is superseded by a 
 | 2026-06-10 | ADR-0102 (User offboarding is hard delete) accepted — offboarding hard-deletes the KeyCloak identity + local `users` projection; owned applications are unaffected (team retains them per ADR-0103; created-by is immutable history); sits outside ADR-0019's catalog soft-delete scope; erasure-aligned with ADR-0015; audit trail deferred to the ADR-0018 slice (named gap); org must retain ≥ 1 active OrgAdmin. Landed with slice 10 (member lifecycle management). |
 | 2026-06-10 | ADR-0103 (Application ownership is a required team; individual is created-by provenance) accepted — `Application.TeamId` required (owning team, no ownerless apps); `CreatedByUserId` immutable provenance; registration membership-gated (OrgAdmin any team, Member own teams only); offboarding drops app reassignment (team retains). Aligns with Backstage/Compass ownership model. ADR-0102 updated accordingly. Landed with slice 10 (ownership realignment amendment). |
 | 2026-06-11 | ADR-0104 (Payload-free operation outcomes are enums) accepted — results with no success payload (`ChangeMemberRoleOutcome`, `OffboardMemberOutcome`) are C# enums, not boolean-flag records; payload-carrying results (`AssignApplicationTeamResult`) stay records; endpoints map via an exhaustive `switch` + `_ => throw`. Removes representable illegal states + the two tautological result-shape test files. Landed with slice 10 (member-lifecycle review follow-up). |
+| 2026-06-16 | ADR-0105 (Audit-chain checkpoints and external anchoring) accepted — Tier 1: insert-only, RLS-scoped `audit_checkpoint` table snapshots a verified chain head so routine verification re-walks only the tail (`AuditChainVerifier.VerifyFromCheckpointAsync`), written by a daily `LeaderElectedPeriodicService` sweep (ADR-0099) that enumerates tenants via a BYPASSRLS context and checkpoints each through the tenant-scoped path. Tier 2 (deferred): export checkpoint hashes to a WORM/signed store outside the DB trust boundary for rollback/truncation detection. Builds on ADR-0018. |

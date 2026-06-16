@@ -1,0 +1,49 @@
+{
+  "stryker-config": {
+    "solution": "Kartova.slnx",
+    "test-projects": [
+      "./src/Modules/Audit/Kartova.Audit.Domain.Tests/Kartova.Audit.Domain.Tests.csproj"
+    ],
+    "reporters": [
+      "html",
+      "json",
+      "cleartext"
+    ],
+    "thresholds": {
+      "high": 80,
+      "low": 60,
+      "break": 0
+    },
+    "ignore-mutations": [
+      "Regex",
+      "Update",
+      "String",
+      "Linq",
+      "Block"
+    ],
+    "mutate": [
+      "!**/obj/**",
+      "!**/bin/**",
+      "!**/*.g.cs",
+      "!**/*.generated.cs",
+      "!**/Program.cs",
+      "!**/*Module.cs",
+      "!**/*.Tests.cs",
+      "!**/Migrations/**",
+      "!**/*Dto.cs",
+      "!**/*Request.cs",
+      "!**/*Response.cs"
+    ],
+    "ignore-methods": [
+      "*ConfigureAwait*",
+      "LogTrace",
+      "LogDebug",
+      "LogInformation",
+      "LogWarning",
+      "LogError",
+      "LogCritical",
+      "Console.Write*",
+      "*Exception.ctor"
+    ]
+  }
+}
