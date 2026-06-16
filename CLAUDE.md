@@ -30,7 +30,7 @@
 
 ## Architectural guardrails
 
-Do/don't rules. For everything else, see [docs/architecture/decisions/README.md](docs/architecture/decisions/README.md).
+Quick-reference cache of ADR decisions, loaded every turn. **The cited ADR is authoritative — if a line here conflicts with its ADR, the ADR wins and this line is stale; fix it.** When an ADR is superseded, grep this file for the ADR number. For everything else, see [docs/architecture/decisions/README.md](docs/architecture/decisions/README.md).
 
 - **CQRS mediator:** Wolverine — MediatR and MassTransit **not** used (ADR-0028, ADR-0080)
 - **Messaging:** Apache Kafka (Strimzi/KRaft) — RabbitMQ/Redpanda **not** used (ADR-0003)
@@ -44,16 +44,9 @@ Do/don't rules. For everything else, see [docs/architecture/decisions/README.md]
 - **Frontend UI stack:** Untitled UI free-tier (react-aria-components + Tailwind v4) + @untitledui/icons (ADR-0094)
 - **Testing:** five-tier pyramid — architecture (NetArchTest, mandatory CI gate) + unit + integration (Testcontainers) + contract (Pact) + E2E (Playwright); MSTest v4 framework + native asserts + NSubstitute (ADR-0097, supersedes ADR-0083)
 
-## Phases (MVP = 0–5)
+## Phases
 
-0. Foundation (E-01) — scaffolding, CI/CD, auth, compliance, observability
-1. Core Catalog & Notifications (E-02..E-06, E-06a)
-2. Auto-Import (E-07..E-10) — GitHub, Azure DevOps, scorecards
-3. Documentation (E-11) — markdown, OpenAPI, AsyncAPI
-4. Status Page (E-12)
-5. CLI, Policy & Billing (E-13, E-14, E-14a)
-
-Post-MVP: 6 Agent · 7 Intelligence · 8 Analytics · 9 Advanced
+MVP = phases 0–5 (Foundation → Core Catalog → Auto-Import → Docs → Status Page → CLI/Policy/Billing). Post-MVP = 6–9 (Agent · Intelligence · Analytics · Advanced). Per-phase scope + current status: [docs/product/CHECKLIST.md](docs/product/CHECKLIST.md) and `docs/product/phases/phase-N-*.md`.
 
 ## Working agreements
 
@@ -68,12 +61,12 @@ Post-MVP: 6 Agent · 7 Intelligence · 8 Analytics · 9 Advanced
 - **Implementation work:** Superpowers workflow — `superpowers:brainstorming` → `docs/superpowers/specs/YYYY-MM-DD-*-design.md`, then `superpowers:writing-plans` → `docs/superpowers/plans/YYYY-MM-DD-*-plan.md`, then `superpowers:executing-plans` (ticks checkboxes in-place). Roadmap/scope lives in `docs/product/` (EPICS-AND-STORIES.md, CHECKLIST.md, phases/). **GSD is not used** — existing product docs already cover milestone/phase-level tracking.
 - **Per slice:** scope one vertical slice end-to-end (walking skeleton → auth → first CRUD → CI/CD+helm → compliance). After executing a plan, update `docs/product/CHECKLIST.md` to reflect completed stories.
 - **Compliance:** GDPR + MiFID II from day one — not bolted on later (see E-01.F-05)
-- **Definition of Done:** "complete" / "finished" / "ready to merge" only when ALL nine gates are green and citable by command + output. Full rationale per gate: [docs/DEFINITION-OF-DONE.md](docs/DEFINITION-OF-DONE.md).
+- **Definition of Done:** "complete" / "finished" / "ready to merge" only when ALL nine gates are green and citable by command + output.
   1. Full solution build, `TreatWarningsAsErrors=true` (0 warnings, 0 errors).
   2. Per-task subagent reviews (spec-compliance + code-quality) — **never skipped as "trivial"**.
   3. `/superpowers:requesting-code-review` at slice boundary against the **full branch diff** (spec + plan as context).
   4. Full test suite green: unit + architecture + integration (Testcontainers).
-  5. Slices wiring HTTP/auth/DB/middleware/pipeline: `docker compose up` + real HTTP happy-path + one negative-path, output captured.
+  5. Slices wiring HTTP/auth/DB/middleware/pipeline: `docker compose up` + real HTTP happy-path + one negative-path, output captured — unit/arch tests are the **wrong layer of evidence** here (they miss filter-vs-binding order, JWT issuer/audience, `SET LOCAL` semantics, Dockerfile restore gaps).
   6. `/simplify` against the branch diff; should-fix items (reuse/quality/efficiency) addressed or skipped with a reason.
   7. Mutation loop on changed files: `/misc:mutation-sentinel` → `/misc:test-generator`; score ≥80% (`stryker-config.json`); document survivors.
   8. `/pr-review-toolkit:review-pr`.
