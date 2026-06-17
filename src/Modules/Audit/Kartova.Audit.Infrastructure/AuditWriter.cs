@@ -18,9 +18,11 @@ namespace Kartova.Audit.Infrastructure;
 ///
 /// <para>All wired callers (Phase 2) are authenticated HTTP requests, so the writer records
 /// <see cref="AuditActorType.User"/>; the <c>System</c>-actor path (background jobs) is deferred
-/// (see the audit-event-wiring spec §2). <c>currentUser.DisplayName</c> throws if resolved with
-/// no HTTP principal — by design, since no non-HTTP caller is wired. <c>actor_display</c> is the
-/// JWT display snapshot (name → preferred_username → email → sub).</para>
+/// (see the audit-event-wiring spec §2). <c>currentUser.DisplayName</c> throws in two cases: (1)
+/// no <c>HttpContext</c> on the current request (e.g., background/system actors not yet wired);
+/// (2) the JWT carries none of <c>name</c> / <c>preferred_username</c> / <c>email</c> / <c>sub</c>
+/// — both are by design for Phase 2 where only authenticated HTTP requests are wired.
+/// <c>actor_display</c> is the JWT display snapshot (name → preferred_username → email → sub).</para>
 /// </summary>
 public sealed class AuditWriter(
     AuditDbContext db,

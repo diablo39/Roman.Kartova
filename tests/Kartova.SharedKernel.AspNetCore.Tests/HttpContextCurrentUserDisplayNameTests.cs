@@ -39,4 +39,15 @@ public sealed class HttpContextCurrentUserDisplayNameTests
     [TestMethod]
     public void DisplayName_FallsBackToSub()
         => Assert.AreEqual("s", Build(new Claim("sub", "s")).DisplayName);
+
+    [TestMethod]
+    public void DisplayName_ThrowsWhenHttpContextIsNull()
+    {
+        var http = Substitute.For<IHttpContextAccessor>();
+        http.HttpContext.Returns((HttpContext?)null);
+        var sut = new HttpContextCurrentUser(http, Substitute.For<ITenantContext>());
+
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(() => _ = sut.DisplayName);
+        Assert.AreEqual("No HttpContext on current request.", ex.Message);
+    }
 }

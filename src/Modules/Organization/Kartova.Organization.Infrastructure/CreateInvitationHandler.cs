@@ -25,6 +25,10 @@ namespace Kartova.Organization.Infrastructure;
 /// <c>kc.DeleteUserAsync</c> and propagates the original <c>DbUpdateException</c>.
 /// An orphan KC user therefore requires BOTH the DB write AND the compensation
 /// delete to fail — a far narrower failure mode than the prior gap.
+/// Audit-append failure after a successful KC create+role+SaveChangesAsync is
+/// also best-effort compensated: the handler attempts <c>kc.DeleteUserAsync</c>
+/// and propagates the original audit exception (fail-closed; DB rolls back the
+/// Invitation+User rows).
 /// </para>
 /// </summary>
 public sealed class CreateInvitationHandler(

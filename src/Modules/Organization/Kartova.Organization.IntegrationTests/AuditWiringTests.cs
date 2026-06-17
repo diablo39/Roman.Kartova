@@ -19,7 +19,7 @@ public sealed class AuditWiringTests : OrganizationIntegrationTestBase
     [TestMethod]
     public async Task ChangeRole_WritesMemberRoleChangedAuditRow()
     {
-        var (admin, adminEmail, target, tenantId) = await SeedAdminAndMemberAsync(nameClaim: "Ada Lovelace");
+        var (admin, adminEmail, target, tenantId, _) = await SeedAdminAndMemberAsync(nameClaim: "Ada Lovelace");
         Guid? kcUserId = target;
 
         try
@@ -52,7 +52,7 @@ public sealed class AuditWiringTests : OrganizationIntegrationTestBase
     [TestMethod]
     public async Task Offboard_WritesSnapshotThatSurvivesTargetDeletion()
     {
-        var (admin, adminEmail, target, tenantId) = await SeedAdminAndMemberAsync(nameClaim: "Grace H");
+        var (admin, adminEmail, target, tenantId, memberEmail) = await SeedAdminAndMemberAsync(nameClaim: "Grace H");
         Guid? kcUserId = target;
 
         try
@@ -67,8 +67,9 @@ public sealed class AuditWiringTests : OrganizationIntegrationTestBase
             Assert.AreEqual(await Fx.GetSubClaimAsync(adminEmail), row.ActorId);
             Assert.AreEqual("Grace H", row.ActorDisplay);
             using var data = JsonDocument.Parse(row.DataJson!);
-            Assert.IsFalse(string.IsNullOrEmpty(data.RootElement.GetProperty("email").GetString()));
-            Assert.IsFalse(string.IsNullOrEmpty(data.RootElement.GetProperty("displayName").GetString()));
+            // For an invited-but-unaccepted user, DisplayName is set to email (CreateInvitationHandler line 119).
+            Assert.AreEqual(memberEmail, data.RootElement.GetProperty("email").GetString());
+            Assert.AreEqual(memberEmail, data.RootElement.GetProperty("displayName").GetString());
             // The users row was hard-deleted in the same txn, yet the snapshot persisted.
             AssertChainLinked(rows);
         }
@@ -135,10 +136,10 @@ public sealed class AuditWiringTests : OrganizationIntegrationTestBase
 
     /// <summary>
     /// Provisions an OrgAdmin client (with nameClaim) + a real KC Member via the invitation flow.
-    /// Returns (adminClient, adminEmail, kcMemberUserId, tenantId).
+    /// Returns (adminClient, adminEmail, kcMemberUserId, tenantId, memberEmail).
     /// Caller is responsible for cleanup in finally.
     /// </summary>
-    private static async Task<(HttpClient Admin, string AdminEmail, Guid TargetUserId, Guid TenantId)>
+    private static async Task<(HttpClient Admin, string AdminEmail, Guid TargetUserId, Guid TenantId, string MemberEmail)>
         SeedAdminAndMemberAsync(string nameClaim)
     {
         var unique = Guid.NewGuid().ToString("N")[..8];
@@ -177,7 +178,7 @@ public sealed class AuditWiringTests : OrganizationIntegrationTestBase
             kcUserId = id!.Value;
         }
 
-        return (adminClient, adminEmail, kcUserId, tenantId);
+        return (adminClient, adminEmail, kcUserId, tenantId, memberEmail);
     }
 
     /// <summary>

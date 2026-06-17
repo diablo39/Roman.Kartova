@@ -444,6 +444,57 @@ public sealed class CreateInvitationHandlerTests
     }
 
     [TestMethod]
+    public async Task AuditAppend_failure_with_compensation_also_failing_rethrows_original_audit_exception()
+    {
+        // Guard: when audit.AppendAsync throws AND the compensation kc.DeleteUserAsync also
+        // throws, the handler must still propagate the ORIGINAL audit exception (not the
+        // secondary KC exception). The compensation catch is best-effort — swallowing the
+        // secondary failure is the contract (same pattern as the role-assign branch).
+        var clock = new FakeTimeProvider(T0);
+        var kcId = Guid.NewGuid();
+
+        var tenant = new TenantId(Guid.NewGuid());
+        var db = new OrganizationDbContext(NewOptions());
+        var kc = Substitute.For<IKeycloakAdminClient>();
+        var tenantCtx = Substitute.For<ITenantContext>();
+        tenantCtx.Id.Returns(tenant);
+        tenantCtx.IsTenantScoped.Returns(true);
+        var currentUser = Substitute.For<ICurrentUser>();
+        currentUser.UserId.Returns(Guid.NewGuid());
+        var audit = Substitute.For<IAuditWriter>();
+        var koOptions = Options.Create(new KeycloakAdminOptions
+        {
+            BaseUrl = "x",
+            Realm = "x",
+            AdminClientId = "x",
+            AdminClientSecret = "x",
+            FrontendBaseUrl = "http://localhost:5173",
+        });
+        var h = new CreateInvitationHandler(
+            db, kc, tenantCtx, currentUser, clock, koOptions,
+            NullLogger<CreateInvitationHandler>.Instance,
+            audit);
+
+        await using var _db = db;
+
+        kc.CreateUserAsync(Arg.Any<CreateKeycloakUserRequest>(), Arg.Any<CancellationToken>())
+            .Returns(kcId);
+        // Both audit append and compensation KC delete fail.
+        audit.AppendAsync(Arg.Any<AuditEntry>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("audit down"));
+        kc.DeleteUserAsync(kcId, Arg.Any<CancellationToken>())
+            .ThrowsAsync(new KeycloakAdminException(KeycloakAdminError.Unexpected, "kc also down"));
+
+        // The ORIGINAL audit exception must propagate — not the secondary KC exception.
+        var thrown = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => h.HandleAsync(new CreateInvitationRequest("alice@example.com", KartovaRoles.Member), CancellationToken.None));
+        Assert.AreEqual("audit down", thrown.Message);
+
+        // Compensation was still attempted exactly once.
+        await kc.Received(1).DeleteUserAsync(kcId, Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
     public async Task Compensation_swallows_secondary_KC_delete_failure()
     {
         // Ensures that if compensation itself fails (e.g. KC is down completely),
