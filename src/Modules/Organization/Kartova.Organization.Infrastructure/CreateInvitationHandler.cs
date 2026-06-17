@@ -1,6 +1,8 @@
+using Kartova.Organization.Application;
 using Kartova.Organization.Contracts;
 using Kartova.Organization.Domain;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Audit;
 using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.EntityFrameworkCore;
@@ -23,6 +25,10 @@ namespace Kartova.Organization.Infrastructure;
 /// <c>kc.DeleteUserAsync</c> and propagates the original <c>DbUpdateException</c>.
 /// An orphan KC user therefore requires BOTH the DB write AND the compensation
 /// delete to fail — a far narrower failure mode than the prior gap.
+/// Audit-append failure after a successful KC create+role+SaveChangesAsync is
+/// also best-effort compensated: the handler attempts <c>kc.DeleteUserAsync</c>
+/// and propagates the original audit exception (fail-closed; DB rolls back the
+/// Invitation+User rows).
 /// </para>
 /// </summary>
 public sealed class CreateInvitationHandler(
@@ -32,7 +38,8 @@ public sealed class CreateInvitationHandler(
     ICurrentUser currentUser,
     TimeProvider clock,
     IOptions<KeycloakAdminOptions> options,
-    ILogger<CreateInvitationHandler> logger)
+    ILogger<CreateInvitationHandler> logger,
+    IAuditWriter audit)
 {
     public async Task<CreateInvitationResult> HandleAsync(CreateInvitationRequest request, CancellationToken ct)
     {
@@ -170,6 +177,39 @@ public sealed class CreateInvitationHandler(
                 logger.LogWarning(
                     cleanupEx,
                     "Compensation delete of orphaned KC user {KcUserId} also failed.",
+                    kcId);
+            }
+#pragma warning restore CA1031
+            throw;
+        }
+
+        try
+        {
+            await audit.AppendAsync(new AuditEntry(
+                OrganizationAuditActions.InvitationCreated,
+                AuditTargetTypes.Invitation,
+                invitation.Id.Value.ToString(),
+                new Dictionary<string, string?> { ["email"] = email, ["role"] = request.Role }), ct);
+        }
+        catch (Exception auditEx)
+        {
+            // Audit-append failure rolls back the DB transaction (fail-closed),
+            // so the Invitation + User rows are gone. The KC user however was
+            // already committed at the realm level — best-effort delete it so
+            // the realm doesn't carry an unreachable shadow account. Same
+            // compensation pattern as the role-assign and DbUpdateException
+            // branches above.
+            logger.LogError(
+                auditEx,
+                "Invitation audit-append failed AFTER KC create+role for {KcUserId}; attempting compensation delete.",
+                kcId);
+            try { await kc.DeleteUserAsync(kcId, ct); }
+#pragma warning disable CA1031 // intentional best-effort swallow per spec §6.7
+            catch (Exception cleanupEx)
+            {
+                logger.LogWarning(
+                    cleanupEx,
+                    "Compensation delete of orphaned KC user {KcUserId} also failed after audit-append error.",
                     kcId);
             }
 #pragma warning restore CA1031

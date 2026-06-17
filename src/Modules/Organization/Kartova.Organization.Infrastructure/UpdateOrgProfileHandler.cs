@@ -1,4 +1,6 @@
+using Kartova.Organization.Application;
 using Kartova.Organization.Contracts;
+using Kartova.SharedKernel.Audit;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kartova.Organization.Infrastructure;
@@ -14,10 +16,12 @@ namespace Kartova.Organization.Infrastructure;
 public sealed class UpdateOrgProfileHandler
 {
     private readonly OrganizationDbContext _db;
+    private readonly IAuditWriter _audit;
 
-    public UpdateOrgProfileHandler(OrganizationDbContext db)
+    public UpdateOrgProfileHandler(OrganizationDbContext db, IAuditWriter audit)
     {
         _db = db;
+        _audit = audit;
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage(
@@ -45,6 +49,15 @@ public sealed class UpdateOrgProfileHandler
         {
             return UpdateOrgProfileResult.ConcurrencyConflict;
         }
+        await _audit.AppendAsync(new AuditEntry(
+            OrganizationAuditActions.OrgProfileUpdated,
+            AuditTargetTypes.Organization,
+            org.Id.Value.ToString(),
+            new Dictionary<string, string?>
+            {
+                ["displayName"] = request.DisplayName,
+                ["defaultTimeZone"] = request.DefaultTimeZone,
+            }), ct);
         return UpdateOrgProfileResult.Ok;
     }
 }

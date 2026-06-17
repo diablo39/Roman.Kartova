@@ -1,5 +1,6 @@
 using Kartova.Organization.Application;
 using Kartova.Organization.Domain;
+using Kartova.SharedKernel.Audit;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kartova.Organization.Infrastructure;
@@ -13,8 +14,13 @@ namespace Kartova.Organization.Infrastructure;
 public sealed class AddTeamMemberHandler
 {
     private readonly TimeProvider _clock;
+    private readonly IAuditWriter _audit;
 
-    public AddTeamMemberHandler(TimeProvider clock) => _clock = clock;
+    public AddTeamMemberHandler(TimeProvider clock, IAuditWriter audit)
+    {
+        _clock = clock;
+        _audit = audit;
+    }
 
     public async Task<AddTeamMemberResult> Handle(
         AddTeamMemberCommand cmd,
@@ -32,6 +38,13 @@ public sealed class AddTeamMemberHandler
         var membership = TeamMembership.Create(teamId, cmd.UserId, cmd.Role, _clock);
         db.TeamMembers.Add(membership);
         await db.SaveChangesAsync(ct);
+        await _audit.AppendAsync(new AuditEntry(
+            OrganizationAuditActions.TeamMemberAdded, AuditTargetTypes.Team, cmd.TeamId.ToString(),
+            new Dictionary<string, string?>
+            {
+                ["userId"] = cmd.UserId.ToString(),
+                ["role"] = cmd.Role.ToString(),
+            }), ct);
         // Surface the canonical AddedAt the aggregate set — the endpoint mirrors
         // this to the wire so clients see the value the DB persisted, not a
         // separately-clocked wall-clock snapshot taken in the endpoint delegate

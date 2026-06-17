@@ -17,6 +17,14 @@ public interface ICurrentUser
     Guid UserId { get; }
 
     /// <summary>
+    /// Human-readable snapshot of the current principal for audit <c>actor_display</c>.
+    /// Resolved from JWT claims: <c>name</c> → <c>preferred_username</c> → <c>email</c> → <c>sub</c>.
+    /// Captured at write time so an audit row still names who acted even after that
+    /// actor is later offboarded (audit foundation decision 4).
+    /// </summary>
+    string DisplayName { get; }
+
+    /// <summary>
     /// Team memberships for the current user within the current tenant scope.
     /// Sourced from <see cref="ITenantContext"/> and populated by the auth
     /// pipeline. Empty when no memberships exist.

@@ -1,6 +1,7 @@
 using Kartova.Organization.Contracts;
 using Kartova.Organization.Domain;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Audit;
 using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.EntityFrameworkCore;
@@ -58,7 +59,8 @@ public sealed class CreateInvitationHandlerTests
 
         var h = new CreateInvitationHandler(
             db, kc, tenantCtx, currentUser, clock, koOptions,
-            NullLogger<CreateInvitationHandler>.Instance);
+            NullLogger<CreateInvitationHandler>.Instance,
+            Substitute.For<IAuditWriter>());
         return (h, db, kc, tenant, currentUserId);
     }
 
@@ -384,6 +386,111 @@ public sealed class CreateInvitationHandlerTests
 
         // Compensation MUST run exactly once — the orphan KC user is deleted so
         // the realm doesn't carry an unreachable shadow account.
+        await kc.Received(1).DeleteUserAsync(kcId, Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task AuditAppend_failure_compensates_kc_user_and_rethrows()
+    {
+        // Fix 1 (audit-event-wiring deep review): if audit.AppendAsync throws after a
+        // successful KC create + role-assign + SaveChangesAsync, the handler must
+        // best-effort delete the KC user (same compensation pattern as the other
+        // post-KC failure branches) and then rethrow so the DB transaction rolls back
+        // and the caller sees the original audit exception.
+        var clock = new FakeTimeProvider(T0);
+        var kcId = Guid.NewGuid();
+
+        // Build a handler with an audit substitute we control, keeping everything
+        // else identical to the Make() factory.
+        var tenant = new TenantId(Guid.NewGuid());
+        var db = new OrganizationDbContext(NewOptions());
+        var kc = Substitute.For<IKeycloakAdminClient>();
+        var tenantCtx = Substitute.For<ITenantContext>();
+        tenantCtx.Id.Returns(tenant);
+        tenantCtx.IsTenantScoped.Returns(true);
+        var currentUser = Substitute.For<ICurrentUser>();
+        currentUser.UserId.Returns(Guid.NewGuid());
+        var audit = Substitute.For<IAuditWriter>();
+        var koOptions = Options.Create(new KeycloakAdminOptions
+        {
+            BaseUrl = "x",
+            Realm = "x",
+            AdminClientId = "x",
+            AdminClientSecret = "x",
+            FrontendBaseUrl = "http://localhost:5173",
+        });
+        var h = new CreateInvitationHandler(
+            db, kc, tenantCtx, currentUser, clock, koOptions,
+            NullLogger<CreateInvitationHandler>.Instance,
+            audit);
+
+        await using var _db = db;
+
+        kc.CreateUserAsync(Arg.Any<CreateKeycloakUserRequest>(), Arg.Any<CancellationToken>())
+            .Returns(kcId);
+        // KC role-assign and SaveChangesAsync succeed (defaults for sub / in-memory).
+        // Make AppendAsync fail so we exercise the new compensation branch.
+        audit.AppendAsync(Arg.Any<AuditEntry>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("audit down"));
+
+        // The original audit exception must propagate (fail-closed).
+        var thrown = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => h.HandleAsync(new CreateInvitationRequest("alice@example.com", KartovaRoles.Member), CancellationToken.None));
+        Assert.AreEqual("audit down", thrown.Message);
+
+        // Compensation MUST run exactly once — prevents an orphaned KC user
+        // when the DB transaction rolls back on rethrow.
+        await kc.Received(1).DeleteUserAsync(kcId, Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task AuditAppend_failure_with_compensation_also_failing_rethrows_original_audit_exception()
+    {
+        // Guard: when audit.AppendAsync throws AND the compensation kc.DeleteUserAsync also
+        // throws, the handler must still propagate the ORIGINAL audit exception (not the
+        // secondary KC exception). The compensation catch is best-effort — swallowing the
+        // secondary failure is the contract (same pattern as the role-assign branch).
+        var clock = new FakeTimeProvider(T0);
+        var kcId = Guid.NewGuid();
+
+        var tenant = new TenantId(Guid.NewGuid());
+        var db = new OrganizationDbContext(NewOptions());
+        var kc = Substitute.For<IKeycloakAdminClient>();
+        var tenantCtx = Substitute.For<ITenantContext>();
+        tenantCtx.Id.Returns(tenant);
+        tenantCtx.IsTenantScoped.Returns(true);
+        var currentUser = Substitute.For<ICurrentUser>();
+        currentUser.UserId.Returns(Guid.NewGuid());
+        var audit = Substitute.For<IAuditWriter>();
+        var koOptions = Options.Create(new KeycloakAdminOptions
+        {
+            BaseUrl = "x",
+            Realm = "x",
+            AdminClientId = "x",
+            AdminClientSecret = "x",
+            FrontendBaseUrl = "http://localhost:5173",
+        });
+        var h = new CreateInvitationHandler(
+            db, kc, tenantCtx, currentUser, clock, koOptions,
+            NullLogger<CreateInvitationHandler>.Instance,
+            audit);
+
+        await using var _db = db;
+
+        kc.CreateUserAsync(Arg.Any<CreateKeycloakUserRequest>(), Arg.Any<CancellationToken>())
+            .Returns(kcId);
+        // Both audit append and compensation KC delete fail.
+        audit.AppendAsync(Arg.Any<AuditEntry>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("audit down"));
+        kc.DeleteUserAsync(kcId, Arg.Any<CancellationToken>())
+            .ThrowsAsync(new KeycloakAdminException(KeycloakAdminError.Unexpected, "kc also down"));
+
+        // The ORIGINAL audit exception must propagate — not the secondary KC exception.
+        var thrown = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => h.HandleAsync(new CreateInvitationRequest("alice@example.com", KartovaRoles.Member), CancellationToken.None));
+        Assert.AreEqual("audit down", thrown.Message);
+
+        // Compensation was still attempted exactly once.
         await kc.Received(1).DeleteUserAsync(kcId, Arg.Any<CancellationToken>());
     }
 

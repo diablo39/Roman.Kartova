@@ -1,4 +1,5 @@
 using Kartova.Organization.Application;
+using Kartova.SharedKernel.Audit;
 using Kartova.SharedKernel.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -30,7 +31,7 @@ namespace Kartova.Organization.Infrastructure;
 /// and the global <c>KeycloakAdminExceptionHandler</c> maps it to a typed 502 (Part D).
 /// </para>
 /// </summary>
-public sealed class OffboardMemberHandler(IKeycloakAdminClient keycloak)
+public sealed class OffboardMemberHandler(IKeycloakAdminClient keycloak, IAuditWriter audit)
 {
     public async Task<OffboardMemberOutcome> Handle(
         OffboardMemberCommand cmd, OrganizationDbContext db, CancellationToken ct)
@@ -41,6 +42,11 @@ public sealed class OffboardMemberHandler(IKeycloakAdminClient keycloak)
 
         if (await OrgAdminFloor.IsLastOrgAdminAsync(db, target, ct))
             return OffboardMemberOutcome.LastOrgAdmin;
+
+        // Snapshot the target's identifying fields BEFORE the hard-delete (ADR-0102) so the
+        // audit row still names who was offboarded.
+        var targetDisplay = target.DisplayName;
+        var targetEmail = target.Email;
 
         try
         {
@@ -57,6 +63,12 @@ public sealed class OffboardMemberHandler(IKeycloakAdminClient keycloak)
         db.TeamMembers.RemoveRange(memberships);
         db.Users.Remove(target);
         await db.SaveChangesAsync(ct);
+
+        await audit.AppendAsync(new AuditEntry(
+            OrganizationAuditActions.MemberOffboarded,
+            AuditTargetTypes.User,
+            cmd.Target.Value.ToString(),
+            new Dictionary<string, string?> { ["displayName"] = targetDisplay, ["email"] = targetEmail }), ct);
 
         return OffboardMemberOutcome.Offboarded;
     }
