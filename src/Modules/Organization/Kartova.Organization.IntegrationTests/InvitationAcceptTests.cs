@@ -417,21 +417,25 @@ public sealed class InvitationAcceptTests : OrganizationIntegrationTestBase
             var anonClient2 = Fx.CreateAnonymousClient();
             var body = new AcceptInvitationRequest(token, "Sup3rSecretPassw0rd!", "Concurrent User");
 
-            // Fire both concurrently — one wins the xmin race, one loses.
+            // Fire both concurrently. A per-token advisory xact-lock serializes them so only
+            // the winner calls KeyCloak; the loser blocks, then re-reads the burned token and
+            // is rejected (404, or 410 if it observed the row mid-flight) WITHOUT calling KC.
             var responses = await Task.WhenAll(
                 anonClient1.PostAsJsonAsync("/api/v1/invitations/accept", body),
                 anonClient2.PostAsJsonAsync("/api/v1/invitations/accept", body));
 
             var statuses = new[] { (int)responses[0].StatusCode, (int)responses[1].StatusCode };
             var ok200 = statuses.Count(s => s == 200);
-            // With xmin the loser gets 410 (GoneAlreadyUsed). Under rare serialization
-            // the loser may see 404 (burned-hash path). Both are valid race outcomes.
             var goneOrNotFound = statuses.Count(s => s is 410 or 404);
 
             Assert.AreEqual(1, ok200,
                 $"Exactly one response must be 200 OK. Got: {statuses[0]}, {statuses[1]}.");
             Assert.AreEqual(1, goneOrNotFound,
                 $"Exactly one response must be 410 Gone (or 404 if requests serialized after burn). Got: {statuses[0]}, {statuses[1]}.");
+            // Regression guard: the loser must be rejected BEFORE any KeyCloak call. A 502 means
+            // both requests hit KeyCloak concurrently and one errored — the bug this fixes.
+            Assert.AreEqual(0, statuses.Count(s => s == 502),
+                $"No response may be 502: serialization must prevent concurrent KeyCloak calls. Got: {statuses[0]}, {statuses[1]}.");
         }
         finally
         {

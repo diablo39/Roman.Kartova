@@ -2,6 +2,7 @@ using Kartova.Organization.Contracts;
 using Kartova.Organization.Domain;
 using Kartova.SharedKernel.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
 
 namespace Kartova.Organization.Infrastructure.Admin;
@@ -77,15 +78,45 @@ public sealed class AcceptInvitationHandler(
     internal async Task<AcceptInvitationResult> AcceptAsync(
         string token, string password, string displayName, CancellationToken ct)
     {
-        var (inv, error) = await ResolveAsync(token, ct);
-        if (inv is null) return new AcceptInvitationResult.Failed(error!.Value);
-
+        // Validate inputs up front — cheap, independent of the invitation, and avoids
+        // holding the serialization lock (below) while rejecting a malformed request.
         var trimmedName = (displayName ?? "").Trim();
         if (password is null || password.Length < MinPasswordLength || password.Length > MaxPasswordLength
             || trimmedName.Length is < 1 or > MaxDisplayNameLength)
             return new AcceptInvitationResult.Failed(AcceptInvitationError.Validation);
 
-        var kcId = inv.KeycloakUserId!.Value;
+        if (string.IsNullOrEmpty(token))
+            return new AcceptInvitationResult.Failed(AcceptInvitationError.NotFound);
+        var hash = InvitationToken.Hash(token);
+
+        // Serialize concurrent accepts of the SAME token so only ONE request determines the
+        // winner and calls KeyCloak. Without this, two concurrent requests both pass the
+        // status check and both call kc.SetPassword/UpdateUser BEFORE the token is burned —
+        // and KeyCloak, hit twice for the same user, can transiently error on one (surfaced
+        // as 502) instead of the loser being cleanly rejected. The advisory xact-lock (same
+        // idiom as AuditWriter) is held for the request's transaction and released on
+        // commit/rollback: the loser blocks until the winner commits the burn (token_hash →
+        // null), then re-reads, finds no matching row, and returns NotFound (404) WITHOUT
+        // calling KeyCloak. The burn deliberately stays AFTER the KeyCloak calls, so a real
+        // KeyCloak failure rolls the transaction back and leaves the token intact for retry.
+        //
+        // Relational only: the unit tests run on the EF InMemory provider, which has no
+        // advisory locks or transactions. They cover the non-concurrent logic branches; the
+        // real-Postgres integration test exercises the serialization.
+        IDbContextTransaction? tx = null;
+        if (db.Database.IsRelational())
+        {
+            tx = await db.Database.BeginTransactionAsync(ct);
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT pg_advisory_xact_lock(hashtext('kartova.invitation-accept'), hashtext({hash}))", ct);
+        }
+        await using var _txScope = tx;
+
+        var inv = await db.Invitations.FirstOrDefaultAsync(i => i.TokenHash == hash, ct);
+        var error = Evaluate(inv);
+        if (error is not null) return new AcceptInvitationResult.Failed(error.Value);
+
+        var kcId = inv!.KeycloakUserId!.Value;
         try
         {
             await kc.SetPasswordAsync(kcId, password, temporary: false, ct);
@@ -121,14 +152,32 @@ public sealed class AcceptInvitationHandler(
         try
         {
             await db.SaveChangesAsync(ct);
+            if (tx is not null) await tx.CommitAsync(ct);
         }
         catch (DbUpdateConcurrencyException)
         {
-            // A concurrent accept of the same token won the race and burned it first.
+            // Defensive: under the advisory lock a concurrent same-token accept cannot reach
+            // here, but the token_hash concurrency token still guards against any other writer
+            // (e.g. a revoke) that burned/changed the row. Disposing the (uncommitted)
+            // transaction rolls back.
             return new AcceptInvitationResult.Failed(AcceptInvitationError.GoneAlreadyUsed);
         }
         return new AcceptInvitationResult.Ok(inv.Email);
     }
+
+    // Maps a (possibly null / non-Pending) invitation to the matching failure, or null when
+    // it is acceptable. Shared by ResolveAsync (read path) and AcceptAsync (locked write path).
+    private AcceptInvitationError? Evaluate(Invitation? inv) =>
+        inv is null
+            ? AcceptInvitationError.NotFound
+            : inv.Status switch
+            {
+                InvitationStatus.Revoked => AcceptInvitationError.GoneRevoked,
+                InvitationStatus.Expired => AcceptInvitationError.GoneExpired,
+                InvitationStatus.Accepted => AcceptInvitationError.GoneAlreadyUsed,
+                InvitationStatus.Pending when inv.ExpiresAt <= clock.GetUtcNow() => AcceptInvitationError.GoneExpired,
+                _ => null,
+            };
 
     // Loads the invitation TRACKED (AcceptAsync mutates it). A burned token has
     // TokenHash = null and resolves to not-found — that is the single-use enforcement mechanism.
@@ -137,14 +186,7 @@ public sealed class AcceptInvitationHandler(
         if (string.IsNullOrEmpty(token)) return (null, AcceptInvitationError.NotFound);
         var hash = InvitationToken.Hash(token);
         var inv = await db.Invitations.FirstOrDefaultAsync(i => i.TokenHash == hash, ct);
-        if (inv is null) return (null, AcceptInvitationError.NotFound);
-        return inv.Status switch
-        {
-            InvitationStatus.Revoked => (null, AcceptInvitationError.GoneRevoked),
-            InvitationStatus.Expired => (null, AcceptInvitationError.GoneExpired),
-            InvitationStatus.Accepted => (null, AcceptInvitationError.GoneAlreadyUsed),
-            InvitationStatus.Pending when inv.ExpiresAt <= clock.GetUtcNow() => (null, AcceptInvitationError.GoneExpired),
-            _ => (inv, null),
-        };
+        var error = Evaluate(inv);
+        return error is null ? (inv, null) : (null, error);
     }
 }
