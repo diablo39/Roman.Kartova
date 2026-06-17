@@ -11,7 +11,7 @@
 
 | Phase | Status | Progress |
 |-------|--------|----------|
-| Phase 0: Foundation | In Progress | 10/33 |
+| Phase 0: Foundation | In Progress | 11/33 |
 | Phase 1: Core Catalog & Notifications | In Progress | 13/60 |
 | Phase 2: Auto-Import | Not Started | 0/36 |
 | Phase 3: Documentation | Not Started | 0/15 |
@@ -43,7 +43,7 @@
 **E-01.F-03: Database Foundation**
 - [x] E-01.F-03.S-01 — Multi-tenant database schema with tenant isolation
 - [ ] E-01.F-03.S-02 — Database migration framework
-- [~] E-01.F-03.S-03 — Append-only audit log table (MiFID II) — Phase 1 foundation (audit-log-foundation, 2026-06-12): Kartova.Audit module, insert-only/RLS audit_log table (DB-enforced REVOKE + tenant_isolation policy), IAuditWriter (sync in-transaction, fail-closed), per-tenant SHA-256 hash chain + AuditChainVerifier (ADR-0018). Event wiring = Phase 2.
+- [x] E-01.F-03.S-03 — Append-only audit log table (MiFID II) — Phase 1 foundation (audit-log-foundation, 2026-06-12): Kartova.Audit module, insert-only/RLS audit_log table (DB-enforced REVOKE + tenant_isolation policy), IAuditWriter (sync in-transaction, fail-closed), per-tenant SHA-256 hash chain + AuditChainVerifier (ADR-0018). Event wiring = Phase 2. Phase 2 (audit-event-wiring, 2026-06-17): 10 Organization mutations wired to IAuditWriter (member role-change/offboard, team CRUD + membership, invitation.created, org.profile_updated); actor_display snapshot from JWT. Catalog events + System-actor/expiry-sweep deferred.
 
 **E-01.F-04: Authentication & Authorization**
 - [x] E-01.F-04.S-01 — KeyCloak configured with OIDC
