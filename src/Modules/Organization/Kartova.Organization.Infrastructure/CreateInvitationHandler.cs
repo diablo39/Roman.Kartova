@@ -1,6 +1,8 @@
+using Kartova.Organization.Application;
 using Kartova.Organization.Contracts;
 using Kartova.Organization.Domain;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Audit;
 using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.EntityFrameworkCore;
@@ -32,7 +34,8 @@ public sealed class CreateInvitationHandler(
     ICurrentUser currentUser,
     TimeProvider clock,
     IOptions<KeycloakAdminOptions> options,
-    ILogger<CreateInvitationHandler> logger)
+    ILogger<CreateInvitationHandler> logger,
+    IAuditWriter audit)
 {
     public async Task<CreateInvitationResult> HandleAsync(CreateInvitationRequest request, CancellationToken ct)
     {
@@ -175,6 +178,12 @@ public sealed class CreateInvitationHandler(
 #pragma warning restore CA1031
             throw;
         }
+
+        await audit.AppendAsync(new AuditEntry(
+            OrganizationAuditActions.InvitationCreated,
+            AuditTargetTypes.Invitation,
+            invitation.Id.Value.ToString(),
+            new Dictionary<string, string?> { ["email"] = email, ["role"] = request.Role }), ct);
 
         // The URL carries an opaque single-use token; only its SHA-256 hash is
         // persisted (InvitationToken). The plaintext is returned once here and

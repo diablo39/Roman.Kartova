@@ -1,6 +1,7 @@
 using Kartova.Organization.Contracts;
 using Kartova.Organization.Domain;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Audit;
 using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.EntityFrameworkCore;
@@ -58,7 +59,8 @@ public sealed class CreateInvitationHandlerTests
 
         var h = new CreateInvitationHandler(
             db, kc, tenantCtx, currentUser, clock, koOptions,
-            NullLogger<CreateInvitationHandler>.Instance);
+            NullLogger<CreateInvitationHandler>.Instance,
+            Substitute.For<IAuditWriter>());
         return (h, db, kc, tenant, currentUserId);
     }
 

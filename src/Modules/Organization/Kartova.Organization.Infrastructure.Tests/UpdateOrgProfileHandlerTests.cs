@@ -1,6 +1,8 @@
 using Kartova.Organization.Contracts;
+using Kartova.SharedKernel.Audit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Time.Testing;
+using NSubstitute;
 
 namespace Kartova.Organization.Infrastructure.Tests;
 
@@ -19,7 +21,7 @@ public sealed class UpdateOrgProfileHandlerTests
     public async Task HandleAsync_returns_NotFound_when_no_organization()
     {
         await using var db = NewInMemory();
-        var sut = new UpdateOrgProfileHandler(db);
+        var sut = new UpdateOrgProfileHandler(db, Substitute.For<IAuditWriter>());
         var request = new UpdateOrgProfileRequest("New Name", "desc", "UTC");
 
         var result = await sut.HandleAsync(request, ifMatch: null, CancellationToken.None);
@@ -50,7 +52,7 @@ public sealed class UpdateOrgProfileHandlerTests
 
         await using (var actDb = new OrganizationDbContext(opts))
         {
-            var sut = new UpdateOrgProfileHandler(actDb);
+            var sut = new UpdateOrgProfileHandler(actDb, Substitute.For<IAuditWriter>());
             var request = new UpdateOrgProfileRequest("Renamed", "New description", "Europe/Oslo");
             var result = await sut.HandleAsync(request, ifMatch: null, CancellationToken.None);
             Assert.AreEqual(UpdateOrgProfileResult.Ok, result);
@@ -74,7 +76,7 @@ public sealed class UpdateOrgProfileHandlerTests
         db.Organizations.Add(org);
         await db.SaveChangesAsync();
 
-        var sut = new UpdateOrgProfileHandler(db);
+        var sut = new UpdateOrgProfileHandler(db, Substitute.For<IAuditWriter>());
         var request = new UpdateOrgProfileRequest("", "desc", "UTC");
 
         var ex = await Assert.ThrowsExactlyAsync<ArgumentException>(
