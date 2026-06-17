@@ -25,6 +25,20 @@ public sealed class HttpContextCurrentUser : ICurrentUser
         }
     }
 
+    public string DisplayName
+    {
+        get
+        {
+            var user = _http.HttpContext?.User
+                       ?? throw new InvalidOperationException("No HttpContext on current request.");
+            return user.FindFirstValue("name")
+                   ?? user.FindFirstValue("preferred_username")
+                   ?? user.FindFirstValue("email")
+                   ?? user.FindFirstValue("sub")
+                   ?? throw new InvalidOperationException("No identifying claim on current user.");
+        }
+    }
+
     public IReadOnlyList<TeamMembershipInfo> TeamMemberships => _tenantContext.TeamMemberships;
 
     public IReadOnlySet<Guid> TeamIds => _tenantContext.TeamIds;

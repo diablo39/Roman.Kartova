@@ -30,8 +30,9 @@ public sealed class TestJwtSigner
         string[] roles,
         TimeSpan? lifetime = null,
         string subject = "test-user",
-        string? email = null)
-        => Build(subject, tenantId, roles, lifetime ?? TimeSpan.FromMinutes(15), expired: false, email: email);
+        string? email = null,
+        string? name = null)
+        => Build(subject, tenantId, roles, lifetime ?? TimeSpan.FromMinutes(15), expired: false, email: email, name: name);
 
     public string IssueForPlatformAdmin(string[]? extraRoles = null, string subject = "platform-admin-user")
     {
@@ -43,7 +44,7 @@ public sealed class TestJwtSigner
         => Build("test-user", tenantId, [KartovaRoles.OrgAdmin], TimeSpan.FromMinutes(15), expired: true, email: null);
 
     private string Build(
-        string subject, TenantId? tenantId, string[] roles, TimeSpan lifetime, bool expired, string? email)
+        string subject, TenantId? tenantId, string[] roles, TimeSpan lifetime, bool expired, string? email, string? name = null)
     {
         var now = expired ? DateTime.UtcNow.AddMinutes(-30) : DateTime.UtcNow;
         var expires = now.Add(lifetime);
@@ -67,6 +68,10 @@ public sealed class TestJwtSigner
         if (!string.IsNullOrEmpty(email))
         {
             claims.Add(new Claim("email", email));
+        }
+        if (!string.IsNullOrEmpty(name))
+        {
+            claims.Add(new Claim("name", name));
         }
 
         var token = new JwtSecurityToken(

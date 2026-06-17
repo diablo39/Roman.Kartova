@@ -257,7 +257,8 @@ public abstract class KartovaApiFixtureBase
         string email,
         string[]? roles = null,
         Guid? subjectOverride = null,
-        string? emailClaim = null)
+        string? emailClaim = null,
+        string? nameClaim = null)
     {
         var sub = subjectOverride ?? SubFor(email);
         var tenant = TenantFor(email);
@@ -265,7 +266,8 @@ public abstract class KartovaApiFixtureBase
             tenant,
             roles ?? new[] { KartovaRoles.OrgAdmin },
             subject: sub.ToString(),
-            email: emailClaim);
+            email: emailClaim,
+            name: nameClaim);
 
         var client = CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);

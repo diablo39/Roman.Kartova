@@ -17,8 +17,8 @@ namespace Kartova.Audit.Infrastructure;
 /// with <c>FOR UPDATE</c>. The lock auto-releases at transaction end.</para>
 ///
 /// <para>Phase 1 writes <see cref="AuditActorType.User"/> only (wired callers arrive in Phase 2;
-/// all are authenticated HTTP requests). <c>actor_display</c> is left null here — the offboard
-/// caller that needs the snapshot resolves it in Phase 2.</para>
+/// all are authenticated HTTP requests). <c>actor_display</c> is the JWT display snapshot
+/// (name → preferred_username → email → sub).</para>
 /// </summary>
 public sealed class AuditWriter(
     AuditDbContext db,
@@ -59,7 +59,7 @@ public sealed class AuditWriter(
             occurredAt: occurredAt,
             actorType: AuditActorType.User,
             actorId: currentUser.UserId,
-            actorDisplay: null,
+            actorDisplay: currentUser.DisplayName,
             action: entry.Action,
             targetType: entry.TargetType,
             targetId: entry.TargetId,

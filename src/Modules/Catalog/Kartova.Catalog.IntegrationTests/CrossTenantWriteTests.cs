@@ -54,6 +54,7 @@ public sealed class CrossTenantWriteTests : CatalogIntegrationTestBase
     {
         public StubCurrentUser(Guid userId) => UserId = userId;
         public Guid UserId { get; }
+        public string DisplayName => UserId.ToString();
         public IReadOnlyList<TeamMembershipInfo> TeamMemberships { get; } = Array.Empty<TeamMembershipInfo>();
         public IReadOnlySet<Guid> TeamIds { get; } = new HashSet<Guid>();
     }
