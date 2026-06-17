@@ -16,9 +16,11 @@ namespace Kartova.Audit.Infrastructure;
 /// for the same tenant — correct even for the genesis row, where there is no existing row to lock
 /// with <c>FOR UPDATE</c>. The lock auto-releases at transaction end.</para>
 ///
-/// <para>Phase 1 writes <see cref="AuditActorType.User"/> only (wired callers arrive in Phase 2;
-/// all are authenticated HTTP requests). <c>actor_display</c> is the JWT display snapshot
-/// (name → preferred_username → email → sub).</para>
+/// <para>All wired callers (Phase 2) are authenticated HTTP requests, so the writer records
+/// <see cref="AuditActorType.User"/>; the <c>System</c>-actor path (background jobs) is deferred
+/// (see the audit-event-wiring spec §2). <c>currentUser.DisplayName</c> throws if resolved with
+/// no HTTP principal — by design, since no non-HTTP caller is wired. <c>actor_display</c> is the
+/// JWT display snapshot (name → preferred_username → email → sub).</para>
 /// </summary>
 public sealed class AuditWriter(
     AuditDbContext db,

@@ -179,11 +179,38 @@ public sealed class CreateInvitationHandler(
             throw;
         }
 
-        await audit.AppendAsync(new AuditEntry(
-            OrganizationAuditActions.InvitationCreated,
-            AuditTargetTypes.Invitation,
-            invitation.Id.Value.ToString(),
-            new Dictionary<string, string?> { ["email"] = email, ["role"] = request.Role }), ct);
+        try
+        {
+            await audit.AppendAsync(new AuditEntry(
+                OrganizationAuditActions.InvitationCreated,
+                AuditTargetTypes.Invitation,
+                invitation.Id.Value.ToString(),
+                new Dictionary<string, string?> { ["email"] = email, ["role"] = request.Role }), ct);
+        }
+        catch (Exception auditEx)
+        {
+            // Audit-append failure rolls back the DB transaction (fail-closed),
+            // so the Invitation + User rows are gone. The KC user however was
+            // already committed at the realm level — best-effort delete it so
+            // the realm doesn't carry an unreachable shadow account. Same
+            // compensation pattern as the role-assign and DbUpdateException
+            // branches above.
+            logger.LogError(
+                auditEx,
+                "Invitation audit-append failed AFTER KC create+role for {KcUserId}; attempting compensation delete.",
+                kcId);
+            try { await kc.DeleteUserAsync(kcId, ct); }
+#pragma warning disable CA1031 // intentional best-effort swallow per spec §6.7
+            catch (Exception cleanupEx)
+            {
+                logger.LogWarning(
+                    cleanupEx,
+                    "Compensation delete of orphaned KC user {KcUserId} also failed after audit-append error.",
+                    kcId);
+            }
+#pragma warning restore CA1031
+            throw;
+        }
 
         // The URL carries an opaque single-use token; only its SHA-256 hash is
         // persisted (InvitationToken). The plaintext is returned once here and
