@@ -52,7 +52,7 @@ public sealed class AuditWiringTests : OrganizationIntegrationTestBase
     [TestMethod]
     public async Task Offboard_WritesSnapshotThatSurvivesTargetDeletion()
     {
-        var (admin, _, target, tenantId) = await SeedAdminAndMemberAsync(nameClaim: "Grace H");
+        var (admin, adminEmail, target, tenantId) = await SeedAdminAndMemberAsync(nameClaim: "Grace H");
         Guid? kcUserId = target;
 
         try
@@ -64,9 +64,13 @@ public sealed class AuditWiringTests : OrganizationIntegrationTestBase
             var rows = await Fx.ReadAuditLogAsync(tenantId);
             var row = rows.Single(r => r.Action == OrganizationAuditActions.MemberOffboarded);
             Assert.AreEqual(target.ToString(), row.TargetId);
+            Assert.AreEqual(await Fx.GetSubClaimAsync(adminEmail), row.ActorId);
+            Assert.AreEqual("Grace H", row.ActorDisplay);
             using var data = JsonDocument.Parse(row.DataJson!);
             Assert.IsFalse(string.IsNullOrEmpty(data.RootElement.GetProperty("email").GetString()));
+            Assert.IsFalse(string.IsNullOrEmpty(data.RootElement.GetProperty("displayName").GetString()));
             // The users row was hard-deleted in the same txn, yet the snapshot persisted.
+            AssertChainLinked(rows);
         }
         finally
         {
