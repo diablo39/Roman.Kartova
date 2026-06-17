@@ -126,7 +126,7 @@ public sealed class AuditWiringTests : OrganizationIntegrationTestBase
                 var kc = scope.ServiceProvider.GetRequiredService<IKeycloakAdminClient>();
                 await kc.DeleteUserAsync(kcUserId.Value, CancellationToken.None);
             }
-            catch { }
+            catch (Exception ex) { await Console.Error.WriteLineAsync($"[cleanup] kc user {kcUserId}: {ex.Message}"); }
         }
         try { await Fx.DeleteOrganizationsForTenantAsync(tenantId); }
         catch (Exception ex) { await Console.Error.WriteLineAsync($"[cleanup] org {tenantId}: {ex.Message}"); }
