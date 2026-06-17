@@ -1,5 +1,6 @@
 using Kartova.Organization.Application;
 using Kartova.Organization.Contracts;
+using Kartova.SharedKernel.Audit;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kartova.Organization.Infrastructure;
@@ -12,7 +13,7 @@ namespace Kartova.Organization.Infrastructure;
 /// <c>Team.Rename</c> and surface as <see cref="ArgumentException"/>, which
 /// the shared <c>DomainValidationExceptionHandler</c> converts to RFC 7807 400.
 /// </summary>
-public sealed class UpdateTeamHandler
+public sealed class UpdateTeamHandler(IAuditWriter audit)
 {
     public async Task<TeamResponse?> Handle(
         UpdateTeamCommand cmd,
@@ -25,6 +26,13 @@ public sealed class UpdateTeamHandler
 
         team.Rename(cmd.DisplayName, cmd.Description);
         await db.SaveChangesAsync(ct);
+        await audit.AppendAsync(new AuditEntry(
+            OrganizationAuditActions.TeamUpdated, AuditTargetTypes.Team, team.Id.Value.ToString(),
+            new Dictionary<string, string?>
+            {
+                ["displayName"] = team.DisplayName,
+                ["description"] = team.Description,
+            }), ct);
         return new TeamResponse(team.Id.Value, team.DisplayName, team.Description, team.CreatedAt);
     }
 }

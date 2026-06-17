@@ -1,4 +1,5 @@
 using Kartova.Organization.Application;
+using Kartova.SharedKernel.Audit;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,9 +20,13 @@ namespace Kartova.Organization.Infrastructure;
 public sealed class DeleteTeamHandler
 {
     private readonly IApplicationCountByTeamReader _appCountReader;
+    private readonly IAuditWriter _audit;
 
-    public DeleteTeamHandler(IApplicationCountByTeamReader appCountReader)
-        => _appCountReader = appCountReader;
+    public DeleteTeamHandler(IApplicationCountByTeamReader appCountReader, IAuditWriter audit)
+    {
+        _appCountReader = appCountReader;
+        _audit = audit;
+    }
 
     public async Task<DeleteTeamResult> Handle(
         DeleteTeamCommand cmd,
@@ -35,8 +40,12 @@ public sealed class DeleteTeamHandler
         var appCount = await _appCountReader.CountForTeamAsync(team.Id.Value, ct);
         if (appCount > 0) return new DeleteTeamResult(false, false, appCount);
 
+        var displayName = team.DisplayName;
         db.Teams.Remove(team);
         await db.SaveChangesAsync(ct);
+        await _audit.AppendAsync(new AuditEntry(
+            OrganizationAuditActions.TeamDeleted, AuditTargetTypes.Team, team.Id.Value.ToString(),
+            new Dictionary<string, string?> { ["displayName"] = displayName }), ct);
         return new DeleteTeamResult(true, false, null);
     }
 }

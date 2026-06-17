@@ -1,5 +1,6 @@
 using Kartova.Organization.Application;
 using Kartova.Organization.Domain;
+using Kartova.SharedKernel.Audit;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kartova.Organization.Infrastructure;
@@ -10,7 +11,7 @@ namespace Kartova.Organization.Infrastructure;
 /// missing team (<c>TeamNotFound</c>), and missing membership row
 /// (<c>MemberNotFound</c>). The endpoint delegate maps these to 204 / 404 / 404.
 /// </summary>
-public sealed class RemoveTeamMemberHandler
+public sealed class RemoveTeamMemberHandler(IAuditWriter audit)
 {
     public async Task<RemoveTeamMemberOutcome> Handle(
         RemoveTeamMemberCommand cmd,
@@ -27,6 +28,9 @@ public sealed class RemoveTeamMemberHandler
 
         db.TeamMembers.Remove(membership);
         await db.SaveChangesAsync(ct);
+        await audit.AppendAsync(new AuditEntry(
+            OrganizationAuditActions.TeamMemberRemoved, AuditTargetTypes.Team, cmd.TeamId.ToString(),
+            new Dictionary<string, string?> { ["userId"] = cmd.UserId.ToString() }), ct);
         return RemoveTeamMemberOutcome.Removed;
     }
 }

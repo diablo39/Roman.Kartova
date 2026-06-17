@@ -26,7 +26,8 @@ public sealed class CreateTeamTests : OrganizationIntegrationTestBase
         try
         {
             var client = Fx.CreateClient();
-            var token = Fx.Signer.IssueForTenant(Tenant, new[] { KartovaRoles.OrgAdmin });
+            var token = Fx.Signer.IssueForTenant(Tenant, new[] { KartovaRoles.OrgAdmin },
+                subject: "00000000-0000-0000-0001-000000000001");
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             var resp = await client.PostAsJsonAsync(
