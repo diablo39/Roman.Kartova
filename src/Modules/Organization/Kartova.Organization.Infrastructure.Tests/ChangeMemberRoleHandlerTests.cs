@@ -1,5 +1,6 @@
 using Kartova.Organization.Application;
 using Kartova.Organization.Domain;
+using Kartova.SharedKernel.Audit;
 using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.EntityFrameworkCore;
@@ -42,7 +43,7 @@ public sealed class ChangeMemberRoleHandlerTests
     {
         await using var db = new OrganizationDbContext(NewOptions());
         var kc = Substitute.For<IKeycloakAdminClient>();
-        var sut = new ChangeMemberRoleHandler(kc);
+        var sut = new ChangeMemberRoleHandler(kc, Substitute.For<IAuditWriter>());
 
         var result = await sut.Handle(
             new ChangeMemberRoleCommand(Guid.NewGuid(), "BogusRole"), db, CancellationToken.None);
@@ -61,7 +62,7 @@ public sealed class ChangeMemberRoleHandlerTests
     {
         await using var db = new OrganizationDbContext(NewOptions());
         var kc = Substitute.For<IKeycloakAdminClient>();
-        var sut = new ChangeMemberRoleHandler(kc);
+        var sut = new ChangeMemberRoleHandler(kc, Substitute.For<IAuditWriter>());
 
         var result = await sut.Handle(
             new ChangeMemberRoleCommand(Guid.NewGuid(), KartovaRoles.Member), db, CancellationToken.None);
@@ -90,7 +91,7 @@ public sealed class ChangeMemberRoleHandlerTests
 
         var kc = Substitute.For<IKeycloakAdminClient>();
         await using var db = new OrganizationDbContext(opts);
-        var sut = new ChangeMemberRoleHandler(kc);
+        var sut = new ChangeMemberRoleHandler(kc, Substitute.For<IAuditWriter>());
 
         var result = await sut.Handle(
             new ChangeMemberRoleCommand(userId, KartovaRoles.Member), db, CancellationToken.None);
@@ -126,7 +127,7 @@ public sealed class ChangeMemberRoleHandlerTests
 
         var kc = Substitute.For<IKeycloakAdminClient>();
         await using var db = new OrganizationDbContext(opts);
-        var sut = new ChangeMemberRoleHandler(kc);
+        var sut = new ChangeMemberRoleHandler(kc, Substitute.For<IAuditWriter>());
 
         var result = await sut.Handle(
             new ChangeMemberRoleCommand(userId, KartovaRoles.OrgAdmin), db, CancellationToken.None);

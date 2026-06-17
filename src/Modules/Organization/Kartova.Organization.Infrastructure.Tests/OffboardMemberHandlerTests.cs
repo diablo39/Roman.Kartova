@@ -1,5 +1,6 @@
 using Kartova.Organization.Application;
 using Kartova.Organization.Domain;
+using Kartova.SharedKernel.Audit;
 using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.EntityFrameworkCore;
@@ -39,7 +40,7 @@ public sealed class OffboardMemberHandlerTests
     private static (OffboardMemberHandler sut, IKeycloakAdminClient kc) MakeSut()
     {
         var kc = Substitute.For<IKeycloakAdminClient>();
-        return (new OffboardMemberHandler(kc), kc);
+        return (new OffboardMemberHandler(kc, Substitute.For<IAuditWriter>()), kc);
     }
 
     private static async Task AssertNoSideEffects(IKeycloakAdminClient kc)
