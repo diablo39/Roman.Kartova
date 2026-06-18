@@ -379,7 +379,7 @@ public class KartovaApiFixture : KartovaApiFixtureBase
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT seq, action, actor_id, actor_display, target_type, target_id,
-                   data::text, prev_hash, row_hash
+                   data::text, prev_hash, row_hash, actor_type
             FROM audit_log WHERE tenant_id = $1 ORDER BY seq
             """;
         cmd.Parameters.AddWithValue(tenantId);
@@ -393,12 +393,14 @@ public class KartovaApiFixture : KartovaApiFixtureBase
                 r.IsDBNull(3) ? null : r.GetString(3),
                 r.GetString(4), r.GetString(5),
                 r.IsDBNull(6) ? null : r.GetString(6),
-                (byte[])r[7], (byte[])r[8]));
+                (byte[])r[7], (byte[])r[8],
+                r.GetString(9)));
         }
         return rows;
     }
 
     public sealed record AuditRowRecord(
         long Seq, string Action, Guid? ActorId, string? ActorDisplay,
-        string TargetType, string TargetId, string? DataJson, byte[] PrevHash, byte[] RowHash);
+        string TargetType, string TargetId, string? DataJson, byte[] PrevHash, byte[] RowHash,
+        string ActorType);
 }
