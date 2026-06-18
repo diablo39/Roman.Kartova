@@ -17,7 +17,7 @@ namespace Kartova.Organization.Infrastructure.Admin;
 ///
 /// <para>Tenant enumeration is cross-tenant maintenance and uses the BYPASSRLS
 /// <see cref="AdminOrganizationDbContext"/> (read-only). Each affected tenant is then processed
-/// inside its own tenant scope via the app role (mirroring <c>AuditCheckpointHostedService</c>),
+/// inside its own tenant scope via the app role (following the same per-tenant isolation pattern as <c>AuditCheckpointHostedService</c>),
 /// so the invitation update + audit append both pass the RLS WITH CHECK and ride one transaction
 /// — the sweep cannot expire or audit the wrong tenant even by mistake (ADR-0018 + ADR-0090).
 /// The periodic job is the transport adapter here: it owns Begin/Commit; the writer/handler never

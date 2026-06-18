@@ -103,17 +103,19 @@ public class AuditWriterTests
         TargetId: target.ToString(),
         Data: new Dictionary<string, string?> { ["old_role"] = "Member", ["new_role"] = "OrgAdmin" });
 
-    private static async Task<(string ActorType, Guid? ActorId, string? ActorDisplay)> ReadLatestActorAsync(Guid tenantId)
+    private static async Task<List<(string ActorType, Guid? ActorId, string? ActorDisplay)>> ReadActorsAsync(Guid tenantId)
     {
         await using var conn = new NpgsqlConnection(Fx.BypassConnectionString);
         await conn.OpenAsync();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT actor_type, actor_id, actor_display FROM audit_log " +
-                          "WHERE tenant_id = $1 ORDER BY seq DESC LIMIT 1";
+                          "WHERE tenant_id = $1 ORDER BY seq";
         cmd.Parameters.AddWithValue(tenantId);
         await using var r = await cmd.ExecuteReaderAsync();
-        Assert.IsTrue(await r.ReadAsync(), "expected at least one audit row");
-        return (r.GetString(0), r.IsDBNull(1) ? null : r.GetGuid(1), r.IsDBNull(2) ? null : r.GetString(2));
+        var rows = new List<(string ActorType, Guid? ActorId, string? ActorDisplay)>();
+        while (await r.ReadAsync())
+            rows.Add((r.GetString(0), r.IsDBNull(1) ? null : r.GetGuid(1), r.IsDBNull(2) ? null : r.GetString(2)));
+        return rows;
     }
 
     [TestMethod]
@@ -138,11 +140,14 @@ public class AuditWriterTests
             await handle.CommitAsync(CancellationToken.None);
         }
 
-        var (actorType, actorId, actorDisplay) = await ReadLatestActorAsync(tenant.Value);
-        Assert.AreEqual("System", actorType);
-        Assert.IsNull(actorId, "a System actor row must have a NULL actor_id");
-        Assert.AreEqual("System", actorDisplay);
-        Assert.AreEqual(2L, await CountRowsAsync(Fx.BypassConnectionString, tenant.Value));
+        var actors = await ReadActorsAsync(tenant.Value);
+        Assert.AreEqual(2, actors.Count, "expected exactly 2 audit rows");
+        foreach (var (actorType, actorId, actorDisplay) in actors)
+        {
+            Assert.AreEqual("System", actorType, "every row must have actor_type=System");
+            Assert.IsNull(actorId, "every System actor row must have a NULL actor_id");
+            Assert.AreEqual("System", actorDisplay, "every row must have actor_display=System");
+        }
 
         using (var scope = sp.CreateScope())
         {
