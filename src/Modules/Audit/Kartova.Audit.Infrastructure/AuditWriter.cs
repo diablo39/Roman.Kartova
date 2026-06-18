@@ -54,7 +54,7 @@ public sealed class AuditWriter(
         AuditEntry entry,
         CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(entry);
+        // entry non-null is guaranteed by both public callers (AppendAsync / AppendSystemAsync).
 
         // Serialize appends for this tenant within the current transaction.
         await db.Database.ExecuteSqlInterpolatedAsync(
