@@ -4,7 +4,7 @@
 **Date:** 2026-04-17
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** Compliance & Retention
-**Related:** ADR-0016 (MiFID II), ADR-0019 (soft delete), ADR-0021 (residency), ADR-0078 (no secrets)
+**Related:** ADR-0019 (soft delete), ADR-0021 (residency), ADR-0078 (no secrets), ADR-0106 (GDPR-only — MiFID II/NIS2 dropped)
 
 ## Context
 
@@ -41,7 +41,7 @@ Implement from MVP:
 
 **Negative / Trade-offs:**
 - Erasure cascades add implementation work across DB + search + blob (ADR-0004 pending)
-- Soft-delete vs hard-delete tension with MiFID II (ADR-0019)
+- Soft-delete (30-day recovery) vs GDPR immediate-erasure tension (ADR-0019)
 
 **Neutral:**
 - Requires ongoing attention (records of processing, DPIAs for new features)

@@ -4,7 +4,7 @@
 **Date:** 2026-04-21
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** API & Integration Architecture
-**Related:** ADR-0003 (Kafka bus), ADR-0016 (MiFID II compliance), ADR-0050 (notification log as MiFID II record), ADR-0031 (per-tenant rate limiting), ADR-0051 (status page subscribers), ADR-0080 (transactional outbox via Wolverine), ADR-0081 (KafkaFlow inbound consumers)
+**Related:** ADR-0003 (Kafka bus), ADR-0050 (notification log — operational record), ADR-0031 (per-tenant rate limiting), ADR-0051 (status page subscribers), ADR-0080 (transactional outbox via Wolverine), ADR-0081 (KafkaFlow inbound consumers), ADR-0106 (compliance scope dropped — reliability rationale below is now operational, not regulatory)
 
 ## Context
 
@@ -13,7 +13,7 @@ Webhooks are a core integration mechanism for Kartova:
 - **Inbound:** GitHub/Azure DevOps webhooks trigger doc sync and re-scans
 - **Status page subscribers:** webhook is one of four notification channels (ADR-0051)
 
-Each tenant can have tens to hundreds of webhook subscriptions × hundreds of events per day, producing thousands of deliveries per minute in peak. Delivery must be reliable (MiFID II communication records per ADR-0050 — no event can be lost) and secure (payloads may contain metadata about internal services). Industry standard for webhook authentication is HMAC (GitHub, Stripe, Slack, Shopify, Twilio, PagerDuty).
+Each tenant can have tens to hundreds of webhook subscriptions × hundreds of events per day, producing thousands of deliveries per minute in peak. Delivery must be reliable (no event can be lost — webhooks carry operational alerts tenants act on) and secure (payloads may contain metadata about internal services). Industry standard for webhook authentication is HMAC (GitHub, Stripe, Slack, Shopify, Twilio, PagerDuty).
 
 ## Decision
 
@@ -24,7 +24,7 @@ Outbound webhook delivery uses HMAC-SHA256 payload signing with a tenant-scoped 
 2. Event persisted via **Wolverine's transactional outbox** (ADR-0080) within the same PostgreSQL transaction as the business change — Wolverine manages the outbox tables and publisher
 3. Wolverine publishes to Kafka topic `webhook-delivery-queue` after the transaction commits (at-least-once guarantee)
 4. Delivery worker (KafkaFlow consumer, ADR-0081) builds payload, sends HTTP POST
-5. Result logged to `webhook_deliveries` table (MiFID II retention per ADR-0050)
+5. Result logged to `webhook_deliveries` table (operational delivery record, ADR-0050)
 
 **Required HTTP headers on every delivery:**
 - `X-Kartova-Signature: sha256=<hex-hmac>` — HMAC-SHA256(tenant_webhook_secret, raw_body)
@@ -42,7 +42,7 @@ Outbound webhook delivery uses HMAC-SHA256 payload signing with a tenant-scoped 
 **Dead Letter Queue:**
 - Visible in UI under "Integrations → Webhooks → Failed Deliveries"
 - Admin can manually replay a single delivery or bulk replay after fixing subscriber
-- DLQ entries retained per ADR-0017 (180 days default / 5 years MiFID II)
+- DLQ entries retained per ADR-0017 (flat 180 days)
 
 **Per-subscriber rate limiting and circuit breaker:**
 - Each webhook subscription has an independent delivery queue
@@ -58,7 +58,7 @@ Outbound webhook delivery uses HMAC-SHA256 payload signing with a tenant-scoped 
 
 **Audit/compliance:**
 - Every delivery attempt logged: timestamp, response code, latency, response body (truncated)
-- Retention follows ADR-0017 per tenant MiFID II flag (ADR-0016)
+- Retention follows ADR-0017 (flat 180 days, all tenants)
 
 ## Rationale
 
@@ -68,7 +68,7 @@ Outbound webhook delivery uses HMAC-SHA256 payload signing with a tenant-scoped 
 - **Transactional outbox** — event persisted atomically with the business change in PostgreSQL; Kafka publisher reads outbox and guarantees at-least-once delivery even if publish fails
 - **Idempotency keys** — enable subscribers to safely deduplicate on retry (at-least-once becomes effectively-once at subscriber boundary)
 - **Circuit breaker** — isolates slow/broken subscribers; one misbehaving endpoint cannot cascade failures across the platform
-- **DLQ with manual replay** — aligns with MiFID II "no event lost" guarantee; admin retains control after max retries
+- **DLQ with manual replay** — delivers a "no event lost" guarantee; admin retains control after max retries
 - **Kafka backbone** — reuses ADR-0003 messaging infrastructure; no new technology
 
 ## Alternatives Considered
@@ -85,7 +85,7 @@ Outbound webhook delivery uses HMAC-SHA256 payload signing with a tenant-scoped 
 - Familiar industry-standard pattern; subscribers integrate quickly with existing webhook tooling
 - Idempotency key enables safe at-least-once delivery semantics
 - Circuit breaker isolates slow subscribers — noisy-neighbor protection
-- DLQ with manual replay preserves MiFID II guarantee of no lost events
+- DLQ with manual replay preserves the no-lost-events guarantee
 - Transactional outbox prevents split-brain between business state and event emission
 - Kafka-backed pipeline reuses existing infrastructure (ADR-0003)
 

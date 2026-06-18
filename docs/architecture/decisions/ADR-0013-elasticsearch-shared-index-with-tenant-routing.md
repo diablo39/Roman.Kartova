@@ -24,7 +24,7 @@ Use shared indexes per document type (e.g., `kartova-entities-*`, `kartova-docs-
   3. Read path uses per-tenant filtered alias — even if filter is accidentally omitted at higher layers, alias filter applies
   4. Index template + default ingest pipeline enforces `tenant_id` presence at index time
 - **GDPR cascade deletion (ADR-0015)** — `_delete_by_query` with `tenant_id` term plus `routing` is fast (single shard scope).
-- **Retention (ADR-0017)** — ILM rolls shared indexes; warm/cold tiers apply uniformly; older documents transition automatically; MiFID II tenants flagged with extended ILM policy.
+- **Retention (ADR-0017)** — ILM rolls shared indexes; warm/cold tiers apply uniformly; older documents transition automatically under the flat 180-day window.
 - **Backup** — single snapshot policy for all tenants.
 - **Future hybrid** — if a "noisy neighbor" tenant dominates a shard, it can be migrated to a dedicated index by updating alias mapping without application changes.
 

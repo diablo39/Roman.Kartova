@@ -8,7 +8,7 @@
 
 ## Context
 
-Email remains the most universal notification channel (incident alerts, digest emails, invitations, MiFID-relevant records). Kartova must deliver reliable transactional email with bounce/complaint handling and unsubscribe mechanics (PRD §4.7, Phase 1 E-06a.F-01.S-03). Locking into a single vendor creates portability risk and complicates on-prem deployments.
+Email remains the most universal notification channel (incident alerts, digest emails, invitations, audit-relevant records). Kartova must deliver reliable transactional email with bounce/complaint handling and unsubscribe mechanics (PRD §4.7, Phase 1 E-06a.F-01.S-03). Locking into a single vendor creates portability risk and complicates on-prem deployments.
 
 ## Decision
 

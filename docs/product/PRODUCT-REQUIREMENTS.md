@@ -501,13 +501,13 @@ Kartova offers four subscription tiers. Pricing is per-user per-month with minim
 | **Free** | $0 | — | 5 | 30 days | Best effort |
 | **Starter** | $10 / user / month | 5 | Unlimited | 180 days | 99.5% |
 | **Pro** | $25 / user / month | 10 | Unlimited | 180 days | 99.9% |
-| **Enterprise** | Custom (contact sales) | Negotiated | Unlimited | 5 years (MiFID II) | 99.99% |
+| **Enterprise** | Custom (contact sales) | Negotiated | Unlimited | 180 days | 99.99% |
 
 **Feature highlights by tier:**
 - **Free / Starter / Pro / Enterprise:** Core catalog, auto-import, documentation sync, embedded dependency graph
 - **Starter+:** Bulk import, scheduled re-scan, standalone graph + impact analysis, Slack/Teams notifications
 - **Pro+:** Public Status Page, CLI + Policy enforcement, DX Score, Risk Score, Tech Radar, Cost Attribution, hybrid agent
-- **Enterprise only:** MiFID II retention flag (5 years), 99.99% SLA, premium SSO, dedicated Customer Success Manager
+- **Enterprise only:** 99.99% SLA, premium SSO, dedicated Customer Success Manager
 
 **Billable user definition:**
 - Active user = any human who authenticated during the billing period
@@ -562,30 +562,29 @@ Kartova offers four subscription tiers. Pricing is per-user per-month with minim
 - Breach notification process: 72-hour notification capability
 - Data Protection Officer (DPO) contact published
 
-**MiFID II Compliance (Day One):**
-- Immutable audit trails for all configuration changes (who, what, when)
-- Record retention: All audit logs retained for minimum 5 years (MiFID II requirement overrides 180-day default for financial services tenants)
-- Communication records: All system-generated notifications and status updates retained
-- Data integrity: Tamper-evident logging (append-only audit store)
-- Tenant-level compliance flag: Mark tenants as "MiFID II regulated" to apply stricter retention and audit rules automatically
+**Audit & Integrity (security baseline, not a regulatory regime):**
+- Immutable audit trails for all configuration changes (who, what, when) — append-only, tamper-evident hash chain (security hardening + GDPR accountability, not a MiFID/NIS2 mandate; see ADR-0106)
+- Audit logs retained per the flat operational retention window (180 days, ADR-0017)
 
-> **ADRs:** [ADR-0004](../architecture/decisions/ADR-0004-s3-compatible-blob-storage-with-minio-default.md), [ADR-0012](../architecture/decisions/ADR-0012-postgresql-row-level-security-for-tenant-isolation.md), [ADR-0013](../architecture/decisions/ADR-0013-elasticsearch-shared-index-with-tenant-routing.md), [ADR-0015](../architecture/decisions/ADR-0015-gdpr-compliance-from-day-one.md), [ADR-0016](../architecture/decisions/ADR-0016-mifid-ii-compliance-from-day-one.md), [ADR-0018](../architecture/decisions/ADR-0018-append-only-tamper-evident-audit-log.md), [ADR-0021](../architecture/decisions/ADR-0021-data-residency-tracking-per-tenant.md), [ADR-0042](../architecture/decisions/ADR-0042-agent-communication-via-https-polling-with-long-lived-tokens.md) (agent communication — TLS + bearer token), [ADR-0050](../architecture/decisions/ADR-0050-notification-log-as-mifid-ii-record.md), [ADR-0077](../architecture/decisions/ADR-0077-encryption-storage-baseline-plus-oauth-column-and-tls-1-2-plus.md) (encryption at rest + TLS 1.2+ in transit), [ADR-0078](../architecture/decisions/ADR-0078-no-secrets-stored-references-only.md) (no secrets stored — references only)
+> **Note:** Kartova carries **no regulatory-compliance regime beyond GDPR.** MiFID II ("from day one") and a later-considered NIS2 pivot were both dropped — see [ADR-0106](../architecture/decisions/ADR-0106-drop-regulatory-compliance-scope-gdpr-only.md). There is no `mifid_ii_enabled` tenant flag, no 5-year retention tier, and no communication-record store.
+
+> **ADRs:** [ADR-0004](../architecture/decisions/ADR-0004-s3-compatible-blob-storage-with-minio-default.md), [ADR-0012](../architecture/decisions/ADR-0012-postgresql-row-level-security-for-tenant-isolation.md), [ADR-0013](../architecture/decisions/ADR-0013-elasticsearch-shared-index-with-tenant-routing.md), [ADR-0015](../architecture/decisions/ADR-0015-gdpr-compliance-from-day-one.md), [ADR-0018](../architecture/decisions/ADR-0018-append-only-tamper-evident-audit-log.md), [ADR-0021](../architecture/decisions/ADR-0021-data-residency-tracking-per-tenant.md), [ADR-0042](../architecture/decisions/ADR-0042-agent-communication-via-https-polling-with-long-lived-tokens.md) (agent communication — TLS + bearer token), [ADR-0077](../architecture/decisions/ADR-0077-encryption-storage-baseline-plus-oauth-column-and-tls-1-2-plus.md) (encryption at rest + TLS 1.2+ in transit), [ADR-0078](../architecture/decisions/ADR-0078-no-secrets-stored-references-only.md) (no secrets stored — references only), [ADR-0106](../architecture/decisions/ADR-0106-drop-regulatory-compliance-scope-gdpr-only.md) (GDPR-only — MiFID II/NIS2 dropped)
 
 ### 7.4 Data Retention Policies
-| Data Type | Default Retention | MiFID II Tenants |
-|-----------|------------------|------------------|
-| Uptime history | 180 days | 5 years |
-| Deployment history | 180 days | 5 years |
-| Audit logs | 180 days | 5 years |
-| Scan results / import history | 180 days | 5 years |
-| Status page incident history | 180 days | 5 years |
-| Deleted entity data | Purged after 30 days | 5 years (soft-delete) |
+Flat operational retention for all tenants — no regulatory tier (ADR-0106).
 
-- Configurable per-tenant (can extend beyond defaults, not shorten below regulatory minimum)
-- Automated archival to cold storage after active retention period
+| Data Type | Retention |
+|-----------|-----------|
+| Uptime history | 180 days |
+| Deployment history | 180 days |
+| Audit logs | 180 days |
+| Scan results / import history | 180 days |
+| Status page incident history | 180 days |
+| Deleted entity data | Purged after 30 days |
+
 - Data export before purge (on request)
 
-> **ADRs:** [ADR-0017](../architecture/decisions/ADR-0017-default-180-day-retention-5-year-mifid.md), [ADR-0019](../architecture/decisions/ADR-0019-soft-delete-with-30-day-purge.md), [ADR-0020](../architecture/decisions/ADR-0020-cold-storage-archival-after-active-retention.md)
+> **ADRs:** [ADR-0017](../architecture/decisions/ADR-0017-default-180-day-retention-5-year-mifid.md), [ADR-0019](../architecture/decisions/ADR-0019-soft-delete-with-30-day-purge.md), [ADR-0106](../architecture/decisions/ADR-0106-drop-regulatory-compliance-scope-gdpr-only.md)
 
 ### 7.5 Deployment Model
 - **Cloud SaaS** as primary offering — cloud-agnostic, deployed on Kubernetes
@@ -722,8 +721,8 @@ Given the solo developer + AI agent constraint, the following phased approach is
 | 4 | Agent technology | **.NET** (consistent stack, AOT for small footprint) | [ADR-0041](../architecture/decisions/ADR-0041-dotnet-agent-with-aot-compilation.md) |
 | 5 | Hosting provider | **Cloud-agnostic, Kubernetes** | [ADR-0022](../architecture/decisions/ADR-0022-kubernetes-cloud-agnostic-deployment.md) |
 | 6 | Status page infrastructure | **Separate deployment** (independent availability) | [ADR-0023](../architecture/decisions/ADR-0023-status-page-as-separate-k8s-cluster.md) |
-| 7 | Data retention | **180 days default**, 5 years for MiFID II tenants | [ADR-0017](../architecture/decisions/ADR-0017-default-180-day-retention-5-year-mifid.md) |
-| 8 | Compliance | **GDPR + MiFID II** from day one | [ADR-0015](../architecture/decisions/ADR-0015-gdpr-compliance-from-day-one.md), [ADR-0016](../architecture/decisions/ADR-0016-mifid-ii-compliance-from-day-one.md) |
+| 7 | Data retention | **Flat 180 days**, all tenants (no compliance tier) | [ADR-0017](../architecture/decisions/ADR-0017-default-180-day-retention-5-year-mifid.md), [ADR-0106](../architecture/decisions/ADR-0106-drop-regulatory-compliance-scope-gdpr-only.md) |
+| 8 | Compliance | **GDPR only** from day one — MiFID II / NIS2 dropped | [ADR-0015](../architecture/decisions/ADR-0015-gdpr-compliance-from-day-one.md), [ADR-0106](../architecture/decisions/ADR-0106-drop-regulatory-compliance-scope-gdpr-only.md) |
 | 9 | Open source strategy | **Fully proprietary** — no open-source components | [ADR-0026](../architecture/decisions/ADR-0026-fully-proprietary-no-open-source-core.md) |
 | 10 | Beta/early access strategy | **See Section 12** | [ADR-0079](../architecture/decisions/ADR-0079-dogfooding-design-partners-gtm.md) |
 
@@ -744,7 +743,7 @@ Given the solo developer + AI agent constraint, the following phased approach is
 - Target criteria: Teams with 10-50 services, active CI/CD, pain with current tooling
 - Free access in exchange for regular feedback and case study permission
 - White-glove onboarding by you — observe friction points in real time
-- Consider targeting fintech teams (MiFID II compliance is already built in — a selling point)
+- Target teams by developer-experience pain, not regulatory niche (the MiFID II compliance angle was dropped — see ADR-0106)
 
 ### Stage 3: Closed Beta (Post design-partner feedback incorporation)
 - Open to a broader set of **10-20 tenants** via waitlist

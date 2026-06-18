@@ -1,10 +1,10 @@
 # ADR-0016: MiFID II Compliance From Day One
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-0106](ADR-0106-drop-regulatory-compliance-scope-gdpr-only.md) (2026-06-18) — regulatory-compliance scope (MiFID II, and the later-considered NIS2) dropped; GDPR-only. The `mifid_ii_enabled` flag and 5-year retention described below were never built and are abandoned.
 **Date:** 2026-04-17
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** Compliance & Retention
-**Related:** ADR-0015 (GDPR), ADR-0017 (retention), ADR-0018 (audit log), ADR-0050 (notification retention)
+**Related:** ADR-0015 (GDPR), ADR-0017 (retention), ADR-0018 (audit log), ADR-0050 (notification retention), ADR-0106 (supersedes)
 
 ## Context
 

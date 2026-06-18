@@ -1,22 +1,21 @@
 # ADR-0061: Four-Tier Pricing Model (Free / Starter / Pro / Enterprise)
 
-**Status:** Accepted
+**Status:** Accepted — amended by [ADR-0106](ADR-0106-drop-regulatory-compliance-scope-gdpr-only.md) (2026-06-18): the Enterprise "MiFID II compliance flag (5-year retention)" feature and the `mifid_ii_flag` column are removed; retention is a flat 180 days across paid tiers (no longer a tier differentiator). The four-tier model itself is unchanged.
 **Date:** 2026-04-21
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** Billing
-**Related:** ADR-0016 (MiFID II compliance), ADR-0017 (retention policy), ADR-0062 (external billing provider), ADR-0063 (user-count metering), ADR-0076 (SLA tiers), ADR-0079 (dogfooding + design partners GTM)
+**Related:** ADR-0017 (retention policy), ADR-0062 (external billing provider), ADR-0063 (user-count metering), ADR-0076 (SLA tiers), ADR-0079 (dogfooding + design partners GTM), ADR-0106 (amends)
 
 ## Context
 
 Kartova's original PRD (§6.2) proposed flat per-user monthly pricing: one price, all features, linear scaling. While simple, this approach has weaknesses at scale:
 
 - **No free tier** discourages bottom-up adoption by individual developers and small teams who would become product champions
-- **No enterprise plan** makes it hard to capture high-value tenants (MiFID II regulated, fintech, 200+ users) who are willing to pay for premium features (5-year retention, 99.99% SLA, dedicated support) at substantially higher per-user rates
+- **No enterprise plan** makes it hard to capture high-value tenants (200+ users) who are willing to pay for premium features (99.99% SLA, premium SSO, dedicated support) at substantially higher per-user rates
 - **Single price point** forces a compromise between too-high (loses SMB) or too-low (under-prices enterprise value)
 - **No feature differentiation** means Kartova gives premium features (Status Page, CLI policy engine, DX Score, Risk Score, Tech Radar, Cost Attribution) away at the base price — 2-3x LTV reduction vs tiered models per industry benchmarks (OpenView SaaS pricing data)
 
 A clear tiering strategy is also needed to align with:
-- **MiFID II compliance (ADR-0016)** — 5-year retention implies meaningful additional cost, reasonably captured in an Enterprise plan
 - **Go-to-market strategy (ADR-0079)** — dogfooding and design partners benefit from a Free tier for validation and community building
 - **Target personas** from PRD §2 — developers (individual), DevOps engineers (team), engineering managers (organization/enterprise)
 
@@ -31,7 +30,7 @@ Kartova launches with a **four-tier pricing model**: Free, Starter, Pro, Enterpr
 | **Free** | $0 | — | 5 | 25 | 30 days | Best effort |
 | **Starter** | $10 / user / month | 5 | Unlimited | Unlimited | 180 days | 99.5% |
 | **Pro** | $25 / user / month | 10 | Unlimited | Unlimited | 180 days | 99.9% |
-| **Enterprise** | Custom (contact sales) | Negotiated | Unlimited | Unlimited | 5 years (MiFID II) | 99.99% |
+| **Enterprise** | Custom (contact sales) | Negotiated | Unlimited | Unlimited | 180 days | 99.99% |
 
 **Feature gating by tier:**
 
@@ -52,7 +51,6 @@ Kartova launches with a **four-tier pricing model**: Free, Starter, Pro, Enterpr
 | **Tech Radar + Cost Attribution** | | | ✓ | ✓ |
 | Hybrid agent (service discovery) | | | ✓ | ✓ |
 | SSO (SAML/OIDC via KeyCloak) | | | Basic | Premium (custom IdP) |
-| MiFID II compliance flag (5-year retention) | | | | ✓ |
 | Priority support | | Email | Priority email | Dedicated CSM |
 | Volume discounts | | | | Negotiated |
 
@@ -73,7 +71,7 @@ Since Kartova has not yet launched, no existing customers to migrate. Design par
 - **Free tier drives bottom-up adoption** — developers experiment on personal projects, become champions inside their companies, generate leads for Pro/Enterprise conversions
 - **Starter serves self-service small teams** — 5-20 person engineering teams can pay by credit card, no sales cycle; captures revenue Kartova would otherwise leave on the table between Free and Pro
 - **Pro is the revenue backbone** — differentiators (Status Page, CLI policy engine, DX Score, Risk Score, Tech Radar, Cost Attribution, hybrid agent) gate behind Pro to justify the price jump from Starter; this is Kartova's main ARR driver for mid-market
-- **Enterprise captures MiFID II value** — 5-year retention (ADR-0017) imposes real storage cost and legal risk for Kartova; Enterprise pricing must reflect this; dedicated support and custom SLA justify premium pricing to fintech and regulated-industry customers
+- **Enterprise captures high-touch value** — premium SSO (custom IdP), 99.99% SLA, dedicated support, and volume terms justify premium pricing to large-organization customers
 - **Per-user + minimum seats** — simple mental model (counting people) combined with revenue floor protection (a 1-person team on Starter still pays for 5 seats)
 - **Tier isolation via feature flags** — implementation complexity is low; feature-gate decisions map to an entitlements table keyed by tenant plan; EF Core interceptors and React feature-flag library enforce at both layers
 - **Prevents premature pricing compromise** — flat pricing at any single price point under-monetizes enterprise and over-prices SMB; tiered model optimizes both ends
@@ -91,9 +89,8 @@ Since Kartova has not yet launched, no existing customers to migrate. Design par
 **Positive:**
 - Captures revenue across the full spectrum from individual developers ($0) to regulated enterprises (custom pricing)
 - Free tier seeds top-of-funnel and builds community
-- Pro and Enterprise tiers differentiate Kartova's high-value features (Status Page, CLI, DX Score, MiFID II) at appropriate price points
+- Pro and Enterprise tiers differentiate Kartova's high-value features (Status Page, CLI, DX Score) at appropriate price points
 - Clear upsell path: Free → Starter → Pro → Enterprise; each jump is justified by visible additional value
-- MiFID II retention cost is recovered at Enterprise tier rather than subsidized by all customers
 - Matches the three-stage go-to-market (ADR-0079): dogfood (Free internal) → design partners (complimentary Pro) → closed beta → public launch with full pricing
 
 **Negative / Trade-offs:**
@@ -122,7 +119,7 @@ CREATE TABLE plans (
   minimum_seats INT NOT NULL DEFAULT 0,
   max_users INT,                          -- NULL = unlimited
   max_entities INT,                       -- NULL = unlimited
-  retention_days INT NOT NULL,            -- 30, 180, 1825 (5 years)
+  retention_days INT NOT NULL,            -- 30 (free), 180 (paid)
   sla_target NUMERIC(5,3) NOT NULL,       -- 0.995, 0.999, 0.9999
   features JSONB NOT NULL                 -- { "status_page": true, "cli_policy": true, ... }
 );
@@ -130,7 +127,6 @@ CREATE TABLE plans (
 CREATE TABLE tenant_subscriptions (
   tenant_id UUID PRIMARY KEY REFERENCES tenants,
   plan_id TEXT NOT NULL REFERENCES plans,
-  mifid_ii_flag BOOLEAN NOT NULL DEFAULT FALSE,  -- Enterprise only
   custom_sla_percent NUMERIC(5,3),               -- Enterprise overrides
   seat_count INT NOT NULL,
   billing_cycle_anchor TIMESTAMPTZ NOT NULL,

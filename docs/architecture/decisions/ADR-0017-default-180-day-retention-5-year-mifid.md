@@ -1,10 +1,10 @@
-# ADR-0017: Default 180-Day Retention, 5-Year for MiFID II Tenants
+# ADR-0017: Default 180-Day Retention
 
-**Status:** Accepted
+**Status:** Accepted — amended by [ADR-0106](ADR-0106-drop-regulatory-compliance-scope-gdpr-only.md) (2026-06-18): the 5-year MiFID II tier and per-tenant compliance flag are removed; retention is a flat 180-day operational default. The original two-tier text is struck through below.
 **Date:** 2026-04-17
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** Compliance & Retention
-**Related:** ADR-0016 (MiFID), ADR-0019 (soft delete), ADR-0020 (archival)
+**Related:** ADR-0019 (soft delete), ADR-0106 (amends)
 
 ## Context
 
@@ -12,22 +12,17 @@ Operational history (uptime, deployments, audit, scans, incidents) accumulates q
 
 ## Decision
 
-Default retention:
+Retention (flat, all tenants — per ADR-0106):
 
 - Uptime / deployment / audit / scan / incident history: **180 days**
 - Soft-deleted entities: **30 days** before purge
 
-MiFID II tenants (ADR-0016):
-
-- All retention windows above become **5 years**
-
-Archival to cold storage kicks in after the active retention window (ADR-0020).
+~~MiFID II tenants (ADR-0016): all retention windows above become 5 years. Archival to cold storage kicks in after the active retention window (ADR-0020).~~ — removed by ADR-0106 (compliance scope dropped).
 
 ## Rationale
 
 - 180 days is sufficient for trend analysis, scorecards, and debugging without paying enterprise-grade storage cost by default.
-- 5 years satisfies MiFID II article 16 record-keeping minimums.
-- Two-tier retention avoids penalizing non-regulated tenants.
+- A single flat window is the simplest mental model now that there is no regulatory tier (ADR-0106).
 
 ## Alternatives Considered
 

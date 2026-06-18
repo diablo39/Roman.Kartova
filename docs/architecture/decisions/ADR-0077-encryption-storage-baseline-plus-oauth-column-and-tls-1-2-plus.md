@@ -8,7 +8,7 @@
 
 ## Context
 
-Kartova needs a defensible data-protection posture for compliance (GDPR per ADR-0015, MiFID II per ADR-0016, SOC 2 Type II for enterprise sales) and for basic secure-by-default engineering hygiene. The original PRD §7.3 blanketly stated "All data encrypted at rest and in transit; mTLS for agents" — this was both under-specified and over-reaching:
+Kartova needs a defensible data-protection posture for compliance (GDPR per ADR-0015, SOC 2 Type II for enterprise sales) and for basic secure-by-default engineering hygiene. The original PRD §7.3 blanketly stated "All data encrypted at rest and in transit; mTLS for agents" — this was both under-specified and over-reaching:
 
 - **Over-reaching on at-rest scope** — encrypting every field at the application layer imposes huge complexity on search, indexing, EF Core value conversion, and key management, without proportional security benefit. Work emails, IP addresses, and similar "pseudo-PII" are already effectively public (email signatures, LinkedIn, git commits) and do not warrant column-level encryption.
 - **Wrong on mTLS for agents** — ADR-0042 already rejected mTLS in favor of TLS + bearer tokens for operational simplicity and proxy compatibility.
@@ -137,7 +137,7 @@ The following fields intentionally **do not** use application-level encryption; 
 - Narrow encryption scope is implementable by a solo developer without blowing up schedule
 - Storage-level encryption is invisible to application code — zero maintenance burden
 - OAuth tokens (the real secrets) are protected against database-read-only compromise
-- TLS 1.2+ mandate gives a clean, auditable compliance story for GDPR / MiFID II / SOC 2
+- TLS 1.2+ mandate gives a clean, auditable compliance story for GDPR / SOC 2
 - Key management hierarchy (master key → per-tenant DEK) is a standard pattern with plenty of reference implementations in .NET
 - No mTLS operational cost — one less PKI surface to maintain
 - Deliberate scope prevents "encryption sprawl" where every developer adds encrypted columns reflexively

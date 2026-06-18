@@ -17,14 +17,14 @@ A single notification dispatch engine handles all outbound notifications across 
 ## Rationale
 
 - Eliminates duplicate retry/backoff/DLQ logic across features.
-- Centralizes MiFID II communication-record capture (ADR-0050) — a single place to guarantee retention.
+- Centralizes notification-record capture (ADR-0050) — a single place to guarantee a consistent, queryable audit trail.
 - User notification preferences (per event type × per channel) are meaningful only when centrally orchestrated.
 - Adding a new feature that needs notifications reduces to "raise an event + ship a template."
 
 ## Alternatives Considered
 
 - **Per-feature notifiers** — rejected: duplication, inconsistent auditability, hard to globally throttle.
-- **Third-party service (Courier, Knock, Novu)** — rejected for MVP: data-residency complications, MiFID retention pushes log of record back to us anyway, and we already need in-app + webhook internally.
+- **Third-party service (Courier, Knock, Novu)** — rejected for MVP: data-residency complications, keeping the log of record in-house (our own audit trail) is wanted anyway, and we already need in-app + webhook internally.
 - **SendGrid Marketing or similar vendor SaaS** — addresses email only, not the multi-channel need.
 
 ## Consequences

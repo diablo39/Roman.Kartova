@@ -8,7 +8,7 @@
 
 ## Context
 
-Kartova targets 1000+ tenants with up to 10k services and 5k users per tenant, totaling millions of entities (ADR-0074). Every tenant's data must be isolated from every other tenant's — a data leak would be catastrophic for compliance (GDPR/MiFID II per ADR-0015/0016) and business reputation. Operationally, a solo developer cannot manage 1000 separate databases or schemas. Hot-path API latency target is p95 < 200ms (ADR-0075). The tenant claim is extracted from the JWT per ADR-0014.
+Kartova targets 1000+ tenants with up to 10k services and 5k users per tenant, totaling millions of entities (ADR-0074). Every tenant's data must be isolated from every other tenant's — a data leak would be catastrophic for compliance (GDPR per ADR-0015) and business reputation. Operationally, a solo developer cannot manage 1000 separate databases or schemas. Hot-path API latency target is p95 < 200ms (ADR-0075). The tenant claim is extracted from the JWT per ADR-0014.
 
 ## Decision
 
@@ -20,7 +20,7 @@ Use PostgreSQL Row-Level Security. Every tenant-owned table gets a `tenant_id UU
 - **Scale** — a single cluster, single DB scales to millions of rows across 1000+ tenants without PostgreSQL catalog bloat (the problem that kills schema-per-tenant around 500 schemas).
 - **Solo-dev operations** — one backup, one migration run, one monitoring target, one connection pool.
 - **GDPR cascade deletion (ADR-0015)** — becomes `DELETE ... WHERE tenant_id = @id CASCADE` — one statement across all tables.
-- **MiFID II compliance flag (ADR-0016)** — single column on `tenants` table + conditional retention jobs — trivial.
+- **Retention/purge jobs (ADR-0017)** — per-tenant purge is a single `DELETE ... WHERE tenant_id = @id` — trivial.
 - **EF Core support** — Global Query Filters auto-inject the tenant filter transparently; combined with RLS provides two independent layers.
 - **Proven pattern** — used by GitLab, Supabase, and many SaaS platforms at this scale.
 
@@ -36,7 +36,7 @@ Use PostgreSQL Row-Level Security. Every tenant-owned table gets a `tenant_id UU
 **Positive:**
 - Cross-tenant data leaks are physically impossible at the DB layer, even if app code has bugs
 - Single-cluster operations match solo-developer capacity
-- GDPR erasure and MiFID II retention jobs simplify to per-tenant-id operations
+- GDPR erasure and retention/purge jobs simplify to per-tenant-id operations
 - EF Core transparent filtering keeps application code clean
 - Matches ADR-0001, ADR-0011, ADR-0014 naturally
 

@@ -37,15 +37,13 @@ multi_tenancy:
   tenant_context: tenant_id JWT claim propagated to SET app.current_tenant (ADR-0014)
   rbac: org-entry realm roles — Viewer, Member, OrgAdmin (+ orthogonal PlatformAdmin, forward-compat ServiceAccount); team-admin authority is per-team Admin membership, not a realm role (ADR-0008 amended by ADR-0101)
 compliance:
-  - GDPR from day one — right to erasure, export, consent, residency, DPA (ADR-0015)
-  - MiFID II per-tenant opt-in (mifid_ii_enabled flag) triggering 5-year retention (ADR-0016)
-  - Default 180-day retention, 5 years for MiFID tenants (ADR-0017)
-  - Append-only tamper-evident audit log with hash chaining, no UPDATE/DELETE grants (ADR-0018)
+  - GDPR-only — no MiFID II / NIS2 regulatory scope (ADR-0106 dropped it); right to erasure, export, consent, residency, DPA (ADR-0015)
+  - Flat 180-day operational retention, all tenants — no compliance tier (ADR-0017, amended by ADR-0106)
+  - Append-only audit log with hash chaining, no UPDATE/DELETE grants — kept as security hardening, GDPR accountability (ADR-0018, re-anchored by ADR-0106)
   - Soft delete with 30-day purge window (ADR-0019)
-  - Cold-storage archival after active retention (Glacier / Azure Archive / GCS Archive) (ADR-0020)
   - Per-tenant residency_region field, EU for MVP (ADR-0021)
-  - Notification log qualifies as MiFID II communication record (ADR-0050)
   - No secrets stored, references only (ADR-0078)
+  - SUPERSEDED by ADR-0106: MiFID II from day one (ADR-0016), cold-storage archival (ADR-0020), notification-log-as-comms-record (ADR-0050)
 security:
   encryption_at_rest: storage-level AES-256 baseline + column-level encryption for OAuth tokens (ADR-0077)
   encryption_in_transit: TLS 1.2+ mandatory, TLS 1.3 preferred (ADR-0077)
@@ -142,11 +140,11 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0013](ADR-0013-elasticsearch-shared-index-with-tenant-routing.md) | Elasticsearch Shared Index with Tenant Routing | Multi-Tenancy / Search | Accepted | 0002, 0012, 0015, 0017, 0074, 0075 | Use shared ES indexes per type with `tenant_id` field, routing by tenant, per-tenant filtered aliases, and ILM retention tiers. |
 | [0014](ADR-0014-tenant-claim-extracted-from-jwt.md) | Tenant Claim Extracted from JWT | Multi-Tenancy | Accepted | 0007, 0012 | Read the tenant ID exclusively from the validated JWT `tenant_id` claim and propagate it to `SET app.current_tenant` for RLS enforcement. |
 | [0015](ADR-0015-gdpr-compliance-from-day-one.md) | GDPR Compliance From Day One | Compliance & Retention | Accepted | 0016, 0019, 0021, 0078 | Implement right-to-erasure across Postgres/ES/blob, data export, consent records, residency disclosure, and DPA from MVP. |
-| [0016](ADR-0016-mifid-ii-compliance-from-day-one.md) | MiFID II Compliance From Day One | Compliance & Retention | Accepted | 0015, 0017, 0018, 0050 | Every tenant carries a `mifid_ii_enabled` flag triggering 5-year retention of audit log, notifications, and communications. |
-| [0017](ADR-0017-default-180-day-retention-5-year-mifid.md) | Default 180-Day Retention, 5-Year for MiFID | Compliance & Retention | Accepted | 0016, 0019, 0020 | Default 180-day retention for uptime/audit/scan/incident history; 5 years for tenants with MiFID II enabled. |
-| [0018](ADR-0018-append-only-tamper-evident-audit-log.md) | Append-Only Tamper-Evident Audit Log | Compliance & Retention | Accepted | 0016, 0017 | Maintain an insert-only PostgreSQL audit table with no UPDATE/DELETE grants and tamper-evident hash chaining. |
-| [0019](ADR-0019-soft-delete-with-30-day-purge.md) | Soft Delete with 30-Day Purge | Compliance & Retention | Accepted | 0015, 0016, 0017 | Two-phase deletion: soft-delete marks `deleted_at` and hides from UI/API; hard purge runs after a 30-day window. |
-| [0020](ADR-0020-cold-storage-archival-after-active-retention.md) | Cold-Storage Archival After Active Retention | Compliance & Retention | Accepted | 0017, 0018 | After active retention expires, automatically move data to cold object storage (S3 Glacier / Azure Archive / GCS Archive) with hours-SLA retrieval. |
+| [0016](ADR-0016-mifid-ii-compliance-from-day-one.md) | MiFID II Compliance From Day One | Compliance & Retention | **Superseded (0106)** | 0015, 0017, 0018, 0050, 0106 | ~~`mifid_ii_enabled` flag triggering 5-year retention.~~ Regulatory-compliance scope dropped — never built. |
+| [0017](ADR-0017-default-180-day-retention-5-year-mifid.md) | Default 180-Day Retention | Compliance & Retention | Accepted (amended 0106) | 0019, 0106 | Flat 180-day operational retention for all tenants (the 5-year MiFID tier was removed by ADR-0106). |
+| [0018](ADR-0018-append-only-tamper-evident-audit-log.md) | Append-Only Tamper-Evident Audit Log | Security & Compliance | Accepted (re-anchored 0106) | 0017, 0105, 0106 | Insert-only PostgreSQL audit table, no UPDATE/DELETE grants, hash chaining — kept as security hardening + GDPR accountability. |
+| [0019](ADR-0019-soft-delete-with-30-day-purge.md) | Soft Delete with 30-Day Purge | Compliance & Retention | Accepted (amended 0106) | 0015, 0017, 0106 | Two-phase deletion: soft-delete marks `deleted_at` and hides from UI/API; hard purge after a single 30-day window (all tenants). |
+| [0020](ADR-0020-cold-storage-archival-after-active-retention.md) | Cold-Storage Archival After Active Retention | Compliance & Retention | **Superseded (0106)** | 0017, 0018, 0106 | ~~Move data to cold object storage after active retention.~~ Shelved — no 5-year regulatory long-tail to archive. |
 | [0021](ADR-0021-data-residency-tracking-per-tenant.md) | Data Residency Tracking Per Tenant | Compliance & Retention | Accepted | 0015, 0022 | Store a `residency_region` field on each tenant (EU for MVP); actual multi-region routing deferred to v2.0+. |
 | [0022](ADR-0022-kubernetes-cloud-agnostic-deployment.md) | Kubernetes, Cloud-Agnostic Deployment | Platform Infrastructure | Accepted | 0023, 0043 | Deploy on Kubernetes using cloud-agnostic building blocks (standard APIs, Helm, Ingress, cert-manager); avoid cloud-specific managed services. |
 | [0023](ADR-0023-status-page-as-separate-k8s-cluster.md) | Status Page as Separate K8s Cluster | Platform Infrastructure | Accepted | 0005, 0022, 0076 | Deploy the status page to a separate K8s cluster (or isolated namespace/AZ) with its own ingress, replica, and scaling. |
@@ -176,7 +174,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0047](ADR-0047-unified-multi-channel-notification-engine.md) | Unified Multi-Channel Notification Engine | Notification Architecture | Accepted | 0033, 0048, 0049, 0050 | A single dispatch engine handles all outbound notifications across in-app, email, webhook, Slack, Teams, RSS, and SMS channels. |
 | [0048](ADR-0048-native-slack-and-teams-integrations.md) | Native Slack & Microsoft Teams Integrations | Notification Architecture | Accepted | 0047, 0057 | Ship native OAuth-installed Slack (Block Kit) and Microsoft Teams (Adaptive Cards) bot integrations with per-channel routing. |
 | [0049](ADR-0049-configurable-smtp-email-provider.md) | Configurable SMTP / Email Provider | Notification Architecture | Accepted | 0047, 0050 | Email channel targets a configurable provider interface — generic SMTP default plus pluggable adapters for SendGrid/SES/etc. |
-| [0050](ADR-0050-notification-log-as-mifid-ii-record.md) | Notification Log as MiFID II Communication Record | Notification Architecture / Compliance | Accepted | 0016, 0017, 0018, 0047 | Persist every outbound notification with full rendered payload in a `notification_log` table qualifying as a MiFID II communication record. |
+| [0050](ADR-0050-notification-log-as-mifid-ii-record.md) | Notification Log as MiFID II Communication Record | Notification Architecture / Compliance | **Superseded (0106)** | 0016, 0017, 0018, 0047, 0106 | ~~Notification log as a 5-year MiFID II communication record.~~ If built, it is an operational record only (ADR-0106). |
 | [0051](ADR-0051-multi-channel-status-page-subscribers.md) | Multi-Channel Status Page Subscribers | Status Page Architecture | Accepted | 0023, 0047, 0053 | Status page visitors subscribe via four channels: email (double opt-in), SMS, webhook, and RSS. |
 | [0052](ADR-0052-custom-domains-with-auto-ssl.md) | Custom Domains with Auto-Provisioned SSL | Status Page Architecture | Accepted | 0023, 0053 | Tenants configure custom status-page domains; platform validates via DNS challenge and auto-provisions SSL certificates (Let's Encrypt/ACME). |
 | [0053](ADR-0053-status-page-99-99-sla-target.md) | 99.99% SLA Target for Status Page | Status Page Architecture / Availability | Accepted | 0005, 0023, 0051, 0052, 0076 | Status page carries a 99.99% availability SLA (≤ ~52 min/year), one nine higher than the 99.9% platform SLA. |
@@ -232,6 +230,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0103](ADR-0103-application-ownership-required-team.md) | Application Ownership Is a Required Team; the Individual Is Created-By Provenance | Domain Model | Accepted | 0066, 0082, 0101, 0102 | `Application.TeamId` is required (the owning team; no ownerless apps); the individual is `CreatedByUserId` — immutable provenance, never reassigned or nulled; registration is membership-gated (OrgAdmin any team, Member only their teams); offboarding does not reassign apps (ADR-0102). Aligns with Backstage (`spec.owner` = Group) and Compass (Owner = Atlassian Team). |
 | [0104](ADR-0104-payload-free-outcomes-are-enums.md) | Payload-Free Operation Outcomes Are Enums, Not Boolean-Flag Result Records | Code Conventions | Accepted | 0082, 0095, 0097 | Application-layer results with no success payload + mutually-exclusive terminal states are a C# `enum` (one member per outcome), not a `record` of parallel `bool` flags; results that carry data on success stay records (e.g. `AssignApplicationTeamResult`). Endpoints map outcomes via an exhaustive `switch` + `_ => throw` guard. Removes representable illegal states and tautological factory-shape tests. Review-enforced. |
 | [0105](ADR-0105-audit-chain-checkpoints-and-external-anchoring.md) | Audit-Chain Checkpoints and External Anchoring | Security / Compliance | Accepted | 0001, 0018, 0090, 0099 | Two-tier checkpointing for the per-tenant audit hash chain. Tier 1 (now): an insert-only, RLS-scoped `audit_checkpoint` table snapshots a verified chain head so routine verification re-walks only the tail since the last checkpoint (O(tail) not O(whole chain)); written by a daily `LeaderElectedPeriodicService` sweep. Tier 2 (deferred): export checkpoint hashes to a WORM/signed store outside the DB trust boundary to detect rollback/truncation. |
+| [0106](ADR-0106-drop-regulatory-compliance-scope-gdpr-only.md) | Drop Regulatory-Compliance Scope — GDPR-Only | Compliance & Retention | Accepted | 0015, 0016, 0017, 0018, 0019, 0020, 0050, 0061 | Drop all regulatory-compliance scope beyond GDPR (MiFID II and a considered NIS2 pivot both dropped — none was ever built). Supersedes 0016/0020/0050; amends 0017/0019/0061; re-anchors the audit log (0018) to security/GDPR. Flat 180-day retention, no compliance flag, no 5-year tier. |
 
 ## By category (quick navigation)
 
@@ -271,7 +270,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Design source / mockups**: 0039, 0087
 - **Agent architecture**: 0041, 0042, 0043, 0044, 0045, 0067
 - **API contract**: 0029, 0030, 0031, 0032, 0033, 0034
-- **Compliance (GDPR / MiFID II)**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050, 0078, 0102
+- **Compliance (GDPR-only)**: 0015, 0017, 0018, 0019, 0021, 0078, 0102, 0106 (drops MiFID II/NIS2; supersedes 0016, 0020, 0050)
 - **Resource identifier / entity ID format**: 0092, 0098
 - **Retention / archival / deletion**: 0017, 0019, 0020, 0073, 0102
 - **Audit & logging**: 0018, 0050, 0058, 0102, 0105
@@ -426,13 +425,13 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Per-key parallelism (Kafka consumers)** → 0081
 - **Metering (per-user)** → 0063
 - **Metrics (/metrics)** → 0036, 0059
-- **MiFID II** → 0016, 0017, 0018, 0050, 0062
+- **MiFID II / NIS2 (dropped)** → 0106 (supersedes 0016, 0020, 0050; amends 0017, 0019, 0061)
 - **MinIO** → 0004
 - **mTLS (NOT used)** → 0033, 0042, 0077
 - **Multi-ownership / quorum** → 0066, 0103
 - **Multi-tenancy** → 0011, 0012, 0013, 0014
 - **Notifications engine** → 0047, 0048, 0049, 0050, 0051
-- **Notification log (MiFID)** → 0050
+- **Notification log (operational)** → 0050 (superseded by 0106 — no longer a MiFID record)
 - **OAuth** → 0035, 0048, 0057
 - **OIDC** → 0006, 0007, 0010
 - **One-org-one-tenant** → 0011
@@ -458,7 +457,7 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **REST API** → 0029, 0030, 0031, 0032, 0034, 0092, 0096
 - **HTTP verbs / PUT / POST / PATCH** → 0096
 - **Named action endpoints** → 0073, 0096
-- **Retention (180 days / 5 years)** → 0017, 0019, 0020
+- **Retention (flat 180 days)** → 0017, 0019 (0020 superseded by 0106)
 - **Right to erasure (GDPR)** → 0015, 0019, 0102
 - **Required-owner (application / entity)** → 0069, 0103
 - **CreatedByUserId / created-by provenance** → 0103

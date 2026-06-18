@@ -1,10 +1,10 @@
 # ADR-0050: Notification Log Retained as MiFID II Communication Record
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-0106](ADR-0106-drop-regulatory-compliance-scope-gdpr-only.md) (2026-06-18) — MiFID II scope dropped. The notification log (when built) is an operational record only, not a 5-year communication record. Never built.
 **Date:** 2026-04-17
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** Notification Architecture / Compliance
-**Related:** ADR-0016 (MiFID II), ADR-0017 (retention), ADR-0018 (audit log), ADR-0047 (notification engine)
+**Related:** ADR-0016 (MiFID II), ADR-0017 (retention), ADR-0018 (audit log), ADR-0047 (notification engine), ADR-0106 (supersedes)
 
 ## Context
 

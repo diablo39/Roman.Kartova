@@ -316,7 +316,7 @@ Alphabetical concept → where to look. Use this when searching by topic rather 
 | Bulk operations | E-01.F-06, E-08.F-02 |
 | CI/CD | E-01.F-02 |
 | CLI tool | E-13 (all) |
-| Compliance (GDPR, MiFID II) | E-01.F-05 (S-04..S-08) |
+| Compliance (GDPR-only; MiFID II/NIS2 dropped — ADR-0106) | E-01.F-05 (S-03..S-06, S-08) |
 | Cost attribution / FinOps | E-24 |
 | Custom attributes (JSONB) | E-02.F-01..F-04 (per ADR-0064) |
 | Custom Entity (10th type) | Phase 2 addition (ADR-0064) |
@@ -442,6 +442,7 @@ Full library: [decisions/README.md](../architecture/decisions/README.md).
 - **C-09:** Added E-08.F-03.S-04 (Conflict review queue for re-scan conflicts)
 - **I-01:** Added E-06.F-04 (Environment Map Dashboard), E-06.F-05 (Status Board Dashboard)
 - **I-02/I-06:** Added E-01.F-05.S-04..S-08 (GDPR erasure, consent, breach notification, data residency, MiFID II)
+- **I-08 (2026-06-18):** Dropped regulatory-compliance scope (MiFID II, and a considered NIS2 pivot) — GDPR-only. Removed E-01.F-05.S-02 (compliance flag) and S-07 (comms-record retention); see [ADR-0106](../architecture/decisions/ADR-0106-drop-regulatory-compliance-scope-gdpr-only.md)
 - **I-07:** Scan feature split deferred to sprint planning
 - **I-09:** RLS chosen over schema-per-tenant (E-01.F-08.S-03)
 - **I-10:** Split custom domain into domain config + SSL provisioning (E-12.F-01.S-02/S-03)

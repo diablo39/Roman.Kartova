@@ -1,6 +1,6 @@
 # Kartova — Development Progress Checklist
 
-**Last updated:** 2026-06-10
+**Last updated:** 2026-06-18
 
 ## How to use
 - [ ] = Not started
@@ -11,7 +11,7 @@
 
 | Phase | Status | Progress |
 |-------|--------|----------|
-| Phase 0: Foundation | In Progress | 11/33 |
+| Phase 0: Foundation | In Progress | 11/31 |
 | Phase 1: Core Catalog & Notifications | In Progress | 13/60 |
 | Phase 2: Auto-Import | Not Started | 0/36 |
 | Phase 3: Documentation | Not Started | 0/15 |
@@ -21,11 +21,11 @@
 | Phase 7: Intelligence | Not Started | 0/13 |
 | Phase 8: Analytics | Not Started | 0/14 |
 | Phase 9: Advanced | Not Started | 0/0 |
-| **Total** | | **20/214** |
+| **Total** | | **20/212** |
 
 ---
 
-## Phase 0: Foundation (33 stories)
+## Phase 0: Foundation (31 stories; 2 dropped — ADR-0106)
 
 ### E-01: Project Foundation & Infrastructure
 
@@ -43,7 +43,7 @@
 **E-01.F-03: Database Foundation**
 - [x] E-01.F-03.S-01 — Multi-tenant database schema with tenant isolation
 - [ ] E-01.F-03.S-02 — Database migration framework
-- [x] E-01.F-03.S-03 — Append-only audit log table (MiFID II) — Phase 1 foundation (audit-log-foundation, 2026-06-12): Kartova.Audit module, insert-only/RLS audit_log table (DB-enforced REVOKE + tenant_isolation policy), IAuditWriter (sync in-transaction, fail-closed), per-tenant SHA-256 hash chain + AuditChainVerifier (ADR-0018). Event wiring = Phase 2. Phase 2 (audit-event-wiring, 2026-06-17): 10 Organization mutations wired to IAuditWriter (member role-change/offboard, team CRUD + membership, invitation.created, org.profile_updated); actor_display snapshot from JWT. Catalog events + System-actor/expiry-sweep deferred.
+- [x] E-01.F-03.S-03 — Append-only audit log table (security forensics + GDPR accountability; MiFID II driver dropped per ADR-0106, log retained on security grounds) — Phase 1 foundation (audit-log-foundation, 2026-06-12): Kartova.Audit module, insert-only/RLS audit_log table (DB-enforced REVOKE + tenant_isolation policy), IAuditWriter (sync in-transaction, fail-closed), per-tenant SHA-256 hash chain + AuditChainVerifier (ADR-0018). Event wiring = Phase 2. Phase 2 (audit-event-wiring, 2026-06-17): 10 Organization mutations wired to IAuditWriter (member role-change/offboard, team CRUD + membership, invitation.created, org.profile_updated); actor_display snapshot from JWT. Catalog events + System-actor/expiry-sweep deferred.
 
 **E-01.F-04: Authentication & Authorization**
 - [x] E-01.F-04.S-01 — KeyCloak configured with OIDC
@@ -53,13 +53,13 @@
 - [ ] E-01.F-04.S-05 — BFF cookie-session auth (security hardening, post-MVP)
 
 **E-01.F-05: Data Retention & Compliance Infrastructure**
-- [ ] E-01.F-05.S-01 — Data retention engine with configurable purge
-- [ ] E-01.F-05.S-02 — Tenant-level MiFID II compliance flag
+- [ ] E-01.F-05.S-01 — Data retention engine (flat 180-day purge, all tenants — ADR-0106)
+- [~] ~~E-01.F-05.S-02 — Tenant-level MiFID II compliance flag~~ — DROPPED (ADR-0106: no regulatory tier)
 - [ ] E-01.F-05.S-03 — Data export in JSON/CSV (GDPR portability)
 - [ ] E-01.F-05.S-04 — Full data deletion on account termination
 - [ ] E-01.F-05.S-05 — GDPR consent flows during registration
 - [ ] E-01.F-05.S-06 — Breach notification workflow (72-hour)
-- [ ] E-01.F-05.S-07 — Notification retention as communication records
+- [~] ~~E-01.F-05.S-07 — Notification retention as communication records~~ — DROPPED (ADR-0106: operational log only)
 - [ ] E-01.F-05.S-08 — Data residency tracking per tenant
 
 **E-01.F-06: Platform API Infrastructure**

@@ -8,7 +8,7 @@
 
 ## Context
 
-Kartova is a multi-tenant SaaS developer portal targeting 1000+ tenants, 10k services/tenant, and millions of entities overall (PRD §7.1). The primary transactional datastore must support strong multi-tenancy, flexible entity metadata (nine entity types with heterogeneous attributes), relational integrity for graph-like relationships, and GDPR/MiFID II compliance features (row-level security, audit trails, cascade deletion). As a solo developer, operational simplicity and a broad community are essential.
+Kartova is a multi-tenant SaaS developer portal targeting 1000+ tenants, 10k services/tenant, and millions of entities overall (PRD §7.1). The primary transactional datastore must support strong multi-tenancy, flexible entity metadata (nine entity types with heterogeneous attributes), relational integrity for graph-like relationships, and GDPR compliance features (row-level security, audit trails, cascade deletion). As a solo developer, operational simplicity and a broad community are essential.
 
 ## Decision
 

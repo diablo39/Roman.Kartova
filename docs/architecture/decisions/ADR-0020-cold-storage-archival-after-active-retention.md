@@ -1,10 +1,10 @@
 # ADR-0020: Cold-Storage Archival After Active Retention
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-0106](ADR-0106-drop-regulatory-compliance-scope-gdpr-only.md) (2026-06-18) — the 5-year regulatory long-tail that justified cold-storage archival is gone (MiFID II/NIS2 scope dropped). With a flat 180-day operational retention, archival is shelved; revisit only as a pure cost-control measure if volumes warrant. Never built.
 **Date:** 2026-04-17
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** Compliance & Retention
-**Related:** ADR-0017 (retention), ADR-0018 (audit log)
+**Related:** ADR-0017 (retention), ADR-0018 (audit log), ADR-0106 (supersedes)
 
 ## Context
 

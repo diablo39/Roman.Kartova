@@ -100,7 +100,7 @@ Agent never writes its token; rotation is entirely admin-driven.
 - **gRPC bidirectional streaming:** Efficient and elegant on the wire but breaks under TLS-intercepting enterprise proxies that don't support HTTP/2 or that downgrade to HTTP/1.1. Idle-connection timeouts on corporate proxies force constant reconnects. Rejected as premature optimization for the enterprise target market; acknowledged as a future opt-in mode for tenants without proxy constraints.
 - **WebSocket over HTTPS:** Better proxy compatibility than gRPC (uses HTTP/1.1 Upgrade handshake) and enables real-time platform→agent push. Adds protocol complexity; some strict proxies still block WebSocket upgrades; requires dual code paths (WebSocket + polling fallback) to be production-safe. Can be added later as a push-notification channel if latency becomes a demonstrated pain point.
 - **mTLS:** Strongest authentication but imposes heavy PKI operational burden on both Kartova (CA management, cert issuance, rotation scheduler) and customer DevOps (client cert lifecycle, trust chains). Certificate-based debugging is a known support cost. Does not eliminate the token-to-tenant mapping. Rejected.
-- **JWT with auto-rotation (refresh + access flow):** More compliant with short-lived-credential best practices but requires stateful agent (persist refresh token, rotate under load, handle rotation failures). Adds code, failure modes, and complexity. Deferred as an optional future enhancement for MiFID II tenants that require it.
+- **JWT with auto-rotation (refresh + access flow):** More compliant with short-lived-credential best practices but requires stateful agent (persist refresh token, rotate under load, handle rotation failures). Adds code, failure modes, and complexity. Deferred as an optional future enhancement for tenants that require it.
 - **WireGuard / Tailscale mesh:** Requires customers to install and operate VPN software; adds cognitive load; Tailscale adds vendor cost. Rejected as too heavy.
 - **Workload Identity (GKE / AKS / EKS IRSA):** Cloud-native, eliminates secrets in the agent, but tightly couples to a specific cloud — violates ADR-0022 cloud-agnostic deployment.
 - **JWT no-expiry (stored opaquely in DB):** JWT brings no benefit when all lookups hit the database; claims are unused. Opaque tokens are simpler and allow hashed storage.
@@ -124,7 +124,7 @@ Agent never writes its token; rotation is entirely admin-driven.
 - Slightly higher bandwidth overhead than streaming (repeated TLS handshakes, repeated HTTP headers) — negligible at target agent density
 - Long-lived tokens violate short-lived-credential best practice; compensating controls: per-agent scope, audit logging, admin-set optional TTL, anomaly detection (future Phase 7)
 - Admin responsibility to rotate periodically — UI reminders exist but cannot force action
-- MiFID II / SOC2 auditors may prefer short-lived credentials; those tenants should set explicit TTLs
+- SOC 2 auditors may prefer short-lived credentials; those tenants should set explicit TTLs
 - Token storage in customer infrastructure requires customer-side hardening (etcd encryption, file permissions, sealed-secrets) — documented in onboarding
 
 **Neutral:**
