@@ -143,6 +143,32 @@ public sealed class InvitationExpirySweepAuditTests : OrganizationIntegrationTes
         }
     }
 
+    // --- An accepted invitation is never re-expired, even past its ExpiresAt ---
+    [TestMethod]
+    public async Task Sweep_leaves_accepted_invitation_untouched_even_if_past_due()
+    {
+        var (_, tenantId) = await NewTenantAsync("expire-accepted");
+        var past = DateTimeOffset.UtcNow.AddDays(-8);
+        var invitationId = await Fx.SeedAcceptedInvitationAsync(
+            tenantId, "accepted@expire-accepted.kartova.local", KartovaRoles.Member,
+            invitedAt: past, expiresAt: past.AddDays(7)); // expired 1 day ago, but Accepted
+
+        try
+        {
+            await RunSweepAsync();
+
+            Assert.AreEqual(InvitationStatus.Accepted, await ReadStatusAsync(invitationId));
+            var rows = await Fx.ReadAuditLogAsync(tenantId);
+            Assert.AreEqual(0, rows.Count(r => r.Action == OrganizationAuditActions.InvitationExpired),
+                "an accepted invitation must not produce an expiry audit row");
+        }
+        finally
+        {
+            await Fx.DeleteInvitationsForTenantAsync(tenantId);
+            await Fx.DeleteOrganizationsForTenantAsync(tenantId);
+        }
+    }
+
     // --- Idempotency: a second sweep does not re-expire or double-audit ---
     [TestMethod]
     public async Task Sweep_run_twice_does_not_double_audit()
