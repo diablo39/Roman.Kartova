@@ -73,6 +73,7 @@ public sealed class InvitationExpirySweepAuditTests : OrganizationIntegrationTes
             using var data = JsonDocument.Parse(row.DataJson!);
             Assert.AreEqual("expiree@expire-happy.kartova.local", data.RootElement.GetProperty("email").GetString());
             Assert.AreEqual(KartovaRoles.Member, data.RootElement.GetProperty("role").GetString());
+            AssertChainLinked(rows);
         }
         finally
         {
@@ -107,6 +108,8 @@ public sealed class InvitationExpirySweepAuditTests : OrganizationIntegrationTes
             var rowB = rowsB.Single(r => r.Action == OrganizationAuditActions.InvitationExpired);
             Assert.AreEqual(invB.ToString(), rowB.TargetId);
             Assert.IsFalse(rowsB.Any(r => r.TargetId == invA.ToString()), "tenant B chain must not contain tenant A's row");
+            AssertChainLinked(rowsA);
+            AssertChainLinked(rowsB);
         }
         finally
         {
@@ -191,6 +194,16 @@ public sealed class InvitationExpirySweepAuditTests : OrganizationIntegrationTes
         {
             await Fx.DeleteInvitationsForTenantAsync(tenantId);
             await Fx.DeleteOrganizationsForTenantAsync(tenantId);
+        }
+    }
+
+    private static void AssertChainLinked(IReadOnlyList<KartovaApiFixture.AuditRowRecord> rows)
+    {
+        for (var i = 0; i < rows.Count; i++)
+        {
+            Assert.AreEqual(i + 1, rows[i].Seq, "seq must be contiguous from 1");
+            var expectedPrev = i == 0 ? new byte[32] : rows[i - 1].RowHash;
+            CollectionAssert.AreEqual(expectedPrev, rows[i].PrevHash, "prev_hash must link to predecessor row_hash");
         }
     }
 }
