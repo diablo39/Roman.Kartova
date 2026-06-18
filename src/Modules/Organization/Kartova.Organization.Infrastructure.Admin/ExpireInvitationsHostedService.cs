@@ -122,8 +122,9 @@ public sealed class ExpireInvitationsHostedService(
                     // Idempotent: the KC user is already gone, which is the desired end state.
                 }
                 // Non-NotFound KC errors propagate, rolling back this tenant's txn; the
-                // outer loop catches + isolates them. The KC delete already happened, but
-                // the next tick re-deletes (NotFound swallowed) and retries — no partial state.
+                // outer loop catches + isolates them. No partial *DB* state — the invitation
+                // stays Pending. The KC user is already deleted, but that is the desired end
+                // state, and the next tick's re-delete is idempotent (NotFound swallowed).
             }
 
             inv.MarkExpired(workClock);

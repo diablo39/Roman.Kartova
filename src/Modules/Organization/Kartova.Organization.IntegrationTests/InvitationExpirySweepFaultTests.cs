@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Kartova.Organization.Application;
 using Kartova.Testing.Auth;
 using Kartova.Organization.Domain;
@@ -22,7 +21,6 @@ namespace Kartova.Organization.IntegrationTests;
 /// deleted unit test's "no partial commit on mid-sweep failure" invariant.
 /// </summary>
 [TestClass]
-[ExcludeFromCodeCoverage]
 public sealed class InvitationExpirySweepFaultTests : OrganizationFaultInjectionTestBase
 {
     private static ExpireInvitationsHostedService NewSweep() => new(
