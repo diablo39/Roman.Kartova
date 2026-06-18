@@ -33,12 +33,18 @@ public sealed class AuditWriter(
     private const string SystemActorDisplay = "System";
 
     public Task AppendAsync(AuditEntry entry, CancellationToken ct)
-        => AppendCoreAsync(
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        return AppendCoreAsync(
             tenant.Id.Value, AuditActorType.User, currentUser.UserId, currentUser.DisplayName, entry, ct);
+    }
 
     public Task AppendSystemAsync(TenantId t, AuditEntry entry, CancellationToken ct)
-        => AppendCoreAsync(
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        return AppendCoreAsync(
             t.Value, AuditActorType.System, actorId: null, actorDisplay: SystemActorDisplay, entry, ct);
+    }
 
     private async Task AppendCoreAsync(
         Guid tenantId,
