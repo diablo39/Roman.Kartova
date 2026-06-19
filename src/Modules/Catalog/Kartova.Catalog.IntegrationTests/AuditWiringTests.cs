@@ -40,6 +40,22 @@ public class AuditWiringTests : CatalogIntegrationTestBase
         using var data = JsonDocument.Parse(row.DataJson!);
         Assert.AreEqual("Audit Reg App", data.RootElement.GetProperty("displayName").GetString());
         Assert.AreEqual(teamId.ToString(), data.RootElement.GetProperty("teamId").GetString());
+
+        // Catalog rows interleave into the same per-tenant hash chain as the
+        // Organization rows — verify the whole tenant chain stays contiguous and
+        // linked (seq 1..n, each prev_hash == predecessor row_hash). Design §7.
+        AssertChainLinked(rows);
+    }
+
+    private static void AssertChainLinked(IReadOnlyList<KartovaApiFixture.AuditRowRecord> rows)
+    {
+        for (var i = 0; i < rows.Count; i++)
+        {
+            Assert.AreEqual(i + 1, rows[i].Seq, "seq must be contiguous from 1");
+            var expectedPrev = i == 0 ? new byte[32] : rows[i - 1].RowHash;
+            CollectionAssert.AreEqual(expectedPrev, rows[i].PrevHash,
+                "prev_hash must link to predecessor row_hash");
+        }
     }
 
     private async Task<ApplicationResponse> RegisterAsync(HttpClient client, Guid teamId, string name)
