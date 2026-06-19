@@ -1,3 +1,5 @@
+using Kartova.SharedKernel.Multitenancy;
+
 namespace Kartova.SharedKernel.Audit;
 
 /// <summary>
@@ -8,5 +10,15 @@ namespace Kartova.SharedKernel.Audit;
 /// </summary>
 public interface IAuditWriter
 {
+    /// <summary>Appends a row attributed to the current authenticated <c>User</c> (from <c>ICurrentUser</c>).</summary>
     Task AppendAsync(AuditEntry entry, CancellationToken ct);
+
+    /// <summary>
+    /// Appends a row attributed to the <c>System</c> actor (background jobs with no HTTP principal):
+    /// <c>actor_type=System</c>, <c>actor_id=NULL</c>, <c>actor_display="System"</c>. The tenant is
+    /// passed explicitly because background callers run outside the request <c>ITenantContext</c>;
+    /// the caller must already hold an open <c>ITenantScope</c> for <paramref name="tenant"/>
+    /// (the writer's row still rides that transaction and the RLS <c>WITH CHECK</c>).
+    /// </summary>
+    Task AppendSystemAsync(TenantId tenant, AuditEntry entry, CancellationToken ct);
 }

@@ -103,6 +103,61 @@ public class AuditWriterTests
         TargetId: target.ToString(),
         Data: new Dictionary<string, string?> { ["old_role"] = "Member", ["new_role"] = "OrgAdmin" });
 
+    private static async Task<List<(string ActorType, Guid? ActorId, string? ActorDisplay)>> ReadActorsAsync(Guid tenantId)
+    {
+        await using var conn = new NpgsqlConnection(Fx.BypassConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT actor_type, actor_id, actor_display FROM audit_log " +
+                          "WHERE tenant_id = $1 ORDER BY seq";
+        cmd.Parameters.AddWithValue(tenantId);
+        await using var r = await cmd.ExecuteReaderAsync();
+        var rows = new List<(string ActorType, Guid? ActorId, string? ActorDisplay)>();
+        while (await r.ReadAsync())
+            rows.Add((r.GetString(0), r.IsDBNull(1) ? null : r.GetGuid(1), r.IsDBNull(2) ? null : r.GetString(2)));
+        return rows;
+    }
+
+    [TestMethod]
+    public async Task AppendSystem_writes_System_actor_row_with_null_actor_and_chains()
+    {
+        var tenant = new TenantId(Guid.NewGuid());
+        await using var sp = BuildProvider(Guid.NewGuid());
+
+        // Two System appends in one transaction: the second must chain onto the first.
+        using (var scope = sp.CreateScope())
+        {
+            await using var handle = await BeginScopeAsync(scope.ServiceProvider, tenant);
+            var writer = scope.ServiceProvider.GetRequiredService<AuditWriter>();
+            await writer.AppendSystemAsync(tenant,
+                new AuditEntry("invitation.expired", "Invitation", Guid.NewGuid().ToString(),
+                    new Dictionary<string, string?> { ["email"] = "a@x.io", ["role"] = "Member" }),
+                CancellationToken.None);
+            await writer.AppendSystemAsync(tenant,
+                new AuditEntry("invitation.expired", "Invitation", Guid.NewGuid().ToString(),
+                    new Dictionary<string, string?> { ["email"] = "b@x.io", ["role"] = "Viewer" }),
+                CancellationToken.None);
+            await handle.CommitAsync(CancellationToken.None);
+        }
+
+        var actors = await ReadActorsAsync(tenant.Value);
+        Assert.AreEqual(2, actors.Count, "expected exactly 2 audit rows");
+        foreach (var (actorType, actorId, actorDisplay) in actors)
+        {
+            Assert.AreEqual("System", actorType, "every row must have actor_type=System");
+            Assert.IsNull(actorId, "every System actor row must have a NULL actor_id");
+            Assert.AreEqual("System", actorDisplay, "every row must have actor_display=System");
+        }
+
+        using (var scope = sp.CreateScope())
+        {
+            await using var handle = await BeginScopeAsync(scope.ServiceProvider, tenant);
+            var verifier = scope.ServiceProvider.GetRequiredService<AuditChainVerifier>();
+            var result = await verifier.VerifyAsync(tenant, CancellationToken.None);
+            Assert.IsTrue(result.Intact, $"System chain broken: seq={result.FirstBrokenSeq} reason={result.Reason}");
+        }
+    }
+
     [TestMethod]
     public async Task Append_three_then_verify_intact_with_contiguous_seq()
     {

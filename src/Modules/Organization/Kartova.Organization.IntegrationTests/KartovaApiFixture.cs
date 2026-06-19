@@ -231,6 +231,38 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     }
 
     /// <summary>
+    /// Seeds an <c>Accepted</c> invitations row via BYPASSRLS — used to prove the
+    /// expiry sweep's <c>Status == Pending</c> filter leaves non-pending invitations
+    /// untouched even when <paramref name="expiresAt"/> is in the past. <c>accepted_at</c>
+    /// is left NULL (irrelevant to the sweep, which keys only on status + expiry).
+    /// </summary>
+    public async Task<Guid> SeedAcceptedInvitationAsync(
+        Guid tenantId, string email, string role, DateTimeOffset invitedAt, DateTimeOffset expiresAt)
+    {
+        var invitationId = Guid.NewGuid();
+        await using var conn = new NpgsqlConnection(BypassConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO invitations
+                (id, tenant_id, email, role, invited_by_user_id,
+                 invited_at, expires_at, status, keycloak_user_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            """;
+        cmd.Parameters.AddWithValue(invitationId);
+        cmd.Parameters.AddWithValue(tenantId);
+        cmd.Parameters.AddWithValue(email);
+        cmd.Parameters.AddWithValue(role);
+        cmd.Parameters.AddWithValue(Guid.NewGuid());
+        cmd.Parameters.AddWithValue(invitedAt);
+        cmd.Parameters.AddWithValue(expiresAt);
+        cmd.Parameters.AddWithValue((short)InvitationStatus.Accepted);
+        cmd.Parameters.AddWithValue(Guid.NewGuid());
+        await cmd.ExecuteNonQueryAsync();
+        return invitationId;
+    }
+
+    /// <summary>
     /// Deletes every <c>invitations</c> row for <paramref name="tenantId"/> via the
     /// BYPASSRLS connection. Slice 9 / H1 — used by invitation integration tests so
     /// rows seeded indirectly through <c>POST /api/v1/organizations/invitations</c>
@@ -379,7 +411,7 @@ public class KartovaApiFixture : KartovaApiFixtureBase
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT seq, action, actor_id, actor_display, target_type, target_id,
-                   data::text, prev_hash, row_hash
+                   data::text, prev_hash, row_hash, actor_type
             FROM audit_log WHERE tenant_id = $1 ORDER BY seq
             """;
         cmd.Parameters.AddWithValue(tenantId);
@@ -393,12 +425,14 @@ public class KartovaApiFixture : KartovaApiFixtureBase
                 r.IsDBNull(3) ? null : r.GetString(3),
                 r.GetString(4), r.GetString(5),
                 r.IsDBNull(6) ? null : r.GetString(6),
-                (byte[])r[7], (byte[])r[8]));
+                (byte[])r[7], (byte[])r[8],
+                r.GetString(9)));
         }
         return rows;
     }
 
     public sealed record AuditRowRecord(
         long Seq, string Action, Guid? ActorId, string? ActorDisplay,
-        string TargetType, string TargetId, string? DataJson, byte[] PrevHash, byte[] RowHash);
+        string TargetType, string TargetId, string? DataJson, byte[] PrevHash, byte[] RowHash,
+        string ActorType);
 }

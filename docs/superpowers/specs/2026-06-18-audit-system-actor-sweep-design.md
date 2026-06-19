@@ -105,9 +105,11 @@ This slice wires a DB-write seam (audit row) onto a background sweep that mutate
 
 **Gate-5 artifacts (named deliverables, `Kartova.Organization.IntegrationTests`):**
 
-1. **Happy — expiry writes a correct System audit row.** Seed a past-due `Pending` invitation in tenant A → run `ExpireDueAsync` → assert the invitation is `Expired` *and* exactly one `audit_log` row exists with `action=invitation.expired`, `actor_type=System`, `actor_id IS NULL`, `actor_display='System'`, `data` carrying `email`+`role`; `IAuditChainVerifier.VerifyAsync(tenantA)` reports the chain intact.
-2. **Multi-tenant isolation.** Due invitations in tenants A and B → each `invitation.expired` row lands in its **own** tenant's chain; neither chain contains the other tenant's row (RLS-scoped). Both chains verify intact.
+1. **Happy — expiry writes a correct System audit row.** Seed a past-due `Pending` invitation in tenant A → run `ExpireDueAsync` → assert the invitation is `Expired` *and* exactly one `audit_log` row exists with `action=invitation.expired`, `actor_type=System`, `actor_id IS NULL`, `actor_display='System'`, `data` carrying `email`+`role`; the tenant's chain is intact.
+2. **Multi-tenant isolation.** Due invitations in tenants A and B → each `invitation.expired` row lands in its **own** tenant's chain; neither chain contains the other tenant's row (RLS-scoped). Both chains intact.
 3. **Negative + idempotency.** (a) A non-due `Pending` invitation → it stays `Pending` and **zero** audit rows are written. (b) A past-due invitation whose KC user is already gone (`DeleteUserAsync` → `NotFound`) → still expires + writes its audit row (idempotent retry path).
+
+**Chain-integrity assertion — how (amendment, 2026-06-18):** artifacts 1 & 2 assert "chain intact" structurally via the `AssertChainLinked` helper in `Kartova.Organization.IntegrationTests` (contiguous `seq` from 1 + `prev_hash == predecessor.row_hash`, genesis = 32 zero bytes), **not** by calling `IAuditChainVerifier.VerifyAsync` — because that verifier lives in `Kartova.Audit.Infrastructure` and the Organization integration project must not reference another module's Infrastructure (ADR-0082). The stronger **recomputation-based** verification (re-deriving `row_hash` from fields to catch a hasher/field-omission defect) is exercised against a System chain in `AuditWriterTests.AppendSystem_writes_System_actor_row_with_null_actor_and_chains` (`Kartova.Audit.Infrastructure.IntegrationTests`), which calls `AuditChainVerifier.VerifyAsync` directly. Together the two cover linkage (Org suite) + recomputation (Audit suite) without a cross-module reference.
 
 **Unit (`Kartova.Audit.Infrastructure.Tests`):**
 

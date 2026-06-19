@@ -16,6 +16,7 @@ public static class OrganizationAuditActions
     public const string TeamMemberRemoved = "team.member_removed";
     public const string TeamMemberRoleChanged = "team.member_role_changed";
     public const string InvitationCreated = "invitation.created";
+    public const string InvitationExpired = "invitation.expired";
     public const string OrgProfileUpdated = "org.profile_updated";
 }
 
