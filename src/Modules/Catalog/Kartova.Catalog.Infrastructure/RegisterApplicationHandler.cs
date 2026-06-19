@@ -7,14 +7,11 @@ using Kartova.SharedKernel.Multitenancy;
 namespace Kartova.Catalog.Infrastructure;
 
 /// <summary>
-/// Wolverine handler for <see cref="RegisterApplicationCommand"/>. Lives in
-/// Infrastructure (not Application) because it depends on
-/// <see cref="CatalogDbContext"/> — and Infrastructure already references
-/// Application, so placing the handler here avoids a project cycle.
-///
-/// The Catalog module's Wolverine discovery (CatalogModule.ConfigureWolverine)
-/// already includes <c>typeof(CatalogModule).Assembly</c>, so this handler is
-/// picked up automatically.
+/// Direct-dispatch handler for <see cref="RegisterApplicationCommand"/>, invoked
+/// from <c>CatalogEndpointDelegates</c> (ADR-0093). Lives in Infrastructure (not
+/// Application) because it depends on <see cref="CatalogDbContext"/> — and
+/// Infrastructure already references Application, so placing the handler here
+/// avoids a project cycle.
 ///
 /// Tenant id and created-by user id are sourced from <see cref="ITenantScope"/> and
 /// <see cref="ICurrentUser"/> respectively (ADR-0090) — not from the payload. The

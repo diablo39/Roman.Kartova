@@ -99,6 +99,8 @@ public class AuditWiringTests : CatalogIntegrationTestBase
         var row = rows.Single(r =>
             r.Action == CatalogAuditActions.ApplicationLifecycleChanged &&
             r.TargetId == app.Id.ToString());
+        Assert.AreEqual(await Fx.GetSubClaimAsync(OrgAUser), row.ActorId);
+        Assert.AreEqual("User", row.ActorType);
         using var data = JsonDocument.Parse(row.DataJson!);
         Assert.AreEqual("Active", data.RootElement.GetProperty("from").GetString());
         Assert.AreEqual("Deprecated", data.RootElement.GetProperty("to").GetString());
@@ -264,7 +266,7 @@ public class AuditWiringTests : CatalogIntegrationTestBase
         var newSunset = DateTimeOffset.UtcNow.AddDays(30);
         var unDecResp = await client.PostAsJsonAsync(
             $"/api/v1/catalog/applications/{app.Id}/un-decommission",
-            new { sunsetDate = newSunset });
+            new UnDecommissionApplicationRequest(newSunset));
         Assert.AreEqual(HttpStatusCode.OK, unDecResp.StatusCode,
             $"Expected 200. Body: {await unDecResp.Content.ReadAsStringAsync()}");
 
@@ -302,8 +304,29 @@ public class AuditWiringTests : CatalogIntegrationTestBase
         var row = rows.Single(r =>
             r.Action == CatalogAuditActions.ApplicationTeamAssigned &&
             r.TargetId == app.Id.ToString());
+        Assert.AreEqual(await Fx.GetSubClaimAsync(OrgAUser), row.ActorId);
+        Assert.AreEqual("User", row.ActorType);
         using var data = JsonDocument.Parse(row.DataJson!);
         Assert.AreEqual(fromTeam.ToString(), data.RootElement.GetProperty("fromTeamId").GetString());
         Assert.AreEqual(toTeam.ToString(), data.RootElement.GetProperty("toTeamId").GetString());
+    }
+
+    // --- Negative: team assignment with unknown target team writes no audit row ---
+    [TestMethod]
+    public async Task AssignTeam_InvalidTeam_WritesNoAuditRow()
+    {
+        var (tenantId, teamId, client) = await ArrangeAsync("Audit AssignNeg Team");
+        var app = await RegisterAsync(client, teamId, "Audit AssignNeg App");
+
+        var resp = await client.PutAsJsonAsync(
+            $"/api/v1/catalog/applications/{app.Id}/team",
+            new AssignTeamRequest(Guid.NewGuid()));
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode,
+            $"Expected 422. Body: {await resp.Content.ReadAsStringAsync()}");
+
+        var rows = await Fx.ReadAuditLogAsync(tenantId);
+        Assert.AreEqual(0, rows.Count(r =>
+            r.Action == CatalogAuditActions.ApplicationTeamAssigned &&
+            r.TargetId == app.Id.ToString()));
     }
 }
