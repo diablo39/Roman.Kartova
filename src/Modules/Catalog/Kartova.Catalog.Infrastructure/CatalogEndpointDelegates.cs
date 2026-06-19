@@ -165,6 +165,7 @@ internal static class CatalogEndpointDelegates
         IAuthorizationService auth,
         ClaimsPrincipal user,
         HttpContext http,
+        IAuditWriter audit,
         CancellationToken ct)
     {
         var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
@@ -174,7 +175,7 @@ internal static class CatalogEndpointDelegates
 
         var resp = await handler.Handle(
             new EditApplicationCommand(new ApplicationId(id), request.DisplayName, request.Description, expected),
-            db, ct);
+            db, audit, ct);
 
         if (resp is null) return EndpointResultExtensions.ApplicationNotFound();
         return Results.Ok(resp).WithEtag(resp.Version);

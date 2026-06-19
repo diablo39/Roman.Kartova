@@ -41,4 +41,41 @@ public class AuditWiringTests : CatalogIntegrationTestBase
         Assert.AreEqual("Audit Reg App", data.RootElement.GetProperty("displayName").GetString());
         Assert.AreEqual(teamId.ToString(), data.RootElement.GetProperty("teamId").GetString());
     }
+
+    private async Task<ApplicationResponse> RegisterAsync(HttpClient client, Guid teamId, string name)
+    {
+        var resp = await client.PostAsJsonAsync(
+            "/api/v1/catalog/applications",
+            new RegisterApplicationRequest(name, "Desc.", teamId));
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode,
+            $"Expected 201. Body: {await resp.Content.ReadAsStringAsync()}");
+        return (await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
+    }
+
+    // --- Happy: edit writes an application.edited row with the new state ---
+    [TestMethod]
+    public async Task Edit_WritesApplicationEditedAuditRow()
+    {
+        var tenantId = Fx.TenantIdForEmail(OrgAUser).Value;
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Audit Edit Team");
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser, new[] { KartovaRoles.OrgAdmin });
+        var app = await RegisterAsync(client, teamId, "Audit Edit App");
+
+        var req = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/catalog/applications/{app.Id}")
+        {
+            Content = JsonContent.Create(new EditApplicationRequest("Edited Name", "Edited desc.")),
+        };
+        req.Headers.TryAddWithoutValidation("If-Match", $"\"{app.Version}\"");
+        var resp = await client.SendAsync(req);
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode,
+            $"Expected 200. Body: {await resp.Content.ReadAsStringAsync()}");
+
+        var rows = await Fx.ReadAuditLogAsync(tenantId);
+        var row = rows.Single(r =>
+            r.Action == CatalogAuditActions.ApplicationEdited &&
+            r.TargetId == app.Id.ToString());
+        using var data = JsonDocument.Parse(row.DataJson!);
+        Assert.AreEqual("Edited Name", data.RootElement.GetProperty("displayName").GetString());
+        Assert.AreEqual("Edited desc.", data.RootElement.GetProperty("description").GetString());
+    }
 }
