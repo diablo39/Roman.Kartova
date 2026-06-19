@@ -32,6 +32,10 @@
          AssignApplicationTeam's cross-module IOrganizationTeamExistenceChecker query
          can resolve. Test-only dependency — architecture rules target src/ assemblies. -->
     <ProjectReference Include="..\..\Organization\Kartova.Organization.Infrastructure\Kartova.Organization.Infrastructure.csproj" />
+    <!-- Audit event-wiring: AuditWiringTests assert rows in audit_log, which requires the
+         audit schema to be migrated in the shared Postgres container. Direct reference so
+         RunModuleMigrationsAsync can call PostgresTestBootstrap.RunMigrationsAsync<AuditDbContext>. -->
+    <ProjectReference Include="..\..\Audit\Kartova.Audit.Infrastructure\Kartova.Audit.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\..\tests\Kartova.Testing.Auth\Kartova.Testing.Auth.csproj" />
   </ItemGroup>
 

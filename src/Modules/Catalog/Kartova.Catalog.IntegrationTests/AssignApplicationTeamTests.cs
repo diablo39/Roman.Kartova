@@ -31,7 +31,12 @@ public sealed class AssignApplicationTeamTests : CatalogIntegrationTestBase
         try
         {
             var client = Fx.CreateClient();
-            var token = Fx.Signer.IssueForTenant(Tenant, new[] { KartovaRoles.OrgAdmin });
+            // Audit wiring records the actor from the JWT `sub` (parsed as a Guid),
+            // so a successful (audited) assignment needs a real Guid subject — the
+            // default "test-user" sub would fail Guid.Parse. The 422/403/409 cases
+            // reject before the audit append, so they don't need this.
+            var token = Fx.Signer.IssueForTenant(
+                Tenant, new[] { KartovaRoles.OrgAdmin }, subject: Guid.NewGuid().ToString());
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             var resp = await client.PutAsJsonAsync(

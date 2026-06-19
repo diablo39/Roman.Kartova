@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Audit;
 using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Pagination;
@@ -34,6 +35,7 @@ internal static class CatalogEndpointDelegates
         ICurrentUser currentUser,
         IAuthorizationService auth,
         IOrganizationTeamExistenceChecker teamChecker,
+        IAuditWriter audit,
         CancellationToken ct)
     {
         // ADR-0103: a new application requires an existing owning team in the
@@ -62,7 +64,7 @@ internal static class CatalogEndpointDelegates
 
         var response = await handler.Handle(
             new RegisterApplicationCommand(request.DisplayName, request.Description, request.TeamId),
-            db, tenant, currentUser, ct);
+            db, tenant, currentUser, audit, ct);
 
         return Results.Created($"/api/v1/catalog/applications/{response.Id}", response);
     }
@@ -163,6 +165,7 @@ internal static class CatalogEndpointDelegates
         IAuthorizationService auth,
         ClaimsPrincipal user,
         HttpContext http,
+        IAuditWriter audit,
         CancellationToken ct)
     {
         var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
@@ -172,7 +175,7 @@ internal static class CatalogEndpointDelegates
 
         var resp = await handler.Handle(
             new EditApplicationCommand(new ApplicationId(id), request.DisplayName, request.Description, expected),
-            db, ct);
+            db, audit, ct);
 
         if (resp is null) return EndpointResultExtensions.ApplicationNotFound();
         return Results.Ok(resp).WithEtag(resp.Version);
@@ -185,6 +188,7 @@ internal static class CatalogEndpointDelegates
         CatalogDbContext db,
         IAuthorizationService auth,
         ClaimsPrincipal user,
+        IAuditWriter audit,
         CancellationToken ct)
     {
         var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
@@ -192,7 +196,7 @@ internal static class CatalogEndpointDelegates
 
         var resp = await handler.Handle(
             new DeprecateApplicationCommand(new ApplicationId(id), request.SunsetDate),
-            db, ct);
+            db, audit, ct);
 
         if (resp is null) return EndpointResultExtensions.ApplicationNotFound();
         return Results.Ok(resp);
@@ -204,13 +208,14 @@ internal static class CatalogEndpointDelegates
         CatalogDbContext db,
         IAuthorizationService auth,
         ClaimsPrincipal user,
+        IAuditWriter audit,
         CancellationToken ct)
     {
         var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
         if (gate is not null) return gate;
 
         var resp = await handler.Handle(
-            new DecommissionApplicationCommand(new ApplicationId(id)), db, ct);
+            new DecommissionApplicationCommand(new ApplicationId(id)), db, audit, ct);
 
         if (resp is null) return EndpointResultExtensions.ApplicationNotFound();
         return Results.Ok(resp);
@@ -222,13 +227,14 @@ internal static class CatalogEndpointDelegates
         CatalogDbContext db,
         IAuthorizationService auth,
         ClaimsPrincipal user,
+        IAuditWriter audit,
         CancellationToken ct)
     {
         var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
         if (gate is not null) return gate;
 
         var resp = await handler.Handle(
-            new ReactivateApplicationCommand(new ApplicationId(id)), db, ct);
+            new ReactivateApplicationCommand(new ApplicationId(id)), db, audit, ct);
 
         if (resp is null) return EndpointResultExtensions.ApplicationNotFound();
         return Results.Ok(resp);
@@ -241,6 +247,7 @@ internal static class CatalogEndpointDelegates
         CatalogDbContext db,
         IAuthorizationService auth,
         ClaimsPrincipal user,
+        IAuditWriter audit,
         CancellationToken ct)
     {
         var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
@@ -248,7 +255,7 @@ internal static class CatalogEndpointDelegates
 
         var resp = await handler.Handle(
             new UnDecommissionApplicationCommand(new ApplicationId(id), request.SunsetDate),
-            db, ct);
+            db, audit, ct);
 
         if (resp is null) return EndpointResultExtensions.ApplicationNotFound();
         return Results.Ok(resp);
@@ -291,6 +298,7 @@ internal static class CatalogEndpointDelegates
         CatalogDbContext db,
         IAuthorizationService auth,
         ClaimsPrincipal user,
+        IAuditWriter audit,
         CancellationToken ct)
     {
         var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
@@ -303,7 +311,7 @@ internal static class CatalogEndpointDelegates
             return forbidden;
 
         var result = await handler.Handle(
-            new AssignApplicationTeamCommand(id, request.TeamId), db, ct);
+            new AssignApplicationTeamCommand(id, request.TeamId), db, audit, ct);
 
         if (result.IsNotFound) return EndpointResultExtensions.ApplicationNotFound();
         if (result.IsInvalidTeam)

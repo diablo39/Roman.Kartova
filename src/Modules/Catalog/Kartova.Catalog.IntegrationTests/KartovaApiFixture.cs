@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Net.Http.Headers;
 using Kartova.Catalog.Domain;
 using Kartova.Catalog.Infrastructure;
+using Kartova.Audit.Infrastructure;
 using Kartova.Organization.Infrastructure;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.Testing.Auth;
@@ -34,6 +35,11 @@ public class KartovaApiFixture : KartovaApiFixtureBase
         await PostgresTestBootstrap.RunMigrationsAsync<OrganizationDbContext>(
             migratorConnectionString,
             opts => new OrganizationDbContext(opts));
+        // Audit event-wiring: AuditWiringTests assert rows in audit_log; the table must exist
+        // before the test host starts. Mirrors the Organization fixture.
+        await PostgresTestBootstrap.RunMigrationsAsync<AuditDbContext>(
+            migratorConnectionString,
+            opts => new AuditDbContext(opts));
     }
 
     /// <summary>
@@ -334,4 +340,37 @@ public class KartovaApiFixture : KartovaApiFixtureBase
             "DELETE FROM teams WHERE tenant_id = {0}",
             tenantId);
     }
+
+    /// <summary>Reads audit_log rows for a tenant via the BYPASSRLS pool, ordered by seq.</summary>
+    public async Task<IReadOnlyList<AuditRowRecord>> ReadAuditLogAsync(Guid tenantId)
+    {
+        await using var conn = new Npgsql.NpgsqlConnection(BypassConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT seq, action, actor_id, actor_display, target_type, target_id,
+                   data::text, prev_hash, row_hash, actor_type
+            FROM audit_log WHERE tenant_id = $1 ORDER BY seq
+            """;
+        cmd.Parameters.AddWithValue(tenantId);
+        var rows = new List<AuditRowRecord>();
+        await using var r = await cmd.ExecuteReaderAsync();
+        while (await r.ReadAsync())
+        {
+            rows.Add(new AuditRowRecord(
+                r.GetInt64(0), r.GetString(1),
+                r.IsDBNull(2) ? null : r.GetGuid(2),
+                r.IsDBNull(3) ? null : r.GetString(3),
+                r.GetString(4), r.GetString(5),
+                r.IsDBNull(6) ? null : r.GetString(6),
+                (byte[])r[7], (byte[])r[8],
+                r.GetString(9)));
+        }
+        return rows;
+    }
+
+    public sealed record AuditRowRecord(
+        long Seq, string Action, Guid? ActorId, string? ActorDisplay,
+        string TargetType, string TargetId, string? DataJson, byte[] PrevHash, byte[] RowHash,
+        string ActorType);
 }

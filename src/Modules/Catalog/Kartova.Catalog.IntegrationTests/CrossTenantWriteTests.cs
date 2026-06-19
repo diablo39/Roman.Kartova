@@ -1,3 +1,4 @@
+using Kartova.Audit.Infrastructure;
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Infrastructure;
 using Kartova.SharedKernel.AspNetCore;
@@ -36,12 +37,24 @@ public sealed class CrossTenantWriteTests : CatalogIntegrationTestBase
         var handler = sp.GetRequiredService<RegisterApplicationHandler>();
         var db = sp.GetRequiredService<CatalogDbContext>();
         var currentUser = new StubCurrentUser(orgaUserId);
+        // The handler now writes an audit row. AuditWriter resolves its own
+        // ICurrentUser from DI (HttpContext-based), which has no principal in this
+        // direct-invocation test — so construct it with the same stub actor the
+        // handler uses, mirroring how the HTTP pipeline supplies a real sub claim.
+        // The AuditDbContext shares this scope's tenant connection (AddModuleDbContext),
+        // so the audit row rides the same transaction as the catalog insert.
+        var audit = new AuditWriter(
+            sp.GetRequiredService<AuditDbContext>(),
+            currentUser,
+            tenantContext,
+            sp.GetRequiredService<TimeProvider>());
 
         var resp = await handler.Handle(
             new RegisterApplicationCommand("Scope Wins", "tenant id from scope only", Guid.NewGuid()),
             db,
             tenantContext,
             currentUser,
+            audit,
             default);
 
         await handle.CommitAsync(default);

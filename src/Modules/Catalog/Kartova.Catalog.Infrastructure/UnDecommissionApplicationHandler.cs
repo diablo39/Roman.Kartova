@@ -1,5 +1,6 @@
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
+using Kartova.SharedKernel.Audit;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kartova.Catalog.Infrastructure;
@@ -24,14 +25,17 @@ public sealed class UnDecommissionApplicationHandler
     public async Task<ApplicationResponse?> Handle(
         UnDecommissionApplicationCommand cmd,
         CatalogDbContext db,
+        IAuditWriter audit,
         CancellationToken ct)
     {
         var app = await db.Applications
             .FirstOrDefaultAsync(ApplicationSortSpecs.IdEquals(cmd.Id.Value), ct);
         if (app is null) return null;
 
+        var from = app.Lifecycle;
         app.UnDecommission(cmd.SunsetDate, _clock);
         await db.SaveChangesAsync(ct);
+        await audit.AppendAsync(CatalogAuditEntries.LifecycleChanged(app, from), ct);
         return app.ToResponse();
     }
 }

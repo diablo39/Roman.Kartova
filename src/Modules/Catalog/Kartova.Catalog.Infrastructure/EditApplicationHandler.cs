@@ -1,5 +1,6 @@
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
+using Kartova.SharedKernel.Audit;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kartova.Catalog.Infrastructure;
@@ -17,6 +18,7 @@ public sealed class EditApplicationHandler
     public async Task<ApplicationResponse?> Handle(
         EditApplicationCommand cmd,
         CatalogDbContext db,
+        IAuditWriter audit,
         CancellationToken ct)
     {
         var app = await db.Applications
@@ -40,6 +42,16 @@ public sealed class EditApplicationHandler
             await TryCaptureCurrentVersionAsync(ex, ct);
             throw;
         }
+
+        await audit.AppendAsync(new AuditEntry(
+            CatalogAuditActions.ApplicationEdited,
+            CatalogAuditTargetTypes.Application,
+            app.Id.Value.ToString(),
+            new Dictionary<string, string?>
+            {
+                ["displayName"] = app.DisplayName,
+                ["description"] = app.Description,
+            }), ct);
 
         return app.ToResponse();
     }
