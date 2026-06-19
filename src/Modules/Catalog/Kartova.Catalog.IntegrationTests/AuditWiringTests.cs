@@ -33,6 +33,7 @@ public class AuditWiringTests : CatalogIntegrationTestBase
             r.TargetId == body!.Id.ToString());
         Assert.AreEqual(await Fx.GetSubClaimAsync(OrgAUser), row.ActorId);
         Assert.AreEqual("Ada Catalog", row.ActorDisplay);
+        Assert.AreEqual("User", row.ActorType);
         Assert.AreEqual(CatalogAuditTargetTypes.Application, row.TargetType);
         using var data = JsonDocument.Parse(row.DataJson!);
         Assert.AreEqual("Audit Reg App", data.RootElement.GetProperty("displayName").GetString());
@@ -155,6 +156,132 @@ public class AuditWiringTests : CatalogIntegrationTestBase
         using var data = JsonDocument.Parse(row.DataJson!);
         Assert.AreEqual("Edited Name", data.RootElement.GetProperty("displayName").GetString());
         Assert.AreEqual("Edited desc.", data.RootElement.GetProperty("description").GetString());
+    }
+
+    // --- Happy: decommission writes a lifecycle_changed row from=Deprecated, to=Decommissioned ---
+    [TestMethod]
+    public async Task Decommission_WritesLifecycleChangedAuditRow()
+    {
+        var (tenantId, teamId, client) = await ArrangeAsync("Audit Dec Team");
+        var app = await RegisterAsync(client, teamId, "Audit Dec App");
+
+        // Deprecate with a near-future sunset, wait for it to expire, then decommission.
+        // Uses the same Task.Delay(2000) pattern as DecommissionApplicationTests.
+        var sunset = DateTimeOffset.UtcNow.AddSeconds(1);
+        var depResp = await client.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{app.Id}/deprecate",
+            new DeprecateApplicationRequest(sunset));
+        Assert.AreEqual(HttpStatusCode.OK, depResp.StatusCode,
+            $"Expected 200. Body: {await depResp.Content.ReadAsStringAsync()}");
+
+        await Task.Delay(2000);
+
+        var decResp = await client.PostAsync(
+            $"/api/v1/catalog/applications/{app.Id}/decommission",
+            content: null);
+        Assert.AreEqual(HttpStatusCode.OK, decResp.StatusCode,
+            $"Expected 200. Body: {await decResp.Content.ReadAsStringAsync()}");
+
+        var rows = await Fx.ReadAuditLogAsync(tenantId);
+        // Two lifecycle rows exist (Deprecate + Decommission) — pick the one transitioning to Decommissioned.
+        var lifecycleRows = rows.Where(r =>
+            r.Action == CatalogAuditActions.ApplicationLifecycleChanged &&
+            r.TargetId == app.Id.ToString()).ToList();
+        var row = lifecycleRows.Single(r =>
+        {
+            using var d = JsonDocument.Parse(r.DataJson!);
+            return d.RootElement.GetProperty("to").GetString() == "Decommissioned";
+        });
+        using var data = JsonDocument.Parse(row.DataJson!);
+        Assert.AreEqual("Deprecated", data.RootElement.GetProperty("from").GetString());
+        Assert.AreEqual("Decommissioned", data.RootElement.GetProperty("to").GetString());
+    }
+
+    // --- Happy: reactivate writes a lifecycle_changed row from=Deprecated, to=Active, sunsetDate absent/null ---
+    [TestMethod]
+    public async Task Reactivate_WritesLifecycleChangedAuditRow()
+    {
+        var (tenantId, teamId, client) = await ArrangeAsync("Audit Reac Team");
+        var app = await RegisterAsync(client, teamId, "Audit Reac App");
+
+        var depResp = await client.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{app.Id}/deprecate",
+            new DeprecateApplicationRequest(DateTimeOffset.UtcNow.AddDays(30)));
+        Assert.AreEqual(HttpStatusCode.OK, depResp.StatusCode,
+            $"Expected 200. Body: {await depResp.Content.ReadAsStringAsync()}");
+
+        var reacResp = await client.PostAsync(
+            $"/api/v1/catalog/applications/{app.Id}/reactivate",
+            content: null);
+        Assert.AreEqual(HttpStatusCode.OK, reacResp.StatusCode,
+            $"Expected 200. Body: {await reacResp.Content.ReadAsStringAsync()}");
+
+        var rows = await Fx.ReadAuditLogAsync(tenantId);
+        // Two lifecycle rows (Deprecate + Reactivate) — pick the one transitioning to Active.
+        var lifecycleRows = rows.Where(r =>
+            r.Action == CatalogAuditActions.ApplicationLifecycleChanged &&
+            r.TargetId == app.Id.ToString()).ToList();
+        var row = lifecycleRows.Single(r =>
+        {
+            using var d = JsonDocument.Parse(r.DataJson!);
+            return d.RootElement.GetProperty("to").GetString() == "Active";
+        });
+        using var data = JsonDocument.Parse(row.DataJson!);
+        Assert.AreEqual("Deprecated", data.RootElement.GetProperty("from").GetString());
+        Assert.AreEqual("Active", data.RootElement.GetProperty("to").GetString());
+        // Reactivate clears sunsetDate — the key should be absent or null.
+        Assert.IsFalse(
+            data.RootElement.TryGetProperty("sunsetDate", out var sunsetProp) &&
+            sunsetProp.ValueKind != JsonValueKind.Null,
+            "sunsetDate must be absent or null after Reactivate");
+    }
+
+    // --- Happy: un-decommission writes a lifecycle_changed row from=Decommissioned, to=Deprecated ---
+    [TestMethod]
+    public async Task UnDecommission_WritesLifecycleChangedAuditRow()
+    {
+        var (tenantId, teamId, client) = await ArrangeAsync("Audit UnDec Team");
+        var app = await RegisterAsync(client, teamId, "Audit UnDec App");
+
+        // Drive Active → Deprecated → Decommissioned (uses same Task.Delay(2000) pattern
+        // as UnDecommissionApplicationTests.POST_un_decommission_from_Decommissioned_returns_200).
+        var sunset = DateTimeOffset.UtcNow.AddSeconds(1);
+        var depResp = await client.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{app.Id}/deprecate",
+            new DeprecateApplicationRequest(sunset));
+        Assert.AreEqual(HttpStatusCode.OK, depResp.StatusCode,
+            $"Expected 200. Body: {await depResp.Content.ReadAsStringAsync()}");
+
+        await Task.Delay(2000);
+
+        var decResp = await client.PostAsync(
+            $"/api/v1/catalog/applications/{app.Id}/decommission",
+            content: null);
+        Assert.AreEqual(HttpStatusCode.OK, decResp.StatusCode,
+            $"Expected 200. Body: {await decResp.Content.ReadAsStringAsync()}");
+
+        // Un-decommission back to Deprecated with a new future sunset.
+        var newSunset = DateTimeOffset.UtcNow.AddDays(30);
+        var unDecResp = await client.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{app.Id}/un-decommission",
+            new { sunsetDate = newSunset });
+        Assert.AreEqual(HttpStatusCode.OK, unDecResp.StatusCode,
+            $"Expected 200. Body: {await unDecResp.Content.ReadAsStringAsync()}");
+
+        var rows = await Fx.ReadAuditLogAsync(tenantId);
+        // Three lifecycle rows (Deprecate + Decommission + UnDecommission) — pick the one to=Deprecated
+        // that came from Decommissioned.
+        var lifecycleRows = rows.Where(r =>
+            r.Action == CatalogAuditActions.ApplicationLifecycleChanged &&
+            r.TargetId == app.Id.ToString()).ToList();
+        var row = lifecycleRows.Single(r =>
+        {
+            using var d = JsonDocument.Parse(r.DataJson!);
+            return d.RootElement.GetProperty("from").GetString() == "Decommissioned";
+        });
+        using var data = JsonDocument.Parse(row.DataJson!);
+        Assert.AreEqual("Decommissioned", data.RootElement.GetProperty("from").GetString());
+        Assert.AreEqual("Deprecated", data.RootElement.GetProperty("to").GetString());
     }
 
     // --- Happy: team assignment writes from/to team ids ---

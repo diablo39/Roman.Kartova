@@ -19,6 +19,9 @@ public class ModuleBoundaryTests
             "Kartova.Organization.Domain",
             "Kartova.Organization.Application",
             "Kartova.Organization.Infrastructure",
+            // Catalog communicates with the Audit module exclusively via IAuditWriter
+            // (SharedKernel port) — direct coupling to Audit.Infrastructure is forbidden (ADR-0082).
+            "Kartova.Audit.Infrastructure",
         };
 
         var catalogAssemblies = new[]
