@@ -298,6 +298,7 @@ internal static class CatalogEndpointDelegates
         CatalogDbContext db,
         IAuthorizationService auth,
         ClaimsPrincipal user,
+        IAuditWriter audit,
         CancellationToken ct)
     {
         var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
@@ -310,7 +311,7 @@ internal static class CatalogEndpointDelegates
             return forbidden;
 
         var result = await handler.Handle(
-            new AssignApplicationTeamCommand(id, request.TeamId), db, ct);
+            new AssignApplicationTeamCommand(id, request.TeamId), db, audit, ct);
 
         if (result.IsNotFound) return EndpointResultExtensions.ApplicationNotFound();
         if (result.IsInvalidTeam)

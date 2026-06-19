@@ -1,4 +1,5 @@
 using Kartova.Catalog.Application;
+using Kartova.SharedKernel.Audit;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 
@@ -23,6 +24,7 @@ public sealed class AssignApplicationTeamHandler(IOrganizationTeamExistenceCheck
     public async Task<AssignApplicationTeamResult> Handle(
         AssignApplicationTeamCommand cmd,
         CatalogDbContext db,
+        IAuditWriter audit,
         CancellationToken ct)
     {
         var app = await db.Applications
@@ -32,8 +34,18 @@ public sealed class AssignApplicationTeamHandler(IOrganizationTeamExistenceCheck
         var exists = await teamChecker.ExistsAsync(cmd.TeamId, ct);
         if (!exists) return AssignApplicationTeamResult.InvalidTeam;
 
+        var fromTeamId = app.TeamId;
         app.AssignTeam(cmd.TeamId);
         await db.SaveChangesAsync(ct);
+        await audit.AppendAsync(new AuditEntry(
+            CatalogAuditActions.ApplicationTeamAssigned,
+            CatalogAuditTargetTypes.Application,
+            app.Id.Value.ToString(),
+            new Dictionary<string, string?>
+            {
+                ["fromTeamId"] = fromTeamId.ToString(),
+                ["toTeamId"] = cmd.TeamId.ToString(),
+            }), ct);
         return AssignApplicationTeamResult.Success(app);
     }
 }

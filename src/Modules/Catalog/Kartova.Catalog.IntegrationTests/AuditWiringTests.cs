@@ -134,4 +134,30 @@ public class AuditWiringTests : CatalogIntegrationTestBase
         Assert.AreEqual("Edited Name", data.RootElement.GetProperty("displayName").GetString());
         Assert.AreEqual("Edited desc.", data.RootElement.GetProperty("description").GetString());
     }
+
+    // --- Happy: team assignment writes from/to team ids ---
+    [TestMethod]
+    public async Task AssignTeam_WritesTeamAssignedAuditRow()
+    {
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var tenantId = tenant.Value;
+        var fromTeam = await Fx.SeedTeamInOrganizationAsync(tenant, "Audit From Team");
+        var toTeam = await Fx.SeedTeamInOrganizationAsync(tenant, "Audit To Team");
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser, new[] { KartovaRoles.OrgAdmin });
+        var app = await RegisterAsync(client, fromTeam, "Audit Assign App");
+
+        var resp = await client.PutAsJsonAsync(
+            $"/api/v1/catalog/applications/{app.Id}/team",
+            new AssignTeamRequest(toTeam));
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode,
+            $"Expected 200. Body: {await resp.Content.ReadAsStringAsync()}");
+
+        var rows = await Fx.ReadAuditLogAsync(tenantId);
+        var row = rows.Single(r =>
+            r.Action == CatalogAuditActions.ApplicationTeamAssigned &&
+            r.TargetId == app.Id.ToString());
+        using var data = JsonDocument.Parse(row.DataJson!);
+        Assert.AreEqual(fromTeam.ToString(), data.RootElement.GetProperty("fromTeamId").GetString());
+        Assert.AreEqual(toTeam.ToString(), data.RootElement.GetProperty("toTeamId").GetString());
+    }
 }
