@@ -18,10 +18,7 @@ public class AuditWiringTests : CatalogIntegrationTestBase
     [TestMethod]
     public async Task Register_WritesApplicationRegisteredAuditRow()
     {
-        var tenantId = Fx.TenantIdForEmail(OrgAUser).Value;
-        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Audit Reg Team");
-        var client = await Fx.CreateAuthenticatedClientAsync(
-            OrgAUser, new[] { KartovaRoles.OrgAdmin }, nameClaim: "Ada Catalog");
+        var (tenantId, teamId, client) = await ArrangeAsync("Audit Reg Team", nameClaim: "Ada Catalog");
 
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
@@ -68,13 +65,26 @@ public class AuditWiringTests : CatalogIntegrationTestBase
         return (await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
     }
 
+    /// <summary>
+    /// Shared arrange step: seeds an owning team for the OrgA tenant and returns
+    /// (tenantId, teamId, authenticated OrgAdmin client). Pass <paramref name="nameClaim"/>
+    /// when the test asserts <c>actor_display</c>.
+    /// </summary>
+    private async Task<(Guid TenantId, Guid TeamId, HttpClient Client)> ArrangeAsync(
+        string teamName, string? nameClaim = null)
+    {
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenant, teamName);
+        var client = await Fx.CreateAuthenticatedClientAsync(
+            OrgAUser, new[] { KartovaRoles.OrgAdmin }, nameClaim: nameClaim);
+        return (tenant.Value, teamId, client);
+    }
+
     // --- Happy: deprecate writes a lifecycle_changed row with from/to ---
     [TestMethod]
     public async Task Deprecate_WritesLifecycleChangedAuditRow()
     {
-        var tenantId = Fx.TenantIdForEmail(OrgAUser).Value;
-        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Audit Dep Team");
-        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser, new[] { KartovaRoles.OrgAdmin });
+        var (tenantId, teamId, client) = await ArrangeAsync("Audit Dep Team");
         var app = await RegisterAsync(client, teamId, "Audit Dep App");
 
         var sunset = DateTimeOffset.UtcNow.AddDays(30);
@@ -98,9 +108,7 @@ public class AuditWiringTests : CatalogIntegrationTestBase
     [TestMethod]
     public async Task Decommission_BeforeSunset_WritesNoAuditRow()
     {
-        var tenantId = Fx.TenantIdForEmail(OrgAUser).Value;
-        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Audit NoRow Team");
-        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser, new[] { KartovaRoles.OrgAdmin });
+        var (tenantId, teamId, client) = await ArrangeAsync("Audit NoRow Team");
         var app = await RegisterAsync(client, teamId, "Audit NoRow App");
 
         // Deprecate with a far-future sunset, then attempt to decommission before it -> 409.
@@ -128,9 +136,7 @@ public class AuditWiringTests : CatalogIntegrationTestBase
     [TestMethod]
     public async Task Edit_WritesApplicationEditedAuditRow()
     {
-        var tenantId = Fx.TenantIdForEmail(OrgAUser).Value;
-        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Audit Edit Team");
-        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser, new[] { KartovaRoles.OrgAdmin });
+        var (tenantId, teamId, client) = await ArrangeAsync("Audit Edit Team");
         var app = await RegisterAsync(client, teamId, "Audit Edit App");
 
         var req = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/catalog/applications/{app.Id}")
@@ -155,11 +161,8 @@ public class AuditWiringTests : CatalogIntegrationTestBase
     [TestMethod]
     public async Task AssignTeam_WritesTeamAssignedAuditRow()
     {
-        var tenant = Fx.TenantIdForEmail(OrgAUser);
-        var tenantId = tenant.Value;
-        var fromTeam = await Fx.SeedTeamInOrganizationAsync(tenant, "Audit From Team");
-        var toTeam = await Fx.SeedTeamInOrganizationAsync(tenant, "Audit To Team");
-        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser, new[] { KartovaRoles.OrgAdmin });
+        var (tenantId, fromTeam, client) = await ArrangeAsync("Audit From Team");
+        var toTeam = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Audit To Team");
         var app = await RegisterAsync(client, fromTeam, "Audit Assign App");
 
         var resp = await client.PutAsJsonAsync(

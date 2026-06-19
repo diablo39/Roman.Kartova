@@ -40,11 +40,7 @@ public class CatalogAuditEntriesTests
     [TestMethod]
     public void LifecycleChanged_NullSunsetDate_SerializesAsNull()
     {
-        var clock = new FakeTimeProvider();
-        clock.SetUtcNow(DateTimeOffset.Parse("2026-06-19T10:00:00Z"));
-        var app = DomainApplication.Create(
-            "App", "Desc", Guid.NewGuid(), Guid.NewGuid(), new TenantId(Guid.NewGuid()), clock);
-        app.Deprecate(clock.GetUtcNow().AddDays(30), clock);
+        var app = NewDeprecatedApp(out _);
         app.Reactivate(); // clears SunsetDate, lifecycle -> Active
 
         var entry = CatalogAuditEntries.LifecycleChanged(app, from: Lifecycle.Deprecated);
