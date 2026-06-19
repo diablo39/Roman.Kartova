@@ -1,6 +1,7 @@
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Infrastructure;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Audit;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -35,6 +36,7 @@ public sealed class CrossTenantWriteTests : CatalogIntegrationTestBase
 
         var handler = sp.GetRequiredService<RegisterApplicationHandler>();
         var db = sp.GetRequiredService<CatalogDbContext>();
+        var audit = sp.GetRequiredService<IAuditWriter>();
         var currentUser = new StubCurrentUser(orgaUserId);
 
         var resp = await handler.Handle(
@@ -42,6 +44,7 @@ public sealed class CrossTenantWriteTests : CatalogIntegrationTestBase
             db,
             tenantContext,
             currentUser,
+            audit,
             default);
 
         await handle.CommitAsync(default);

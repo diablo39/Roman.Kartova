@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Audit;
 using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Pagination;
@@ -34,6 +35,7 @@ internal static class CatalogEndpointDelegates
         ICurrentUser currentUser,
         IAuthorizationService auth,
         IOrganizationTeamExistenceChecker teamChecker,
+        IAuditWriter audit,
         CancellationToken ct)
     {
         // ADR-0103: a new application requires an existing owning team in the
@@ -62,7 +64,7 @@ internal static class CatalogEndpointDelegates
 
         var response = await handler.Handle(
             new RegisterApplicationCommand(request.DisplayName, request.Description, request.TeamId),
-            db, tenant, currentUser, ct);
+            db, tenant, currentUser, audit, ct);
 
         return Results.Created($"/api/v1/catalog/applications/{response.Id}", response);
     }
