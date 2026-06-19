@@ -188,6 +188,7 @@ internal static class CatalogEndpointDelegates
         CatalogDbContext db,
         IAuthorizationService auth,
         ClaimsPrincipal user,
+        IAuditWriter audit,
         CancellationToken ct)
     {
         var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
@@ -195,7 +196,7 @@ internal static class CatalogEndpointDelegates
 
         var resp = await handler.Handle(
             new DeprecateApplicationCommand(new ApplicationId(id), request.SunsetDate),
-            db, ct);
+            db, audit, ct);
 
         if (resp is null) return EndpointResultExtensions.ApplicationNotFound();
         return Results.Ok(resp);
@@ -207,13 +208,14 @@ internal static class CatalogEndpointDelegates
         CatalogDbContext db,
         IAuthorizationService auth,
         ClaimsPrincipal user,
+        IAuditWriter audit,
         CancellationToken ct)
     {
         var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
         if (gate is not null) return gate;
 
         var resp = await handler.Handle(
-            new DecommissionApplicationCommand(new ApplicationId(id)), db, ct);
+            new DecommissionApplicationCommand(new ApplicationId(id)), db, audit, ct);
 
         if (resp is null) return EndpointResultExtensions.ApplicationNotFound();
         return Results.Ok(resp);
@@ -225,13 +227,14 @@ internal static class CatalogEndpointDelegates
         CatalogDbContext db,
         IAuthorizationService auth,
         ClaimsPrincipal user,
+        IAuditWriter audit,
         CancellationToken ct)
     {
         var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
         if (gate is not null) return gate;
 
         var resp = await handler.Handle(
-            new ReactivateApplicationCommand(new ApplicationId(id)), db, ct);
+            new ReactivateApplicationCommand(new ApplicationId(id)), db, audit, ct);
 
         if (resp is null) return EndpointResultExtensions.ApplicationNotFound();
         return Results.Ok(resp);
@@ -244,6 +247,7 @@ internal static class CatalogEndpointDelegates
         CatalogDbContext db,
         IAuthorizationService auth,
         ClaimsPrincipal user,
+        IAuditWriter audit,
         CancellationToken ct)
     {
         var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
@@ -251,7 +255,7 @@ internal static class CatalogEndpointDelegates
 
         var resp = await handler.Handle(
             new UnDecommissionApplicationCommand(new ApplicationId(id), request.SunsetDate),
-            db, ct);
+            db, audit, ct);
 
         if (resp is null) return EndpointResultExtensions.ApplicationNotFound();
         return Results.Ok(resp);
