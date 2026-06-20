@@ -35,7 +35,7 @@ This is **not** a complete E-02.F-02 feature: no detail page with real-time heal
 | 2 | Slice scope = POST + GET-by-id + GET-list only. No edit, lifecycle, endpoint mutation, or UI. | Walking-slice discipline; mirrors how Application S-01 shipped. S-02 (detail/health/consumers) is a separate story. |
 | 3 | **Owning team required** (`TeamId`, ADR-0103). Same membership gate + 422 invalid-team as register-application. | No ownerless entities — consistency with Application. |
 | 4 | **No `Lifecycle` field this slice.** Service has no lifecycle column at all (not even a fixed `Active`). | YAGNI — avoids a dead enum column. A future lifecycle story adds it via migration, as Application's did (S-04). |
-| 5 | **Endpoints = `0..N`** `ServiceEndpoint` value objects; empty is allowed. | Per user decision: a service may be registered before its endpoints are known. Each endpoint, when present, is fully validated. |
+| 5 | **Endpoints = `0..50`** `ServiceEndpoint` value objects; empty is allowed, **>50 rejected** by a `Service.Create` invariant. | Per user decision: a service may be registered before its endpoints are known (0 allowed). The 50 cap bounds the jsonb document size. Each endpoint, when present, is fully validated. |
 | 6 | `ServiceEndpoint` = `{ Url, Protocol }`. `Url` required, absolute URI, ≤2048. `Protocol` is a required enum. | Minimal faithful model of "endpoints and protocol". No per-endpoint label/description (YAGNI). |
 | 7 | `Protocol` enum: `Rest, Grpc, GraphQL, WebSocket, Tcp, Other`. | Covers the API styles named in E-02.F-03 plus generic transports; `Other` is the escape hatch so the enum need not churn. |
 | 8 | `HealthStatus` enum: `Unknown, Healthy, Degraded, Unhealthy`. Field **defaults to `Unknown`**; **no write path** this slice. | AC: "health status defaults to unknown". Health is fed by the agent/probes later (E-15); storing the default now keeps the schema honest. |
@@ -161,7 +161,7 @@ public sealed class Service : ITenantOwned, ITeamScopedResource
         if (createdByUserId == Guid.Empty) throw new ArgumentException(..., nameof(createdByUserId));
         if (teamId == Guid.Empty)          throw new ArgumentException(..., nameof(teamId));
         var list = endpoints?.ToList() ?? new();  // 0 allowed; each VO self-validated on construction
-        // (optional) cap count, e.g. ≤50, to bound the jsonb document.
+        if (list.Count > 50) throw new ArgumentException("a service may have at most 50 endpoints", nameof(endpoints));
         var s = new Service { _id = ServiceId.New().Value, TenantId = tenantId,
             DisplayName = displayName, Description = description, CreatedByUserId = createdByUserId,
             TeamId = teamId, CreatedAt = createdAt };
@@ -251,7 +251,7 @@ Per [docs/TESTING-STRATEGY.md](../../TESTING-STRATEGY.md). This slice wires HTTP
 ### 7.1 Domain unit (`ServiceTests.cs`)
 - `Create` valid → fields set, `Health == Unknown`, `Id` fresh each call.
 - Rejects: empty/whitespace name, name > 128, empty/whitespace description, description > 4096, empty `createdByUserId`, empty `teamId`.
-- **Endpoints: 0 allowed** (empty list → valid service, `Endpoints` empty not null).
+- **Endpoints: 0 allowed** (empty list → valid service, `Endpoints` empty not null); **51 endpoints rejected** (cap = 50).
 - Multiple endpoints round-trip in order.
 - `ServiceEndpoint` rejects: empty url, url > 2048, relative/non-absolute url, undefined protocol.
 
@@ -319,6 +319,6 @@ The eight always-blocking gates + conditional mutation gate as defined in **CLAU
 
 **Scope check:** single PR; ~18 new files (most tiny: enums, VOs, DTOs) + ~8 modified. ~450–550 LOC production business code — under the 800 ceiling, no decomposition.
 
-**Ambiguity check:** endpoint-count cap (#5 "(optional) cap ≤50") is the one open knob — defaulting to a 50-item cap unless writing-plans/review argues otherwise; either way it's a one-line invariant, not a design fork.
+**Ambiguity check:** endpoint-count cap resolved to **50** (decision #5, user-confirmed) — a one-line `Service.Create` invariant + a 51-endpoint rejection test.
 
 **No blocking issues found.**
