@@ -102,7 +102,7 @@ Client → JWT auth → tenant-claims transform
 | `Kartova.Catalog.Infrastructure/GetServiceByIdHandler.cs` | Read-by-id + optional `IUserDirectory` enrichment. |
 | `Kartova.Catalog.Infrastructure/ListServicesHandler.cs` | Keyset pagination; mirrors `ListApplicationsHandler`. |
 | `Kartova.Catalog.Infrastructure/ServiceSortSpecs.cs` | Sort-field → column map for the cursor codec. |
-| `Kartova.Catalog.Infrastructure/Migrations/<ts>_AddServices.cs` | `catalog_services` table + RLS policy + REVOKE + indexes. |
+| `Kartova.Catalog.Infrastructure/Migrations/<ts>_AddServices.cs` | `catalog_services` table + RLS (ENABLE+FORCE+policy) + indexes. |
 | `Kartova.Catalog.Tests/ServiceTests.cs` | Aggregate + value-object unit tests. |
 | `Kartova.Catalog.IntegrationTests/RegisterServiceTests.cs` | Register happy + negatives (real seam). |
 | `Kartova.Catalog.IntegrationTests/ListServicesPaginationTests.cs` | Cursor pagination + tenant isolation. |
@@ -205,7 +205,7 @@ b.OwnsMany(x => x.Endpoints, nav =>
 });
 ```
 
-Migration adds RLS (`ENABLE ROW LEVEL SECURITY` + `tenant_isolation` policy on the strict `current_setting('app.current_tenant_id')::uuid` form) and the `REVOKE`-from-app convention, matching every other catalog/audit table so the migrator stays the sole schema owner. Indexes: `ix_catalog_services_tenant_id`, `ix_catalog_services_tenant_id_display_name` (keyset), `idx_catalog_services_team`.
+Migration adds RLS (`ENABLE` + `FORCE ROW LEVEL SECURITY` + `tenant_isolation` policy on the strict `current_setting('app.current_tenant_id')::uuid` form), matching the `AddApplications` catalog convention so the migrator stays the sole schema owner. (Note: catalog tables use FORCE-RLS, not the `REVOKE` form — that is audit-only.) Indexes: `ix_catalog_services_tenant_id`, `ix_catalog_services_tenant_id_display_name` (keyset), `idx_catalog_services_team`.
 
 > **Owned-collection-to-json caveat (verify in TDD):** querying/paginating the parent does not require the jsonb; keyset pagination orders by `(display_name, id)` on the parent row only. Confirm `.OwnsMany(...).ToJson()` round-trips an **empty** list as `[]` (not null) so reads of endpoint-less services don't NRE.
 
@@ -240,7 +240,8 @@ No new ProblemDetails types — inherits the catalog mapping:
 | Caller not OrgAdmin and not a member of `TeamId` | 403 | membership gate |
 | `TeamId` does not resolve to a team in the tenant | 422 | `…/invalid-team` |
 | GET by id not found in current tenant | 404 | `…/resource-not-found` |
-| Bad `sortBy`/`sortOrder`/`limit`/`cursor` on list | 422 | cursor-list envelopes (ADR-0095) |
+| Bad `sortBy`/`sortOrder` on list | 400 | `InvalidSortFieldException` → `PagingExceptionHandler` (matches `ListApplications`) |
+| Bad `limit` on list | 422 | `InvalidLimitException` (ADR-0095 cursor-list envelope) |
 
 ---
 
@@ -293,7 +294,7 @@ The eight always-blocking gates + conditional mutation gate as defined in **CLAU
 
 1. Enums (`Protocol`, `HealthStatus`) + `ServiceId` + `ServiceEndpoint` VO + unit tests (TDD, RED first).
 2. `Service` aggregate + `Create` invariants + unit tests.
-3. EF config + `AddServices` migration (jsonb endpoints + RLS/REVOKE) + DbSet wiring.
+3. EF config + `AddServices` migration (jsonb endpoints + RLS ENABLE/FORCE/policy) + DbSet wiring.
 4. Contracts (`RegisterServiceRequest`, `ServiceEndpointDto`, `ServiceResponse`, `ServiceSortField`) + `ToResponse` extensions.
 5. `RegisterServiceHandler` + audit action constants.
 6. `GetServiceByIdHandler` + `ListServicesHandler` + `ServiceSortSpecs`.
