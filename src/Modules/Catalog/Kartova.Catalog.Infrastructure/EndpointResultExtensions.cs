@@ -15,25 +15,22 @@ internal static class EndpointResultExtensions
         new EtagWrappedResult(inner, version);
 
     /// <summary>
-    /// RFC 7807 404 envelope shared by every endpoint that returns a nullable
-    /// <c>ApplicationResponse?</c>. RLS hides cross-tenant rows so unknown id
-    /// and cross-tenant id surface identically (intentional, ADR-0090).
+    /// RFC 7807 404 envelope for a catalog resource that returns a nullable
+    /// response. RLS hides cross-tenant rows so unknown id and cross-tenant id
+    /// surface identically (intentional, ADR-0090). One helper per entity keeps
+    /// the human-readable strings entity-specific while sharing the envelope.
     /// </summary>
-    internal static IResult ApplicationNotFound() => Results.Problem(
-        type: ProblemTypes.ResourceNotFound,
-        title: "Application not found",
-        detail: "No application with that id is visible in the current tenant.",
-        statusCode: StatusCodes.Status404NotFound);
+    internal static IResult ApplicationNotFound() =>
+        ResourceNotFound("Application", "No application with that id is visible in the current tenant.");
 
-    /// <summary>
-    /// RFC 7807 404 envelope shared by every endpoint that returns a nullable
-    /// <c>ServiceResponse?</c>. RLS hides cross-tenant rows so unknown id
-    /// and cross-tenant id surface identically (intentional, ADR-0090).
-    /// </summary>
-    internal static IResult ServiceNotFound() => Results.Problem(
+    /// <inheritdoc cref="ApplicationNotFound"/>
+    internal static IResult ServiceNotFound() =>
+        ResourceNotFound("Service", "No service with that id is visible in the current tenant.");
+
+    private static IResult ResourceNotFound(string entity, string detail) => Results.Problem(
         type: ProblemTypes.ResourceNotFound,
-        title: "Service not found",
-        detail: "No service with the supplied id exists in the current tenant.",
+        title: $"{entity} not found",
+        detail: detail,
         statusCode: StatusCodes.Status404NotFound);
 
     private sealed class EtagWrappedResult(IResult inner, string version) : IResult
