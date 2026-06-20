@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { registerServiceSchema, endpointSchema, PROTOCOLS, PROTOCOL_LABEL } from "../registerService";
 
-const validTeamId = "00000000-0000-0000-0000-000000000010";
+// Valid RFC-4122 UUID (version 4, variant 8) — zod v4 `.uuid()` enforces the
+// version/variant bits, matching the registerApplication schema-test precedent.
+const validTeamId = "a0000000-0000-4000-8000-000000000001";
 
 describe("registerServiceSchema", () => {
   it("accepts a valid service with zero endpoints", () => {

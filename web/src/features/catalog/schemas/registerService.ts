@@ -43,12 +43,7 @@ export const endpointSchema = z.object({
 export const registerServiceSchema = z.object({
   displayName: z.string().min(1, "Display Name must not be empty").max(128, "Display Name must be at most 128 characters"),
   description: z.string().min(1, "Description is required").max(4096, "Description must be at most 4096 characters"),
-  teamId: z
-    .string()
-    .regex(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-      "Team is required",
-    ),
+  teamId: z.string().uuid("Team is required"),
   endpoints: z.array(endpointSchema).max(50, "A service may have at most 50 endpoints"),
 });
 
