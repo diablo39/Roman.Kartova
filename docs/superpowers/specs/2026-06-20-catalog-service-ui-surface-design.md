@@ -40,7 +40,7 @@ The story title reads "detail page with health and consumers". Health renders as
 | 8 | **Endpoints editor uses local `useState`**, not RHF `useFieldArray`. Validated in the submit handler. | The existing `RegisterApplicationDialog` deliberately keeps `<select>` out of RHF to avoid a known react-aria `Form` + controlled-`useController` interaction bug. The endpoints rows include a protocol `<select>`, so the same constraint applies. |
 | 9 | **Codegen must be re-run** and the regenerated `src/generated/openapi.ts` + `openapi-snapshot.json` committed. | Service types are not yet in the generated client; the web image build compiles TS, so missing types break gate-4. |
 | 10 | Client validation is **advisory**; the backend stays the authority. Field-level `ProblemDetails` → form via `applyProblemDetailsToForm`; everything else (incl. per-endpoint URL rejections) → toast. | Nested-array field mapping (`endpoints[2].url`) is out of scope; the backend's stricter cross-platform URL rule (absolute + non-empty authority) is surfaced as a toast, not a per-row error. |
-| 11 | List sort allowlist = `createdAt`, `displayName` (derived from the `ListServices` OpenAPI operation, single source of truth). Default `createdAt desc`. | Matches the backend `ServiceSortField` allowlist and the Applications list convention (ADR-0095). |
+| 11 | List sort allowlist = `createdAt`, `displayName` (derived from the `ListServices` OpenAPI operation, single source of truth). **Default `displayName desc`.** | General list convention (user preference, 2026-06-20): default sort by name, descending. Allowlist matches the backend `ServiceSortField` (ADR-0095). NB: the existing Applications list still defaults `createdAt desc` — realigning it is a separate, out-of-scope change. |
 | 12 | Register button gated on `KartovaPermissions.CatalogServicesRegister`; list/detail require `CatalogRead` (enforced server-side; the nav link is not separately gated). | Mirrors the Applications register-button gate and the catalog read model. |
 
 ---
@@ -59,7 +59,7 @@ Sidebar: Services          → NavItemLink to="/catalog/services"  (was Disabled
 
 ```
 ServicesListPage
-  ├ useListUrlState({ defaultSortBy:"createdAt", defaultSortOrder:"desc",
+  ├ useListUrlState({ defaultSortBy:"displayName", defaultSortOrder:"desc",
   │                   allowedSortFields:["createdAt","displayName"] })
   ├ useServicesList({ sortBy, sortOrder })  → GET /catalog/services  → CursorPage<ServiceResponse>
   ├ useTeamsList({ limit:200 })             → teamNameById map for the Team column
@@ -267,7 +267,7 @@ Run `scripts/ci-local.sh frontend` (and the web image build) green before push. 
 
 **Internal consistency:**
 - `ServiceResponse` field set (`health`, `endpoints[{url,protocol}]`, `createdBy`, `version`) consistent across §2, §5.1, §5.4.
-- Sort allowlist `createdAt|displayName` consistent across §3 (#11), §4.2, §5.1, §7.
+- Sort allowlist `createdAt|displayName` and **default `displayName desc`** consistent across §3 (#11), §4.2, §5.1, §7.
 - Endpoints cardinality `0..50` consistent across §3 (#8), §5.2, §5.3, §7.
 - "frontend-only, no backend change" consistent across §1, §3 (#1), §7, §8.
 
