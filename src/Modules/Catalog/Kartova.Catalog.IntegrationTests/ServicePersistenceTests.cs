@@ -47,14 +47,17 @@ public class ServicePersistenceTests
         await using (var ctx = new CatalogDbContext(options))
         {
             await ctx.Database.OpenConnectionAsync();
+            await using var tx = await ctx.Database.BeginTransactionAsync();
             await SetTenantAsync(ctx, tenant.Value);
             ctx.Services.AddRange(withEndpoints, noEndpoints);
             await ctx.SaveChangesAsync();
+            await tx.CommitAsync();
         }
 
         await using (var ctx = new CatalogDbContext(options))
         {
             await ctx.Database.OpenConnectionAsync();
+            await using var tx = await ctx.Database.BeginTransactionAsync();
             await SetTenantAsync(ctx, tenant.Value);
             var a = await ctx.Services.SingleAsync(s => s.DisplayName == "svc-a");
             var b = await ctx.Services.SingleAsync(s => s.DisplayName == "svc-b");
@@ -64,6 +67,7 @@ public class ServicePersistenceTests
             Assert.IsNotNull(b.Endpoints);
             Assert.AreEqual(0, b.Endpoints.Count);
             Assert.AreEqual(HealthStatus.Unknown, b.Health);
+            await tx.CommitAsync();
         }
     }
 
@@ -71,7 +75,7 @@ public class ServicePersistenceTests
     {
         var conn = (NpgsqlConnection)ctx.Database.GetDbConnection();
         await using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"SET app.current_tenant_id = '{tenant}'";
+        cmd.CommandText = $"SET LOCAL app.current_tenant_id = '{tenant}'";
         await cmd.ExecuteNonQueryAsync();
     }
 }
