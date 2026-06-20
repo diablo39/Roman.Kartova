@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:5021/"
+      "url": "http://localhost:8080/"
     }
   ],
   "paths": {
@@ -51,6 +51,16 @@
           },
           "400": {
             "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -569,6 +579,165 @@
           },
           "409": {
             "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalog/services": {
+      "post": {
+        "tags": [
+          "CatalogEndpointDelegates"
+        ],
+        "operationId": "RegisterService",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterServiceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "CatalogEndpointDelegates"
+        ],
+        "operationId": "ListServices",
+        "parameters": [
+          {
+            "name": "sortBy",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CursorPageOfServiceResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalog/services/{id}": {
+      "get": {
+        "tags": [
+          "CatalogEndpointDelegates"
+        ],
+        "operationId": "GetServiceById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1981,31 +2150,6 @@
   },
   "components": {
     "schemas": {
-      "AcceptedInvitationInfo": {
-        "required": [
-          "orgDisplayName",
-          "invitedBy",
-          "invitedAt",
-          "acceptedAt"
-        ],
-        "type": "object",
-        "properties": {
-          "orgDisplayName": {
-            "type": "string"
-          },
-          "invitedBy": {
-            "$ref": "#/components/schemas/UserDisplayInfo"
-          },
-          "invitedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "acceptedAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
       "AcceptInvitationRequest": {
         "required": [
           "token",
@@ -2033,6 +2177,31 @@
         "properties": {
           "email": {
             "type": "string"
+          }
+        }
+      },
+      "AcceptedInvitationInfo": {
+        "required": [
+          "orgDisplayName",
+          "invitedBy",
+          "invitedAt",
+          "acceptedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "orgDisplayName": {
+            "type": "string"
+          },
+          "invitedBy": {
+            "$ref": "#/components/schemas/UserDisplayInfo"
+          },
+          "invitedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "acceptedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -2284,6 +2453,34 @@
           }
         }
       },
+      "CursorPageOfServiceResponse": {
+        "required": [
+          "items",
+          "nextCursor",
+          "prevCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServiceResponse"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "prevCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "CursorPageOfTeamResponse": {
         "required": [
           "items",
@@ -2338,6 +2535,14 @@
             "type": "string"
           }
         }
+      },
+      "HealthStatus": {
+        "enum": [
+          "unknown",
+          "healthy",
+          "degraded",
+          "unhealthy"
+        ]
       },
       "InvitationAcceptContext": {
         "required": [
@@ -2433,6 +2638,50 @@
           "decommissioned"
         ]
       },
+      "MePermissionsResponse": {
+        "required": [
+          "role",
+          "permissions",
+          "teamMemberships"
+        ],
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "teamMemberships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeTeamMembership"
+            }
+          }
+        }
+      },
+      "MeTeamMembership": {
+        "required": [
+          "teamId",
+          "role"
+        ],
+        "type": "object",
+        "properties": {
+          "teamId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "type": "string"
+          }
+        }
+      },
       "MemberSummaryResponse": {
         "required": [
           "id",
@@ -2476,50 +2725,6 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
-          }
-        }
-      },
-      "MePermissionsResponse": {
-        "required": [
-          "role",
-          "permissions",
-          "teamMemberships"
-        ],
-        "type": "object",
-        "properties": {
-          "role": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "permissions": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "teamMemberships": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MeTeamMembership"
-            }
-          }
-        }
-      },
-      "MeTeamMembership": {
-        "required": [
-          "teamId",
-          "role"
-        ],
-        "type": "object",
-        "properties": {
-          "teamId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "role": {
-            "type": "string"
           }
         }
       },
@@ -2607,6 +2812,16 @@
           }
         }
       },
+      "Protocol": {
+        "enum": [
+          "rest",
+          "grpc",
+          "graphQL",
+          "webSocket",
+          "tcp",
+          "other"
+        ]
+      },
       "RegisterApplicationRequest": {
         "required": [
           "displayName",
@@ -2624,6 +2839,113 @@
           "teamId": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "RegisterServiceRequest": {
+        "required": [
+          "displayName",
+          "description",
+          "teamId",
+          "endpoints"
+        ],
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "teamId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "endpoints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServiceEndpointDto"
+            }
+          }
+        }
+      },
+      "ServiceEndpointDto": {
+        "required": [
+          "url",
+          "protocol"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "protocol": {
+            "$ref": "#/components/schemas/Protocol"
+          }
+        }
+      },
+      "ServiceResponse": {
+        "required": [
+          "id",
+          "tenantId",
+          "displayName",
+          "description",
+          "teamId",
+          "createdByUserId",
+          "createdAt",
+          "health",
+          "endpoints",
+          "version"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "teamId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdByUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "health": {
+            "$ref": "#/components/schemas/HealthStatus"
+          },
+          "endpoints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServiceEndpointDto"
+            }
+          },
+          "version": {
+            "type": "string"
+          },
+          "createdBy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UserDisplayInfo"
+              }
+            ]
           }
         }
       },
