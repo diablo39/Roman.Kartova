@@ -55,4 +55,20 @@ describe("services api", () => {
       body: { displayName: "Orders", description: "d", teamId: "tm", endpoints: [] },
     });
   });
+
+  it("invalidates the services cache after a successful register", async () => {
+    const post = vi.fn().mockResolvedValue({ data: { id: "svc-1" }, error: undefined, response: { status: 201 } });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: vi.fn(), POST: post } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
+    const ui = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useRegisterService(), { wrapper: ui });
+    await result.current.mutateAsync({ displayName: "Orders", description: "d", teamId: "tm", endpoints: [] });
+
+    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["services"] }));
+  });
 });
