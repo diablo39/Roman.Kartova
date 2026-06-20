@@ -1,6 +1,7 @@
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
+using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.Extensions.Time.Testing;
 
@@ -29,6 +30,10 @@ public class ServiceResponseExtensionsTests
         Assert.AreEqual(1, resp.Endpoints.Count);
         Assert.AreEqual("https://api.example.com", resp.Endpoints[0].Url);
         Assert.AreEqual(Protocol.Grpc, resp.Endpoints[0].Protocol);
+        Assert.AreEqual("Orders.", resp.Description);
+        Assert.AreEqual(creator, resp.CreatedByUserId);
+        Assert.AreEqual(clock.GetUtcNow(), resp.CreatedAt);
+        Assert.AreEqual(VersionEncoding.Encode(svc.Version), resp.Version);
         Assert.IsNull(resp.CreatedBy);
     }
 }
