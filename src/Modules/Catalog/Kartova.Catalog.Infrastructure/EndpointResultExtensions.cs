@@ -25,6 +25,17 @@ internal static class EndpointResultExtensions
         detail: "No application with that id is visible in the current tenant.",
         statusCode: StatusCodes.Status404NotFound);
 
+    /// <summary>
+    /// RFC 7807 404 envelope shared by every endpoint that returns a nullable
+    /// <c>ServiceResponse?</c>. RLS hides cross-tenant rows so unknown id
+    /// and cross-tenant id surface identically (intentional, ADR-0090).
+    /// </summary>
+    internal static IResult ServiceNotFound() => Results.Problem(
+        type: ProblemTypes.ResourceNotFound,
+        title: "Service not found",
+        detail: "No service with the supplied id exists in the current tenant.",
+        statusCode: StatusCodes.Status404NotFound);
+
     private sealed class EtagWrappedResult(IResult inner, string version) : IResult
     {
         public async Task ExecuteAsync(HttpContext httpContext)
