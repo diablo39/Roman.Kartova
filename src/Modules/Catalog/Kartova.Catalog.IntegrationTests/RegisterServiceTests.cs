@@ -56,4 +56,45 @@ public class RegisterServiceTests : CatalogIntegrationTestBase
         var resp = await anon.PostAsJsonAsync("/api/v1/catalog/services", Body(Guid.NewGuid()));
         Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
     }
+
+    [TestMethod]
+    public async Task POST_with_empty_display_name_returns_400()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Svc Team 400");
+        var resp = await client.PostAsJsonAsync("/api/v1/catalog/services",
+            new { displayName = "", description = "d", teamId, endpoints = Array.Empty<object>() });
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task POST_with_relative_endpoint_url_returns_400()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Svc Team Url");
+        var resp = await client.PostAsJsonAsync("/api/v1/catalog/services", new
+        {
+            displayName = "svc", description = "d", teamId,
+            endpoints = new[] { new { url = "/relative/path", protocol = Protocol.Rest } },
+        });
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task POST_with_unknown_team_returns_422()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var resp = await client.PostAsJsonAsync("/api/v1/catalog/services", Body(Guid.NewGuid()));
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task POST_with_51_endpoints_returns_400()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Svc Team 51");
+        var eps = Enumerable.Range(0, 51).Select(i => ($"https://h{i}.example.com", Protocol.Rest)).ToArray();
+        var resp = await client.PostAsJsonAsync("/api/v1/catalog/services", Body(teamId, eps));
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
 }
