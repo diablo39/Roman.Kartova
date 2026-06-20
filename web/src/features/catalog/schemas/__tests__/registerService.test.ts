@@ -26,6 +26,16 @@ describe("registerServiceSchema", () => {
     expect(r.success).toBe(false);
   });
 
+  it("rejects a display name longer than 128 characters", () => {
+    const r = registerServiceSchema.safeParse({ displayName: "a".repeat(129), description: "d", teamId: validTeamId, endpoints: [] });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects a description longer than 4096 characters", () => {
+    const r = registerServiceSchema.safeParse({ displayName: "Orders", description: "a".repeat(4097), teamId: validTeamId, endpoints: [] });
+    expect(r.success).toBe(false);
+  });
+
   it("rejects a non-uuid team id", () => {
     const r = registerServiceSchema.safeParse({ displayName: "Orders", description: "d", teamId: "not-a-uuid", endpoints: [] });
     expect(r.success).toBe(false);

@@ -129,6 +129,28 @@ describe("RegisterServiceDialog", () => {
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
   });
 
+  it("drops a blank-URL endpoint row from the payload and still submits", async () => {
+    mutateAsync.mockResolvedValue({ id: "svc-2" });
+    setup();
+    await userEvent.type(screen.getByLabelText(/display name/i), "Payments");
+    await userEvent.type(screen.getByLabelText(/description/i), "Payment service");
+    await userEvent.selectOptions(screen.getByTestId("register-service-team-select"), "Platform");
+    // Add a row but leave the URL blank — it should be dropped, not rejected.
+    await userEvent.click(screen.getByRole("button", { name: /add endpoint/i }));
+    await userEvent.click(screen.getByRole("button", { name: /register service/i }));
+    await waitFor(() =>
+      expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ endpoints: [] })),
+    );
+  });
+
+  it("disables submit and shows a hint when no teams are available", () => {
+    useTeamsListMock.mockReturnValue(makeTeamsResult([]));
+    setup();
+    expect(screen.getByRole("button", { name: /register service/i })).toBeDisabled();
+    expect(screen.getByText(/no teams available/i)).toBeInTheDocument();
+    expect(mutateAsync).not.toHaveBeenCalled();
+  });
+
   it("resets the form fields when closed and reopened", async () => {
     useAuthMock.mockReturnValue({
       isAuthenticated: true,
