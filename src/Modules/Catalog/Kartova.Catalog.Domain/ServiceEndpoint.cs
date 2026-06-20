@@ -16,8 +16,13 @@ public sealed record ServiceEndpoint
             throw new ArgumentException("endpoint url must not be empty.", nameof(url));
         if (url.Length > 2048)
             throw new ArgumentException("endpoint url must be <= 2048 characters.", nameof(url));
-        if (!Uri.TryCreate(url, UriKind.Absolute, out _))
-            throw new ArgumentException("endpoint url must be an absolute URI.", nameof(url));
+        // Require an absolute URI *with a host*. UriKind.Absolute alone is
+        // platform-dependent for rooted paths: "/v1/orders" is non-absolute on
+        // Windows but parses as a hostless file:// URI on Linux. The Authority
+        // check rejects it consistently on both while accepting real network
+        // endpoints (https://, grpc://, tcp://, ws(s)://, …).
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || string.IsNullOrEmpty(uri.Authority))
+            throw new ArgumentException("endpoint url must be an absolute URI with a host.", nameof(url));
         if (!Enum.IsDefined(protocol))
             throw new ArgumentException("unknown protocol.", nameof(protocol));
 
