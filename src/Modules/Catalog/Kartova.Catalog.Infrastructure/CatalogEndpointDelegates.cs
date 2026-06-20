@@ -353,6 +353,7 @@ internal static class CatalogEndpointDelegates
             return forbidden;
 
         var endpoints = (request.Endpoints ?? Array.Empty<ServiceEndpointDto>())
+            .Where(e => e is not null)
             .Select(e => new ServiceEndpointInput(e.Url, e.Protocol))
             .ToList();
 

@@ -28,6 +28,16 @@ public class ServiceEndpointTests
         Assert.ThrowsExactly<ArgumentException>(
             () => new ServiceEndpoint("https://x/" + new string('a', 2048), Protocol.Rest));
 
+    // F6: boundary — exactly 2048 chars is accepted
+    [TestMethod]
+    public void Ctor_accepts_url_of_exactly_2048_chars()
+    {
+        const string prefix = "https://e.com/";
+        var url = prefix + new string('a', 2048 - prefix.Length);
+        var ep = new ServiceEndpoint(url, Protocol.Rest);
+        Assert.AreEqual(2048, ep.Url.Length);
+    }
+
     [TestMethod]
     public void Ctor_throws_on_undefined_protocol() =>
         Assert.ThrowsExactly<ArgumentException>(

@@ -96,4 +96,40 @@ public class ServiceTests
     public void Create_throws_on_empty_team() =>
         Assert.ThrowsExactly<ArgumentException>(
             () => Service.Create("svc", "desc", Creator, Guid.Empty, new[] { Ep() }, Tenant, Clock));
+
+    // F2: boundary — exactly 128 chars is accepted
+    [TestMethod]
+    public void Create_accepts_display_name_of_exactly_128_chars()
+    {
+        var name = new string('x', 128);
+        var s = Service.Create(name, "desc", Creator, Team, new[] { Ep() }, Tenant, Clock);
+        Assert.AreEqual(128, s.DisplayName.Length);
+    }
+
+    // F3: boundary — exactly 4096 chars description is accepted
+    [TestMethod]
+    public void Create_accepts_description_of_exactly_4096_chars()
+    {
+        var desc = new string('d', 4096);
+        var s = Service.Create("svc", desc, Creator, Team, new[] { Ep() }, Tenant, Clock);
+        Assert.AreEqual(4096, s.Description.Length);
+    }
+
+    // F4: null endpoints coerces to empty list (kills ?? new List mutant)
+    [TestMethod]
+    public void Create_with_null_endpoints_returns_service_with_zero_endpoints()
+    {
+        IEnumerable<ServiceEndpoint>? nullEndpoints = null;
+        var s = Service.Create("svc", "desc", Creator, Team, nullEndpoints!, Tenant, Clock);
+        Assert.AreEqual(0, s.Endpoints.Count);
+    }
+
+    // F5: null TimeProvider throws ArgumentNullException (kills ThrowIfNull mutant)
+    [TestMethod]
+    public void Create_with_null_TimeProvider_throws_ArgumentNullException()
+    {
+        TimeProvider? nullClock = null;
+        Assert.ThrowsExactly<ArgumentNullException>(
+            () => Service.Create("svc", "desc", Creator, Team, new[] { Ep() }, Tenant, nullClock!));
+    }
 }

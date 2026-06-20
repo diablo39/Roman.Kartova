@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
+using Kartova.SharedKernel.Multitenancy;
 using Kartova.Testing.Auth;
 
 namespace Kartova.Catalog.IntegrationTests;
@@ -96,5 +97,54 @@ public class RegisterServiceTests : CatalogIntegrationTestBase
         var eps = Enumerable.Range(0, 51).Select(i => ($"https://h{i}.example.com", Protocol.Rest)).ToArray();
         var resp = await client.PostAsJsonAsync("/api/v1/catalog/services", Body(teamId, eps));
         Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    // F7 (gate8 Imp-1 test): null element in endpoints array must not cause HTTP 500
+    [TestMethod]
+    public async Task POST_with_null_endpoint_element_does_not_return_500()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Svc Team NullEp");
+        var resp = await client.PostAsJsonAsync("/api/v1/catalog/services", new
+        {
+            displayName = "null-ep-svc",
+            description = "testing null endpoint element.",
+            teamId,
+            endpoints = new object?[] { null },
+        });
+        Assert.IsTrue((int)resp.StatusCode < 500,
+            $"Expected < 500 when endpoints contains a null element, but got {(int)resp.StatusCode}.");
+    }
+
+    // F8 (gate9 SF-1): CreatedByUserId in the response must match the JWT sub of the registering user
+    [TestMethod]
+    public async Task POST_sets_CreatedByUserId_to_caller_sub()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Svc Team Identity");
+
+        var resp = await client.PostAsJsonAsync("/api/v1/catalog/services",
+            Body(teamId, ("https://api.example.com/v1", Protocol.Rest)));
+
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode);
+        var body = await resp.Content.ReadFromJsonAsync<ServiceResponse>(KartovaApiFixtureBase.WireJson);
+        var expectedSub = await Fx.GetSubClaimAsync(OrgAUser);
+        Assert.AreEqual(expectedSub, body!.CreatedByUserId);
+    }
+
+    // F9 (gate8 Imp-3): Member not in target team is denied with 403
+    [TestMethod]
+    public async Task POST_by_member_not_in_target_team_returns_403()
+    {
+        var tenantId = Fx.TenantIdForEmail(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenantId, "Svc Team Restricted");
+        // Member is NOT added to this team — the membership gate must fire.
+        var memberClient = await Fx.CreateAuthenticatedClientAsync(
+            "member@orga.kartova.local", new[] { KartovaRoles.Member });
+
+        var resp = await memberClient.PostAsJsonAsync("/api/v1/catalog/services",
+            Body(teamId, ("https://api.example.com/v1", Protocol.Rest)));
+
+        Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
     }
 }
