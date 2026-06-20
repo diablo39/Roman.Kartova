@@ -39,6 +39,7 @@ public class ListServicesPaginationTests : CatalogIntegrationTestBase
 
         var nextResp = await client.GetAsync(
             $"/api/v1/catalog/services?sortBy=displayName&sortOrder=asc&limit=2&cursor={Uri.EscapeDataString(first.NextCursor!)}");
+        Assert.AreEqual(HttpStatusCode.OK, nextResp.StatusCode);
         var next = await nextResp.Content.ReadFromJsonAsync<CursorPage<ServiceResponse>>(KartovaApiFixtureBase.WireJson);
         Assert.IsTrue(next!.Items.Count >= 1);
     }
