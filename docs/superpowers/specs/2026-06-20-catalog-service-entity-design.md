@@ -41,7 +41,7 @@ This is **not** a complete E-02.F-02 feature: no detail page with real-time heal
 | 8 | `HealthStatus` enum: `Unknown, Healthy, Degraded, Unhealthy`. Field **defaults to `Unknown`**; **no write path** this slice. | AC: "health status defaults to unknown". Health is fed by the agent/probes later (E-15); storing the default now keeps the schema honest. |
 | 9 | Endpoints persisted as a **`jsonb` column** via EF owned-collection `.ToJson()`. No child table. | Endpoints live inside the aggregate boundary; jsonb keeps writes atomic, needs no second RLS table, and avoids a join on read. |
 | 10 | Required-field enforcement is a **domain invariant** on `Service.Create` (mirrors `Application.Create`), not a separate validation pipeline. | Single source of truth; E-02.F-01.S-05 pattern. |
-| 11 | Tenant id + created-by user id always come from `ITenantContext` / `ICurrentUser`, never the payload (ADR-0090). Team id comes from the payload, validated to exist in the tenant. | Same single-source rule pinned for Application; a cross-tenant write probe re-pins it for Service. |
+| 11 | Tenant id + created-by user id always come from `ITenantContext` / `ICurrentUser`, never the payload (ADR-0090). Team id comes from the payload, validated to exist in the tenant. | Same single-source rule pinned for Application. `RegisterServiceRequest` has no `TenantId`/`CreatedByUserId` field, so there is nothing to override — the guarantee is asserted directly (register test checks `CreatedByUserId == caller sub`) and read isolation by the get-by-id cross-tenant 404. |
 | 12 | New permission `catalog.services.register`; reads reuse the shared `catalog.read`. | Mirrors `catalog.applications.register` + `catalog.read`. Register mapped to Member + OrgAdmin in the role map. |
 | 13 | Audit action `service.registered`, target type `Service`, appended in-transaction by the register handler. | Same fail-closed pattern as `application.registered`. |
 | 14 | `_id` backing-field + computed `ServiceId`, `xmin` concurrency token, `(tenant_id, display_name)` keyset index — identical EF mechanics to Application. | Reuse the proven pattern that keeps EF LINQ translatable and pagination keyset-friendly. |
@@ -261,7 +261,7 @@ Per [docs/TESTING-STRATEGY.md](../../TESTING-STRATEGY.md). This slice wires HTTP
 - happy: register with **zero endpoints** → 201, jsonb `[]` round-trips on GET.
 - negative: 400 empty name; 400 bad endpoint url; 403 non-member non-OrgAdmin; 422 unknown team; 401 no token.
 - GET-by-id: 200 same tenant; 404 nonexistent; 404 other tenant's id (RLS).
-- cross-tenant write probe: payload cannot override scope tenant id.
+- identity-from-context: register response `CreatedByUserId` equals the caller's JWT `sub` (ADR-0090; the request has no tenant/creator field to override). Read isolation is proven by the get-by-id cross-tenant 404 above; the list isolation test asserts another tenant's services never appear.
 
 ### 7.3 List + pagination (`ListServicesPaginationTests.cs`, real seam)
 - `CursorPage<ServiceResponse>` envelope; forward/backward cursor; `sortBy`/`sortOrder` honored; `limit` bound; tenant-isolated result set.
@@ -300,7 +300,7 @@ The eight always-blocking gates + conditional mutation gate as defined in **CLAU
 6. `GetServiceByIdHandler` + `ListServicesHandler` + `ServiceSortSpecs`.
 7. Permissions + role map + their tests (RED → GREEN).
 8. Endpoint delegates + `CatalogModule` wiring.
-9. Integration suites (register happy/negatives, get-by-id, list pagination, cross-tenant probe) + permission-matrix rows.
+9. Integration suites (register happy/negatives incl. identity-from-context + 403 membership + null-endpoint 400, get-by-id incl. cross-tenant 404, list pagination + tenant isolation, CreatedBy enrichment) + permission-matrix rows.
 10. `scripts/ci-local.sh`, push, open PR, run DoD gates.
 
 ---
