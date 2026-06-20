@@ -42,4 +42,18 @@ describe("EndpointsEditor", () => {
     );
     expect(screen.getByText(/must be an absolute url/i)).toBeInTheDocument();
   });
+
+  it("propagates URL edits through the controlled round-trip (updateRow)", async () => {
+    render(<Harness initial={[{ url: "", protocol: "rest" }]} />);
+    const input = screen.getByLabelText(/endpoint 1 url/i);
+    await userEvent.type(input, "https://api.example.com/v1");
+    expect(input).toHaveValue("https://api.example.com/v1");
+  });
+
+  it("propagates protocol changes through the controlled round-trip (updateRow)", async () => {
+    render(<Harness initial={[{ url: "https://a.example.com", protocol: "rest" }]} />);
+    const select = screen.getByLabelText(/endpoint 1 protocol/i);
+    await userEvent.selectOptions(select, "grpc");
+    expect(select).toHaveValue("grpc");
+  });
 });
