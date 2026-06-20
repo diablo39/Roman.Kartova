@@ -54,6 +54,10 @@ describe("endpointSchema", () => {
   it("rejects an unknown protocol", () => {
     expect(endpointSchema.safeParse({ url: "https://x.example.com", protocol: "soap" }).success).toBe(false);
   });
+  it("rejects a url longer than 2048 characters", () => {
+    const longUrl = "https://x.example.com/" + "a".repeat(2040);
+    expect(endpointSchema.safeParse({ url: longUrl, protocol: "rest" }).success).toBe(false);
+  });
 });
 
 describe("PROTOCOLS / PROTOCOL_LABEL", () => {
