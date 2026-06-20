@@ -1,9 +1,7 @@
 import { Plus } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
-import { PROTOCOLS, PROTOCOL_LABEL, type EndpointInput } from "@/features/catalog/schemas/registerService";
-
-const MAX_ENDPOINTS = 50;
+import { PROTOCOLS, PROTOCOL_LABEL, MAX_ENDPOINTS, type EndpointInput } from "@/features/catalog/schemas/registerService";
 
 interface Props {
   value: EndpointInput[];

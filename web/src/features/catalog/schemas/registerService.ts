@@ -40,11 +40,15 @@ export const endpointSchema = z.object({
   protocol: z.enum(PROTOCOLS),
 });
 
+/** Max endpoints per service — single source of truth (also enforced server-side
+ *  by Service.Create). Imported by EndpointsEditor for its UI cap. */
+export const MAX_ENDPOINTS = 50;
+
 export const registerServiceSchema = z.object({
   displayName: z.string().min(1, "Display Name must not be empty").max(128, "Display Name must be at most 128 characters"),
   description: z.string().min(1, "Description is required").max(4096, "Description must be at most 4096 characters"),
   teamId: z.string().uuid("Team is required"),
-  endpoints: z.array(endpointSchema).max(50, "A service may have at most 50 endpoints"),
+  endpoints: z.array(endpointSchema).max(MAX_ENDPOINTS, `A service may have at most ${MAX_ENDPOINTS} endpoints`),
 });
 
 export type RegisterServiceInput = z.infer<typeof registerServiceSchema>;
