@@ -1,6 +1,6 @@
 # Kartova — Development Progress Checklist
 
-**Last updated:** 2026-06-18
+**Last updated:** 2026-06-19
 
 ## How to use
 - [ ] = Not started
@@ -11,8 +11,8 @@
 
 | Phase | Status | Progress |
 |-------|--------|----------|
-| Phase 0: Foundation | In Progress | 11/31 |
-| Phase 1: Core Catalog & Notifications | In Progress | 13/60 |
+| Phase 0: Foundation | In Progress | 12/31 |
+| Phase 1: Core Catalog & Notifications | In Progress | 14/60 |
 | Phase 2: Auto-Import | Not Started | 0/36 |
 | Phase 3: Documentation | Not Started | 0/15 |
 | Phase 4: Status Page | Not Started | 0/16 |
@@ -21,7 +21,7 @@
 | Phase 7: Intelligence | Not Started | 0/13 |
 | Phase 8: Analytics | Not Started | 0/14 |
 | Phase 9: Advanced | Not Started | 0/0 |
-| **Total** | | **20/212** |
+| **Total** | | **22/212** |
 
 ---
 
@@ -42,7 +42,7 @@
 
 **E-01.F-03: Database Foundation**
 - [x] E-01.F-03.S-01 — Multi-tenant database schema with tenant isolation
-- [ ] E-01.F-03.S-02 — Database migration framework
+- [x] E-01.F-03.S-02 — Database migration framework (satisfied by ADR-0085 impl, verified 2026-06-19: `Kartova.Migrator` per-module `MigrateAsync` loop + `__kartova_metadata`, RLS/REVOKE DDL carried in EF migrations across all modules, DevSeed prod-guard, docker-compose `migrator` init service, Helm `pre-install/pre-upgrade` Job, CI image build, migration integration tests). Follow-ups (optional, not blocking): DDL/DML least-privilege credential split → with deploy hardening (E-01.F-04.S-05); CD-time migrator invocation → E-01.F-02.S-02; documented `--module=<name>` selective flag is unwired (Program.cs always runs all modules)
 - [x] E-01.F-03.S-03 — Append-only audit log table (security forensics + GDPR accountability; MiFID II driver dropped per ADR-0106, log retained on security grounds) — Phase 1 foundation (audit-log-foundation, 2026-06-12): Kartova.Audit module, insert-only/RLS audit_log table (DB-enforced REVOKE + tenant_isolation policy), IAuditWriter (sync in-transaction, fail-closed), per-tenant SHA-256 hash chain + AuditChainVerifier (ADR-0018). Event wiring = Phase 2. Phase 2 (audit-event-wiring, 2026-06-17): 10 Organization mutations wired to IAuditWriter (member role-change/offboard, team CRUD + membership, invitation.created, org.profile_updated); actor_display snapshot from JWT. Catalog events + System-actor/expiry-sweep deferred. Phase 2 follow-up (audit-system-actor-sweep, 2026-06-18): IAuditWriter.AppendSystemAsync (System actor, null actor_id, "System" display) + invitation-expiry sweep refactored to per-tenant ITenantScope txn writing one System invitation.expired row per expiry (RLS app-role + hash chain). Phase 2 follow-up (audit-catalog-event-wiring, 2026-06-19): 7 Catalog application mutations wired to IAuditWriter via the direct-dispatch delegates — application.registered/edited/team_assigned + a single application.lifecycle_changed (from/to/sunsetDate in data) across deprecate/decommission/reactivate/un-decommission. Audit event-wiring fully closed.
 
 **E-01.F-04: Authentication & Authorization**
@@ -100,7 +100,7 @@
 
 **E-02.F-02: Service Entity Management**
 - [x] E-02.F-01.S-05 — Required minimum fields on all entity types (slice 3 — PR #10, 2026-04-30; enforced as `Application.Create` invariants for the first entity)
-- [ ] E-02.F-02.S-01 — Register service with endpoints and protocol
+- [x] E-02.F-02.S-01 — Register service with endpoints and protocol (catalog-service-entity, 2026-06-20: `Service` aggregate sibling to `Application` in the Catalog module; `0..50` protocol-typed endpoints persisted as a `jsonb` owned collection (`OwnsMany().ToJson()`); `Health` defaults `Unknown` (no write path — agent feeds it later, E-15); POST/GET-by-id/cursor-list at `/api/v1/catalog/services`; required owning team + membership gate (ADR-0103); new `catalog.services.register` permission (Member+OrgAdmin) + TS parity; `service.registered` audit. No Lifecycle/edit/UI this slice. Mutation 90.10%.)
 - [ ] E-02.F-02.S-02 — Service detail page with health and consumers
 
 **E-02.F-03: API Entity Management (Sync & Async)**

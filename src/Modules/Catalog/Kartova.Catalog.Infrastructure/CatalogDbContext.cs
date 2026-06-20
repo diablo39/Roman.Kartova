@@ -19,6 +19,8 @@ public sealed class CatalogDbContext : DbContext
 
     public DbSet<Kartova.Catalog.Domain.Application> Applications => Set<Kartova.Catalog.Domain.Application>();
 
+    public DbSet<Kartova.Catalog.Domain.Service> Services => Set<Kartova.Catalog.Domain.Service>();
+
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -42,5 +44,6 @@ public sealed class CatalogDbContext : DbContext
         });
 
         modelBuilder.ApplyConfiguration(new EfApplicationConfiguration());
+        modelBuilder.ApplyConfiguration(new EfServiceConfiguration());
     }
 }

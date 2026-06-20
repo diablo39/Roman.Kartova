@@ -108,4 +108,20 @@ public sealed class KartovaRolePermissionsTests
         Assert.IsFalse(perms.Contains(KartovaPermissions.OrgUsersRoleChange));
         Assert.IsFalse(perms.Contains(KartovaPermissions.OrgUsersRemove));
     }
+
+    [TestMethod]
+    public void Member_and_OrgAdmin_can_register_services_but_Viewer_cannot()
+    {
+        var member = KartovaRolePermissions.ForRole(KartovaRoles.Member);
+        var orgAdmin = KartovaRolePermissions.ForRole(KartovaRoles.OrgAdmin);
+        var viewer = KartovaRolePermissions.ForRole(KartovaRoles.Viewer);
+
+        Assert.IsTrue(member.Contains(KartovaPermissions.CatalogServicesRegister));
+        Assert.IsTrue(orgAdmin.Contains(KartovaPermissions.CatalogServicesRegister));
+        Assert.IsFalse(viewer.Contains(KartovaPermissions.CatalogServicesRegister));
+    }
+
+    [TestMethod]
+    public void CatalogServicesRegister_is_in_the_All_set() =>
+        Assert.IsTrue(KartovaPermissions.All.Contains(KartovaPermissions.CatalogServicesRegister));
 }

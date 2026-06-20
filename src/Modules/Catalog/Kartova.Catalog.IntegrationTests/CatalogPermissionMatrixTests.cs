@@ -45,6 +45,9 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
         (HttpMethod.Post, "/api/v1/catalog/applications/{id}/decommission", KartovaPermissions.CatalogApplicationsLifecycleForward),
         (HttpMethod.Post, "/api/v1/catalog/applications/{id}/reactivate", KartovaPermissions.CatalogApplicationsLifecycleReverse),
         (HttpMethod.Post, "/api/v1/catalog/applications/{id}/un-decommission", KartovaPermissions.CatalogApplicationsLifecycleReverse),
+        (HttpMethod.Post, "/api/v1/catalog/services",                       KartovaPermissions.CatalogServicesRegister),
+        (HttpMethod.Get,  "/api/v1/catalog/services",                       KartovaPermissions.CatalogRead),
+        (HttpMethod.Get,  "/api/v1/catalog/services/{svcId}",               KartovaPermissions.CatalogRead),
     };
 
     [TestMethod]
@@ -73,6 +76,21 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
         var seeded = await registerResp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
         var appId = seeded!.Id;
 
+        // Seed a fixture Service as OrgAdmin so {svcId} substitution works on per-role calls.
+        var registerSvcResp = await seederClient.PostAsJsonAsync(
+            "/api/v1/catalog/services",
+            new
+            {
+                displayName = "Matrix Svc",
+                description = "Seed service for permission matrix test.",
+                teamId,
+                endpoints = Array.Empty<object>(),
+            });
+        Assert.IsTrue(registerSvcResp.IsSuccessStatusCode,
+            $"Seed service registration must succeed (was {registerSvcResp.StatusCode}).");
+        var seededSvc = await registerSvcResp.Content.ReadFromJsonAsync<ServiceResponse>(KartovaApiFixtureBase.WireJson);
+        var svcId = seededSvc!.Id;
+
         var memberSub = await Fx.GetSubClaimAsync(MemberEmail);
         await Fx.SeedTeamMembershipAsync(teamId, memberSub, TeamRoleMember);
 
@@ -85,9 +103,11 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
 
                 foreach (var (method, pathTemplate, perm) in Endpoints)
                 {
-                    var url = pathTemplate.Replace("{id}", appId.ToString());
+                    var url = pathTemplate
+                        .Replace("{id}", appId.ToString())
+                        .Replace("{svcId}", svcId.ToString());
                     using var req = new HttpRequestMessage(method, url);
-                    AttachShapeValidBody(req, method, pathTemplate);
+                    AttachShapeValidBody(req, method, pathTemplate, teamId);
 
                     var resp = await client.SendAsync(req);
                     var expectedForbidden = !grants.Contains(perm);
@@ -203,7 +223,7 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
         return await client.SendAsync(req);
     }
 
-    private static void AttachShapeValidBody(HttpRequestMessage req, HttpMethod method, string pathTemplate)
+    private static void AttachShapeValidBody(HttpRequestMessage req, HttpMethod method, string pathTemplate, Guid teamId)
     {
         if (method == HttpMethod.Post && pathTemplate == "/api/v1/catalog/applications")
         {
@@ -215,6 +235,17 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
             {
                 displayName = "Matrix Write",
                 description = "Matrix shape body.",
+                teamId,
+            });
+        }
+        else if (method == HttpMethod.Post && pathTemplate == "/api/v1/catalog/services")
+        {
+            req.Content = JsonContent.Create(new
+            {
+                displayName = "Matrix Svc",
+                description = "Matrix shape body.",
+                teamId,
+                endpoints = Array.Empty<object>(),
             });
         }
         else if (method == HttpMethod.Put)

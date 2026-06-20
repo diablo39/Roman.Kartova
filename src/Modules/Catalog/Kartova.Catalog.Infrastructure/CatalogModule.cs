@@ -120,6 +120,23 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .ProducesProblem(StatusCodes.Status403Forbidden)
               .ProducesProblem(StatusCodes.Status404NotFound)
               .ProducesProblem(StatusCodes.Status409Conflict);
+        tenant.MapPost("/services", CatalogEndpointDelegates.RegisterServiceAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogServicesRegister)
+              .WithName("RegisterService")
+              .Produces<ServiceResponse>(StatusCodes.Status201Created)
+              .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
+              .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+        tenant.MapGet("/services/{id:guid}", CatalogEndpointDelegates.GetServiceByIdAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRead)
+              .WithName("GetServiceById")
+              .Produces<ServiceResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status404NotFound);
+        tenant.MapGet("/services", CatalogEndpointDelegates.ListServicesAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRead)
+              .WithName("ListServices")
+              .Produces<CursorPage<ServiceResponse>>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         // PUT assign-team — set or clear Application.TeamId. Claim gate stops
         // Viewer/anon; the resource gate (ApplicationTeamScoped — OrgAdmin OR
         // member of the app's current team) runs inside the delegate against
@@ -154,6 +171,9 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<ReactivateApplicationHandler>();
         services.AddScoped<UnDecommissionApplicationHandler>();
         services.AddScoped<AssignApplicationTeamHandler>();
+        services.AddScoped<RegisterServiceHandler>();
+        services.AddScoped<GetServiceByIdHandler>();
+        services.AddScoped<ListServicesHandler>();
 
         // TimeProvider is needed by Application.Deprecate / Decommission for the
         // "sunsetDate must be in the future" / "now >= sunsetDate" checks. TryAdd

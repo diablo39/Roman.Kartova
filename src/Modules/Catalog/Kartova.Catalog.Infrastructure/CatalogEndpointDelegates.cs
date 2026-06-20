@@ -324,6 +324,79 @@ internal static class CatalogEndpointDelegates
         return Results.Ok(result.App!.ToResponse());
     }
 
+    internal static async Task<IResult> RegisterServiceAsync(
+        [FromBody] RegisterServiceRequest request,
+        RegisterServiceHandler handler,
+        CatalogDbContext db,
+        ITenantContext tenant,
+        ClaimsPrincipal caller,
+        ICurrentUser currentUser,
+        IAuthorizationService auth,
+        IOrganizationTeamExistenceChecker teamChecker,
+        IAuditWriter audit,
+        CancellationToken ct)
+    {
+        // ADR-0103: a new service requires an existing owning team in the tenant.
+        // RLS-scoped checker → a cross-tenant id resolves as "not found" (same 422 branch).
+        if (!await teamChecker.ExistsAsync(request.TeamId, ct))
+        {
+            return Results.Problem(
+                type: ProblemTypes.InvalidTeam,
+                title: "Invalid team",
+                detail: "The supplied teamId does not resolve to a team in the current tenant.",
+                statusCode: StatusCodes.Status422UnprocessableEntity);
+        }
+
+        // Target-team membership gate: a non-OrgAdmin caller cannot register into a team
+        // they do not belong to (reuses the shared ApplicationTeamScoped policy).
+        if (await AuthorizeTargetTeamAsync(auth, caller, request.TeamId) is { } forbidden)
+            return forbidden;
+
+        var endpoints = (request.Endpoints ?? Array.Empty<ServiceEndpointDto>())
+            .Where(e => e is not null)
+            .Select(e => new ServiceEndpointInput(e.Url, e.Protocol))
+            .ToList();
+
+        var response = await handler.Handle(
+            new RegisterServiceCommand(request.DisplayName, request.Description, request.TeamId, endpoints),
+            db, tenant, currentUser, audit, ct);
+
+        return Results.Created($"/api/v1/catalog/services/{response.Id}", response);
+    }
+
+    internal static async Task<IResult> GetServiceByIdAsync(
+        Guid id,
+        GetServiceByIdHandler handler,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        var resp = await handler.Handle(new GetServiceByIdQuery(id), db, ct);
+        if (resp is null) return EndpointResultExtensions.ServiceNotFound();
+        return Results.Ok(resp).WithEtag(resp.Version);
+    }
+
+    internal static async Task<IResult> ListServicesAsync(
+        [FromQuery] string? sortBy,
+        [FromQuery] string? sortOrder,
+        [FromQuery] string? cursor,
+        [FromQuery] string? limit,
+        ListServicesHandler handler,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        var (parsedSortBy, parsedSortOrder, effectiveLimit) =
+            CursorListBinding.Bind<ServiceSortField>(sortBy, sortOrder, limit, ServiceSortSpecs.AllowedFieldNames);
+
+        var query = new ListServicesQuery(
+            SortBy: parsedSortBy ?? ServiceSortField.CreatedAt,
+            SortOrder: parsedSortOrder ?? SortOrder.Desc,
+            Cursor: cursor,
+            Limit: effectiveLimit);
+
+        var page = await handler.Handle(query, db, ct);
+        return Results.Ok(page);
+    }
+
     // ----- shared helpers -----------------------------------------------
 
     /// <summary>
