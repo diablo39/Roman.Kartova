@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { HealthBadge } from "../HealthBadge";
-import { healthLabel } from "@/features/catalog/health";
+import { healthLabel, healthColor } from "@/features/catalog/health";
 
 describe("HealthBadge", () => {
   it("renders the Unknown label for the default health", () => {
@@ -18,7 +18,17 @@ describe("HealthBadge", () => {
 describe("healthLabel", () => {
   it("maps each enum value to a human label", () => {
     expect(healthLabel("unknown")).toBe("Unknown");
+    expect(healthLabel("healthy")).toBe("Healthy");
     expect(healthLabel("degraded")).toBe("Degraded");
     expect(healthLabel("unhealthy")).toBe("Unhealthy");
+  });
+});
+
+describe("healthColor", () => {
+  it("maps each enum value to its badge color token", () => {
+    expect(healthColor("unknown")).toBe("gray");
+    expect(healthColor("healthy")).toBe("success");
+    expect(healthColor("degraded")).toBe("warning");
+    expect(healthColor("unhealthy")).toBe("error");
   });
 });
