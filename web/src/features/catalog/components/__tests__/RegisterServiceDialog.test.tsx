@@ -128,4 +128,26 @@ describe("RegisterServiceDialog", () => {
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("The supplied teamId does not resolve to a team in the current tenant."));
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
   });
+
+  it("resets the form fields when closed and reopened", async () => {
+    useAuthMock.mockReturnValue({
+      isAuthenticated: true,
+      user: { access_token: "tok", profile: { sub: "u-1", name: "Alice Admin", email: "alice@orga.kartova.local", tenant_id: "t" } },
+    });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tree = (open: boolean) => (
+      <QueryClientProvider client={qc}>
+        <Toaster />
+        <RegisterServiceDialog open={open} onOpenChange={vi.fn()} />
+      </QueryClientProvider>
+    );
+
+    const { rerender } = render(tree(true));
+    await userEvent.type(screen.getByLabelText(/display name/i), "Orders");
+    expect(screen.getByLabelText(/display name/i)).toHaveValue("Orders");
+
+    rerender(tree(false)); // close — useEffect reset fires on !open
+    rerender(tree(true)); // reopen
+    expect(screen.getByLabelText(/display name/i)).toHaveValue("");
+  });
 });
