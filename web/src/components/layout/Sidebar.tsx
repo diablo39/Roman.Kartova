@@ -81,7 +81,7 @@ export function Sidebar() {
             </li>
           )}
           <li>
-            <DisabledItem label="Services" />
+            <NavItemLink to="/catalog/services" label="Services" />
           </li>
           <li>
             <DisabledItem label="Infrastructure" />
