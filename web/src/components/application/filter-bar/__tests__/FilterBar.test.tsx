@@ -24,6 +24,7 @@ describe("FilterBar", () => {
   it("renders a text control from the spec with its label", () => {
     render(<FilterBar specs={specs} filters={filters()} />);
     expect(screen.getByRole("textbox", { name: /search teams/i })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /search teams/i })).toHaveAttribute("maxlength", "128");
   });
 
   it("typing calls the bound onChange", () => {
@@ -32,6 +33,7 @@ describe("FilterBar", () => {
     render(<FilterBar specs={specs} filters={f} />);
     fireEvent.change(screen.getByRole("textbox", { name: /search teams/i }), { target: { value: "pl" } });
     expect(onChange).toHaveBeenCalledWith("pl");
+    expect(f.bind).toHaveBeenCalledWith("displayNameContains");
   });
 
   it("shows Clear all only when active and calls clearAll", () => {
