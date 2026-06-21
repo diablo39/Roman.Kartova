@@ -22,9 +22,9 @@ export function TeamsListPage() {
     defaultSortBy: "displayName",
     defaultSortOrder: "asc",
     allowedSortFields: ALLOWED_SORT_FIELDS,
-    textFilters: ["displayNameContains"],
+    textFilters: ["displayNameContains"] as const,
   });
-  const filters = useListFilters(FILTER_SPECS, urlState as Parameters<typeof useListFilters>[1]);
+  const filters = useListFilters(FILTER_SPECS, urlState);
 
   const list = useTeamsList({
     sortBy: urlState.sortBy,

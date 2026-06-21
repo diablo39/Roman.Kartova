@@ -29,7 +29,12 @@ export interface ListUrlState<TField extends string, TBoolFilter extends string 
   booleanFilters: Readonly<Record<TBoolFilter, boolean>>;
   setBooleanFilter: (name: TBoolFilter, value: boolean) => void;
   textFilters: Readonly<Record<TTextFilter, string>>;
-  setTextFilter: (name: TTextFilter, value: string) => void;
+  /**
+   * Accepts any string key so generic consumers (e.g. useListFilters, which is
+   * string-keyed via FilterSpec) can drive it without a cast. Read-side literal
+   * keys (textFilters map) retain their narrowed type.
+   */
+  setTextFilter: (name: string, value: string) => void;
 }
 
 /**
@@ -107,7 +112,7 @@ export function useListUrlState<TField extends string, TBoolFilter extends strin
   );
 
   const setTextFilter = useCallback(
-    (name: TTextFilter, value: string) => {
+    (name: string, value: string) => {
       setParams(prev => {
         const next = new URLSearchParams(prev);
         const trimmed = value.trim();
