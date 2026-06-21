@@ -659,6 +659,10 @@
             "name": "sortBy",
             "in": "query",
             "schema": {
+              "enum": [
+                "createdAt",
+                "displayName"
+              ],
               "type": "string"
             }
           },
@@ -666,6 +670,10 @@
             "name": "sortOrder",
             "in": "query",
             "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
               "type": "string"
             }
           },
@@ -680,7 +688,10 @@
             "name": "limit",
             "in": "query",
             "schema": {
-              "type": "string"
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32"
             }
           }
         ],

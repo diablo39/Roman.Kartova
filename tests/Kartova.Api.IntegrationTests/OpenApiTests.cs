@@ -101,6 +101,37 @@ public class OpenApiTests : KeycloakContainerTestBase
         Assert.AreEqual(200, limitSchema.GetProperty("maximum").GetInt32());
     }
 
+    [TestMethod]
+    public async Task ListServices_query_parameter_schemas_match_runtime_contract()
+    {
+        // Mirror of the ListApplications assertion (ADR-0095): the Services list
+        // endpoint must publish the same typed sortBy/sortOrder enums + bounded-int
+        // limit via CursorListQueryParameterTransformer, so the generated TS client
+        // gets compile-time-safe sort values and a numeric limit.
+        var client = _app!.CreateClient();
+        var resp = await client.GetAsync("/openapi/v1.json");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+
+        using var doc = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+        var parameters = doc.RootElement
+            .GetProperty("paths")
+            .GetProperty("/api/v1/catalog/services")
+            .GetProperty("get")
+            .GetProperty("parameters");
+
+        var sortByEnum = ParameterEnum(parameters, "sortBy");
+        CollectionAssert.AreEquivalent(new[] { "createdAt", "displayName" }, sortByEnum.ToList());
+
+        var sortOrderEnum = ParameterEnum(parameters, "sortOrder");
+        CollectionAssert.AreEquivalent(new[] { "asc", "desc" }, sortOrderEnum.ToList());
+
+        var limitSchema = ParameterSchema(parameters, "limit");
+        Assert.AreEqual("integer", limitSchema.GetProperty("type").GetString());
+        Assert.AreEqual("int32", limitSchema.GetProperty("format").GetString());
+        Assert.AreEqual(1, limitSchema.GetProperty("minimum").GetInt32());
+        Assert.AreEqual(200, limitSchema.GetProperty("maximum").GetInt32());
+    }
+
     private static IReadOnlyList<string> ParameterEnum(System.Text.Json.JsonElement parameters, string name)
     {
         var schema = ParameterSchema(parameters, name);

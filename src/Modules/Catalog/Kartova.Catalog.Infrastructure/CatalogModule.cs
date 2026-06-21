@@ -136,6 +136,9 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .RequireAuthorization(KartovaPermissions.CatalogRead)
               .WithName("ListServices")
               .Produces<CursorPage<ServiceResponse>>(StatusCodes.Status200OK)
+              // sortBy/sortOrder enum schemas + bounded-integer limit schema are emitted by
+              // Kartova.Api.OpenApi.CursorListQueryParameterTransformer (same as ListApplications);
+              // the C# binding stays string? so the RFC 7807 parse-failure envelopes survive.
               .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         // PUT assign-team — set or clear Application.TeamId. Claim gate stops
         // Viewer/anon; the resource gate (ApplicationTeamScoped — OrgAdmin OR
