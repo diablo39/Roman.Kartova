@@ -16,6 +16,7 @@ function makeFilters() {
     bind: vi.fn((_key: string) => ({ value: "", onChange: vi.fn() })),
     clearAll: vi.fn(),
     isActive: false,
+    activeCount: 0,
     queryFilters: {},
   };
 }
@@ -53,6 +54,7 @@ describe("FilterBar", () => {
   it("shows active-filter count alongside Clear all when active", () => {
     const f = filters({
       isActive: true,
+      activeCount: 1,
       queryFilters: { displayNameContains: "pl" },
     });
     render(<FilterBar specs={specs} filters={f} />);

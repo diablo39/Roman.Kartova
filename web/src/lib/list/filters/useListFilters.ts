@@ -78,5 +78,10 @@ export function useListFilters(
     [textSpecs, committed],
   );
 
-  return { values: local, bind, clearAll, isActive, queryFilters };
+  const activeCount = useMemo(
+    () => textSpecs.filter(s => (committed[s.key] ?? "") !== "").length,
+    [textSpecs, committed],
+  );
+
+  return { values: local, bind, clearAll, isActive, activeCount, queryFilters };
 }

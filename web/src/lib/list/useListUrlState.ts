@@ -46,7 +46,7 @@ export interface ListUrlState<TField extends string, TBoolFilter extends string 
  * Slice 6: optional boolean filters supported via the `booleanFilters` config —
  * used by the Catalog list page for `?includeDecommissioned=true`.
  * Slice 7: optional text filters supported via the `textFilters` config —
- * used by the Catalog list page for `?displayNameContains=...`.
+ * used by the Teams list page for `?displayNameContains=...`.
  */
 export function useListUrlState<TField extends string, TBoolFilter extends string = never, TTextFilter extends string = never>(
   config: Config<TField, TBoolFilter, TTextFilter>,

@@ -42,7 +42,7 @@ export function FilterBar({ specs, filters }: FilterBarProps) {
       {filters.isActive && (
         <>
           <span className="text-sm text-tertiary">
-            {Object.values(filters.queryFilters).filter((v) => v != null).length} active
+            {filters.activeCount} active
           </span>
           <Button size="sm" color="link-gray" onClick={filters.clearAll}>
             Clear all

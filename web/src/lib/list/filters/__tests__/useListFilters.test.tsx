@@ -58,6 +58,18 @@ describe("useListFilters", () => {
     expect(result.current.isActive).toBe(true);
   });
 
+  it("activeCount reflects the number of non-empty committed filters", () => {
+    const empty = fakeUrlState();
+    const { result: r1 } = renderHook(() =>
+      useListFilters(specs, { textFilters: empty.state.textFilters, setTextFilter: empty.setTextFilter } as never));
+    expect(r1.current.activeCount).toBe(0);
+
+    const u = fakeUrlState({ displayNameContains: "pl" });
+    const { result: r2 } = renderHook(() =>
+      useListFilters(specs, { textFilters: u.state.textFilters, setTextFilter: u.setTextFilter } as never));
+    expect(r2.current.activeCount).toBe(1);
+  });
+
   it("debounce boundary: fires at exactly 300ms, not before", () => {
     const u = fakeUrlState();
     const { result } = renderHook(() =>
