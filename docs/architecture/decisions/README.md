@@ -1,8 +1,8 @@
 ---
 platform: Kartova
 description: SaaS service catalog and developer portal platform (Backstage + Compass + Statuspage)
-adr_count: 103
-last_updated: 2026-06-10
+adr_count: 104
+last_updated: 2026-06-21
 architecture:
   backend: .NET 10 (LTS) / ASP.NET Core + EF Core (ADR-0027)
   backend_pattern: Modular monolith (ADR-0082) with Clean Architecture per module — Domain / Application / Infrastructure / Contracts (ADR-0028); inter-module via Wolverine mediator or Kafka events
@@ -113,8 +113,8 @@ open_source_strategy: fully proprietary, no OSS core / source-available (ADR-002
 # Architecture Decision Records — Kartova
 
 **Status:** Living document
-**Last updated:** 2026-06-10
-**Total accepted:** 103
+**Last updated:** 2026-06-21
+**Total accepted:** 104
 **Convention:** Michael Nygard template (Status / Context / Decision / Rationale / Alternatives / Consequences / References)
 
 ## How to use this index
@@ -231,6 +231,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0104](ADR-0104-payload-free-outcomes-are-enums.md) | Payload-Free Operation Outcomes Are Enums, Not Boolean-Flag Result Records | Code Conventions | Accepted | 0082, 0095, 0097 | Application-layer results with no success payload + mutually-exclusive terminal states are a C# `enum` (one member per outcome), not a `record` of parallel `bool` flags; results that carry data on success stay records (e.g. `AssignApplicationTeamResult`). Endpoints map outcomes via an exhaustive `switch` + `_ => throw` guard. Removes representable illegal states and tautological factory-shape tests. Review-enforced. |
 | [0105](ADR-0105-audit-chain-checkpoints-and-external-anchoring.md) | Audit-Chain Checkpoints and External Anchoring | Security / Compliance | Accepted | 0001, 0018, 0090, 0099 | Two-tier checkpointing for the per-tenant audit hash chain. Tier 1 (now): an insert-only, RLS-scoped `audit_checkpoint` table snapshots a verified chain head so routine verification re-walks only the tail since the last checkpoint (O(tail) not O(whole chain)); written by a daily `LeaderElectedPeriodicService` sweep. Tier 2 (deferred): export checkpoint hashes to a WORM/signed store outside the DB trust boundary to detect rollback/truncation. |
 | [0106](ADR-0106-drop-regulatory-compliance-scope-gdpr-only.md) | Drop Regulatory-Compliance Scope — GDPR-Only | Compliance & Retention | Accepted | 0015, 0016, 0017, 0018, 0019, 0020, 0050, 0061 | Drop all regulatory-compliance scope beyond GDPR (MiFID II and a considered NIS2 pivot both dropped — none was ever built). Supersedes 0016/0020/0050; amends 0017/0019/0061; re-anchors the audit log (0018) to security/GDPR. Flat 180-day retention, no compliance flag, no 5-year tier. |
+| [0107](ADR-0107-list-filtering-consideration-and-filterbar-ui.md) | List Filtering — Consideration Mandate and Standard `<FilterBar>` UI | Frontend Architecture | Accepted | 0039, 0040, 0094, 0095 | Every list slice's design MUST include a **Filter Proposal** (candidate fields, each implement-now/defer/none, human-signed-off; deferral explicit) mirrored into `docs/design/list-filter-registry.md`. Built filters render through a shared `<FilterBar>` + `useListFilters` that composes `useListUrlState` and feeds the ADR-0095 cursor `f` map. Review-enforced; server-side filtering only in MVP. ADR-0095 keeps only the `f`-map wire format. |
 
 ## By category (quick navigation)
 
@@ -241,7 +242,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Platform Infrastructure**: 0022, 0023, 0024, 0025, 0026, 0099
 - **API & Integration Architecture**: 0027, 0028, 0029, 0030, 0031, 0032, 0033, 0034, 0035, 0036, 0037, 0038, 0091, 0092, 0095, 0096, 0098
 - **Backend Architecture**: 0080, 0081, 0082, 0089, 0093
-- **Frontend Architecture**: 0039, 0040, 0088
+- **Frontend Architecture**: 0039, 0040, 0088, 0107
 - **Agent Architecture**: 0041, 0042, 0043, 0044, 0045
 - **CLI & Distribution**: 0046
 - **Notification Architecture**: 0047, 0048, 0049, 0050
@@ -279,8 +280,9 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Availability & SLA**: 0005, 0023, 0053, 0076
 - **Billing & pricing**: 0061, 0062, 0063
 - **Observability**: 0036, 0058, 0059, 0060
-- **Frontend**: 0039, 0040, 0088
+- **Frontend**: 0039, 0040, 0088, 0107
 - **Component library / UI primitives**: 0088
+- **List filtering / filters (UI + mandate)**: 0107 (mandate + `<FilterBar>`), 0095 (`f`-map wire format), 0002/0013 (faceted search via Elasticsearch)
 - **Git integration**: 0035, 0054, 0055, 0057
 - **Scan / import**: 0045, 0054, 0055, 0056, 0067
 - **Status page**: 0005, 0010, 0023, 0051, 0052, 0053, 0076
@@ -347,7 +349,11 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Entitlements** → 0061, 0062
 - **Error envelope** → 0029
 - **Exponential backoff / retry** → 0033, 0055
+- **Faceted filtering (search)** → 0002, 0013
 - **Federation / SSO** → 0006
+- **Filtering (list) / Filter Proposal mandate** → 0107
+- **FilterBar / filter UI (standard) / `useListFilters`** → 0107
+- **Filter state in cursor (`f` map)** → 0095, 0107
 - **FluentAssertions (removed)** → 0083, 0097
 - **FluentValidation** → 0027
 - **Four-tier pricing (Free/Starter/Pro/Enterprise)** → 0061
