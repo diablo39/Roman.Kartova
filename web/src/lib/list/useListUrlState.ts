@@ -28,6 +28,7 @@ export interface ListUrlState<TField extends string, TBoolFilter extends string 
   /** Map of filter name to current boolean value (default false). */
   booleanFilters: Readonly<Record<TBoolFilter, boolean>>;
   setBooleanFilter: (name: TBoolFilter, value: boolean) => void;
+  /** Map of filter name to current raw string value (default ""). */
   textFilters: Readonly<Record<TTextFilter, string>>;
   /**
    * Accepts any string key so generic consumers (e.g. useListFilters, which is

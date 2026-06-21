@@ -47,6 +47,16 @@ describe("FilterBar", () => {
   it("hides Clear all when inactive", () => {
     render(<FilterBar specs={specs} filters={filters({ isActive: false })} />);
     expect(screen.queryByRole("button", { name: /clear all/i })).toBeNull();
+    expect(screen.queryByText(/active/i)).toBeNull();
+  });
+
+  it("shows active-filter count alongside Clear all when active", () => {
+    const f = filters({
+      isActive: true,
+      queryFilters: { displayNameContains: "pl" },
+    });
+    render(<FilterBar specs={specs} filters={f} />);
+    expect(screen.getByText(/1 active/i)).toBeInTheDocument();
   });
 
   it("throws for an unbuilt control type", () => {

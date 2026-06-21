@@ -187,53 +187,53 @@ describe("useListUrlState", () => {
       expect(result.current.booleanFilters.includeDecommissioned).toBe(true);
     });
   });
-});
 
-const textConfig = {
-  ...config,
-  textFilters: ["displayNameContains"] as const,
-};
+  const textConfig = {
+    ...config,
+    textFilters: ["displayNameContains"] as const,
+  };
 
-describe("textFilters", () => {
-  it("defaults to empty string when param absent", () => {
-    const { result } = renderHook(() => useListUrlState(textConfig), { wrapper: withRouter("/") });
-    expect(result.current.textFilters.displayNameContains).toBe("");
-  });
-
-  it("reads the raw value from the URL", () => {
-    const { result } = renderHook(
-      () => useListUrlState(textConfig),
-      { wrapper: withRouter("/?displayNameContains=plat") },
-    );
-    expect(result.current.textFilters.displayNameContains).toBe("plat");
-  });
-
-  it("setTextFilter writes the value to the URL", () => {
-    let search = "";
-    function Inner() { search = useLocation().search; return null; }
-    const { result } = renderHook(() => useListUrlState(textConfig), {
-      wrapper: ({ children }) => (
-        <MemoryRouter initialEntries={["/"]}><Inner />{children}</MemoryRouter>
-      ),
+  describe("textFilters", () => {
+    it("defaults to empty string when param absent", () => {
+      const { result } = renderHook(() => useListUrlState(textConfig), { wrapper: withRouter("/") });
+      expect(result.current.textFilters.displayNameContains).toBe("");
     });
-    act(() => { result.current.setTextFilter("displayNameContains", "plat"); });
-    expect(search).toContain("displayNameContains=plat");
-  });
 
-  it("setTextFilter with blank/whitespace removes the param", () => {
-    let search = "";
-    function Inner() { search = useLocation().search; return null; }
-    const { result } = renderHook(() => useListUrlState(textConfig), {
-      wrapper: ({ children }) => (
-        <MemoryRouter initialEntries={["/?displayNameContains=plat"]}><Inner />{children}</MemoryRouter>
-      ),
+    it("reads the raw value from the URL", () => {
+      const { result } = renderHook(
+        () => useListUrlState(textConfig),
+        { wrapper: withRouter("/?displayNameContains=plat") },
+      );
+      expect(result.current.textFilters.displayNameContains).toBe("plat");
     });
-    act(() => { result.current.setTextFilter("displayNameContains", "   "); });
-    expect(search).not.toContain("displayNameContains");
-  });
 
-  it("returns empty record when textFilters config absent", () => {
-    const { result } = renderHook(() => useListUrlState(config), { wrapper: withRouter("/") });
-    expect(result.current.textFilters).toEqual({});
+    it("setTextFilter writes the value to the URL", () => {
+      let search = "";
+      function Inner() { search = useLocation().search; return null; }
+      const { result } = renderHook(() => useListUrlState(textConfig), {
+        wrapper: ({ children }) => (
+          <MemoryRouter initialEntries={["/"]}><Inner />{children}</MemoryRouter>
+        ),
+      });
+      act(() => { result.current.setTextFilter("displayNameContains", "plat"); });
+      expect(search).toContain("displayNameContains=plat");
+    });
+
+    it("setTextFilter with blank/whitespace removes the param", () => {
+      let search = "";
+      function Inner() { search = useLocation().search; return null; }
+      const { result } = renderHook(() => useListUrlState(textConfig), {
+        wrapper: ({ children }) => (
+          <MemoryRouter initialEntries={["/?displayNameContains=plat"]}><Inner />{children}</MemoryRouter>
+        ),
+      });
+      act(() => { result.current.setTextFilter("displayNameContains", "   "); });
+      expect(search).not.toContain("displayNameContains");
+    });
+
+    it("returns empty record when textFilters config absent", () => {
+      const { result } = renderHook(() => useListUrlState(config), { wrapper: withRouter("/") });
+      expect(result.current.textFilters).toEqual({});
+    });
   });
 });

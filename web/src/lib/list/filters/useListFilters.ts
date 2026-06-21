@@ -19,12 +19,9 @@ export function useListFilters(
   const textSpecs = useMemo(() => specs.filter(s => s.type === "text"), [specs]);
   const committed = urlState.textFilters;
 
-  const seed = useCallback(
-    () => Object.fromEntries(textSpecs.map(s => [s.key, committed[s.key] ?? ""])) as Record<string, string>,
-    [textSpecs, committed],
+  const [local, setLocal] = useState<Record<string, string>>(
+    () => Object.fromEntries(textSpecs.map((s) => [s.key, committed[s.key] ?? ""])) as Record<string, string>,
   );
-
-  const [local, setLocal] = useState<Record<string, string>>(seed);
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   // Cancel any pending debounced commits when the consumer unmounts so a late

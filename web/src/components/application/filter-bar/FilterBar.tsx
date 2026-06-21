@@ -40,9 +40,14 @@ export function FilterBar({ specs, filters }: FilterBarProps) {
       })}
 
       {filters.isActive && (
-        <Button size="sm" color="link-gray" onClick={filters.clearAll}>
-          Clear all
-        </Button>
+        <>
+          <span className="text-sm text-tertiary">
+            {Object.values(filters.queryFilters).filter((v) => v != null).length} active
+          </span>
+          <Button size="sm" color="link-gray" onClick={filters.clearAll}>
+            Clear all
+          </Button>
+        </>
       )}
     </div>
   );
