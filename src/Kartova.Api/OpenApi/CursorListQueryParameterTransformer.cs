@@ -36,6 +36,8 @@ internal sealed class CursorListQueryParameterTransformer : IOpenApiOperationTra
     {
         [("ListApplications", "sortBy")] = typeof(ApplicationSortField),
         [("ListApplications", "sortOrder")] = typeof(SortOrder),
+        [("ListServices", "sortBy")] = typeof(ServiceSortField),
+        [("ListServices", "sortOrder")] = typeof(SortOrder),
         [("ListTeams", "sortBy")] = typeof(TeamSortField),
         [("ListTeams", "sortOrder")] = typeof(SortOrder),
     };
@@ -48,6 +50,7 @@ internal sealed class CursorListQueryParameterTransformer : IOpenApiOperationTra
     private static readonly HashSet<string> OperationsWithLimitParameter = new()
     {
         "ListApplications",
+        "ListServices",
         "ListTeams",
     };
 

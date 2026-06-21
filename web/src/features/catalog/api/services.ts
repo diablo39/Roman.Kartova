@@ -32,11 +32,7 @@ export function useServicesList(params: ServicesListParams) {
           query: {
             sortBy: params.sortBy,
             sortOrder: params.sortOrder,
-            // The generated ListServices schema types `limit` as string (the
-            // Services list endpoint lacks the integer-param metadata that
-            // ListApplications carries — S-01 backend gap). Convert here; the
-            // wire value is a query string either way.
-            limit: String(params.limit ?? 50),
+            limit: params.limit ?? 50,
             cursor,
           },
         },

@@ -44,11 +44,12 @@ job_stryker() {  # ci.yml: validate per-module + root Stryker configs
   python3 scripts/generate-stryker-configs.py --validate
 }
 
-job_frontend() {  # ci.yml: npm ci -> codegen -> typecheck -> build (in web/)
+job_frontend() {  # ci.yml: npm ci -> codegen -> typecheck -> test -> build (in web/)
   ( cd web \
     && npm ci \
     && npm run codegen \
     && npm run typecheck \
+    && npm test \
     && npm run build )
 }
 
