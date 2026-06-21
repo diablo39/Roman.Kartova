@@ -44,11 +44,42 @@ describe("useListFilters", () => {
     expect(r2.current.queryFilters.displayNameContains).toBeUndefined();
   });
 
-  it("isActive true only when a committed value is non-empty", () => {
+  it("isActive false when all committed values are empty", () => {
     const empty = fakeUrlState();
     const { result } = renderHook(() =>
       useListFilters(specs, { textFilters: empty.state.textFilters, setTextFilter: empty.setTextFilter } as never));
     expect(result.current.isActive).toBe(false);
+  });
+
+  it("isActive true when a committed value is non-empty", () => {
+    const u = fakeUrlState({ displayNameContains: "pl" });
+    const { result } = renderHook(() =>
+      useListFilters(specs, { textFilters: u.state.textFilters, setTextFilter: u.setTextFilter } as never));
+    expect(result.current.isActive).toBe(true);
+  });
+
+  it("debounce boundary: fires at exactly 300ms, not before", () => {
+    const u = fakeUrlState();
+    const { result } = renderHook(() =>
+      useListFilters(specs, { textFilters: u.state.textFilters, setTextFilter: u.setTextFilter } as never));
+
+    act(() => { result.current.bind("displayNameContains").onChange("pl"); });
+    act(() => { vi.advanceTimersByTime(299); });
+    expect(u.setTextFilter).not.toHaveBeenCalled();
+
+    act(() => { vi.advanceTimersByTime(1); });
+    expect(u.setTextFilter).toHaveBeenCalledWith("displayNameContains", "pl");
+  });
+
+  it("unmount cancels a pending debounced commit", () => {
+    const u = fakeUrlState();
+    const { result, unmount } = renderHook(() =>
+      useListFilters(specs, { textFilters: u.state.textFilters, setTextFilter: u.setTextFilter } as never));
+
+    act(() => { result.current.bind("displayNameContains").onChange("pl"); });
+    unmount();
+    act(() => { vi.advanceTimersByTime(300); });
+    expect(u.setTextFilter).not.toHaveBeenCalled();
   });
 
   it("clearAll resets every spec via setTextFilter('')", () => {

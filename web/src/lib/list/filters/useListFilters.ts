@@ -27,6 +27,12 @@ export function useListFilters(
   const [local, setLocal] = useState<Record<string, string>>(seed);
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
+  // Cancel any pending debounced commits when the consumer unmounts so a late
+  // setTextTimer never fires into an unmounted tree.
+  useEffect(() => () => {
+    for (const t of Object.values(timers.current)) clearTimeout(t);
+  }, []);
+
   // Adopt the committed value when it changes from outside this hook (back/forward,
   // shared link, clearAll). After our own debounced commit, committed === local so
   // this is a no-op.
