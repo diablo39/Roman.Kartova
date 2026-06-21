@@ -139,4 +139,21 @@ describe("teams hooks", () => {
       );
     });
   });
+
+  describe("useTeamsList — filter params", () => {
+    it("forwards displayNameContains into the request query", async () => {
+      const get = vi.fn().mockResolvedValue({ data: { items: [], nextCursor: null, prevCursor: null }, error: undefined });
+      vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: get } as never);
+
+      const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      renderHook(
+        () => useTeamsList({ sortBy: "displayName", sortOrder: "asc", displayNameContains: "pl" }),
+        { wrapper: ({ children }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider> },
+      );
+
+      await waitFor(() => expect(get).toHaveBeenCalled());
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      expect(get.mock.calls[0]![1]!.params.query).toMatchObject({ displayNameContains: "pl" });
+    });
+  });
 });

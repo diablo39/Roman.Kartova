@@ -13,7 +13,7 @@ function filters(over: Partial<ReturnType<typeof makeFilters>> = {}) {
 function makeFilters() {
   return {
     values: { displayNameContains: "" },
-    bind: vi.fn((key: string) => ({ value: "", onChange: vi.fn() })),
+    bind: vi.fn((_key: string) => ({ value: "", onChange: vi.fn() })),
     clearAll: vi.fn(),
     isActive: false,
     queryFilters: {},

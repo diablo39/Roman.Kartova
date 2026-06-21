@@ -3,6 +3,9 @@ import { Link } from "react-router-dom";
 import { Plus } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { Card, CardContent } from "@/components/base/card/card";
+import { FilterBar } from "@/components/application/filter-bar/FilterBar";
+import { useListFilters } from "@/lib/list/filters/useListFilters";
+import type { FilterSpec } from "@/lib/list/filters/types";
 import { useTeamsList } from "@/features/teams/api/teams";
 import { CreateTeamDialog } from "@/features/teams/components/CreateTeamDialog";
 import { useListUrlState } from "@/lib/list/useListUrlState";
@@ -10,15 +13,24 @@ import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
 
 const ALLOWED_SORT_FIELDS = ["createdAt", "displayName"] as const;
+const FILTER_SPECS: FilterSpec[] = [
+  { key: "displayNameContains", type: "text", label: "Search teams", placeholder: "Search by name…" },
+];
 
 export function TeamsListPage() {
-  const { sortBy, sortOrder } = useListUrlState({
-    defaultSortBy: "createdAt",
-    defaultSortOrder: "desc",
+  const urlState = useListUrlState({
+    defaultSortBy: "displayName",
+    defaultSortOrder: "asc",
     allowedSortFields: ALLOWED_SORT_FIELDS,
+    textFilters: ["displayNameContains"],
   });
+  const filters = useListFilters(FILTER_SPECS, urlState as Parameters<typeof useListFilters>[1]);
 
-  const list = useTeamsList({ sortBy, sortOrder });
+  const list = useTeamsList({
+    sortBy: urlState.sortBy,
+    sortOrder: urlState.sortOrder,
+    displayNameContains: filters.queryFilters.displayNameContains,
+  });
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const { hasPermission, isLoading: permissionsLoading } = usePermissions();
@@ -41,6 +53,8 @@ export function TeamsListPage() {
         )}
       </div>
 
+      <FilterBar specs={FILTER_SPECS} filters={filters} />
+
       {list.isError ? (
         <Card className="mx-auto max-w-md">
           <CardContent className="space-y-3 p-6 text-center">
@@ -56,8 +70,12 @@ export function TeamsListPage() {
       ) : list.items.length === 0 ? (
         <Card className="mx-auto max-w-md text-center">
           <CardContent className="space-y-2 p-8">
-            <p className="text-base font-medium text-primary">No teams yet</p>
-            <p className="text-sm text-tertiary">Create your first team.</p>
+            <p className="text-base font-medium text-primary">
+              {filters.isActive ? "No teams match your search" : "No teams yet"}
+            </p>
+            <p className="text-sm text-tertiary">
+              {filters.isActive ? "Try a different name." : "Create your first team."}
+            </p>
           </CardContent>
         </Card>
       ) : (

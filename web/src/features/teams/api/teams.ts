@@ -25,6 +25,7 @@ type TeamsListParams = {
   sortBy: NonNullable<ListTeamsQuery["sortBy"]>;
   sortOrder: NonNullable<ListTeamsQuery["sortOrder"]>;
   limit?: number;
+  displayNameContains?: string;
 };
 
 export const teamKeys = {
@@ -47,6 +48,7 @@ export function useTeamsList(params: TeamsListParams) {
             sortOrder: params.sortOrder,
             limit: params.limit ?? 50,
             cursor,
+            displayNameContains: params.displayNameContains,
           },
         },
       });

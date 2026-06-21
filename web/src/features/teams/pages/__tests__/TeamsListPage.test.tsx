@@ -91,4 +91,37 @@ describe("TeamsListPage", () => {
 
     expect(screen.getByRole("button", { name: /create team/i })).toBeInTheDocument();
   });
+
+  it("renders the search filter and uses displayName-asc as default sort", async () => {
+    const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<TeamsListPage />, { wrapper: harness(qc) });
+
+    expect(screen.getByRole("textbox", { name: /search teams/i })).toBeInTheDocument();
+    await waitFor(() => expect(get).toHaveBeenCalled());
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    expect(get.mock.calls[0]![1]!.params.query).toMatchObject({ sortBy: "displayName", sortOrder: "asc" });
+  });
+
+  it("shows the no-matches empty state when a filter is active and no rows", async () => {
+    const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<TeamsListPage />, {
+      wrapper: ({ children }: { children: React.ReactNode }) => (
+        <QueryClientProvider client={qc}>
+          <MemoryRouter initialEntries={["/?displayNameContains=zzz"]}>{children}</MemoryRouter>
+        </QueryClientProvider>
+      ),
+    });
+
+    await waitFor(() => expect(screen.getByText(/no teams match/i)).toBeInTheDocument());
+  });
 });
