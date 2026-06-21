@@ -1,6 +1,6 @@
 # Kartova — Development Progress Checklist
 
-**Last updated:** 2026-06-19
+**Last updated:** 2026-06-20
 
 ## How to use
 - [ ] = Not started
@@ -12,7 +12,7 @@
 | Phase | Status | Progress |
 |-------|--------|----------|
 | Phase 0: Foundation | In Progress | 12/31 |
-| Phase 1: Core Catalog & Notifications | In Progress | 14/60 |
+| Phase 1: Core Catalog & Notifications | In Progress | 15/60 |
 | Phase 2: Auto-Import | Not Started | 0/36 |
 | Phase 3: Documentation | Not Started | 0/15 |
 | Phase 4: Status Page | Not Started | 0/16 |
@@ -21,7 +21,7 @@
 | Phase 7: Intelligence | Not Started | 0/13 |
 | Phase 8: Analytics | Not Started | 0/14 |
 | Phase 9: Advanced | Not Started | 0/0 |
-| **Total** | | **22/212** |
+| **Total** | | **23/212** |
 
 ---
 
@@ -101,7 +101,7 @@
 **E-02.F-02: Service Entity Management**
 - [x] E-02.F-01.S-05 — Required minimum fields on all entity types (slice 3 — PR #10, 2026-04-30; enforced as `Application.Create` invariants for the first entity)
 - [x] E-02.F-02.S-01 — Register service with endpoints and protocol (catalog-service-entity, 2026-06-20: `Service` aggregate sibling to `Application` in the Catalog module; `0..50` protocol-typed endpoints persisted as a `jsonb` owned collection (`OwnsMany().ToJson()`); `Health` defaults `Unknown` (no write path — agent feeds it later, E-15); POST/GET-by-id/cursor-list at `/api/v1/catalog/services`; required owning team + membership gate (ADR-0103); new `catalog.services.register` permission (Member+OrgAdmin) + TS parity; `service.registered` audit. No Lifecycle/edit/UI this slice. Mutation 90.10%.)
-- [ ] E-02.F-02.S-02 — Service detail page with health and consumers
+- [x] E-02.F-02.S-02 — Service detail page with health and consumers (catalog-service-ui-surface, 2026-06-20: full Services frontend surface — list page (`/catalog/services`, default sort `displayName desc`) + Register-Service dialog with 0..50 endpoints editor + read-only detail page (`/catalog/services/:id`); Services nav promoted from disabled. Frontend-only — S-01 backend/permission/audit + real-seam tests already on master. Health renders a read-only `Unknown` badge (no write path until E-15/E-16); **consumers deferred to E-04**. Mirrors the Application UI surface (useCursorList/useListUrlState/DataTable per ADR-0095, Untitled UI per ADR-0094). Codegen client regenerated. 477 frontend tests green; all DoD gates green.)
 
 **E-02.F-03: API Entity Management (Sync & Async)**
 - [ ] E-02.F-03.S-01 — Register sync API (REST/gRPC/GraphQL)

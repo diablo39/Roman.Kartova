@@ -3,6 +3,8 @@ import { RequireAuth } from "@/shared/auth/RequireAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { CatalogListPage } from "@/features/catalog/pages/CatalogListPage";
 import { ApplicationDetailPage } from "@/features/catalog/pages/ApplicationDetailPage";
+import { ServicesListPage } from "@/features/catalog/pages/ServicesListPage";
+import { ServiceDetailPage } from "@/features/catalog/pages/ServiceDetailPage";
 import { TeamsListPage } from "@/features/teams/pages/TeamsListPage";
 import { TeamDetailPage } from "@/features/teams/pages/TeamDetailPage";
 import { WelcomePage } from "@/features/auth/pages/WelcomePage";
@@ -40,6 +42,8 @@ export function AppRoutes() {
           path="/catalog/applications/:id"
           element={<ApplicationDetailPage />}
         />
+        <Route path="/catalog/services" element={<ServicesListPage />} />
+        <Route path="/catalog/services/:id" element={<ServiceDetailPage />} />
         <Route path="/teams" element={<TeamsListPage />} />
         <Route path="/teams/:id" element={<TeamDetailPage />} />
         <Route path="/settings/organization" element={<OrganizationSettingsPage />} />

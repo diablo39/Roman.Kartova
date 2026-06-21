@@ -88,11 +88,17 @@ describe("Sidebar", () => {
     expect(screen.queryByRole("link", { name: "Invitations" })).toBeNull();
   });
 
-  it("renders disabled placeholders (Services / Infrastructure / Docs) with data-disabled", () => {
+  it("renders the Services link (promoted from a disabled placeholder)", () => {
     setPermissions();
     renderSidebar();
-    const disabled = screen.getAllByText(/Services|Infrastructure|Docs/);
-    expect(disabled.length).toBe(3);
+    expect(screen.getByRole("link", { name: "Services" })).toBeInTheDocument();
+  });
+
+  it("renders disabled placeholders (Infrastructure / Docs) with data-disabled", () => {
+    setPermissions();
+    renderSidebar();
+    const disabled = screen.getAllByText(/Infrastructure|Docs/);
+    expect(disabled.length).toBe(2);
     for (const node of disabled) {
       expect(node.getAttribute("data-disabled")).toBe("true");
     }
