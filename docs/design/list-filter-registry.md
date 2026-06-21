@@ -22,7 +22,7 @@ This is the **canonical, per-list record of the filter decision** required by AD
 |---|---|---|---|---|---|
 | Applications | `/catalog` | `includeDecommissioned` (default-view toggle) | built (pre-standard) | E-02.F-01 | Refactor the toggle into `<FilterBar>`; broader type/team/tag filtering tracked under E-05 faceted search. |
 | Services | `/catalog/services` | — | deferred → E-05 (faceted) | E-02.F-02 | Frontend-only S-02 slice deferred search/filter to E-05 (its §9). Reassess if a Services-specific filter is requested sooner. |
-| Teams | `/teams` | `displayName` text search | decided — implement (slice pending) | E-03.F-02 | Filter Proposal resolved 2026-06-21: implement `displayName` text search; change default sort `createdAt desc` → **`displayName desc`**. List shipped pre-`<FilterBar>`, so the implementing slice either builds the standard surface first or is its first consumer (see scope decision). |
+| Teams | `/teams` | `displayName` text search | **built** | E-03.F-02 | Renders via the shared `<FilterBar>` + `useListFilters`; default sort **`displayName asc`**. First consumer of the ADR-0107 surface (slice 2026-06-21). |
 | Members / Users | `/members` (`GET /users`) | `role` (viewer/member/orgAdmin/all) + name/email search | built (pre-standard) | E-03.F-01.S-05 | Refactor `role` dropdown + search into `<FilterBar>`/`useListFilters`. |
 
 ## Planned filtering surfaces (not yet built)
