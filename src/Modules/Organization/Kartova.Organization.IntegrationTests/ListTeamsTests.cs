@@ -58,4 +58,138 @@ public sealed class ListTeamsTests : OrganizationIntegrationTestBase
 
         Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
     }
+
+    [TestMethod]
+    public async Task DisplayNameContains_filters_case_insensitively()
+    {
+        await Fx.SeedOrganizationAsync(Tenant.Value, "OrgA-Filter");
+        await Fx.SeedTeamAsync(Tenant.Value, "Capacity");  // contains "pa" at index 2
+        await Fx.SeedTeamAsync(Tenant.Value, "Payments");  // contains "Pa" at index 0
+        await Fx.SeedTeamAsync(Tenant.Value, "Data");
+        try
+        {
+            var client = Fx.CreateClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+                "Bearer", Fx.Signer.IssueForTenant(Tenant, new[] { KartovaRoles.Member }));
+
+            var resp = await client.GetAsync("/api/v1/organizations/teams?displayNameContains=pa");
+            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+            var page = await resp.Content.ReadFromJsonAsync<CursorPage<TeamResponse>>(KartovaApiFixtureBase.WireJson);
+            CollectionAssert.AreEquivalent(
+                new[] { "Payments", "Capacity" },
+                page!.Items.Select(t => t.DisplayName).ToArray());
+        }
+        finally { await Fx.DeleteTeamsForTenantAsync(Tenant.Value); }
+    }
+
+    [TestMethod]
+    public async Task Blank_displayNameContains_returns_all_teams()
+    {
+        await Fx.SeedOrganizationAsync(Tenant.Value, "OrgA-Blank");
+        await Fx.SeedTeamAsync(Tenant.Value, "Alpha");
+        await Fx.SeedTeamAsync(Tenant.Value, "Beta");
+        try
+        {
+            var client = Fx.CreateClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+                "Bearer", Fx.Signer.IssueForTenant(Tenant, new[] { KartovaRoles.Member }));
+
+            var resp = await client.GetAsync("/api/v1/organizations/teams?displayNameContains=%20");
+            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+            var page = await resp.Content.ReadFromJsonAsync<CursorPage<TeamResponse>>(KartovaApiFixtureBase.WireJson);
+            Assert.AreEqual(2, page!.Items.Count);
+        }
+        finally { await Fx.DeleteTeamsForTenantAsync(Tenant.Value); }
+    }
+
+    [TestMethod]
+    public async Task DisplayNameContains_escapes_like_wildcards()
+    {
+        await Fx.SeedOrganizationAsync(Tenant.Value, "OrgA-Escape");
+        await Fx.SeedTeamAsync(Tenant.Value, "Alpha");
+        await Fx.SeedTeamAsync(Tenant.Value, "Beta");
+        try
+        {
+            var client = Fx.CreateClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+                "Bearer", Fx.Signer.IssueForTenant(Tenant, new[] { KartovaRoles.Member }));
+
+            // '%' must be treated literally — no team contains it, so zero rows (not all).
+            var resp = await client.GetAsync("/api/v1/organizations/teams?displayNameContains=%25");
+            var page = await resp.Content.ReadFromJsonAsync<CursorPage<TeamResponse>>(KartovaApiFixtureBase.WireJson);
+            Assert.AreEqual(0, page!.Items.Count);
+        }
+        finally { await Fx.DeleteTeamsForTenantAsync(Tenant.Value); }
+    }
+
+    [TestMethod]
+    public async Task Changing_filter_mid_pagination_returns_400_cursor_filter_mismatch()
+    {
+        await Fx.SeedOrganizationAsync(Tenant.Value, "OrgA-Mismatch");
+        await Fx.SeedTeamAsync(Tenant.Value, "Apple");
+        await Fx.SeedTeamAsync(Tenant.Value, "Apricot");
+        try
+        {
+            var client = Fx.CreateClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+                "Bearer", Fx.Signer.IssueForTenant(Tenant, new[] { KartovaRoles.Member }));
+
+            var first = await client.GetFromJsonAsync<CursorPage<TeamResponse>>(
+                "/api/v1/organizations/teams?displayNameContains=ap&limit=1", KartovaApiFixtureBase.WireJson);
+            Assert.IsNotNull(first!.NextCursor);
+
+            // Reuse the cursor under a DIFFERENT filter → CursorFilterMismatchException → 400.
+            var resp = await client.GetAsync(
+                $"/api/v1/organizations/teams?displayNameContains=zz&cursor={Uri.EscapeDataString(first.NextCursor!)}");
+            Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+        }
+        finally { await Fx.DeleteTeamsForTenantAsync(Tenant.Value); }
+    }
+
+    [TestMethod]
+    public async Task DisplayNameContains_does_not_leak_cross_tenant()
+    {
+        var other = new TenantId(Guid.Parse("aaaaaaaa-0002-0002-0002-000000000099"));
+        await Fx.SeedOrganizationAsync(Tenant.Value, "OrgA-RLS");
+        await Fx.SeedOrganizationAsync(other.Value, "OrgB-RLS");
+        await Fx.SeedTeamAsync(Tenant.Value, "AlphaMine");
+        await Fx.SeedTeamAsync(other.Value, "AlphaTheirs");
+        try
+        {
+            var client = Fx.CreateClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+                "Bearer", Fx.Signer.IssueForTenant(Tenant, new[] { KartovaRoles.Member }));
+
+            var page = await client.GetFromJsonAsync<CursorPage<TeamResponse>>(
+                "/api/v1/organizations/teams?displayNameContains=Alpha", KartovaApiFixtureBase.WireJson);
+            CollectionAssert.AreEquivalent(new[] { "AlphaMine" }, page!.Items.Select(t => t.DisplayName).ToArray());
+        }
+        finally
+        {
+            await Fx.DeleteTeamsForTenantAsync(Tenant.Value);
+            await Fx.DeleteTeamsForTenantAsync(other.Value);
+        }
+    }
+
+    [TestMethod]
+    public async Task Default_sort_is_displayName_ascending()
+    {
+        await Fx.SeedOrganizationAsync(Tenant.Value, "OrgA-Sort");
+        await Fx.SeedTeamAsync(Tenant.Value, "Zeta");
+        await Fx.SeedTeamAsync(Tenant.Value, "Alpha");
+        await Fx.SeedTeamAsync(Tenant.Value, "Mu");
+        try
+        {
+            var client = Fx.CreateClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+                "Bearer", Fx.Signer.IssueForTenant(Tenant, new[] { KartovaRoles.Member }));
+
+            var page = await client.GetFromJsonAsync<CursorPage<TeamResponse>>(
+                "/api/v1/organizations/teams", KartovaApiFixtureBase.WireJson);
+            CollectionAssert.AreEqual(
+                new[] { "Alpha", "Mu", "Zeta" },
+                page!.Items.Select(t => t.DisplayName).ToArray());
+        }
+        finally { await Fx.DeleteTeamsForTenantAsync(Tenant.Value); }
+    }
 }

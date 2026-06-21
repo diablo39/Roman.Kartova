@@ -42,6 +42,7 @@ internal static class TeamEndpointDelegates
         [FromQuery] string? sortOrder,
         [FromQuery] string? cursor,
         [FromQuery] string? limit,
+        [FromQuery] string? displayNameContains,
         ListTeamsHandler handler,
         OrganizationDbContext db,
         CancellationToken ct)
@@ -49,11 +50,15 @@ internal static class TeamEndpointDelegates
         var (parsedSortBy, parsedSortOrder, effectiveLimit) = CursorListBinding.Bind<TeamSortField>(
             sortBy, sortOrder, limit, TeamSortSpecs.AllowedFieldNames);
 
+        // Blank/whitespace ⇒ no filter (filter-absent must equal today's unfiltered cursor).
+        var name = string.IsNullOrWhiteSpace(displayNameContains) ? null : displayNameContains.Trim();
+
         var query = new ListTeamsQuery(
-            SortBy: parsedSortBy ?? TeamSortField.CreatedAt,
-            SortOrder: parsedSortOrder ?? SortOrder.Desc,
+            SortBy: parsedSortBy ?? TeamSortField.DisplayName,   // default flips: was CreatedAt
+            SortOrder: parsedSortOrder ?? SortOrder.Asc,          // default flips: was Desc
             Cursor: cursor,
-            Limit: effectiveLimit);
+            Limit: effectiveLimit,
+            DisplayNameContains: name);
 
         var page = await handler.Handle(query, db, ct);
         return Results.Ok(page);

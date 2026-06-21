@@ -10,4 +10,5 @@ public sealed record ListTeamsQuery(
     TeamSortField SortBy,
     SortOrder SortOrder,
     string? Cursor,
-    int Limit);
+    int Limit,
+    string? DisplayNameContains);
