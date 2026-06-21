@@ -2,7 +2,7 @@ import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { SortDirection } from "./types";
 
-interface Config<TField extends string, TBoolFilter extends string = never> {
+interface Config<TField extends string, TBoolFilter extends string = never, TTextFilter extends string = never> {
   defaultSortBy: TField;
   defaultSortOrder: SortDirection;
   allowedSortFields: readonly TField[];
@@ -13,15 +13,23 @@ interface Config<TField extends string, TBoolFilter extends string = never> {
    * the param entirely (no `=false` clutter in the URL).
    */
   booleanFilters?: readonly TBoolFilter[];
+  /**
+   * Optional free-text URL params (e.g. ["displayNameContains"]). Read as the raw
+   * string ("" when absent). Setter writes the trimmed value, or removes the param
+   * when blank/whitespace (no empty `=` clutter).
+   */
+  textFilters?: readonly TTextFilter[];
 }
 
-export interface ListUrlState<TField extends string, TBoolFilter extends string = never> {
+export interface ListUrlState<TField extends string, TBoolFilter extends string = never, TTextFilter extends string = never> {
   sortBy: TField;
   sortOrder: SortDirection;
   setSort: (field: TField, order: SortDirection) => void;
   /** Map of filter name to current boolean value (default false). */
   booleanFilters: Readonly<Record<TBoolFilter, boolean>>;
   setBooleanFilter: (name: TBoolFilter, value: boolean) => void;
+  textFilters: Readonly<Record<TTextFilter, string>>;
+  setTextFilter: (name: TTextFilter, value: string) => void;
 }
 
 /**
@@ -31,15 +39,21 @@ export interface ListUrlState<TField extends string, TBoolFilter extends string 
  *
  * Slice 6: optional boolean filters supported via the `booleanFilters` config —
  * used by the Catalog list page for `?includeDecommissioned=true`.
+ * Slice 7: optional text filters supported via the `textFilters` config —
+ * used by the Catalog list page for `?displayNameContains=...`.
  */
-export function useListUrlState<TField extends string, TBoolFilter extends string = never>(
-  config: Config<TField, TBoolFilter>,
-): ListUrlState<TField, TBoolFilter> {
+export function useListUrlState<TField extends string, TBoolFilter extends string = never, TTextFilter extends string = never>(
+  config: Config<TField, TBoolFilter, TTextFilter>,
+): ListUrlState<TField, TBoolFilter, TTextFilter> {
   const [params, setParams] = useSearchParams();
   const allowed = useMemo(() => new Set<string>(config.allowedSortFields), [config.allowedSortFields]);
   const boolFilterNames = useMemo(
     () => (config.booleanFilters ?? []) as readonly TBoolFilter[],
     [config.booleanFilters],
+  );
+  const textFilterNames = useMemo(
+    () => (config.textFilters ?? []) as readonly TTextFilter[],
+    [config.textFilters],
   );
 
   const rawSortBy = params.get("sortBy") ?? "";
@@ -56,6 +70,14 @@ export function useListUrlState<TField extends string, TBoolFilter extends strin
     }
     return out;
   }, [params, boolFilterNames]);
+
+  const textFilters = useMemo(() => {
+    const out = {} as Record<TTextFilter, string>;
+    for (const name of textFilterNames) {
+      out[name] = params.get(name) ?? "";
+    }
+    return out;
+  }, [params, textFilterNames]);
 
   const setSort = useCallback(
     (field: TField, order: SortDirection) => {
@@ -84,5 +106,21 @@ export function useListUrlState<TField extends string, TBoolFilter extends strin
     [setParams],
   );
 
-  return { sortBy, sortOrder, setSort, booleanFilters, setBooleanFilter };
+  const setTextFilter = useCallback(
+    (name: TTextFilter, value: string) => {
+      setParams(prev => {
+        const next = new URLSearchParams(prev);
+        const trimmed = value.trim();
+        if (trimmed) {
+          next.set(name, trimmed);
+        } else {
+          next.delete(name);
+        }
+        return next;
+      });
+    },
+    [setParams],
+  );
+
+  return { sortBy, sortOrder, setSort, booleanFilters, setBooleanFilter, textFilters, setTextFilter };
 }
