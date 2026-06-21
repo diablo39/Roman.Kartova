@@ -1122,6 +1122,13 @@
               "type": "integer",
               "format": "int32"
             }
+          },
+          {
+            "name": "displayNameContains",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
