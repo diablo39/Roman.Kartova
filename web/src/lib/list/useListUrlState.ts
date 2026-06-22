@@ -27,7 +27,12 @@ export interface ListUrlState<TField extends string, TBoolFilter extends string 
   setSort: (field: TField, order: SortDirection) => void;
   /** Map of filter name to current boolean value (default false). */
   booleanFilters: Readonly<Record<TBoolFilter, boolean>>;
-  setBooleanFilter: (name: TBoolFilter, value: boolean) => void;
+  /**
+   * Accepts any string key so generic consumers (e.g. useListFilters, which is
+   * string-keyed via FilterSpec) can drive it without a cast. Read-side literal
+   * keys (booleanFilters map) retain their narrowed type.
+   */
+  setBooleanFilter: (name: string, value: boolean) => void;
   /** Map of filter name to current raw string value (default ""). */
   textFilters: Readonly<Record<TTextFilter, string>>;
   /**
@@ -102,7 +107,7 @@ export function useListUrlState<TField extends string, TBoolFilter extends strin
   );
 
   const setBooleanFilter = useCallback(
-    (name: TBoolFilter, value: boolean) => {
+    (name: string, value: boolean) => {
       setParams(prev => {
         const next = new URLSearchParams(prev);
         if (value) {

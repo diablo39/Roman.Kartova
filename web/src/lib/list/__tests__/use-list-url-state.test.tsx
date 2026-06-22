@@ -236,4 +236,19 @@ describe("useListUrlState", () => {
       expect(result.current.textFilters).toEqual({});
     });
   });
+
+  it("setBooleanFilter accepts a plain string key (generic-consumer widening)", () => {
+    const { result } = renderHook(
+      () => useListUrlState({
+        defaultSortBy: "displayName",
+        defaultSortOrder: "asc",
+        allowedSortFields: ["createdAt", "displayName"],
+        booleanFilters: ["includeDecommissioned"],
+      }),
+      { wrapper: withRouter("/") },
+    );
+    // Calling with a widened string key must type-check and round-trip.
+    act(() => { (result.current.setBooleanFilter as (n: string, v: boolean) => void)("includeDecommissioned", true); });
+    expect(result.current.booleanFilters.includeDecommissioned).toBe(true);
+  });
 });
