@@ -1,6 +1,6 @@
 # Kartova — Development Progress Checklist
 
-**Last updated:** 2026-06-20
+**Last updated:** 2026-06-22
 
 ## How to use
 - [ ] = Not started
@@ -90,7 +90,7 @@
 
 ### E-02: Entity Registry
 
-**E-02.F-01: Application Entity Management**
+**E-02.F-01: Application Entity Management** *(+ list filter (displayName search) + displayName-asc default sort + FilterBar collapsible panel — list-filter-surface-catalog, 2026-06-22)*
 - [x] E-02.F-01.S-01 — Register new application in catalog (slice 3 — PR #10, 2026-04-30; UI surface added in slice 4 — PR #17, 2026-04-30; TimeProvider on Application.Create — slice 6, PR #22, 2026-05-07; slice-10 amendment 2026-06-10: required owning team (`TeamId`), created-by provenance (`CreatedByUserId` immutable), membership-gated registration — ADR-0103)
 - [x] E-02.F-01.S-02 — Application detail page with metadata (slice 4 — PR #17, 2026-04-30; header + metadata only, tabs deferred)
 - [x] E-02.F-01.S-03 — Edit application metadata (slice 5 — PR #21, 2026-05-06; PUT /api/v1/catalog/applications/{id} with If-Match/ETag optimistic concurrency, ADR-0096)
@@ -98,7 +98,7 @@
 - [x] E-02.F-01.S-06 — Field-level ProblemDetails errors (slice-4-cleanup — PR #18, 2026-05-01)
 - [x] E-02.F-01.S-07 — Move kebab-case Name validation into `Application.Create` domain invariant (slice-4-cleanup — PR #18, 2026-05-01)
 
-**E-02.F-02: Service Entity Management**
+**E-02.F-02: Service Entity Management** *(+ list filter (displayName search) + displayName-asc default sort + FilterBar collapsible panel — list-filter-surface-catalog, 2026-06-22)*
 - [x] E-02.F-01.S-05 — Required minimum fields on all entity types (slice 3 — PR #10, 2026-04-30; enforced as `Application.Create` invariants for the first entity)
 - [x] E-02.F-02.S-01 — Register service with endpoints and protocol (catalog-service-entity, 2026-06-20: `Service` aggregate sibling to `Application` in the Catalog module; `0..50` protocol-typed endpoints persisted as a `jsonb` owned collection (`OwnsMany().ToJson()`); `Health` defaults `Unknown` (no write path — agent feeds it later, E-15); POST/GET-by-id/cursor-list at `/api/v1/catalog/services`; required owning team + membership gate (ADR-0103); new `catalog.services.register` permission (Member+OrgAdmin) + TS parity; `service.registered` audit. No Lifecycle/edit/UI this slice. Mutation 90.10%.)
 - [x] E-02.F-02.S-02 — Service detail page with health and consumers (catalog-service-ui-surface, 2026-06-20: full Services frontend surface — list page (`/catalog/services`, default sort `displayName desc`) + Register-Service dialog with 0..50 endpoints editor + read-only detail page (`/catalog/services/:id`); Services nav promoted from disabled. Frontend-only — S-01 backend/permission/audit + real-seam tests already on master. Health renders a read-only `Unknown` badge (no write path until E-15/E-16); **consumers deferred to E-04**. Mirrors the Application UI surface (useCursorList/useListUrlState/DataTable per ADR-0095, Untitled UI per ADR-0094). Codegen client regenerated. 477 frontend tests green; all DoD gates green.)

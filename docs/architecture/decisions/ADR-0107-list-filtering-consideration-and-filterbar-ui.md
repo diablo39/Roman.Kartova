@@ -35,7 +35,7 @@ Two gaps follow from that:
 
 5. **Standard affordances.** Active-filter count, **"Clear all"**, and empty-state text that distinguishes "no data yet" from "no matches for these filters".
 
-6. **Accessibility + responsive.** Keyboard/ARIA via react-aria-components; the bar collapses into a filter drawer/sheet on small viewports.
+6. **Accessibility + responsive.** Keyboard/ARIA via react-aria-components; the bar collapses into a filter drawer/sheet on small viewports. *(amended 2026-06-22 — clause 6 collapse)* `<FilterBar>` renders its controls inside a collapsible disclosure panel on **all** viewports, not only small ones: a labeled "Filters" header (with the active-filter count and a chevron toggle) over a collapsible region holding the controls. The panel is **expanded by default**; collapsing reclaims vertical space while the header retains `Filters (N active)` so active filters are never hidden. This is the standard shell for **every** `<FilterBar>` consumer (Teams included). The small-viewport drawer/sheet remains the responsive form of the same collapse affordance. Open/closed state is ephemeral (component-local, resets to expanded on mount); persistence (localStorage/URL) is a deferred nicety.
 
 7. **Server-side filtering only (MVP).** Filters map to backend query params + the `f` map; no client-only filtering of a partial cursor page (it would filter only the rows already fetched and produce wrong results). `[BoundedListResult]` lists MAY filter client-side.
 
