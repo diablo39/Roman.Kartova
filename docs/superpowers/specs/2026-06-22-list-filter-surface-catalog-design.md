@@ -1,4 +1,4 @@
-# Slice — List-filter surface on the Catalog lists (Services + Applications), + FilterBar boolean control
+# Slice — List-filter surface on the Catalog lists (Services + Applications), + FilterBar boolean control & collapsible panel
 
 **Date:** 2026-06-22
 **Stories:** E-02.F-02 (Service management — list filtering) + E-02.F-01 (Application management — list filtering); second consumer of **ADR-0107** (list-filter consideration mandate + standard filter UI). Resolves the `Services` and `Applications` rows in `docs/design/list-filter-registry.md`.
@@ -15,6 +15,8 @@ Apply the ADR-0107 filter surface shipped in #38 (the `<FilterBar>` + `useListFi
 - **Applications** (`/catalog`) — add the same **`displayName` text search**, and **fold the existing standalone `includeDecommissioned` checkbox into `<FilterBar>`** — which requires **building the FilterBar `boolean` control** (reserved-but-unbuilt in #38).
 
 Also **standardize the default sort to `displayName asc`** across both lists (screen + endpoint defaults), matching Teams — the single live precedent (user decision 2026-06-22).
+
+Additionally, **upgrade the shared `<FilterBar>` into a collapsible disclosure panel** — a labeled "Filters" header with an active-filter count and a chevron toggle, **expanded by default**, collapsible on **all** viewports — and make it the standard shell for **every** FilterBar consumer (Teams included). This **extends ADR-0107 clause 6** (which scoped collapse to small viewports only) and ships with an ADR-0107 amendment (§3 #11). Open/closed state is **ephemeral** (component-local, resets to expanded on mount); persistence is a deferred nicety (§8).
 
 Per ADR-0107 clause 1, only the **text** and (now) **boolean** controls are built. `single-select` / `multi-select` / `date-range` stay typed-but-unbuilt; richer Catalog facets (team / lifecycle / health / created-by) are deferred to **E-05 faceted search** (they need select controls).
 
@@ -46,6 +48,7 @@ Per ADR-0107 clause 1, only the **text** and (now) **boolean** controls are buil
 | 8 | **No default-sort change to Teams**, no sort-allowlist change anywhere, **no new sort fields**. | Teams already `displayName asc`; this slice is filters + a name-default alignment, not a sort-surface expansion. |
 | 9 | **`single-select` / `multi-select` / `date-range` still throw** in `<FilterBar>`. Catalog facets (team / lifecycle / health / created-by) deferred to **E-05**. | ADR-0107 clause 1 — build controls when a screen needs them; E-05 owns multi-attribute faceting. |
 | 10 | **No new `ProblemDetails`.** Any committed filter value sits in the React-Query `queryKey`, so `useCursorList` resets the cursor stack on change; `cursor-filter-mismatch` 400 is server-side defense-in-depth. | Mechanism already exists (ADR-0095). |
+| 11 | **`<FilterBar>` becomes a collapsible disclosure panel** for **all** consumers: a "Filters" header (label + `activeCount` + chevron toggle) over a collapsible region holding the controls; **expanded by default**; collapse reclaims vertical space and the collapsed header keeps `Filters (N active)` so active filters are never hidden. Open/closed = **ephemeral** component state (default expanded). Built with an accessible disclosure (`aria-expanded` + `aria-controls`, react-aria `Disclosure` if the primitive is available). **Amends ADR-0107 clause 6** (text in §7). | User decision 2026-06-22 — a panel that holds the search controls and can be folded. Expanded-default preserves discoverability; ephemeral state keeps scope lean (no storage/URL coupling). One shell ⇒ uniform across Teams + Catalog + every future list. The small-viewport drawer/sheet is the responsive form of the same affordance. |
 
 ---
 
@@ -106,16 +109,24 @@ Services is the same, minus the boolean: one text spec, `f = { displayNameContai
 |---|---|
 | `web/src/lib/list/useListUrlState.ts` | widen `setBooleanFilter` `name` param to `string` (symmetry with `setTextFilter`; lets the string-keyed `useListFilters` drive booleans without a cast). Read-side `booleanFilters` map keeps its narrowed keys. |
 | `web/src/lib/list/filters/useListFilters.ts` | extend to handle **boolean** specs alongside text: boolean draft seeded from `urlState.booleanFilters`; `bindBoolean(key)→{value:boolean,onChange}`; `submit()` commits text **and** boolean drafts; `clearAll()` resets both (booleans→false); `queryFilters` adds boolean keys as `boolean` (always present); `isActive`/`activeCount` count committed text (non-empty) **and** committed booleans (true); reconcile effect adopts external boolean changes. Widen the `urlState` `Pick` to include `booleanFilters` + `setBooleanFilter`. |
-| `web/src/components/application/filter-bar/FilterBar.tsx` | add the `type:"boolean"` branch → `<Checkbox isSelected onChange label={spec.label}>` via `filters.bindBoolean(spec.key)`. Keep throwing for `single-select`/`multi-select`/`date-range`. |
+| `web/src/components/application/filter-bar/FilterBar.tsx` | (a) add the `type:"boolean"` branch → `<Checkbox isSelected onChange label={spec.label}>` via `filters.bindBoolean(spec.key)`; keep throwing for `single-select`/`multi-select`/`date-range`. (b) **wrap the controls in a collapsible disclosure panel** (§5.3): "Filters" header + `activeCount` + chevron toggle button (`aria-expanded`/`aria-controls`), expanded-by-default `useState`; the `role="search"` form + Search button + "N active"/"Clear all" move inside the collapsible region; collapsed header shows `Filters (N active)`. Applies to every consumer. |
+| `web/src/features/teams/pages/__tests__/TeamsListPage.test.tsx` | regression: search input still reachable (panel expanded by default); add a collapse/expand assertion if structure-coupled queries break. No behavior change to Teams filtering. |
 | `web/src/features/catalog/api/services.ts` | `+ displayNameContains?: string` on `ServicesListParams`; thread into `query` only when set. |
 | `web/src/features/catalog/api/applications.ts` | `+ displayNameContains?: string` on `ApplicationsListParams`; thread only when set. |
 | `web/src/features/catalog/pages/ServicesListPage.tsx` | default sort → `displayName asc`; `textFilters` + `FILTER_SPECS` (one text); `useListFilters`; render `<FilterBar>`; filtered-empty state. |
 | `web/src/features/catalog/pages/CatalogListPage.tsx` | default sort → `displayName asc`; add `textFilters`; `FILTER_SPECS` = text + boolean; `useListFilters`; **delete the standalone `<Checkbox>` block**; render `<FilterBar>`; thread both query params; filtered-empty state. |
 | `web/src/generated/openapi.ts` + `web/openapi-snapshot.json` | regenerated via codegen for the two new `displayNameContains` params (generated — excluded from LOC; snapshot committed). |
 
+**Docs — modified:**
+
+| File | Change |
+|---|---|
+| `docs/architecture/decisions/ADR-0107-list-filtering-consideration-and-filterbar-ui.md` | append the clause-6 amendment (text in §7) — collapse extended from small-viewport-only to an all-viewport collapsible disclosure panel, expanded by default, standard across consumers. |
+| `docs/design/list-filter-registry.md` | Services + Applications rows (§7) + a note that the FilterBar shell is now a collapsible panel. |
+
 **Tests (gate-5) — see §6.**
 
-**Estimate ≈ 290 production LOC** (backend ≈ 70, frontend ≈ 120, plus deletions; excludes tests + generated). Under the ~400 target → single slice, no decomposition.
+**Estimate ≈ 330 production LOC** (backend ≈ 70, frontend ≈ 160 incl. the disclosure shell, plus deletions; excludes tests + generated). Under the ~400 target → single slice, no decomposition.
 
 ---
 
@@ -134,14 +145,30 @@ Booleans get the **same draft → submit lifecycle** as text:
 - reconcile `useEffect` adopts committed text **and** boolean values on external URL change (back/forward, shared link, `clearAll`).
 - `urlState` `Pick` widens to `"textFilters" | "setTextFilter" | "booleanFilters" | "setBooleanFilter"`.
 
-### 5.3 `<FilterBar>` boolean branch
+### 5.3 `<FilterBar>` — collapsible panel + boolean branch
+
+**Disclosure shell (all consumers).** The controls render inside a collapsible panel:
+```
+┌─ Filters                                   [▾] ┐   header: label + activeCount + toggle
+│  <form role="search">                          │   ← collapsible region (expanded by default)
+│    [ text inputs ] [ checkboxes ]               │
+│    [Search]   {activeCount} active   Clear all  │
+│  </form>                                        │
+└─────────────────────────────────────────────────┘
+```
+- `const [open, setOpen] = useState(true)` (ephemeral, default expanded).
+- Header is a toggle button: `aria-expanded={open}`, `aria-controls={panelId}`, chevron icon flips; label `Filters`, and when `filters.isActive` the header also shows the count so `Filters (N active)` survives collapse.
+- The collapsible region (the existing `role="search"` form) is hidden when `!open` (unmounted or `hidden`); use react-aria-components `Disclosure`/`DisclosurePanel` if available, else a button + region with the ARIA wiring above.
+- Active-count + **Clear all** stay in the panel body (visible when expanded); the header count is the at-a-glance signal when collapsed.
+
+**Boolean branch (inside the form):**
 ```tsx
 if (spec.type === "boolean") {
   const { value, onChange } = filters.bindBoolean(spec.key);
   return <Checkbox key={spec.key} isSelected={value} onChange={onChange} label={spec.label} />;
 }
 ```
-Rendered inline in the existing `role="search"` form, between the text input(s) and the Search button. Toggling edits the draft only; the form's `onSubmit`/Enter commits. `single-select`/`multi-select`/`date-range` keep throwing.
+Rendered between the text input(s) and the Search button. Toggling edits the draft only; the form's `onSubmit`/Enter commits. `single-select`/`multi-select`/`date-range` keep throwing.
 
 ### 5.4 Catalog handlers
 Same shape as `ListTeamsHandler` §5.4. Services adds the optional `f`-key; Applications **adds** `displayNameContains` to the dict it already builds:
@@ -175,7 +202,8 @@ Per [docs/TESTING-STRATEGY.md](../../TESTING-STRATEGY.md). Wiring slice (HTTP/DB
 
 **Frontend (Vitest)** — ≥1 happy + ≥1 negative per unit:
 - `useListFilters` boolean: `bindBoolean`; `submit` commits booleans; `clearAll` resets booleans; `queryFilters` includes the boolean (always); `isActive`/`activeCount` count booleans; external-URL reconcile.
-- `FilterBar`: boolean spec renders a checkbox + toggling edits draft (no commit until submit); `single-select`/`date-range` still throw.
+- `FilterBar`: boolean spec renders a checkbox + toggling edits draft (no commit until submit); `single-select`/`date-range` still throw. **Collapsible panel:** expanded by default (controls present on mount); header toggle hides/shows the region and flips `aria-expanded`; collapsed header shows `Filters (N active)` when filters are active; `Clear all` reachable when expanded.
+- `TeamsListPage` (regression): search input present on mount (panel expanded) and filtering still works through the panel — proves the shell change didn't regress the first consumer.
 - `services.ts` / `applications.ts`: `displayNameContains` flows into the request query (and only when set).
 - `ServicesListPage`: search present; default sort `displayName asc`; typing+submit filters (mock); matches-vs-empty.
 - `CatalogListPage`: **checkbox now inside FilterBar**; toggling + Search applies `includeDecommissioned`; `displayNameContains` threads; default sort `displayName asc`; `clearAll` resets both; standalone-checkbox removal asserted (no duplicate control).
@@ -194,10 +222,14 @@ CLAUDE.md → Working agreements → **Definition of Done** (eight always-blocki
 
 Run `scripts/ci-local.sh` (or `backend`/`frontend` subsets) green before push. Steps needing the running stack (codegen, Playwright MCP) → flagged *pending user verification* if unavailable.
 
+**ADR-0107 clause-6 amendment — text to append (preview before saving, CLAUDE.md):**
+
+> **Amendment (2026-06-22) — clause 6 (collapse).** `<FilterBar>` renders its controls inside a **collapsible disclosure panel** on **all** viewports, not only small ones: a labeled "Filters" header (with the active-filter count and a chevron toggle) over a collapsible region holding the controls. The panel is **expanded by default**; collapsing reclaims vertical space while the header retains `Filters (N active)` so active filters are never hidden. This is the standard shell for **every** `<FilterBar>` consumer (Teams included). The small-viewport drawer/sheet remains the responsive form of the same collapse affordance. Open/closed state is ephemeral (component-local, resets to expanded on mount); persistence (localStorage/URL) is a deferred nicety.
+
 **On completion — registry (`docs/design/list-filter-registry.md`):**
 - Services row → **built**, filter `displayNameContains`; facets deferred → E-05.
 - Applications row → `displayNameContains` (text, built) + `includeDecommissioned` refactored onto `<FilterBar>`; **drop the "(pre-standard)" qualifier**; lifecycle/team/created-by facets deferred → E-05.
-- Note FilterBar control availability: **text + boolean built**; `single-select`/`multi-select`/`date-range` still reserved.
+- Note FilterBar control availability: **text + boolean built**; `single-select`/`multi-select`/`date-range` still reserved. **Shell is now a collapsible disclosure panel (expanded by default), standard across all consumers.**
 
 **On completion — memory:** update the `default-list-sort` memory: standardized on **`displayName asc`** across Teams/Services/Applications (supersedes the earlier "displayName desc / Applications left as-is").
 
@@ -210,7 +242,8 @@ Run `scripts/ci-local.sh` (or `backend`/`frontend` subsets) green before push. S
 - **Catalog facets** — team / lifecycle / health / created-by filters → **E-05 faceted search** (need select / multi-select controls).
 - **`single-select` / `multi-select` / `date-range` FilterBar controls** — typed only; built when a screen needs them.
 - **Service health filter** — no write path until E-15/E-16 (all rows `Unknown`); filtering on a constant is meaningless today.
-- **FilterBar collapse-to-drawer** on mobile — Applications now has two controls but still fits a wrapped row; drawer chrome deferred until a screen genuinely needs it (ADR-0107 clause 6).
+- **Dedicated mobile drawer/sheet chrome** — the collapsible disclosure panel (§5.3) is built and collapses on all viewports, which is acceptable on mobile; a distinct bottom-sheet/drawer treatment is deferred until a screen needs it.
+- **Panel open/closed persistence** — state is ephemeral (resets to expanded on mount); remembering it via localStorage/URL is a deferred nicety, not built now.
 - **Members/Users list refactor** onto `<FilterBar>` — separate registry candidate, not this slice.
 - **Sort-surface changes** — no new sort fields, no allowlist change, Teams default untouched.
 - **Server-side trigram / fuzzy search, relevance ranking** — plain `ILIKE` substring only.
@@ -225,7 +258,7 @@ Run `scripts/ci-local.sh` (or `backend`/`frontend` subsets) green before push. S
 4. Codegen: run API, `npm run codegen`, commit regenerated `openapi.ts` + snapshot; update `OpenApiTests`.
 5. `useListUrlState` `setBooleanFilter` widening + test.
 6. `useListFilters` boolean extension + test.
-7. `FilterBar` boolean branch + test.
+7. `FilterBar` collapsible disclosure shell + boolean branch + tests (incl. `TeamsListPage` regression). Append the ADR-0107 clause-6 amendment.
 8. `services.ts` / `applications.ts` params + tests.
 9. Wire `ServicesListPage` (default asc, FilterBar, empty states) + test.
 10. Wire `CatalogListPage` (default asc, FilterBar text+boolean, delete checkbox, empty states) + test.
@@ -235,12 +268,12 @@ Run `scripts/ci-local.sh` (or `backend`/`frontend` subsets) green before push. S
 
 ## 10. Self-review
 
-**Spec coverage:** every §3 decision traces to §4–§6; every gate-5 artifact in §6 is a named file/area in §4.2 for writing-plans to turn into a task (shared helper, both handlers, both endpoints, four frontend units, both pages).
+**Spec coverage:** every §3 decision traces to §4–§6; every gate-5 artifact in §6 is a named file/area in §4.2 for writing-plans to turn into a task (shared helper, both handlers, both endpoints, four frontend units, both pages, the FilterBar collapsible shell + Teams regression, and the ADR-0107 amendment).
 
-**Internal consistency:** `displayNameContains` is one identifier across URL / query param / `f`-map (§3 #1/#6, §4.1, §5.4). Default sort `displayName asc` consistent across §3 #5, §4.1, §4.2, §6. Boolean = submit-driven consistent across §3 #2/#3, §5.2, §5.3, §6. "text + boolean built, rest throw" consistent across §3 #2/#9, §4.2, §5.3, §8.
+**Internal consistency:** `displayNameContains` is one identifier across URL / query param / `f`-map (§3 #1/#6, §4.1, §5.4). Default sort `displayName asc` consistent across §3 #5, §4.1, §4.2, §6. Boolean = submit-driven consistent across §3 #2/#3, §5.2, §5.3, §6. "text + boolean built, rest throw" consistent across §3 #2/#9, §4.2, §5.3, §8. Collapsible panel consistent across §1, §3 #11, §4.2, §5.3, §6, §7 (amendment), §8 (deferrals).
 
-**Scope check:** ~290 production LOC, single PR, under the 400 target; no decomposition. Mutation gate correctly flagged as applying (Catalog Application/Infrastructure logic touched).
+**Scope check:** ~330 production LOC, single PR, under the 400 target; no decomposition. The collapsible-panel + boolean control are shared-`<FilterBar>` changes affecting Teams — covered by a Teams regression test, no Teams behavior change. Mutation gate correctly flagged as applying (Catalog Application/Infrastructure logic touched; the FilterBar shell is TS, outside Stryker).
 
-**Ambiguity check:** blank/whitespace search ⇒ filter absent (§3 #7); boolean commit timing ⇒ submit-driven with an explicit behavior-change note (§3 #3); `EscapeLike` location ⇒ shared SharedKernel.Postgres (§3 #4); default-sort direction ⇒ asc, both screen + endpoint (§3 #5). `includeDecommissioned` counts toward `isActive`/`activeCount` (a deliberate "deviation from default = active filter" choice; the empty-state-wording edge when it's the only active filter is benign — §5.2).
+**Ambiguity check:** blank/whitespace search ⇒ filter absent (§3 #7); boolean commit timing ⇒ submit-driven with an explicit behavior-change note (§3 #3); `EscapeLike` location ⇒ shared SharedKernel.Postgres (§3 #4); default-sort direction ⇒ asc, both screen + endpoint (§3 #5); panel default state ⇒ expanded, ephemeral (§3 #11); panel scope ⇒ all consumers (§3 #11). `includeDecommissioned` counts toward `isActive`/`activeCount` (a deliberate "deviation from default = active filter" choice; the empty-state-wording edge when it's the only active filter is benign — §5.2).
 
 **No blocking issues found.**
