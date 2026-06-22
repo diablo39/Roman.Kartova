@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { cx } from "@/lib/utils/cx";
 import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
@@ -20,23 +20,46 @@ function NavGroup({ title, children }: { title: string; children: React.ReactNod
   );
 }
 
+const navItemClass = (active: boolean) =>
+  cx(
+    "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+    active ? "bg-brand-solid text-white" : "text-secondary hover:bg-primary_hover",
+  );
+
 /**
  * Active-aware navigation link styled to match the existing top-level entries.
  * Extracted so the Settings group can render sub-items with identical chrome.
+ *
+ * `activeWhen` overrides react-router's default descendant matching for items
+ * whose route is a path-prefix of a *sibling* nav item. The Catalog item
+ * (`/catalog`) needs it because Services lives at `/catalog/services`: without
+ * the override, NavLink's default matching highlights Catalog on every
+ * `/catalog/*` route — including the Services pages — so both light up at once.
+ * When supplied we drive both the highlight and `aria-current` from the
+ * predicate (a className-only override would leave `aria-current` wrong).
  */
-function NavItemLink({ to, label }: { to: string; label: string }) {
+function NavItemLink({
+  to,
+  label,
+  activeWhen,
+}: {
+  to: string;
+  label: string;
+  activeWhen?: (pathname: string) => boolean;
+}) {
+  const { pathname } = useLocation();
+
+  if (activeWhen) {
+    const active = activeWhen(pathname);
+    return (
+      <Link to={to} aria-current={active ? "page" : undefined} className={navItemClass(active)}>
+        {label}
+      </Link>
+    );
+  }
+
   return (
-    <NavLink
-      to={to}
-      className={({ isActive }) =>
-        cx(
-          "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-          isActive
-            ? "bg-brand-solid text-white"
-            : "text-secondary hover:bg-primary_hover",
-        )
-      }
-    >
+    <NavLink to={to} className={({ isActive }) => navItemClass(isActive)}>
       {label}
     </NavLink>
   );
@@ -68,7 +91,11 @@ export function Sidebar() {
       <nav className="flex-1 overflow-y-auto p-3">
         <ul className="space-y-1">
           <li>
-            <NavItemLink to="/catalog" label="Catalog" />
+            <NavItemLink
+              to="/catalog"
+              label="Catalog"
+              activeWhen={(p) => p === "/catalog" || p.startsWith("/catalog/applications")}
+            />
           </li>
           {canSeeTeams && (
             <li>
