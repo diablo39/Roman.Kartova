@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { ListUrlState } from "@/lib/list/useListUrlState";
 import type { FilterSpec } from "./types";
 
@@ -29,7 +29,16 @@ export function useListFilters(
 
   // Adopt committed values when they change from outside (back/forward, shared
   // link, clearAll). After our own submit, committed === draft so it's a no-op.
-  useEffect(() => {
+  //
+  // Render-time pattern (avoids useEffect setState-in-effect lint error): track
+  // the previous memoized references and reconcile during the render pass when
+  // they change (committedText / committedBool are content-memoized in
+  // useListUrlState so their identity only changes on real URL mutation).
+  const [prevCommittedText, setPrevCommittedText] = useState(committedText);
+  const [prevTextSpecs, setPrevTextSpecs] = useState(textSpecs);
+  if (committedText !== prevCommittedText || textSpecs !== prevTextSpecs) {
+    setPrevCommittedText(committedText);
+    setPrevTextSpecs(textSpecs);
     setDraftState(prev => {
       let changed = false;
       const next = { ...prev };
@@ -39,9 +48,13 @@ export function useListFilters(
       }
       return changed ? next : prev;
     });
-  }, [committedText, textSpecs]);
+  }
 
-  useEffect(() => {
+  const [prevCommittedBool, setPrevCommittedBool] = useState(committedBool);
+  const [prevBoolSpecs, setPrevBoolSpecs] = useState(boolSpecs);
+  if (committedBool !== prevCommittedBool || boolSpecs !== prevBoolSpecs) {
+    setPrevCommittedBool(committedBool);
+    setPrevBoolSpecs(boolSpecs);
     setBoolDraftState(prev => {
       let changed = false;
       const next = { ...prev };
@@ -51,7 +64,7 @@ export function useListFilters(
       }
       return changed ? next : prev;
     });
-  }, [committedBool, boolSpecs]);
+  }
 
   const setDraft = useCallback(
     (key: string, value: string) => setDraftState(prev => ({ ...prev, [key]: value })), []);
