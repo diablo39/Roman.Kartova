@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useListFilters } from "../useListFilters";
 import type { FilterSpec } from "../types";
@@ -15,21 +15,60 @@ function fakeUrlState(initial: Record<string, string> = {}) {
   return { state, setTextFilter };
 }
 
-beforeEach(() => vi.useFakeTimers());
-afterEach(() => vi.useRealTimers());
-
 describe("useListFilters", () => {
-  it("debounces the commit to setTextFilter (300ms)", () => {
+  it("typing via bind(key).onChange updates values (draft) but does NOT call setTextFilter", () => {
     const u = fakeUrlState();
     const { result } = renderHook(() =>
       useListFilters(specs, { textFilters: u.state.textFilters, setTextFilter: u.setTextFilter } as never));
 
     act(() => { result.current.bind("displayNameContains").onChange("pl"); });
-    expect(u.setTextFilter).not.toHaveBeenCalled();        // immediate value only
+    expect(u.setTextFilter).not.toHaveBeenCalled();
     expect(result.current.values.displayNameContains).toBe("pl");
+  });
 
-    act(() => { vi.advanceTimersByTime(300); });
+  it("submit() calls setTextFilter with the draft value", () => {
+    const u = fakeUrlState();
+    const { result } = renderHook(() =>
+      useListFilters(specs, { textFilters: u.state.textFilters, setTextFilter: u.setTextFilter } as never));
+
+    act(() => { result.current.bind("displayNameContains").onChange("pl"); });
+    expect(u.setTextFilter).not.toHaveBeenCalled();
+
+    act(() => { result.current.submit(); });
     expect(u.setTextFilter).toHaveBeenCalledWith("displayNameContains", "pl");
+  });
+
+  it("clearAll() clears the draft and calls setTextFilter with empty string", () => {
+    const u = fakeUrlState({ displayNameContains: "pl" });
+    const { result } = renderHook(() =>
+      useListFilters(specs, { textFilters: u.state.textFilters, setTextFilter: u.setTextFilter } as never));
+
+    act(() => { result.current.bind("displayNameContains").onChange("abc"); });
+    act(() => { result.current.clearAll(); });
+
+    expect(u.setTextFilter).toHaveBeenCalledWith("displayNameContains", "");
+    expect(result.current.values.displayNameContains).toBe("");
+  });
+
+  it("isActive/activeCount/queryFilters reflect committed (not draft)", () => {
+    const u = fakeUrlState({ displayNameContains: "pl" });
+    const { result } = renderHook(() =>
+      useListFilters(specs, { textFilters: u.state.textFilters, setTextFilter: u.setTextFilter } as never));
+
+    expect(result.current.isActive).toBe(true);
+    expect(result.current.activeCount).toBe(1);
+    expect(result.current.queryFilters.displayNameContains).toBe("pl");
+  });
+
+  it("isActive false when committed is empty even if draft is non-empty", () => {
+    const u = fakeUrlState();
+    const { result } = renderHook(() =>
+      useListFilters(specs, { textFilters: u.state.textFilters, setTextFilter: u.setTextFilter } as never));
+
+    act(() => { result.current.bind("displayNameContains").onChange("draft"); });
+    expect(result.current.isActive).toBe(false);
+    expect(result.current.activeCount).toBe(0);
+    expect(result.current.queryFilters.displayNameContains).toBeUndefined();
   });
 
   it("queryFilters reflects committed values; undefined when empty", () => {
@@ -42,56 +81,6 @@ describe("useListFilters", () => {
     const { result: r2 } = renderHook(() =>
       useListFilters(specs, { textFilters: empty.state.textFilters, setTextFilter: empty.setTextFilter } as never));
     expect(r2.current.queryFilters.displayNameContains).toBeUndefined();
-  });
-
-  it("isActive false when all committed values are empty", () => {
-    const empty = fakeUrlState();
-    const { result } = renderHook(() =>
-      useListFilters(specs, { textFilters: empty.state.textFilters, setTextFilter: empty.setTextFilter } as never));
-    expect(result.current.isActive).toBe(false);
-  });
-
-  it("isActive true when a committed value is non-empty", () => {
-    const u = fakeUrlState({ displayNameContains: "pl" });
-    const { result } = renderHook(() =>
-      useListFilters(specs, { textFilters: u.state.textFilters, setTextFilter: u.setTextFilter } as never));
-    expect(result.current.isActive).toBe(true);
-  });
-
-  it("activeCount reflects the number of non-empty committed filters", () => {
-    const empty = fakeUrlState();
-    const { result: r1 } = renderHook(() =>
-      useListFilters(specs, { textFilters: empty.state.textFilters, setTextFilter: empty.setTextFilter } as never));
-    expect(r1.current.activeCount).toBe(0);
-
-    const u = fakeUrlState({ displayNameContains: "pl" });
-    const { result: r2 } = renderHook(() =>
-      useListFilters(specs, { textFilters: u.state.textFilters, setTextFilter: u.setTextFilter } as never));
-    expect(r2.current.activeCount).toBe(1);
-  });
-
-  it("debounce boundary: fires at exactly 300ms, not before", () => {
-    const u = fakeUrlState();
-    const { result } = renderHook(() =>
-      useListFilters(specs, { textFilters: u.state.textFilters, setTextFilter: u.setTextFilter } as never));
-
-    act(() => { result.current.bind("displayNameContains").onChange("pl"); });
-    act(() => { vi.advanceTimersByTime(299); });
-    expect(u.setTextFilter).not.toHaveBeenCalled();
-
-    act(() => { vi.advanceTimersByTime(1); });
-    expect(u.setTextFilter).toHaveBeenCalledWith("displayNameContains", "pl");
-  });
-
-  it("unmount cancels a pending debounced commit", () => {
-    const u = fakeUrlState();
-    const { result, unmount } = renderHook(() =>
-      useListFilters(specs, { textFilters: u.state.textFilters, setTextFilter: u.setTextFilter } as never));
-
-    act(() => { result.current.bind("displayNameContains").onChange("pl"); });
-    unmount();
-    act(() => { vi.advanceTimersByTime(300); });
-    expect(u.setTextFilter).not.toHaveBeenCalled();
   });
 
   it("clearAll resets every spec via setTextFilter('')", () => {

@@ -1,16 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ListUrlState } from "@/lib/list/useListUrlState";
 import type { FilterSpec } from "./types";
 
-const DEBOUNCE_MS = 300;
-
 /**
  * Spec-driven filter state for list pages (ADR-0107). Composes useListUrlState:
- * the controlled input echoes the immediate local value, while the committed
- * value (URL + query) is debounced so the cursor does not reset on every
- * keystroke. `queryFilters` is what the list query hook spreads — committed
- * values only, undefined when empty (so the unfiltered query key matches the
- * pre-filter key).
+ * text input updates a local draft; the committed value (URL + query) only
+ * changes when the user explicitly calls submit() (Enter or Search button).
+ * `queryFilters` is what the list query hook spreads — committed values only,
+ * undefined when empty (so the unfiltered query key matches the pre-filter key).
  */
 export function useListFilters(
   specs: FilterSpec[],
@@ -19,22 +16,14 @@ export function useListFilters(
   const textSpecs = useMemo(() => specs.filter(s => s.type === "text"), [specs]);
   const committed = urlState.textFilters;
 
-  const [local, setLocal] = useState<Record<string, string>>(
+  const [draft, setDraftState] = useState<Record<string, string>>(
     () => Object.fromEntries(textSpecs.map((s) => [s.key, committed[s.key] ?? ""])) as Record<string, string>,
   );
-  const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-
-  // Cancel any pending debounced commits when the consumer unmounts so a late
-  // setTextTimer never fires into an unmounted tree.
-  useEffect(() => () => {
-    for (const t of Object.values(timers.current)) clearTimeout(t);
-  }, []);
 
   // Adopt the committed value when it changes from outside this hook (back/forward,
-  // shared link, clearAll). After our own debounced commit, committed === local so
-  // this is a no-op.
+  // shared link, clearAll). After our own submit, committed === draft so this is a no-op.
   useEffect(() => {
-    setLocal(prev => {
+    setDraftState(prev => {
       let changed = false;
       const next = { ...prev };
       for (const s of textSpecs) {
@@ -45,26 +34,30 @@ export function useListFilters(
     });
   }, [committed, textSpecs]);
 
-  const onChange = useCallback(
-    (key: string) => (value: string) => {
-      setLocal(prev => ({ ...prev, [key]: value }));
-      clearTimeout(timers.current[key]);
-      timers.current[key] = setTimeout(() => urlState.setTextFilter(key, value), DEBOUNCE_MS);
-    },
-    [urlState],
+  const setDraft = useCallback(
+    (key: string, value: string) => setDraftState(prev => ({ ...prev, [key]: value })),
+    [],
   );
 
   const bind = useCallback(
-    (key: string) => ({ value: local[key] ?? "", onChange: onChange(key) }),
-    [local, onChange],
+    (key: string) => ({
+      value: draft[key] ?? "",
+      onChange: (v: string) => setDraft(key, v),
+    }),
+    [draft, setDraft],
   );
+
+  const submit = useCallback(() => {
+    for (const s of textSpecs) {
+      urlState.setTextFilter(s.key, draft[s.key] ?? "");
+    }
+  }, [textSpecs, urlState, draft]);
 
   const clearAll = useCallback(() => {
     for (const s of textSpecs) {
-      clearTimeout(timers.current[s.key]);
       urlState.setTextFilter(s.key, "");
     }
-    setLocal(Object.fromEntries(textSpecs.map(s => [s.key, ""])));
+    setDraftState(Object.fromEntries(textSpecs.map(s => [s.key, ""])));
   }, [textSpecs, urlState]);
 
   const queryFilters = useMemo(() => {
@@ -83,5 +76,5 @@ export function useListFilters(
     [textSpecs, committed],
   );
 
-  return { values: local, bind, clearAll, isActive, activeCount, queryFilters };
+  return { values: draft, bind, submit, clearAll, isActive, activeCount, queryFilters };
 }

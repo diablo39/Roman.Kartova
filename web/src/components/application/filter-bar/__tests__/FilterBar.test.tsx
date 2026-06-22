@@ -14,6 +14,7 @@ function makeFilters() {
   return {
     values: { displayNameContains: "" },
     bind: vi.fn((_key: string) => ({ value: "", onChange: vi.fn() })),
+    submit: vi.fn(),
     clearAll: vi.fn(),
     isActive: false,
     activeCount: 0,
@@ -28,13 +29,33 @@ describe("FilterBar", () => {
     expect(screen.getByRole("textbox", { name: /search teams/i })).toHaveAttribute("maxlength", "128");
   });
 
-  it("typing calls the bound onChange", () => {
+  it("renders a Search button", () => {
+    render(<FilterBar specs={specs} filters={filters()} />);
+    expect(screen.getByRole("button", { name: /search/i })).toBeInTheDocument();
+  });
+
+  it("typing calls the bound onChange (draft)", () => {
     const onChange = vi.fn();
     const f = filters({ bind: vi.fn(() => ({ value: "", onChange })) });
     render(<FilterBar specs={specs} filters={f} />);
     fireEvent.change(screen.getByRole("textbox", { name: /search teams/i }), { target: { value: "pl" } });
     expect(onChange).toHaveBeenCalledWith("pl");
     expect(f.bind).toHaveBeenCalledWith("displayNameContains");
+  });
+
+  it("submitting the form calls filters.submit", () => {
+    const f = filters();
+    render(<FilterBar specs={specs} filters={f} />);
+    const form = screen.getByRole("search");
+    fireEvent.submit(form);
+    expect(f.submit).toHaveBeenCalled();
+  });
+
+  it("clicking Search button calls filters.submit", () => {
+    const f = filters();
+    render(<FilterBar specs={specs} filters={f} />);
+    fireEvent.click(screen.getByRole("button", { name: /search/i }));
+    expect(f.submit).toHaveBeenCalled();
   });
 
   it("shows Clear all only when active and calls clearAll", () => {

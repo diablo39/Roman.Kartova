@@ -11,12 +11,17 @@ interface FilterBarProps {
 
 /**
  * Standard list-filter surface (ADR-0107). Renders each FilterSpec above the
- * DataTable. MVP builds the `text` control only; other types throw so misuse
- * fails loudly at dev time until they are implemented.
+ * DataTable. Submit-driven: text values are drafts until the user presses Enter
+ * or clicks the Search button. MVP builds the `text` control only; other types
+ * throw so misuse fails loudly at dev time until they are implemented.
  */
 export function FilterBar({ specs, filters }: FilterBarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <form
+      role="search"
+      className="flex flex-wrap items-center gap-3"
+      onSubmit={(e) => { e.preventDefault(); filters.submit(); }}
+    >
       {specs.map(spec => {
         if (spec.type !== "text") {
           throw new Error(
@@ -39,6 +44,10 @@ export function FilterBar({ specs, filters }: FilterBarProps) {
         );
       })}
 
+      <Button type="submit" size="sm" color="secondary">
+        Search
+      </Button>
+
       {filters.isActive && (
         <>
           <span className="text-sm text-tertiary">
@@ -49,6 +58,6 @@ export function FilterBar({ specs, filters }: FilterBarProps) {
           </Button>
         </>
       )}
-    </div>
+    </form>
   );
 }
