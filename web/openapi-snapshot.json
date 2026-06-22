@@ -140,6 +140,13 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "displayNameContains",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -692,6 +699,13 @@
               "minimum": 1,
               "type": "integer",
               "format": "int32"
+            }
+          },
+          {
+            "name": "displayNameContains",
+            "in": "query",
+            "schema": {
+              "type": "string"
             }
           }
         ],
