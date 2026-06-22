@@ -113,6 +113,7 @@ internal static class CatalogEndpointDelegates
         [FromQuery] string? sortOrder,
         [FromQuery] string? cursor,
         [FromQuery] string? limit,
+        [FromQuery] string? displayNameContains,
         [FromQuery] bool? includeDecommissioned,
         [FromQuery] Guid? createdByUserId,
         ListApplicationsHandler handler,
@@ -145,12 +146,15 @@ internal static class CatalogEndpointDelegates
             }
         }
 
+        var name = string.IsNullOrWhiteSpace(displayNameContains) ? null : displayNameContains.Trim();
+
         var query = new ListApplicationsQuery(
-            SortBy: parsedSortBy ?? ApplicationSortField.CreatedAt,
-            SortOrder: parsedSortOrder ?? SortOrder.Desc,
+            SortBy: parsedSortBy ?? ApplicationSortField.DisplayName,   // default flips: was CreatedAt
+            SortOrder: parsedSortOrder ?? SortOrder.Asc,                // default flips: was Desc
             Cursor: cursor,
             Limit: effectiveLimit,
             IncludeDecommissioned: includeDecommissioned ?? false,
+            DisplayNameContains: name,
             CreatedByUserId: createdByUserId);
 
         var page = await handler.Handle(query, db, ct);

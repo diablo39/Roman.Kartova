@@ -4,6 +4,7 @@ using Kartova.Catalog.Domain;
 using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Pagination;
 using Kartova.SharedKernel.Postgres.Pagination;
+using Microsoft.EntityFrameworkCore;
 using DomainApplication = Kartova.Catalog.Domain.Application;
 
 namespace Kartova.Catalog.Infrastructure;
@@ -68,11 +69,19 @@ public sealed class ListApplicationsHandler(IUserDirectory directory)
             source = source.Where(a => a.CreatedByUserId == createdByUserId);
         }
 
+        // displayName contains filter (ADR-0107). Applied before paging so a hidden row
+        // never becomes a cursor boundary.
+        if (q.DisplayNameContains is { } name)
+        {
+            var pattern = $"%{LikeEscaping.EscapeLike(name)}%";
+            source = source.Where(a => EF.Functions.ILike(a.DisplayName, pattern, "\\"));
+        }
+
         // Filter state the cursor is issued under (ADR-0095). The owning module
         // owns the keys/values; the shared codec treats them as opaque. Always-
         // applied dimensions (includeDecommissioned) are always present; optional
-        // filters (createdByUserId) only when applied. A change mid-pagination trips
-        // CursorFilterMismatchException inside ToCursorPagedAsync.
+        // filters (createdByUserId, displayNameContains) only when applied. A change
+        // mid-pagination trips CursorFilterMismatchException inside ToCursorPagedAsync.
         var filters = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["includeDecommissioned"] = q.IncludeDecommissioned ? "true" : "false",
@@ -80,6 +89,10 @@ public sealed class ListApplicationsHandler(IUserDirectory directory)
         if (q.CreatedByUserId is { } createdBy)
         {
             filters["createdByUserId"] = createdBy.ToString("D");
+        }
+        if (q.DisplayNameContains is { } displayName)
+        {
+            filters["displayNameContains"] = displayName;
         }
 
         var page = await source
