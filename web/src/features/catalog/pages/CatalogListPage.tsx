@@ -2,7 +2,9 @@ import { useMemo, useState, useEffect } from "react";
 import { Plus } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { Card, CardContent } from "@/components/base/card/card";
-import { Checkbox } from "@/components/base/checkbox/checkbox";
+import { FilterBar } from "@/components/application/filter-bar/FilterBar";
+import { useListFilters } from "@/lib/list/filters/useListFilters";
+import type { FilterSpec } from "@/lib/list/filters/types";
 import { useApplicationsList } from "@/features/catalog/api/applications";
 import { useTeamsList } from "@/features/teams/api/teams";
 import { useListUrlState } from "@/lib/list/useListUrlState";
@@ -13,21 +15,28 @@ import { KartovaPermissions } from "@/shared/auth/permissions";
 
 const ALLOWED_SORT_FIELDS = ["createdAt", "displayName"] as const;
 const BOOLEAN_FILTERS = ["includeDecommissioned"] as const;
+const TEXT_FILTERS = ["displayNameContains"] as const;
+const FILTER_SPECS: FilterSpec[] = [
+  { key: "displayNameContains", type: "text", label: "Search applications", placeholder: "Search by name…" },
+  { key: "includeDecommissioned", type: "boolean", label: "Show decommissioned" },
+];
 
 export function CatalogListPage() {
-  const { sortBy, sortOrder, setSort, booleanFilters, setBooleanFilter } = useListUrlState({
-    defaultSortBy: "createdAt",
-    defaultSortOrder: "desc",
+  const urlState = useListUrlState({
+    defaultSortBy: "displayName",
+    defaultSortOrder: "asc",
     allowedSortFields: ALLOWED_SORT_FIELDS,
     booleanFilters: BOOLEAN_FILTERS,
+    textFilters: TEXT_FILTERS,
   });
-  const includeDecommissioned = booleanFilters.includeDecommissioned;
+  const filters = useListFilters(FILTER_SPECS, urlState);
 
-  const list = useApplicationsList({ sortBy, sortOrder, includeDecommissioned });
-  // Single fetch of all teams in the tenant so the catalog list can show
-  // displayName next to every row instead of bare teamId GUIDs. Matches the
-  // AssignTeamPicker 200-item cap — sufficient for an MVP tenant; a search-
-  // based resolver follows in slice 9 if/when a tenant breaches that bound.
+  const list = useApplicationsList({
+    sortBy: urlState.sortBy,
+    sortOrder: urlState.sortOrder,
+    displayNameContains: filters.queryFilters.displayNameContains as string | undefined,
+    includeDecommissioned: filters.queryFilters.includeDecommissioned as boolean,
+  });
   const teamsList = useTeamsList({ sortBy: "displayName", sortOrder: "asc", limit: 200 });
   const teamNameById = useMemo(
     () => new Map<string, string>((teamsList.items ?? []).map(t => [t.id, t.displayName])),
@@ -39,9 +48,7 @@ export function CatalogListPage() {
   const canRegister = !permissionsLoading && hasPermission(KartovaPermissions.CatalogApplicationsRegister);
 
   useEffect(() => {
-    if (list.isError) {
-      console.error("CatalogListPage list error", list.error);
-    }
+    if (list.isError) console.error("CatalogListPage list error", list.error);
   }, [list.isError, list.error]);
 
   return (
@@ -55,13 +62,7 @@ export function CatalogListPage() {
         )}
       </div>
 
-      <div className="flex items-center justify-end">
-        <Checkbox
-          isSelected={includeDecommissioned}
-          onChange={(value: boolean) => setBooleanFilter("includeDecommissioned", value)}
-          label="Show decommissioned"
-        />
-      </div>
+      <FilterBar specs={FILTER_SPECS} filters={filters} />
 
       {list.isError ? (
         <Card className="mx-auto max-w-md">
@@ -71,12 +72,19 @@ export function CatalogListPage() {
             <Button size="sm" onClick={() => list.reset()}>Reset</Button>
           </CardContent>
         </Card>
+      ) : !list.isLoading && list.items.length === 0 && filters.isActive ? (
+        <Card className="mx-auto max-w-md text-center">
+          <CardContent className="space-y-2 p-8">
+            <p className="text-base font-medium text-primary">No applications match your filters</p>
+            <p className="text-sm text-tertiary">Try a different name or clear the filters.</p>
+          </CardContent>
+        </Card>
       ) : (
         <ApplicationsTable
           list={list}
-          sortBy={sortBy}
-          sortOrder={sortOrder}
-          onSortChange={setSort}
+          sortBy={urlState.sortBy}
+          sortOrder={urlState.sortOrder}
+          onSortChange={urlState.setSort}
           teamNameById={teamNameById}
         />
       )}

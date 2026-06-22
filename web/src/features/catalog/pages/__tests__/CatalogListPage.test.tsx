@@ -243,33 +243,27 @@ describe("CatalogListPage — Show decommissioned checkbox", () => {
     expect(checkbox).toBeChecked();
   });
 
-  it("toggling the checkbox writes the URL param to true", async () => {
+  it("toggling the checkbox then Search writes the URL param to true", async () => {
     const user = userEvent.setup();
     const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
-    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
-      GET: get, POST: vi.fn(),
-    } as never);
-
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: get, POST: vi.fn() } as never);
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<></>, { wrapper: harnessWithRoutes(qc) });
 
-    const checkbox = screen.getByRole("checkbox", { name: /show decommissioned/i });
-    await user.click(checkbox);
+    await user.click(screen.getByRole("checkbox", { name: /show decommissioned/i }));
+    await user.click(screen.getByRole("button", { name: /^search$/i }));
     expect(screen.getByTestId("probe").textContent).toContain("includeDecommissioned=true");
   });
 
-  it("toggling off removes the URL param entirely (no =false clutter)", async () => {
+  it("toggling off then Search removes the URL param (no =false clutter)", async () => {
     const user = userEvent.setup();
     const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
-    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
-      GET: get, POST: vi.fn(),
-    } as never);
-
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: get, POST: vi.fn() } as never);
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<></>, { wrapper: harnessWithRoutes(qc, ["/?includeDecommissioned=true"]) });
 
-    const checkbox = screen.getByRole("checkbox", { name: /show decommissioned/i });
-    await user.click(checkbox);
+    await user.click(screen.getByRole("checkbox", { name: /show decommissioned/i }));
+    await user.click(screen.getByRole("button", { name: /^search$/i }));
     expect(screen.getByTestId("probe").textContent).not.toContain("includeDecommissioned");
   });
 });
@@ -299,6 +293,21 @@ describe("CatalogListPage — API hook receives correct query params", () => {
     render(<></>, { wrapper: harnessWithApp(["/"])  });
     expect(useApplicationsListSpy).toHaveBeenCalledWith(
       expect.objectContaining({ includeDecommissioned: false }),
+    );
+  });
+
+  it("renders the Filters search box", () => {
+    const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: get, POST: vi.fn() } as never);
+    render(<CatalogListPage />, { wrapper: harness(new QueryClient({ defaultOptions: { queries: { retry: false } } })) });
+    expect(screen.getByRole("textbox", { name: /search applications/i })).toBeInTheDocument();
+  });
+
+  it("defaults sort to displayName asc", () => {
+    useApplicationsListSpy = vi.spyOn(applicationsModule, "useApplicationsList").mockReturnValue(stubListResult);
+    render(<></>, { wrapper: harnessWithApp(["/"]) });
+    expect(useApplicationsListSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ sortBy: "displayName", sortOrder: "asc" }),
     );
   });
 });
