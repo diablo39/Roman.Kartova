@@ -13,6 +13,7 @@ import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
 
 const ALLOWED_SORT_FIELDS = ["createdAt", "displayName"] as const;
+const TEXT_FILTERS = ["displayNameContains"] as const;
 const FILTER_SPECS: FilterSpec[] = [
   { key: "displayNameContains", type: "text", label: "Search teams", placeholder: "Search by name…" },
 ];
@@ -22,7 +23,7 @@ export function TeamsListPage() {
     defaultSortBy: "displayName",
     defaultSortOrder: "asc",
     allowedSortFields: ALLOWED_SORT_FIELDS,
-    textFilters: ["displayNameContains"] as const,
+    textFilters: TEXT_FILTERS,
   });
   const filters = useListFilters(FILTER_SPECS, urlState);
 

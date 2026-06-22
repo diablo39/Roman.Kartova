@@ -53,13 +53,17 @@ export function useListUrlState<TField extends string, TBoolFilter extends strin
 ): ListUrlState<TField, TBoolFilter, TTextFilter> {
   const [params, setParams] = useSearchParams();
   const allowed = useMemo(() => new Set<string>(config.allowedSortFields), [config.allowedSortFields]);
+  const boolFiltersKey = (config.booleanFilters ?? []).join(",");
   const boolFilterNames = useMemo(
     () => (config.booleanFilters ?? []) as readonly TBoolFilter[],
-    [config.booleanFilters],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [boolFiltersKey],
   );
+  const textFiltersKey = (config.textFilters ?? []).join(",");
   const textFilterNames = useMemo(
     () => (config.textFilters ?? []) as readonly TTextFilter[],
-    [config.textFilters],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [textFiltersKey],
   );
 
   const rawSortBy = params.get("sortBy") ?? "";
