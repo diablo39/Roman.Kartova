@@ -218,7 +218,7 @@ Per [docs/TESTING-STRATEGY.md](../../TESTING-STRATEGY.md). Wiring slice (HTTP/DB
 
 CLAUDE.md → Working agreements → **Definition of Done** (eight always-blocking gates + conditional mutation) applies verbatim; not restated here.
 
-**Mutation gate (6) APPLIES** — the diff changes Catalog **Application/Infrastructure** logic (both handlers' filter predicates + `f`-map, the query records, endpoint normalization) and the shared `EscapeLike`. Run `/misc:mutation-sentinel` → `/misc:test-generator` on the changed C# files (target ≥80%; document survivors). Frontend TS is outside Stryker.
+**Mutation gate (6) SKIPPED for this slice** — user decision 2026-06-22. The diff does touch Catalog Application/Infrastructure logic (filter predicates + `f`-map, query records, endpoint normalization, shared `EscapeLike`), which would normally make gate 6 blocking; the conditional gate permits a skip "with a noted reason," and this is that note. Coverage stands on the explicit unit + real-seam tests in §6 (predicate applies / `f`-map presence / ILIKE escaping incl. `%`/`_`/`\` / blank-as-absent / cursor-filter-mismatch / RLS). The other eight always-blocking gates are unaffected. `/misc:mutation-sentinel` → `/misc:test-generator` is NOT run for this slice.
 
 Run `scripts/ci-local.sh` (or `backend`/`frontend` subsets) green before push. Steps needing the running stack (codegen, Playwright MCP) → flagged *pending user verification* if unavailable.
 
@@ -272,7 +272,7 @@ Run `scripts/ci-local.sh` (or `backend`/`frontend` subsets) green before push. S
 
 **Internal consistency:** `displayNameContains` is one identifier across URL / query param / `f`-map (§3 #1/#6, §4.1, §5.4). Default sort `displayName asc` consistent across §3 #5, §4.1, §4.2, §6. Boolean = submit-driven consistent across §3 #2/#3, §5.2, §5.3, §6. "text + boolean built, rest throw" consistent across §3 #2/#9, §4.2, §5.3, §8. Collapsible panel consistent across §1, §3 #11, §4.2, §5.3, §6, §7 (amendment), §8 (deferrals).
 
-**Scope check:** ~330 production LOC, single PR, under the 400 target; no decomposition. The collapsible-panel + boolean control are shared-`<FilterBar>` changes affecting Teams — covered by a Teams regression test, no Teams behavior change. Mutation gate correctly flagged as applying (Catalog Application/Infrastructure logic touched; the FilterBar shell is TS, outside Stryker).
+**Scope check:** ~330 production LOC, single PR, under the 400 target; no decomposition. The collapsible-panel + boolean control are shared-`<FilterBar>` changes affecting Teams — covered by a Teams regression test, no Teams behavior change. Mutation gate (6) would normally apply (Catalog Application/Infrastructure logic touched) but is **skipped this slice by user decision** with a recorded reason (§7); explicit unit + real-seam tests carry the predicate/`f`-map/escaping coverage. The FilterBar shell is TS, outside Stryker regardless.
 
 **Ambiguity check:** blank/whitespace search ⇒ filter absent (§3 #7); boolean commit timing ⇒ submit-driven with an explicit behavior-change note (§3 #3); `EscapeLike` location ⇒ shared SharedKernel.Postgres (§3 #4); default-sort direction ⇒ asc, both screen + endpoint (§3 #5); panel default state ⇒ expanded, ephemeral (§3 #11); panel scope ⇒ all consumers (§3 #11). `includeDecommissioned` counts toward `isActive`/`activeCount` (a deliberate "deviation from default = active filter" choice; the empty-state-wording edge when it's the only active filter is benign — §5.2).
 
