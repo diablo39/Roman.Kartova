@@ -5,6 +5,8 @@
 **Phase:** 1 — Core Catalog & Notifications
 **Branch (proposed):** `feat/list-filter-surface-teams`
 
+> **Amendment (2026-06-22):** text filters changed from **debounced-live** to **explicit submit** (Enter / Search button) — see ADR-0107 clause 3. `useListFilters` now exposes `submit()` (typing updates a draft; commit happens on submit), and `<FilterBar>` wraps inputs in a form + Search button + Enter `onKeyDown`. The debounce wording in §3 #5, the §4.2 file-map notes, §5.2, §6 and §10 is superseded by this submit model. (`activeCount` was also added to the hook during the /simplify pass.)
+
 ---
 
 ## 1. Goal
@@ -32,7 +34,7 @@ This is deliberately the *foundational* slice for filtering: every later filter 
 | 2 | **A `FilterSpec`'s `key` is its name everywhere** — browser URL param, API query param, and cursor `f`-map key are all `displayNameContains`. | One identifier end-to-end (`?displayNameContains=foo` in URL → same query param → `f.displayNameContains`); the generic mapping is "key ⇒ wire name", no per-screen translation. |
 | 3 | **Search scope = `displayName` only** (not description). | YAGNI; matches the recorded Filter Proposal. Adding fields later is a new `FilterSpec`. |
 | 4 | **Match = case-insensitive contains** via Postgres `EF.Functions.ILike(DisplayName, "%"+esc+"%", "\\")`; LIKE wildcards (`%` `_` `\`) escaped; input trimmed; empty/whitespace ⇒ filter **absent** (no `f` key, no `WHERE`). | Forgiving substring search is the expected UX; escaping prevents user input widening the match; blank-as-absent keeps the unfiltered cursor identical to today's. |
-| 5 | **300ms debounce** between keystroke and the URL+query commit. | Avoids resetting the cursor / refetching on every character; the controlled input shows the immediate value, the committed value lags. |
+| 5 | **Explicit submit (no debounce)** — amended 2026-06-22 (was 300ms debounce). Typing updates a *draft*; the URL+query commit fires only on **Enter or a Search button**. | User controls when the search runs; no query per keystroke. `useListFilters` exposes `submit()`; `<FilterBar>` = form + Search button + Enter `onKeyDown` → `submit()`. |
 | 6 | **Default sort flips to `displayName asc`** on **both** the screen and the endpoint default. **Ascending** (A→Z), refining the "displayName desc" convention for **name columns** (user decision 2026-06-21). | Direct-API callers and the UI agree; A→Z is the natural reading of a name column. |
 | 7 | **`<FilterBar>` builds only the `text` control**; `single-select`/`multi-select`/`boolean`/`date-range` are typed in the `FilterSpec` union but throw "not implemented yet" if used. | ADR-0107 clause 1 — text now, rest deferred until a screen needs them. |
 | 8 | **No new `ProblemDetails`.** Filter change resets the cursor client-side (key in `queryKey`); `cursor-filter-mismatch` 400 is the server defense-in-depth. | The mechanism already exists (ADR-0095); nothing to add. |

@@ -28,7 +28,8 @@ Two gaps follow from that:
 
 2. **One component.** When filters ARE built, they render through a shared `<FilterBar>` (react-aria-components + Tailwind v4 per ADR-0094), positioned above the `<DataTable>`. Standard control vocabulary only: **text search, single-select, multi-select, boolean toggle, date-range**. No bespoke per-screen filter chrome.
 
-3. **One hook.** `useListFilters` owns filter state, composes with the existing `useListUrlState` so filters serialize to the URL query string (shareable/bookmarkable — satisfies E-03.F-04.S-03's "filter state shareable via URL" AC), and emits the ADR-0095 cursor `f` map. Changing any filter resets the cursor; the ADR-0095 `cursor-filter-mismatch` 400 guards stale-cursor reuse server-side.
+3. **One hook.** `useListFilters` owns filter state, composes with the existing `useListUrlState` so filters serialize to the URL query string (shareable/bookmarkable — satisfies E-03.F-04.S-03's "filter state shareable via URL" AC), and emits the ADR-0095 cursor `f` map. Changing the committed filter resets the cursor; the ADR-0095 `cursor-filter-mismatch` 400 guards stale-cursor reuse server-side.
+   - **Text filters commit on explicit submit** (Enter or a Search button), not live-as-you-type (amended 2026-06-22 — superseded the original debounced-live design). A typed value is a **draft** held by `useListFilters`; only `submit()` commits it to the URL + query, so the cursor/query update once per search, not per keystroke. `<FilterBar>` wraps text inputs in a `<form>` with a Search button (`type="submit"`) and binds Enter via `onKeyDown` → `submit()`. Non-text controls (when built) MAY apply immediately.
 
 4. **Declarative config.** A screen passes a `FilterSpec[]` (field key, control type, label, options or async options loader). `<FilterBar>` renders from the spec — no imperative wiring per screen.
 
