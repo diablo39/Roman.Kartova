@@ -92,3 +92,69 @@ describe("useListFilters", () => {
     expect(result.current.values.displayNameContains).toBe("");
   });
 });
+
+function fakeUrlStateB(text: Record<string, string> = {}, bool: Record<string, boolean> = {}) {
+  const state = {
+    textFilters: { ...text } as Record<string, string>,
+    booleanFilters: { ...bool } as Record<string, boolean>,
+  };
+  const setTextFilter = vi.fn((name: string, value: string) => {
+    state.textFilters = { ...state.textFilters, [name]: value.trim() };
+  });
+  const setBooleanFilter = vi.fn((name: string, value: boolean) => {
+    state.booleanFilters = { ...state.booleanFilters, [name]: value };
+  });
+  return { state, setTextFilter, setBooleanFilter };
+}
+
+const boolSpecs: FilterSpec[] = [
+  { key: "displayNameContains", type: "text", label: "Search", placeholder: "…" },
+  { key: "includeDecommissioned", type: "boolean", label: "Show decommissioned" },
+];
+
+describe("useListFilters — boolean specs", () => {
+  it("bindBoolean toggling updates draft but does NOT commit until submit", () => {
+    const u = fakeUrlStateB({ displayNameContains: "" }, { includeDecommissioned: false });
+    const { result } = renderHook(() => useListFilters(boolSpecs, {
+      textFilters: u.state.textFilters, setTextFilter: u.setTextFilter,
+      booleanFilters: u.state.booleanFilters, setBooleanFilter: u.setBooleanFilter,
+    } as never));
+
+    act(() => { result.current.bindBoolean("includeDecommissioned").onChange(true); });
+    expect(u.setBooleanFilter).not.toHaveBeenCalled();
+    expect(result.current.bindBoolean("includeDecommissioned").value).toBe(true);
+
+    act(() => { result.current.submit(); });
+    expect(u.setBooleanFilter).toHaveBeenCalledWith("includeDecommissioned", true);
+  });
+
+  it("queryFilters carries the committed boolean (always present)", () => {
+    const u = fakeUrlStateB({ displayNameContains: "" }, { includeDecommissioned: true });
+    const { result } = renderHook(() => useListFilters(boolSpecs, {
+      textFilters: u.state.textFilters, setTextFilter: u.setTextFilter,
+      booleanFilters: u.state.booleanFilters, setBooleanFilter: u.setBooleanFilter,
+    } as never));
+    expect(result.current.queryFilters.includeDecommissioned).toBe(true);
+  });
+
+  it("isActive/activeCount count a committed true boolean", () => {
+    const u = fakeUrlStateB({ displayNameContains: "" }, { includeDecommissioned: true });
+    const { result } = renderHook(() => useListFilters(boolSpecs, {
+      textFilters: u.state.textFilters, setTextFilter: u.setTextFilter,
+      booleanFilters: u.state.booleanFilters, setBooleanFilter: u.setBooleanFilter,
+    } as never));
+    expect(result.current.isActive).toBe(true);
+    expect(result.current.activeCount).toBe(1);
+  });
+
+  it("clearAll resets booleans to false and commits", () => {
+    const u = fakeUrlStateB({ displayNameContains: "x" }, { includeDecommissioned: true });
+    const { result } = renderHook(() => useListFilters(boolSpecs, {
+      textFilters: u.state.textFilters, setTextFilter: u.setTextFilter,
+      booleanFilters: u.state.booleanFilters, setBooleanFilter: u.setBooleanFilter,
+    } as never));
+    act(() => { result.current.clearAll(); });
+    expect(u.setBooleanFilter).toHaveBeenCalledWith("includeDecommissioned", false);
+    expect(u.setTextFilter).toHaveBeenCalledWith("displayNameContains", "");
+  });
+});

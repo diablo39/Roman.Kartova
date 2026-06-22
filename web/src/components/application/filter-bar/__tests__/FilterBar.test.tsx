@@ -14,6 +14,7 @@ function makeFilters() {
   return {
     values: { displayNameContains: "" },
     bind: vi.fn((_key: string) => ({ value: "", onChange: vi.fn() })),
+    bindBoolean: vi.fn((_key: string) => ({ value: false, onChange: vi.fn() })),
     submit: vi.fn(),
     clearAll: vi.fn(),
     isActive: false,
