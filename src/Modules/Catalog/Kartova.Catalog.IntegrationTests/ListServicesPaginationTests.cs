@@ -112,4 +112,90 @@ public class ListServicesPaginationTests : CatalogIntegrationTestBase
         Assert.IsFalse(orgBIds.Contains(orgAService.Id),
             $"OrgA service {orgAService.Id} must not appear in OrgB's service list.");
     }
+
+    // Slice — displayName filter (ADR-0107). Real seam: real Postgres/RLS + real JWT.
+    [TestMethod]
+    public async Task GET_with_displayNameContains_returns_only_matching_services()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Filter Team");
+        foreach (var name in new[] { "alpha-pay-svc", "beta-pay-svc", "gamma-ship-svc" })
+        {
+            var r = await client.PostAsJsonAsync("/api/v1/catalog/services", new
+            {
+                displayName = name, description = "f", teamId, endpoints = Array.Empty<object>(),
+            });
+            Assert.IsTrue(r.IsSuccessStatusCode);
+        }
+
+        var resp = await client.GetAsync("/api/v1/catalog/services?displayNameContains=PAY&limit=200");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var page = await resp.Content.ReadFromJsonAsync<CursorPage<ServiceResponse>>(KartovaApiFixtureBase.WireJson);
+        var names = page!.Items.Select(i => i.DisplayName).ToList();
+
+        Assert.IsTrue(names.Contains("alpha-pay-svc") && names.Contains("beta-pay-svc"),
+            "case-insensitive substring must match both *pay* services");
+        Assert.IsFalse(names.Contains("gamma-ship-svc"),
+            "non-matching service must be excluded");
+    }
+
+    [TestMethod]
+    public async Task GET_with_blank_displayNameContains_behaves_as_no_filter()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Blank Team");
+        await SeedAsync(client, teamId, 2);
+
+        var resp = await client.GetAsync("/api/v1/catalog/services?displayNameContains=%20&limit=200");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var page = await resp.Content.ReadFromJsonAsync<CursorPage<ServiceResponse>>(KartovaApiFixtureBase.WireJson);
+        Assert.IsTrue(page!.Items.Count >= 2, "whitespace filter must return all rows");
+    }
+
+    [TestMethod]
+    public async Task GET_changing_displayNameContains_against_a_live_cursor_returns_400()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Cursor Team");
+        foreach (var name in new[] { "cur-pay-1", "cur-pay-2", "cur-pay-3" })
+        {
+            var r = await client.PostAsJsonAsync("/api/v1/catalog/services", new
+            {
+                displayName = name, description = "c", teamId, endpoints = Array.Empty<object>(),
+            });
+            Assert.IsTrue(r.IsSuccessStatusCode);
+        }
+
+        var first = await client.GetAsync("/api/v1/catalog/services?displayNameContains=pay&limit=2");
+        var page1 = await first.Content.ReadFromJsonAsync<CursorPage<ServiceResponse>>(KartovaApiFixtureBase.WireJson);
+        Assert.IsNotNull(page1!.NextCursor);
+
+        // Reuse the cursor but drop the filter — the f-map differs ⇒ 400.
+        var bad = await client.GetAsync(
+            $"/api/v1/catalog/services?limit=2&cursor={Uri.EscapeDataString(page1.NextCursor!)}");
+        Assert.AreEqual(HttpStatusCode.BadRequest, bad.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task GET_default_sort_is_displayName_ascending()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Default Sort Team");
+        foreach (var name in new[] { "dsort-zzz", "dsort-aaa", "dsort-mmm" })
+        {
+            var r = await client.PostAsJsonAsync("/api/v1/catalog/services", new
+            {
+                displayName = name, description = "s", teamId, endpoints = Array.Empty<object>(),
+            });
+            Assert.IsTrue(r.IsSuccessStatusCode);
+        }
+
+        // No sortBy/sortOrder ⇒ endpoint default must be displayName asc.
+        var resp = await client.GetAsync("/api/v1/catalog/services?limit=200");
+        var page = await resp.Content.ReadFromJsonAsync<CursorPage<ServiceResponse>>(KartovaApiFixtureBase.WireJson);
+        var seeded = page!.Items.Select(i => i.DisplayName)
+            .Where(n => n is "dsort-aaa" or "dsort-mmm" or "dsort-zzz").ToList();
+        CollectionAssert.AreEqual(new[] { "dsort-aaa", "dsort-mmm", "dsort-zzz" }, seeded,
+            "default order must be ascending displayName");
+    }
 }

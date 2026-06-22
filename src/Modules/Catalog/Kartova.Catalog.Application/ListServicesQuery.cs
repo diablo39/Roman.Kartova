@@ -8,4 +8,5 @@ public sealed record ListServicesQuery(
     ServiceSortField SortBy,
     SortOrder SortOrder,
     string? Cursor,
-    int Limit);
+    int Limit,
+    string? DisplayNameContains);

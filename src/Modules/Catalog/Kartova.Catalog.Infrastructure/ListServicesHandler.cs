@@ -3,6 +3,7 @@ using Kartova.Catalog.Contracts;
 using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Pagination;
 using Kartova.SharedKernel.Postgres.Pagination;
+using Microsoft.EntityFrameworkCore;
 using DomainService = Kartova.Catalog.Domain.Service;
 
 namespace Kartova.Catalog.Infrastructure;
@@ -20,10 +21,27 @@ public sealed class ListServicesHandler(IUserDirectory directory)
     {
         var spec = ServiceSortSpecs.Resolve(q.SortBy);
 
-        var page = await db.Services
+        // Apply the displayName filter BEFORE pagination so a hidden row never becomes a
+        // cursor boundary (same invariant as ListApplicationsHandler / ListTeamsHandler).
+        IQueryable<DomainService> source = db.Services;
+        Dictionary<string, string>? filters = null;
+        if (q.DisplayNameContains is { } name)
+        {
+            var pattern = $"%{LikeEscaping.EscapeLike(name)}%";
+            source = source.Where(s => EF.Functions.ILike(s.DisplayName, pattern, "\\"));
+            // The owning module owns the f-map keys/values; the shared codec treats them
+            // as opaque. A change mid-pagination trips CursorFilterMismatchException.
+            filters = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["displayNameContains"] = name,
+            };
+        }
+
+        var page = await source
             .ToCursorPagedAsync(
                 spec, q.SortOrder, q.Cursor, q.Limit,
-                ServiceSortSpecs.IdSelector, IdExtractor, ct);
+                ServiceSortSpecs.IdSelector, IdExtractor, ct,
+                expectedFilters: filters);
 
         var creatorIds = new HashSet<Guid>(page.Items.Select(s => s.CreatedByUserId));
         var creators = await directory.GetManyAsync(creatorIds, ct);
