@@ -482,8 +482,10 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
-    public async Task GET_default_sort_is_displayName_ascending()
+    public async Task GET_default_sort_orders_matching_rows_by_displayName_ascending()
     {
+        // Asserts the default sort (no sortBy) orders matching rows ascending. The GLOBAL
+        // default-params == displayName/asc/50 contract is proven by DefaultParams_match_explicit_displayName_asc_50.
         var unique = $"dsort-{Guid.NewGuid():N}";
         var tenantId = Fx.TenantIdForEmail("admin@orga.kartova.local");
         var creator = await Fx.SeedUserInOrganizationAsync(
