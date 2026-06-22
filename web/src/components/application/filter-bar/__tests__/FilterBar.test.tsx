@@ -58,6 +58,14 @@ describe("FilterBar", () => {
     expect(f.submit).toHaveBeenCalled();
   });
 
+  it("pressing Enter in the text input calls filters.submit", () => {
+    const f = filters();
+    render(<FilterBar specs={specs} filters={f} />);
+    const textbox = screen.getByRole("textbox", { name: /search teams/i });
+    fireEvent.keyDown(textbox, { key: "Enter" });
+    expect(f.submit).toHaveBeenCalled();
+  });
+
   it("shows Clear all only when active and calls clearAll", () => {
     const f = filters({ isActive: true });
     render(<FilterBar specs={specs} filters={f} />);

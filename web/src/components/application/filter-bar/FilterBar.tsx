@@ -39,6 +39,7 @@ export function FilterBar({ specs, filters }: FilterBarProps) {
               value={value}
               onChange={onChange}
               maxLength={128}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); filters.submit(); } }}
             />
           </div>
         );
