@@ -88,11 +88,44 @@ describe("FilterBar", () => {
       queryFilters: { displayNameContains: "pl" },
     });
     render(<FilterBar specs={specs} filters={f} />);
-    expect(screen.getByText(/1 active/i)).toBeInTheDocument();
+    // The count appears both in the header ("Filters (1 active)") and the panel body ("1 active")
+    expect(screen.getAllByText(/1 active/i).length).toBeGreaterThanOrEqual(1);
   });
 
   it("throws for an unbuilt control type", () => {
-    const bad: FilterSpec[] = [{ key: "x", type: "boolean", label: "X" }];
+    const bad: FilterSpec[] = [{ key: "x", type: "date-range", label: "X" }];
     expect(() => render(<FilterBar specs={bad} filters={filters()} />)).toThrow(/not implemented/i);
+  });
+
+  it("renders a boolean control as a checkbox and toggling calls bindBoolean.onChange", () => {
+    const onChange = vi.fn();
+    const f = filters({ bindBoolean: vi.fn(() => ({ value: false, onChange })) });
+    const specsB: FilterSpec[] = [{ key: "includeDecommissioned", type: "boolean", label: "Show decommissioned" }];
+    render(<FilterBar specs={specsB} filters={f} />);
+    const cb = screen.getByRole("checkbox", { name: /show decommissioned/i });
+    fireEvent.click(cb);
+    expect(onChange).toHaveBeenCalled();
+    expect(f.bindBoolean).toHaveBeenCalledWith("includeDecommissioned");
+  });
+
+  it("is expanded by default — controls are visible", () => {
+    render(<FilterBar specs={specs} filters={filters()} />);
+    expect(screen.getByRole("search")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /search teams/i })).toBeInTheDocument();
+  });
+
+  it("collapsing hides the controls and flips aria-expanded", () => {
+    render(<FilterBar specs={specs} filters={filters()} />);
+    const toggle = screen.getByRole("button", { name: /^filters/i });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("search")).toBeNull();
+  });
+
+  it("shows active count in the header (survives collapse)", () => {
+    const f = filters({ isActive: true, activeCount: 2 });
+    render(<FilterBar specs={specs} filters={f} />);
+    expect(screen.getByRole("button", { name: /filters \(2 active\)/i })).toBeInTheDocument();
   });
 });
