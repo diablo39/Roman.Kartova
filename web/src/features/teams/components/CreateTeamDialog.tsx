@@ -67,46 +67,48 @@ export function CreateTeamDialog({ open, onOpenChange }: Props) {
     <ModalOverlay isOpen={open} onOpenChange={onOpenChange} isDismissable={!mutation.isPending}>
       <Modal className="max-w-[560px]">
         <Dialog aria-label="Create Team" className="bg-primary rounded-xl shadow-xl p-6 outline-none">
-          <div className="space-y-1 mb-4">
-            <h2 className="text-lg font-semibold text-primary">Create Team</h2>
-            <p className="text-sm text-tertiary">Teams own applications and can be granted scoped permissions.</p>
-          </div>
-
-          <HookForm form={form} onSubmit={onSubmit} className="space-y-5">
-            <FormField name="displayName" control={form.control}>
-              {({ field, fieldState }) => (
-                <Input
-                  label="Display Name"
-                  placeholder="Platform Team"
-                  hint={fieldState.error?.message ?? "Human-friendly team name shown in UI."}
-                  isInvalid={!!fieldState.error}
-                  isRequired
-                  {...field}
-                />
-              )}
-            </FormField>
-            <FormField name="description" control={form.control}>
-              {({ field, fieldState }) => (
-                <TextArea
-                  label="Description"
-                  rows={3}
-                  placeholder="What this team is responsible for"
-                  hint={fieldState.error?.message}
-                  isInvalid={!!fieldState.error}
-                  {...field}
-                />
-              )}
-            </FormField>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" color="secondary" size="sm" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" color="primary" size="sm" isLoading={mutation.isPending}>
-                Create Team
-              </Button>
+          <div className="w-full">
+            <div className="space-y-1 mb-4">
+              <h2 className="text-lg font-semibold text-primary">Create Team</h2>
+              <p className="text-sm text-tertiary">Teams own applications and can be granted scoped permissions.</p>
             </div>
-          </HookForm>
+
+            <HookForm form={form} onSubmit={onSubmit} className="space-y-5">
+              <FormField name="displayName" control={form.control}>
+                {({ field, fieldState }) => (
+                  <Input
+                    label="Display Name"
+                    placeholder="Platform Team"
+                    hint={fieldState.error?.message ?? "Human-friendly team name shown in UI."}
+                    isInvalid={!!fieldState.error}
+                    isRequired
+                    {...field}
+                  />
+                )}
+              </FormField>
+              <FormField name="description" control={form.control}>
+                {({ field, fieldState }) => (
+                  <TextArea
+                    label="Description"
+                    rows={3}
+                    placeholder="What this team is responsible for"
+                    hint={fieldState.error?.message}
+                    isInvalid={!!fieldState.error}
+                    {...field}
+                  />
+                )}
+              </FormField>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" color="secondary" size="sm" onClick={() => onOpenChange(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" color="primary" size="sm" isLoading={mutation.isPending}>
+                  Create Team
+                </Button>
+              </div>
+            </HookForm>
+          </div>
         </Dialog>
       </Modal>
     </ModalOverlay>
