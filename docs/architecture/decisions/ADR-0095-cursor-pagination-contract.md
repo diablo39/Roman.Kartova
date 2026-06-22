@@ -58,3 +58,12 @@ decoding; cursors are opaque + time-bound per this ADR).
 
 **Consequences update:** the frontend per-cursor cache `gcTime` default is raised
 from 5 min to 15 min (`web/src/lib/list/useCursorList.ts`).
+
+## Cross-reference (2026-06-21)
+
+This ADR owns only the **`f`-map wire format** (clause 3 / the 2026-06-01
+amendment) — i.e. how filter state is encoded in and validated against the
+opaque cursor. The **filter-consideration mandate** (every list must decide
+whether it needs filters) and the **standard filter UI** (`<FilterBar>` /
+`useListFilters`) are owned by **ADR-0107**. Look there for "how do we do list
+filtering"; this ADR is purely the cursor transport.

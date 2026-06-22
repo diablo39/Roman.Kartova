@@ -103,4 +103,30 @@ describe("Sidebar", () => {
       expect(node.getAttribute("data-disabled")).toBe("true");
     }
   });
+
+  function renderAt(path: string) {
+    return render(
+      <MemoryRouter initialEntries={[path]}>
+        <Sidebar />
+      </MemoryRouter>,
+    );
+  }
+
+  it("highlights only Services (not Catalog) on /catalog/services", () => {
+    setPermissions();
+    renderAt("/catalog/services");
+    expect(screen.getByRole("link", { name: "Services" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Catalog" })).not.toHaveAttribute("aria-current", "page");
+  });
+
+  it("highlights Catalog on /catalog and keeps it on application detail routes", () => {
+    setPermissions();
+    const { unmount } = renderAt("/catalog");
+    expect(screen.getByRole("link", { name: "Catalog" })).toHaveAttribute("aria-current", "page");
+    unmount();
+
+    renderAt("/catalog/applications/abc-123");
+    expect(screen.getByRole("link", { name: "Catalog" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Services" })).not.toHaveAttribute("aria-current", "page");
+  });
 });

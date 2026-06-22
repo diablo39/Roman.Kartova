@@ -35,5 +35,9 @@ export const Modal = (props: AriaModalOverlayProps) => (
 );
 
 export const Dialog = (props: AriaDialogProps) => (
-    <AriaDialog {...props} className={cx("flex w-full items-center justify-center outline-hidden", props.className)} />
+    // Stack content vertically, full-width. The previous `items-center justify-center`
+    // (a flex ROW) split dialogs with multiple direct children side-by-side (header
+    // left, form/buttons right) — see the Create/Edit Team + Add Member dialogs.
+    // Centering the modal box is the ModalOverlay's job, not the Dialog content's.
+    <AriaDialog {...props} className={cx("flex w-full flex-col outline-hidden", props.className)} />
 );

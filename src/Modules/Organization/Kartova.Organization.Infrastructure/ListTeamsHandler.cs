@@ -3,6 +3,7 @@ using Kartova.Organization.Contracts;
 using Kartova.Organization.Domain;
 using Kartova.SharedKernel.Pagination;
 using Kartova.SharedKernel.Postgres.Pagination;
+using Microsoft.EntityFrameworkCore;
 
 namespace Kartova.Organization.Infrastructure;
 
@@ -28,10 +29,27 @@ public sealed class ListTeamsHandler
     {
         var spec = TeamSortSpecs.Resolve(q.SortBy);
 
-        var page = await db.Teams
+        // Apply the displayName filter BEFORE pagination so a hidden row never
+        // becomes a cursor boundary (same invariant as ListApplicationsHandler).
+        IQueryable<Team> source = db.Teams;
+        Dictionary<string, string>? filters = null;
+        if (q.DisplayNameContains is { } name)
+        {
+            var pattern = $"%{EscapeLike(name)}%";
+            source = source.Where(t => EF.Functions.ILike(t.DisplayName, pattern, "\\"));
+            // The owning module owns the f-map keys/values; the shared codec treats
+            // them as opaque. A change mid-pagination trips CursorFilterMismatchException.
+            filters = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["displayNameContains"] = name,
+            };
+        }
+
+        var page = await source
             .ToCursorPagedAsync(
                 spec, q.SortOrder, q.Cursor, q.Limit,
-                TeamSortSpecs.IdSelector, IdExtractor, ct);
+                TeamSortSpecs.IdSelector, IdExtractor, ct,
+                expectedFilters: filters);
 
         var items = page.Items
             .Select(t => new TeamResponse(t.Id.Value, t.DisplayName, t.Description, t.CreatedAt))
@@ -39,4 +57,9 @@ public sealed class ListTeamsHandler
 
         return new CursorPage<TeamResponse>(items, page.NextCursor, page.PrevCursor);
     }
+
+    // Escapes LIKE/ILIKE metacharacters so user input matches literally (ESCAPE '\').
+    // Backslash first, so the escapes added for % and _ are not re-escaped.
+    private static string EscapeLike(string raw) =>
+        raw.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
 }
