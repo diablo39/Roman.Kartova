@@ -27,6 +27,7 @@ type ApplicationsListParams = {
   includeDecommissioned?: boolean;
   /** When set, server filters to applications created by this user (slice-10 ownership realignment). */
   createdByUserId?: string;
+  displayNameContains?: string;
 };
 
 export const applicationKeys = {
@@ -53,6 +54,7 @@ export function useApplicationsList(params: ApplicationsListParams) {
             // Only thread `createdByUserId` when set so the wire stays clean for
             // the default list view (server treats omitted == "no filter").
             ...(params.createdByUserId ? { createdByUserId: params.createdByUserId } : {}),
+            ...(params.displayNameContains ? { displayNameContains: params.displayNameContains } : {}),
           },
         },
       });

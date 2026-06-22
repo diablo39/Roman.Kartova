@@ -12,6 +12,7 @@ type ServicesListParams = {
   sortBy: NonNullable<ListServicesQuery["sortBy"]>;     // "createdAt" | "displayName"
   sortOrder: NonNullable<ListServicesQuery["sortOrder"]>;
   limit?: number;
+  displayNameContains?: string;
 };
 
 export const serviceKeys = {
@@ -34,6 +35,7 @@ export function useServicesList(params: ServicesListParams) {
             sortOrder: params.sortOrder,
             limit: params.limit ?? 50,
             cursor,
+            ...(params.displayNameContains ? { displayNameContains: params.displayNameContains } : {}),
           },
         },
       });
