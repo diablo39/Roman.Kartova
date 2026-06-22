@@ -35,7 +35,7 @@ public sealed class ListTeamsHandler
         Dictionary<string, string>? filters = null;
         if (q.DisplayNameContains is { } name)
         {
-            var pattern = $"%{EscapeLike(name)}%";
+            var pattern = $"%{LikeEscaping.EscapeLike(name)}%";
             source = source.Where(t => EF.Functions.ILike(t.DisplayName, pattern, "\\"));
             // The owning module owns the f-map keys/values; the shared codec treats
             // them as opaque. A change mid-pagination trips CursorFilterMismatchException.
@@ -58,8 +58,4 @@ public sealed class ListTeamsHandler
         return new CursorPage<TeamResponse>(items, page.NextCursor, page.PrevCursor);
     }
 
-    // Escapes LIKE/ILIKE metacharacters so user input matches literally (ESCAPE '\').
-    // Backslash first, so the escapes added for % and _ are not re-escaped.
-    private static string EscapeLike(string raw) =>
-        raw.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
 }
