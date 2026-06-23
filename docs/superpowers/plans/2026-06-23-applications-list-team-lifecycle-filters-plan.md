@@ -118,7 +118,7 @@ Expected: FAIL — `Cannot find module '../multi-select'`.
 
 ```tsx
 // web/src/components/base/multi-select/multi-select.tsx
-import { useState, type Key, type Ref } from "react";
+import { useState, type Ref } from "react";
 import { Check, ChevronDown } from "@untitledui/icons";
 import {
   DialogTrigger,
@@ -230,13 +230,9 @@ export const MultiSelect = ({
 };
 
 MultiSelect.displayName = "MultiSelect";
-
-// Keep the unused Key import meaningful for editors that strip it: react-aria's
-// Selection iterates Key values which we stringify above.
-export type { Key };
 ```
 
-> Note for implementer: if a react-aria detail differs (e.g. the `Check` icon import name in `@untitledui/icons`, or the render-prop typing), adjust to make the **four behavioral tests** pass — they are the contract. Do not add a select-all affordance or controlled `selectedKeys` prop (YAGNI; the FilterBar re-seeds via `key` + `defaultSelectedKeys`). If `export type { Key }` triggers an unused-symbol lint, drop both the import and the re-export.
+> Note for implementer: if a react-aria detail differs (e.g. the `Check` icon import name in `@untitledui/icons`, or the render-prop typing), adjust to make the **four behavioral tests** pass — they are the contract. Do not add a select-all affordance or controlled `selectedKeys` prop (YAGNI; the FilterBar re-seeds via `key` + `defaultSelectedKeys`).
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
