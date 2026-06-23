@@ -278,4 +278,11 @@ describe("FilterBar — single-select", () => {
     render(<FilterBar specs={selectSpecs} urlState={fakeUrlState({ role: "Viewer" })} />);
     expect(selectTrigger()).toHaveTextContent("Viewer");
   });
+
+  it("Clear all resets a committed single-select to empty", () => {
+    const setFilters = vi.fn();
+    render(<FilterBar specs={selectSpecs} urlState={fakeUrlState({ role: "OrgAdmin" }, {}, setFilters)} />);
+    fireEvent.click(screen.getByRole("button", { name: /clear all/i }));
+    expect(setFilters).toHaveBeenCalledWith({ text: { role: "" }, booleans: {} });
+  });
 });

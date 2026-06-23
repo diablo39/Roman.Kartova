@@ -121,6 +121,35 @@ describe("MembersListPage", () => {
     );
   });
 
+  it("passes q to apiClient.GET when a search term is entered and Search is clicked", async () => {
+    mockPermissions([KartovaPermissions.OrgUsersRead]);
+
+    const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<MembersListPage />, { wrapper: harness(qc) });
+
+    await waitFor(() => expect(get).toHaveBeenCalled());
+    get.mockClear();
+
+    await userEvent.type(screen.getByRole("textbox", { name: /search members/i }), "alice");
+    await userEvent.click(screen.getByRole("button", { name: /^search$/i }));
+
+    await waitFor(() =>
+      expect(get).toHaveBeenCalledWith(
+        "/api/v1/organizations/users",
+        expect.objectContaining({
+          params: expect.objectContaining({
+            query: expect.objectContaining({ q: "alice" }),
+          }),
+        }),
+      ),
+    );
+  });
+
   it("shows the filtered empty-state when a filter is active and no rows match", async () => {
     mockPermissions([KartovaPermissions.OrgUsersRead]);
     const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
