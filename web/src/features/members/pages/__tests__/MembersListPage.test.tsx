@@ -44,6 +44,9 @@ function harness(qc: QueryClient) {
   );
 }
 
+const selectTrigger = () =>
+  screen.getAllByRole("button").find(b => b.getAttribute("aria-haspopup") === "listbox") as HTMLElement;
+
 describe("MembersListPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -88,29 +91,23 @@ describe("MembersListPage", () => {
     expect(screen.getByRole("button", { name: /remove/i })).toBeInTheDocument();
   });
 
-  it("passes role to apiClient.GET when role filter is changed", async () => {
+  it("passes role to apiClient.GET when a role is selected and Search is clicked", async () => {
     mockPermissions([KartovaPermissions.OrgUsersRead]);
 
-    const get = vi.fn().mockResolvedValue({
-      data: pageOf([]),
-      error: undefined,
-    });
+    const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
     vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
-      GET: get,
-      POST: vi.fn(),
-      PUT: vi.fn(),
-      DELETE: vi.fn(),
+      GET: get, POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(),
     } as never);
 
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<MembersListPage />, { wrapper: harness(qc) });
 
-    // Wait for initial load.
     await waitFor(() => expect(get).toHaveBeenCalled());
     get.mockClear();
 
-    // Select "OrgAdmin" from the role filter.
-    await userEvent.selectOptions(screen.getByRole("combobox", { name: /filter by role/i }), "OrgAdmin");
+    await userEvent.click(selectTrigger());
+    await userEvent.click(await screen.findByRole("option", { name: "OrgAdmin" }));
+    await userEvent.click(screen.getByRole("button", { name: /^search$/i }));
 
     await waitFor(() =>
       expect(get).toHaveBeenCalledWith(
@@ -121,6 +118,26 @@ describe("MembersListPage", () => {
           }),
         }),
       ),
+    );
+  });
+
+  it("shows the filtered empty-state when a filter is active and no rows match", async () => {
+    mockPermissions([KartovaPermissions.OrgUsersRead]);
+    const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<MembersListPage />, { wrapper: harness(qc) });
+    await waitFor(() => expect(get).toHaveBeenCalled());
+
+    await userEvent.click(selectTrigger());
+    await userEvent.click(await screen.findByRole("option", { name: "OrgAdmin" }));
+    await userEvent.click(screen.getByRole("button", { name: /^search$/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/no members match your filters/i)).toBeInTheDocument(),
     );
   });
 

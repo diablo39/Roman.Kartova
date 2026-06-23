@@ -16,7 +16,7 @@ This is the **canonical, per-list record of the filter decision** required by AD
 - **none-needed** — bounded/short list where filtering adds no value.
 - **pending** — list exists but its filter decision has not been recorded; resolve at its next slice.
 
-**Control availability:** text search + boolean toggle controls are **built** (available for new filter specs). Single-select, multi-select, and date-range controls are reserved for future slices.
+**Control availability:** text search + boolean toggle + **single-select** controls are **built** (available for new filter specs). Multi-select and date-range controls are reserved for sub-slices 2 & 3.
 
 ## Registry
 
@@ -25,7 +25,7 @@ This is the **canonical, per-list record of the filter decision** required by AD
 | Applications | `/catalog` | `displayNameContains` + `includeDecommissioned` (FilterBar) | **built** | E-02.F-01 | Text search + lifecycle boolean via `<FilterBar>`/`useListFilters`; lifecycle/team/created-by facets deferred → E-05. |
 | Services | `/catalog/services` | `displayNameContains` | **built** | E-02.F-02 | Text search via `<FilterBar>`/`useListFilters`; team/health/createdBy facets deferred → E-05. |
 | Teams | `/teams` | `displayName` text search | **built** | E-03.F-02 | Renders via the shared `<FilterBar>` + `useListFilters`; default sort **`displayName asc`**. `<FilterBar>` shell is a collapsible disclosure panel (expanded by default), standard across all consumers. First consumer of the ADR-0107 surface (slice 2026-06-21). |
-| Members / Users | `/members` (`GET /users`) | `role` (viewer/member/orgAdmin/all) + name/email search | built (pre-standard) | E-03.F-01.S-05 | Refactor `role` dropdown + search into `<FilterBar>`/`useListFilters`. |
+| Members / Users | `/members` (`GET /users`) | `role` (single-select) + `q` name/email search (FilterBar) | **built** | E-03.F-01.S-05 | Role single-select + name/email text search via `<FilterBar>`/`useListFilters`; submit-driven + URL-backed (`?role=&q=`). |
 
 ## Planned filtering surfaces (not yet built)
 
