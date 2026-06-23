@@ -2,6 +2,9 @@ import { useMemo, useState, useEffect } from "react";
 import { Plus } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { Card, CardContent } from "@/components/base/card/card";
+import { FilterBar } from "@/components/application/filter-bar/FilterBar";
+import { useListFilters } from "@/lib/list/filters/useListFilters";
+import type { FilterSpec } from "@/lib/list/filters/types";
 import { useServicesList } from "@/features/catalog/api/services";
 import { useTeamsList } from "@/features/teams/api/teams";
 import { useListUrlState } from "@/lib/list/useListUrlState";
@@ -11,15 +14,25 @@ import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
 
 const ALLOWED_SORT_FIELDS = ["createdAt", "displayName"] as const;
+const TEXT_FILTERS = ["displayNameContains"] as const;
+const FILTER_SPECS: FilterSpec[] = [
+  { key: "displayNameContains", type: "text", label: "Search services", placeholder: "Search by name…" },
+];
 
 export function ServicesListPage() {
-  const { sortBy, sortOrder, setSort } = useListUrlState({
+  const urlState = useListUrlState({
     defaultSortBy: "displayName",
-    defaultSortOrder: "desc",
+    defaultSortOrder: "asc",
     allowedSortFields: ALLOWED_SORT_FIELDS,
+    textFilters: TEXT_FILTERS,
   });
+  const filters = useListFilters(FILTER_SPECS, urlState);
 
-  const list = useServicesList({ sortBy, sortOrder });
+  const list = useServicesList({
+    sortBy: urlState.sortBy,
+    sortOrder: urlState.sortOrder,
+    displayNameContains: filters.queryFilters.displayNameContains as string | undefined,
+  });
   const teamsList = useTeamsList({ sortBy: "displayName", sortOrder: "asc", limit: 200 });
   const teamNameById = useMemo(
     () => new Map<string, string>((teamsList.items ?? []).map((t) => [t.id, t.displayName])),
@@ -45,6 +58,8 @@ export function ServicesListPage() {
         )}
       </div>
 
+      <FilterBar specs={FILTER_SPECS} urlState={urlState} />
+
       {list.isError ? (
         <Card className="mx-auto max-w-md">
           <CardContent className="space-y-3 p-6 text-center">
@@ -53,12 +68,19 @@ export function ServicesListPage() {
             <Button size="sm" onClick={() => list.reset()}>Reset</Button>
           </CardContent>
         </Card>
+      ) : !list.isLoading && list.items.length === 0 && filters.isActive ? (
+        <Card className="mx-auto max-w-md text-center">
+          <CardContent className="space-y-2 p-8">
+            <p className="text-base font-medium text-primary">No services match your search</p>
+            <p className="text-sm text-tertiary">Try a different name.</p>
+          </CardContent>
+        </Card>
       ) : (
         <ServicesTable
           list={list}
-          sortBy={sortBy}
-          sortOrder={sortOrder}
-          onSortChange={setSort}
+          sortBy={urlState.sortBy}
+          sortOrder={urlState.sortOrder}
+          onSortChange={urlState.setSort}
           teamNameById={teamNameById}
         />
       )}

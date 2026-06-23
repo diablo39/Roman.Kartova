@@ -243,33 +243,27 @@ describe("CatalogListPage — Show decommissioned checkbox", () => {
     expect(checkbox).toBeChecked();
   });
 
-  it("toggling the checkbox writes the URL param to true", async () => {
+  it("toggling the checkbox then Search writes the URL param to true", async () => {
     const user = userEvent.setup();
     const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
-    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
-      GET: get, POST: vi.fn(),
-    } as never);
-
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: get, POST: vi.fn() } as never);
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<></>, { wrapper: harnessWithRoutes(qc) });
 
-    const checkbox = screen.getByRole("checkbox", { name: /show decommissioned/i });
-    await user.click(checkbox);
+    await user.click(screen.getByRole("checkbox", { name: /show decommissioned/i }));
+    await user.click(screen.getByRole("button", { name: /^search$/i }));
     expect(screen.getByTestId("probe").textContent).toContain("includeDecommissioned=true");
   });
 
-  it("toggling off removes the URL param entirely (no =false clutter)", async () => {
+  it("toggling off then Search removes the URL param (no =false clutter)", async () => {
     const user = userEvent.setup();
     const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
-    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
-      GET: get, POST: vi.fn(),
-    } as never);
-
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: get, POST: vi.fn() } as never);
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<></>, { wrapper: harnessWithRoutes(qc, ["/?includeDecommissioned=true"]) });
 
-    const checkbox = screen.getByRole("checkbox", { name: /show decommissioned/i });
-    await user.click(checkbox);
+    await user.click(screen.getByRole("checkbox", { name: /show decommissioned/i }));
+    await user.click(screen.getByRole("button", { name: /^search$/i }));
     expect(screen.getByTestId("probe").textContent).not.toContain("includeDecommissioned");
   });
 });
@@ -301,11 +295,117 @@ describe("CatalogListPage — API hook receives correct query params", () => {
       expect.objectContaining({ includeDecommissioned: false }),
     );
   });
+
+  it("renders the Filters search box", () => {
+    const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: get, POST: vi.fn() } as never);
+    render(<CatalogListPage />, { wrapper: harness(new QueryClient({ defaultOptions: { queries: { retry: false } } })) });
+    expect(screen.getByRole("textbox", { name: /search applications/i })).toBeInTheDocument();
+  });
+
+  it("defaults sort to displayName asc", () => {
+    useApplicationsListSpy = vi.spyOn(applicationsModule, "useApplicationsList").mockReturnValue(stubListResult);
+    render(<></>, { wrapper: harnessWithApp(["/"]) });
+    expect(useApplicationsListSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ sortBy: "displayName", sortOrder: "asc" }),
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
 // Register button permission gating (Slice 7)
 // ---------------------------------------------------------------------------
+
+describe("CatalogListPage — filtered empty state", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockPermissions(Object.values(KartovaPermissions));
+  });
+
+  it("shows filter-miss empty state and not the generic empty state when displayNameContains yields no rows", async () => {
+    vi.spyOn(applicationsModule, "useApplicationsList").mockReturnValue({
+      ...stubListResult,
+      items: [],
+    });
+
+    render(<></>, { wrapper: harnessWithApp(["/?displayNameContains=zzz"]) });
+
+    expect(await screen.findByText(/no applications match your filters/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no applications yet/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("CatalogListPage — displayNameContains threading", () => {
+  let useApplicationsListSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    mockPermissions(Object.values(KartovaPermissions));
+    useApplicationsListSpy = vi
+      .spyOn(applicationsModule, "useApplicationsList")
+      .mockReturnValue(stubListResult);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("passes displayNameContains=foo to useApplicationsList when URL has the param", () => {
+    render(<></>, { wrapper: harnessWithApp(["/?displayNameContains=foo"]) });
+    expect(useApplicationsListSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ displayNameContains: "foo" }),
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regression: text filter not clobbered when boolean is committed in same submit
+// (the old code called setTextFilter + setBooleanFilter separately; react-router's
+// functional updater re-read the stale location each time, so the boolean write
+// wiped the text write → URL ended up with no displayNameContains).
+// ---------------------------------------------------------------------------
+
+describe("CatalogListPage — setFilters clobber regression", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockPermissions(Object.values(KartovaPermissions));
+  });
+
+  it("typing a name + Search keeps displayNameContains in the URL (not cleared by boolean)", async () => {
+    const user = userEvent.setup();
+    const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: get, POST: vi.fn() } as never);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<></>, { wrapper: harnessWithRoutes(qc) });
+
+    // Type into the search box.
+    const input = screen.getByRole("textbox", { name: /search applications/i });
+    await user.type(input, "payment");
+
+    // Click Search to commit text + boolean in one setFilters navigation.
+    await user.click(screen.getByRole("button", { name: /^search$/i }));
+
+    // The text param must survive alongside the (absent) boolean param.
+    expect(screen.getByTestId("probe").textContent).toContain("displayNameContains=payment");
+  });
+
+  it("typing a name + checking Show decommissioned + Search writes both params atomically", async () => {
+    const user = userEvent.setup();
+    const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: get, POST: vi.fn() } as never);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<></>, { wrapper: harnessWithRoutes(qc) });
+
+    const input = screen.getByRole("textbox", { name: /search applications/i });
+    await user.type(input, "pay");
+
+    await user.click(screen.getByRole("checkbox", { name: /show decommissioned/i }));
+    await user.click(screen.getByRole("button", { name: /^search$/i }));
+
+    const probe = screen.getByTestId("probe").textContent ?? "";
+    expect(probe).toContain("displayNameContains=pay");
+    expect(probe).toContain("includeDecommissioned=true");
+  });
+});
 
 describe("CatalogListPage — Register button gating", () => {
   beforeEach(() => {

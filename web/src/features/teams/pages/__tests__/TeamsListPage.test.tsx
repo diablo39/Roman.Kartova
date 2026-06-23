@@ -103,7 +103,6 @@ describe("TeamsListPage", () => {
 
     expect(screen.getByRole("textbox", { name: /search teams/i })).toBeInTheDocument();
     await waitFor(() => expect(get).toHaveBeenCalled());
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const query = get.mock.calls[0]![1]!.params.query;
     expect(query).toMatchObject({ sortBy: "displayName", sortOrder: "asc" });
     // Typing alone must NOT commit the filter — no displayNameContains in the initial request

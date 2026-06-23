@@ -109,9 +109,16 @@ export function UserSearchCombobox({ onSelect, placeholder = "Search users…" }
   // captured against the previous query could point past the end of the new
   // result array. We key on `debouncedQ` rather than `results` to avoid
   // resetting when React Query refetches with the same query string.
-  useEffect(() => {
+  //
+  // Render-time pattern (avoids useEffect setState-in-effect): track previous
+  // values of the two drivers and reset during the render pass when they change.
+  const [prevDebouncedQ, setPrevDebouncedQ] = useState(debouncedQ);
+  const [prevShowDropdown, setPrevShowDropdown] = useState(showDropdown);
+  if (debouncedQ !== prevDebouncedQ || showDropdown !== prevShowDropdown) {
+    setPrevDebouncedQ(debouncedQ);
+    setPrevShowDropdown(showDropdown);
     setActiveIndex(null);
-  }, [debouncedQ, showDropdown]);
+  }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape") {

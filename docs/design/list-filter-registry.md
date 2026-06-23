@@ -10,19 +10,21 @@ This is the **canonical, per-list record of the filter decision** required by AD
 
 **Status legend:**
 
-- **built** — filters shipped.
+- **built** — filters shipped via `<FilterBar>`/`useListFilters`.
 - **built (pre-standard)** — filters shipped before ADR-0107; refactor to `<FilterBar>`/`useListFilters` is a tracked candidate, not necessarily same-slice.
 - **deferred** — considered, consciously not built yet; the deferral target is named.
 - **none-needed** — bounded/short list where filtering adds no value.
 - **pending** — list exists but its filter decision has not been recorded; resolve at its next slice.
 
+**Control availability:** text search + boolean toggle controls are **built** (available for new filter specs). Single-select, multi-select, and date-range controls are reserved for future slices.
+
 ## Registry
 
 | List screen | Route | Filter fields | Status | Owning story | Notes |
 |---|---|---|---|---|---|
-| Applications | `/catalog` | `includeDecommissioned` (default-view toggle) | built (pre-standard) | E-02.F-01 | Refactor the toggle into `<FilterBar>`; broader type/team/tag filtering tracked under E-05 faceted search. |
-| Services | `/catalog/services` | — | deferred → E-05 (faceted) | E-02.F-02 | Frontend-only S-02 slice deferred search/filter to E-05 (its §9). Reassess if a Services-specific filter is requested sooner. |
-| Teams | `/teams` | `displayName` text search | **built** | E-03.F-02 | Renders via the shared `<FilterBar>` + `useListFilters`; default sort **`displayName asc`**. First consumer of the ADR-0107 surface (slice 2026-06-21). |
+| Applications | `/catalog` | `displayNameContains` + `includeDecommissioned` (FilterBar) | **built** | E-02.F-01 | Text search + lifecycle boolean via `<FilterBar>`/`useListFilters`; lifecycle/team/created-by facets deferred → E-05. |
+| Services | `/catalog/services` | `displayNameContains` | **built** | E-02.F-02 | Text search via `<FilterBar>`/`useListFilters`; team/health/createdBy facets deferred → E-05. |
+| Teams | `/teams` | `displayName` text search | **built** | E-03.F-02 | Renders via the shared `<FilterBar>` + `useListFilters`; default sort **`displayName asc`**. `<FilterBar>` shell is a collapsible disclosure panel (expanded by default), standard across all consumers. First consumer of the ADR-0107 surface (slice 2026-06-21). |
 | Members / Users | `/members` (`GET /users`) | `role` (viewer/member/orgAdmin/all) + name/email search | built (pre-standard) | E-03.F-01.S-05 | Refactor `role` dropdown + search into `<FilterBar>`/`useListFilters`. |
 
 ## Planned filtering surfaces (not yet built)

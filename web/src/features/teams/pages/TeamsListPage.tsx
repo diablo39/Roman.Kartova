@@ -30,7 +30,7 @@ export function TeamsListPage() {
   const list = useTeamsList({
     sortBy: urlState.sortBy,
     sortOrder: urlState.sortOrder,
-    displayNameContains: filters.queryFilters.displayNameContains,
+    displayNameContains: filters.queryFilters.displayNameContains as string | undefined,
   });
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -54,7 +54,7 @@ export function TeamsListPage() {
         )}
       </div>
 
-      <FilterBar specs={FILTER_SPECS} filters={filters} />
+      <FilterBar specs={FILTER_SPECS} urlState={urlState} />
 
       {list.isError ? (
         <Card className="mx-auto max-w-md">

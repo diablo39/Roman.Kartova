@@ -56,6 +56,37 @@ describe("services api", () => {
     });
   });
 
+  it("sends displayNameContains in the query when provided", async () => {
+    const get = vi.fn().mockResolvedValue({
+      data: { items: [], nextCursor: null, prevCursor: null }, error: undefined,
+    });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: get, POST: vi.fn() } as never);
+
+    const { result } = renderHook(
+      () => useServicesList({ sortBy: "displayName", sortOrder: "asc", displayNameContains: "pay" }),
+      { wrapper: wrapper() },
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(get).toHaveBeenCalledWith("/api/v1/catalog/services", expect.objectContaining({
+      params: { query: expect.objectContaining({ displayNameContains: "pay" }) },
+    }));
+  });
+
+  it("omits displayNameContains when not set", async () => {
+    const get = vi.fn().mockResolvedValue({
+      data: { items: [], nextCursor: null, prevCursor: null }, error: undefined,
+    });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: get, POST: vi.fn() } as never);
+
+    const { result } = renderHook(
+      () => useServicesList({ sortBy: "displayName", sortOrder: "asc" }),
+      { wrapper: wrapper() },
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    const sentQuery = get.mock.calls[0]?.[1].params.query;
+    expect(sentQuery).not.toHaveProperty("displayNameContains");
+  });
+
   it("invalidates the services cache after a successful register", async () => {
     const post = vi.fn().mockResolvedValue({ data: { id: "svc-1" }, error: undefined, response: { status: 201 } });
     vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: vi.fn(), POST: post } as never);

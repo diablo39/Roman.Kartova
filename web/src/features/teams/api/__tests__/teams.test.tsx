@@ -152,7 +152,6 @@ describe("teams hooks", () => {
       );
 
       await waitFor(() => expect(get).toHaveBeenCalled());
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       expect(get.mock.calls[0]![1]!.params.query).toMatchObject({ displayNameContains: "pl" });
     });
   });

@@ -113,6 +113,7 @@ internal static class CatalogEndpointDelegates
         [FromQuery] string? sortOrder,
         [FromQuery] string? cursor,
         [FromQuery] string? limit,
+        [FromQuery] string? displayNameContains,
         [FromQuery] bool? includeDecommissioned,
         [FromQuery] Guid? createdByUserId,
         ListApplicationsHandler handler,
@@ -145,12 +146,15 @@ internal static class CatalogEndpointDelegates
             }
         }
 
+        var name = string.IsNullOrWhiteSpace(displayNameContains) ? null : displayNameContains.Trim();
+
         var query = new ListApplicationsQuery(
-            SortBy: parsedSortBy ?? ApplicationSortField.CreatedAt,
-            SortOrder: parsedSortOrder ?? SortOrder.Desc,
+            SortBy: parsedSortBy ?? ApplicationSortField.DisplayName,   // default flips: was CreatedAt
+            SortOrder: parsedSortOrder ?? SortOrder.Asc,                // default flips: was Desc
             Cursor: cursor,
             Limit: effectiveLimit,
             IncludeDecommissioned: includeDecommissioned ?? false,
+            DisplayNameContains: name,
             CreatedByUserId: createdByUserId);
 
         var page = await handler.Handle(query, db, ct);
@@ -380,6 +384,7 @@ internal static class CatalogEndpointDelegates
         [FromQuery] string? sortOrder,
         [FromQuery] string? cursor,
         [FromQuery] string? limit,
+        [FromQuery] string? displayNameContains,
         ListServicesHandler handler,
         CatalogDbContext db,
         CancellationToken ct)
@@ -387,11 +392,15 @@ internal static class CatalogEndpointDelegates
         var (parsedSortBy, parsedSortOrder, effectiveLimit) =
             CursorListBinding.Bind<ServiceSortField>(sortBy, sortOrder, limit, ServiceSortSpecs.AllowedFieldNames);
 
+        // Blank/whitespace ⇒ no filter (filter-absent must equal today's unfiltered cursor).
+        var name = string.IsNullOrWhiteSpace(displayNameContains) ? null : displayNameContains.Trim();
+
         var query = new ListServicesQuery(
-            SortBy: parsedSortBy ?? ServiceSortField.CreatedAt,
-            SortOrder: parsedSortOrder ?? SortOrder.Desc,
+            SortBy: parsedSortBy ?? ServiceSortField.DisplayName,   // default flips: was CreatedAt
+            SortOrder: parsedSortOrder ?? SortOrder.Asc,            // default flips: was Desc
             Cursor: cursor,
-            Limit: effectiveLimit);
+            Limit: effectiveLimit,
+            DisplayNameContains: name);
 
         var page = await handler.Handle(query, db, ct);
         return Results.Ok(page);

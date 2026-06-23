@@ -161,7 +161,11 @@ public class RegisterApplicationTests : CatalogIntegrationTestBase
         var first = await CreateApp(client, "first-app-list");
         var second = await CreateApp(client, "second-app-list");
 
-        var resp = await client.GetAsync("/api/v1/catalog/applications");
+        // This test exercises createdAt-desc retrieval specifically. The LIST default sort
+        // flipped to displayName asc (list-filter-surface-catalog, 2026-06-22), so pin the
+        // sort explicitly — relying on the default would let the seeded apps paginate out of
+        // the first page once the tenant accumulates rows.
+        var resp = await client.GetAsync("/api/v1/catalog/applications?sortBy=createdAt&sortOrder=desc");
         Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
         var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
 
@@ -169,7 +173,7 @@ public class RegisterApplicationTests : CatalogIntegrationTestBase
         var ids = page!.Items.Select(x => x.Id).ToList();
         CollectionAssert.Contains(ids, first.Id);
         CollectionAssert.Contains(ids, second.Id);
-        // Default sort is createdAt desc — both newly created apps appear at the front.
+        // createdAt desc surfaces both newly created apps at the front of the page.
         Assert.IsTrue(page!.Items.Any());
     }
 

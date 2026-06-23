@@ -208,15 +208,16 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
-    public async Task DefaultParams_match_explicit_createdAt_desc_50()
+    public async Task DefaultParams_match_explicit_displayName_asc_50()
     {
+        // ADR-0107 / Task-3: default sort flipped from createdAt/desc to displayName/asc.
         await Fx.SeedApplicationsAsync(OrgATenant, count: 5, namePrefix: "def-");
         var client = Fx.CreateClientForOrgA();
 
         var defaultResp = await client.GetFromJsonAsync<CursorPage<ApplicationResponse>>(
             "/api/v1/catalog/applications", KartovaApiFixtureBase.WireJson);
         var explicitResp = await client.GetFromJsonAsync<CursorPage<ApplicationResponse>>(
-            "/api/v1/catalog/applications?sortBy=createdAt&sortOrder=desc&limit=50",
+            "/api/v1/catalog/applications?sortBy=displayName&sortOrder=asc&limit=50",
             KartovaApiFixtureBase.WireJson);
 
         Assert.IsNotNull(defaultResp);
@@ -224,7 +225,7 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
         CollectionAssert.AreEqual(
             explicitResp!.Items.Select(i => i.Id).ToList(),
             defaultResp!.Items.Select(i => i.Id).ToList(),
-            "default parameters must match createdAt/desc/50 explicitly");
+            "default parameters must match displayName/asc/50 explicitly");
     }
 
     [TestMethod]
@@ -396,6 +397,117 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
         {
             await Fx.DeleteApplicationsByPrefixAsync(tenantId, activePrefix);
             await Fx.DeleteApplicationsByPrefixAsync(tenantId, decommPrefix);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Slice — displayName filter (ADR-0107). Real seam: real Postgres/RLS + JWT.
+    // -----------------------------------------------------------------------
+
+    [TestMethod]
+    public async Task GET_with_displayNameContains_returns_only_matching_applications()
+    {
+        var unique = $"flt-{Guid.NewGuid():N}";
+        var tenantId = Fx.TenantIdForEmail("admin@orga.kartova.local");
+        var creator = await Fx.SeedUserInOrganizationAsync(
+            tenantId, displayName: "Filter Creator", email: $"{unique}@orga.kartova.local");
+
+        var match1 = await Fx.SeedSingleApplicationAsync(tenantId, creator, teamId: null, namePrefix: $"{unique}-pay-1");
+        var match2 = await Fx.SeedSingleApplicationAsync(tenantId, creator, teamId: null, namePrefix: $"{unique}-pay-2");
+        var other  = await Fx.SeedSingleApplicationAsync(tenantId, creator, teamId: null, namePrefix: $"{unique}-ship");
+
+        try
+        {
+            var client = Fx.CreateClientForOrgA();
+            var resp = await client.GetAsync($"/api/v1/catalog/applications?displayNameContains={unique}-PAY&limit=200");
+            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+            var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
+            var ids = page!.Items.Select(i => i.Id).ToHashSet();
+
+            Assert.IsTrue(ids.Contains(match1) && ids.Contains(match2), "both *-pay-* apps must match (case-insensitive)");
+            Assert.IsFalse(ids.Contains(other), "non-matching *-ship app must be excluded");
+        }
+        finally
+        {
+            await Fx.DeleteUserInOrganizationAsync(creator);
+            await Fx.DeleteApplicationsByPrefixAsync(tenantId, unique);
+        }
+    }
+
+    [TestMethod]
+    public async Task GET_displayNameContains_combines_with_includeDecommissioned()
+    {
+        // Default view (includeDecommissioned omitted ⇒ false) hides Decommissioned rows
+        // even when they match the name filter; includeDecommissioned=true surfaces them.
+        // Note: SeedDecommissionedApplicationAsync doesn't exist in the fixture; we use
+        // SeedApplicationsWithLifecycleAsync(count:1) and SeedSingleApplicationAsync for the
+        // active row, then assert by display-name prefix (not id) for the decommissioned row.
+        var unique = $"fltdec-{Guid.NewGuid():N}";
+        var tenantId = Fx.TenantIdForEmail("admin@orga.kartova.local");
+        var creator = await Fx.SeedUserInOrganizationAsync(
+            tenantId, displayName: "Dec Creator", email: $"{unique}@orga.kartova.local");
+
+        var activePrefix  = $"{unique}-keep-active";
+        var deadPrefix    = $"{unique}-keep-dead";
+
+        var active = await Fx.SeedSingleApplicationAsync(tenantId, creator, teamId: null, namePrefix: activePrefix);
+        // SeedApplicationsWithLifecycleAsync drives the aggregate into Decommissioned state.
+        await Fx.SeedApplicationsWithLifecycleAsync(tenantId, count: 1, namePrefix: deadPrefix, Lifecycle.Decommissioned);
+
+        try
+        {
+            var client = Fx.CreateClientForOrgA();
+
+            var defaultView = await client.GetAsync($"/api/v1/catalog/applications?displayNameContains={unique}-KEEP&limit=200");
+            var p1 = await defaultView.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
+            var ids1 = p1!.Items.Select(i => i.Id).ToHashSet();
+            Assert.IsTrue(ids1.Contains(active), "active match visible in default view");
+            Assert.IsFalse(
+                p1.Items.Any(i => i.DisplayName.StartsWith(deadPrefix, StringComparison.Ordinal)),
+                "decommissioned match hidden in default view");
+
+            var withDead = await client.GetAsync(
+                $"/api/v1/catalog/applications?displayNameContains={unique}-KEEP&includeDecommissioned=true&limit=200");
+            var p2 = await withDead.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
+            Assert.IsTrue(p2!.Items.Select(i => i.Id).Contains(active), "active visible with includeDecommissioned=true");
+            Assert.IsTrue(
+                p2.Items.Any(i => i.DisplayName.StartsWith(deadPrefix, StringComparison.Ordinal)),
+                "decommissioned visible with includeDecommissioned=true");
+        }
+        finally
+        {
+            await Fx.DeleteUserInOrganizationAsync(creator);
+            await Fx.DeleteApplicationsByPrefixAsync(tenantId, unique);
+        }
+    }
+
+    [TestMethod]
+    public async Task GET_default_sort_orders_matching_rows_by_displayName_ascending()
+    {
+        // Asserts the default sort (no sortBy) orders matching rows ascending. The GLOBAL
+        // default-params == displayName/asc/50 contract is proven by DefaultParams_match_explicit_displayName_asc_50.
+        var unique = $"dsort-{Guid.NewGuid():N}";
+        var tenantId = Fx.TenantIdForEmail("admin@orga.kartova.local");
+        var creator = await Fx.SeedUserInOrganizationAsync(
+            tenantId, displayName: "Sort Creator", email: $"{unique}@orga.kartova.local");
+
+        await Fx.SeedSingleApplicationAsync(tenantId, creator, teamId: null, namePrefix: $"{unique}-zzz");
+        await Fx.SeedSingleApplicationAsync(tenantId, creator, teamId: null, namePrefix: $"{unique}-aaa");
+        await Fx.SeedSingleApplicationAsync(tenantId, creator, teamId: null, namePrefix: $"{unique}-mmm");
+
+        try
+        {
+            var client = Fx.CreateClientForOrgA();
+            var resp = await client.GetAsync($"/api/v1/catalog/applications?displayNameContains={unique}&limit=200");
+            var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
+            var seeded = page!.Items.Select(i => i.DisplayName).Where(n => n.StartsWith(unique)).ToList();
+            var expected = seeded.OrderBy(n => n, StringComparer.Ordinal).ToList();
+            CollectionAssert.AreEqual(expected, seeded, "default order must be ascending displayName");
+        }
+        finally
+        {
+            await Fx.DeleteUserInOrganizationAsync(creator);
+            await Fx.DeleteApplicationsByPrefixAsync(tenantId, unique);
         }
     }
 

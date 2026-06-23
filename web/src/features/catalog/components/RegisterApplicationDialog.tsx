@@ -49,10 +49,14 @@ export function RegisterApplicationDialog({ open, onOpenChange }: Props) {
   });
 
   // useForm lives above <ModalOverlay>, so the form state survives the modal
-  // unmount and this reset fires reliably on close.
+  // unmount and this reset fires reliably on close. The effect also resets
+  // selectedTeamId and teamError (plain useState). We must call form.reset()
+  // imperatively here — it's a RHF method that can't be called at render time
+  // safely — so the setState companions live alongside it in the same effect body.
   useEffect(() => {
     if (!open) {
       form.reset({ displayName: "", description: "" });
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedTeamId("");
       setTeamError("");
     }

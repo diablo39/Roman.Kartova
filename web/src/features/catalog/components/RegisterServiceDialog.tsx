@@ -46,9 +46,14 @@ export function RegisterServiceDialog({ open, onOpenChange }: Props) {
     defaultValues: { displayName: "", description: "" },
   });
 
+  // The effect resets form state on dialog close. form.reset() is a RHF imperative
+  // call that cannot be safely moved to render time, so the setState companions
+  // (setSelectedTeamId, setTeamError, setEndpoints, setEndpointErrors) live here
+  // alongside it in the same effect body.
   useEffect(() => {
     if (!open) {
       form.reset({ displayName: "", description: "" });
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedTeamId("");
       setTeamError("");
       setEndpoints([]);

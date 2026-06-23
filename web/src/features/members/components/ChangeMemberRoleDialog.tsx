@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { ModalOverlay, Modal, Dialog } from "@/components/application/modals/modal";
@@ -23,10 +23,18 @@ export function ChangeMemberRoleDialog({ userId, currentRole, open, onOpenChange
   const mutation = useChangeMemberRole();
   const [role, setRole] = useState<string>(currentRole);
 
-  // Sync local state when the dialog is reopened against a different member.
-  useEffect(() => {
+  // Render-time sync: adopt currentRole when the dialog opens against a
+  // different member. Uses the React docs "derived state" pattern to avoid
+  // a useEffect setState-in-effect lint error while preserving identical
+  // behaviour — on each open-state or prop change we reconcile in the render
+  // phase (before the browser paints) rather than one microtask later.
+  const [prevOpen, setPrevOpen] = useState(open);
+  const [prevCurrentRole, setPrevCurrentRole] = useState(currentRole);
+  if (open !== prevOpen || currentRole !== prevCurrentRole) {
+    setPrevOpen(open);
+    setPrevCurrentRole(currentRole);
     if (open) setRole(currentRole);
-  }, [open, currentRole]);
+  }
 
   const onConfirm = async () => {
     try {

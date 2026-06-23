@@ -99,6 +99,9 @@ public class OpenApiTests : KeycloakContainerTestBase
         Assert.AreEqual("int32", limitSchema.GetProperty("format").GetString());
         Assert.AreEqual(1, limitSchema.GetProperty("minimum").GetInt32());
         Assert.AreEqual(200, limitSchema.GetProperty("maximum").GetInt32());
+
+        var displayNameContainsSchema = ParameterSchema(parameters, "displayNameContains");
+        Assert.AreEqual("string", displayNameContainsSchema.GetProperty("type").GetString());
     }
 
     [TestMethod]
@@ -130,6 +133,9 @@ public class OpenApiTests : KeycloakContainerTestBase
         Assert.AreEqual("int32", limitSchema.GetProperty("format").GetString());
         Assert.AreEqual(1, limitSchema.GetProperty("minimum").GetInt32());
         Assert.AreEqual(200, limitSchema.GetProperty("maximum").GetInt32());
+
+        var displayNameContainsSchema = ParameterSchema(parameters, "displayNameContains");
+        Assert.AreEqual("string", displayNameContainsSchema.GetProperty("type").GetString());
     }
 
     private static IReadOnlyList<string> ParameterEnum(System.Text.Json.JsonElement parameters, string name)

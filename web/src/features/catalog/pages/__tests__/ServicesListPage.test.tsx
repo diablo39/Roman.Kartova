@@ -35,8 +35,8 @@ function emptyList() {
 function setPerms(perms: string[]) {
   usePermissionsMock.mockReturnValue({ role: "t", hasPermission: (p: string) => perms.includes(p), isLoading: false });
 }
-function renderPage() {
-  return render(<MemoryRouter initialEntries={["/catalog/services"]}><ServicesListPage /></MemoryRouter>);
+function renderPage(initialPath = "/catalog/services") {
+  return render(<MemoryRouter initialEntries={[initialPath]}><ServicesListPage /></MemoryRouter>);
 }
 
 describe("ServicesListPage", () => {
@@ -73,5 +73,34 @@ describe("ServicesListPage", () => {
     const resetBtn = screen.getByRole("button", { name: /reset/i });
     await userEvent.click(resetBtn);
     expect(reset).toHaveBeenCalled();
+  });
+
+  it("renders the Filters search box", () => {
+    setPerms([]);
+    renderPage();
+    expect(screen.getByRole("textbox", { name: /search services/i })).toBeInTheDocument();
+  });
+
+  it("defaults sort to displayName asc (sends it to useServicesList)", () => {
+    setPerms([]);
+    renderPage();
+    expect(useServicesListMock).toHaveBeenCalledWith(
+      expect.objectContaining({ sortBy: "displayName", sortOrder: "asc" }),
+    );
+  });
+
+  it("shows a filtered empty-state when a search yields no rows", async () => {
+    setPerms([]);
+    renderPage("/catalog/services?displayNameContains=zzz");
+    expect(await screen.findByText(/no services match your search/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no services yet/i)).not.toBeInTheDocument();
+  });
+
+  it("passes displayNameContains=foo to useServicesList when URL has the param", () => {
+    setPerms([]);
+    renderPage("/catalog/services?displayNameContains=foo");
+    expect(useServicesListMock).toHaveBeenCalledWith(
+      expect.objectContaining({ displayNameContains: "foo" }),
+    );
   });
 });
