@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { FilterBar } from "../FilterBar";
 import type { FilterSpec } from "@/lib/list/filters/types";
 
@@ -68,8 +69,8 @@ describe("FilterBar — rendering", () => {
     expect(() => render(<FilterBar specs={bad} urlState={fakeUrlState()} />)).toThrow(/not implemented/i);
   });
 
-  it("throws for single-select type", () => {
-    const bad: FilterSpec[] = [{ key: "x", type: "single-select", label: "X", options: [] }];
+  it("throws for multi-select type", () => {
+    const bad: FilterSpec[] = [{ key: "x", type: "multi-select", label: "X" }];
     expect(() => render(<FilterBar specs={bad} urlState={fakeUrlState()} />)).toThrow(/not implemented/i);
   });
 });
@@ -230,5 +231,51 @@ describe("FilterBar — Clear all", () => {
       text: { displayNameContains: "" },
       booleans: { includeDecommissioned: false },
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Single-select
+// ---------------------------------------------------------------------------
+
+const selectSpecs: FilterSpec[] = [
+  {
+    key: "role",
+    type: "single-select",
+    label: "Role",
+    options: [
+      { label: "All roles", value: "" },
+      { label: "Viewer", value: "Viewer" },
+      { label: "OrgAdmin", value: "OrgAdmin" },
+    ],
+  },
+];
+
+// The react-aria Select trigger is the only button with aria-haspopup="listbox";
+// its accessible name is "<value> <label>", so locate it structurally (not by an
+// exact { name: "Role" }, which would never match "All roles Role").
+const selectTrigger = () =>
+  screen.getAllByRole("button").find(b => b.getAttribute("aria-haspopup") === "listbox") as HTMLElement;
+
+describe("FilterBar — single-select", () => {
+  it("renders a Select for a single-select spec", () => {
+    render(<FilterBar specs={selectSpecs} urlState={fakeUrlState()} />);
+    expect(selectTrigger()).toBeInTheDocument();
+  });
+
+  it("choosing a value + Search commits it via setFilters (text map)", async () => {
+    const setFilters = vi.fn();
+    render(<FilterBar specs={selectSpecs} urlState={fakeUrlState({}, {}, setFilters)} />);
+    await userEvent.click(selectTrigger());
+    await userEvent.click(await screen.findByRole("option", { name: "OrgAdmin" }));
+    await userEvent.click(screen.getByRole("button", { name: /^search$/i }));
+    expect(setFilters).toHaveBeenCalledWith(
+      expect.objectContaining({ text: expect.objectContaining({ role: "OrgAdmin" }) }),
+    );
+  });
+
+  it("seeds the Select from the committed value", () => {
+    render(<FilterBar specs={selectSpecs} urlState={fakeUrlState({ role: "Viewer" })} />);
+    expect(selectTrigger()).toHaveTextContent("Viewer");
   });
 });
