@@ -23,7 +23,7 @@ namespace Kartova.Catalog.Tests;
 ///   <item>Return all rows when <c>CreatedByUserId</c> is null (default behavior, unchanged).</item>
 ///   <item>Return only rows whose <c>CreatedByUserId</c> matches when the filter is supplied.</item>
 ///   <item>Apply the predicate <em>before</em> pagination so the keyset bounds are computed
-///     against the filtered subset (consistent with the IncludeDecommissioned filter).</item>
+///     against the filtered subset (consistent with the lifecycle filter).</item>
 /// </list>
 /// Endpoint-level validation (422 invalid-created-by when the supplied id has no
 /// matching users row) is covered by the integration suite; this test class focuses
@@ -79,7 +79,8 @@ public sealed class ListApplicationsHandlerOwnerFilterTests
         SortOrder.Desc,
         Cursor: null,
         Limit: 50,
-        IncludeDecommissioned: false,
+        Lifecycle: Array.Empty<Lifecycle>(),
+        TeamId: Array.Empty<Guid>(),
         CreatedByUserId: createdByUserId);
 
     [TestMethod]
@@ -147,12 +148,13 @@ public sealed class ListApplicationsHandlerOwnerFilterTests
     }
 
     [TestMethod]
-    public async Task Handle_CreatedByUserId_filter_composes_with_IncludeDecommissioned()
+    public async Task Handle_CreatedByUserId_filter_composes_with_lifecycle_default_view()
     {
         // Cross-filter composition: the created-by filter must layer on top of the
-        // IncludeDecommissioned filter, not replace it. Seed two apps for the same
-        // creator and Decommission one; the default IncludeDecommissioned=false must
-        // still hide the Decommissioned row even when the created-by filter is applied.
+        // lifecycle default view (empty Lifecycle ⇒ hide Decommissioned per ADR-0073),
+        // not replace it. Seed two apps for the same creator and Decommission one; the
+        // default empty Lifecycle filter must still hide the Decommissioned row even when
+        // the created-by filter is applied.
         var creatorId = Guid.NewGuid();
         var options = new DbContextOptionsBuilder<CatalogDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
@@ -191,7 +193,7 @@ public sealed class ListApplicationsHandlerOwnerFilterTests
         var page = await handler.Handle(DefaultQuery(createdByUserId: creatorId), db, CancellationToken.None);
 
         Assert.AreEqual(1, page.Items.Count,
-            "created-by filter must compose with IncludeDecommissioned=false — Decommissioned row stays hidden");
+            "created-by filter must compose with lifecycle default view — Decommissioned row stays hidden");
         Assert.AreEqual("Active", page.Items.Single().DisplayName);
     }
 }
