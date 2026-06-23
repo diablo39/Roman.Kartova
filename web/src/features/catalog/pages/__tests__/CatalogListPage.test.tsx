@@ -357,6 +357,56 @@ describe("CatalogListPage — displayNameContains threading", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Regression: text filter not clobbered when boolean is committed in same submit
+// (the old code called setTextFilter + setBooleanFilter separately; react-router's
+// functional updater re-read the stale location each time, so the boolean write
+// wiped the text write → URL ended up with no displayNameContains).
+// ---------------------------------------------------------------------------
+
+describe("CatalogListPage — setFilters clobber regression", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockPermissions(Object.values(KartovaPermissions));
+  });
+
+  it("typing a name + Search keeps displayNameContains in the URL (not cleared by boolean)", async () => {
+    const user = userEvent.setup();
+    const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: get, POST: vi.fn() } as never);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<></>, { wrapper: harnessWithRoutes(qc) });
+
+    // Type into the search box.
+    const input = screen.getByRole("textbox", { name: /search applications/i });
+    await user.type(input, "payment");
+
+    // Click Search to commit text + boolean in one setFilters navigation.
+    await user.click(screen.getByRole("button", { name: /^search$/i }));
+
+    // The text param must survive alongside the (absent) boolean param.
+    expect(screen.getByTestId("probe").textContent).toContain("displayNameContains=payment");
+  });
+
+  it("typing a name + checking Show decommissioned + Search writes both params atomically", async () => {
+    const user = userEvent.setup();
+    const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: get, POST: vi.fn() } as never);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<></>, { wrapper: harnessWithRoutes(qc) });
+
+    const input = screen.getByRole("textbox", { name: /search applications/i });
+    await user.type(input, "pay");
+
+    await user.click(screen.getByRole("checkbox", { name: /show decommissioned/i }));
+    await user.click(screen.getByRole("button", { name: /^search$/i }));
+
+    const probe = screen.getByTestId("probe").textContent ?? "";
+    expect(probe).toContain("displayNameContains=pay");
+    expect(probe).toContain("includeDecommissioned=true");
+  });
+});
+
 describe("CatalogListPage — Register button gating", () => {
   beforeEach(() => {
     vi.restoreAllMocks();

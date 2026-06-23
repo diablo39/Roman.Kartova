@@ -251,4 +251,112 @@ describe("useListUrlState", () => {
     act(() => { (result.current.setBooleanFilter as (n: string, v: boolean) => void)("includeDecommissioned", true); });
     expect(result.current.booleanFilters.includeDecommissioned).toBe(true);
   });
+
+  // -------------------------------------------------------------------------
+  // setFilters — atomic multi-param commit (regression for the clobber bug)
+  // -------------------------------------------------------------------------
+
+  describe("setFilters — atomic commit", () => {
+    const filterConfig = {
+      defaultSortBy: "displayName" as const,
+      defaultSortOrder: "asc" as const,
+      allowedSortFields: ["displayName"] as const,
+      textFilters: ["displayNameContains"] as const,
+      booleanFilters: ["includeDecommissioned"] as const,
+    };
+
+    it("commits text + boolean in ONE navigation without clobber", () => {
+      // Regression: calling setTextFilter then setBooleanFilter issues two separate
+      // setParams navigations; react-router's functional updater reads the stale
+      // (committed before the first call) location each time, so the boolean write
+      // overwrites the text write. setFilters applies both in a single setParams
+      // call, so both survive.
+      let search = "";
+      function Inner() { search = useLocation().search; return null; }
+      const { result } = renderHook(() => useListUrlState(filterConfig), {
+        wrapper: ({ children }) => (
+          <MemoryRouter initialEntries={["/"]}>
+            <Inner />
+            {children}
+          </MemoryRouter>
+        ),
+      });
+
+      act(() => {
+        result.current.setFilters({
+          text: { displayNameContains: "pay" },
+          booleans: { includeDecommissioned: false },
+        });
+      });
+
+      // Text param survived.
+      expect(search).toContain("displayNameContains=pay");
+      // Boolean false removes the param (no =false clutter) — absence is correct.
+      expect(search).not.toContain("includeDecommissioned");
+    });
+
+    it("text param is not clobbered when a boolean=true is committed in the same call", () => {
+      let search = "";
+      function Inner() { search = useLocation().search; return null; }
+      const { result } = renderHook(() => useListUrlState(filterConfig), {
+        wrapper: ({ children }) => (
+          <MemoryRouter initialEntries={["/"]}>
+            <Inner />
+            {children}
+          </MemoryRouter>
+        ),
+      });
+
+      act(() => {
+        result.current.setFilters({
+          text: { displayNameContains: "pay" },
+          booleans: { includeDecommissioned: true },
+        });
+      });
+
+      // Both params must be present after a single setFilters call.
+      expect(search).toContain("displayNameContains=pay");
+      expect(search).toContain("includeDecommissioned=true");
+    });
+
+    it("text-only setFilters sets text without touching unrelated params", () => {
+      let search = "";
+      function Inner() { search = useLocation().search; return null; }
+      const { result } = renderHook(() => useListUrlState(filterConfig), {
+        wrapper: ({ children }) => (
+          <MemoryRouter initialEntries={["/?includeDecommissioned=true"]}>
+            <Inner />
+            {children}
+          </MemoryRouter>
+        ),
+      });
+
+      act(() => {
+        result.current.setFilters({ text: { displayNameContains: "foo" } });
+      });
+
+      expect(search).toContain("displayNameContains=foo");
+      // The pre-existing boolean param should survive unchanged.
+      expect(search).toContain("includeDecommissioned=true");
+    });
+
+    it("blank text value in setFilters removes the param", () => {
+      let search = "";
+      function Inner() { search = useLocation().search; return null; }
+      const { result } = renderHook(() => useListUrlState(filterConfig), {
+        wrapper: ({ children }) => (
+          <MemoryRouter initialEntries={["/?displayNameContains=old"]}>
+            <Inner />
+            {children}
+          </MemoryRouter>
+        ),
+      });
+
+      act(() => {
+        result.current.setFilters({ text: { displayNameContains: "  " } });
+      });
+
+      expect(search).not.toContain("displayNameContains");
+    });
+  });
 });
