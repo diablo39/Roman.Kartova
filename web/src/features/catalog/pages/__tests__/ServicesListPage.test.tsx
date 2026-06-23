@@ -93,5 +93,14 @@ describe("ServicesListPage", () => {
     setPerms([]);
     renderPage("/catalog/services?displayNameContains=zzz");
     expect(await screen.findByText(/no services match your search/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no services yet/i)).not.toBeInTheDocument();
+  });
+
+  it("passes displayNameContains=foo to useServicesList when URL has the param", () => {
+    setPerms([]);
+    renderPage("/catalog/services?displayNameContains=foo");
+    expect(useServicesListMock).toHaveBeenCalledWith(
+      expect.objectContaining({ displayNameContains: "foo" }),
+    );
   });
 });

@@ -1,8 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
 using Kartova.Catalog.Contracts;
+using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Pagination;
 using Kartova.Testing.Auth;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Kartova.Catalog.IntegrationTests;
 
@@ -174,6 +176,10 @@ public class ListServicesPaginationTests : CatalogIntegrationTestBase
         var bad = await client.GetAsync(
             $"/api/v1/catalog/services?limit=2&cursor={Uri.EscapeDataString(page1.NextCursor!)}");
         Assert.AreEqual(HttpStatusCode.BadRequest, bad.StatusCode);
+
+        var problem = await bad.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(ProblemTypes.CursorFilterMismatch, problem!.Type);
+        Assert.AreEqual("displayNameContains", problem.Extensions["filterName"]!.ToString());
     }
 
     [TestMethod]

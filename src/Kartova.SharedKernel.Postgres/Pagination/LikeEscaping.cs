@@ -9,6 +9,9 @@ namespace Kartova.SharedKernel.Postgres.Pagination;
 /// </summary>
 public static class LikeEscaping
 {
-    public static string EscapeLike(string raw) =>
-        raw.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
+    public static string EscapeLike(string raw)
+    {
+        ArgumentNullException.ThrowIfNull(raw);
+        return raw.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
+    }
 }

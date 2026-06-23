@@ -21,4 +21,12 @@ public sealed class LikeEscapingTests
     [TestMethod]
     public void Combined_metacharacters_escape_in_backslash_first_order()
         => Assert.AreEqual(@"\\\%\_", LikeEscaping.EscapeLike(@"\%_"));
+
+    [TestMethod]
+    public void Null_input_throws_ArgumentNullException()
+        => Assert.ThrowsExactly<ArgumentNullException>(() => LikeEscaping.EscapeLike(null!));
+
+    [TestMethod]
+    public void Empty_string_returns_empty_string()
+        => Assert.AreEqual("", LikeEscaping.EscapeLike(""));
 }

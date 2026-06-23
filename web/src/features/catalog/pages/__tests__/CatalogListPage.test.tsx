@@ -316,6 +316,47 @@ describe("CatalogListPage — API hook receives correct query params", () => {
 // Register button permission gating (Slice 7)
 // ---------------------------------------------------------------------------
 
+describe("CatalogListPage — filtered empty state", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockPermissions(Object.values(KartovaPermissions));
+  });
+
+  it("shows filter-miss empty state and not the generic empty state when displayNameContains yields no rows", async () => {
+    vi.spyOn(applicationsModule, "useApplicationsList").mockReturnValue({
+      ...stubListResult,
+      items: [],
+    });
+
+    render(<></>, { wrapper: harnessWithApp(["/?displayNameContains=zzz"]) });
+
+    expect(await screen.findByText(/no applications match your filters/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no applications yet/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("CatalogListPage — displayNameContains threading", () => {
+  let useApplicationsListSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    mockPermissions(Object.values(KartovaPermissions));
+    useApplicationsListSpy = vi
+      .spyOn(applicationsModule, "useApplicationsList")
+      .mockReturnValue(stubListResult);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("passes displayNameContains=foo to useApplicationsList when URL has the param", () => {
+    render(<></>, { wrapper: harnessWithApp(["/?displayNameContains=foo"]) });
+    expect(useApplicationsListSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ displayNameContains: "foo" }),
+    );
+  });
+});
+
 describe("CatalogListPage — Register button gating", () => {
   beforeEach(() => {
     vi.restoreAllMocks();

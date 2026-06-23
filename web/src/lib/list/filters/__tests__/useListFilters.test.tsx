@@ -158,3 +158,53 @@ describe("useListFilters — boolean specs", () => {
     expect(u.setTextFilter).toHaveBeenCalledWith("displayNameContains", "");
   });
 });
+
+// ---------------------------------------------------------------------------
+// External-URL reconcile: render-time re-seed when committed value changes
+// from outside (e.g. back/forward navigation).
+// ---------------------------------------------------------------------------
+
+describe("useListFilters — external URL reconcile", () => {
+  it("(text) re-seeds draft when committed value changes from outside", () => {
+    // Start with empty committed text. The draft should also be empty.
+    let textFilters: Record<string, string> = { displayNameContains: "" };
+    const setTextFilter = vi.fn();
+    const { result, rerender } = renderHook(
+      (props: { textFilters: Record<string, string> }) =>
+        useListFilters(specs, { textFilters: props.textFilters, setTextFilter } as never),
+      { initialProps: { textFilters } },
+    );
+
+    expect(result.current.bind("displayNameContains").value).toBe("");
+
+    // Simulate back-nav / external URL change: new object identity + new value.
+    textFilters = { displayNameContains: "plat" };
+    rerender({ textFilters });
+
+    expect(result.current.bind("displayNameContains").value).toBe("plat");
+    expect(result.current.values.displayNameContains).toBe("plat");
+  });
+
+  it("(boolean) re-seeds boolDraft when committed boolean changes from outside", () => {
+    const setBooleanFilter = vi.fn();
+    const setTextFilter = vi.fn();
+    // Pass both textFilters and booleanFilters as props so neither creates new objects in the hook closure.
+    const { result, rerender } = renderHook(
+      (props: { textFilters: Record<string, string>; booleanFilters: Record<string, boolean> }) =>
+        useListFilters(boolSpecs, {
+          textFilters: props.textFilters,
+          setTextFilter,
+          booleanFilters: props.booleanFilters,
+          setBooleanFilter,
+        } as never),
+      { initialProps: { textFilters: { displayNameContains: "" }, booleanFilters: { includeDecommissioned: false } } },
+    );
+
+    expect(result.current.bindBoolean("includeDecommissioned").value).toBe(false);
+
+    // Simulate external change (back-nav, shared URL): new object identity + new value.
+    rerender({ textFilters: { displayNameContains: "" }, booleanFilters: { includeDecommissioned: true } });
+
+    expect(result.current.bindBoolean("includeDecommissioned").value).toBe(true);
+  });
+});

@@ -88,8 +88,8 @@ describe("FilterBar", () => {
       queryFilters: { displayNameContains: "pl" },
     });
     render(<FilterBar specs={specs} filters={f} />);
-    // The count appears both in the header ("Filters (1 active)") and the panel body ("1 active")
-    expect(screen.getAllByText(/1 active/i).length).toBeGreaterThanOrEqual(1);
+    // The header toggle button must carry the exact accessible name.
+    expect(screen.getByRole("button", { name: /filters \(1 active\)/i })).toBeInTheDocument();
   });
 
   it("throws for an unbuilt control type", () => {
