@@ -127,6 +127,13 @@
             }
           },
           {
+            "name": "displayNameContains",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "includeDecommissioned",
             "in": "query",
             "schema": {
@@ -139,13 +146,6 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
-          },
-          {
-            "name": "displayNameContains",
-            "in": "query",
-            "schema": {
-              "type": "string"
             }
           }
         ],
