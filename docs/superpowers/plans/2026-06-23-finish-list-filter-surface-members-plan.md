@@ -63,9 +63,13 @@ function formOf(container: HTMLElement) {
 }
 
 describe("Select (base)", () => {
+  // NOTE: a react-aria Select trigger's accessible name is "<value> <label>"
+  // (e.g. "Viewer Role"), not just the aria-label — so query the single trigger
+  // by role and assert the displayed value via toHaveTextContent, never by an
+  // exact { name: "Role" }.
   it("seeds the displayed value from defaultSelectedKey", () => {
     render(<Select aria-label="Role" options={OPTIONS} defaultSelectedKey="Viewer" />);
-    expect(screen.getByRole("button", { name: "Role" })).toHaveTextContent("Viewer");
+    expect(screen.getByRole("button")).toHaveTextContent("Viewer");
   });
 
   it("reports the empty default ('All roles') as an empty FormData value", () => {
@@ -73,14 +77,14 @@ describe("Select (base)", () => {
       <form><Select name="role" aria-label="Role" options={OPTIONS} defaultSelectedKey="" /></form>,
     );
     expect(new FormData(formOf(container)).get("role")).toBe("");
-    expect(screen.getByRole("button", { name: "Role" })).toHaveTextContent("All roles");
+    expect(screen.getByRole("button")).toHaveTextContent("All roles");
   });
 
   it("selecting an option updates the FormData value", async () => {
     const { container } = render(
       <form><Select name="role" aria-label="Role" options={OPTIONS} defaultSelectedKey="" /></form>,
     );
-    await userEvent.click(screen.getByRole("button", { name: "Role" }));
+    await userEvent.click(screen.getByRole("button"));
     await userEvent.click(await screen.findByRole("option", { name: "Member" }));
     expect(new FormData(formOf(container)).get("role")).toBe("Member");
   });
@@ -124,7 +128,7 @@ export interface SelectProps {
   defaultSelectedKey?: string;
   /** Controlled selection (an option `value`). */
   selectedKey?: string | null;
-  onSelectionChange?: (key: Key) => void;
+  onSelectionChange?: (key: Key | null) => void;
   placeholder?: string;
   size?: "sm" | "md";
   className?: string;
@@ -330,16 +334,22 @@ const selectSpecs: FilterSpec[] = [
   },
 ];
 
+// The react-aria Select trigger is the only button with aria-haspopup="listbox";
+// its accessible name is "<value> <label>", so locate it structurally (not by an
+// exact { name: "Role" }, which would never match "All roles Role").
+const selectTrigger = () =>
+  screen.getAllByRole("button").find(b => b.getAttribute("aria-haspopup") === "listbox") as HTMLElement;
+
 describe("FilterBar — single-select", () => {
   it("renders a Select for a single-select spec", () => {
     render(<FilterBar specs={selectSpecs} urlState={fakeUrlState()} />);
-    expect(screen.getByRole("button", { name: "Role" })).toBeInTheDocument();
+    expect(selectTrigger()).toBeInTheDocument();
   });
 
   it("choosing a value + Search commits it via setFilters (text map)", async () => {
     const setFilters = vi.fn();
     render(<FilterBar specs={selectSpecs} urlState={fakeUrlState({}, {}, setFilters)} />);
-    await userEvent.click(screen.getByRole("button", { name: "Role" }));
+    await userEvent.click(selectTrigger());
     await userEvent.click(await screen.findByRole("option", { name: "OrgAdmin" }));
     await userEvent.click(screen.getByRole("button", { name: /^search$/i }));
     expect(setFilters).toHaveBeenCalledWith(
@@ -349,7 +359,7 @@ describe("FilterBar — single-select", () => {
 
   it("seeds the Select from the committed value", () => {
     render(<FilterBar specs={selectSpecs} urlState={fakeUrlState({ role: "Viewer" })} />);
-    expect(screen.getByRole("button", { name: "Role" })).toHaveTextContent("Viewer");
+    expect(selectTrigger()).toHaveTextContent("Viewer");
   });
 });
 ```
@@ -447,7 +457,12 @@ git commit -m "feat(web): FilterBar single-select control (ADR-0107)"
 
 The current second test drives a native `<select>` via `userEvent.selectOptions` — that control is gone. Replace it with the react-aria Select + Search flow. Edit `web/src/features/members/pages/__tests__/MembersListPage.test.tsx`:
 
-- Add `import` is already present for `userEvent`.
+- `userEvent` is already imported.
+- Add a `selectTrigger` helper near the top of the file — the react-aria Select trigger is the only button with `aria-haspopup="listbox"`, and its accessible name is `"<value> <label>"`, so locate it structurally rather than by name:
+```ts
+const selectTrigger = () =>
+  screen.getAllByRole("button").find(b => b.getAttribute("aria-haspopup") === "listbox") as HTMLElement;
+```
 - Replace the test `it("passes role to apiClient.GET when role filter is changed", …)` with:
 
 ```tsx
@@ -465,7 +480,7 @@ The current second test drives a native `<select>` via `userEvent.selectOptions`
     await waitFor(() => expect(get).toHaveBeenCalled());
     get.mockClear();
 
-    await userEvent.click(screen.getByRole("button", { name: /^role$/i }));
+    await userEvent.click(selectTrigger());
     await userEvent.click(await screen.findByRole("option", { name: "OrgAdmin" }));
     await userEvent.click(screen.getByRole("button", { name: /^search$/i }));
 
@@ -492,7 +507,7 @@ The current second test drives a native `<select>` via `userEvent.selectOptions`
     render(<MembersListPage />, { wrapper: harness(qc) });
     await waitFor(() => expect(get).toHaveBeenCalled());
 
-    await userEvent.click(screen.getByRole("button", { name: /^role$/i }));
+    await userEvent.click(selectTrigger());
     await userEvent.click(await screen.findByRole("option", { name: "OrgAdmin" }));
     await userEvent.click(screen.getByRole("button", { name: /^search$/i }));
 
