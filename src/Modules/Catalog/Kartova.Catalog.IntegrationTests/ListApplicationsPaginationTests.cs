@@ -507,6 +507,7 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
         {
             var client = Fx.CreateClientForOrgA();
             var resp = await client.GetAsync($"/api/v1/catalog/applications?limit=200&teamId={teamA}&teamId={teamB}");
+            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
             var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
             var ids = page!.Items.Select(i => i.Id).ToHashSet();
             Assert.IsTrue(ids.Contains(inA) && ids.Contains(inB), "both teams' apps are returned");
