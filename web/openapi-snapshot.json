@@ -134,10 +134,24 @@
             }
           },
           {
-            "name": "includeDecommissioned",
+            "name": "lifecycle",
             "in": "query",
             "schema": {
-              "type": "boolean"
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "teamId",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
             }
           },
           {
