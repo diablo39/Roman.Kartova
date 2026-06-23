@@ -323,7 +323,7 @@ describe("FilterBar — multi-select", () => {
     // Close the popover (multi-select stays open after selection; popover traps
     // ARIA focus). Click document.body to dismiss, bypassing ARIA modal.
     await userEvent.click(document.body);
-    fireEvent.click(screen.getByRole("button", { name: /^search$/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^search$/i }));
     expect(setFilters).toHaveBeenCalledWith(
       expect.objectContaining({ multi: expect.objectContaining({ lifecycle: ["deprecated"] }) }),
     );

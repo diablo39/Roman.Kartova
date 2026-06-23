@@ -225,23 +225,25 @@ describe("useListFilters — single-select", () => {
 // Multi-select specs
 // ---------------------------------------------------------------------------
 
-it("derives a non-empty multi-select into queryFilters as an array and marks active", () => {
-  const specs: FilterSpec[] = [
-    { key: "lifecycle", type: "multi-select", label: "Lifecycle", options: [{ label: "Active", value: "active" }] },
-  ];
-  const urlState = { textFilters: {}, booleanFilters: {}, multiFilters: { lifecycle: ["active", "deprecated"] } };
-  const { result } = renderHook(() => useListFilters(specs, urlState));
-  expect(result.current.queryFilters.lifecycle).toEqual(["active", "deprecated"]);
-  expect(result.current.isActive).toBe(true);
-  expect(result.current.activeCount).toBe(1);
-});
+describe("useListFilters — multi-select", () => {
+  it("derives a non-empty multi-select into queryFilters as an array and marks active", () => {
+    const specs: FilterSpec[] = [
+      { key: "lifecycle", type: "multi-select", label: "Lifecycle", options: [{ label: "Active", value: "active" }] },
+    ];
+    const urlState = { textFilters: {}, booleanFilters: {}, multiFilters: { lifecycle: ["active", "deprecated"] } };
+    const { result } = renderHook(() => useListFilters(specs, urlState));
+    expect(result.current.queryFilters.lifecycle).toEqual(["active", "deprecated"]);
+    expect(result.current.isActive).toBe(true);
+    expect(result.current.activeCount).toBe(1);
+  });
 
-it("treats an empty multi-select as inactive and undefined in queryFilters", () => {
-  const specs: FilterSpec[] = [
-    { key: "lifecycle", type: "multi-select", label: "Lifecycle", options: [{ label: "Active", value: "active" }] },
-  ];
-  const urlState = { textFilters: {}, booleanFilters: {}, multiFilters: { lifecycle: [] } };
-  const { result } = renderHook(() => useListFilters(specs, urlState));
-  expect(result.current.queryFilters.lifecycle).toBeUndefined();
-  expect(result.current.isActive).toBe(false);
+  it("treats an empty multi-select as inactive and undefined in queryFilters", () => {
+    const specs: FilterSpec[] = [
+      { key: "lifecycle", type: "multi-select", label: "Lifecycle", options: [{ label: "Active", value: "active" }] },
+    ];
+    const urlState = { textFilters: {}, booleanFilters: {}, multiFilters: { lifecycle: [] } };
+    const { result } = renderHook(() => useListFilters(specs, urlState));
+    expect(result.current.queryFilters.lifecycle).toBeUndefined();
+    expect(result.current.isActive).toBe(false);
+  });
 });

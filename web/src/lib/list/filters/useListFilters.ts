@@ -9,10 +9,11 @@ import type { FilterSpec } from "./types";
  * in `<FilterBar>` as uncontrolled inputs that commit to the URL only on submit
  * (Enter / Search button); see ADR-0107 clause 3.
  *
- * `queryFilters` is what the list query hook spreads: text keys are
- * committed-or-`undefined` (so the unfiltered key matches the pre-filter key);
- * boolean keys are always present (default `false`), matching the always-on-the-
- * wire `includeDecommissioned` dimension.
+ * `queryFilters` is what the list query hook spreads: text (and single-select)
+ * keys are committed-or-`undefined` (so the unfiltered key matches the pre-filter
+ * key); boolean keys are always present (default `false`); multi-select keys are a
+ * `string[]` when non-empty and `undefined` when empty — callers are responsible
+ * for serializing arrays (the API client emits repeated query params).
  */
 export function useListFilters(
   specs: FilterSpec[],
