@@ -90,58 +90,55 @@ export function FilterBar({ specs, urlState }: FilterBarProps) {
       </button>
 
       {open && (
-        <form
-          ref={formRef}
-          id={panelId}
-          role="search"
-          className="flex flex-wrap items-center gap-3 border-t border-secondary px-4 py-3"
-          onSubmit={onSubmit}
-        >
-          {specs.map(spec => {
-            if (spec.type === "text") {
-              const committed = committedText[spec.key] ?? "";
-              return (
-                // Keyed by the committed value: typing leaves the key unchanged
-                // (no remount, native-fast), while a commit / back-forward / Clear
-                // all changes it and re-seeds the uncontrolled input via defaultValue.
-                <div key={`${spec.key}:${committed}`} className="w-full sm:w-72">
-                  <Input
+        <form ref={formRef} id={panelId} role="search" className="border-t border-secondary" onSubmit={onSubmit}>
+          {/* Controls body — inputs / checkboxes wrap here, separate from the action footer. */}
+          <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+            {specs.map(spec => {
+              if (spec.type === "text") {
+                const committed = committedText[spec.key] ?? "";
+                return (
+                  // Keyed by the committed value: typing leaves the key unchanged
+                  // (no remount, native-fast), while a commit / back-forward / Clear
+                  // all changes it and re-seeds the uncontrolled input via defaultValue.
+                  <div key={`${spec.key}:${committed}`} className="w-full sm:w-72">
+                    <Input
+                      name={spec.key}
+                      defaultValue={committed}
+                      aria-label={spec.label}
+                      placeholder={spec.placeholder}
+                      icon={SearchLg}
+                      size="sm"
+                      maxLength={128}
+                      onKeyDown={onInputKeyDown}
+                    />
+                  </div>
+                );
+              }
+              if (spec.type === "boolean") {
+                const committed = committedBool?.[spec.key] ?? false;
+                return (
+                  <Checkbox
+                    key={`${spec.key}:${committed}`}
                     name={spec.key}
-                    defaultValue={committed}
-                    aria-label={spec.label}
-                    placeholder={spec.placeholder}
-                    icon={SearchLg}
-                    size="sm"
-                    maxLength={128}
-                    onKeyDown={onInputKeyDown}
+                    defaultSelected={committed}
+                    label={spec.label}
                   />
-                </div>
+                );
+              }
+              throw new Error(
+                `FilterBar: "${spec.type}" control not implemented (ADR-0107 clause 1 — text + boolean only)`,
               );
-            }
-            if (spec.type === "boolean") {
-              const committed = committedBool?.[spec.key] ?? false;
-              return (
-                <Checkbox
-                  key={`${spec.key}:${committed}`}
-                  name={spec.key}
-                  defaultSelected={committed}
-                  label={spec.label}
-                />
-              );
-            }
-            throw new Error(
-              `FilterBar: "${spec.type}" control not implemented (ADR-0107 clause 1 — text + boolean only)`,
-            );
-          })}
+            })}
+          </div>
 
-          <Button type="button" size="sm" color="secondary" onClick={commit}>Search</Button>
-
-          {isActive && (
-            <>
-              <span className="text-sm text-tertiary">{activeCount} active</span>
+          {/* Action footer — Clear all bottom-left, Search bottom-right (ml-auto keeps
+              Search right-aligned whether or not Clear all is present). */}
+          <div className="flex items-center gap-3 border-t border-secondary px-4 py-3">
+            {isActive && (
               <Button type="button" size="sm" color="link-gray" onClick={clearAll}>Clear all</Button>
-            </>
-          )}
+            )}
+            <Button type="button" size="sm" color="secondary" className="ml-auto" onClick={commit}>Search</Button>
+          </div>
         </form>
       )}
     </div>
