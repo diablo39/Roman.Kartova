@@ -11,6 +11,7 @@ function fakeTextState(committed: Record<string, string> = {}) {
   return {
     textFilters: committed as Record<string, string>,
     booleanFilters: {} as Record<string, boolean>,
+    multiFilters: {} as Record<string, string[]>,
   };
 }
 
@@ -18,6 +19,7 @@ function fakeMixedState(text: Record<string, string> = {}, bool: Record<string, 
   return {
     textFilters: text as Record<string, string>,
     booleanFilters: bool as Record<string, boolean>,
+    multiFilters: {} as Record<string, string[]>,
   };
 }
 
@@ -203,7 +205,7 @@ const selectSpecs: FilterSpec[] = [
 describe("useListFilters — single-select", () => {
   it("exposes a committed single-select value as a queryFilter string", () => {
     const { result } = renderHook(() =>
-      useListFilters(selectSpecs, { textFilters: { role: "Viewer" }, booleanFilters: {} }),
+      useListFilters(selectSpecs, { textFilters: { role: "Viewer" }, booleanFilters: {}, multiFilters: {} }),
     );
     expect(result.current.queryFilters.role).toBe("Viewer");
     expect(result.current.isActive).toBe(true);
@@ -212,9 +214,34 @@ describe("useListFilters — single-select", () => {
 
   it("treats a blank single-select as undefined / inactive", () => {
     const { result } = renderHook(() =>
-      useListFilters(selectSpecs, { textFilters: { role: "" }, booleanFilters: {} }),
+      useListFilters(selectSpecs, { textFilters: { role: "" }, booleanFilters: {}, multiFilters: {} }),
     );
     expect(result.current.queryFilters.role).toBeUndefined();
     expect(result.current.isActive).toBe(false);
   });
+});
+
+// ---------------------------------------------------------------------------
+// Multi-select specs
+// ---------------------------------------------------------------------------
+
+it("derives a non-empty multi-select into queryFilters as an array and marks active", () => {
+  const specs: FilterSpec[] = [
+    { key: "lifecycle", type: "multi-select", label: "Lifecycle", options: [{ label: "Active", value: "active" }] },
+  ];
+  const urlState = { textFilters: {}, booleanFilters: {}, multiFilters: { lifecycle: ["active", "deprecated"] } };
+  const { result } = renderHook(() => useListFilters(specs, urlState));
+  expect(result.current.queryFilters.lifecycle).toEqual(["active", "deprecated"]);
+  expect(result.current.isActive).toBe(true);
+  expect(result.current.activeCount).toBe(1);
+});
+
+it("treats an empty multi-select as inactive and undefined in queryFilters", () => {
+  const specs: FilterSpec[] = [
+    { key: "lifecycle", type: "multi-select", label: "Lifecycle", options: [{ label: "Active", value: "active" }] },
+  ];
+  const urlState = { textFilters: {}, booleanFilters: {}, multiFilters: { lifecycle: [] } };
+  const { result } = renderHook(() => useListFilters(specs, urlState));
+  expect(result.current.queryFilters.lifecycle).toBeUndefined();
+  expect(result.current.isActive).toBe(false);
 });

@@ -16,32 +16,37 @@ import type { FilterSpec } from "./types";
  */
 export function useListFilters(
   specs: FilterSpec[],
-  urlState: Pick<ListUrlState<string, string, string>, "textFilters" | "booleanFilters">,
+  urlState: Pick<ListUrlState<string, string, string, string>, "textFilters" | "booleanFilters" | "multiFilters">,
 ) {
   const textSpecs = useMemo(
     () => specs.filter(s => s.type === "text" || s.type === "single-select"),
     [specs],
   );
   const boolSpecs = useMemo(() => specs.filter(s => s.type === "boolean"), [specs]);
+  const multiSpecs = useMemo(() => specs.filter(s => s.type === "multi-select"), [specs]);
   const committedText = urlState.textFilters;
   const committedBool = urlState.booleanFilters;
+  const committedMulti = urlState.multiFilters;
 
   const queryFilters = useMemo(() => {
-    const out: Record<string, string | boolean | undefined> = {};
+    const out: Record<string, string | boolean | string[] | undefined> = {};
     for (const s of textSpecs) out[s.key] = (committedText[s.key] ?? "") || undefined;
     for (const s of boolSpecs) out[s.key] = committedBool?.[s.key] ?? false;
+    for (const s of multiSpecs) out[s.key] = committedMulti?.[s.key]?.length ? committedMulti[s.key] : undefined;
     return out;
-  }, [textSpecs, boolSpecs, committedText, committedBool]);
+  }, [textSpecs, boolSpecs, multiSpecs, committedText, committedBool, committedMulti]);
 
   const isActive = useMemo(
     () => textSpecs.some(s => (committedText[s.key] ?? "") !== "")
-       || boolSpecs.some(s => (committedBool?.[s.key] ?? false) === true),
-    [textSpecs, boolSpecs, committedText, committedBool]);
+       || boolSpecs.some(s => (committedBool?.[s.key] ?? false) === true)
+       || multiSpecs.some(s => (committedMulti?.[s.key]?.length ?? 0) > 0),
+    [textSpecs, boolSpecs, multiSpecs, committedText, committedBool, committedMulti]);
 
   const activeCount = useMemo(
     () => textSpecs.filter(s => (committedText[s.key] ?? "") !== "").length
-        + boolSpecs.filter(s => (committedBool?.[s.key] ?? false) === true).length,
-    [textSpecs, boolSpecs, committedText, committedBool]);
+        + boolSpecs.filter(s => (committedBool?.[s.key] ?? false) === true).length
+        + multiSpecs.filter(s => (committedMulti?.[s.key]?.length ?? 0) > 0).length,
+    [textSpecs, boolSpecs, multiSpecs, committedText, committedBool, committedMulti]);
 
   return { queryFilters, isActive, activeCount };
 }
