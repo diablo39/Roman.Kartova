@@ -183,3 +183,38 @@ describe("useListFilters — re-renders with changed committed state", () => {
     expect(result.current.isActive).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Single-select specs
+// ---------------------------------------------------------------------------
+
+const selectSpecs: FilterSpec[] = [
+  {
+    key: "role",
+    type: "single-select",
+    label: "Role",
+    options: [
+      { label: "All roles", value: "" },
+      { label: "Viewer", value: "Viewer" },
+    ],
+  },
+];
+
+describe("useListFilters — single-select", () => {
+  it("exposes a committed single-select value as a queryFilter string", () => {
+    const { result } = renderHook(() =>
+      useListFilters(selectSpecs, { textFilters: { role: "Viewer" }, booleanFilters: {} }),
+    );
+    expect(result.current.queryFilters.role).toBe("Viewer");
+    expect(result.current.isActive).toBe(true);
+    expect(result.current.activeCount).toBe(1);
+  });
+
+  it("treats a blank single-select as undefined / inactive", () => {
+    const { result } = renderHook(() =>
+      useListFilters(selectSpecs, { textFilters: { role: "" }, booleanFilters: {} }),
+    );
+    expect(result.current.queryFilters.role).toBeUndefined();
+    expect(result.current.isActive).toBe(false);
+  });
+});

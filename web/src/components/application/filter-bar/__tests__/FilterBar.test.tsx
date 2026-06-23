@@ -69,7 +69,7 @@ describe("FilterBar — rendering", () => {
   });
 
   it("throws for single-select type", () => {
-    const bad: FilterSpec[] = [{ key: "x", type: "single-select", label: "X" }];
+    const bad: FilterSpec[] = [{ key: "x", type: "single-select", label: "X", options: [] }];
     expect(() => render(<FilterBar specs={bad} urlState={fakeUrlState()} />)).toThrow(/not implemented/i);
   });
 });

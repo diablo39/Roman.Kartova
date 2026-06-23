@@ -18,7 +18,10 @@ export function useListFilters(
   specs: FilterSpec[],
   urlState: Pick<ListUrlState<string, string, string>, "textFilters" | "booleanFilters">,
 ) {
-  const textSpecs = useMemo(() => specs.filter(s => s.type === "text"), [specs]);
+  const textSpecs = useMemo(
+    () => specs.filter(s => s.type === "text" || s.type === "single-select"),
+    [specs],
+  );
   const boolSpecs = useMemo(() => specs.filter(s => s.type === "boolean"), [specs]);
   const committedText = urlState.textFilters;
   const committedBool = urlState.booleanFilters;
