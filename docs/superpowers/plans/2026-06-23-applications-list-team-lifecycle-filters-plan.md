@@ -15,8 +15,8 @@
 - **Lifecycle filter semantics:** none selected ⇒ exclude `Decommissioned` (ADR-0073 default view); some selected ⇒ `lifecycle IN (selected)` exactly. The default (no filters) cursor `f`-map is **empty** (byte-identical to a filterless cursor) — `includeDecommissioned` is gone.
 - **Filter-key consistency (ADR-0095):** URL param == API query param == cursor `f`-map key, identical strings: `lifecycle`, `teamId`.
 - **Cursor `f`-map values:** multi-value filters serialize as **sorted, comma-joined** strings; key present **only** when the selection is non-empty.
-- **`includeDecommissioned` is removed from the Applications endpoint + page only.** The generic boolean infra (`useListUrlState.booleanFilters`, `FilterBar` boolean branch, `useListFilters`) is **retained** — the Services list still uses it. Do not delete generic boolean support.
-- **Services list is out of scope.** Touch only `CatalogListPage` (Applications, `/catalog`), `useApplicationsList`, and the `ListApplications` backend.
+- **`includeDecommissioned` is removed from the Applications endpoint + page only.** The generic boolean infra (`useListUrlState.booleanFilters`, `FilterBar` boolean branch, `useListFilters`) is **retained, not deleted** — but it has **no current production consumer** after this slice (`includeDecommissioned` was its only one). Keep it as typed+tested reserved infra (ADR-0107 standard vocabulary); do not delete it, and do not claim Services uses it.
+- **Services list is out of scope** (it has only a `displayNameContains` text filter today). Touch only `CatalogListPage` (Applications, `/catalog`), `useApplicationsList`, and the `ListApplications` backend.
 - **Gate 6 (mutation) is BLOCKING** for this slice (diff touches `ListApplicationsHandler` Application-layer logic).
 - **Real seam (gate 3):** all backend filter integration tests run against real Postgres/RLS + real JWT via the existing `CatalogIntegrationTestBase` / `KartovaApiFixtureBase`. Never the fake auth handler or a mocked DbContext.
 - **DoD:** CLAUDE.md's eight always-blocking gates (gate 6 blocking here) + terminal re-verify. This plan does not restate them.

@@ -12,10 +12,11 @@ interface Config<
   defaultSortOrder: SortDirection;
   allowedSortFields: readonly TField[];
   /**
-   * Optional boolean URL params (e.g. `["includeDecommissioned"]`). Each is
-   * read as `true` only when the URL value is the string `"true"` (case-insensitive);
-   * any other value or absence yields `false`. Setter writes `"true"` or removes
-   * the param entirely (no `=false` clutter in the URL).
+   * Optional boolean URL params. Each is read as `true` only when the URL value is
+   * the string `"true"` (case-insensitive); any other value or absence yields `false`.
+   * Setter writes `"true"` or removes the param entirely (no `=false` clutter in the URL).
+   * (Reserved ADR-0107 control: no current production consumer — Applications' former
+   * `includeDecommissioned` was replaced by a lifecycle multi-select in 2026-06.)
    */
   booleanFilters?: readonly TBoolFilter[];
   /**
@@ -80,10 +81,11 @@ export interface ListUrlState<
  * params are absent or invalid (per ADR-0095 — no error UI for "user typed
  * garbage in URL"). Cursor is intentionally not in URL — see ADR-0095 §3 Q5 = C.
  *
- * Slice 6: optional boolean filters supported via the `booleanFilters` config —
- * used by the Catalog list page for `?includeDecommissioned=true`.
- * Slice 7: optional text filters supported via the `textFilters` config —
- * used by the Teams list page for `?displayNameContains=...`.
+ * Three optional filter axes layer on top of sort, each driven by a config list:
+ * `booleanFilters` (`?flag=true`), `textFilters` (`?q=...`), and `multiFilters`
+ * (repeated params `?k=a&k=b`, read via `getAll`; empty ⇒ param absent). All commit
+ * in one navigation via `setFilters`. Consumers: Teams/Members/Applications lists
+ * (the Applications lifecycle + team filters use `multiFilters`).
  */
 export function useListUrlState<
   TField extends string,

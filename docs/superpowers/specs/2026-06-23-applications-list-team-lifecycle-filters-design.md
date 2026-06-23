@@ -33,9 +33,16 @@ and is the first consumer of both.
 
 **Explicitly out of scope (deferred, recorded — never silent):**
 
-- **Services list** (`/catalog/services`): keeps its current `includeDecommissioned`
-  boolean. Bringing Services onto a lifecycle multi-select for consistency is a future
-  follow-up. The shared generic boolean infra is **retained** for it.
+- **Services list** (`/catalog/services`): unchanged (it has only a `displayNameContains`
+  text filter — no lifecycle/decommissioned filter today). Bringing Services onto a
+  lifecycle multi-select for consistency is a future follow-up.
+- **Generic boolean filter infra** (`useListUrlState.booleanFilters`, the `FilterBar`
+  boolean branch, the `useListFilters` boolean derivation): **retained, not deleted**, but
+  note that after this slice it has **no current production consumer** — `includeDecommissioned`
+  on the Applications list was its only one, removed here. It stays as a typed + tested,
+  reserved control in the ADR-0107 standard vocabulary (like `multi-select` was before this
+  slice), available for the next screen that needs a boolean filter. Removing it would be
+  churn for no benefit; keeping it must not be mistaken for "Services depends on it."
 - **date-range control** (ADR-0107 reserved type, "sub-slice 3"): not needed — team and
   lifecycle are both categorical. Stays reserved/deferred. Could later apply to
   `createdAt` if a date filter is requested.
