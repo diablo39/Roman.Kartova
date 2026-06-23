@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/base/buttons/button";
 import { Card, CardContent } from "@/components/base/card/card";
+import { FilterBar } from "@/components/application/filter-bar/FilterBar";
+import { useListFilters } from "@/lib/list/filters/useListFilters";
+import type { FilterSpec } from "@/lib/list/filters/types";
 import { useMembersList } from "@/features/members/api/members";
 import { ChangeMemberRoleDialog } from "@/features/members/components/ChangeMemberRoleDialog";
 import { OffboardMemberConfirmDialog } from "@/features/members/components/OffboardMemberConfirmDialog";
@@ -10,38 +13,37 @@ import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
 
 const ALLOWED_SORT_FIELDS = ["displayName", "role", "createdAt"] as const;
-
-const ROLE_OPTIONS = [
-  { label: "All roles", value: "all" },
-  { label: "Viewer", value: "Viewer" },
-  { label: "Member", value: "Member" },
-  { label: "OrgAdmin", value: "OrgAdmin" },
-] as const;
-
-/** Debounce window (ms) — matches UserSearchCombobox. */
-const DEBOUNCE_MS = 250;
+const TEXT_FILTERS = ["role", "q"] as const;
+const FILTER_SPECS: FilterSpec[] = [
+  {
+    key: "role",
+    type: "single-select",
+    label: "Role",
+    options: [
+      { label: "All roles", value: "" },
+      { label: "Viewer", value: "Viewer" },
+      { label: "Member", value: "Member" },
+      { label: "OrgAdmin", value: "OrgAdmin" },
+    ],
+  },
+  { key: "q", type: "text", label: "Search members", placeholder: "Search by name or email…" },
+];
 
 export function MembersListPage() {
-  const { sortBy, sortOrder } = useListUrlState({
+  const urlState = useListUrlState({
     defaultSortBy: "displayName",
     defaultSortOrder: "asc",
     allowedSortFields: ALLOWED_SORT_FIELDS,
+    textFilters: TEXT_FILTERS,
   });
+  const filters = useListFilters(FILTER_SPECS, urlState);
 
-  const [roleFilter, setRoleFilter] = useState<string>("all");
-  const [searchInput, setSearchInput] = useState<string>("");
-  const [debouncedQ, setDebouncedQ] = useState<string>("");
-
-  // Debounce searchInput → debouncedQ, mirroring UserSearchCombobox's pattern.
-  useEffect(() => {
-    const id = window.setTimeout(() => setDebouncedQ(searchInput), DEBOUNCE_MS);
-    return () => window.clearTimeout(id);
-  }, [searchInput]);
-
-  const effectiveRole = roleFilter === "all" ? undefined : roleFilter;
-  const effectiveQ = debouncedQ.trim().length >= 2 ? debouncedQ.trim() : undefined;
-
-  const list = useMembersList({ sortBy, sortOrder, role: effectiveRole, q: effectiveQ });
+  const list = useMembersList({
+    sortBy: urlState.sortBy,
+    sortOrder: urlState.sortOrder,
+    role: filters.queryFilters.role as string | undefined,
+    q: filters.queryFilters.q as string | undefined,
+  });
 
   const { hasPermission, isLoading: permissionsLoading } = usePermissions();
   const canChangeRole = !permissionsLoading && hasPermission(KartovaPermissions.OrgUsersRoleChange);
@@ -62,28 +64,7 @@ export function MembersListPage() {
         <h2 className="text-2xl font-semibold text-primary">Members</h2>
       </div>
 
-      <div className="flex items-center gap-3">
-        <select
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
-          aria-label="Filter by role"
-          className="rounded-lg border border-secondary bg-primary px-3 py-2 text-sm text-primary shadow-xs outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
-        >
-          {ROLE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <input
-          type="text"
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          placeholder="Search by name or email…"
-          aria-label="Search members"
-          className="w-72 rounded-lg border border-secondary bg-primary px-3 py-2 text-sm text-primary shadow-xs outline-none placeholder:text-tertiary focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
-        />
-      </div>
+      <FilterBar specs={FILTER_SPECS} urlState={urlState} />
 
       {list.isError ? (
         <Card className="mx-auto max-w-md">
@@ -100,8 +81,12 @@ export function MembersListPage() {
       ) : list.items.length === 0 ? (
         <Card className="mx-auto max-w-md text-center">
           <CardContent className="space-y-2 p-8">
-            <p className="text-base font-medium text-primary">No members yet</p>
-            <p className="text-sm text-tertiary">Invite users to add members.</p>
+            <p className="text-base font-medium text-primary">
+              {filters.isActive ? "No members match your filters" : "No members yet"}
+            </p>
+            <p className="text-sm text-tertiary">
+              {filters.isActive ? "Try a different role or search." : "Invite users to add members."}
+            </p>
           </CardContent>
         </Card>
       ) : (
@@ -135,20 +120,12 @@ export function MembersListPage() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-2">
                         {canChangeRole && (
-                          <Button
-                            size="sm"
-                            color="secondary"
-                            onClick={() => setRoleTarget({ userId: m.id, role: m.role })}
-                          >
+                          <Button size="sm" color="secondary" onClick={() => setRoleTarget({ userId: m.id, role: m.role })}>
                             Change role
                           </Button>
                         )}
                         {canRemove && (
-                          <Button
-                            size="sm"
-                            color="secondary"
-                            onClick={() => setOffboardTarget({ userId: m.id, displayName: m.displayName })}
-                          >
+                          <Button size="sm" color="secondary" onClick={() => setOffboardTarget({ userId: m.id, displayName: m.displayName })}>
                             Remove
                           </Button>
                         )}
@@ -166,17 +143,13 @@ export function MembersListPage() {
         userId={roleTarget?.userId ?? ""}
         currentRole={roleTarget?.role ?? "Member"}
         open={roleTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setRoleTarget(null);
-        }}
+        onOpenChange={(open) => { if (!open) setRoleTarget(null); }}
       />
       <OffboardMemberConfirmDialog
         userId={offboardTarget?.userId ?? ""}
         displayName={offboardTarget?.displayName ?? ""}
         open={offboardTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setOffboardTarget(null);
-        }}
+        onOpenChange={(open) => { if (!open) setOffboardTarget(null); }}
       />
     </div>
   );

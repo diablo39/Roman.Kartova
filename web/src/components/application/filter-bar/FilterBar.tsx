@@ -3,6 +3,7 @@ import { SearchLg, ChevronDown } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { Checkbox } from "@/components/base/checkbox/checkbox";
+import { Select } from "@/components/base/select/select";
 import { cx } from "@/lib/utils/cx";
 import { useListFilters } from "@/lib/list/filters/useListFilters";
 import type { ListUrlState } from "@/lib/list/useListUrlState";
@@ -48,8 +49,11 @@ export function FilterBar({ specs, urlState }: FilterBarProps) {
     const text: Record<string, string> = {};
     const booleans: Record<string, boolean> = {};
     for (const s of specs) {
-      if (s.type === "text") text[s.key] = String(data.get(s.key) ?? "");
-      else if (s.type === "boolean") booleans[s.key] = data.get(s.key) != null;
+      if (s.type === "text" || s.type === "single-select") {
+        text[s.key] = String(data.get(s.key) ?? "");
+      } else if (s.type === "boolean") {
+        booleans[s.key] = data.get(s.key) != null;
+      }
     }
     urlState.setFilters({ text, booleans });
   };
@@ -70,7 +74,7 @@ export function FilterBar({ specs, urlState }: FilterBarProps) {
     const text: Record<string, string> = {};
     const booleans: Record<string, boolean> = {};
     for (const s of specs) {
-      if (s.type === "text") text[s.key] = "";
+      if (s.type === "text" || s.type === "single-select") text[s.key] = "";
       else if (s.type === "boolean") booleans[s.key] = false;
     }
     urlState.setFilters({ text, booleans });
@@ -125,8 +129,22 @@ export function FilterBar({ specs, urlState }: FilterBarProps) {
                   />
                 );
               }
+              if (spec.type === "single-select") {
+                const committed = committedText[spec.key] ?? "";
+                return (
+                  <div key={`${spec.key}:${committed}`} className="w-full sm:w-56">
+                    <Select
+                      name={spec.key}
+                      defaultSelectedKey={committed}
+                      aria-label={spec.label}
+                      options={spec.options}
+                      size="sm"
+                    />
+                  </div>
+                );
+              }
               throw new Error(
-                `FilterBar: "${spec.type}" control not implemented (ADR-0107 clause 1 — text + boolean only)`,
+                `FilterBar: "${spec.type}" control not implemented (ADR-0107 clause 1 — text + boolean + single-select only)`,
               );
             })}
           </div>
