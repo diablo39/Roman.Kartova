@@ -419,6 +419,8 @@ FodyWeavers.xsd
 
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
+# Subagent isolation worktrees — local scratch, never committed
+.claude/worktrees/
 
 # MCP server config — contains API keys (project-scope registration)
 .mcp.json
