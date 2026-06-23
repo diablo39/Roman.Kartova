@@ -23,8 +23,11 @@ type ApplicationsListParams = {
   sortBy: NonNullable<ListApplicationsQuery["sortBy"]>;
   sortOrder: NonNullable<ListApplicationsQuery["sortOrder"]>;
   limit?: number;
-  /** ADR-0073 default-view rule: false (the default) hides Decommissioned rows. Slice 6. */
-  includeDecommissioned?: boolean;
+  /** ADR-0107 lifecycle multi-select (wire values active|deprecated|decommissioned).
+   *  Empty/undefined ⇒ omitted ⇒ ADR-0073 default view (hide Decommissioned). */
+  lifecycle?: string[];
+  /** ADR-0107 team multi-select (team ids). Empty/undefined ⇒ omitted. */
+  teamId?: string[];
   /** When set, server filters to applications created by this user (slice-10 ownership realignment). */
   createdByUserId?: string;
   displayNameContains?: string;
@@ -50,9 +53,8 @@ export function useApplicationsList(params: ApplicationsListParams) {
             sortOrder: params.sortOrder,
             limit: params.limit ?? 50,
             cursor,
-            includeDecommissioned: params.includeDecommissioned ?? false,
-            // Only thread `createdByUserId` when set so the wire stays clean for
-            // the default list view (server treats omitted == "no filter").
+            ...(params.lifecycle?.length ? { lifecycle: params.lifecycle } : {}),
+            ...(params.teamId?.length ? { teamId: params.teamId } : {}),
             ...(params.createdByUserId ? { createdByUserId: params.createdByUserId } : {}),
             ...(params.displayNameContains ? { displayNameContains: params.displayNameContains } : {}),
           },

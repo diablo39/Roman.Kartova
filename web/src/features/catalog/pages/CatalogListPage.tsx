@@ -14,11 +14,12 @@ import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
 
 const ALLOWED_SORT_FIELDS = ["createdAt", "displayName"] as const;
-const BOOLEAN_FILTERS = ["includeDecommissioned"] as const;
 const TEXT_FILTERS = ["displayNameContains"] as const;
-const FILTER_SPECS: FilterSpec[] = [
-  { key: "displayNameContains", type: "text", label: "Search applications", placeholder: "Search by name…" },
-  { key: "includeDecommissioned", type: "boolean", label: "Show decommissioned" },
+const MULTI_FILTERS = ["lifecycle", "teamId"] as const;
+const LIFECYCLE_OPTIONS = [
+  { label: "Active", value: "active" },
+  { label: "Deprecated", value: "deprecated" },
+  { label: "Decommissioned", value: "decommissioned" },
 ];
 
 export function CatalogListPage() {
@@ -26,22 +27,43 @@ export function CatalogListPage() {
     defaultSortBy: "displayName",
     defaultSortOrder: "asc",
     allowedSortFields: ALLOWED_SORT_FIELDS,
-    booleanFilters: BOOLEAN_FILTERS,
     textFilters: TEXT_FILTERS,
+    multiFilters: MULTI_FILTERS,
   });
-  const filters = useListFilters(FILTER_SPECS, urlState);
 
-  const list = useApplicationsList({
-    sortBy: urlState.sortBy,
-    sortOrder: urlState.sortOrder,
-    displayNameContains: filters.queryFilters.displayNameContains as string | undefined,
-    includeDecommissioned: filters.queryFilters.includeDecommissioned as boolean,
-  });
   const teamsList = useTeamsList({ sortBy: "displayName", sortOrder: "asc", limit: 200 });
   const teamNameById = useMemo(
     () => new Map<string, string>((teamsList.items ?? []).map(t => [t.id, t.displayName])),
     [teamsList.items],
   );
+
+  // FILTER_SPECS is dynamic: team options come from the teams fetch. Lifecycle +
+  // search are static. (Known limit: the team dropdown shows only the first 200
+  // teams — same cap as the existing teamNameById lookup; see spec §2.)
+  const filterSpecs: FilterSpec[] = useMemo(
+    () => [
+      { key: "displayNameContains", type: "text", label: "Search applications", placeholder: "Search by name…" },
+      { key: "lifecycle", type: "multi-select", label: "Lifecycle", placeholder: "Any status", options: LIFECYCLE_OPTIONS },
+      {
+        key: "teamId",
+        type: "multi-select",
+        label: "Team",
+        placeholder: "All teams",
+        options: (teamsList.items ?? []).map(t => ({ label: t.displayName, value: t.id })),
+      },
+    ],
+    [teamsList.items],
+  );
+  const filters = useListFilters(filterSpecs, urlState);
+
+  const list = useApplicationsList({
+    sortBy: urlState.sortBy,
+    sortOrder: urlState.sortOrder,
+    displayNameContains: filters.queryFilters.displayNameContains as string | undefined,
+    lifecycle: filters.queryFilters.lifecycle as string[] | undefined,
+    teamId: filters.queryFilters.teamId as string[] | undefined,
+  });
+
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const { hasPermission, isLoading: permissionsLoading } = usePermissions();
@@ -62,7 +84,7 @@ export function CatalogListPage() {
         )}
       </div>
 
-      <FilterBar specs={FILTER_SPECS} urlState={urlState} />
+      <FilterBar specs={filterSpecs} urlState={urlState} />
 
       {list.isError ? (
         <Card className="mx-auto max-w-md">
