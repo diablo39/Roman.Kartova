@@ -39,6 +39,21 @@ describe("RequireAuth", () => {
     expect(signinRedirect).toHaveBeenCalledTimes(1);
   });
 
+  it("captures the current deep link (path + query) in the OIDC state.returnTo", () => {
+    window.history.pushState({}, "", "/catalog/services?displayNameContains=foo");
+    useAuthMock.mockReturnValue({
+      isLoading: false,
+      isAuthenticated: false,
+      signinRedirect,
+      activeNavigator: undefined,
+    });
+    render(<RequireAuth><div>protected</div></RequireAuth>);
+    expect(signinRedirect).toHaveBeenCalledWith({
+      state: { returnTo: "/catalog/services?displayNameContains=foo" },
+    });
+    window.history.pushState({}, "", "/");
+  });
+
   it("does not trigger signinRedirect when an active navigator is in flight", () => {
     useAuthMock.mockReturnValue({
       isLoading: false,

@@ -26,6 +26,7 @@ vi.mock("@/features/auth/components/OidcCallbackHandler", () => ({
 }));
 
 import { CallbackPage } from "../CallbackPage";
+import { resolveReturnTo } from "@/shared/auth/returnTo";
 
 function renderPage() {
   return render(
@@ -80,5 +81,34 @@ describe("CallbackPage", () => {
         replace: true,
       }),
     );
+  });
+});
+
+describe("resolveReturnTo", () => {
+  it("returns a same-origin relative path with its query", () => {
+    expect(resolveReturnTo({ returnTo: "/catalog/services?displayNameContains=foo" })).toBe(
+      "/catalog/services?displayNameContains=foo",
+    );
+  });
+
+  it("rejects protocol-relative URLs (open-redirect guard)", () => {
+    expect(resolveReturnTo({ returnTo: "//evil.example.com/phish" })).toBeUndefined();
+  });
+
+  it("rejects absolute URLs", () => {
+    expect(resolveReturnTo({ returnTo: "https://evil.example.com" })).toBeUndefined();
+  });
+
+  it("rejects the auth-flow routes so it never bounces back into login", () => {
+    expect(resolveReturnTo({ returnTo: "/callback?code=x" })).toBeUndefined();
+    expect(resolveReturnTo({ returnTo: "/login-error" })).toBeUndefined();
+    expect(resolveReturnTo({ returnTo: "/welcome" })).toBeUndefined();
+  });
+
+  it("returns undefined for missing / non-string / wrong-shaped state", () => {
+    expect(resolveReturnTo(undefined)).toBeUndefined();
+    expect(resolveReturnTo({})).toBeUndefined();
+    expect(resolveReturnTo({ returnTo: 42 })).toBeUndefined();
+    expect(resolveReturnTo("not-an-object")).toBeUndefined();
   });
 });

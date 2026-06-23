@@ -19,14 +19,16 @@ import { orgKeys } from "@/features/organization/api/organization";
  *   3. If the backend auto-accepted an outstanding invitation in the same
  *      hop (`acceptedInvitation != null`), routes to `/welcome` with the
  *      celebration payload as router state.
- *   4. Otherwise routes to `/catalog`.
+ *   4. Otherwise routes to `returnTo` (the deep link the user originally
+ *      requested, round-tripped via OIDC state and validated in
+ *      `CallbackPage`), falling back to `/catalog`.
  *   5. On failure routes to `/login-error`.
  *
  * The `mounted` flag guards against React Strict-Mode double-invocation
  * and unmount-during-mutation — late resolution must not call
  * `setQueryData` / `navigate` after the consumer left the route.
  */
-export function OidcCallbackHandler() {
+export function OidcCallbackHandler({ returnTo }: { returnTo?: string }) {
   const navigate = useNavigate();
   const startSession = useStartSession();
   const qc = useQueryClient();
@@ -44,7 +46,7 @@ export function OidcCallbackHandler() {
             replace: true,
           });
         } else {
-          navigate("/catalog", { replace: true });
+          navigate(returnTo ?? "/catalog", { replace: true });
         }
       } catch {
         if (!mounted) return;

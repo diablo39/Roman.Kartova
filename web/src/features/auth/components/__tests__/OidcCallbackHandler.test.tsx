@@ -66,10 +66,10 @@ const RESPONSE_WITH_INVITE: SessionStartResponse = {
   },
 };
 
-function renderHandler() {
+function renderHandler(returnTo?: string) {
   return render(
     <MemoryRouter>
-      <OidcCallbackHandler />
+      <OidcCallbackHandler returnTo={returnTo} />
     </MemoryRouter>,
   );
 }
@@ -90,6 +90,31 @@ describe("OidcCallbackHandler", () => {
     await waitFor(() =>
       expect(navigateMock).toHaveBeenCalledWith("/catalog", { replace: true }),
     );
+  });
+
+  it("with returnTo: navigates back to the original deep link instead of /catalog", async () => {
+    mutateAsyncMock.mockResolvedValue(RESPONSE_NO_INVITE);
+    renderHandler("/catalog/services?displayNameContains=foo");
+
+    await waitFor(() =>
+      expect(navigateMock).toHaveBeenCalledWith(
+        "/catalog/services?displayNameContains=foo",
+        { replace: true },
+      ),
+    );
+  });
+
+  it("with both returnTo and acceptedInvitation: /welcome wins (invitation takes precedence)", async () => {
+    mutateAsyncMock.mockResolvedValue(RESPONSE_WITH_INVITE);
+    renderHandler("/teams/abc");
+
+    await waitFor(() =>
+      expect(navigateMock).toHaveBeenCalledWith("/welcome", {
+        state: RESPONSE_WITH_INVITE.acceptedInvitation,
+        replace: true,
+      }),
+    );
+    expect(navigateMock).not.toHaveBeenCalledWith("/teams/abc", expect.anything());
   });
 
   it("with acceptedInvitation: navigates to /welcome with the invitation as router state", async () => {

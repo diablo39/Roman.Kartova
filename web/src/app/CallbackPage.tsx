@@ -4,6 +4,7 @@ import { useAuth } from "react-oidc-context";
 
 import { OidcCallbackHandler } from "@/features/auth/components/OidcCallbackHandler";
 import { CenteredSpinner } from "@/features/auth/components/CenteredSpinner";
+import { resolveReturnTo } from "@/shared/auth/returnTo";
 
 /**
  * `/callback` — OIDC return URL. Has a two-phase lifecycle:
@@ -20,6 +21,11 @@ import { CenteredSpinner } from "@/features/auth/components/CenteredSpinner";
  * Auth errors short-circuit to `/login-error` so the user gets a real
  * recovery surface instead of being bounced back to `/` with a transient
  * toast (the slice-7 behaviour, retained until F6).
+ *
+ * The OIDC `state` round-trips the deep link `RequireAuth` stashed before the
+ * login redirect; `resolveReturnTo` validates it (same-origin relative path,
+ * not an auth route) and hands it to the handler so the user lands back where
+ * they started instead of on `/catalog`.
  */
 export function CallbackPage() {
   const auth = useAuth();
@@ -38,5 +44,5 @@ export function CallbackPage() {
   if (auth.isLoading || !auth.isAuthenticated) {
     return <CenteredSpinner message="Completing sign-in…" />;
   }
-  return <OidcCallbackHandler />;
+  return <OidcCallbackHandler returnTo={resolveReturnTo(auth.user?.state)} />;
 }
