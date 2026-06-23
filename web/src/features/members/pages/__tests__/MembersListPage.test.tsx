@@ -170,6 +170,20 @@ describe("MembersListPage", () => {
     );
   });
 
+  it("shows the unfiltered empty-state ('No members yet') when no filter is active and the list is empty", async () => {
+    mockPermissions([KartovaPermissions.OrgUsersRead]);
+    const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<MembersListPage />, { wrapper: harness(qc) });
+
+    await waitFor(() => expect(screen.getByText(/no members yet/i)).toBeInTheDocument());
+    expect(screen.queryByText(/no members match/i)).toBeNull();
+  });
+
   it("hides Change role and Remove buttons when caller only has OrgUsersRead", async () => {
     mockPermissions([KartovaPermissions.OrgUsersRead]);
 
