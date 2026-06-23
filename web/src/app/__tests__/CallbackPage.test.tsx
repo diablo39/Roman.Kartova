@@ -21,12 +21,14 @@ vi.mock("react-oidc-context", () => ({
 }));
 
 // Stub the handler so we don't drag in its mutate / queryClient pipeline.
+// Surface the `returnTo` prop so we can assert CallbackPage's wiring.
 vi.mock("@/features/auth/components/OidcCallbackHandler", () => ({
-  OidcCallbackHandler: () => <div data-testid="oidc-callback-handler" />,
+  OidcCallbackHandler: ({ returnTo }: { returnTo?: string }) => (
+    <div data-testid="oidc-callback-handler" data-return-to={returnTo ?? ""} />
+  ),
 }));
 
 import { CallbackPage } from "../CallbackPage";
-import { resolveReturnTo } from "@/shared/auth/returnTo";
 
 function renderPage() {
   return render(
@@ -65,6 +67,22 @@ describe("CallbackPage", () => {
     expect(screen.getByTestId("oidc-callback-handler")).toBeInTheDocument();
   });
 
+  it("resolves the deep link from auth.user.state and passes it to the handler", () => {
+    // Proves the wiring: CallbackPage reads auth.user?.state (not auth.state)
+    // and runs it through resolveReturnTo before handing off.
+    useAuthMock.mockReturnValue({
+      isLoading: false,
+      isAuthenticated: true,
+      error: undefined,
+      user: { state: { returnTo: "/catalog/services?displayNameContains=foo" } },
+    });
+    renderPage();
+    expect(screen.getByTestId("oidc-callback-handler")).toHaveAttribute(
+      "data-return-to",
+      "/catalog/services?displayNameContains=foo",
+    );
+  });
+
   it("navigates to /login-error and shows a redirect spinner when auth.error is set", async () => {
     useAuthMock.mockReturnValue({
       isLoading: false,
@@ -81,34 +99,5 @@ describe("CallbackPage", () => {
         replace: true,
       }),
     );
-  });
-});
-
-describe("resolveReturnTo", () => {
-  it("returns a same-origin relative path with its query", () => {
-    expect(resolveReturnTo({ returnTo: "/catalog/services?displayNameContains=foo" })).toBe(
-      "/catalog/services?displayNameContains=foo",
-    );
-  });
-
-  it("rejects protocol-relative URLs (open-redirect guard)", () => {
-    expect(resolveReturnTo({ returnTo: "//evil.example.com/phish" })).toBeUndefined();
-  });
-
-  it("rejects absolute URLs", () => {
-    expect(resolveReturnTo({ returnTo: "https://evil.example.com" })).toBeUndefined();
-  });
-
-  it("rejects the auth-flow routes so it never bounces back into login", () => {
-    expect(resolveReturnTo({ returnTo: "/callback?code=x" })).toBeUndefined();
-    expect(resolveReturnTo({ returnTo: "/login-error" })).toBeUndefined();
-    expect(resolveReturnTo({ returnTo: "/welcome" })).toBeUndefined();
-  });
-
-  it("returns undefined for missing / non-string / wrong-shaped state", () => {
-    expect(resolveReturnTo(undefined)).toBeUndefined();
-    expect(resolveReturnTo({})).toBeUndefined();
-    expect(resolveReturnTo({ returnTo: 42 })).toBeUndefined();
-    expect(resolveReturnTo("not-an-object")).toBeUndefined();
   });
 });

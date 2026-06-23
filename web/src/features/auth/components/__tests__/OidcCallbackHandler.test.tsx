@@ -145,6 +145,21 @@ describe("OidcCallbackHandler", () => {
     expect(setQueryDataMock).not.toHaveBeenCalled();
   });
 
+  it("on session-bootstrap error: goes to /login-error even when a returnTo is present", async () => {
+    mutateAsyncMock.mockRejectedValue(
+      Object.assign(new Error("boom"), { __status: 502 }),
+    );
+    renderHandler("/teams/abc");
+
+    await waitFor(() =>
+      expect(navigateMock).toHaveBeenCalledWith("/login-error", {
+        replace: true,
+      }),
+    );
+    // A failed bootstrap must not leak past into the deep link.
+    expect(navigateMock).not.toHaveBeenCalledWith("/teams/abc", expect.anything());
+  });
+
   it("renders the spinner while the bootstrap is in flight", () => {
     // Never-resolving promise so we can observe the in-flight UI.
     mutateAsyncMock.mockReturnValue(new Promise(() => {}));

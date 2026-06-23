@@ -26,6 +26,7 @@ describe("RequireAuth", () => {
     render(<RequireAuth><div>protected</div></RequireAuth>);
     expect(screen.getByText(/signing in/i)).toBeInTheDocument();
     expect(screen.queryByText("protected")).not.toBeInTheDocument();
+    expect(signinRedirect).not.toHaveBeenCalled();
   });
 
   it("triggers signinRedirect when unauthenticated and not loading", () => {
@@ -39,8 +40,8 @@ describe("RequireAuth", () => {
     expect(signinRedirect).toHaveBeenCalledTimes(1);
   });
 
-  it("captures the current deep link (path + query) in the OIDC state.returnTo", () => {
-    window.history.pushState({}, "", "/catalog/services?displayNameContains=foo");
+  it("captures the current deep link (path + query + hash) in the OIDC state.returnTo", () => {
+    window.history.pushState({}, "", "/catalog/services?displayNameContains=foo#sec");
     useAuthMock.mockReturnValue({
       isLoading: false,
       isAuthenticated: false,
@@ -49,7 +50,7 @@ describe("RequireAuth", () => {
     });
     render(<RequireAuth><div>protected</div></RequireAuth>);
     expect(signinRedirect).toHaveBeenCalledWith({
-      state: { returnTo: "/catalog/services?displayNameContains=foo" },
+      state: { returnTo: "/catalog/services?displayNameContains=foo#sec" },
     });
     window.history.pushState({}, "", "/");
   });
@@ -74,5 +75,6 @@ describe("RequireAuth", () => {
     });
     render(<RequireAuth><div>protected</div></RequireAuth>);
     expect(screen.getByText("protected")).toBeInTheDocument();
+    expect(signinRedirect).not.toHaveBeenCalled();
   });
 });
