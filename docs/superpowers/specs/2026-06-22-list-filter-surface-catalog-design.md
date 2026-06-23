@@ -277,3 +277,25 @@ Run `scripts/ci-local.sh` (or `backend`/`frontend` subsets) green before push. S
 **Ambiguity check:** blank/whitespace search ⇒ filter absent (§3 #7); boolean commit timing ⇒ submit-driven with an explicit behavior-change note (§3 #3); `EscapeLike` location ⇒ shared SharedKernel.Postgres (§3 #4); default-sort direction ⇒ asc, both screen + endpoint (§3 #5); panel default state ⇒ expanded, ephemeral (§3 #11); panel scope ⇒ all consumers (§3 #11). `includeDecommissioned` counts toward `isActive`/`activeCount` (a deliberate "deviation from default = active filter" choice; the empty-state-wording edge when it's the only active filter is benign — §5.2).
 
 **No blocking issues found.**
+
+---
+
+## 11. As-built amendment (2026-06-22, PR #39)
+
+The slice shipped as designed **except** for the FilterBar filter-state mechanism, which was reworked during manual verification when two bugs surfaced. The user-facing contract (commit on Search/Enter, submit-driven booleans, collapsible panel, `displayName asc`, ILIKE search, `f`-map identity) is **unchanged**; only the React implementation differs from §2/§4.1/§4.2/§5.2/§5.3.
+
+**Bugs found (manual Playwright pass):**
+1. **Per-keystroke lag (~709 ms).** The text/boolean **draft** lived in page-level `useListFilters` state, so every keystroke re-rendered the page and its ~50-row react-aria table.
+2. **Catalog filter never applied.** `submit()` looped `setTextFilter` then `setBooleanFilter` — two `setParams` navigations. react-router's functional updater reads the *committed* (stale) location each call, so the boolean write clobbered the text write and the URL came back empty. (Teams, text-only = one call, was unaffected — which is why only Catalog looked broken.)
+
+**As-built design (replaces the draft lifecycle in §5.2/§5.3):**
+- **Uncontrolled controls.** `<FilterBar>`'s `<Input>`/`<Checkbox>` are native-uncontrolled (`defaultValue`/`defaultSelected`), each **keyed by its committed value** so an external change (Search, back/forward, shared link, Clear all) re-seeds it. Typing does **zero** React work (709 ms → ~4 ms/keystroke).
+- **`useListFilters` is pure-derived.** No drafts, no `bind`/`bindBoolean`/`submit`/`clearAll`/reconcile effect. Signature `useListFilters(specs, urlState)` where `urlState` is `Pick<…, "textFilters" | "booleanFilters">`; returns **only** `{ queryFilters, isActive, activeCount }`, all `useMemo`-derived from the committed URL.
+- **Atomic commit.** New `useListUrlState.setFilters({ text?, booleans? })` applies all keys against a single `prev` in one `setParams` (trims text, drops blank/false). `<FilterBar>` commits by reading `FormData` on Search (`onClick`) / Enter (`onKeyDown`) and calling `setFilters` **once**. `setTextFilter`/`setBooleanFilter` are retained for other callers.
+- **No native submit.** react-aria's `Button`/`Input` don't emit a native form `submit`, so commit is wired to `onClick` + `onKeyDown`, not `type="submit"`.
+- **Prop change.** `<FilterBar specs urlState />` (was `filters={…}`). Pages call `useListFilters` only for `queryFilters`/`isActive`; the bar drives the URL itself via `urlState`.
+- **Footer layout (follow-up commit `5b43fda`).** Controls in the panel body; **Search bottom-right** (`ml-auto`), **Clear all bottom-left**, in a `border-top` action footer. The redundant inline "N active" span was dropped (the header already shows `Filters (N active)`).
+
+**Lint cleanup (in-scope, plan step 11 region).** The render-time pattern removed `react-hooks/set-state-in-effect` warnings across the filter hook + a few dialog/combobox state syncs (commit `a8a48d3`).
+
+ADR-0107 clause 3 carries the matching `(as-built 2026-06-22, #39)` note.
