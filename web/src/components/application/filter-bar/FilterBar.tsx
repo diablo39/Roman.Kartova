@@ -1,28 +1,80 @@
-import { useId, useState } from "react";
+import { useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { SearchLg, ChevronDown } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { Checkbox } from "@/components/base/checkbox/checkbox";
 import { cx } from "@/lib/utils/cx";
+import { useListFilters } from "@/lib/list/filters/useListFilters";
+import type { ListUrlState } from "@/lib/list/useListUrlState";
 import type { FilterSpec } from "@/lib/list/filters/types";
-import type { useListFilters } from "@/lib/list/filters/useListFilters";
 
 interface FilterBarProps {
   specs: FilterSpec[];
-  filters: ReturnType<typeof useListFilters>;
+  urlState: Pick<
+    ListUrlState<string, string, string>,
+    "textFilters" | "booleanFilters" | "setFilters"
+  >;
 }
 
 /**
- * Standard list-filter surface (ADR-0107). Renders the controls inside a
- * collapsible "Filters" disclosure panel (expanded by default; the header keeps
- * the active count when collapsed so active filters are never hidden). Submit-
- * driven: text + boolean values are drafts until Enter or the Search button.
- * Builds the `text` and `boolean` controls; other types throw so misuse fails
- * loudly at dev time until they are implemented.
+ * Standard list-filter surface (ADR-0107). Collapsible "Filters" panel.
+ *
+ * Submit-driven AND zero-cost while typing: the text/boolean controls are
+ * **uncontrolled** (native DOM), so keystrokes never trigger a React render —
+ * the page and its table are untouched until the user acts. The committed values
+ * are read from the form (FormData) and pushed to the URL only on an explicit
+ * action: the Search button (`onClick`) or Enter in a text input (`onKeyDown`).
+ * Native form submission isn't relied on — react-aria's Input/Button don't emit
+ * it — so both paths call `commit()` directly. Each control is keyed by its
+ * committed value so external changes (back/forward, shared link, Clear all)
+ * re-seed it. Builds the `text` and `boolean` controls; other types throw so
+ * misuse fails loudly until they are implemented.
  */
-export function FilterBar({ specs, filters }: FilterBarProps) {
+export function FilterBar({ specs, urlState }: FilterBarProps) {
   const [open, setOpen] = useState(true);
   const panelId = useId();
+  const formRef = useRef<HTMLFormElement>(null);
+  const { isActive, activeCount } = useListFilters(specs, urlState);
+  const committedText = urlState.textFilters;
+  const committedBool = urlState.booleanFilters;
+
+  // Read the uncontrolled controls' current values and commit them to the URL in
+  // ONE navigation (see setFilters' note — looped setParams calls clobber each
+  // other). Called from the Search button and from Enter — never per keystroke.
+  const commit = () => {
+    const form = formRef.current;
+    if (!form) return;
+    const data = new FormData(form);
+    const text: Record<string, string> = {};
+    const booleans: Record<string, boolean> = {};
+    for (const s of specs) {
+      if (s.type === "text") text[s.key] = String(data.get(s.key) ?? "");
+      else if (s.type === "boolean") booleans[s.key] = data.get(s.key) != null;
+    }
+    urlState.setFilters({ text, booleans });
+  };
+
+  const onSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    commit();
+  };
+
+  const onInputKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      commit();
+    }
+  };
+
+  const clearAll = () => {
+    const text: Record<string, string> = {};
+    const booleans: Record<string, boolean> = {};
+    for (const s of specs) {
+      if (s.type === "text") text[s.key] = "";
+      else if (s.type === "boolean") booleans[s.key] = false;
+    }
+    urlState.setFilters({ text, booleans });
+  };
 
   return (
     <div className="rounded-xl bg-primary ring-1 ring-secondary">
@@ -33,50 +85,61 @@ export function FilterBar({ specs, filters }: FilterBarProps) {
         onClick={() => setOpen(o => !o)}
         className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-secondary"
       >
-        <span>Filters{filters.isActive ? ` (${filters.activeCount} active)` : ""}</span>
+        <span>Filters{isActive ? ` (${activeCount} active)` : ""}</span>
         <ChevronDown className={cx("size-4 text-fg-quaternary transition-transform", open && "rotate-180")} />
       </button>
 
       {open && (
         <form
+          ref={formRef}
           id={panelId}
           role="search"
           className="flex flex-wrap items-center gap-3 border-t border-secondary px-4 py-3"
-          onSubmit={(e) => { e.preventDefault(); filters.submit(); }}
+          onSubmit={onSubmit}
         >
           {specs.map(spec => {
             if (spec.type === "text") {
-              const { value, onChange } = filters.bind(spec.key);
+              const committed = committedText[spec.key] ?? "";
               return (
-                <div key={spec.key} className="w-full sm:w-72">
+                // Keyed by the committed value: typing leaves the key unchanged
+                // (no remount, native-fast), while a commit / back-forward / Clear
+                // all changes it and re-seeds the uncontrolled input via defaultValue.
+                <div key={`${spec.key}:${committed}`} className="w-full sm:w-72">
                   <Input
+                    name={spec.key}
+                    defaultValue={committed}
                     aria-label={spec.label}
                     placeholder={spec.placeholder}
                     icon={SearchLg}
                     size="sm"
-                    value={value}
-                    onChange={onChange}
                     maxLength={128}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); filters.submit(); } }}
+                    onKeyDown={onInputKeyDown}
                   />
                 </div>
               );
             }
             if (spec.type === "boolean") {
-              const { value, onChange } = filters.bindBoolean(spec.key);
-              return <Checkbox key={spec.key} isSelected={value} onChange={onChange} label={spec.label} />;
+              const committed = committedBool?.[spec.key] ?? false;
+              return (
+                <Checkbox
+                  key={`${spec.key}:${committed}`}
+                  name={spec.key}
+                  defaultSelected={committed}
+                  label={spec.label}
+                />
+              );
             }
             throw new Error(
               `FilterBar: "${spec.type}" control not implemented (ADR-0107 clause 1 — text + boolean only)`,
             );
           })}
 
-          <Button type="submit" size="sm" color="secondary">Search</Button>
+          <Button type="button" size="sm" color="secondary" onClick={commit}>Search</Button>
 
-          {filters.isActive && (
+          {isActive && (
             <>
-              <span className="text-sm text-tertiary">{filters.activeCount} active</span>
-              <Button size="sm" color="link-gray" onClick={filters.clearAll}>Clear all</Button>
+              <span className="text-sm text-tertiary">{activeCount} active</span>
+              <Button type="button" size="sm" color="link-gray" onClick={clearAll}>Clear all</Button>
             </>
           )}
         </form>

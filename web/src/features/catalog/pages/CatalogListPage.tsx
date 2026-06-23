@@ -62,7 +62,7 @@ export function CatalogListPage() {
         )}
       </div>
 
-      <FilterBar specs={FILTER_SPECS} filters={filters} />
+      <FilterBar specs={FILTER_SPECS} urlState={urlState} />
 
       {list.isError ? (
         <Card className="mx-auto max-w-md">

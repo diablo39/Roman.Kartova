@@ -41,6 +41,16 @@ export interface ListUrlState<TField extends string, TBoolFilter extends string 
    * keys (textFilters map) retain their narrowed type.
    */
   setTextFilter: (name: string, value: string) => void;
+  /**
+   * Commit several text + boolean filters in ONE navigation. `<FilterBar>` uses
+   * this on submit: calling `setTextFilter`/`setBooleanFilter` in a loop issues
+   * multiple `setParams` navigations, and react-router's functional updater reads
+   * the committed (stale) location each call, so the last write clobbers the
+   * earlier ones (a text filter would be wiped by a following boolean write).
+   * Applying all keys against a single `prev` avoids that. Text values are
+   * trimmed; blank/false removes the param (no `=`/`=false` clutter).
+   */
+  setFilters: (updates: { text?: Record<string, string>; booleans?: Record<string, boolean> }) => void;
 }
 
 /**
@@ -137,5 +147,24 @@ export function useListUrlState<TField extends string, TBoolFilter extends strin
     [setParams],
   );
 
-  return { sortBy, sortOrder, setSort, booleanFilters, setBooleanFilter, textFilters, setTextFilter };
+  const setFilters = useCallback(
+    (updates: { text?: Record<string, string>; booleans?: Record<string, boolean> }) => {
+      setParams(prev => {
+        const next = new URLSearchParams(prev);
+        for (const [name, value] of Object.entries(updates.text ?? {})) {
+          const trimmed = value.trim();
+          if (trimmed) next.set(name, trimmed);
+          else next.delete(name);
+        }
+        for (const [name, value] of Object.entries(updates.booleans ?? {})) {
+          if (value) next.set(name, "true");
+          else next.delete(name);
+        }
+        return next;
+      });
+    },
+    [setParams],
+  );
+
+  return { sortBy, sortOrder, setSort, booleanFilters, setBooleanFilter, textFilters, setTextFilter, setFilters };
 }
