@@ -129,23 +129,23 @@ export function FilterBar({ specs, urlState }: FilterBarProps) {
                   />
                 );
               }
-            if (spec.type === "single-select") {
-              const committed = committedText[spec.key] ?? "";
-              return (
-                <div key={`${spec.key}:${committed}`} className="w-full sm:w-56">
-                  <Select
-                    name={spec.key}
-                    defaultSelectedKey={committed}
-                    aria-label={spec.label}
-                    options={spec.options}
-                    size="sm"
-                  />
-                </div>
+              if (spec.type === "single-select") {
+                const committed = committedText[spec.key] ?? "";
+                return (
+                  <div key={`${spec.key}:${committed}`} className="w-full sm:w-56">
+                    <Select
+                      name={spec.key}
+                      defaultSelectedKey={committed}
+                      aria-label={spec.label}
+                      options={spec.options}
+                      size="sm"
+                    />
+                  </div>
+                );
+              }
+              throw new Error(
+                `FilterBar: "${spec.type}" control not implemented (ADR-0107 clause 1 — text + boolean + single-select only)`,
               );
-            }
-            throw new Error(
-              `FilterBar: "${spec.type}" control not implemented (ADR-0107 clause 1 — text + boolean + single-select only)`,
-            );
             })}
           </div>
 
