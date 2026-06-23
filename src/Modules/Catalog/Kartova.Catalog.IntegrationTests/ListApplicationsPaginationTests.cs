@@ -295,7 +295,7 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
     }
 
     // -----------------------------------------------------------------------
-    // Slice-6 filter tests — ?includeDecommissioned wire contract (ADR-0073)
+    // Default-view / lifecycle exclusion (ADR-0073).
     // -----------------------------------------------------------------------
 
     [TestMethod]
@@ -326,72 +326,6 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
             Assert.AreEqual(3, ours.Where(i => i.DisplayName.StartsWith(activePrefix)).Count(), "active rows must not be filtered");
             // No decomm-prefix rows must appear (default view excludes Decommissioned).
             Assert.AreEqual(0, ours.Where(i => i.DisplayName.StartsWith(decommPrefix)).Count(), "Decommissioned rows must be excluded by default");
-        }
-        finally
-        {
-            await Fx.DeleteApplicationsByPrefixAsync(tenantId, activePrefix);
-            await Fx.DeleteApplicationsByPrefixAsync(tenantId, decommPrefix);
-        }
-    }
-
-    [TestMethod]
-    public async Task GET_applications_with_includeDecommissioned_true_returns_all_lifecycles()
-    {
-        var unique = $"f6-incl-{Guid.NewGuid():N}";
-        var activePrefix = $"{unique}-a-";
-        var decommPrefix = $"{unique}-d-";
-
-        var tenantId = Fx.TenantIdForEmail("admin@orga.kartova.local");
-        await Fx.SeedApplicationsAsync(tenantId, count: 3, namePrefix: activePrefix);
-        await Fx.SeedApplicationsWithLifecycleAsync(tenantId, count: 2, namePrefix: decommPrefix, Lifecycle.Decommissioned);
-
-        try
-        {
-            var client = Fx.CreateClientForOrgA();
-            var response = await client.GetAsync("/api/v1/catalog/applications?limit=200&includeDecommissioned=true");
-
-            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
-            var page = await response.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
-            var ours = page!.Items.Where(i => i.DisplayName.StartsWith(unique, StringComparison.Ordinal)).ToList();
-
-            // Both active and decommissioned rows must be visible.
-            Assert.AreEqual(5, ours.Count, "?includeDecommissioned=true must return all 5 seeded rows");
-        }
-        finally
-        {
-            await Fx.DeleteApplicationsByPrefixAsync(tenantId, activePrefix);
-            await Fx.DeleteApplicationsByPrefixAsync(tenantId, decommPrefix);
-        }
-    }
-
-    [TestMethod]
-    public async Task GET_applications_with_explicit_includeDecommissioned_false_matches_default()
-    {
-        var unique = $"f6-expl-{Guid.NewGuid():N}";
-        var activePrefix = $"{unique}-a-";
-        var decommPrefix = $"{unique}-d-";
-
-        var tenantId = Fx.TenantIdForEmail("admin@orga.kartova.local");
-        await Fx.SeedApplicationsAsync(tenantId, count: 3, namePrefix: activePrefix);
-        await Fx.SeedApplicationsWithLifecycleAsync(tenantId, count: 2, namePrefix: decommPrefix, Lifecycle.Decommissioned);
-
-        try
-        {
-            var client = Fx.CreateClientForOrgA();
-            var defaultResp = await client.GetAsync("/api/v1/catalog/applications?limit=200");
-            var explicitResp = await client.GetAsync("/api/v1/catalog/applications?limit=200&includeDecommissioned=false");
-
-            Assert.AreEqual(HttpStatusCode.OK, defaultResp.StatusCode);
-            Assert.AreEqual(HttpStatusCode.OK, explicitResp.StatusCode);
-            var defaultPage = await defaultResp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
-            var explicitPage = await explicitResp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
-            // Both queries must return the same row set. Compare filtered to our unique prefix.
-            var defaultOurs = defaultPage!.Items.Where(i => i.DisplayName.StartsWith(unique, StringComparison.Ordinal)).Select(i => i.Id).ToList();
-            var explicitOurs = explicitPage!.Items.Where(i => i.DisplayName.StartsWith(unique, StringComparison.Ordinal)).Select(i => i.Id).ToList();
-            CollectionAssert.AreEquivalent(
-                defaultOurs,
-                explicitOurs,
-                "explicit ?includeDecommissioned=false must match the default (omitted) behavior");
         }
         finally
         {
@@ -435,53 +369,6 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
-    public async Task GET_displayNameContains_combines_with_includeDecommissioned()
-    {
-        // Default view (includeDecommissioned omitted ⇒ false) hides Decommissioned rows
-        // even when they match the name filter; includeDecommissioned=true surfaces them.
-        // Note: SeedDecommissionedApplicationAsync doesn't exist in the fixture; we use
-        // SeedApplicationsWithLifecycleAsync(count:1) and SeedSingleApplicationAsync for the
-        // active row, then assert by display-name prefix (not id) for the decommissioned row.
-        var unique = $"fltdec-{Guid.NewGuid():N}";
-        var tenantId = Fx.TenantIdForEmail("admin@orga.kartova.local");
-        var creator = await Fx.SeedUserInOrganizationAsync(
-            tenantId, displayName: "Dec Creator", email: $"{unique}@orga.kartova.local");
-
-        var activePrefix  = $"{unique}-keep-active";
-        var deadPrefix    = $"{unique}-keep-dead";
-
-        var active = await Fx.SeedSingleApplicationAsync(tenantId, creator, teamId: null, namePrefix: activePrefix);
-        // SeedApplicationsWithLifecycleAsync drives the aggregate into Decommissioned state.
-        await Fx.SeedApplicationsWithLifecycleAsync(tenantId, count: 1, namePrefix: deadPrefix, Lifecycle.Decommissioned);
-
-        try
-        {
-            var client = Fx.CreateClientForOrgA();
-
-            var defaultView = await client.GetAsync($"/api/v1/catalog/applications?displayNameContains={unique}-KEEP&limit=200");
-            var p1 = await defaultView.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
-            var ids1 = p1!.Items.Select(i => i.Id).ToHashSet();
-            Assert.IsTrue(ids1.Contains(active), "active match visible in default view");
-            Assert.IsFalse(
-                p1.Items.Any(i => i.DisplayName.StartsWith(deadPrefix, StringComparison.Ordinal)),
-                "decommissioned match hidden in default view");
-
-            var withDead = await client.GetAsync(
-                $"/api/v1/catalog/applications?displayNameContains={unique}-KEEP&includeDecommissioned=true&limit=200");
-            var p2 = await withDead.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
-            Assert.IsTrue(p2!.Items.Select(i => i.Id).Contains(active), "active visible with includeDecommissioned=true");
-            Assert.IsTrue(
-                p2.Items.Any(i => i.DisplayName.StartsWith(deadPrefix, StringComparison.Ordinal)),
-                "decommissioned visible with includeDecommissioned=true");
-        }
-        finally
-        {
-            await Fx.DeleteUserInOrganizationAsync(creator);
-            await Fx.DeleteApplicationsByPrefixAsync(tenantId, unique);
-        }
-    }
-
-    [TestMethod]
     public async Task GET_default_sort_orders_matching_rows_by_displayName_ascending()
     {
         // Asserts the default sort (no sortBy) orders matching rows ascending. The GLOBAL
@@ -511,38 +398,28 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
         }
     }
 
+    // -----------------------------------------------------------------------
+    // Lifecycle multi-select filter (ADR-0107) — real seam: real Postgres/RLS + JWT.
+    // -----------------------------------------------------------------------
+
     [TestMethod]
-    public async Task GET_applications_with_cursor_from_includeDecommissioned_true_then_request_false_returns_400_cursor_filter_mismatch()
+    public async Task GET_with_lifecycle_decommissioned_reveals_decommissioned_rows()
     {
-        var unique = $"f6-mism-{Guid.NewGuid():N}";
+        var unique = $"lc-dec-{Guid.NewGuid():N}";
         var activePrefix = $"{unique}-a-";
         var decommPrefix = $"{unique}-d-";
-
         var tenantId = Fx.TenantIdForEmail("admin@orga.kartova.local");
-        // Seed enough rows (5 total) so limit=2 always produces a NextCursor regardless of
-        // other tenant rows — the 5 rows are the most recent (seeded now), so createdAt desc
-        // puts them at the front, and limit=2 leaves 3 more behind the cursor.
         await Fx.SeedApplicationsAsync(tenantId, count: 3, namePrefix: activePrefix);
         await Fx.SeedApplicationsWithLifecycleAsync(tenantId, count: 2, namePrefix: decommPrefix, Lifecycle.Decommissioned);
-
         try
         {
             var client = Fx.CreateClientForOrgA();
-
-            var page1 = await client.GetAsync("/api/v1/catalog/applications?limit=2&includeDecommissioned=true");
-            Assert.AreEqual(HttpStatusCode.OK, page1.StatusCode);
-            var p1 = await page1.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
-            Assert.IsNotNull(p1!.NextCursor);
-
-            var page2 = await client.GetAsync(
-                $"/api/v1/catalog/applications?limit=2&includeDecommissioned=false&cursor={Uri.EscapeDataString(p1.NextCursor!)}");
-            Assert.AreEqual(HttpStatusCode.BadRequest, page2.StatusCode);
-
-            var problem = await page2.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
-            Assert.AreEqual(ProblemTypes.CursorFilterMismatch, problem!.Type);
-            Assert.AreEqual("includeDecommissioned", problem.Extensions["filterName"]!.ToString());
-            Assert.AreEqual("true", problem.Extensions["expectedValue"]!.ToString());   // cursor was issued with true
-            Assert.AreEqual("false", problem.Extensions["actualValue"]!.ToString());    // request sent false
+            var resp = await client.GetAsync("/api/v1/catalog/applications?limit=200&lifecycle=decommissioned");
+            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+            var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
+            var ours = page!.Items.Where(i => i.DisplayName.StartsWith(unique, StringComparison.Ordinal)).ToList();
+            Assert.AreEqual(2, ours.Count(i => i.DisplayName.StartsWith(decommPrefix)), "decommissioned rows are revealed by ?lifecycle=decommissioned");
+            Assert.AreEqual(0, ours.Count(i => i.DisplayName.StartsWith(activePrefix)), "active rows are excluded when only decommissioned is selected");
         }
         finally
         {
@@ -552,61 +429,171 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
-    public async Task GET_applications_with_filterless_cursor_returns_400_cursor_filter_mismatch()
+    public async Task GET_with_all_lifecycles_returns_active_and_decommissioned()
     {
-        // Clean break (ADR-0095 amendment 2026-06-01): the applications endpoint
-        // ALWAYS encodes the includeDecommissioned filter dimension into the
-        // cursor. A cursor carrying no filter state — a pre-slice-6/9 legacy
-        // `{s,i,d}`-only cursor — therefore no longer "decodes as ic=false"; it
-        // mismatches the request's filter map and is rejected. (Old behaviour:
-        // legacy cursor silently treated as ic=false and paged through.) The
-        // mismatch fires before keyset filtering, so no seeding is needed and the
-        // sort value/id need not point at real rows.
-        var filterlessJson = "{\"s\":\"2020-01-01T00:00:00.0000000Z\",\"i\":\"" + Guid.NewGuid() + "\",\"d\":\"desc\"}";
-        var filterlessCursor = System.Buffers.Text.Base64Url.EncodeToString(System.Text.Encoding.UTF8.GetBytes(filterlessJson));
-
-        var client = Fx.CreateClientForOrgA();
-
-        // Default request (no includeDecommissioned param → false). The cursor has
-        // no filter state (empty map), so includeDecommissioned is present in the
-        // request map but absent from the cursor map → mismatch.
-        var resp = await client.GetAsync(
-            $"/api/v1/catalog/applications?limit=2&sortBy=createdAt&sortOrder=desc&cursor={Uri.EscapeDataString(filterlessCursor)}");
-
-        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
-        var problem = await resp.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
-        Assert.AreEqual(ProblemTypes.CursorFilterMismatch, problem!.Type);
-        Assert.AreEqual("includeDecommissioned", problem.Extensions["filterName"]!.ToString());
-        Assert.AreEqual("(none)", problem.Extensions["expectedValue"]!.ToString());  // cursor carries no filter state
-        Assert.AreEqual("false", problem.Extensions["actualValue"]!.ToString());     // default request applies ic=false
+        var unique = $"lc-all-{Guid.NewGuid():N}";
+        var activePrefix = $"{unique}-a-";
+        var decommPrefix = $"{unique}-d-";
+        var tenantId = Fx.TenantIdForEmail("admin@orga.kartova.local");
+        await Fx.SeedApplicationsAsync(tenantId, count: 3, namePrefix: activePrefix);
+        await Fx.SeedApplicationsWithLifecycleAsync(tenantId, count: 2, namePrefix: decommPrefix, Lifecycle.Decommissioned);
+        try
+        {
+            var client = Fx.CreateClientForOrgA();
+            var resp = await client.GetAsync("/api/v1/catalog/applications?limit=200&lifecycle=active&lifecycle=deprecated&lifecycle=decommissioned");
+            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+            var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
+            var ours = page!.Items.Where(i => i.DisplayName.StartsWith(unique, StringComparison.Ordinal)).ToList();
+            Assert.AreEqual(5, ours.Count, "selecting all lifecycles returns every seeded row");
+        }
+        finally
+        {
+            await Fx.DeleteApplicationsByPrefixAsync(tenantId, activePrefix);
+            await Fx.DeleteApplicationsByPrefixAsync(tenantId, decommPrefix);
+        }
     }
 
     [TestMethod]
-    public async Task GET_applications_legacy_cursor_replayed_with_includeDecommissioned_true_returns_400()
+    public async Task GET_with_invalid_lifecycle_token_returns_400_invalid_lifecycle_filter()
     {
-        // Build a filterless cursor (no filter state) directly — no seeding needed
-        // because the filter-mismatch check fires before any keyset WHERE is
-        // applied, so the sort value and id do not need to point at real rows.
-        // Shape: { s, i, d } — pre-slice-6/9 format, decodes to an empty filter map.
-        var fakeTimestamp = "2020-01-01T00:00:00.0000000Z";
-        var fakeId = Guid.NewGuid().ToString();
-        var legacyJson = $"{{\"s\":\"{fakeTimestamp}\",\"i\":\"{fakeId}\",\"d\":\"desc\"}}";
-        var legacyCursor = System.Buffers.Text.Base64Url.EncodeToString(System.Text.Encoding.UTF8.GetBytes(legacyJson));
-
         var client = Fx.CreateClientForOrgA();
-
-        // Replay with ?includeDecommissioned=true. The cursor has no filter state
-        // (empty map); the request map has includeDecommissioned=true → the key is
-        // in the request but not the cursor → mismatch, before keyset filtering.
-        var resp = await client.GetAsync(
-            $"/api/v1/catalog/applications?limit=2&sortBy=createdAt&sortOrder=desc&includeDecommissioned=true&cursor={Uri.EscapeDataString(legacyCursor)}");
-
+        var resp = await client.GetAsync("/api/v1/catalog/applications?lifecycle=garbage");
         Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
-        var problem = await resp.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
-        Assert.AreEqual(ProblemTypes.CursorFilterMismatch, problem!.Type);
-        Assert.AreEqual("includeDecommissioned", problem.Extensions["filterName"]!.ToString());
-        Assert.AreEqual("(none)", problem.Extensions["expectedValue"]!.ToString());  // cursor carries no filter state
-        Assert.AreEqual("true", problem.Extensions["actualValue"]!.ToString());      // request applies ic=true
+        StringAssert.Contains(await resp.Content.ReadAsStringAsync(), "invalid-lifecycle-filter");
     }
 
+    // -----------------------------------------------------------------------
+    // Team multi-select filter (ADR-0107).
+    // -----------------------------------------------------------------------
+
+    [TestMethod]
+    public async Task GET_with_teamId_filters_to_that_team()
+    {
+        var unique = $"tm-{Guid.NewGuid():N}";
+        var tenantId = Fx.TenantIdForEmail("admin@orga.kartova.local");
+        var teamA = await Fx.SeedTeamInOrganizationAsync(tenantId, $"{unique}-A");
+        var teamB = await Fx.SeedTeamInOrganizationAsync(tenantId, $"{unique}-B");
+        var creator = await Fx.SeedUserInOrganizationAsync(tenantId, displayName: "Team Filter Creator", email: $"{unique}@orga.kartova.local");
+        var inA = await Fx.SeedSingleApplicationAsync(tenantId, creator, teamId: teamA, namePrefix: $"{unique}-a");
+        var inB = await Fx.SeedSingleApplicationAsync(tenantId, creator, teamId: teamB, namePrefix: $"{unique}-b");
+        try
+        {
+            var client = Fx.CreateClientForOrgA();
+            var resp = await client.GetAsync($"/api/v1/catalog/applications?limit=200&teamId={teamA}");
+            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+            var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
+            var ids = page!.Items.Select(i => i.Id).ToHashSet();
+            Assert.IsTrue(ids.Contains(inA), "app in team A is returned");
+            Assert.IsFalse(ids.Contains(inB), "app in team B is excluded");
+        }
+        finally
+        {
+            await Fx.DeleteUserInOrganizationAsync(creator);
+            await Fx.DeleteApplicationsByPrefixAsync(tenantId, unique);
+        }
+    }
+
+    [TestMethod]
+    public async Task GET_with_multiple_teamId_returns_union()
+    {
+        var unique = $"tm2-{Guid.NewGuid():N}";
+        var tenantId = Fx.TenantIdForEmail("admin@orga.kartova.local");
+        var teamA = await Fx.SeedTeamInOrganizationAsync(tenantId, $"{unique}-A");
+        var teamB = await Fx.SeedTeamInOrganizationAsync(tenantId, $"{unique}-B");
+        var creator = await Fx.SeedUserInOrganizationAsync(tenantId, displayName: "Union Creator", email: $"{unique}@orga.kartova.local");
+        var inA = await Fx.SeedSingleApplicationAsync(tenantId, creator, teamId: teamA, namePrefix: $"{unique}-a");
+        var inB = await Fx.SeedSingleApplicationAsync(tenantId, creator, teamId: teamB, namePrefix: $"{unique}-b");
+        try
+        {
+            var client = Fx.CreateClientForOrgA();
+            var resp = await client.GetAsync($"/api/v1/catalog/applications?limit=200&teamId={teamA}&teamId={teamB}");
+            var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
+            var ids = page!.Items.Select(i => i.Id).ToHashSet();
+            Assert.IsTrue(ids.Contains(inA) && ids.Contains(inB), "both teams' apps are returned");
+        }
+        finally
+        {
+            await Fx.DeleteUserInOrganizationAsync(creator);
+            await Fx.DeleteApplicationsByPrefixAsync(tenantId, unique);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Cursor f-map mismatch — lifecycle filter key (ADR-0095 amendment).
+    // -----------------------------------------------------------------------
+
+    [TestMethod]
+    public async Task GET_lifecycle_cursor_then_changed_lifecycle_returns_400_cursor_filter_mismatch()
+    {
+        var unique = $"lc-mism-{Guid.NewGuid():N}";
+        var activePrefix = $"{unique}-a-";
+        var decommPrefix = $"{unique}-d-";
+        var tenantId = Fx.TenantIdForEmail("admin@orga.kartova.local");
+        await Fx.SeedApplicationsAsync(tenantId, count: 3, namePrefix: activePrefix);
+        await Fx.SeedApplicationsWithLifecycleAsync(tenantId, count: 2, namePrefix: decommPrefix, Lifecycle.Decommissioned);
+        try
+        {
+            var client = Fx.CreateClientForOrgA();
+            // Page 1 selects all three lifecycles → f-map "Active,Decommissioned,Deprecated" (sorted).
+            var page1 = await client.GetAsync("/api/v1/catalog/applications?limit=2&lifecycle=active&lifecycle=deprecated&lifecycle=decommissioned");
+            Assert.AreEqual(HttpStatusCode.OK, page1.StatusCode);
+            var p1 = await page1.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
+            Assert.IsNotNull(p1!.NextCursor);
+
+            // Page 2 narrows to just active → mismatch on the "lifecycle" filter key.
+            var page2 = await client.GetAsync(
+                $"/api/v1/catalog/applications?limit=2&lifecycle=active&cursor={Uri.EscapeDataString(p1.NextCursor!)}");
+            Assert.AreEqual(HttpStatusCode.BadRequest, page2.StatusCode);
+            var problem = await page2.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
+            Assert.AreEqual(ProblemTypes.CursorFilterMismatch, problem!.Type);
+            Assert.AreEqual("lifecycle", problem.Extensions["filterName"]!.ToString());
+            Assert.AreEqual("Active,Decommissioned,Deprecated", problem.Extensions["expectedValue"]!.ToString());
+            Assert.AreEqual("Active", problem.Extensions["actualValue"]!.ToString());
+        }
+        finally
+        {
+            await Fx.DeleteApplicationsByPrefixAsync(tenantId, activePrefix);
+            await Fx.DeleteApplicationsByPrefixAsync(tenantId, decommPrefix);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Combined lifecycle-default-view + team filter composition (ADR-0107).
+    // Proves that "exclude Decommissioned by default" and "filter by team" compose.
+    // -----------------------------------------------------------------------
+
+    [TestMethod]
+    public async Task GET_teamId_filter_with_default_view_excludes_decommissioned_and_other_teams()
+    {
+        var unique = $"comp-{Guid.NewGuid():N}";
+        var tenantId = Fx.TenantIdForEmail("admin@orga.kartova.local");
+        var teamA = await Fx.SeedTeamInOrganizationAsync(tenantId, $"{unique}-A");
+        var teamB = await Fx.SeedTeamInOrganizationAsync(tenantId, $"{unique}-B");
+        var creator = await Fx.SeedUserInOrganizationAsync(tenantId, displayName: "Compose Creator", email: $"{unique}@orga.kartova.local");
+
+        // Seed: Decommissioned in TeamA, Active in TeamA, Active in TeamB.
+        var decommInA = await Fx.SeedSingleApplicationAsync(tenantId, creator, teamId: teamA, namePrefix: $"{unique}-decomm-a");
+        await Fx.SetApplicationLifecycleAsync(decommInA, Lifecycle.Decommissioned);
+        var activeInA = await Fx.SeedSingleApplicationAsync(tenantId, creator, teamId: teamA, namePrefix: $"{unique}-active-a");
+        var activeInB = await Fx.SeedSingleApplicationAsync(tenantId, creator, teamId: teamB, namePrefix: $"{unique}-active-b");
+
+        try
+        {
+            var client = Fx.CreateClientForOrgA();
+            // No lifecycle param → default view (exclude Decommissioned). Team filter = TeamA only.
+            var resp = await client.GetAsync($"/api/v1/catalog/applications?teamId={teamA}&limit=200");
+            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+            var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
+            var ids = page!.Items.Select(i => i.Id).ToHashSet();
+
+            Assert.IsTrue(ids.Contains(activeInA), "Active app in TeamA must be returned");
+            Assert.IsFalse(ids.Contains(decommInA), "Decommissioned app in TeamA must be excluded by default-view");
+            Assert.IsFalse(ids.Contains(activeInB), "Active app in TeamB must be excluded by team filter");
+        }
+        finally
+        {
+            await Fx.DeleteUserInOrganizationAsync(creator);
+            await Fx.DeleteApplicationsByPrefixAsync(tenantId, unique);
+        }
+    }
 }
