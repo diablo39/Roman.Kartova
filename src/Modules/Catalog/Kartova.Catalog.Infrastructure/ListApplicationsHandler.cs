@@ -77,7 +77,7 @@ public sealed class ListApplicationsHandler(IUserDirectory directory)
             source = source.Where(a => EF.Functions.ILike(a.DisplayName, pattern, "\\"));
         }
 
-        // Team filter (ADR-0107). Applied before paging. Array.Contains → SQL IN.
+        // Team filter (ADR-0107). Applied before paging. Array.Contains(column) → SQL `= ANY(@p)` via Npgsql.
         if (q.TeamId.Length > 0)
         {
             source = source.Where(a => q.TeamId.Contains(a.TeamId));

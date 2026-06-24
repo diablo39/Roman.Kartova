@@ -84,8 +84,9 @@ export interface ListUrlState<
  * Three optional filter axes layer on top of sort, each driven by a config list:
  * `booleanFilters` (`?flag=true`), `textFilters` (`?q=...`), and `multiFilters`
  * (repeated params `?k=a&k=b`, read via `getAll`; empty ⇒ param absent). All commit
- * in one navigation via `setFilters`. Consumers: Teams/Members/Applications lists
- * (the Applications lifecycle + team filters use `multiFilters`).
+ * in one navigation via `setFilters`. Current consumers: Teams + Members lists
+ * (text / single-select via `textFilters`); Applications list (lifecycle + team
+ * use `multiFilters`). `booleanFilters` has no current consumer (reserved).
  */
 export function useListUrlState<
   TField extends string,

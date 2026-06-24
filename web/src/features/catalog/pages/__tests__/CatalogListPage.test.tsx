@@ -305,6 +305,32 @@ describe("CatalogListPage — lifecycle multi-select threading", () => {
     );
   });
 
+  it("threads selected teamId to apiClient.GET as repeated params", async () => {
+    const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: get, POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn() } as never);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CatalogListPage />, { wrapper: harness(qc) });
+    await waitFor(() => expect(get).toHaveBeenCalled());
+    get.mockClear();
+
+    // The team multi-select (separate conditional spread from lifecycle) — options from useTeamsList (oneTeam).
+    await userEvent.click(screen.getByRole("button", { name: /^team/i }));
+    await userEvent.click(await screen.findByRole("option", { name: "Platform" }));
+    await userEvent.click(document.body);
+    await userEvent.click(screen.getByRole("button", { name: /^search$/i }));
+
+    await waitFor(() =>
+      expect(get).toHaveBeenCalledWith(
+        "/api/v1/catalog/applications",
+        expect.objectContaining({
+          params: expect.objectContaining({
+            query: expect.objectContaining({ teamId: ["00000000-0000-0000-0000-000000000099"] }),
+          }),
+        }),
+      ),
+    );
+  });
+
   it("omits lifecycle/teamId from the query when nothing is selected", async () => {
     const get = vi.fn().mockResolvedValue({ data: pageOf([]), error: undefined });
     vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: get, POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn() } as never);

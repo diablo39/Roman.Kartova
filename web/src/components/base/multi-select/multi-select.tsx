@@ -48,8 +48,9 @@ export const MultiSelect = ({
   const [selected, setSelected] = useState<Set<string>>(() => new Set(defaultSelectedKeys ?? []));
 
   const onChange = (keys: Selection) => {
-    // We never use the "all" sentinel (no select-all affordance) — treat it as empty.
-    setSelected(keys === "all" ? new Set() : new Set([...keys].map(k => String(k))));
+    // react-aria emits the "all" sentinel on a keyboard select-all (Ctrl/Cmd+A);
+    // map it to every option value so select-all selects, rather than clearing.
+    setSelected(keys === "all" ? new Set(options.map(o => o.value)) : new Set([...keys].map(k => String(k))));
   };
 
   // Summary text: placeholder when empty, the single label when one, "N selected" otherwise.

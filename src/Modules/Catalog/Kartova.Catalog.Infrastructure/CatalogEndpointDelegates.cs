@@ -185,6 +185,8 @@ internal static class CatalogEndpointDelegates
             Cursor: cursor,
             Limit: effectiveLimit,
             Lifecycle: lifecycles.ToArray(),
+            // ToHashSet de-dups repeated ?teamId= values (mirrors the lifecycle HashSet) so the
+            // cursor f-map stays canonical; ToArray() for the query record.
             TeamId: (teamId ?? Array.Empty<Guid>()).ToHashSet().ToArray(),
             DisplayNameContains: name,
             CreatedByUserId: createdByUserId);

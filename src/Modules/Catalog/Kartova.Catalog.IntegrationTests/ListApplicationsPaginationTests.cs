@@ -454,12 +454,55 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
-    public async Task GET_with_invalid_lifecycle_token_returns_400_invalid_lifecycle_filter()
+    [DataRow("garbage")]  // unknown name → Enum.TryParse fails
+    [DataRow("1")]        // numeric matching Active's ordinal → rejected by the int.TryParse guard (names-only wire contract)
+    [DataRow("0")]        // numeric out of range → rejected
+    public async Task GET_with_invalid_lifecycle_token_returns_400_invalid_lifecycle_filter(string token)
     {
         var client = Fx.CreateClientForOrgA();
-        var resp = await client.GetAsync("/api/v1/catalog/applications?lifecycle=garbage");
+        var resp = await client.GetAsync($"/api/v1/catalog/applications?lifecycle={token}");
         Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
         StringAssert.Contains(await resp.Content.ReadAsStringAsync(), "invalid-lifecycle-filter");
+    }
+
+    [TestMethod]
+    public async Task GET_with_malformed_teamId_returns_400()
+    {
+        // teamId binds as Guid[]; a non-Guid token must be rejected (a 400), not silently
+        // dropped — a silent drop would yield an unfiltered view the user never asked for.
+        var client = Fx.CreateClientForOrgA();
+        var resp = await client.GetAsync("/api/v1/catalog/applications?teamId=not-a-guid");
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task GET_default_view_cursor_replayed_with_lifecycle_filter_returns_400_cursor_filter_mismatch()
+    {
+        // Symmetric with the lifecycle-mismatch test: a default-view cursor carries an EMPTY
+        // f-map (no lifecycle key); adding ?lifecycle= on the next page must mismatch (the
+        // empty-default f-map must not silently accept a newly-filtered continuation).
+        var unique = $"def-mism-{Guid.NewGuid():N}";
+        var tenantId = Fx.TenantIdForEmail("admin@orga.kartova.local");
+        await Fx.SeedApplicationsAsync(tenantId, count: 3, namePrefix: $"{unique}-");
+        try
+        {
+            var client = Fx.CreateClientForOrgA();
+            var page1 = await client.GetAsync("/api/v1/catalog/applications?limit=2");
+            Assert.AreEqual(HttpStatusCode.OK, page1.StatusCode);
+            var p1 = await page1.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
+            Assert.IsNotNull(p1!.NextCursor);
+
+            var page2 = await client.GetAsync(
+                $"/api/v1/catalog/applications?limit=2&lifecycle=active&cursor={Uri.EscapeDataString(p1.NextCursor!)}");
+            Assert.AreEqual(HttpStatusCode.BadRequest, page2.StatusCode);
+            var problem = await page2.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
+            Assert.AreEqual(ProblemTypes.CursorFilterMismatch, problem!.Type);
+            Assert.AreEqual("lifecycle", problem.Extensions["filterName"]!.ToString());
+        }
+        finally
+        {
+            await Fx.DeleteApplicationsByPrefixAsync(tenantId, $"{unique}-");
+        }
     }
 
     // -----------------------------------------------------------------------

@@ -29,8 +29,9 @@ interface FilterBarProps {
  * Native form submission isn't relied on — react-aria's Input/Button don't emit
  * it — so both paths call `commit()` directly. Each control is keyed by its
  * committed value so external changes (back/forward, shared link, Clear all)
- * re-seed it. Builds the `text` and `boolean` controls; other types throw so
- * misuse fails loudly until they are implemented.
+ * re-seed it. Builds `text`, `boolean`, `single-select`, and `multi-select`
+ * controls; other types (`date-range`) throw so misuse fails loudly until
+ * they are implemented.
  */
 export function FilterBar({ specs, urlState }: FilterBarProps) {
   const [open, setOpen] = useState(true);

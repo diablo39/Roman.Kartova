@@ -149,6 +149,31 @@ public class ListApplicationsHandlerFilterTests
     }
 
     [TestMethod]
+    public async Task Handle_with_lifecycle_deprecated_returns_only_deprecated()
+    {
+        // Pins the middle enum value (Deprecated = 2): the Contains predicate must
+        // match it without confusing it for Active (1) or Decommissioned (3).
+        var options = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        using (var seed = new CatalogDbContext(options))
+        {
+            var active = DomainApplication.Create("Active App", "d", Creator, Team, Tenant, Clock(BaseTime));
+            var deprecated = DomainApplication.Create("Deprecated App", "d", Creator, Team, Tenant, Clock(BaseTime.AddMinutes(1)));
+            deprecated.Deprecate(sunsetDate: BaseTime.AddMinutes(15), clock: Clock(BaseTime.AddMinutes(10)));
+            seed.Applications.Add(active);
+            seed.Applications.Add(deprecated);
+            await seed.SaveChangesAsync();
+        }
+        await using var db = new CatalogDbContext(options);
+
+        var page = await new ListApplicationsHandler(NoOpDirectory())
+            .Handle(Query(lifecycle: new[] { Lifecycle.Deprecated }), db, CancellationToken.None);
+
+        Assert.AreEqual(1, page.Items.Count);
+        Assert.AreEqual("Deprecated App", page.Items.Single().DisplayName);
+    }
+
+    [TestMethod]
     public async Task Handle_with_teamId_filters_to_that_team()
     {
         await using var db = await BuildDbWithTwoTeamsAsync();

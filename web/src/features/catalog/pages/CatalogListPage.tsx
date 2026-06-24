@@ -73,6 +73,13 @@ export function CatalogListPage() {
     if (list.isError) console.error("CatalogListPage list error", list.error);
   }, [list.isError, list.error]);
 
+  // The team filter's options come from useTeamsList; a failed fetch otherwise
+  // renders an empty Team dropdown with no signal. Log it (mirrors the list error
+  // above) so a broken team filter is observable.
+  useEffect(() => {
+    if (teamsList.isError) console.error("CatalogListPage teams error", teamsList.error);
+  }, [teamsList.isError, teamsList.error]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">

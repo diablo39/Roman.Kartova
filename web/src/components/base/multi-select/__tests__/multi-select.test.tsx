@@ -49,4 +49,13 @@ describe("MultiSelect (base)", () => {
     await userEvent.click(await screen.findByRole("option", { name: "Decommissioned" }));
     expect(new FormData(formOf(container)).getAll("lifecycle")).toEqual(["active", "decommissioned"]);
   });
+
+  it("clicking a selected option deselects it (removes its FormData value)", async () => {
+    const { container } = render(
+      <form><MultiSelect name="lifecycle" aria-label="Lifecycle" options={OPTIONS} defaultSelectedKeys={["active", "deprecated"]} /></form>,
+    );
+    await userEvent.click(trigger());
+    await userEvent.click(await screen.findByRole("option", { name: "Active" })); // toggle Active off
+    expect(new FormData(formOf(container)).getAll("lifecycle")).toEqual(["deprecated"]);
+  });
 });
