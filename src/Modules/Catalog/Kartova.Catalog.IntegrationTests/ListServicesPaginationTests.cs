@@ -204,4 +204,111 @@ public class ListServicesPaginationTests : CatalogIntegrationTestBase
         CollectionAssert.AreEqual(new[] { "dsort-aaa", "dsort-mmm", "dsort-zzz" }, seeded,
             "default order must be ascending displayName");
     }
+
+    // -----------------------------------------------------------------------
+    // Team multi-select filter (ADR-0107).
+    // -----------------------------------------------------------------------
+
+    [TestMethod]
+    public async Task GET_with_teamId_filters_services_to_that_team()
+    {
+        var unique = $"svc-tm-{Guid.NewGuid():N}";
+        var tenantId = Fx.TenantIdForEmail(OrgAUser);
+        var teamA = await Fx.SeedTeamInOrganizationAsync(tenantId, $"{unique}-A");
+        var teamB = await Fx.SeedTeamInOrganizationAsync(tenantId, $"{unique}-B");
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+
+        var inA = (await (await client.PostAsJsonAsync("/api/v1/catalog/services", new
+        {
+            displayName = $"{unique}-svc-a", description = "d", teamId = teamA, endpoints = Array.Empty<object>(),
+        })).Content.ReadFromJsonAsync<ServiceResponse>(KartovaApiFixtureBase.WireJson))!.Id;
+        var inB = (await (await client.PostAsJsonAsync("/api/v1/catalog/services", new
+        {
+            displayName = $"{unique}-svc-b", description = "d", teamId = teamB, endpoints = Array.Empty<object>(),
+        })).Content.ReadFromJsonAsync<ServiceResponse>(KartovaApiFixtureBase.WireJson))!.Id;
+
+        var resp = await client.GetAsync($"/api/v1/catalog/services?limit=200&teamId={teamA}");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var page = await resp.Content.ReadFromJsonAsync<CursorPage<ServiceResponse>>(KartovaApiFixtureBase.WireJson);
+        var ids = page!.Items.Select(i => i.Id).ToHashSet();
+        Assert.IsTrue(ids.Contains(inA), "service in team A is returned");
+        Assert.IsFalse(ids.Contains(inB), "service in team B is excluded");
+    }
+
+    // -----------------------------------------------------------------------
+    // Health multi-select filter (ADR-0107).
+    // -----------------------------------------------------------------------
+
+    [TestMethod]
+    [DataRow("garbage")]   // unknown name → Enum.TryParse fails
+    [DataRow("1")]         // numeric matching Healthy's ordinal → rejected by int.TryParse guard
+    [DataRow("0")]         // numeric out of range
+    public async Task GET_with_invalid_health_token_returns_400_invalid_health_filter(string token)
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var resp = await client.GetAsync($"/api/v1/catalog/services?health={token}");
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+        StringAssert.Contains(await resp.Content.ReadAsStringAsync(), "invalid-health-filter");
+    }
+
+    [TestMethod]
+    public async Task GET_with_health_unknown_returns_services_with_unknown_health()
+    {
+        // All newly registered services default to HealthStatus.Unknown.
+        // health=unknown must return them; without the predicate all rows would be returned.
+        var unique = $"svc-hlth-{Guid.NewGuid():N}";
+        var tenantId = Fx.TenantIdForEmail(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenantId, $"{unique}-T");
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+
+        var svcId = (await (await client.PostAsJsonAsync("/api/v1/catalog/services", new
+        {
+            displayName = $"{unique}-svc", description = "d", teamId, endpoints = Array.Empty<object>(),
+        })).Content.ReadFromJsonAsync<ServiceResponse>(KartovaApiFixtureBase.WireJson))!.Id;
+
+        var resp = await client.GetAsync("/api/v1/catalog/services?health=unknown&limit=200");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var page = await resp.Content.ReadFromJsonAsync<CursorPage<ServiceResponse>>(KartovaApiFixtureBase.WireJson);
+        var ids = page!.Items.Select(i => i.Id).ToHashSet();
+        Assert.IsTrue(ids.Contains(svcId), "newly registered service with Unknown health must be returned by health=unknown");
+    }
+
+    // -----------------------------------------------------------------------
+    // Cursor f-map mismatch — teamId filter key (ADR-0095 amendment).
+    // -----------------------------------------------------------------------
+
+    [TestMethod]
+    public async Task GET_teamId_cursor_then_changed_teamId_returns_400_cursor_filter_mismatch()
+    {
+        var unique = $"svc-tm-mism-{Guid.NewGuid():N}";
+        var tenantId = Fx.TenantIdForEmail(OrgAUser);
+        var teamA = await Fx.SeedTeamInOrganizationAsync(tenantId, $"{unique}-A");
+        var teamB = await Fx.SeedTeamInOrganizationAsync(tenantId, $"{unique}-B");
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+
+        // Seed 3 services in TeamA so limit=2 yields a NextCursor.
+        foreach (var n in new[] { $"{unique}-a1", $"{unique}-a2", $"{unique}-a3" })
+        {
+            await client.PostAsJsonAsync("/api/v1/catalog/services", new
+            {
+                displayName = n, description = "d", teamId = teamA, endpoints = Array.Empty<object>(),
+            });
+        }
+
+        // Page 1 filters to TeamA → f-map records teamId = <teamA "D">.
+        var page1Resp = await client.GetAsync($"/api/v1/catalog/services?limit=2&teamId={teamA}");
+        Assert.AreEqual(HttpStatusCode.OK, page1Resp.StatusCode);
+        var p1 = await page1Resp.Content.ReadFromJsonAsync<CursorPage<ServiceResponse>>(KartovaApiFixtureBase.WireJson);
+        Assert.IsNotNull(p1!.NextCursor, "need a NextCursor to test the mismatch");
+
+        // Page 2 switches to TeamB → mismatch on the "teamId" filter key.
+        var page2Resp = await client.GetAsync(
+            $"/api/v1/catalog/services?limit=2&teamId={teamB}&cursor={Uri.EscapeDataString(p1.NextCursor!)}");
+        Assert.AreEqual(HttpStatusCode.BadRequest, page2Resp.StatusCode);
+        var problem = await page2Resp.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(ProblemTypes.CursorFilterMismatch, problem!.Type);
+        Assert.AreEqual("teamId", problem.Extensions["filterName"]!.ToString());
+        Assert.AreEqual(teamA.ToString("D"), problem.Extensions["expectedValue"]!.ToString());
+        Assert.AreEqual(teamB.ToString("D"), problem.Extensions["actualValue"]!.ToString());
+    }
 }

@@ -21,20 +21,40 @@ public sealed class ListServicesHandler(IUserDirectory directory)
     {
         var spec = ServiceSortSpecs.Resolve(q.SortBy);
 
-        // Apply the displayName filter BEFORE pagination so a hidden row never becomes a
-        // cursor boundary (same invariant as ListApplicationsHandler / ListTeamsHandler).
+        // Apply filters BEFORE pagination so a hidden row never becomes a cursor boundary
+        // (same invariant as ListApplicationsHandler / ListTeamsHandler).
         IQueryable<DomainService> source = db.Services;
-        Dictionary<string, string>? filters = null;
+
+        // teamId filter: Array.Contains(column) → SQL = ANY(@p) via Npgsql.
+        if (q.TeamId.Length > 0)
+            source = source.Where(s => q.TeamId.Contains(s.TeamId));
+
+        // health filter: Array.Contains(column) → SQL = ANY(@p) via Npgsql.
+        if (q.Health.Length > 0)
+            source = source.Where(s => q.Health.Contains(s.Health));
+
         if (q.DisplayNameContains is { } name)
         {
             var pattern = $"%{LikeEscaping.EscapeLike(name)}%";
             source = source.Where(s => EF.Functions.ILike(s.DisplayName, pattern, "\\"));
-            // The owning module owns the f-map keys/values; the shared codec treats them
-            // as opaque. A change mid-pagination trips CursorFilterMismatchException.
-            filters = new Dictionary<string, string>(StringComparer.Ordinal)
-            {
-                ["displayNameContains"] = name,
-            };
+        }
+
+        // Build the f-map dict. Only non-empty filter dimensions are encoded so
+        // the cursor stays canonical and a mid-pagination change trips
+        // CursorFilterMismatchException. The owning module owns the f-map keys/values;
+        // the shared codec treats them as opaque.
+        Dictionary<string, string>? filters = null;
+        if (q.TeamId.Length > 0 || q.Health.Length > 0 || q.DisplayNameContains is not null)
+        {
+            filters = new Dictionary<string, string>(StringComparer.Ordinal);
+            if (q.TeamId.Length > 0)
+                // Sorted so the f-map value is canonical regardless of input order.
+                filters["teamId"] = string.Join(",", q.TeamId.Select(g => g.ToString("D")).Order());
+            if (q.Health.Length > 0)
+                // Sorted enum names (same pattern as lifecycle in ListApplicationsHandler).
+                filters["health"] = string.Join(",", q.Health.Select(h => h.ToString()).Order());
+            if (q.DisplayNameContains is { } dn)
+                filters["displayNameContains"] = dn;
         }
 
         var page = await source

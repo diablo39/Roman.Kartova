@@ -16,6 +16,7 @@ using Microsoft.EntityFrameworkCore;
 // ApplicationSortSpecs uses for `DomainApplication`.
 using ApplicationId = Kartova.Catalog.Domain.ApplicationId;
 using Lifecycle = Kartova.Catalog.Domain.Lifecycle;
+using HealthStatus = Kartova.Catalog.Domain.HealthStatus;
 
 namespace Kartova.Catalog.Infrastructure;
 
@@ -413,18 +414,60 @@ internal static class CatalogEndpointDelegates
         return Results.Ok(resp).WithEtag(resp.Version);
     }
 
+    /// <summary>
+    /// <c>sortBy</c> and <c>sortOrder</c> are accepted as raw strings and parsed with
+    /// <c>Enum.TryParse(ignoreCase: true)</c> so that the wire contract
+    /// (<c>?sortBy=createdAt&amp;sortOrder=asc</c>, camelCase per ADR-0095) and the
+    /// C# enum member names both bind. <c>limit</c> stays <c>string?</c> so non-integer
+    /// inputs route through <c>InvalidLimitException</c> instead of the framework's
+    /// generic parse-error 400.
+    /// <para>
+    /// <c>teamId</c> — ADR-0107 multi-select team filter. Repeated <c>?teamId=</c>
+    /// Guids narrow the result set to the selected teams. Encoded into the cursor
+    /// <c>f</c>-map only when non-empty. Empty ⇒ no predicate (show all).
+    /// </para>
+    /// <para>
+    /// <c>health</c> — ADR-0107 multi-select health filter. Repeated <c>?health=</c>
+    /// tokens are parsed as case-insensitive enum names; numeric tokens and unknown
+    /// strings are rejected with 400 <c>invalid-health-filter</c>. Empty ⇒ no predicate
+    /// (show all health statuses — no ADR-0073 default-view rule applies to Services).
+    /// </para>
+    /// </summary>
     internal static async Task<IResult> ListServicesAsync(
         [FromQuery] string? sortBy,
         [FromQuery] string? sortOrder,
         [FromQuery] string? cursor,
         [FromQuery] string? limit,
         [FromQuery] string? displayNameContains,
+        [FromQuery] Guid[]? teamId,
+        [FromQuery] string[]? health,
         ListServicesHandler handler,
         CatalogDbContext db,
         CancellationToken ct)
     {
         var (parsedSortBy, parsedSortOrder, effectiveLimit) =
             CursorListBinding.Bind<ServiceSortField>(sortBy, sortOrder, limit, ServiceSortSpecs.AllowedFieldNames);
+
+        // Parse the repeated ?health= tokens (wire form: lowercase enum names). Reject
+        // numeric tokens ("1") and unknown strings with a 400 invalid-health-filter so
+        // the contract stays names-only (mirrors the lifecycle token parse in ListApplicationsAsync).
+        // HashSet de-dups in place (repeated ?health=healthy&health=healthy is a no-op
+        // insert) so the cursor f-map stays canonical without a second .Distinct() pass.
+        var healthSet = new HashSet<HealthStatus>();
+        foreach (var raw in health ?? Array.Empty<string>())
+        {
+            if (int.TryParse(raw, out _)
+                || !Enum.TryParse<HealthStatus>(raw, ignoreCase: true, out var parsed)
+                || !Enum.IsDefined(parsed))
+            {
+                return Results.Problem(
+                    type: ProblemTypes.InvalidHealthFilter,
+                    title: "Invalid health filter",
+                    detail: $"'{raw}' is not a valid health status. Expected one of: unknown, healthy, degraded, unhealthy.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+            healthSet.Add(parsed);
+        }
 
         // Blank/whitespace ⇒ no filter (filter-absent must equal today's unfiltered cursor).
         var name = string.IsNullOrWhiteSpace(displayNameContains) ? null : displayNameContains.Trim();
@@ -434,6 +477,9 @@ internal static class CatalogEndpointDelegates
             SortOrder: parsedSortOrder ?? SortOrder.Asc,            // default flips: was Desc
             Cursor: cursor,
             Limit: effectiveLimit,
+            // ToHashSet de-dups repeated ?teamId= values so the cursor f-map stays canonical; ToArray() for the query record.
+            TeamId: (teamId ?? Array.Empty<Guid>()).ToHashSet().ToArray(),
+            Health: healthSet.ToArray(),
             DisplayNameContains: name);
 
         var page = await handler.Handle(query, db, ct);

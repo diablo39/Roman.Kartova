@@ -12,6 +12,11 @@ type ServicesListParams = {
   sortBy: NonNullable<ListServicesQuery["sortBy"]>;     // "createdAt" | "displayName"
   sortOrder: NonNullable<ListServicesQuery["sortOrder"]>;
   limit?: number;
+  /** ADR-0107 team multi-select (team ids). Empty/undefined ⇒ omitted ⇒ no predicate (show all). */
+  teamId?: string[];
+  /** ADR-0107 health multi-select (wire values unknown|healthy|degraded|unhealthy).
+   *  Empty/undefined ⇒ omitted ⇒ no predicate (show all health statuses). */
+  health?: string[];
   displayNameContains?: string;
 };
 
@@ -35,6 +40,8 @@ export function useServicesList(params: ServicesListParams) {
             sortOrder: params.sortOrder,
             limit: params.limit ?? 50,
             cursor,
+            ...(params.teamId?.length ? { teamId: params.teamId } : {}),
+            ...(params.health?.length ? { health: params.health } : {}),
             ...(params.displayNameContains ? { displayNameContains: params.displayNameContains } : {}),
           },
         },

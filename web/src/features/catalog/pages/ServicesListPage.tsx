@@ -15,8 +15,12 @@ import { KartovaPermissions } from "@/shared/auth/permissions";
 
 const ALLOWED_SORT_FIELDS = ["createdAt", "displayName"] as const;
 const TEXT_FILTERS = ["displayNameContains"] as const;
-const FILTER_SPECS: FilterSpec[] = [
-  { key: "displayNameContains", type: "text", label: "Search services", placeholder: "Search by name…" },
+const MULTI_FILTERS = ["teamId", "health"] as const;
+const HEALTH_OPTIONS = [
+  { label: "Unknown", value: "unknown" },
+  { label: "Healthy", value: "healthy" },
+  { label: "Degraded", value: "degraded" },
+  { label: "Unhealthy", value: "unhealthy" },
 ];
 
 export function ServicesListPage() {
@@ -25,19 +29,41 @@ export function ServicesListPage() {
     defaultSortOrder: "asc",
     allowedSortFields: ALLOWED_SORT_FIELDS,
     textFilters: TEXT_FILTERS,
+    multiFilters: MULTI_FILTERS,
   });
-  const filters = useListFilters(FILTER_SPECS, urlState);
 
-  const list = useServicesList({
-    sortBy: urlState.sortBy,
-    sortOrder: urlState.sortOrder,
-    displayNameContains: filters.textValues.displayNameContains,
-  });
   const teamsList = useTeamsList({ sortBy: "displayName", sortOrder: "asc", limit: 200 });
   const teamNameById = useMemo(
     () => new Map<string, string>((teamsList.items ?? []).map((t) => [t.id, t.displayName])),
     [teamsList.items],
   );
+
+  // FILTER_SPECS is dynamic: team options come from the teams fetch. Health + search are static.
+  // (Known limit: the team dropdown shows only the first 200 teams — same cap as teamNameById lookup.)
+  const filterSpecs: FilterSpec[] = useMemo(
+    () => [
+      { key: "displayNameContains", type: "text", label: "Search services", placeholder: "Search by name…" },
+      {
+        key: "teamId",
+        type: "multi-select",
+        label: "Team",
+        placeholder: "All teams",
+        options: (teamsList.items ?? []).map((t) => ({ label: t.displayName, value: t.id })),
+      },
+      { key: "health", type: "multi-select", label: "Health", placeholder: "Any health", options: HEALTH_OPTIONS },
+    ],
+    [teamsList.items],
+  );
+  const filters = useListFilters(filterSpecs, urlState);
+
+  const list = useServicesList({
+    sortBy: urlState.sortBy,
+    sortOrder: urlState.sortOrder,
+    displayNameContains: filters.textValues.displayNameContains,
+    teamId: filters.multiValues.teamId,
+    health: filters.multiValues.health,
+  });
+
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const { hasPermission, isLoading: permissionsLoading } = usePermissions();
@@ -46,6 +72,12 @@ export function ServicesListPage() {
   useEffect(() => {
     if (list.isError) console.error("ServicesListPage list error", list.error);
   }, [list.isError, list.error]);
+
+  // The team filter's options come from useTeamsList; a failed fetch otherwise
+  // renders an empty Team dropdown with no signal. Log it so a broken team filter is observable.
+  useEffect(() => {
+    if (teamsList.isError) console.error("ServicesListPage teams error", teamsList.error);
+  }, [teamsList.isError, teamsList.error]);
 
   return (
     <div className="space-y-6">
@@ -58,7 +90,7 @@ export function ServicesListPage() {
         )}
       </div>
 
-      <FilterBar specs={FILTER_SPECS} urlState={urlState} />
+      <FilterBar specs={filterSpecs} urlState={urlState} />
 
       {list.isError ? (
         <Card className="mx-auto max-w-md">
@@ -71,8 +103,8 @@ export function ServicesListPage() {
       ) : !list.isLoading && list.items.length === 0 && filters.isActive ? (
         <Card className="mx-auto max-w-md text-center">
           <CardContent className="space-y-2 p-8">
-            <p className="text-base font-medium text-primary">No services match your search</p>
-            <p className="text-sm text-tertiary">Try a different name.</p>
+            <p className="text-base font-medium text-primary">No services match your filters</p>
+            <p className="text-sm text-tertiary">Try a different name or clear the filters.</p>
           </CardContent>
         </Card>
       ) : (
