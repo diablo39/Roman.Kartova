@@ -141,7 +141,9 @@ internal static class CatalogEndpointDelegates
         // Parse the repeated ?lifecycle= tokens (wire form: lowercase enum names). Reject
         // numeric tokens ("1") and unknown strings with a 400 invalid-lifecycle-filter so
         // the contract stays names-only (mirrors the sortBy IsDefined reject in CursorListBinding).
-        var lifecycles = new List<Lifecycle>();
+        // HashSet de-dups in place (repeated ?lifecycle=active&lifecycle=active is a no-op
+        // insert) so the cursor f-map stays canonical without a second .Distinct() pass.
+        var lifecycles = new HashSet<Lifecycle>();
         foreach (var raw in lifecycle ?? Array.Empty<string>())
         {
             if (int.TryParse(raw, out _)
@@ -182,8 +184,8 @@ internal static class CatalogEndpointDelegates
             SortOrder: parsedSortOrder ?? SortOrder.Asc,
             Cursor: cursor,
             Limit: effectiveLimit,
-            Lifecycle: lifecycles.Distinct().ToArray(),
-            TeamId: (teamId ?? Array.Empty<Guid>()).Distinct().ToArray(),
+            Lifecycle: lifecycles.ToArray(),
+            TeamId: (teamId ?? Array.Empty<Guid>()).ToHashSet().ToArray(),
             DisplayNameContains: name,
             CreatedByUserId: createdByUserId);
 

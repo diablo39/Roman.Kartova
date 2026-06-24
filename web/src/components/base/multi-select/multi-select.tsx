@@ -19,7 +19,9 @@ export interface MultiSelectOption {
 
 export interface MultiSelectProps {
   /** Form field name. Selected values are mirrored into hidden inputs so they are
-   *  captured by `FormData.getAll(name)` (the uncontrolled FilterBar commit path). */
+   *  captured by `FormData.getAll(name)` (the uncontrolled FilterBar commit path).
+   *  Invariant: render inside a `<form>` for that bridge to work — there is no
+   *  standalone `onChange` output. */
   name: string;
   "aria-label"?: string;
   label?: string;
