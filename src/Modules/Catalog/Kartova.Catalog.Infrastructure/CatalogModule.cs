@@ -139,6 +139,12 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .Produces<CursorPage<RelationshipResponse>>(StatusCodes.Status200OK)
               .ProducesProblem(StatusCodes.Status400BadRequest)
               .ProducesProblem(StatusCodes.Status403Forbidden);
+        tenant.MapDelete("/relationships/{id:guid}", CatalogEndpointDelegates.DeleteRelationshipAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRelationshipsWrite)
+              .WithName("DeleteRelationship")
+              .Produces(StatusCodes.Status204NoContent)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
+              .ProducesProblem(StatusCodes.Status404NotFound);
         tenant.MapPost("/relationships", CatalogEndpointDelegates.CreateRelationshipAsync)
               .RequireAuthorization(KartovaPermissions.CatalogRelationshipsWrite)
               .WithName("CreateRelationship")
@@ -194,6 +200,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<GetServiceByIdHandler>();
         services.AddScoped<ListServicesHandler>();
         services.AddScoped<CreateRelationshipHandler>();
+        services.AddScoped<DeleteRelationshipHandler>();
         services.AddScoped<ListRelationshipsForEntityHandler>();
         services.AddScoped<ICatalogEntityLookup, CatalogEntityLookup>();
 

@@ -551,6 +551,35 @@ internal static class CatalogEndpointDelegates
         return Results.Created($"/api/v1/catalog/relationships/{response.Id}", response);
     }
 
+    internal static async Task<IResult> DeleteRelationshipAsync(
+        Guid id,
+        ICatalogEntityLookup lookup,
+        DeleteRelationshipHandler handler,
+        CatalogDbContext db,
+        ClaimsPrincipal caller,
+        IAuthorizationService auth,
+        IAuditWriter audit,
+        CancellationToken ct)
+    {
+        var rel = await db.Relationships.FirstOrDefaultAsync(r => EF.Property<Guid>(r, "_id") == id, ct);
+        if (rel is null)
+            return Results.Problem(
+                type: ProblemTypes.ResourceNotFound,
+                title: "Not found",
+                statusCode: StatusCodes.Status404NotFound);
+
+        var sourceInfo = await lookup.Find(rel.Source.Kind, rel.Source.Id, ct);
+
+        // If source entity still exists: OrgAdmin OR member of source team.
+        // If source entity was deleted: fall back to OrgAdmin-only (null TeamId → gate never passes for Member).
+        var teamId = sourceInfo?.TeamId ?? Guid.Empty;
+        if (await AuthorizeTargetTeamAsync(auth, caller, teamId) is { } forbidden)
+            return forbidden;
+
+        await handler.Handle(rel, db, audit, ct);
+        return Results.NoContent();
+    }
+
     /// <summary>
     /// GET /relationships?entityKind=&amp;entityId=&amp;direction= — list relationships for an entity.
     /// Returns a cursor-paged list of relationships where the given entity is the source, target, or either.
