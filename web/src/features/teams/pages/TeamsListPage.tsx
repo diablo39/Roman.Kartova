@@ -30,7 +30,7 @@ export function TeamsListPage() {
   const list = useTeamsList({
     sortBy: urlState.sortBy,
     sortOrder: urlState.sortOrder,
-    displayNameContains: filters.queryFilters.displayNameContains as string | undefined,
+    displayNameContains: filters.textValues.displayNameContains,
   });
   const [dialogOpen, setDialogOpen] = useState(false);
 

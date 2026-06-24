@@ -31,7 +31,7 @@ export function ServicesListPage() {
   const list = useServicesList({
     sortBy: urlState.sortBy,
     sortOrder: urlState.sortOrder,
-    displayNameContains: filters.queryFilters.displayNameContains as string | undefined,
+    displayNameContains: filters.textValues.displayNameContains,
   });
   const teamsList = useTeamsList({ sortBy: "displayName", sortOrder: "asc", limit: 200 });
   const teamNameById = useMemo(

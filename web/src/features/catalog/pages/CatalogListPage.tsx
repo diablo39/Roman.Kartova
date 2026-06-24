@@ -59,9 +59,9 @@ export function CatalogListPage() {
   const list = useApplicationsList({
     sortBy: urlState.sortBy,
     sortOrder: urlState.sortOrder,
-    displayNameContains: filters.queryFilters.displayNameContains as string | undefined,
-    lifecycle: filters.queryFilters.lifecycle as string[] | undefined,
-    teamId: filters.queryFilters.teamId as string[] | undefined,
+    displayNameContains: filters.textValues.displayNameContains,
+    lifecycle: filters.multiValues.lifecycle,
+    teamId: filters.multiValues.teamId,
   });
 
   const [dialogOpen, setDialogOpen] = useState(false);

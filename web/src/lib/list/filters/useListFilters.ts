@@ -9,11 +9,13 @@ import type { FilterSpec } from "./types";
  * in `<FilterBar>` as uncontrolled inputs that commit to the URL only on submit
  * (Enter / Search button); see ADR-0107 clause 3.
  *
- * `queryFilters` is what the list query hook spreads: text (and single-select)
- * keys are committed-or-`undefined` (so the unfiltered key matches the pre-filter
- * key); boolean keys are always present (default `false`); multi-select keys are a
- * `string[]` when non-empty and `undefined` when empty — callers are responsible
- * for serializing arrays (the API client emits repeated query params).
+ * The committed values a list query hook threads are exposed as three typed maps —
+ * `textValues`, `boolValues`, `multiValues` — so call sites read them without a cast:
+ * - `textValues` (text + single-select): committed string or `undefined` (so the
+ *   unfiltered key matches the pre-filter key);
+ * - `boolValues`: always present, default `false`;
+ * - `multiValues` (multi-select): `string[]` when non-empty, `undefined` when empty —
+ *   the API client serializes the array as repeated query params.
  */
 export function useListFilters(
   specs: FilterSpec[],
@@ -29,13 +31,23 @@ export function useListFilters(
   const committedBool = urlState.booleanFilters;
   const committedMulti = urlState.multiFilters;
 
-  const queryFilters = useMemo(() => {
-    const out: Record<string, string | boolean | string[] | undefined> = {};
+  const textValues = useMemo(() => {
+    const out: Record<string, string | undefined> = {};
     for (const s of textSpecs) out[s.key] = (committedText[s.key] ?? "") || undefined;
+    return out;
+  }, [textSpecs, committedText]);
+
+  const boolValues = useMemo(() => {
+    const out: Record<string, boolean> = {};
     for (const s of boolSpecs) out[s.key] = committedBool?.[s.key] ?? false;
+    return out;
+  }, [boolSpecs, committedBool]);
+
+  const multiValues = useMemo(() => {
+    const out: Record<string, string[] | undefined> = {};
     for (const s of multiSpecs) out[s.key] = committedMulti?.[s.key]?.length ? committedMulti[s.key] : undefined;
     return out;
-  }, [textSpecs, boolSpecs, multiSpecs, committedText, committedBool, committedMulti]);
+  }, [multiSpecs, committedMulti]);
 
   const isActive = useMemo(
     () => textSpecs.some(s => (committedText[s.key] ?? "") !== "")
@@ -49,5 +61,5 @@ export function useListFilters(
         + multiSpecs.filter(s => (committedMulti?.[s.key]?.length ?? 0) > 0).length,
     [textSpecs, boolSpecs, multiSpecs, committedText, committedBool, committedMulti]);
 
-  return { queryFilters, isActive, activeCount };
+  return { textValues, boolValues, multiValues, isActive, activeCount };
 }

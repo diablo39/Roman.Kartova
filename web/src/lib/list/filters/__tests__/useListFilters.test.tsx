@@ -36,21 +36,21 @@ describe("useListFilters — text specs", () => {
     const { result } = renderHook(() =>
       useListFilters(textSpecs, fakeTextState({ displayNameContains: "pl" })),
     );
-    expect(result.current.queryFilters.displayNameContains).toBe("pl");
+    expect(result.current.textValues.displayNameContains).toBe("pl");
   });
 
   it("queryFilters returns undefined for an empty committed value", () => {
     const { result } = renderHook(() =>
       useListFilters(textSpecs, fakeTextState({ displayNameContains: "" })),
     );
-    expect(result.current.queryFilters.displayNameContains).toBeUndefined();
+    expect(result.current.textValues.displayNameContains).toBeUndefined();
   });
 
   it("queryFilters returns undefined when the key is absent from textFilters", () => {
     const { result } = renderHook(() =>
       useListFilters(textSpecs, fakeTextState({})),
     );
-    expect(result.current.queryFilters.displayNameContains).toBeUndefined();
+    expect(result.current.textValues.displayNameContains).toBeUndefined();
   });
 
   it("isActive is true when at least one text filter has a committed non-empty value", () => {
@@ -81,13 +81,15 @@ describe("useListFilters — text specs", () => {
     expect(result.current.activeCount).toBe(0);
   });
 
-  it("returns only { queryFilters, isActive, activeCount } — no draft/bind/submit/clearAll", () => {
+  it("returns typed value maps + isActive/activeCount — no draft/bind/submit/clearAll", () => {
     const { result } = renderHook(() =>
       useListFilters(textSpecs, fakeTextState()),
     );
     const keys = Object.keys(result.current);
-    expect(keys).toEqual(expect.arrayContaining(["queryFilters", "isActive", "activeCount"]));
-    expect(keys).not.toContain("values");
+    expect(keys).toEqual(
+      expect.arrayContaining(["textValues", "boolValues", "multiValues", "isActive", "activeCount"]),
+    );
+    expect(keys).not.toContain("queryFilters"); // replaced by the three typed maps
     expect(keys).not.toContain("bind");
     expect(keys).not.toContain("submit");
     expect(keys).not.toContain("clearAll");
@@ -108,21 +110,21 @@ describe("useListFilters — boolean specs", () => {
     const { result } = renderHook(() =>
       useListFilters(boolSpecs, fakeMixedState({ displayNameContains: "" }, {})),
     );
-    expect(result.current.queryFilters.includeDecommissioned).toBe(false);
+    expect(result.current.boolValues.includeDecommissioned).toBe(false);
   });
 
   it("queryFilters.includeDecommissioned is true when committed to true", () => {
     const { result } = renderHook(() =>
       useListFilters(boolSpecs, fakeMixedState({ displayNameContains: "" }, { includeDecommissioned: true })),
     );
-    expect(result.current.queryFilters.includeDecommissioned).toBe(true);
+    expect(result.current.boolValues.includeDecommissioned).toBe(true);
   });
 
   it("queryFilters.includeDecommissioned is false when committed to false", () => {
     const { result } = renderHook(() =>
       useListFilters(boolSpecs, fakeMixedState({ displayNameContains: "" }, { includeDecommissioned: false })),
     );
-    expect(result.current.queryFilters.includeDecommissioned).toBe(false);
+    expect(result.current.boolValues.includeDecommissioned).toBe(false);
   });
 
   it("isActive is true when a committed boolean is true", () => {
@@ -163,12 +165,12 @@ describe("useListFilters — re-renders with changed committed state", () => {
     let urlState = fakeMixedState({ displayNameContains: "" }, { includeDecommissioned: false });
     const { result, rerender } = renderHook(() => useListFilters(boolSpecs, urlState));
 
-    expect(result.current.queryFilters.displayNameContains).toBeUndefined();
+    expect(result.current.textValues.displayNameContains).toBeUndefined();
 
     urlState = fakeMixedState({ displayNameContains: "plat" }, { includeDecommissioned: false });
     rerender();
 
-    expect(result.current.queryFilters.displayNameContains).toBe("plat");
+    expect(result.current.textValues.displayNameContains).toBe("plat");
     expect(result.current.isActive).toBe(true);
   });
 
@@ -176,12 +178,12 @@ describe("useListFilters — re-renders with changed committed state", () => {
     let urlState = fakeMixedState({ displayNameContains: "" }, { includeDecommissioned: false });
     const { result, rerender } = renderHook(() => useListFilters(boolSpecs, urlState));
 
-    expect(result.current.queryFilters.includeDecommissioned).toBe(false);
+    expect(result.current.boolValues.includeDecommissioned).toBe(false);
 
     urlState = fakeMixedState({ displayNameContains: "" }, { includeDecommissioned: true });
     rerender();
 
-    expect(result.current.queryFilters.includeDecommissioned).toBe(true);
+    expect(result.current.boolValues.includeDecommissioned).toBe(true);
     expect(result.current.isActive).toBe(true);
   });
 });
@@ -207,7 +209,7 @@ describe("useListFilters — single-select", () => {
     const { result } = renderHook(() =>
       useListFilters(selectSpecs, { textFilters: { role: "Viewer" }, booleanFilters: {}, multiFilters: {} }),
     );
-    expect(result.current.queryFilters.role).toBe("Viewer");
+    expect(result.current.textValues.role).toBe("Viewer");
     expect(result.current.isActive).toBe(true);
     expect(result.current.activeCount).toBe(1);
   });
@@ -216,7 +218,7 @@ describe("useListFilters — single-select", () => {
     const { result } = renderHook(() =>
       useListFilters(selectSpecs, { textFilters: { role: "" }, booleanFilters: {}, multiFilters: {} }),
     );
-    expect(result.current.queryFilters.role).toBeUndefined();
+    expect(result.current.textValues.role).toBeUndefined();
     expect(result.current.isActive).toBe(false);
   });
 });
@@ -232,7 +234,7 @@ describe("useListFilters — multi-select", () => {
     ];
     const urlState = { textFilters: {}, booleanFilters: {}, multiFilters: { lifecycle: ["active", "deprecated"] } };
     const { result } = renderHook(() => useListFilters(specs, urlState));
-    expect(result.current.queryFilters.lifecycle).toEqual(["active", "deprecated"]);
+    expect(result.current.multiValues.lifecycle).toEqual(["active", "deprecated"]);
     expect(result.current.isActive).toBe(true);
     expect(result.current.activeCount).toBe(1);
   });
@@ -243,7 +245,7 @@ describe("useListFilters — multi-select", () => {
     ];
     const urlState = { textFilters: {}, booleanFilters: {}, multiFilters: { lifecycle: [] } };
     const { result } = renderHook(() => useListFilters(specs, urlState));
-    expect(result.current.queryFilters.lifecycle).toBeUndefined();
+    expect(result.current.multiValues.lifecycle).toBeUndefined();
     expect(result.current.isActive).toBe(false);
   });
 });

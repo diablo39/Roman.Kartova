@@ -41,8 +41,8 @@ export function MembersListPage() {
   const list = useMembersList({
     sortBy: urlState.sortBy,
     sortOrder: urlState.sortOrder,
-    role: filters.queryFilters.role as string | undefined,
-    q: filters.queryFilters.q as string | undefined,
+    role: filters.textValues.role,
+    q: filters.textValues.q,
   });
 
   const { hasPermission, isLoading: permissionsLoading } = usePermissions();
