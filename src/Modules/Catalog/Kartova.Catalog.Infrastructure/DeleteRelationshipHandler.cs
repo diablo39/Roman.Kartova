@@ -19,13 +19,6 @@ public sealed class DeleteRelationshipHandler
             CatalogAuditActions.RelationshipRemoved,
             CatalogAuditTargetTypes.Relationship,
             rel.Id.Value.ToString(),
-            new Dictionary<string, string?>
-            {
-                ["sourceKind"] = rel.Source.Kind.ToString(),
-                ["sourceId"]   = rel.Source.Id.ToString(),
-                ["type"]       = rel.Type.ToString(),
-                ["targetKind"] = rel.Target.Kind.ToString(),
-                ["targetId"]   = rel.Target.Id.ToString(),
-            }), ct);
+            RelationshipAuditData.For(rel.Source, rel.Target, rel.Type)), ct);
     }
 }

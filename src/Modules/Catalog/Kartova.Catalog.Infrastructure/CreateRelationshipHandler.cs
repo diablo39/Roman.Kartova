@@ -28,14 +28,7 @@ public sealed class CreateRelationshipHandler(TimeProvider clock)
             CatalogAuditActions.RelationshipCreated,
             CatalogAuditTargetTypes.Relationship,
             rel.Id.Value.ToString(),
-            new Dictionary<string, string?>
-            {
-                ["sourceKind"] = cmd.Source.Kind.ToString(),
-                ["sourceId"]   = cmd.Source.Id.ToString(),
-                ["type"]       = cmd.Type.ToString(),
-                ["targetKind"] = cmd.Target.Kind.ToString(),
-                ["targetId"]   = cmd.Target.Id.ToString(),
-            }), ct);
+            RelationshipAuditData.For(cmd.Source, cmd.Target, cmd.Type)), ct);
 
         return rel.ToResponse(source, target);
     }
