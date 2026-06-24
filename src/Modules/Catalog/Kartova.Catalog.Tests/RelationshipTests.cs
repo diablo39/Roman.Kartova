@@ -50,4 +50,66 @@ public class RelationshipTests
     {
         Assert.AreEqual(expected, RelationshipTypeRules.IsAllowedPair(type, source, target));
     }
+
+    private static EntityRef Svc(Guid id) => new(EntityKind.Service, id);
+    private static EntityRef App(Guid id) => new(EntityKind.Application, id);
+
+    [TestMethod]
+    public void CreateManual_dependsOn_sets_fields_and_manual_origin()
+    {
+        var src = Svc(Guid.NewGuid());
+        var tgt = Svc(Guid.NewGuid());
+        var creator = Guid.NewGuid();
+        var rel = Relationship.CreateManual(src, tgt, RelationshipType.DependsOn, creator,
+            new Kartova.SharedKernel.Multitenancy.TenantId(Guid.NewGuid()), TimeProvider.System);
+
+        Assert.AreEqual(src, rel.Source);
+        Assert.AreEqual(tgt, rel.Target);
+        Assert.AreEqual(RelationshipType.DependsOn, rel.Type);
+        Assert.AreEqual(RelationshipOrigin.Manual, rel.Origin);
+        Assert.AreEqual(creator, rel.CreatedByUserId);
+        Assert.AreNotEqual(Guid.Empty, rel.Id.Value);
+    }
+
+    [TestMethod]
+    public void CreateManual_partOf_service_to_application_is_valid()
+    {
+        var rel = Relationship.CreateManual(Svc(Guid.NewGuid()), App(Guid.NewGuid()),
+            RelationshipType.PartOf, Guid.NewGuid(),
+            new Kartova.SharedKernel.Multitenancy.TenantId(Guid.NewGuid()), TimeProvider.System);
+        Assert.AreEqual(RelationshipType.PartOf, rel.Type);
+    }
+
+    [TestMethod]
+    public void CreateManual_rejects_self_reference()
+    {
+        var same = Svc(Guid.NewGuid());
+        Assert.ThrowsExactly<ArgumentException>(() => Relationship.CreateManual(
+            same, same, RelationshipType.DependsOn, Guid.NewGuid(),
+            new Kartova.SharedKernel.Multitenancy.TenantId(Guid.NewGuid()), TimeProvider.System));
+    }
+
+    [TestMethod]
+    public void CreateManual_rejects_non_creatable_type()
+    {
+        Assert.ThrowsExactly<ArgumentException>(() => Relationship.CreateManual(
+            Svc(Guid.NewGuid()), Svc(Guid.NewGuid()), RelationshipType.PublishesTo, Guid.NewGuid(),
+            new Kartova.SharedKernel.Multitenancy.TenantId(Guid.NewGuid()), TimeProvider.System));
+    }
+
+    [TestMethod]
+    public void CreateManual_rejects_disallowed_pair_partOf_app_to_service()
+    {
+        Assert.ThrowsExactly<ArgumentException>(() => Relationship.CreateManual(
+            App(Guid.NewGuid()), Svc(Guid.NewGuid()), RelationshipType.PartOf, Guid.NewGuid(),
+            new Kartova.SharedKernel.Multitenancy.TenantId(Guid.NewGuid()), TimeProvider.System));
+    }
+
+    [TestMethod]
+    public void CreateManual_rejects_empty_creator()
+    {
+        Assert.ThrowsExactly<ArgumentException>(() => Relationship.CreateManual(
+            Svc(Guid.NewGuid()), Svc(Guid.NewGuid()), RelationshipType.DependsOn, Guid.Empty,
+            new Kartova.SharedKernel.Multitenancy.TenantId(Guid.NewGuid()), TimeProvider.System));
+    }
 }
