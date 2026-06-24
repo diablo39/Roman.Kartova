@@ -35,6 +35,10 @@ public class RelationshipTests
             Assert.IsFalse(RelationshipTypeRules.IsCreatable(t), $"{t} must not be creatable in slice 1a");
     }
 
+    // Non-creatable types hit the `_ => false` default arm (covers it so the mutant there is killed).
+    [DataRow(RelationshipType.ProvidesApiFor, EntityKind.Service, EntityKind.Application, false)]
+    [DataRow(RelationshipType.PublishesTo, EntityKind.Service, EntityKind.Service, false)]
+
     [TestMethod]
     // depends-on: any of {App,Service} → any of {App,Service}
     [DataRow(RelationshipType.DependsOn, EntityKind.Service, EntityKind.Service, true)]
@@ -92,9 +96,12 @@ public class RelationshipTests
     [TestMethod]
     public void CreateManual_rejects_non_creatable_type()
     {
-        Assert.ThrowsExactly<ArgumentException>(() => Relationship.CreateManual(
+        var ex = Assert.ThrowsExactly<ArgumentException>(() => Relationship.CreateManual(
             Svc(Guid.NewGuid()), Svc(Guid.NewGuid()), RelationshipType.PublishesTo, Guid.NewGuid(),
             new Kartova.SharedKernel.Multitenancy.TenantId(Guid.NewGuid()), TimeProvider.System));
+        // Assert the not-creatable guard fired (its message), not the bad-pair guard below it —
+        // both throw ArgumentException, so the type-only check let the line-32 throw-removal mutant survive.
+        StringAssert.Contains(ex.Message, "not yet available");
     }
 
     [TestMethod]
