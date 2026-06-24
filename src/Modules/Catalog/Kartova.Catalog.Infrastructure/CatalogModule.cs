@@ -133,6 +133,12 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .WithName("GetServiceById")
               .Produces<ServiceResponse>(StatusCodes.Status200OK)
               .ProducesProblem(StatusCodes.Status404NotFound);
+        tenant.MapGet("/relationships", CatalogEndpointDelegates.ListRelationshipsAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRead)
+              .WithName("ListRelationships")
+              .Produces<CursorPage<RelationshipResponse>>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status403Forbidden);
         tenant.MapPost("/relationships", CatalogEndpointDelegates.CreateRelationshipAsync)
               .RequireAuthorization(KartovaPermissions.CatalogRelationshipsWrite)
               .WithName("CreateRelationship")
@@ -188,6 +194,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<GetServiceByIdHandler>();
         services.AddScoped<ListServicesHandler>();
         services.AddScoped<CreateRelationshipHandler>();
+        services.AddScoped<ListRelationshipsForEntityHandler>();
         services.AddScoped<ICatalogEntityLookup, CatalogEntityLookup>();
 
         // TimeProvider is needed by Application.Deprecate / Decommission for the

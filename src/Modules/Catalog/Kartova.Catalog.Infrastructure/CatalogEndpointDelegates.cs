@@ -20,6 +20,8 @@ using HealthStatus = Kartova.Catalog.Domain.HealthStatus;
 using EntityRef = Kartova.Catalog.Domain.EntityRef;
 using EntityKind = Kartova.Catalog.Domain.EntityKind;
 using RelationshipType = Kartova.Catalog.Domain.RelationshipType;
+using RelationshipDirection = Kartova.Catalog.Application.RelationshipDirection;
+using SortOrder = Kartova.SharedKernel.Pagination.SortOrder;
 
 namespace Kartova.Catalog.Infrastructure;
 
@@ -547,6 +549,47 @@ internal static class CatalogEndpointDelegates
 
         var response = await handler.Handle(cmd, srcDto, tgtDto, db, tenant, currentUser, audit, ct);
         return Results.Created($"/api/v1/catalog/relationships/{response.Id}", response);
+    }
+
+    /// <summary>
+    /// GET /relationships?entityKind=&amp;entityId=&amp;direction= — list relationships for an entity.
+    /// Returns a cursor-paged list of relationships where the given entity is the source, target, or either.
+    /// Default sort: createdAt desc (newest first). Claim gate: catalog.read.
+    /// </summary>
+    internal static async Task<IResult> ListRelationshipsAsync(
+        [FromQuery] string entityKind,
+        [FromQuery] Guid entityId,
+        [FromQuery] string? direction,
+        [FromQuery] string? sortBy,
+        [FromQuery] string? sortOrder,
+        [FromQuery] string? cursor,
+        [FromQuery] string? limit,
+        ListRelationshipsForEntityHandler handler,
+        ICatalogEntityLookup lookup,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        if (!Enum.TryParse<EntityKind>(entityKind, ignoreCase: true, out var kind) || !Enum.IsDefined(kind) || entityId == Guid.Empty)
+            return Results.Problem(type: ProblemTypes.ValidationFailed, title: "Invalid entity reference",
+                detail: "entityKind and a non-empty entityId are required.", statusCode: StatusCodes.Status400BadRequest);
+
+        var dir = RelationshipDirection.All;
+        if (!string.IsNullOrWhiteSpace(direction)
+            && (!Enum.TryParse(direction, ignoreCase: true, out dir) || !Enum.IsDefined(dir)))
+            return Results.Problem(type: ProblemTypes.ValidationFailed, title: "Invalid direction",
+                detail: "direction must be outgoing, incoming, or all.", statusCode: StatusCodes.Status400BadRequest);
+
+        var (parsedSortBy, parsedSortOrder, effectiveLimit) =
+            CursorListBinding.Bind<RelationshipSortField>(sortBy, sortOrder, limit, RelationshipSortSpecs.AllowedFieldNames);
+
+        var query = new ListRelationshipsForEntityQuery(
+            new EntityRef(kind, entityId), dir,
+            SortBy: parsedSortBy ?? RelationshipSortField.CreatedAt,
+            SortOrder: parsedSortOrder ?? SortOrder.Desc,
+            Cursor: cursor, Limit: effectiveLimit);
+
+        var page = await handler.Handle(query, db, lookup, ct);
+        return Results.Ok(page);
     }
 
     // ----- shared helpers -----------------------------------------------
