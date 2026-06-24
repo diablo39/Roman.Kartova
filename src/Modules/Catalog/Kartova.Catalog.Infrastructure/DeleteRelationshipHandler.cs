@@ -7,7 +7,7 @@ namespace Kartova.Catalog.Infrastructure;
 
 public sealed class DeleteRelationshipHandler
 {
-    public async Task<bool> Handle(
+    public async Task Handle(
         Relationship rel,
         CatalogDbContext db,
         IAuditWriter audit,
@@ -27,6 +27,5 @@ public sealed class DeleteRelationshipHandler
                 ["targetKind"] = rel.Target.Kind.ToString(),
                 ["targetId"]   = rel.Target.Id.ToString(),
             }), ct);
-        return true;
     }
 }

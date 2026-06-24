@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
 using Kartova.SharedKernel.Multitenancy;
@@ -26,6 +28,15 @@ public class CreateRelationshipTests : CatalogIntegrationTestBase
         { displayName = name, description = "x", teamId, endpoints = Array.Empty<object>() });
         Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode, $"SeedService '{name}' failed: {resp.StatusCode}");
         var body = await resp.Content.ReadFromJsonAsync<ServiceResponse>(KartovaApiFixtureBase.WireJson);
+        return body!.Id;
+    }
+
+    private static async Task<Guid> SeedApplicationAsync(HttpClient client, Guid teamId, string name)
+    {
+        var resp = await client.PostAsJsonAsync("/api/v1/catalog/applications",
+            new { displayName = name, description = "x", teamId });
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode, $"SeedApplication '{name}' failed: {resp.StatusCode}");
+        var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
         return body!.Id;
     }
 
@@ -147,5 +158,58 @@ public class CreateRelationshipTests : CatalogIntegrationTestBase
         Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode);
         var body = await resp.Content.ReadFromJsonAsync<RelationshipResponse>(KartovaApiFixtureBase.WireJson);
         Assert.AreEqual(await Fx.GetSubClaimAsync(OrgAUser), body!.CreatedByUserId);
+    }
+
+    [TestMethod]
+    public async Task POST_partOf_service_to_application_returns_201()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Team PartOf 201");
+        var svcId = await SeedServiceAsync(client, teamId, "svc-partof-201");
+        var appId = await SeedApplicationAsync(client, teamId, "app-partof-201");
+
+        var resp = await PostRelAsync(client, EntityKind.Service, svcId, RelationshipType.PartOf, EntityKind.Application, appId);
+
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode);
+        var body = await resp.Content.ReadFromJsonAsync<RelationshipResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(RelationshipType.PartOf, body!.Type);
+    }
+
+    [TestMethod]
+    public async Task POST_partOf_application_to_service_returns_400()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Team PartOf 400");
+        var appId = await SeedApplicationAsync(client, teamId, "app-partof-400");
+        var svcId = await SeedServiceAsync(client, teamId, "svc-partof-400");
+
+        // Application→Service is a disallowed pair for PartOf
+        var resp = await PostRelAsync(client, EntityKind.Application, appId, RelationshipType.PartOf, EntityKind.Service, svcId);
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task POST_writes_relationship_created_audit_row()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var tenantId = Fx.TenantIdForEmail(OrgAUser).Value;
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Audit Create Team");
+        var a = await SeedServiceAsync(client, teamId, "svc-audit-c1");
+        var b = await SeedServiceAsync(client, teamId, "svc-audit-c2");
+
+        var resp = await PostRelAsync(client, EntityKind.Service, a, RelationshipType.DependsOn, EntityKind.Service, b);
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode);
+        var created = await resp.Content.ReadFromJsonAsync<RelationshipResponse>(KartovaApiFixtureBase.WireJson);
+
+        var rows = await Fx.ReadAuditLogAsync(tenantId);
+        var row = rows.Single(r =>
+            r.Action == CatalogAuditActions.RelationshipCreated &&
+            r.TargetId == created!.Id.ToString());
+        Assert.AreEqual(CatalogAuditTargetTypes.Relationship, row.TargetType);
+        using var data = JsonDocument.Parse(row.DataJson!);
+        Assert.AreEqual(EntityKind.Service.ToString(), data.RootElement.GetProperty("sourceKind").GetString());
+        Assert.AreEqual(a.ToString(), data.RootElement.GetProperty("sourceId").GetString());
+        Assert.AreEqual(RelationshipType.DependsOn.ToString(), data.RootElement.GetProperty("type").GetString());
     }
 }

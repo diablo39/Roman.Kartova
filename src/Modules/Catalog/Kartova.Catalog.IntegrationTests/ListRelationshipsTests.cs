@@ -166,6 +166,15 @@ public class ListRelationshipsTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
+    public async Task GET_with_limit_over_max_returns_400()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var resp = await client.GetAsync(
+            $"/api/v1/catalog/relationships?entityKind=Service&entityId={Guid.NewGuid()}&direction=all&limit=201");
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [TestMethod]
     public async Task GET_default_sort_is_createdAt_desc()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);

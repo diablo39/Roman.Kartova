@@ -561,7 +561,7 @@ internal static class CatalogEndpointDelegates
         IAuditWriter audit,
         CancellationToken ct)
     {
-        var rel = await db.Relationships.FirstOrDefaultAsync(r => EF.Property<Guid>(r, "_id") == id, ct);
+        var rel = await db.Relationships.FirstOrDefaultAsync(r => EF.Property<Guid>(r, EfRelationshipConfiguration.IdFieldName) == id, ct);
         if (rel is null)
             return Results.Problem(
                 type: ProblemTypes.ResourceNotFound,

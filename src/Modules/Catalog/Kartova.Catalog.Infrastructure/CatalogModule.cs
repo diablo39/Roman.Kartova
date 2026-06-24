@@ -138,7 +138,8 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .WithName("ListRelationships")
               .Produces<CursorPage<RelationshipResponse>>(StatusCodes.Status200OK)
               .ProducesProblem(StatusCodes.Status400BadRequest)
-              .ProducesProblem(StatusCodes.Status403Forbidden);
+              .ProducesProblem(StatusCodes.Status403Forbidden)
+              .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         tenant.MapDelete("/relationships/{id:guid}", CatalogEndpointDelegates.DeleteRelationshipAsync)
               .RequireAuthorization(KartovaPermissions.CatalogRelationshipsWrite)
               .WithName("DeleteRelationship")

@@ -20,9 +20,6 @@ internal static class RelationshipSortSpecs
 
     public static readonly IReadOnlyList<string> AllowedFieldNames = [CreatedAt.FieldName, Type.FieldName];
 
-    public static Expression<Func<Relationship, bool>> IdEquals(Guid id) =>
-        x => EF.Property<Guid>(x, EfRelationshipConfiguration.IdFieldName) == id;
-
     public static SortSpec<Relationship> Resolve(RelationshipSortField field) => field switch
     {
         RelationshipSortField.CreatedAt => CreatedAt,
