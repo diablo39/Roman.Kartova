@@ -41,5 +41,8 @@ public sealed class EfRelationshipConfiguration : IEntityTypeConfiguration<Relat
         b.Property(x => x.Origin).HasColumnName("origin").HasConversion<string>().HasMaxLength(32).IsRequired();
         b.Property(x => x.CreatedByUserId).HasColumnName("created_by_user_id").IsRequired();
         b.Property(x => x.CreatedAt).HasColumnName("created_at").IsRequired();
+
+        // Indexes for relationships are declared in the AddRelationships migration, not here:
+        // EF 10 cannot reference ComplexProperty (Source/Target) columns by name in HasIndex.
     }
 }
