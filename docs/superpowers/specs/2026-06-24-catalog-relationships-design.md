@@ -290,7 +290,7 @@ Inherits the catalog ProblemDetails mapping — no new exception types except wh
 | Duplicate `(tenant, source, type, target)` | 409 | `…/relationship-already-exists` |
 | DELETE id not found in current tenant | 404 | `…/resource-not-found` |
 | Bad `sortBy`/`sortOrder` on list | 400 | `InvalidSortFieldException` → `PagingExceptionHandler` |
-| Bad `limit` on list | 422 | `InvalidLimitException` (ADR-0095) |
+| Bad `limit` on list | 400 | `InvalidLimitException` → `PagingExceptionHandler` (maps to 400; corrected from the original 422 draft during implementation) |
 
 ---
 
