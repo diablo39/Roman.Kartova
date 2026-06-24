@@ -583,7 +583,8 @@ internal static class CatalogEndpointDelegates
     /// <summary>
     /// GET /relationships?entityKind=&amp;entityId=&amp;direction= — list relationships for an entity.
     /// Returns a cursor-paged list of relationships where the given entity is the source, target, or either.
-    /// Default sort: createdAt desc (newest first). Claim gate: catalog.read.
+    /// Default sort: createdAt desc (newest first) — relationships have no displayName of their own,
+    /// so the project-wide displayName-asc list default deliberately does not apply here. Claim gate: catalog.read.
     /// </summary>
     internal static async Task<IResult> ListRelationshipsAsync(
         [FromQuery] string entityKind,

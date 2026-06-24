@@ -100,7 +100,7 @@ public class RelationshipTests
             Svc(Guid.NewGuid()), Svc(Guid.NewGuid()), RelationshipType.PublishesTo, Guid.NewGuid(),
             new Kartova.SharedKernel.Multitenancy.TenantId(Guid.NewGuid()), TimeProvider.System));
         // Assert the not-creatable guard fired (its message), not the bad-pair guard below it —
-        // both throw ArgumentException, so the type-only check let the line-32 throw-removal mutant survive.
+        // both throw ArgumentException, so the type-only check let the not-creatable (IsCreatable) guard's throw-removal mutant survive.
         StringAssert.Contains(ex.Message, "not yet available");
     }
 
