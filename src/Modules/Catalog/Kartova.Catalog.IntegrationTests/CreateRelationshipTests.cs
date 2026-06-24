@@ -78,6 +78,16 @@ public class CreateRelationshipTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
+    public async Task POST_unknown_source_returns_422()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Team 422S");
+        var b = await SeedServiceAsync(client, teamId, "svc-known-422s");
+        var resp = await PostRelAsync(client, EntityKind.Service, Guid.NewGuid(), RelationshipType.DependsOn, EntityKind.Service, b);
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
+    }
+
+    [TestMethod]
     public async Task POST_duplicate_returns_409()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
@@ -105,6 +115,7 @@ public class CreateRelationshipTests : CatalogIntegrationTestBase
         var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Restricted 403");
         var a = await SeedServiceAsync(admin, teamId, "svc-r1-403");
         var b = await SeedServiceAsync(admin, teamId, "svc-r2-403");
+        // member is NOT a member of the source entity's owning team -> source-side gate fires
         var member = await Fx.CreateAuthenticatedClientAsync("member@orga.kartova.local", new[] { KartovaRoles.Member });
         var resp = await PostRelAsync(member, EntityKind.Service, a, RelationshipType.DependsOn, EntityKind.Service, b);
         Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
@@ -133,6 +144,7 @@ public class CreateRelationshipTests : CatalogIntegrationTestBase
         var a = await SeedServiceAsync(client, teamId, "svc-c1-sub");
         var b = await SeedServiceAsync(client, teamId, "svc-c2-sub");
         var resp = await PostRelAsync(client, EntityKind.Service, a, RelationshipType.DependsOn, EntityKind.Service, b);
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode);
         var body = await resp.Content.ReadFromJsonAsync<RelationshipResponse>(KartovaApiFixtureBase.WireJson);
         Assert.AreEqual(await Fx.GetSubClaimAsync(OrgAUser), body!.CreatedByUserId);
     }

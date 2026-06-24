@@ -137,6 +137,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .RequireAuthorization(KartovaPermissions.CatalogRelationshipsWrite)
               .WithName("CreateRelationship")
               .Produces<RelationshipResponse>(StatusCodes.Status201Created)
+              .ProducesProblem(StatusCodes.Status401Unauthorized)
               .ProducesProblem(StatusCodes.Status400BadRequest)
               .ProducesProblem(StatusCodes.Status403Forbidden)
               .ProducesProblem(StatusCodes.Status409Conflict)
