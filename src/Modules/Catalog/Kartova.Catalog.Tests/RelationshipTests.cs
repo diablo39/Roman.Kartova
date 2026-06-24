@@ -12,6 +12,12 @@ public class RelationshipTests
     }
 
     [TestMethod]
+    public void EntityRef_rejects_undefined_kind()
+    {
+        Assert.ThrowsExactly<ArgumentException>(() => new EntityRef((EntityKind)99, Guid.NewGuid()));
+    }
+
+    [TestMethod]
     public void EntityRef_value_equality_holds()
     {
         var id = Guid.NewGuid();
