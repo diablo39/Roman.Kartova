@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.AspNetCore;
@@ -132,6 +133,14 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .WithName("GetServiceById")
               .Produces<ServiceResponse>(StatusCodes.Status200OK)
               .ProducesProblem(StatusCodes.Status404NotFound);
+        tenant.MapPost("/relationships", CatalogEndpointDelegates.CreateRelationshipAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRelationshipsWrite)
+              .WithName("CreateRelationship")
+              .Produces<RelationshipResponse>(StatusCodes.Status201Created)
+              .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
+              .ProducesProblem(StatusCodes.Status409Conflict)
+              .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         tenant.MapGet("/services", CatalogEndpointDelegates.ListServicesAsync)
               .RequireAuthorization(KartovaPermissions.CatalogRead)
               .WithName("ListServices")
@@ -177,6 +186,8 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<RegisterServiceHandler>();
         services.AddScoped<GetServiceByIdHandler>();
         services.AddScoped<ListServicesHandler>();
+        services.AddScoped<CreateRelationshipHandler>();
+        services.AddScoped<ICatalogEntityLookup, CatalogEntityLookup>();
 
         // TimeProvider is needed by Application.Deprecate / Decommission for the
         // "sunsetDate must be in the future" / "now >= sunsetDate" checks. TryAdd

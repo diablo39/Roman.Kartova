@@ -48,6 +48,7 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
         (HttpMethod.Post, "/api/v1/catalog/services",                       KartovaPermissions.CatalogServicesRegister),
         (HttpMethod.Get,  "/api/v1/catalog/services",                       KartovaPermissions.CatalogRead),
         (HttpMethod.Get,  "/api/v1/catalog/services/{svcId}",               KartovaPermissions.CatalogRead),
+        (HttpMethod.Post, "/api/v1/catalog/relationships",                  KartovaPermissions.CatalogRelationshipsWrite),
     };
 
     [TestMethod]
@@ -246,6 +247,19 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
                 description = "Matrix shape body.",
                 teamId,
                 endpoints = Array.Empty<object>(),
+            });
+        }
+        else if (method == HttpMethod.Post && pathTemplate == "/api/v1/catalog/relationships")
+        {
+            // Shape-valid body: well-formed types. The claim gate fires before entity
+            // lookup so the Guid values need not resolve — only permission matters here.
+            req.Content = JsonContent.Create(new
+            {
+                sourceKind = "Service",
+                sourceId   = Guid.NewGuid(),
+                type       = "DependsOn",
+                targetKind = "Service",
+                targetId   = Guid.NewGuid(),
             });
         }
         else if (method == HttpMethod.Put)

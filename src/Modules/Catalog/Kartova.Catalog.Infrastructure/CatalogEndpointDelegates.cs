@@ -17,6 +17,9 @@ using Microsoft.EntityFrameworkCore;
 using ApplicationId = Kartova.Catalog.Domain.ApplicationId;
 using Lifecycle = Kartova.Catalog.Domain.Lifecycle;
 using HealthStatus = Kartova.Catalog.Domain.HealthStatus;
+using EntityRef = Kartova.Catalog.Domain.EntityRef;
+using EntityKind = Kartova.Catalog.Domain.EntityKind;
+using RelationshipType = Kartova.Catalog.Domain.RelationshipType;
 
 namespace Kartova.Catalog.Infrastructure;
 
@@ -484,6 +487,66 @@ internal static class CatalogEndpointDelegates
 
         var page = await handler.Handle(query, db, ct);
         return Results.Ok(page);
+    }
+
+    internal static async Task<IResult> CreateRelationshipAsync(
+        [FromBody] CreateRelationshipRequest req,
+        ICatalogEntityLookup lookup,
+        CreateRelationshipHandler handler,
+        CatalogDbContext db,
+        ITenantContext tenant,
+        ICurrentUser currentUser,
+        ClaimsPrincipal caller,
+        IAuthorizationService auth,
+        IAuditWriter audit,
+        CancellationToken ct)
+    {
+        var source = new EntityRef(req.SourceKind, req.SourceId);
+        var target = new EntityRef(req.TargetKind, req.TargetId);
+
+        var sourceInfo = await lookup.Find(source.Kind, source.Id, ct);
+        if (sourceInfo is null)
+            return Results.Problem(
+                type: ProblemTypes.InvalidSourceEntity,
+                title: "Invalid source entity",
+                detail: "The source entity does not exist in this tenant.",
+                statusCode: StatusCodes.Status422UnprocessableEntity);
+
+        // Source-team membership gate: OrgAdmin may declare edges for any team;
+        // a Member must belong to the source entity's owning team.
+        if (await AuthorizeTargetTeamAsync(auth, caller, sourceInfo.TeamId) is { } forbidden)
+            return forbidden;
+
+        var targetInfo = await lookup.Find(target.Kind, target.Id, ct);
+        if (targetInfo is null)
+            return Results.Problem(
+                type: ProblemTypes.InvalidTargetEntity,
+                title: "Invalid target entity",
+                detail: "The target entity does not exist in this tenant.",
+                statusCode: StatusCodes.Status422UnprocessableEntity);
+
+        // Duplicate pre-check via direct ComplexProperty navigation — EF 10 translates
+        // r.Source.Kind / r.Target.Kind through the ComplexProperty mapping.
+        // The unique index ux_relationships_edge backstops concurrent races.
+        var exists = await db.Relationships.AnyAsync(r =>
+            r.Source.Kind == source.Kind
+            && r.Source.Id == source.Id
+            && r.Type == req.Type
+            && r.Target.Kind == target.Kind
+            && r.Target.Id == target.Id, ct);
+        if (exists)
+            return Results.Problem(
+                type: ProblemTypes.RelationshipAlreadyExists,
+                title: "Relationship already exists",
+                detail: "An identical relationship already exists.",
+                statusCode: StatusCodes.Status409Conflict);
+
+        var srcDto = new EntityRefDto(source.Kind, source.Id, sourceInfo.DisplayName);
+        var tgtDto = new EntityRefDto(target.Kind, target.Id, targetInfo.DisplayName);
+        var cmd = new CreateRelationshipCommand(source, target, req.Type);
+
+        var response = await handler.Handle(cmd, srcDto, tgtDto, db, tenant, currentUser, audit, ct);
+        return Results.Created($"/api/v1/catalog/relationships/{response.Id}", response);
     }
 
     // ----- shared helpers -----------------------------------------------
