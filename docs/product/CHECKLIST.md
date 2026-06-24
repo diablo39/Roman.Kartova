@@ -90,7 +90,7 @@
 
 ### E-02: Entity Registry
 
-**E-02.F-01: Application Entity Management** *(+ list filter (displayName search) + displayName-asc default sort + FilterBar collapsible panel — list-filter-surface-catalog, 2026-06-22)*
+**E-02.F-01: Application Entity Management** *(+ list filter (displayName search) + displayName-asc default sort + FilterBar collapsible panel — list-filter-surface-catalog, 2026-06-22; + lifecycle & team multi-select filters — PR #41, 2026-06-24: replaces the `includeDecommissioned` checkbox; reusable `MultiSelect` control + `multiFilters` repeated-param URL axis; pulled the team/lifecycle facets forward from E-05)*
 - [x] E-02.F-01.S-01 — Register new application in catalog (slice 3 — PR #10, 2026-04-30; UI surface added in slice 4 — PR #17, 2026-04-30; TimeProvider on Application.Create — slice 6, PR #22, 2026-05-07; slice-10 amendment 2026-06-10: required owning team (`TeamId`), created-by provenance (`CreatedByUserId` immutable), membership-gated registration — ADR-0103)
 - [x] E-02.F-01.S-02 — Application detail page with metadata (slice 4 — PR #17, 2026-04-30; header + metadata only, tabs deferred)
 - [x] E-02.F-01.S-03 — Edit application metadata (slice 5 — PR #21, 2026-05-06; PUT /api/v1/catalog/applications/{id} with If-Match/ETag optimistic concurrency, ADR-0096)
