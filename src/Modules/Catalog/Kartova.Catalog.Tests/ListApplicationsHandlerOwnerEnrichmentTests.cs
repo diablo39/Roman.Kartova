@@ -65,7 +65,8 @@ public sealed class ListApplicationsHandlerOwnerEnrichmentTests
         SortOrder.Desc,
         Cursor: null,
         Limit: 50,
-        IncludeDecommissioned: false);
+        Lifecycle: Array.Empty<Lifecycle>(),
+        TeamId: Array.Empty<Guid>());
 
     [TestMethod]
     public async Task Handle_populates_CreatedBy_when_directory_returns_matching_user()

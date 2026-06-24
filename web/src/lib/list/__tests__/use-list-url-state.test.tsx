@@ -359,4 +359,54 @@ describe("useListUrlState", () => {
       expect(search).not.toContain("displayNameContains");
     });
   });
+
+  // -------------------------------------------------------------------------
+  // multiFilters — repeated URL params (e.g. ?lifecycle=active&lifecycle=deprecated)
+  // -------------------------------------------------------------------------
+
+  function wrapperFor(initialEntries: string[]) {
+    return ({ children }: { children: React.ReactNode }) => (
+      <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter>
+    );
+  }
+
+  describe("multiFilters — repeated URL params", () => {
+    it("reads repeated params into an array (getAll)", () => {
+      const { result } = renderHook(
+        () => useListUrlState({
+          defaultSortBy: "displayName", defaultSortOrder: "asc",
+          allowedSortFields: ["displayName"] as const,
+          multiFilters: ["lifecycle"] as const,
+        }),
+        { wrapper: wrapperFor(["/?lifecycle=active&lifecycle=deprecated"]) },
+      );
+      expect(result.current.multiFilters.lifecycle).toEqual(["active", "deprecated"]);
+    });
+
+    it("defaults to an empty array when the param is absent", () => {
+      const { result } = renderHook(
+        () => useListUrlState({
+          defaultSortBy: "displayName", defaultSortOrder: "asc",
+          allowedSortFields: ["displayName"] as const,
+          multiFilters: ["lifecycle"] as const,
+        }),
+        { wrapper: wrapperFor(["/"]) },
+      );
+      expect(result.current.multiFilters.lifecycle).toEqual([]);
+    });
+
+    it("setFilters serializes a multi array as repeated params and drops empties", () => {
+      const { result } = renderHook(
+        () => useListUrlState({
+          defaultSortBy: "displayName", defaultSortOrder: "asc",
+          allowedSortFields: ["displayName"] as const,
+          multiFilters: ["lifecycle", "teamId"] as const,
+        }),
+        { wrapper: wrapperFor(["/?lifecycle=active"]) },
+      );
+      act(() => result.current.setFilters({ multi: { lifecycle: ["active", "deprecated"], teamId: [] } }));
+      expect(result.current.multiFilters.lifecycle).toEqual(["active", "deprecated"]);
+      expect(result.current.multiFilters.teamId).toEqual([]); // empty ⇒ param absent
+    });
+  });
 });

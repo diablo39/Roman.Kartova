@@ -1,4 +1,5 @@
 using Kartova.Catalog.Contracts;
+using Kartova.Catalog.Domain;
 using Kartova.SharedKernel.Pagination;
 
 namespace Kartova.Catalog.Application;
@@ -6,8 +7,17 @@ namespace Kartova.Catalog.Application;
 /// <summary>
 /// List applications visible to the current tenant (RLS-filtered). ADR-0095.
 /// <para>
-/// <paramref name="IncludeDecommissioned"/> opts out of ADR-0073's
-/// "filtered out of default views" rule; default false. Slice 6 / spec §5.
+/// <paramref name="Lifecycle"/> — ADR-0107 multi-select filter. Empty ⇒ ADR-0073
+/// default view (hide Decommissioned); non-empty ⇒ matches the selected states
+/// exactly (<c>= ANY(@p)</c> via Npgsql).
+/// Encoded into the cursor <c>f</c>-map only when non-empty (sorted comma-joined
+/// enum names) so a mid-pagination change trips <c>CursorFilterMismatchException</c>.
+/// </para>
+/// <para>
+/// <paramref name="TeamId"/> — ADR-0107 multi-select team filter. Non-empty ⇒
+/// rows whose <c>TeamId</c> is in the supplied set (<c>= ANY(@p)</c> via Npgsql). Encoded
+/// into the cursor <c>f</c>-map only when non-empty (sorted comma-joined Guid "D"
+/// strings).
 /// </para>
 /// <para>
 /// <paramref name="DisplayNameContains"/> — ADR-0107 substring filter. Applied
@@ -30,6 +40,7 @@ public sealed record ListApplicationsQuery(
     SortOrder SortOrder,
     string? Cursor,
     int Limit,
-    bool IncludeDecommissioned,
+    Lifecycle[] Lifecycle,
+    Guid[] TeamId,
     string? DisplayNameContains = null,
     Guid? CreatedByUserId = null);

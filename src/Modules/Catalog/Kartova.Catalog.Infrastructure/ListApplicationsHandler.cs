@@ -42,13 +42,17 @@ public sealed class ListApplicationsHandler(IUserDirectory directory)
     {
         var spec = ApplicationSortSpecs.Resolve(q.SortBy);
 
-        // Apply ADR-0073 default-view filter before pagination so the keyset
-        // bounds stay consistent: a row that's hidden by the filter must never
-        // appear as a cursor boundary, otherwise the next page would silently
-        // skip rows. The cursor JSON (CursorCodec `f`) is mismatch-checked inside
-        // ToCursorPagedAsync.
         IQueryable<DomainApplication> source = db.Applications;
-        if (!q.IncludeDecommissioned)
+
+        // Lifecycle filter (ADR-0107) replaces the old includeDecommissioned boolean.
+        // None selected ⇒ ADR-0073 default view (hide Decommissioned); some selected ⇒
+        // exactly those states. Applied before paging so a hidden row never becomes a
+        // cursor boundary. Array.Contains → SQL `= ANY(@p)` via Npgsql.
+        if (q.Lifecycle.Length > 0)
+        {
+            source = source.Where(a => q.Lifecycle.Contains(a.Lifecycle));
+        }
+        else
         {
             source = source.Where(a => a.Lifecycle != Lifecycle.Decommissioned);
         }
@@ -60,10 +64,6 @@ public sealed class ListApplicationsHandler(IUserDirectory directory)
         // apply. RLS still scopes the row set, so a leak-by-construction (e.g., a
         // created-by row from another tenant) would still produce an empty page
         // rather than expose cross-tenant data.
-        // Slice 9 / S5 carry-forward: createdByUserId is encoded into the generic
-        // filter map below (CursorCodec `f`); ToCursorPagedAsync replays the map
-        // on cursor decode and trips CursorFilterMismatchException if the request
-        // changes it mid-pagination. Same mechanism as includeDecommissioned.
         if (q.CreatedByUserId is { } createdByUserId)
         {
             source = source.Where(a => a.CreatedByUserId == createdByUserId);
@@ -77,15 +77,28 @@ public sealed class ListApplicationsHandler(IUserDirectory directory)
             source = source.Where(a => EF.Functions.ILike(a.DisplayName, pattern, "\\"));
         }
 
-        // Filter state the cursor is issued under (ADR-0095). The owning module
-        // owns the keys/values; the shared codec treats them as opaque. Always-
-        // applied dimensions (includeDecommissioned) are always present; optional
-        // filters (createdByUserId, displayNameContains) only when applied. A change
-        // mid-pagination trips CursorFilterMismatchException inside ToCursorPagedAsync.
-        var filters = new Dictionary<string, string>(StringComparer.Ordinal)
+        // Team filter (ADR-0107). Applied before paging. Array.Contains(column) → SQL `= ANY(@p)` via Npgsql.
+        if (q.TeamId.Length > 0)
         {
-            ["includeDecommissioned"] = q.IncludeDecommissioned ? "true" : "false",
-        };
+            source = source.Where(a => q.TeamId.Contains(a.TeamId));
+        }
+
+        // Filter state the cursor is issued under (ADR-0095). Every applied filter is
+        // recorded; absent filters add no key — so the default (unfiltered) cursor map
+        // is EMPTY (byte-identical to a filterless cursor). Multi-value filters serialize
+        // as sorted comma-joined strings so identity is order-independent. A change
+        // mid-pagination trips CursorFilterMismatchException inside ToCursorPagedAsync.
+        var filters = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (q.Lifecycle.Length > 0)
+        {
+            filters["lifecycle"] = string.Join(",",
+                q.Lifecycle.Select(l => l.ToString()).OrderBy(s => s, StringComparer.Ordinal));
+        }
+        if (q.TeamId.Length > 0)
+        {
+            filters["teamId"] = string.Join(",",
+                q.TeamId.Select(t => t.ToString("D")).OrderBy(s => s, StringComparer.Ordinal));
+        }
         if (q.CreatedByUserId is { } createdBy)
         {
             filters["createdByUserId"] = createdBy.ToString("D");

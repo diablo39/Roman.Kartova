@@ -4,6 +4,7 @@ import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { Checkbox } from "@/components/base/checkbox/checkbox";
 import { Select } from "@/components/base/select/select";
+import { MultiSelect } from "@/components/base/multi-select/multi-select";
 import { cx } from "@/lib/utils/cx";
 import { useListFilters } from "@/lib/list/filters/useListFilters";
 import type { ListUrlState } from "@/lib/list/useListUrlState";
@@ -12,8 +13,8 @@ import type { FilterSpec } from "@/lib/list/filters/types";
 interface FilterBarProps {
   specs: FilterSpec[];
   urlState: Pick<
-    ListUrlState<string, string, string>,
-    "textFilters" | "booleanFilters" | "setFilters"
+    ListUrlState<string, string, string, string>,
+    "textFilters" | "booleanFilters" | "multiFilters" | "setFilters"
   >;
 }
 
@@ -28,8 +29,9 @@ interface FilterBarProps {
  * Native form submission isn't relied on — react-aria's Input/Button don't emit
  * it — so both paths call `commit()` directly. Each control is keyed by its
  * committed value so external changes (back/forward, shared link, Clear all)
- * re-seed it. Builds the `text` and `boolean` controls; other types throw so
- * misuse fails loudly until they are implemented.
+ * re-seed it. Builds `text`, `boolean`, `single-select`, and `multi-select`
+ * controls; other types (`date-range`) throw so misuse fails loudly until
+ * they are implemented.
  */
 export function FilterBar({ specs, urlState }: FilterBarProps) {
   const [open, setOpen] = useState(true);
@@ -38,6 +40,7 @@ export function FilterBar({ specs, urlState }: FilterBarProps) {
   const { isActive, activeCount } = useListFilters(specs, urlState);
   const committedText = urlState.textFilters;
   const committedBool = urlState.booleanFilters;
+  const committedMulti = urlState.multiFilters;
 
   // Read the uncontrolled controls' current values and commit them to the URL in
   // ONE navigation (see setFilters' note — looped setParams calls clobber each
@@ -48,14 +51,17 @@ export function FilterBar({ specs, urlState }: FilterBarProps) {
     const data = new FormData(form);
     const text: Record<string, string> = {};
     const booleans: Record<string, boolean> = {};
+    const multi: Record<string, string[]> = {};
     for (const s of specs) {
       if (s.type === "text" || s.type === "single-select") {
         text[s.key] = String(data.get(s.key) ?? "");
       } else if (s.type === "boolean") {
         booleans[s.key] = data.get(s.key) != null;
+      } else if (s.type === "multi-select") {
+        multi[s.key] = data.getAll(s.key).map(String);
       }
     }
-    urlState.setFilters({ text, booleans });
+    urlState.setFilters({ text, booleans, multi });
   };
 
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
@@ -73,11 +79,13 @@ export function FilterBar({ specs, urlState }: FilterBarProps) {
   const clearAll = () => {
     const text: Record<string, string> = {};
     const booleans: Record<string, boolean> = {};
+    const multi: Record<string, string[]> = {};
     for (const s of specs) {
       if (s.type === "text" || s.type === "single-select") text[s.key] = "";
       else if (s.type === "boolean") booleans[s.key] = false;
+      else if (s.type === "multi-select") multi[s.key] = [];
     }
-    urlState.setFilters({ text, booleans });
+    urlState.setFilters({ text, booleans, multi });
   };
 
   return (
@@ -143,8 +151,25 @@ export function FilterBar({ specs, urlState }: FilterBarProps) {
                   </div>
                 );
               }
+              if (spec.type === "multi-select") {
+                const committed = committedMulti?.[spec.key] ?? [];
+                return (
+                  // Keyed by the committed values so Clear all / back-forward re-seeds
+                  // the uncontrolled control via defaultSelectedKeys.
+                  <div key={`${spec.key}:${committed.join(",")}`} className="w-full sm:w-56">
+                    <MultiSelect
+                      name={spec.key}
+                      defaultSelectedKeys={committed}
+                      aria-label={spec.label}
+                      options={spec.options}
+                      placeholder={spec.placeholder}
+                      size="sm"
+                    />
+                  </div>
+                );
+              }
               throw new Error(
-                `FilterBar: "${spec.type}" control not implemented (ADR-0107 clause 1 — text + boolean + single-select only)`,
+                `FilterBar: "${spec.type}" control not implemented (ADR-0107 clause 1 — text + boolean + single-select + multi-select only)`,
               );
             })}
           </div>

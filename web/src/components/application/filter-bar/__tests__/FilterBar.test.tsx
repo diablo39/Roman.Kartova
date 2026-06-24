@@ -12,8 +12,9 @@ function fakeUrlState(
   textFilters: Record<string, string> = {},
   booleanFilters: Record<string, boolean> = {},
   setFilters = vi.fn(),
+  multiFilters: Record<string, string[]> = {},
 ) {
-  return { textFilters, booleanFilters, setFilters };
+  return { textFilters, booleanFilters, multiFilters, setFilters };
 }
 
 const textSpecs: FilterSpec[] = [
@@ -64,13 +65,8 @@ describe("FilterBar — rendering", () => {
     expect(screen.getByRole("checkbox", { name: /show decommissioned/i })).toBeChecked();
   });
 
-  it("throws for an unimplemented control type", () => {
+  it("throws for the still-reserved date-range type", () => {
     const bad: FilterSpec[] = [{ key: "x", type: "date-range", label: "X" }];
-    expect(() => render(<FilterBar specs={bad} urlState={fakeUrlState()} />)).toThrow(/not implemented/i);
-  });
-
-  it("throws for multi-select type", () => {
-    const bad: FilterSpec[] = [{ key: "x", type: "multi-select", label: "X" }];
     expect(() => render(<FilterBar specs={bad} urlState={fakeUrlState()} />)).toThrow(/not implemented/i);
   });
 });
@@ -230,6 +226,7 @@ describe("FilterBar — Clear all", () => {
     expect(setFilters).toHaveBeenCalledWith({
       text: { displayNameContains: "" },
       booleans: { includeDecommissioned: false },
+      multi: {},
     });
   });
 });
@@ -283,6 +280,64 @@ describe("FilterBar — single-select", () => {
     const setFilters = vi.fn();
     render(<FilterBar specs={selectSpecs} urlState={fakeUrlState({ role: "OrgAdmin" }, {}, setFilters)} />);
     fireEvent.click(screen.getByRole("button", { name: /clear all/i }));
-    expect(setFilters).toHaveBeenCalledWith({ text: { role: "" }, booleans: {} });
+    expect(setFilters).toHaveBeenCalledWith({ text: { role: "" }, booleans: {}, multi: {} });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Multi-select
+// ---------------------------------------------------------------------------
+
+const multiSpecs: FilterSpec[] = [
+  {
+    key: "lifecycle",
+    type: "multi-select",
+    label: "Lifecycle",
+    placeholder: "Any status",
+    options: [
+      { label: "Active", value: "active" },
+      { label: "Deprecated", value: "deprecated" },
+      { label: "Decommissioned", value: "decommissioned" },
+    ],
+  },
+];
+// The multi-select trigger is the only non-toggle, non-Search button; query it via its label text.
+const multiTrigger = () => screen.getByRole("button", { name: /lifecycle/i });
+
+describe("FilterBar — multi-select", () => {
+  it("renders a MultiSelect for a multi-select spec", () => {
+    render(<FilterBar specs={multiSpecs} urlState={fakeUrlState()} />);
+    expect(multiTrigger()).toBeInTheDocument();
+  });
+
+  it("seeds the MultiSelect from committed multiFilters", () => {
+    render(<FilterBar specs={multiSpecs} urlState={fakeUrlState({}, {}, vi.fn(), { lifecycle: ["active", "deprecated"] })} />);
+    expect(multiTrigger()).toHaveTextContent("2 selected");
+  });
+
+  it("choosing values + Search commits them via setFilters (multi map)", async () => {
+    const setFilters = vi.fn();
+    render(<FilterBar specs={multiSpecs} urlState={fakeUrlState({}, {}, setFilters)} />);
+    await userEvent.click(multiTrigger());
+    await userEvent.click(await screen.findByRole("option", { name: "Deprecated" }));
+    // Close the popover (multi-select stays open after selection; popover traps
+    // ARIA focus). Click document.body to dismiss, bypassing ARIA modal.
+    await userEvent.click(document.body);
+    await userEvent.click(screen.getByRole("button", { name: /^search$/i }));
+    expect(setFilters).toHaveBeenCalledWith(
+      expect.objectContaining({ multi: expect.objectContaining({ lifecycle: ["deprecated"] }) }),
+    );
+  });
+
+  it("Clear all resets a committed multi-select to empty", () => {
+    const setFilters = vi.fn();
+    render(<FilterBar specs={multiSpecs} urlState={fakeUrlState({}, {}, setFilters, { lifecycle: ["active"] })} />);
+    fireEvent.click(screen.getByRole("button", { name: /clear all/i }));
+    expect(setFilters).toHaveBeenCalledWith({ text: {}, booleans: {}, multi: { lifecycle: [] } });
+  });
+
+  it("counts a non-empty multi-select toward the active-filter header", () => {
+    render(<FilterBar specs={multiSpecs} urlState={fakeUrlState({}, {}, vi.fn(), { lifecycle: ["active"] })} />);
+    expect(screen.getByRole("button", { name: /filters \(1 active\)/i })).toBeInTheDocument();
   });
 });

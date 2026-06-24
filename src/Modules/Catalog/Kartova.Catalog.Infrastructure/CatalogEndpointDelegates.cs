@@ -15,6 +15,7 @@ using Microsoft.EntityFrameworkCore;
 // because that would clash with `System.ApplicationId` in the BCL — same trick
 // ApplicationSortSpecs uses for `DomainApplication`.
 using ApplicationId = Kartova.Catalog.Domain.ApplicationId;
+using Lifecycle = Kartova.Catalog.Domain.Lifecycle;
 
 namespace Kartova.Catalog.Infrastructure;
 
@@ -90,9 +91,17 @@ internal static class CatalogEndpointDelegates
     /// inputs route through <c>InvalidLimitException</c> instead of the framework's
     /// generic parse-error 400.
     /// <para>
-    /// <c>includeDecommissioned</c> defaults false per ADR-0073 §"filtered out of
-    /// default views" / slice-6 spec §5. Cursor encodes the filter so paging is
-    /// stable; mismatch returns 400 <c>cursor-filter-mismatch</c>.
+    /// <c>lifecycle</c> — ADR-0107 multi-select filter. Repeated <c>?lifecycle=</c>
+    /// tokens are parsed as case-insensitive enum names; numeric tokens and unknown
+    /// strings are rejected with 400 <c>invalid-lifecycle-filter</c>. Empty ⇒
+    /// ADR-0073 default view (hide Decommissioned). Cursor encodes the filter
+    /// (sorted comma-joined) so paging is stable; mismatch returns 400
+    /// <c>cursor-filter-mismatch</c>.
+    /// </para>
+    /// <para>
+    /// <c>teamId</c> — ADR-0107 multi-select team filter. Repeated <c>?teamId=</c>
+    /// Guids narrow the result set to the selected teams. Encoded into the cursor
+    /// <c>f</c>-map only when non-empty.
     /// </para>
     /// <para>
     /// <c>createdByUserId</c> — slice 9 / E2 (spec §6.5), reframed slice 10 /
@@ -114,7 +123,8 @@ internal static class CatalogEndpointDelegates
         [FromQuery] string? cursor,
         [FromQuery] string? limit,
         [FromQuery] string? displayNameContains,
-        [FromQuery] bool? includeDecommissioned,
+        [FromQuery] string[]? lifecycle,
+        [FromQuery] Guid[]? teamId,
         [FromQuery] Guid? createdByUserId,
         ListApplicationsHandler handler,
         CatalogDbContext db,
@@ -127,6 +137,27 @@ internal static class CatalogEndpointDelegates
         // validation on limit to QueryablePagingExtensions.ToCursorPagedAsync.
         var (parsedSortBy, parsedSortOrder, effectiveLimit) = CursorListBinding.Bind<ApplicationSortField>(
             sortBy, sortOrder, limit, ApplicationSortSpecs.AllowedFieldNames);
+
+        // Parse the repeated ?lifecycle= tokens (wire form: lowercase enum names). Reject
+        // numeric tokens ("1") and unknown strings with a 400 invalid-lifecycle-filter so
+        // the contract stays names-only (mirrors the sortBy IsDefined reject in CursorListBinding).
+        // HashSet de-dups in place (repeated ?lifecycle=active&lifecycle=active is a no-op
+        // insert) so the cursor f-map stays canonical without a second .Distinct() pass.
+        var lifecycles = new HashSet<Lifecycle>();
+        foreach (var raw in lifecycle ?? Array.Empty<string>())
+        {
+            if (int.TryParse(raw, out _)
+                || !Enum.TryParse<Lifecycle>(raw, ignoreCase: true, out var parsed)
+                || !Enum.IsDefined(parsed))
+            {
+                return Results.Problem(
+                    type: ProblemTypes.InvalidLifecycleFilter,
+                    title: "Invalid lifecycle filter",
+                    detail: $"'{raw}' is not a valid lifecycle. Expected one of: active, deprecated, decommissioned.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+            lifecycles.Add(parsed);
+        }
 
         // Resource gate: when ?createdByUserId= is supplied, validate it resolves to a
         // user in the current tenant BEFORE invoking the handler. IUserDirectory is
@@ -149,11 +180,14 @@ internal static class CatalogEndpointDelegates
         var name = string.IsNullOrWhiteSpace(displayNameContains) ? null : displayNameContains.Trim();
 
         var query = new ListApplicationsQuery(
-            SortBy: parsedSortBy ?? ApplicationSortField.DisplayName,   // default flips: was CreatedAt
-            SortOrder: parsedSortOrder ?? SortOrder.Asc,                // default flips: was Desc
+            SortBy: parsedSortBy ?? ApplicationSortField.DisplayName,
+            SortOrder: parsedSortOrder ?? SortOrder.Asc,
             Cursor: cursor,
             Limit: effectiveLimit,
-            IncludeDecommissioned: includeDecommissioned ?? false,
+            Lifecycle: lifecycles.ToArray(),
+            // ToHashSet de-dups repeated ?teamId= values (mirrors the lifecycle HashSet) so the
+            // cursor f-map stays canonical; ToArray() for the query record.
+            TeamId: (teamId ?? Array.Empty<Guid>()).ToHashSet().ToArray(),
             DisplayNameContains: name,
             CreatedByUserId: createdByUserId);
 

@@ -38,6 +38,9 @@ public static class ProblemTypes
     // Catalog ?createdByUserId= filter — slice 9 / E2, renamed slice 10 / ADR-0103.
     public const string InvalidCreatedBy       = Base + "invalid-created-by";
 
+    // Catalog ?lifecycle= multi-select filter — applications list (ADR-0107).
+    public const string InvalidLifecycleFilter = Base + "invalid-lifecycle-filter";
+
     // Logo upload validation — slice 9 (spec §6.4). One URI per failure mode
     // so SPA / API consumers can dispatch on `type` instead of HTTP status.
     public const string UnsupportedLogoMedia   = Base + "unsupported-logo-media";   // 415: Content-Type not in allow-list.
