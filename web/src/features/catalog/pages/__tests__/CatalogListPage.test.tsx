@@ -85,7 +85,7 @@ describe("CatalogListPage", () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<CatalogListPage />, { wrapper: harness(qc) });
 
-    expect(screen.getByRole("heading", { name: /catalog/i, level: 2 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /applications/i, level: 2 })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /register application/i })).toBeInTheDocument();
   });
 

@@ -1,4 +1,4 @@
-import { Link, NavLink, useLocation } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import { cx } from "@/lib/utils/cx";
 import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
@@ -9,9 +9,17 @@ import { KartovaPermissions } from "@/shared/auth/permissions";
  * permission-gated "Settings" sub-navigation under a dedicated heading so it
  * reads as a distinct section instead of a fourth top-level link.
  */
-function NavGroup({ title, children }: { title: string; children: React.ReactNode }) {
+function NavGroup({
+  title,
+  children,
+  className = "mt-4",
+}: {
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="mt-4 space-y-1" data-testid={`nav-group-${title.toLowerCase()}`}>
+    <div className={cx("space-y-1", className)} data-testid={`nav-group-${title.toLowerCase()}`}>
       <div className="px-3 pt-3 pb-1 text-xs font-medium uppercase tracking-wide text-tertiary">
         {title}
       </div>
@@ -28,36 +36,15 @@ const navItemClass = (active: boolean) =>
 
 /**
  * Active-aware navigation link styled to match the existing top-level entries.
- * Extracted so the Settings group can render sub-items with identical chrome.
+ * Extracted so the Catalog and Settings groups can render sub-items with
+ * identical chrome.
  *
- * `activeWhen` overrides react-router's default descendant matching for items
- * whose route is a path-prefix of a *sibling* nav item. The Catalog item
- * (`/catalog`) needs it because Services lives at `/catalog/services`: without
- * the override, NavLink's default matching highlights Catalog on every
- * `/catalog/*` route — including the Services pages — so both light up at once.
- * When supplied we drive both the highlight and `aria-current` from the
- * predicate (a className-only override would leave `aria-current` wrong).
+ * Plain `NavLink` descendant matching is correct for every item: Applications
+ * (`/catalog/applications`) and Services (`/catalog/services`) no longer share
+ * a path prefix beyond `/catalog`, so neither highlights on the other's routes,
+ * while each still lights up on its own detail pages (`…/:id`).
  */
-function NavItemLink({
-  to,
-  label,
-  activeWhen,
-}: {
-  to: string;
-  label: string;
-  activeWhen?: (pathname: string) => boolean;
-}) {
-  const { pathname } = useLocation();
-
-  if (activeWhen) {
-    const active = activeWhen(pathname);
-    return (
-      <Link to={to} aria-current={active ? "page" : undefined} className={navItemClass(active)}>
-        {label}
-      </Link>
-    );
-  }
-
+function NavItemLink({ to, label }: { to: string; label: string }) {
   return (
     <NavLink to={to} className={({ isActive }) => navItemClass(isActive)}>
       {label}
@@ -89,34 +76,36 @@ export function Sidebar() {
         <span className="text-lg font-semibold text-primary">Kartova</span>
       </div>
       <nav className="flex-1 overflow-y-auto p-3">
-        <ul className="space-y-1">
-          <li>
-            <NavItemLink
-              to="/catalog"
-              label="Catalog"
-              activeWhen={(p) => p === "/catalog" || p.startsWith("/catalog/applications")}
-            />
-          </li>
-          {canSeeTeams && (
+        <NavGroup title="Catalog" className="mt-0">
+          <ul className="space-y-1">
             <li>
-              <NavItemLink to="/teams" label="Teams" />
+              <NavItemLink to="/catalog/applications" label="Applications" />
             </li>
-          )}
-          {canSeeMembers && (
             <li>
-              <NavItemLink to="/members" label="Members" />
+              <NavItemLink to="/catalog/services" label="Services" />
             </li>
-          )}
-          <li>
-            <NavItemLink to="/catalog/services" label="Services" />
-          </li>
-          <li>
-            <DisabledItem label="Infrastructure" />
-          </li>
-          <li>
-            <DisabledItem label="Docs" />
-          </li>
-        </ul>
+            <li>
+              <DisabledItem label="Infrastructure" />
+            </li>
+            <li>
+              <DisabledItem label="Docs" />
+            </li>
+          </ul>
+        </NavGroup>
+        {(canSeeTeams || canSeeMembers) && (
+          <ul className="mt-4 space-y-1">
+            {canSeeTeams && (
+              <li>
+                <NavItemLink to="/teams" label="Teams" />
+              </li>
+            )}
+            {canSeeMembers && (
+              <li>
+                <NavItemLink to="/members" label="Members" />
+              </li>
+            )}
+          </ul>
+        )}
         {canSeeOrgSettings && (
           <NavGroup title="Settings">
             <ul className="space-y-1">

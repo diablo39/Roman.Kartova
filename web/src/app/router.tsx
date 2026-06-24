@@ -37,7 +37,11 @@ export function AppRoutes() {
       <Route path="/login-error" element={<LoginErrorPage />} />
       <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
       <Route element={<ProtectedShell />}>
-        <Route path="/catalog" element={<CatalogListPage />} />
+        {/* /catalog is a redirect alias to its first sub-page so "home"
+            fallbacks (root redirect, OIDC callback, /welcome, returnTo default)
+            can keep targeting /catalog without hard-coding the sub-page. */}
+        <Route path="/catalog" element={<Navigate to="/catalog/applications" replace />} />
+        <Route path="/catalog/applications" element={<CatalogListPage />} />
         <Route
           path="/catalog/applications/:id"
           element={<ApplicationDetailPage />}

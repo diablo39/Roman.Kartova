@@ -39,10 +39,11 @@ describe("Sidebar", () => {
     usePermissionsMock.mockReset();
   });
 
-  it("always renders the Catalog link, regardless of permissions", () => {
+  it("always renders the Catalog group + Applications link, regardless of permissions", () => {
     setPermissions(); // no permissions at all
     renderSidebar();
-    expect(screen.getByRole("link", { name: "Catalog" })).toBeInTheDocument();
+    expect(screen.getByTestId("nav-group-catalog")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Applications" })).toBeInTheDocument();
   });
 
   it("renders the Teams link only when the user has TeamRead", () => {
@@ -112,21 +113,21 @@ describe("Sidebar", () => {
     );
   }
 
-  it("highlights only Services (not Catalog) on /catalog/services", () => {
+  it("highlights only Services (not Applications) on /catalog/services", () => {
     setPermissions();
     renderAt("/catalog/services");
     expect(screen.getByRole("link", { name: "Services" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "Catalog" })).not.toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Applications" })).not.toHaveAttribute("aria-current", "page");
   });
 
-  it("highlights Catalog on /catalog and keeps it on application detail routes", () => {
+  it("highlights Applications on /catalog/applications and keeps it on detail routes", () => {
     setPermissions();
-    const { unmount } = renderAt("/catalog");
-    expect(screen.getByRole("link", { name: "Catalog" })).toHaveAttribute("aria-current", "page");
+    const { unmount } = renderAt("/catalog/applications");
+    expect(screen.getByRole("link", { name: "Applications" })).toHaveAttribute("aria-current", "page");
     unmount();
 
     renderAt("/catalog/applications/abc-123");
-    expect(screen.getByRole("link", { name: "Catalog" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Applications" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Services" })).not.toHaveAttribute("aria-current", "page");
   });
 });

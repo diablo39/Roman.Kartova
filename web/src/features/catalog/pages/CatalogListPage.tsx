@@ -83,7 +83,7 @@ export function CatalogListPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-semibold text-primary">Catalog</h2>
+        <h2 className="text-2xl font-semibold text-primary">Applications</h2>
         {canRegister && (
           <Button onClick={() => setDialogOpen(true)} size="sm" color="primary" iconLeading={Plus}>
             Register Application
