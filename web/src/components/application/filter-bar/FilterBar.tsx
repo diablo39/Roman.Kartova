@@ -174,13 +174,14 @@ export function FilterBar({ specs, urlState }: FilterBarProps) {
             })}
           </div>
 
-          {/* Action footer — Clear all bottom-left, Search bottom-right (ml-auto keeps
-              Search right-aligned whether or not Clear all is present). */}
+          {/* Action footer — left-aligned beneath the controls so Search sits next to
+              the (left-aligned) filter inputs, not across the full panel width. Search
+              leads as the primary action; Clear all follows when filters are active. */}
           <div className="flex items-center gap-3 border-t border-secondary px-4 py-3">
+            <Button type="button" size="sm" color="secondary" onClick={commit}>Search</Button>
             {isActive && (
               <Button type="button" size="sm" color="link-gray" onClick={clearAll}>Clear all</Button>
             )}
-            <Button type="button" size="sm" color="secondary" className="ml-auto" onClick={commit}>Search</Button>
           </div>
         </form>
       )}
