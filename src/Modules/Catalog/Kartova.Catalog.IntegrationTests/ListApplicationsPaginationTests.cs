@@ -559,6 +559,52 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
     }
 
     // -----------------------------------------------------------------------
+    // Cursor f-map mismatch — teamId filter key (ADR-0095). Symmetric with the
+    // lifecycle mismatch test above: proves the teamId dimension is recorded in the
+    // cursor f-map so changing it mid-pagination is rejected (not silently paged).
+    // -----------------------------------------------------------------------
+
+    [TestMethod]
+    public async Task GET_teamId_cursor_then_changed_teamId_returns_400_cursor_filter_mismatch()
+    {
+        var unique = $"tm-mism-{Guid.NewGuid():N}";
+        var tenantId = Fx.TenantIdForEmail("admin@orga.kartova.local");
+        var teamA = await Fx.SeedTeamInOrganizationAsync(tenantId, $"{unique}-A");
+        var teamB = await Fx.SeedTeamInOrganizationAsync(tenantId, $"{unique}-B");
+        var creator = await Fx.SeedUserInOrganizationAsync(
+            tenantId, displayName: "Team Mismatch Creator", email: $"{unique}@orga.kartova.local");
+        // 3 apps in TeamA so limit=2 yields a NextCursor.
+        await Fx.SeedSingleApplicationAsync(tenantId, creator, teamId: teamA, namePrefix: $"{unique}-a1");
+        await Fx.SeedSingleApplicationAsync(tenantId, creator, teamId: teamA, namePrefix: $"{unique}-a2");
+        await Fx.SeedSingleApplicationAsync(tenantId, creator, teamId: teamA, namePrefix: $"{unique}-a3");
+        try
+        {
+            var client = Fx.CreateClientForOrgA();
+            // Page 1 filters to TeamA → f-map records teamId = <teamA "D">.
+            var page1 = await client.GetAsync($"/api/v1/catalog/applications?limit=2&teamId={teamA}");
+            Assert.AreEqual(HttpStatusCode.OK, page1.StatusCode);
+            var p1 = await page1.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
+            Assert.IsNotNull(p1!.NextCursor);
+
+            // Page 2 switches to TeamB → mismatch on the "teamId" filter key (400, not a
+            // silent continuation across a different team).
+            var page2 = await client.GetAsync(
+                $"/api/v1/catalog/applications?limit=2&teamId={teamB}&cursor={Uri.EscapeDataString(p1.NextCursor!)}");
+            Assert.AreEqual(HttpStatusCode.BadRequest, page2.StatusCode);
+            var problem = await page2.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
+            Assert.AreEqual(ProblemTypes.CursorFilterMismatch, problem!.Type);
+            Assert.AreEqual("teamId", problem.Extensions["filterName"]!.ToString());
+            Assert.AreEqual(teamA.ToString("D"), problem.Extensions["expectedValue"]!.ToString());
+            Assert.AreEqual(teamB.ToString("D"), problem.Extensions["actualValue"]!.ToString());
+        }
+        finally
+        {
+            await Fx.DeleteUserInOrganizationAsync(creator);
+            await Fx.DeleteApplicationsByPrefixAsync(tenantId, unique);
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // Combined lifecycle-default-view + team filter composition (ADR-0107).
     // Proves that "exclude Decommissioned by default" and "filter by team" compose.
     // -----------------------------------------------------------------------
