@@ -24,6 +24,15 @@ public class DeleteRelationshipTests : CatalogIntegrationTestBase
         return body!.Id;
     }
 
+    private static async Task<Guid> SeedApplicationAsync(HttpClient client, Guid teamId, string name)
+    {
+        var resp = await client.PostAsJsonAsync("/api/v1/catalog/applications",
+            new { displayName = name, description = "x", teamId });
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode, $"SeedApplication '{name}' failed: {resp.StatusCode}");
+        var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
+        return body!.Id;
+    }
+
     private static object Rel(EntityKind sk, Guid sid, RelationshipType t, EntityKind tk, Guid tid)
         => new { sourceKind = sk, sourceId = sid, type = t, targetKind = tk, targetId = tid };
 
@@ -99,12 +108,14 @@ public class DeleteRelationshipTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
-    public async Task DELETE_by_member_not_in_source_team_returns_403()
+    public async Task DELETE_by_member_in_neither_team_returns_403()
     {
         var admin = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Del Rel Restricted Team");
-        var a = await SeedServiceAsync(admin, teamId, "svc-rd1-403");
-        var b = await SeedServiceAsync(admin, teamId, "svc-rd2-403");
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var sourceTeam = await Fx.SeedTeamInOrganizationAsync(tenant, "Del Neither Src 403");
+        var targetTeam = await Fx.SeedTeamInOrganizationAsync(tenant, "Del Neither Tgt 403");
+        var a = await SeedServiceAsync(admin, sourceTeam, "svc-dn-1-403");
+        var b = await SeedServiceAsync(admin, targetTeam, "svc-dn-2-403");
         var created = await (await admin.PostAsJsonAsync("/api/v1/catalog/relationships",
             Rel(EntityKind.Service, a, RelationshipType.DependsOn, EntityKind.Service, b)))
             .Content.ReadFromJsonAsync<RelationshipResponse>(KartovaApiFixtureBase.WireJson);
@@ -112,5 +123,51 @@ public class DeleteRelationshipTests : CatalogIntegrationTestBase
         var member = await Fx.CreateAuthenticatedClientAsync("member@orga.kartova.local", new[] { KartovaRoles.Member });
         var resp = await member.DeleteAsync($"/api/v1/catalog/relationships/{created!.Id}");
         Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task DELETE_by_target_team_member_returns_204()
+    {
+        var admin = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var sourceTeam = await Fx.SeedTeamInOrganizationAsync(tenant, "Del Either Src 204");
+        var targetTeam = await Fx.SeedTeamInOrganizationAsync(tenant, "Del Either Tgt 204");
+        var src = await SeedServiceAsync(admin, sourceTeam, "svc-del-either-src");
+        var tgt = await SeedServiceAsync(admin, targetTeam, "svc-del-either-tgt");
+        var created = await (await admin.PostAsJsonAsync("/api/v1/catalog/relationships",
+            Rel(EntityKind.Service, src, RelationshipType.DependsOn, EntityKind.Service, tgt)))
+            .Content.ReadFromJsonAsync<RelationshipResponse>(KartovaApiFixtureBase.WireJson);
+
+        var member = await Fx.CreateAuthenticatedClientAsync("member@orga.kartova.local", new[] { KartovaRoles.Member });
+        var memberId = await Fx.GetSubClaimAsync("member@orga.kartova.local");
+        await Fx.SeedTeamMembershipAsync(targetTeam, memberId, roleByte: 1 /* Member */);
+
+        var del = await member.DeleteAsync($"/api/v1/catalog/relationships/{created!.Id}");
+        Assert.AreEqual(HttpStatusCode.NoContent, del.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task DELETE_by_target_team_member_after_source_deleted_returns_204()
+    {
+        var admin = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var sourceTeam = await Fx.SeedTeamInOrganizationAsync(tenant, "Del Fallback Src");
+        var targetTeam = await Fx.SeedTeamInOrganizationAsync(tenant, "Del Fallback Tgt");
+        const string appPrefix = "app-del-fallback";
+        var srcApp = await SeedApplicationAsync(admin, sourceTeam, appPrefix);
+        var tgtSvc = await SeedServiceAsync(admin, targetTeam, "svc-del-fallback");
+        var created = await (await admin.PostAsJsonAsync("/api/v1/catalog/relationships",
+            Rel(EntityKind.Application, srcApp, RelationshipType.DependsOn, EntityKind.Service, tgtSvc)))
+            .Content.ReadFromJsonAsync<RelationshipResponse>(KartovaApiFixtureBase.WireJson);
+
+        // Hard-delete the SOURCE application — its team can no longer be resolved.
+        await Fx.DeleteApplicationsByPrefixAsync(tenant, appPrefix);
+
+        var member = await Fx.CreateAuthenticatedClientAsync("member@orga.kartova.local", new[] { KartovaRoles.Member });
+        var memberId = await Fx.GetSubClaimAsync("member@orga.kartova.local");
+        await Fx.SeedTeamMembershipAsync(targetTeam, memberId, roleByte: 1 /* Member */);
+
+        var del = await member.DeleteAsync($"/api/v1/catalog/relationships/{created!.Id}");
+        Assert.AreEqual(HttpStatusCode.NoContent, del.StatusCode);
     }
 }
