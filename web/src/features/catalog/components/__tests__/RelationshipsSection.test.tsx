@@ -35,6 +35,7 @@ it("renders the dependency target link and the dependent source link", () => {
   renderSection();
   expect(screen.getByText("AuthService").closest("a")).toHaveAttribute("href", "/catalog/services/s2"); // outgoing → target
   expect(screen.getByText("Checkout").closest("a")).toHaveAttribute("href", "/catalog/applications/a1"); // incoming → source
+  expect(screen.getAllByText("Manual").length).toBeGreaterThan(0);
 });
 
 it("hides Add and Delete when the user cannot manage", () => {

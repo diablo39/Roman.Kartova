@@ -28,6 +28,8 @@ function entityLink(kind: string, id: string) {
   return `/catalog/${kind === "application" ? "applications" : "services"}/${id}`;
 }
 
+const relationshipOriginLabel: Record<string, string> = { manual: "Manual", scan: "Scan", agent: "Agent" };
+
 export function RelationshipsSection({ entityKind, entityId, entityTeamId, entityDisplayName }: Props) {
   const { hasPermission, role, teamIds } = usePermissions();
   const canManage =
@@ -112,7 +114,7 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
                     </Table.Cell>
                     <Table.Cell>
                       <Badge type="pill-color" size="sm" color="gray">
-                        {r.origin}
+                        {relationshipOriginLabel[r.origin] ?? r.origin}
                       </Badge>
                     </Table.Cell>
                     <Table.Cell>
