@@ -1,16 +1,15 @@
 #!/usr/bin/env node
 // PreToolUse hook: enforces the Serena-first tool policy from CLAUDE.md.
 //
-//  - HARD BLOCK: built-in Edit / Write / MultiEdit / NotebookEdit on a code
-//    file (.cs/.ts/.tsx) -> deny, redirect to the Serena symbolic editors.
-//  - SOFT NUDGE: built-in Read / Glob / Grep touching code -> non-blocking
-//    reminder to prefer get_symbols_overview / find_symbol / search_graph
-//    (the built-ins stay available for the fallbacks CLAUDE.md allows).
+//  - SOFT NUDGE (all): built-in Edit / Write / Read / Glob / Grep on a code
+//    file (.cs/.ts/.tsx) -> non-blocking reminder to prefer Serena's symbolic
+//    tools for navigation / impact / multi-symbol edits. Built-ins stay fully
+//    available for small localized edits and quick reads (per the CLAUDE.md
+//    tool-selection policy — preference, not mandate).
 //
-// A hook only sees the path/pattern, not intent, so it cannot tell an allowed
-// fallback from a lapse — hence reads/searches only nudge. Genuine edit
-// fallbacks (Serena tried and failed, unparseable/generated file): set the
-// env var SERENA_GUARD=0 to bypass for the session.
+// A hook only sees the path/pattern, not intent, so it nudges rather than
+// blocks — the agent decides whether Serena or a built-in fits the task.
+// Set the env var SERENA_GUARD=0 to silence the nudges for a session.
 
 const path = require('node:path');
 const fs = require('node:fs');
@@ -70,15 +69,11 @@ const SEARCH_TOOLS = new Set(['Glob', 'Grep']);
       const creatingNewFile = tool === 'Write' && !fs.existsSync(target);
       if (!creatingNewFile) {
         emit({
-          permissionDecision: 'deny',
-          permissionDecisionReason:
-            `Serena-first policy (CLAUDE.md): '${tool}' is blocked on existing code file ${target}. ` +
-            'Edit code through the Serena symbolic tools instead: replace_symbol_body, ' +
-            'insert_before_symbol / insert_after_symbol, replace_content, or rename_symbol / ' +
-            'move_symbol / safe_delete_symbol. (Creating a NEW .cs/.ts/.tsx file via Write is allowed — ' +
-            'Serena cannot create files.) Built-in editors on existing code are allowed only when Serena ' +
-            'was tried and failed, the file is unparseable, or it is generated. For a genuine fallback, ' +
-            'set SERENA_GUARD=0 for this session and retry.',
+          additionalContext:
+            `Serena-first (CLAUDE.md): for a structural or multi-symbol change to ${target}, prefer the ` +
+            'Serena editors (replace_symbol_body / insert_before_symbol / insert_after_symbol / ' +
+            'replace_content / rename_symbol / move_symbol). For a small, localized edit the built-in ' +
+            `${tool} is fine. (New .cs/.ts/.tsx files via Write are always fine — Serena cannot create files.)`,
         });
       }
     }

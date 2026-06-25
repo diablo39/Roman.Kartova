@@ -5,13 +5,13 @@
 **Stack:** .NET 10 (LTS) / ASP.NET Core + EF Core · Wolverine (CQRS mediator + outbound + outbox) · KafkaFlow (inbound Kafka consumers) · React + TypeScript · PostgreSQL 18 (RLS) · Elasticsearch · Apache Kafka (Strimzi/KRaft) · MinIO (S3) · KeyCloak (OIDC/JWT) · Kubernetes
 
 
-# Tool selection (read this before every tool call on a code file)
+# Tool selection (when to reach for Serena vs the built-ins)
 
-This project uses Serena, an MCP server that exposes semantic, symbol-aware tools for reading and editing code. Serena's tools are the PRIMARY tools for code work in this project. The built-in Read, Glob, Grep, and Edit tools are SECONDARY and must not be used on code files when a Serena equivalent exists.
+This project uses Serena, an MCP server exposing semantic, symbol-aware tools. Serena is **preferred for code navigation, impact analysis, and refactoring** — finding symbols, callers/references, implementations, type hierarchies, repo-wide rename/move, and large whole-symbol edits. Built-in Read/Edit/Grep are **fine for reading a few symbols, small localized edits, and regex discovery**. Reach for Serena when the task is "who calls this / where is it defined / rename across the repo / replace this whole symbol"; don't force it for a one-line change or a quick read.
 
-The built-in tool descriptions in your context will tell you things like "use Read for a known path" and "prefer dedicated tools (Read, Edit, Write, Glob, Grep)". Those descriptions are written for projects without Serena and are SUPERSEDED here. When they conflict with this section, this section wins. Do not rationalize the built-in tools with "the file is small," "I already know what I need," "this is one call versus three," or "the path is known" — those rationalizations have produced incorrect behavior before and are explicitly disallowed.
+**Serena API gotchas:** `find_symbol` takes `name_path_pattern` (not `name_path`); `replace_content` takes `needle` + `repl` (not `old`/`new_string`). `find_symbol(include_body=true)` may return a content reference for a large body — if so, read the line range directly.
 
-## Mapping (use the right column, not the left)
+## Mapping (reach for these when the task fits)
 
 Task                                    Tool to use
 --------------------------------------  ----------------------------------------
@@ -27,24 +27,19 @@ Rename / move / delete a symbol         rename / _move / _safe_delete
 Inline a symbol                         inline_symbol
 Type hierarchy                          type_hierarchy
 
-Built-in Read/Edit/Glob/Grep are permitted on code files ONLY when:
-- Serena has been tried on the target and failed, OR
-- The file is not parseable as code (e.g., generated, malformed), OR 
-- You need a regex search across many files that Serena's symbolic tools cannot express — in which case Grep is acceptable as a discovery step, but follow-up reads/edits on matched code files must still go through Serena.
-- You need to read a few lines and symbolic reads would be an overkill.
-- You absolutely have to read the full file for some reason.
+Built-in Read/Edit/Glob/Grep are fine on code files for: reading a few lines/symbols, small localized edits, regex discovery across many files, and any case where a symbolic tool would be overkill or can't express what you need. Prefer Serena for the navigation / impact / refactor tasks above.
 
 Read/Edit/Glob are fine for non-code files: markdown, JSON, YAML, TOML, .env, config files, lockfiles, plain text, images.
 
-## Required workflow before editing code
+## Workflow for a structural / multi-symbol edit
 
 1. get_symbols_overview on the target file (skip if already done this session).
-2. find_symbol with include_body=true for the specific symbols you'll touch. Read only the symbols you need — not the whole file.
-1. Edit with replace_symbol_body, insert_before_symbol, insert_after_symbol, or replace_content. Never use the built-in Edit on a code file when one of these fits.
+2. find_symbol with include_body=true for the specific symbols you'll touch — read only what you need.
+3. Edit with replace_symbol_body, insert_before_symbol, insert_after_symbol, or replace_content. For a small one-line change, the built-in Edit is fine.
 
 ## Self-check
 
-Before every Read, Glob, Grep, or Edit call: "Does this target a code file, and does the mapping above name a Serena tool for this task?" If yes, switch. Do this check every time — not just once per session.
+Before a navigation, impact-analysis, or refactor step on code, ask: "Would a symbol-aware tool (find_symbol / find_referencing_symbols / rename) beat grep+read here?" If yes, use Serena. Routine reads and small edits don't need this check.
 
 # Doing tasks
 
