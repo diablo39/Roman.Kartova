@@ -120,16 +120,42 @@ public class CreateRelationshipTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
-    public async Task POST_by_member_not_in_source_team_returns_403()
+
+    public async Task POST_by_member_in_neither_team_returns_403()
     {
+        // ADR-0108: Member who belongs to NEITHER endpoint's team is still rejected.
         var admin = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Restricted 403");
-        var a = await SeedServiceAsync(admin, teamId, "svc-r1-403");
-        var b = await SeedServiceAsync(admin, teamId, "svc-r2-403");
-        // member is NOT a member of the source entity's owning team -> source-side gate fires
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var sourceTeam = await Fx.SeedTeamInOrganizationAsync(tenant, "Rel Neither Src 403");
+        var targetTeam = await Fx.SeedTeamInOrganizationAsync(tenant, "Rel Neither Tgt 403");
+        var a = await SeedServiceAsync(admin, sourceTeam, "svc-neither-1-403");
+        var b = await SeedServiceAsync(admin, targetTeam, "svc-neither-2-403");
+
         var member = await Fx.CreateAuthenticatedClientAsync("member@orga.kartova.local", new[] { KartovaRoles.Member });
         var resp = await PostRelAsync(member, EntityKind.Service, a, RelationshipType.DependsOn, EntityKind.Service, b);
+
         Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task POST_by_target_team_member_returns_201()
+    {
+        // ADR-0108: a member of the TARGET entity's team (but NOT the source team)
+        // may declare the edge. Was 403 under source-only authority.
+        var admin = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var sourceTeam = await Fx.SeedTeamInOrganizationAsync(tenant, "Rel Either Src 201");
+        var targetTeam = await Fx.SeedTeamInOrganizationAsync(tenant, "Rel Either Tgt 201");
+        var src = await SeedServiceAsync(admin, sourceTeam, "svc-either-src-201");
+        var tgt = await SeedServiceAsync(admin, targetTeam, "svc-either-tgt-201");
+
+        var member = await Fx.CreateAuthenticatedClientAsync("member@orga.kartova.local", new[] { KartovaRoles.Member });
+        var memberId = await Fx.GetSubClaimAsync("member@orga.kartova.local");
+        await Fx.SeedTeamMembershipAsync(targetTeam, memberId, roleByte: 1 /* Member */);
+
+        var resp = await PostRelAsync(member, EntityKind.Service, src, RelationshipType.DependsOn, EntityKind.Service, tgt);
+
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode);
     }
 
     [TestMethod]

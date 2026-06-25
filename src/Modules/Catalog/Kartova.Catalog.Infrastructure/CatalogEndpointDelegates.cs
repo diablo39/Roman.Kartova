@@ -514,11 +514,6 @@ internal static class CatalogEndpointDelegates
                 detail: "The source entity does not exist in this tenant.",
                 statusCode: StatusCodes.Status422UnprocessableEntity);
 
-        // Source-team membership gate: OrgAdmin may declare edges for any team;
-        // a Member must belong to the source entity's owning team.
-        if (await AuthorizeTargetTeamAsync(auth, caller, sourceInfo.TeamId) is { } forbidden)
-            return forbidden;
-
         var targetInfo = await lookup.Find(target.Kind, target.Id, ct);
         if (targetInfo is null)
             return Results.Problem(
@@ -526,6 +521,10 @@ internal static class CatalogEndpointDelegates
                 title: "Invalid target entity",
                 detail: "The target entity does not exist in this tenant.",
                 statusCode: StatusCodes.Status422UnprocessableEntity);
+
+        // ADR-0108: either-endpoint authority — OrgAdmin or member of source OR target team.
+        if (await AuthorizeEitherTeamAsync(auth, caller, sourceInfo.TeamId, targetInfo.TeamId) is { } forbidden)
+            return forbidden;
 
         // Duplicate pre-check via direct ComplexProperty navigation — EF 10 translates
         // r.Source.Kind / r.Target.Kind through the ComplexProperty mapping.
@@ -663,6 +662,22 @@ internal static class CatalogEndpointDelegates
     {
         var gate = await auth.AuthorizeAsync(user, new TargetTeam(teamId), KartovaTeamPolicies.ApplicationTeamScoped);
         return gate.Succeeded ? null : Results.Forbid();
+    }
+
+    /// <summary>
+    /// ADR-0108: authorized when caller is OrgAdmin OR is a member of AT LEAST ONE
+    /// of the two connected-entity teams. Guid.Empty is treated as "no team" — only
+    /// OrgAdmin passes that check (via <see cref="AuthorizeTargetTeamAsync"/>).
+    /// Returns <c>null</c> when authorized; a forbidden <see cref="IResult"/> otherwise.
+    /// </summary>
+    internal static async Task<IResult?> AuthorizeEitherTeamAsync(
+        IAuthorizationService auth, ClaimsPrincipal caller, Guid teamA, Guid teamB)
+    {
+        // OrgAdmin passes any team check (short-circuits on teamA).
+        // A deleted endpoint contributes Guid.Empty, which only OrgAdmin passes.
+        if (await AuthorizeTargetTeamAsync(auth, caller, teamA) is null)
+            return null;
+        return await AuthorizeTargetTeamAsync(auth, caller, teamB);
     }
 
     /// <summary>Lightweight <see cref="ITeamScopedResource"/> over a target team id.</summary>
