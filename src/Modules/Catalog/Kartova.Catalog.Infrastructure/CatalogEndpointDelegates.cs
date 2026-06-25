@@ -568,11 +568,14 @@ internal static class CatalogEndpointDelegates
                 statusCode: StatusCodes.Status404NotFound);
 
         var sourceInfo = await lookup.Find(rel.Source.Kind, rel.Source.Id, ct);
+        var targetInfo = await lookup.Find(rel.Target.Kind, rel.Target.Id, ct);
 
-        // If source entity still exists: OrgAdmin OR member of source team.
-        // If source entity was deleted: fall back to OrgAdmin-only (null TeamId → gate never passes for Member).
-        var teamId = sourceInfo?.TeamId ?? Guid.Empty;
-        if (await AuthorizeTargetTeamAsync(auth, caller, teamId) is { } forbidden)
+        // Either-endpoint authority (ADR-0108). A hard-deleted endpoint resolves to
+        // Guid.Empty (only OrgAdmin passes); both deleted -> OrgAdmin-only.
+        if (await AuthorizeEitherTeamAsync(
+                auth, caller,
+                sourceInfo?.TeamId ?? Guid.Empty,
+                targetInfo?.TeamId ?? Guid.Empty) is { } forbidden)
             return forbidden;
 
         await handler.Handle(rel, db, audit, ct);
