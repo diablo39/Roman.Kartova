@@ -1,7 +1,7 @@
 ---
 platform: Kartova
 description: SaaS service catalog and developer portal platform (Backstage + Compass + Statuspage)
-adr_count: 105
+adr_count: 106
 last_updated: 2026-06-25
 architecture:
   backend: .NET 10 (LTS) / ASP.NET Core + EF Core (ADR-0027)
@@ -233,6 +233,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0106](ADR-0106-drop-regulatory-compliance-scope-gdpr-only.md) | Drop Regulatory-Compliance Scope — GDPR-Only | Compliance & Retention | Accepted | 0015, 0016, 0017, 0018, 0019, 0020, 0050, 0061 | Drop all regulatory-compliance scope beyond GDPR (MiFID II and a considered NIS2 pivot both dropped — none was ever built). Supersedes 0016/0020/0050; amends 0017/0019/0061; re-anchors the audit log (0018) to security/GDPR. Flat 180-day retention, no compliance flag, no 5-year tier. |
 | [0107](ADR-0107-list-filtering-consideration-and-filterbar-ui.md) | List Filtering — Consideration Mandate and Standard `<FilterBar>` UI | Frontend Architecture | Accepted | 0039, 0040, 0094, 0095 | Every list slice's design MUST include a **Filter Proposal** (candidate fields, each implement-now/defer/none, human-signed-off; deferral explicit) mirrored into `docs/design/list-filter-registry.md`. Built filters render through a shared `<FilterBar>` + `useListFilters` that composes `useListUrlState` and feeds the ADR-0095 cursor `f` map. Review-enforced; server-side filtering only in MVP. ADR-0095 keeps only the `f`-map wire format. |
 | [0108](ADR-0108-relationship-edge-authority-either-endpoint.md) | Relationship Edge Authority — Either-Endpoint Team Membership | Authentication & Authorization | Accepted | 0056, 0067, 0068, 0090, 0101, 0103 | Create/delete a manual relationship edge requires `OrgAdmin` or membership of *either* connected entity's owning team (symmetric). Replaces the source-side-only authority in the Slice 1a relationships design §3 #7 so the provider/target side can record incoming dependencies. A member of neither team is still 403. No approval workflow; accountability via origin=manual + created_by + audit. |
+| [0109](ADR-0109-api-serializes-enums-as-camelcase-strings.md) | REST API Serializes Enums as camelCase JSON Strings | API & Integration Architecture | Accepted | 0029, 0034, 0091, 0092, 0104 | All enums cross the API boundary as camelCase strings via `JsonStringEnumConverter` + `JsonNamingPolicy.CamelCase`; the OpenAPI doc + generated TS client are the single source of truth (frontend must not hand-author PascalCase enum literals). Enum query params bind case-insensitively (400 on unknown). The mismatch class is invisible to per-file `tsc --noEmit` — the composite `tsc -b`/`npm run build` is the binding type gate. |
 
 ## By category (quick navigation)
 
@@ -241,7 +242,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Multi-Tenancy**: 0011, 0012, 0013, 0014, 0090
 - **Compliance & Retention**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050, 0102
 - **Platform Infrastructure**: 0022, 0023, 0024, 0025, 0026, 0099
-- **API & Integration Architecture**: 0027, 0028, 0029, 0030, 0031, 0032, 0033, 0034, 0035, 0036, 0037, 0038, 0091, 0092, 0095, 0096, 0098
+- **API & Integration Architecture**: 0027, 0028, 0029, 0030, 0031, 0032, 0033, 0034, 0035, 0036, 0037, 0038, 0091, 0092, 0095, 0096, 0098, 0109
 - **Backend Architecture**: 0080, 0081, 0082, 0089, 0093
 - **Frontend Architecture**: 0039, 0040, 0088, 0107
 - **Agent Architecture**: 0041, 0042, 0043, 0044, 0045
@@ -443,6 +444,8 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **OIDC** → 0006, 0007, 0010
 - **One-org-one-tenant** → 0011
 - **OpenAPI** → 0029, 0034
+- **Enum JSON serialization (camelCase wire format)** → 0109
+- **Enum casing / generated-client types** → 0109
 - **Origin tracking (relationship)** → 0067
 - **Partial success (bulk API)** → 0032
 - **Per-tenant prefix (blob)** → 0004
