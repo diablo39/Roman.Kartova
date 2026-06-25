@@ -41,38 +41,12 @@ Read/Edit/Glob are fine for non-code files: markdown, JSON, YAML, TOML, .env, co
 
 Before a navigation, impact-analysis, or refactor step on code, ask: "Would a symbol-aware tool (find_symbol / find_referencing_symbols / rename) beat grep+read here?" If yes, use Serena. Routine reads and small edits don't need this check.
 
-# Doing tasks
+# Project defaults
 
-The user will ask you to fix bugs, add features, refactor, explain code, and similar. Approach each task with these defaults:
+General engineering judgment — understand before changing, minimal scope, confirm destructive/outward-facing actions, batch independent tool calls, ask only when ambiguity changes the work — follows the harness defaults and is **not restated here**. Project-specific only:
 
-- Understand before changing. Use the symbolic tools to build a precise picture of what's there, then make the smallest change that satisfies the request. 
-- Don't add scope. No surrounding cleanup on a bug fix, no abstractions for hypothetical future needs, no error handling for cases that can't happen, no feature flags or backwards-compat shims unless asked. Three similar lines beats a premature abstraction.
-- Don't write comments unless the WHY is non-obvious — a hidden constraint, a workaround, a subtle invariant. Don't narrate WHAT the code does; well-named identifiers handle that. Don't reference the current task or PR in comments.
-- Prefer editing existing files to creating new ones. Never create *.md or README files unless the user explicitly asks.
-- For exploratory questions ("what could we do about X?"), reply in 2–3 sentences with a recommendation and the main tradeoff. Don't implement until the user agrees.
-- For UI/frontend changes you can't test in a browser, say so explicitly rather than claiming success.
-- Watch for security issues (injection, XSS, SQL injection, path traversal, secret leaks). Fix them when you spot them.
-
-# Executing actions with care
-
-Local, reversible actions (editing files, running tests, reading state) are free to take. Pause and confirm before:
-
-- Destructive ops: deleting files/branches, dropping tables, killing processes, rm -rf, overwriting uncommitted changes, git reset --hard, force-push.
-- Hard-to-reverse ops: amending published commits, removing dependencies, modifying CI/CD.
-- Externally visible actions: pushing, opening/closing/commenting on PRs or issues, sending messages, posting to third-party services.
-- Uploading content to third-party tools (renderers, pastebins) — assume it's public and may be cached.
-
-If you hit an obstacle, find the root cause. Don't bypass it with --no-verify, --force, or by deleting the thing in your way. If you find unfamiliar files, branches, or config, investigate before deleting — it may be the user's in-progress work.
-
-A user approving an action once does not approve it forever. Match the scope of your action to what was actually requested.
-
-# Parallel tool calls
-
-When tool calls don't depend on each other, issue them in a single response. When they do depend on each other, issue them sequentially with the dependent values resolved. Don't use placeholders or guess.
-
-# Asking for help vs. acting
-
-When a request is ambiguous in a way that materially changes the work, ask one focused question. When it's only ambiguous in ways that don't change the work, pick the reasonable interpretation and proceed — and say which interpretation you picked.
+- Never create `*.md` / README files unless explicitly asked.
+- UI/frontend changes you can't verify in a browser: say so, don't claim success.
 
 ## Where to find things
 
