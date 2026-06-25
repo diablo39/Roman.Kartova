@@ -35,7 +35,7 @@ export function useRelationshipsList(params: RelationshipsListParams) {
             entityKind: params.entityKind,
             entityId: params.entityId,
             direction: params.direction,
-            limit: params.limit ?? 20,
+            limit: String(params.limit ?? 20),
             cursor,
           },
         },
@@ -83,7 +83,7 @@ export function useEntitySearch(
     enabled: opts.enabled,
     queryFn: async (): Promise<EntityOption[]> => {
       const q = { displayNameContains: query, sortBy: "displayName", sortOrder: "asc", limit: 10 } as const;
-      if (kind === "Application") {
+      if (kind === "application") {
         const { data, error } = await apiClient.GET("/api/v1/catalog/applications", { params: { query: q } });
         if (error) throw error;
         return unwrapData(data).items.map((e) => ({ kind, id: e.id, displayName: e.displayName }));

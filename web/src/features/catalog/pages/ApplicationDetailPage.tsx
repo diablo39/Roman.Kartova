@@ -98,7 +98,7 @@ export function ApplicationDetailPage() {
           </section>
           <hr className="border-secondary" />
           <RelationshipsSection
-            entityKind="Application"
+            entityKind="application"
             entityId={app.id}
             entityTeamId={app.teamId}
             entityDisplayName={app.displayName}

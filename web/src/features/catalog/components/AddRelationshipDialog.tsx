@@ -35,31 +35,31 @@ export function AddRelationshipDialog({ open, onOpenChange, fixedRole, fixedEnti
     [fixedRole, fixedEntity.kind],
   );
 
-  const [type, setType] = useState<CreatableRelationshipType>(types[0]);
+  const [type, setType] = useState<CreatableRelationshipType>(types[0]!);
   const otherKinds = useMemo(
     () => allowedOtherKinds(type, fixedRole, fixedEntity.kind),
     [type, fixedRole, fixedEntity.kind],
   );
-  const [otherKind, setOtherKind] = useState<RelationshipKind>(otherKinds[0]);
+  const [otherKind, setOtherKind] = useState<RelationshipKind>(otherKinds[0]!);
   const [other, setOther] = useState<EntityOption | null>(null);
   const [otherError, setOtherError] = useState("");
 
   // Keep type/otherKind valid as matrix narrows; reset selection on close.
   useEffect(() => {
-    if (!types.includes(type)) setType(types[0]);
+    if (!types.includes(type)) setType(types[0]!);
   }, [types, type]);
 
   useEffect(() => {
     if (!otherKinds.includes(otherKind)) {
-      setOtherKind(otherKinds[0]);
+      setOtherKind(otherKinds[0]!);
       setOther(null);
     }
   }, [otherKinds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!open) {
-      setType(types[0]);
-      setOtherKind(otherKinds[0]);
+      setType(types[0]!);
+      setOtherKind(otherKinds[0]!);
       setOther(null);
       setOtherError("");
     }

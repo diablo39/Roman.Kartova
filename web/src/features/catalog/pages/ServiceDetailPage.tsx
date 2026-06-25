@@ -114,7 +114,7 @@ export function ServiceDetailPage() {
         </section>
           <hr className="border-secondary" />
           <RelationshipsSection
-            entityKind="Service"
+            entityKind="service"
             entityId={svc.id}
             entityTeamId={svc.teamId}
             entityDisplayName={svc.displayName}

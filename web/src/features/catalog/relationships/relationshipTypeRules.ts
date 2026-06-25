@@ -1,14 +1,14 @@
-export type RelationshipKind = "Application" | "Service";
-export type CreatableRelationshipType = "DependsOn" | "PartOf";
+export type RelationshipKind = "application" | "service";
+export type CreatableRelationshipType = "dependsOn" | "partOf";
 export type FixedRole = "source" | "target";
 
 export const relationshipTypeLabel: Record<CreatableRelationshipType, string> = {
-  DependsOn: "Depends on",
-  PartOf: "Part of",
+  dependsOn: "Depends on",
+  partOf: "Part of",
 };
 
-const CREATABLE_TYPES: CreatableRelationshipType[] = ["DependsOn", "PartOf"];
-const KINDS: RelationshipKind[] = ["Application", "Service"];
+const CREATABLE_TYPES: CreatableRelationshipType[] = ["dependsOn", "partOf"];
+const KINDS: RelationshipKind[] = ["application", "service"];
 
 // Mirror of backend RelationshipTypeRules.IsAllowedPair (ADR-0068, creatable subset).
 export function isAllowedPair(
@@ -17,10 +17,10 @@ export function isAllowedPair(
   target: RelationshipKind,
 ): boolean {
   switch (type) {
-    case "DependsOn":
+    case "dependsOn":
       return true;
-    case "PartOf":
-      return source === "Service" && target === "Application";
+    case "partOf":
+      return source === "service" && target === "application";
   }
 }
 

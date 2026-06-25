@@ -13,7 +13,7 @@ import {
   useDeleteRelationship,
   type RelationshipResponse,
 } from "@/features/catalog/api/relationships";
-import { relationshipTypeLabel, type RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
+import { relationshipTypeLabel, type RelationshipKind, type CreatableRelationshipType } from "@/features/catalog/relationships/relationshipTypeRules";
 import { AddRelationshipDialog } from "@/features/catalog/components/AddRelationshipDialog";
 import type { FixedRole } from "@/features/catalog/relationships/relationshipTypeRules";
 
@@ -25,7 +25,7 @@ interface Props {
 }
 
 function entityLink(kind: string, id: string) {
-  return `/catalog/${kind === "Application" ? "applications" : "services"}/${id}`;
+  return `/catalog/${kind === "application" ? "applications" : "services"}/${id}`;
 }
 
 export function RelationshipsSection({ entityKind, entityId, entityTeamId, entityDisplayName }: Props) {
@@ -97,7 +97,7 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
               {list.items.map((r) => {
                 const e = related(r);
                 const label =
-                  relationshipTypeLabel[r.type as "DependsOn" | "PartOf"] ?? r.type;
+                  relationshipTypeLabel[r.type as CreatableRelationshipType] ?? r.type;
                 return (
                   <Table.Row key={r.id} id={r.id}>
                     <Table.Cell>

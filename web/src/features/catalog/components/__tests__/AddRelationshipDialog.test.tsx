@@ -8,7 +8,7 @@ vi.mock("@/features/catalog/components/EntitySearchCombobox", () => ({
   EntitySearchCombobox: ({ onSelect }: { onSelect: (e: unknown) => void }) => (
     <button
       type="button"
-      onClick={() => onSelect({ kind: "Application", id: "app9", displayName: "Checkout" })}
+      onClick={() => onSelect({ kind: "application", id: "app9", displayName: "Checkout" })}
     >
       pick-entity
     </button>
@@ -31,7 +31,7 @@ vi.mock("@/components/application/modals/modal", () => ({
   ),
 }));
 
-const svc = { kind: "Service" as const, id: "s1", displayName: "Payments" };
+const svc = { kind: "service" as const, id: "s1", displayName: "Payments" };
 
 function harness(ui: React.ReactElement) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -66,10 +66,10 @@ describe("AddRelationshipDialog", () => {
 
     await waitFor(() =>
       expect(mutateAsync).toHaveBeenCalledWith({
-        sourceKind: "Service",
+        sourceKind: "service",
         sourceId: "s1",
-        type: "DependsOn",
-        targetKind: "Application",
+        type: "dependsOn",
+        targetKind: "application",
         targetId: "app9",
       }),
     );
@@ -143,10 +143,10 @@ describe("AddRelationshipDialog", () => {
 
     await waitFor(() =>
       expect(mutateAsync).toHaveBeenCalledWith({
-        sourceKind: "Application",
+        sourceKind: "application",
         sourceId: "app9",
-        type: "DependsOn",
-        targetKind: "Service",
+        type: "dependsOn",
+        targetKind: "service",
         targetId: "s1",
       }),
     );
@@ -168,7 +168,7 @@ describe("AddRelationshipDialog", () => {
     );
 
     const typeSelect = screen.getByTestId("relationship-type-select") as HTMLSelectElement;
-    expect(Array.from(typeSelect.options).map((o) => o.value)).toEqual(["DependsOn"]);
+    expect(Array.from(typeSelect.options).map((o) => o.value)).toEqual(["dependsOn"]);
   });
 
   it("forces the other kind to Application (disabled) for PartOf, source side, Service fixed", () => {
@@ -187,13 +187,13 @@ describe("AddRelationshipDialog", () => {
     );
 
     fireEvent.change(screen.getByTestId("relationship-type-select"), {
-      target: { value: "PartOf" },
+      target: { value: "partOf" },
     });
 
     const kindSelect = screen.getByTestId(
       "relationship-otherkind-select",
     ) as HTMLSelectElement;
-    expect(Array.from(kindSelect.options).map((o) => o.value)).toEqual(["Application"]);
+    expect(Array.from(kindSelect.options).map((o) => o.value)).toEqual(["application"]);
     expect(kindSelect.disabled).toBe(true);
   });
 });

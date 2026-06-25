@@ -17,18 +17,18 @@ describe("relationships api", () => {
   beforeEach(() => vi.restoreAllMocks());
 
   it("useRelationshipsList fetches a directional page", async () => {
-    const page = { items: [{ id: "r1", type: "DependsOn" }], nextCursor: null, prevCursor: null };
+    const page = { items: [{ id: "r1", type: "dependsOn" }], nextCursor: null, prevCursor: null };
     const GET = vi.fn().mockResolvedValue({ data: page, error: undefined });
     vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET } as never);
 
     const qc = newQc();
     const { result } = renderHook(
-      () => useRelationshipsList({ entityKind: "Service", entityId: "s1", direction: "outgoing" }),
+      () => useRelationshipsList({ entityKind: "service", entityId: "s1", direction: "outgoing" }),
       { wrapper: wrapper(qc) },
     );
     await waitFor(() => expect(result.current.items).toHaveLength(1));
     expect(GET).toHaveBeenCalledWith("/api/v1/catalog/relationships", expect.objectContaining({
-      params: { query: expect.objectContaining({ entityKind: "Service", entityId: "s1", direction: "outgoing" }) },
+      params: { query: expect.objectContaining({ entityKind: "service", entityId: "s1", direction: "outgoing" }) },
     }));
   });
 
@@ -38,8 +38,8 @@ describe("relationships api", () => {
     const qc = newQc();
     const spy = vi.spyOn(qc, "invalidateQueries");
     const { result } = renderHook(() => useCreateRelationship(), { wrapper: wrapper(qc) });
-    await result.current.mutateAsync({ sourceKind: "Service", sourceId: "s1", type: "DependsOn", targetKind: "Service", targetId: "s2" });
-    expect(POST).toHaveBeenCalledWith("/api/v1/catalog/relationships", { body: expect.objectContaining({ type: "DependsOn" }) });
+    await result.current.mutateAsync({ sourceKind: "service", sourceId: "s1", type: "dependsOn", targetKind: "service", targetId: "s2" });
+    expect(POST).toHaveBeenCalledWith("/api/v1/catalog/relationships", { body: expect.objectContaining({ type: "dependsOn" }) });
     expect(spy).toHaveBeenCalledWith({ queryKey: ["relationships"] });
   });
 
@@ -59,8 +59,8 @@ describe("relationships api", () => {
     const GET = vi.fn().mockResolvedValue({ data: page, error: undefined });
     vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET } as never);
     const qc = newQc();
-    const { result } = renderHook(() => useEntitySearch("Service", "au", { enabled: true }), { wrapper: wrapper(qc) });
-    await waitFor(() => expect(result.current.data).toEqual([{ kind: "Service", id: "s9", displayName: "AuthService" }]));
+    const { result } = renderHook(() => useEntitySearch("service", "au", { enabled: true }), { wrapper: wrapper(qc) });
+    await waitFor(() => expect(result.current.data).toEqual([{ kind: "service", id: "s9", displayName: "AuthService" }]));
     expect(GET).toHaveBeenCalledWith("/api/v1/catalog/services", expect.objectContaining({
       params: { query: expect.objectContaining({ displayNameContains: "au", limit: 10 }) },
     }));

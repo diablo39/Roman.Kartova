@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { RelationshipsSection } from "@/features/catalog/components/RelationshipsSection";
@@ -8,8 +8,8 @@ import * as perms from "@/shared/auth/usePermissions";
 function listResult(items: Partial<api.RelationshipResponse>[]) {
   return { items, isLoading: false, isError: false, hasNext: false, hasPrev: false, goNext: vi.fn(), goPrev: vi.fn() } as never;
 }
-const out = [{ id: "r1", type: "DependsOn", origin: "Manual", source: { kind: "Service", id: "s1", displayName: "Me" }, target: { kind: "Service", id: "s2", displayName: "AuthService" }, createdByUserId: "u1", createdAt: "2026-06-25T00:00:00Z" }];
-const inc = [{ id: "r2", type: "DependsOn", origin: "Manual", source: { kind: "Application", id: "a1", displayName: "Checkout" }, target: { kind: "Service", id: "s1", displayName: "Me" }, createdByUserId: "u1", createdAt: "2026-06-25T00:00:00Z" }];
+const out: Partial<api.RelationshipResponse>[] = [{ id: "r1", type: "dependsOn", origin: "manual", source: { kind: "service", id: "s1", displayName: "Me" }, target: { kind: "service", id: "s2", displayName: "AuthService" }, createdByUserId: "u1", createdAt: "2026-06-25T00:00:00Z" }];
+const inc: Partial<api.RelationshipResponse>[] = [{ id: "r2", type: "dependsOn", origin: "manual", source: { kind: "application", id: "a1", displayName: "Checkout" }, target: { kind: "service", id: "s1", displayName: "Me" }, createdByUserId: "u1", createdAt: "2026-06-25T00:00:00Z" }];
 
 function mockLists() {
   vi.spyOn(api, "useRelationshipsList").mockImplementation((p: api.RelationshipsListParams) =>
@@ -24,7 +24,7 @@ function mockPerms(can: boolean) {
 function renderSection() {
   return render(
     <MemoryRouter>
-      <RelationshipsSection entityKind="Service" entityId="s1" entityTeamId="t1" entityDisplayName="Me" />
+      <RelationshipsSection entityKind="service" entityId="s1" entityTeamId="t1" entityDisplayName="Me" />
     </MemoryRouter>,
   );
 }
@@ -50,6 +50,6 @@ it("deletes a row after confirm", async () => {
   vi.spyOn(api, "useDeleteRelationship").mockReturnValue({ mutateAsync, isPending: false } as never);
   vi.spyOn(window, "confirm").mockReturnValue(true);
   renderSection();
-  fireEvent.click(screen.getAllByRole("button", { name: /delete/i })[0]);
+  fireEvent.click(screen.getAllByRole("button", { name: /delete/i })[0]!);
   await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith("r1"));
 });
