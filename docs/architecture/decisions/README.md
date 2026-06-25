@@ -1,8 +1,8 @@
 ---
 platform: Kartova
 description: SaaS service catalog and developer portal platform (Backstage + Compass + Statuspage)
-adr_count: 104
-last_updated: 2026-06-21
+adr_count: 105
+last_updated: 2026-06-25
 architecture:
   backend: .NET 10 (LTS) / ASP.NET Core + EF Core (ADR-0027)
   backend_pattern: Modular monolith (ADR-0082) with Clean Architecture per module — Domain / Application / Infrastructure / Contracts (ADR-0028); inter-module via Wolverine mediator or Kafka events
@@ -232,11 +232,12 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0105](ADR-0105-audit-chain-checkpoints-and-external-anchoring.md) | Audit-Chain Checkpoints and External Anchoring | Security / Compliance | Accepted | 0001, 0018, 0090, 0099 | Two-tier checkpointing for the per-tenant audit hash chain. Tier 1 (now): an insert-only, RLS-scoped `audit_checkpoint` table snapshots a verified chain head so routine verification re-walks only the tail since the last checkpoint (O(tail) not O(whole chain)); written by a daily `LeaderElectedPeriodicService` sweep. Tier 2 (deferred): export checkpoint hashes to a WORM/signed store outside the DB trust boundary to detect rollback/truncation. |
 | [0106](ADR-0106-drop-regulatory-compliance-scope-gdpr-only.md) | Drop Regulatory-Compliance Scope — GDPR-Only | Compliance & Retention | Accepted | 0015, 0016, 0017, 0018, 0019, 0020, 0050, 0061 | Drop all regulatory-compliance scope beyond GDPR (MiFID II and a considered NIS2 pivot both dropped — none was ever built). Supersedes 0016/0020/0050; amends 0017/0019/0061; re-anchors the audit log (0018) to security/GDPR. Flat 180-day retention, no compliance flag, no 5-year tier. |
 | [0107](ADR-0107-list-filtering-consideration-and-filterbar-ui.md) | List Filtering — Consideration Mandate and Standard `<FilterBar>` UI | Frontend Architecture | Accepted | 0039, 0040, 0094, 0095 | Every list slice's design MUST include a **Filter Proposal** (candidate fields, each implement-now/defer/none, human-signed-off; deferral explicit) mirrored into `docs/design/list-filter-registry.md`. Built filters render through a shared `<FilterBar>` + `useListFilters` that composes `useListUrlState` and feeds the ADR-0095 cursor `f` map. Review-enforced; server-side filtering only in MVP. ADR-0095 keeps only the `f`-map wire format. |
+| [0108](ADR-0108-relationship-edge-authority-either-endpoint.md) | Relationship Edge Authority — Either-Endpoint Team Membership | Authentication & Authorization | Accepted | 0056, 0067, 0068, 0090, 0101, 0103 | Create/delete a manual relationship edge requires `OrgAdmin` or membership of *either* connected entity's owning team (symmetric). Replaces the source-side-only authority in the Slice 1a relationships design §3 #7 so the provider/target side can record incoming dependencies. A member of neither team is still 403. No approval workflow; accountability via origin=manual + created_by + audit. |
 
 ## By category (quick navigation)
 
 - **Data Platform**: 0001, 0002, 0003, 0004, 0005
-- **Authentication & Authorization**: 0006, 0007, 0008, 0009, 0010, 0100, 0101
+- **Authentication & Authorization**: 0006, 0007, 0008, 0009, 0010, 0100, 0101, 0108
 - **Multi-Tenancy**: 0011, 0012, 0013, 0014, 0090
 - **Compliance & Retention**: 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0050, 0102
 - **Platform Infrastructure**: 0022, 0023, 0024, 0025, 0026, 0099
@@ -288,7 +289,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Status page**: 0005, 0010, 0023, 0051, 0052, 0053, 0076
 - **Identity & auth**: 0006, 0007, 0008, 0009, 0010, 0014, 0042, 0100, 0101, 0102
 - **Membership-gated registration**: 0103
-- **RBAC / roles / team-admin authority**: 0008, 0101, 0103
+- **RBAC / roles / team-admin authority**: 0008, 0101, 0103, 0108
 - **Infrastructure & deployment**: 0022, 0023, 0024, 0025, 0043, 0085, 0086
 - **Database migrations**: 0001, 0012, 0082, 0085
 - **Helm / packaging / GitOps**: 0043, 0085, 0086
@@ -457,6 +458,8 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **React SPA** → 0039, 0040
 - **Relationship vocabulary (7 types)** → 0068
 - **Relationship origin** → 0067
+- **Relationship authority (who can create/delete an edge)** → 0108
+- **Relationship edge write — either-endpoint team membership** → 0108
 - **Required minimum fields** → 0069
 - **Resource identifier (UUID-only)** → 0098
 - **Residency region** → 0021
