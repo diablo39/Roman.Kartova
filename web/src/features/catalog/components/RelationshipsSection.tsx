@@ -16,6 +16,8 @@ import {
 import { relationshipTypeLabel, type RelationshipKind, type CreatableRelationshipType } from "@/features/catalog/relationships/relationshipTypeRules";
 import { AddRelationshipDialog } from "@/features/catalog/components/AddRelationshipDialog";
 import type { FixedRole } from "@/features/catalog/relationships/relationshipTypeRules";
+import { Tooltip, TooltipTrigger } from "@/components/base/tooltip/tooltip";
+import { HelpCircle } from "@untitledui/icons";
 
 interface Props {
   entityKind: RelationshipKind;
@@ -55,6 +57,7 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
 
   const renderGroup = (
     title: string,
+    help: { title: string; description: string },
     emptyCopy: string,
     list: ReturnType<typeof useRelationshipsList>,
     related: (r: RelationshipResponse) => RelationshipResponse["source"],
@@ -63,7 +66,17 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
   ) => (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-primary">{title}</h3>
+        <div className="flex items-center gap-1.5">
+          <h3 className="text-sm font-semibold text-primary">{title}</h3>
+          <Tooltip title={help.title} description={help.description} placement="top">
+            <TooltipTrigger
+              aria-label={`What does "${title}" mean?`}
+              className="cursor-help text-fg-quaternary transition hover:text-fg-quaternary_hover"
+            >
+              <HelpCircle className="size-4" aria-hidden="true" />
+            </TooltipTrigger>
+          </Tooltip>
+        </div>
         {canManage && (
           <Button color="secondary" size="sm" onClick={() => setDialog(addRole)}>
             {addLabel}
@@ -153,6 +166,10 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
     <section className="space-y-6" aria-label="Relationships">
       {renderGroup(
         "Dependencies",
+        {
+          title: "Dependencies (outgoing)",
+          description: `What this ${entityKind} depends on — the things it needs to work. If a dependency breaks, this ${entityKind} may be affected.`,
+        },
         "No dependencies.",
         outgoing,
         (r) => r.target,
@@ -161,6 +178,10 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
       )}
       {renderGroup(
         "Dependents",
+        {
+          title: "Dependents (incoming)",
+          description: `What depends on this ${entityKind} — its consumers. If this ${entityKind} breaks, these may be affected.`,
+        },
         `Nothing depends on this ${entityKind.toLowerCase()}.`,
         incoming,
         (r) => r.source,
