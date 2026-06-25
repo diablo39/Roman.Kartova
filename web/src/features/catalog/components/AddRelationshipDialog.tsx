@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { ModalOverlay, Modal, Dialog } from "@/components/application/modals/modal";
@@ -44,26 +44,25 @@ export function AddRelationshipDialog({ open, onOpenChange, fixedRole, fixedEnti
   const [other, setOther] = useState<EntityOption | null>(null);
   const [otherError, setOtherError] = useState("");
 
-  // Keep type/otherKind valid as matrix narrows; reset selection on close.
-  useEffect(() => {
-    if (!types.includes(type)) setType(types[0]!);
-  }, [types, type]);
-
-  useEffect(() => {
-    if (!otherKinds.includes(otherKind)) {
-      setOtherKind(otherKinds[0]!);
-      setOther(null);
-    }
-  }, [otherKinds]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
+  // Render-phase reconciliation (not an effect — avoids react-hooks/set-state-in-effect):
+  // reset when the dialog closes, and snap selections back when the matrix narrows past them.
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (!open) {
       setType(types[0]!);
       setOtherKind(otherKinds[0]!);
       setOther(null);
       setOtherError("");
     }
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }
+  if (!types.includes(type)) {
+    setType(types[0]!);
+  }
+  if (!otherKinds.includes(otherKind)) {
+    setOtherKind(otherKinds[0]!);
+    setOther(null);
+  }
 
   const submit = async () => {
     if (!other) {
