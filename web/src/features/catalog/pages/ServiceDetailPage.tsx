@@ -8,6 +8,7 @@ import { CreatedByLink } from "@/features/users/components/CreatedByLink";
 import { useService } from "@/features/catalog/api/services";
 import { useTeamsList } from "@/features/teams/api/teams";
 import { PROTOCOL_LABEL } from "@/features/catalog/schemas/registerService";
+import { RelationshipsSection } from "@/features/catalog/components/RelationshipsSection";
 
 export function ServiceDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -111,6 +112,13 @@ export function ServiceDetailPage() {
             </div>
           )}
         </section>
+          <hr className="border-secondary" />
+          <RelationshipsSection
+            entityKind="Service"
+            entityId={svc.id}
+            entityTeamId={svc.teamId}
+            entityDisplayName={svc.displayName}
+          />
       </CardContent>
     </Card>
   );

@@ -10,6 +10,7 @@ import { AssignTeamPicker } from "@/features/teams/components/AssignTeamPicker";
 import { CreatedByLink } from "@/features/users/components/CreatedByLink";
 import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
+import { RelationshipsSection } from "@/features/catalog/components/RelationshipsSection";
 
 export function ApplicationDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -95,6 +96,13 @@ export function ApplicationDetailPage() {
             </div>
             <Field label="Created" value={app.createdAt ?? "—"} />
           </section>
+          <hr className="border-secondary" />
+          <RelationshipsSection
+            entityKind="Application"
+            entityId={app.id}
+            entityTeamId={app.teamId}
+            entityDisplayName={app.displayName}
+          />
         </CardContent>
       </Card>
 

@@ -11,6 +11,17 @@ vi.mock("@/features/teams/api/teams", () => ({
   useTeamsList: () => ({ items: [{ id: "00000000-0000-0000-0000-000000000010", displayName: "Platform" }], isLoading: false }),
 }));
 
+// Stub permissions so RelationshipsSection renders without an auth provider.
+vi.mock("@/shared/auth/usePermissions", () => ({
+  usePermissions: () => ({ hasPermission: () => false, role: "Member", teamIds: [], teamAdminTeamIds: [], isLoading: false, isError: false }),
+}));
+
+// Stub relationships so RelationshipsSection renders without real API calls.
+vi.mock("@/features/catalog/api/relationships", () => ({
+  useRelationshipsList: () => ({ items: [], isLoading: false, isError: false, hasNext: false, hasPrev: false, goNext: vi.fn(), goPrev: vi.fn() }),
+  useDeleteRelationship: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+
 function harness(qc: QueryClient, path: string) {
   return (
     <QueryClientProvider client={qc}>

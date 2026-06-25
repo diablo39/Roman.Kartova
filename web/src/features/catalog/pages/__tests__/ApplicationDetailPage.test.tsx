@@ -6,6 +6,12 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import * as clientModule from "@/features/catalog/api/client";
 import { ApplicationDetailPage } from "../ApplicationDetailPage";
 
+// Stub relationships so RelationshipsSection renders without real API calls.
+vi.mock("@/features/catalog/api/relationships", () => ({
+  useRelationshipsList: () => ({ items: [], isLoading: false, isError: false, hasNext: false, hasPrev: false, goNext: vi.fn(), goPrev: vi.fn() }),
+  useDeleteRelationship: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+
 // Default: fully permissive — existing tests are unaffected.
 const usePermissionsMock = vi.fn();
 vi.mock("@/shared/auth/usePermissions", () => ({
@@ -19,6 +25,9 @@ function mockPermissions(perms: string[]) {
     role: "test",
     hasPermission: (p: string) => perms.includes(p),
     isLoading: false,
+    teamIds: [],
+    teamAdminTeamIds: [],
+    isError: false,
   });
 }
 
