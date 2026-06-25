@@ -36,6 +36,9 @@ it("renders the dependency target link and the dependent source link", () => {
   expect(screen.getByText("AuthService").closest("a")).toHaveAttribute("href", "/catalog/services/s2"); // outgoing → target
   expect(screen.getByText("Checkout").closest("a")).toHaveAttribute("href", "/catalog/applications/a1"); // incoming → source
   expect(screen.getAllByText("Manual").length).toBeGreaterThan(0);
+  // Regression: each table must designate an isRowHeader column, or react-aria
+  // throws "A table must have at least one Column with isRowHeader" and blanks the page.
+  expect(screen.getAllByRole("rowheader").length).toBeGreaterThan(0);
 });
 
 it("hides Add and Delete when the user cannot manage", () => {

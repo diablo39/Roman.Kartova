@@ -87,7 +87,7 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
         <Table aria-label={title}>
           <Table.Header>
             <Table.Head id="type">Type</Table.Head>
-            <Table.Head id="entity">Entity</Table.Head>
+            <Table.Head id="entity" isRowHeader>Entity</Table.Head>
             <Table.Head id="origin">Origin</Table.Head>
             <Table.Head id="createdBy">Added by</Table.Head>
             {canManage && <Table.Head id="actions"> </Table.Head>}
@@ -103,7 +103,7 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
           <Table aria-label={title}>
             <Table.Header>
               <Table.Head id="type">Type</Table.Head>
-              <Table.Head id="entity">Entity</Table.Head>
+              <Table.Head id="entity" isRowHeader>Entity</Table.Head>
               <Table.Head id="origin">Origin</Table.Head>
               <Table.Head id="createdBy">Added by</Table.Head>
               {canManage && <Table.Head id="actions"> </Table.Head>}
