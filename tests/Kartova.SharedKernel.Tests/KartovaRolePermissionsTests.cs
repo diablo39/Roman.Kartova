@@ -124,4 +124,15 @@ public sealed class KartovaRolePermissionsTests
     [TestMethod]
     public void CatalogServicesRegister_is_in_the_All_set() =>
         Assert.IsTrue(KartovaPermissions.All.Contains(KartovaPermissions.CatalogServicesRegister));
+
+    [TestMethod]
+    public void RelationshipsWrite_granted_to_member_and_orgadmin_not_viewer()
+    {
+        Assert.IsTrue(KartovaRolePermissions.ForRole(KartovaRoles.Member)
+            .Contains(KartovaPermissions.CatalogRelationshipsWrite));
+        Assert.IsTrue(KartovaRolePermissions.ForRole(KartovaRoles.OrgAdmin)
+            .Contains(KartovaPermissions.CatalogRelationshipsWrite));
+        Assert.IsFalse(KartovaRolePermissions.ForRole(KartovaRoles.Viewer)
+            .Contains(KartovaPermissions.CatalogRelationshipsWrite));
+    }
 }

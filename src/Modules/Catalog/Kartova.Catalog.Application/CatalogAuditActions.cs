@@ -14,6 +14,8 @@ public static class CatalogAuditActions
     public const string ApplicationLifecycleChanged = "application.lifecycle_changed";
     public const string ApplicationTeamAssigned = "application.team_assigned";
     public const string ServiceRegistered = "service.registered";
+    public const string RelationshipCreated = "relationship.created";
+    public const string RelationshipRemoved = "relationship.removed";
 }
 
 /// <summary>
@@ -24,4 +26,5 @@ public static class CatalogAuditTargetTypes
 {
     public const string Application = "Application";
     public const string Service = "Service";
+    public const string Relationship = "Relationship";
 }

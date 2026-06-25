@@ -1,0 +1,116 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
+using Kartova.Catalog.Application;
+using Kartova.Catalog.Contracts;
+using Kartova.Catalog.Domain;
+using Kartova.SharedKernel.Multitenancy;
+using Kartova.SharedKernel.Pagination;
+using Kartova.Testing.Auth;
+
+namespace Kartova.Catalog.IntegrationTests;
+
+[TestClass]
+public class DeleteRelationshipTests : CatalogIntegrationTestBase
+{
+    private const string OrgAUser = "admin@orga.kartova.local";
+
+    private static async Task<Guid> SeedServiceAsync(HttpClient client, Guid teamId, string name)
+    {
+        var resp = await client.PostAsJsonAsync("/api/v1/catalog/services", new
+        { displayName = name, description = "x", teamId, endpoints = Array.Empty<object>() });
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode, $"SeedService '{name}' failed: {resp.StatusCode}");
+        var body = await resp.Content.ReadFromJsonAsync<ServiceResponse>(KartovaApiFixtureBase.WireJson);
+        return body!.Id;
+    }
+
+    private static object Rel(EntityKind sk, Guid sid, RelationshipType t, EntityKind tk, Guid tid)
+        => new { sourceKind = sk, sourceId = sid, type = t, targetKind = tk, targetId = tid };
+
+    [TestMethod]
+    public async Task DELETE_removes_relationship_returns_204()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Del Rel Team 204");
+        var a = await SeedServiceAsync(client, teamId, "svc-da-204");
+        var b = await SeedServiceAsync(client, teamId, "svc-db-204");
+        var created = await (await client.PostAsJsonAsync("/api/v1/catalog/relationships",
+            Rel(EntityKind.Service, a, RelationshipType.DependsOn, EntityKind.Service, b)))
+            .Content.ReadFromJsonAsync<RelationshipResponse>(KartovaApiFixtureBase.WireJson);
+
+        var del = await client.DeleteAsync($"/api/v1/catalog/relationships/{created!.Id}");
+        Assert.AreEqual(HttpStatusCode.NoContent, del.StatusCode);
+
+        var page = await (await client.GetAsync($"/api/v1/catalog/relationships?entityKind=Service&entityId={a}&direction=outgoing"))
+            .Content.ReadFromJsonAsync<CursorPage<RelationshipResponse>>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(0, page!.Items.Count);
+    }
+
+    [TestMethod]
+    public async Task DELETE_writes_relationship_removed_audit_row()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var tenantId = Fx.TenantIdForEmail(OrgAUser).Value;
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Del Rel Audit Team");
+        var a = await SeedServiceAsync(client, teamId, "svc-da-audit");
+        var b = await SeedServiceAsync(client, teamId, "svc-db-audit");
+        var created = await (await client.PostAsJsonAsync("/api/v1/catalog/relationships",
+            Rel(EntityKind.Service, a, RelationshipType.DependsOn, EntityKind.Service, b)))
+            .Content.ReadFromJsonAsync<RelationshipResponse>(KartovaApiFixtureBase.WireJson);
+
+        var del = await client.DeleteAsync($"/api/v1/catalog/relationships/{created!.Id}");
+        Assert.AreEqual(HttpStatusCode.NoContent, del.StatusCode);
+
+        var rows = await Fx.ReadAuditLogAsync(tenantId);
+        var row = rows.Single(r =>
+            r.Action == CatalogAuditActions.RelationshipRemoved &&
+            r.TargetId == created.Id.ToString());
+        Assert.AreEqual(CatalogAuditTargetTypes.Relationship, row.TargetType);
+        using var data = JsonDocument.Parse(row.DataJson!);
+        Assert.AreEqual(EntityKind.Service.ToString(), data.RootElement.GetProperty("sourceKind").GetString());
+        Assert.AreEqual(a.ToString(), data.RootElement.GetProperty("sourceId").GetString());
+        Assert.AreEqual(RelationshipType.DependsOn.ToString(), data.RootElement.GetProperty("type").GetString());
+    }
+
+    [TestMethod]
+    public async Task DELETE_nonexistent_returns_404()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var resp = await client.DeleteAsync($"/api/v1/catalog/relationships/{Guid.NewGuid()}");
+        Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task DELETE_other_tenant_relationship_returns_404()
+    {
+        // Create relationship in OrgB; attempt to delete from OrgA — RLS scopes to tenant, so 404.
+        const string OrgBUser = "admin@orgb.kartova.local";
+        var orgB = await Fx.CreateAuthenticatedClientAsync(OrgBUser);
+        var teamB = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgBUser), "Del Rel XT Team B");
+        var b1 = await SeedServiceAsync(orgB, teamB, "svc-xt-b1");
+        var b2 = await SeedServiceAsync(orgB, teamB, "svc-xt-b2");
+        var created = await (await orgB.PostAsJsonAsync("/api/v1/catalog/relationships",
+            Rel(EntityKind.Service, b1, RelationshipType.DependsOn, EntityKind.Service, b2)))
+            .Content.ReadFromJsonAsync<RelationshipResponse>(KartovaApiFixtureBase.WireJson);
+
+        var orgA = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var resp = await orgA.DeleteAsync($"/api/v1/catalog/relationships/{created!.Id}");
+        Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task DELETE_by_member_not_in_source_team_returns_403()
+    {
+        var admin = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Del Rel Restricted Team");
+        var a = await SeedServiceAsync(admin, teamId, "svc-rd1-403");
+        var b = await SeedServiceAsync(admin, teamId, "svc-rd2-403");
+        var created = await (await admin.PostAsJsonAsync("/api/v1/catalog/relationships",
+            Rel(EntityKind.Service, a, RelationshipType.DependsOn, EntityKind.Service, b)))
+            .Content.ReadFromJsonAsync<RelationshipResponse>(KartovaApiFixtureBase.WireJson);
+
+        var member = await Fx.CreateAuthenticatedClientAsync("member@orga.kartova.local", new[] { KartovaRoles.Member });
+        var resp = await member.DeleteAsync($"/api/v1/catalog/relationships/{created!.Id}");
+        Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
+    }
+}

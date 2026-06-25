@@ -71,6 +71,7 @@ describe("usePermissions", () => {
           "catalog.applications.lifecycle.forward",
           "catalog.applications.lifecycle.reverse",
           "catalog.services.register",
+          "catalog.relationships.write",
           "team.read",
           "team.create",
           "org.profile.read",

@@ -48,6 +48,9 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
         (HttpMethod.Post, "/api/v1/catalog/services",                       KartovaPermissions.CatalogServicesRegister),
         (HttpMethod.Get,  "/api/v1/catalog/services",                       KartovaPermissions.CatalogRead),
         (HttpMethod.Get,  "/api/v1/catalog/services/{svcId}",               KartovaPermissions.CatalogRead),
+        (HttpMethod.Post,   "/api/v1/catalog/relationships",                  KartovaPermissions.CatalogRelationshipsWrite),
+        (HttpMethod.Delete, "/api/v1/catalog/relationships/{relId}",         KartovaPermissions.CatalogRelationshipsWrite),
+        (HttpMethod.Get,  "/api/v1/catalog/relationships",                  KartovaPermissions.CatalogRead),
     };
 
     [TestMethod]
@@ -91,6 +94,37 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
         var seededSvc = await registerSvcResp.Content.ReadFromJsonAsync<ServiceResponse>(KartovaApiFixtureBase.WireJson);
         var svcId = seededSvc!.Id;
 
+        // Seed a fixture Relationship as OrgAdmin so {relId} substitution works on DELETE calls.
+        // We seed a second service to be the target, then create the relationship.
+        var registerSvc2Resp = await seederClient.PostAsJsonAsync(
+            "/api/v1/catalog/services",
+            new
+            {
+                displayName = "Matrix Svc2",
+                description = "Seed service 2 for permission matrix test.",
+                teamId,
+                endpoints = Array.Empty<object>(),
+            });
+        Assert.IsTrue(registerSvc2Resp.IsSuccessStatusCode,
+            $"Seed service 2 registration must succeed (was {registerSvc2Resp.StatusCode}).");
+        var seededSvc2 = await registerSvc2Resp.Content.ReadFromJsonAsync<ServiceResponse>(KartovaApiFixtureBase.WireJson);
+        var svc2Id = seededSvc2!.Id;
+
+        var seedRelResp = await seederClient.PostAsJsonAsync(
+            "/api/v1/catalog/relationships",
+            new
+            {
+                sourceKind = "Service",
+                sourceId   = svcId,
+                type       = "DependsOn",
+                targetKind = "Service",
+                targetId   = svc2Id,
+            });
+        Assert.IsTrue(seedRelResp.IsSuccessStatusCode,
+            $"Seed relationship must succeed (was {seedRelResp.StatusCode}).");
+        var seededRel = await seedRelResp.Content.ReadFromJsonAsync<RelationshipResponse>(KartovaApiFixtureBase.WireJson);
+        var relId = seededRel!.Id;
+
         var memberSub = await Fx.GetSubClaimAsync(MemberEmail);
         await Fx.SeedTeamMembershipAsync(teamId, memberSub, TeamRoleMember);
 
@@ -105,7 +139,8 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
                 {
                     var url = pathTemplate
                         .Replace("{id}", appId.ToString())
-                        .Replace("{svcId}", svcId.ToString());
+                        .Replace("{svcId}", svcId.ToString())
+                        .Replace("{relId}", relId.ToString());
                     using var req = new HttpRequestMessage(method, url);
                     AttachShapeValidBody(req, method, pathTemplate, teamId);
 
@@ -246,6 +281,19 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
                 description = "Matrix shape body.",
                 teamId,
                 endpoints = Array.Empty<object>(),
+            });
+        }
+        else if (method == HttpMethod.Post && pathTemplate == "/api/v1/catalog/relationships")
+        {
+            // Shape-valid body: well-formed types. The claim gate fires before entity
+            // lookup so the Guid values need not resolve — only permission matters here.
+            req.Content = JsonContent.Create(new
+            {
+                sourceKind = "Service",
+                sourceId   = Guid.NewGuid(),
+                type       = "DependsOn",
+                targetKind = "Service",
+                targetId   = Guid.NewGuid(),
             });
         }
         else if (method == HttpMethod.Put)

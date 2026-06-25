@@ -151,8 +151,8 @@
 ### E-04: Entity Relationships
 
 **E-04.F-01: Manual Relationship Management**
-- [ ] E-04.F-01.S-01 — Create relationship between entities
-- [ ] E-04.F-01.S-02 — View relationships with origin distinction
+- [~] E-04.F-01.S-01 — Create relationship between entities (backend Slice 1a — PR #42, 2026-06-24: `POST /catalog/relationships`, depends-on/part-of, origin=manual, source-side auth, RLS + audit; Add-relationship UI → Slice 1b)
+- [~] E-04.F-01.S-02 — View relationships with origin distinction (backend Slice 1a — PR #42: `GET /catalog/relationships?entityKind&entityId&direction` CursorPage + `DELETE`; origin in response; table UI → Slice 1b)
 - [ ] E-04.F-01.S-03 — Promote auto-discovered to manual (pin)
 - [ ] E-04.F-01.S-04 — Demote manual to auto-managed (unpin)
 
