@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ReactFlow, Background, type Node, type Edge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
@@ -28,7 +28,12 @@ export function DependencyMiniGraph({ entityKind, entityId, displayName }: Props
 
   return (
     <section className="space-y-2" aria-label="Dependency graph">
-      <h3 className="text-sm font-semibold text-primary">Dependency graph</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-primary">Dependency graph</h3>
+        <Link to={`/graph?focus=${entityKind}:${entityId}`} className="text-xs text-brand-secondary underline">
+          Open full graph ↗
+        </Link>
+      </div>
       {list.isLoading ? (
         <Skeleton className="h-80 w-full" />
       ) : list.isError ? (

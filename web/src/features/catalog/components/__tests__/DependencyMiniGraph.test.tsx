@@ -1,5 +1,6 @@
 import { it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 
 const navigate = vi.fn();
 vi.mock("react-router-dom", async (importOriginal) => {
@@ -34,7 +35,11 @@ const outgoing: Partial<api.RelationshipResponse>[] = [
 ];
 
 function renderGraph() {
-  return render(<DependencyMiniGraph entityKind="service" entityId="s1" displayName="Me" />);
+  return render(
+    <MemoryRouter>
+      <DependencyMiniGraph entityKind="service" entityId="s1" displayName="Me" />
+    </MemoryRouter>,
+  );
 }
 
 beforeEach(() => {
