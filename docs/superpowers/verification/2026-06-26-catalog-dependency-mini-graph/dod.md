@@ -21,7 +21,7 @@
 | 7 `requesting-code-review` | ✅ PASS | 2026-06-26 |
 | 8 `review-pr` | ⏳ PENDING | 2026-06-26 |
 | 9 `deep-review` | ⏳ PENDING | 2026-06-26 |
-| Manual / Playwright (ADR-0084) | ⏳ PENDING | 2026-06-26 |
+| Manual / Playwright (ADR-0084) | ✅ PASS | 2026-06-26 |
 | Terminal re-verify (build + suite) | ⏳ PENDING | 2026-06-26 |
 | Pre-push CI mirror (`ci-local.sh`) | ✅ PASS | 2026-06-26 |
 
@@ -73,9 +73,14 @@
 **At:** 2026-06-26
 
 ### Manual / Playwright verification (ADR-0084)
-**Status:** ⏳ PENDING
-**Evidence:** UI slice — cold-start Playwright pass (graph render + node-click nav + empty state) not recorded.
-**At:** 2026-06-26
+**Status:** ✅ PASS
+**Evidence:** Post-merge cold-start Playwright MCP pass against `master` (stack via docker compose, web dev on 5173, KeyCloak login as `admin@orga.kartova.local`):
+- Graph renders on an Application detail page — focused node centred + emphasised, dependents left / dependencies right, edges labelled "Depends on", kind labels present. Screenshot: `playwright/minigraph-rendered.png`.
+- Neighbour node-click navigates to that entity's detail page (`B App 014` node → `/catalog/applications/294ac406…`).
+- Empty state: an Application with no relationships shows "No dependencies yet", no canvas.
+- Console clean across graph render + node-click + empty state (0 errors / 0 warnings).
+- Known app-level caveat (not graph-related, pre-existing): a cold deep-link/hard-refresh to a detail URL fires `401 /organizations/me/permissions` before the OIDC token attaches and bounces to the catalog list; in-SPA navigation is unaffected. Logged as [#47](https://github.com/diablo39/Roman.Kartova/issues/47).
+**At:** master (post-merge of PR #46), 2026-06-26
 
 ### Terminal re-verify (build + full suite after gates 5–9)
 **Status:** ⏳ PENDING
