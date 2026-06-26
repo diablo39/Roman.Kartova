@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "@/components/base/card/card";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
@@ -9,6 +9,10 @@ import { useService } from "@/features/catalog/api/services";
 import { useTeamsList } from "@/features/teams/api/teams";
 import { PROTOCOL_LABEL } from "@/features/catalog/schemas/registerService";
 import { RelationshipsSection } from "@/features/catalog/components/RelationshipsSection";
+
+const DependencyMiniGraph = lazy(() =>
+  import("@/features/catalog/components/DependencyMiniGraph").then((m) => ({ default: m.DependencyMiniGraph })),
+);
 
 export function ServiceDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -112,6 +116,10 @@ export function ServiceDetailPage() {
             </div>
           )}
         </section>
+          <hr className="border-secondary" />
+          <Suspense fallback={<Skeleton className="h-80 w-full" />}>
+            <DependencyMiniGraph entityKind="service" entityId={svc.id} displayName={svc.displayName} />
+          </Suspense>
           <hr className="border-secondary" />
           <RelationshipsSection
             entityKind="service"
