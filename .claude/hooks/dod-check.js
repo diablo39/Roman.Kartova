@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Stop hook: blocks the turn when the last assistant message contains a
-// completion claim without evidence of verification. Enforces the
-// Definition of Done from CLAUDE.md so "finished" means reviewed + tested + run.
+// completion claim without a DoD ledger citation (docs/superpowers/verification/<date>-<topic>/dod.md).
+// Enforces the Definition of Done from CLAUDE.md so "finished" means reviewed + tested + run.
 
 const fs = require('node:fs');
 
@@ -45,8 +45,9 @@ function lastAssistantText(transcriptPath) {
   return '';
 }
 
-const CLAIM_RE = /slice \d+ complete|implementation complete|all done|ready to merge|finished implementing|fully finished|implementation is (complete|finished|ready)|✅ done|\bdone\.$/im;
-const EVIDENCE_RE = /docker compose|docker build|images (ci|job|build)|real[- ]seam|integration test|test suite|build green|suite green|treatwarningsaserrors|pending verification|staged|definition of done|verification pending|e2e smoke|end-to-end/i;
+const CLAIM_RE = /slice( \d+)? complete|implementation complete|all done|ready to merge|finished implementing|fully finished|implementation is (complete|finished|ready)|✅ done|\bdone\.$/im;
+// A completion claim must point at the slice's DoD ledger (the queryable record of gate status).
+const LEDGER_RE = /superpowers[\/\\]verification[\/\\][^\s)"']+[\/\\]dod\.md/i;
 
 (async () => {
   const raw = await readAll(process.stdin);
@@ -60,7 +61,10 @@ const EVIDENCE_RE = /docker compose|docker build|images (ci|job|build)|real[- ]s
   if (!text) process.exit(0);
 
   if (!CLAIM_RE.test(text)) process.exit(0);
-  if (EVIDENCE_RE.test(text)) process.exit(0);
+  // A completion claim is only allowed when it cites the DoD ledger for the slice.
+  // The ledger is the mandated record of per-gate status (CLAUDE.md §Definition of Done);
+  // evidence keywords alone no longer suffice.
+  if (LEDGER_RE.test(text)) process.exit(0);
 
   const reason = [
     'Completion claim detected without verification evidence. Definition of Done (CLAUDE.md) — the eight always-blocking gates (gate 6 is conditional):',
@@ -73,7 +77,10 @@ const EVIDENCE_RE = /docker compose|docker build|images (ci|job|build)|real[- ]s
     '  7-9. requesting-code-review, review-pr, deep-review on final code.',
     '  Then re-run build + full suite and confirm still green.',
     '',
-    'Revise the claim to cite each bullet by command + output, or use "implementation staged, <step> pending verification" instead of "complete/done/ready to merge".',
+    'Record each gate in the slice DoD ledger and CITE it in the claim:',
+    '  docs/superpowers/verification/<date>-<topic>/dod.md',
+    '  (copy docs/superpowers/templates/dod-ledger-template.md if it does not exist yet).',
+    'Or, if not actually done, say "implementation staged, <step> pending verification" instead of "complete/done/ready to merge".',
   ].join('\n');
 
   process.stdout.write(JSON.stringify({ decision: 'block', reason }));

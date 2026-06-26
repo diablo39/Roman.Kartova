@@ -65,10 +65,10 @@ the diff. Two execution modes:
 
 ### Step 5 — Save the result
 
-Write the review to `docs/superpowers/reviews/YYYY-MM-DD-<branch-or-pr>-review.md`
+Write the review to `docs/superpowers/verification/<date>-<topic>/deep-review.md`
 using today's date (absolute, per project convention) and the branch / PR
-identifier in the filename. Create `docs/superpowers/reviews/` if it does
-not exist.
+topic slug as the folder name. Create `docs/superpowers/verification/<date>-<topic>/`
+if it does not exist.
 
 ### Output to user
 

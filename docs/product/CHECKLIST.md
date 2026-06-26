@@ -12,7 +12,7 @@
 | Phase | Status | Progress |
 |-------|--------|----------|
 | Phase 0: Foundation | In Progress | 12/31 |
-| Phase 1: Core Catalog & Notifications | In Progress | 15/60 |
+| Phase 1: Core Catalog & Notifications | In Progress | 16/60 |
 | Phase 2: Auto-Import | Not Started | 0/36 |
 | Phase 3: Documentation | Not Started | 0/15 |
 | Phase 4: Status Page | Not Started | 0/16 |
@@ -157,7 +157,7 @@
 - [ ] E-04.F-01.S-04 — Demote manual to auto-managed (unpin)
 
 **E-04.F-02: Relationship Visualization**
-- [ ] E-04.F-02.S-01 — Embedded mini dependency graph (entity Dependencies tab)
+- [x] E-04.F-02.S-01 — Embedded mini dependency graph (catalog-dependency-mini-graph, 2026-06-26; read-only 1-hop React Flow graph above the Dependencies/Dependents tables on Application + Service detail pages; reuses the 1b relationship endpoint; standalone /graph explorer + S-03–S-06 deferred)
 - [ ] E-04.F-02.S-02 — Relationship table below mini-graph
 - [ ] E-04.F-02.S-03 — "Open full graph" button linking to standalone
 - [ ] E-04.F-02.S-04 — Standalone Dependency Graph Explorer (/graph)

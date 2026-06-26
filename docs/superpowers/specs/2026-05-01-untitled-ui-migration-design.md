@@ -121,7 +121,7 @@ Cross-cutting: every file's `lucide-react` imports → `@untitledui/icons`. Reso
 
 ### 8.3 Cold-start verification (ADR-0084)
 
-After migration: fresh `docker compose up` + cold `npm run dev`; walk `/login` → KeyCloak → `/callback` → `/catalog`; register application via dialog; verify it appears in the table. Capture console + screenshots in `docs/superpowers/evidence/2026-05-XX-untitled-ui-migration/`. Load-bearing verification — RAC overlays + portals can break in subtle real-browser ways that pass jsdom.
+After migration: fresh `docker compose up` + cold `npm run dev`; walk `/login` → KeyCloak → `/callback` → `/catalog`; register application via dialog; verify it appears in the table. Capture console + screenshots in `docs/superpowers/verification/2026-05-01-untitled-ui-migration/`. Load-bearing verification — RAC overlays + portals can break in subtle real-browser ways that pass jsdom.
 
 ## 9. ADR + docs
 
@@ -170,7 +170,7 @@ Definition-of-Done for the migration PR:
 7. `npm run test:coverage` ≥ 80% functions, ≥ 75% branches (existing thresholds).
 8. `npm run build` clean.
 9. Frontend CI workflow green on the PR.
-10. Cold-start verification evidence committed under `docs/superpowers/evidence/<date>-untitled-ui-migration/` showing the four flows from §8.3 working in a real browser.
+10. Cold-start verification evidence committed under `docs/superpowers/verification/2026-05-01-untitled-ui-migration/` showing the four flows from §8.3 working in a real browser.
 11. ADR-0094 written; ADR-0088 status updated; CLAUDE.md row swapped; `DESIGN.md` header note added; ADR README keyword index updated.
 12. Slice-boundary `superpowers:code-reviewer` dispatched against full branch diff and findings addressed (or recorded as tracked follow-ups).
 

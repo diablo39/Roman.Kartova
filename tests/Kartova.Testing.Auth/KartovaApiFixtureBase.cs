@@ -129,7 +129,7 @@ public abstract class KartovaApiFixtureBase
     /// Per-class <c>[ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]</c>
     /// is the wrong pattern here — it creates one fixture per derived class, which
     /// for a heavyweight Postgres+API fixture is a 6× wall-clock regression vs the
-    /// xUnit baseline. See <c>docs/superpowers/reviews/2026-05-09-feat-mstest-migration-phase-9-review.md</c>
+    /// xUnit baseline. See <c>docs/superpowers/verification/2026-05-09-feat-mstest-migration/phase-9-review.md</c>
     /// for the bug Phase 9 hit and corrected.
     /// </remarks>
     public async Task InitializeAsync()

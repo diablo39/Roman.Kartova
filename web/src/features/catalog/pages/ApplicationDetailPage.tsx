@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "@/components/base/card/card";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
@@ -11,6 +11,10 @@ import { CreatedByLink } from "@/features/users/components/CreatedByLink";
 import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
 import { RelationshipsSection } from "@/features/catalog/components/RelationshipsSection";
+
+const DependencyMiniGraph = lazy(() =>
+  import("@/features/catalog/components/DependencyMiniGraph").then((m) => ({ default: m.DependencyMiniGraph })),
+);
 
 export function ApplicationDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -96,6 +100,10 @@ export function ApplicationDetailPage() {
             </div>
             <Field label="Created" value={app.createdAt ?? "—"} />
           </section>
+          <hr className="border-secondary" />
+          <Suspense fallback={<Skeleton className="h-80 w-full" />}>
+            <DependencyMiniGraph entityKind="application" entityId={app.id} displayName={app.displayName} />
+          </Suspense>
           <hr className="border-secondary" />
           <RelationshipsSection
             entityKind="application"

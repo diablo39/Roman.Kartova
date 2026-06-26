@@ -6,7 +6,7 @@
 **Spec:** `docs/superpowers/specs/2026-05-27-slice-9-organization-people-management-design.md` (on master at `bac512d` — branch tip carries the pre-reconciliation copy; addressed below)
 **Plan:** `docs/superpowers/plans/2026-05-27-slice-9-organization-people-management-plan.md` (on master at `bac512d`)
 **ADRs touched:** 0011, 0080, 0083, 0084, 0090, 0092, 0095, 0096, 0097, 0098, 0100
-**Prior review:** `docs/superpowers/reviews/2026-05-29-slice-9-deep-review.md` at HEAD `f178520`. The 2 prior Blocking findings (DoD #4 full-suite evidence, DoD #7 mutation breadth) and the prior S1 + G2 items have since been addressed.
+**Prior review:** `docs/superpowers/verification/2026-05-29-slice-9/deep-review.md` at HEAD `f178520`. The 2 prior Blocking findings (DoD #4 full-suite evidence, DoD #7 mutation breadth) and the prior S1 + G2 items have since been addressed.
 
 This rerun scopes findings exclusively to delta introduced by the 6 new commits since the prior review: `e8bf859`, `a8fd443`, `fc86775`, `a6b8fde`, `ffc956c`, `3a67b95`.
 

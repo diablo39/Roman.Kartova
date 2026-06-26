@@ -6,8 +6,8 @@
 **Specs:** [`docs/superpowers/specs/2026-05-04-sorting-pagination-design.md`](../specs/2026-05-04-sorting-pagination-design.md)
 **Plan:** [`docs/superpowers/plans/2026-05-04-sorting-pagination-plan.md`](../plans/2026-05-04-sorting-pagination-plan.md)
 **ADRs cited:** ADR-0029, ADR-0083, ADR-0090, ADR-0091, ADR-0095 (new in this branch)
-**Mutation evidence:** [`docs/superpowers/evidence/2026-05-04-sorting-pagination/mutation-evidence.md`](../evidence/2026-05-04-sorting-pagination/mutation-evidence.md)
-**Curl evidence:** [`docs/superpowers/evidence/2026-05-04-sorting-pagination/curl-output.md`](../evidence/2026-05-04-sorting-pagination/curl-output.md)
+**Mutation evidence:** [`docs/superpowers/verification/2026-05-04-sorting-pagination/mutation-evidence.md`](mutation-evidence.md)
+**Curl evidence:** [`docs/superpowers/verification/2026-05-04-sorting-pagination/curl-output.md`](curl-output.md)
 **Reviewer:** Claude (in-session, single reviewer)
 
 ---
@@ -79,7 +79,7 @@ DoD bullets 1–7 are all citable: solution build clean (per branch CI history),
 
 ### S6. Problem-type URL: spec/ADR say `kartova.dev`, code says `kartova.io`
 
-- **Evidence:** `docs/superpowers/specs/2026-05-04-sorting-pagination-design.md:81-84` and `docs/architecture/decisions/ADR-0095-cursor-pagination-contract.md:23` both use `https://kartova.dev/problems/<slug>`. `src/Kartova.SharedKernel.AspNetCore/ProblemTypes.cs:9` defines `Base = "https://kartova.io/problems/"`. The curl evidence at `docs/superpowers/evidence/2026-05-04-sorting-pagination/curl-output.md:92` shows the live response uses `kartova.io`. ADR-0091 (the canonical problem-type ADR) governs the base URI — the code is consistent with ADR-0091.
+- **Evidence:** `docs/superpowers/specs/2026-05-04-sorting-pagination-design.md:81-84` and `docs/architecture/decisions/ADR-0095-cursor-pagination-contract.md:23` both use `https://kartova.dev/problems/<slug>`. `src/Kartova.SharedKernel.AspNetCore/ProblemTypes.cs:9` defines `Base = "https://kartova.io/problems/"`. The curl evidence at `docs/superpowers/verification/2026-05-04-sorting-pagination/curl-output.md:92` shows the live response uses `kartova.io`. ADR-0091 (the canonical problem-type ADR) governs the base URI — the code is consistent with ADR-0091.
 - **Spec/ADR violated:** ADR-0095 contradicts ADR-0091. Spec §4.3 contradicts the code's published wire shape.
 - **Impact:** doc bug only (impl correct), but a future reader / customer following ADR-0095 will look for problem documentation under `kartova.dev` that doesn't exist; the wire contract drift between two ADRs is exactly the kind of thing the deep-review template is designed to catch.
 - **Fix:** edit ADR-0095 §Decision item 7 and spec §4.3 table to use `kartova.io`. Add a forward reference to ADR-0091 ("base URI defined in ADR-0091; ADR-0095 only adds the slugs `invalid-sort-field`, `invalid-sort-order`, `invalid-cursor`, `invalid-limit`").

@@ -1718,7 +1718,7 @@ git commit -m "test(audit): integration — insert-only grants, RLS, writer e2e,
 
 **Files:**
 - Modify: `docs/product/CHECKLIST.md`
-- Create: `docs/superpowers/evidence/2026-06-12-audit-log-foundation/db-verification.md`
+- Create: `docs/superpowers/verification/2026-06-12-audit-log-foundation/db-verification.md`
 
 This slice wires DB schema + grants + RLS, so DoD item 5 requires real-container evidence (unit + arch tests are the wrong layer for grant/RLS semantics).
 
@@ -1741,7 +1741,7 @@ As `kartova_app`, run `UPDATE audit_log SET action='x';` then `DELETE FROM audit
 
 - [ ] **Step 4: Record evidence**
 
-Write `docs/superpowers/evidence/2026-06-12-audit-log-foundation/db-verification.md` with the exact commands + captured output for steps 1-3 (mirror `docs/superpowers/evidence/2026-05-04-sorting-pagination/curl-output.md`).
+Write `docs/superpowers/verification/2026-06-12-audit-log-foundation/db-verification.md` with the exact commands + captured output for steps 1-3 (mirror `docs/superpowers/verification/2026-05-04-sorting-pagination/curl-output.md`).
 
 - [ ] **Step 5: Update the checklist**
 
@@ -1754,7 +1754,7 @@ In `docs/product/CHECKLIST.md`, annotate E-01.F-03.S-03 with Phase-1 completion,
 - [ ] **Step 6: Commit**
 
 ```
-git add docs/product/CHECKLIST.md docs/superpowers/evidence/2026-06-12-audit-log-foundation
+git add docs/product/CHECKLIST.md docs/superpowers/verification/2026-06-12-audit-log-foundation
 git commit -m "docs(audit): Phase-1 DB verification evidence + checklist update"
 ```
 
