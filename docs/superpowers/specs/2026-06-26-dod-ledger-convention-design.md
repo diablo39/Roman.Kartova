@@ -90,6 +90,32 @@ Fixed schema, tracking the **current** `CLAUDE.md` gates (1–9, gate 6 conditio
 
 A "DoD status?" query is answered by reading the summary table; drill-down reads the section + linked sibling.
 
+## 4a. Findings telemetry — `gate-findings.yaml` (amendment, 2026-06-26)
+
+The ledger records each gate's **status** (did it pass?); it does **not** record what each gate *found* or whether those findings were genuine. To later answer "**which DoD gates have real value?**", each slice also carries a machine-readable findings log: `verification/<date>-<topic>/gate-findings.yaml`, a sibling of `dod.md` (linked from its header).
+
+**Why a standalone YAML sibling** (not embedded in `dod.md`): cross-slice aggregation is the whole point — `find docs/superpowers/verification -name gate-findings.yaml` yields a clean, schema-validatable set with no markdown-fence extraction, and keeps the human ledger uncluttered. It is a sibling like the review reports, so it fits the one-folder-per-slice convention.
+
+**Schema** — header (`slice` = folder name, `branch`, `head`) + a `findings:` list, **one entry per issue a gate raised**:
+
+```yaml
+findings:
+  - gate: deep-review        # slug = the dod.md row (see enum below)
+    severity: blocking       # blocking | should-fix | nit
+    verdict: real            # real | delusion (delusion = false positive the gate raised)
+    title: "short description"
+    note: "fix sha, or why it was a delusion"   # optional
+```
+
+- **Gate identity is the slug, not the number** (`deep-review`, not `9`) — self-describing and stable across renumbering. Enum: `build · reviews · suite · container · simplify · mutation · requesting-review · review-pr · deep-review · manual · terminal-reverify · ci-mirror`. The number↔slug mapping lives once, in the template comment.
+- **Per-finding entries, not just counts** — counts (found/real/delusion per gate per severity) are derived; entries also let you audit *which* findings were delusions later.
+- **Empty is meaningful:** a gate with `dod.md` status PASS and no entries here ⇒ it ran and found nothing. "Ran?" comes from `dod.md`; "found what?" comes from this file. Aggregation joins the two (denominator = slices where the gate's `dod.md` status is PASS).
+- **Derived metrics** (future, out of this slice): per gate across slices — precision `real ÷ found`, real-blocking-issues-caught, delusion rate. A gate that mostly emits delusions, or never catches a real blocking issue, is a candidate to drop or demote.
+
+**Template:** `docs/superpowers/templates/gate-findings-template.yaml` — the schema + the gate enum + commented examples; `findings: []` by default. Copied to `verification/<date>-<topic>/gate-findings.yaml` at slice start (alongside `dod.md`); a finding is appended the moment a gate raises one.
+
+**Enforcement:** out of scope for now — `dod-check.js` continues to enforce only ledger (`dod.md`) citation. Filling `gate-findings.yaml` is a convention, not a hook-gated requirement (revisit if it is skipped in practice).
+
 ## 5. Template
 
 `docs/superpowers/templates/dod-ledger-template.md` — the empty ledger with all rows present, every status pre-set to `⏳ PENDING`, placeholders for header fields. Slices copy it to `verification/<date>-<topic>/dod.md` at slice start (first gate run at the latest).
