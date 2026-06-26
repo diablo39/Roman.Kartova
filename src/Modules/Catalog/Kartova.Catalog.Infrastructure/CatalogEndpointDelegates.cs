@@ -624,6 +624,41 @@ internal static class CatalogEndpointDelegates
         return Results.Ok(page);
     }
 
+    /// <summary>
+    /// GET /graph?entityKind=&amp;entityId=&amp;depth=&amp;direction= — BFS dependency neighbourhood
+    /// around the focus entity. depth 1..4 (default 2); direction outgoing|incoming|all (default all).
+    /// Bounded aggregate (node cap + truncated flag) — not a cursor list. Claim gate: catalog.read.
+    /// </summary>
+    internal static async Task<IResult> GetCatalogGraphAsync(
+        [FromQuery] string entityKind,
+        [FromQuery] Guid entityId,
+        [FromQuery] int? depth,
+        [FromQuery] string? direction,
+        GraphTraversalHandler handler,
+        ICatalogEntityLookup lookup,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        if (!Enum.TryParse<EntityKind>(entityKind, ignoreCase: true, out var kind) || !Enum.IsDefined(kind) || entityId == Guid.Empty)
+            return Results.Problem(type: ProblemTypes.ValidationFailed, title: "Invalid entity reference",
+                detail: "entityKind and a non-empty entityId are required.", statusCode: StatusCodes.Status400BadRequest);
+
+        var dir = RelationshipDirection.All;
+        if (!string.IsNullOrWhiteSpace(direction)
+            && (!Enum.TryParse(direction, ignoreCase: true, out dir) || !Enum.IsDefined(dir)))
+            return Results.Problem(type: ProblemTypes.ValidationFailed, title: "Invalid direction",
+                detail: "direction must be outgoing, incoming, or all.", statusCode: StatusCodes.Status400BadRequest);
+
+        var effectiveDepth = depth ?? 2;
+        if (effectiveDepth < 1 || effectiveDepth > 4)
+            return Results.Problem(type: ProblemTypes.ValidationFailed, title: "Invalid depth",
+                detail: "depth must be between 1 and 4.", statusCode: StatusCodes.Status400BadRequest);
+
+        var query = new GraphTraversalQuery(new EntityRef(kind, entityId), effectiveDepth, dir);
+        var graph = await handler.Handle(query, db, lookup, ct);
+        return Results.Ok(graph);
+    }
+
     // ----- shared helpers -----------------------------------------------
 
     /// <summary>
