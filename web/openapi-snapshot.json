@@ -991,6 +991,84 @@
         }
       }
     },
+    "/api/v1/catalog/graph": {
+      "get": {
+        "tags": [
+          "CatalogEndpointDelegates"
+        ],
+        "operationId": "GetCatalogGraph",
+        "parameters": [
+          {
+            "name": "entityKind",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entityId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "depth",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GraphResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/catalog/relationships/{id}": {
       "delete": {
         "tags": [
@@ -2909,6 +2987,112 @@
           },
           "displayName": {
             "type": "string"
+          }
+        }
+      },
+      "GraphEdgeDto": {
+        "required": [
+          "id",
+          "source",
+          "target",
+          "type",
+          "origin"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source": {
+            "$ref": "#/components/schemas/GraphEndpointDto"
+          },
+          "target": {
+            "$ref": "#/components/schemas/GraphEndpointDto"
+          },
+          "type": {
+            "$ref": "#/components/schemas/RelationshipType"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/RelationshipOrigin"
+          }
+        }
+      },
+      "GraphEndpointDto": {
+        "required": [
+          "kind",
+          "id"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/EntityKind"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "GraphNodeDto": {
+        "required": [
+          "kind",
+          "id",
+          "displayName",
+          "depth",
+          "teamId"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/EntityKind"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "depth": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "teamId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "GraphResponse": {
+        "required": [
+          "nodes",
+          "edges",
+          "truncated"
+        ],
+        "type": "object",
+        "properties": {
+          "nodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GraphNodeDto"
+            }
+          },
+          "edges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GraphEdgeDto"
+            }
+          },
+          "truncated": {
+            "type": "boolean"
           }
         }
       },
