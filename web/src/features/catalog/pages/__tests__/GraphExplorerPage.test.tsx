@@ -69,6 +69,14 @@ describe("GraphExplorerPage", () => {
     expect(screen.getByText(/couldn.t load/i)).toBeInTheDocument();
   });
 
+  it("clicking Try again in error state calls refetch", () => {
+    const refetch = vi.fn();
+    mockUseGraph.mockReturnValue({ results: [], isLoading: false, isError: true, refetch });
+    renderAt("/graph?focus=service:f");
+    fireEvent.click(screen.getByRole("button", { name: /try again/i }));
+    expect(refetch).toHaveBeenCalledOnce();
+  });
+
   it("prompts when focus is missing", () => {
     mockUseGraph.mockReturnValue({ results: [], isLoading: false, isError: false, refetch: vi.fn() });
     renderAt("/graph");

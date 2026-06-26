@@ -64,6 +64,10 @@ public static class GraphTraversal
 
         // Re-scan edges once more over the kept set to capture every edge between two kept
         // nodes (including cross-links between neighbours); edges to capped-out nodes are dropped.
+        // DESIGN: `direction` prunes node *discovery* only; edge inclusion here is intentionally
+        // undirected-among-kept-nodes — all relationships between any two surviving nodes are shown
+        // regardless of direction. This gives a complete picture of their interconnections.
+        // A directed-edge filter on the final surface is deferred to S-06 (impact analysis).
         var keptRefs = nodes.Select(n => n.Ref).ToList();
         var allTouching = await fetchEdgesTouching(keptRefs, ct);
         foreach (var e in allTouching)

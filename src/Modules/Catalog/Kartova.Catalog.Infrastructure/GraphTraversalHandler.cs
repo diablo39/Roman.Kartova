@@ -34,6 +34,11 @@ public sealed class GraphTraversalHandler
             },
             ct);
 
+        // NOTE (N+1 enrichment): ICatalogEntityLookup.Find is called once per distinct node ref
+        // (up to the 200-node cap = up to ~200 sequential queries). This is a conscious deferral —
+        // bounded by the node cap, consistent with ListRelationshipsForEntityHandler's per-ref
+        // enrichment pattern. Batch with grouped IN-queries if this endpoint ever shows latency at
+        // the cap (e.g. replace with a single bulk-lookup overload on ICatalogEntityLookup).
         // Enrich displayName + teamId for every node (batched over distinct refs).
         var info = new Dictionary<(EntityKind, Guid), EntityLookupResult?>();
         foreach (var n in result.Nodes)

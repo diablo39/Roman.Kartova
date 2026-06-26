@@ -71,12 +71,12 @@ GET /api/v1/catalog/graph?entityKind=&entityId=&depth=&direction=     [RequireAu
              for each new endpoint not in visited: add node (depth=level), mark visited,
                               stop adding (truncated=true) at cap
              collect every traversed edge whose BOTH endpoints are in the node set
-           enrich displayName + teamId for all node refs via ICatalogEntityLookup (batched over distinct refs)
+           enrich displayName + teamId for all node refs via ICatalogEntityLookup (per-node, N+1 bounded by node cap; batch deferred — consistent with ListRelationshipsForEntityHandler pattern)
     → 200 GraphResponse { nodes[], edges[], truncated }
 ```
 
 - **Cycle safety:** the `visited` set means a back-edge (A→B→A) is traversed as an edge but never re-enqueues a node; BFS terminates.
-- **Edge inclusion:** only edges between two included nodes are returned (no dangling edges to cap-dropped nodes).
+- **Edge inclusion:** only edges between two included nodes are returned (no dangling edges to cap-dropped nodes). `direction` filters node *discovery* only; edge inclusion is intentionally undirected-among-kept-nodes — all relationships between any two surviving nodes are shown regardless of direction (cross-edges included by design; S-06 may add a directed-surface filter).
 - **Node cap is a handler parameter** (default = the `GraphTraversalHandler.DefaultNodeCap` const, passed by the endpoint). A handler-level test can pass a small cap to exercise truncation without seeding 200 rows.
 - **RLS:** `db.Relationships` is tenant-scoped by RLS; cross-tenant nodes/edges can never appear regardless of `depth`.
 

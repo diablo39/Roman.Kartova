@@ -150,4 +150,39 @@ public class GetCatalogGraphTests : CatalogIntegrationTestBase
         var resp = await client.GetAsync($"/api/v1/catalog/graph?entityKind=Service&entityId={Guid.NewGuid()}&depth=9");
         Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
     }
+
+    [TestMethod]
+    public async Task GET_graph_includes_cross_edges_between_kept_nodes()
+    {
+        // Arrange: F→A, F→B, B→A. Query outgoing depth=1 from F.
+        // Node discovery: outgoing direction means only outgoing neighbours are added to the frontier.
+        // Depth-1 outgoing from F: discovers A (via F→A) and B (via F→B). B→A is NOT traversed for discovery.
+        // Edge inclusion: the final re-scan is undirected-among-kept-nodes — ALL edges between {F,A,B} appear.
+        // Contract: 3 nodes, 3 edges (F→A, F→B, B→A). Pins: direction prunes discovery; edge inclusion is undirected.
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Graph CrossEdge");
+        var f = await SeedServiceAsync(client, teamId, "cross-focus");
+        var a = await SeedServiceAsync(client, teamId, "cross-a");
+        var b = await SeedServiceAsync(client, teamId, "cross-b");
+        await DependsOnAsync(client, f, a);   // F → A
+        await DependsOnAsync(client, f, b);   // F → B
+        await DependsOnAsync(client, b, a);   // B → A  (cross-edge between two kept nodes)
+
+        var resp = await client.GetAsync(
+            $"/api/v1/catalog/graph?entityKind=Service&entityId={f}&depth=1&direction=outgoing");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var graph = await resp.Content.ReadFromJsonAsync<GraphResponse>(KartovaApiFixtureBase.WireJson);
+
+        // All three nodes must be present (F at depth 0, A and B at depth 1).
+        Assert.AreEqual(3, graph!.Nodes.Count, "focus + 2 outgoing neighbours");
+        Assert.IsTrue(graph.Nodes.Any(n => n.Id == f), "focus node present");
+        Assert.IsTrue(graph.Nodes.Any(n => n.Id == a), "node A present");
+        Assert.IsTrue(graph.Nodes.Any(n => n.Id == b), "node B present");
+
+        // The B→A cross-edge must be included (undirected-among-kept contract).
+        Assert.AreEqual(3, graph.Edges.Count, "F→A + F→B + B→A cross-edge all included");
+        Assert.IsTrue(
+            graph.Edges.Any(e => e.Source.Id == b && e.Target.Id == a),
+            "B→A cross-edge is present even though B→A was not traversed during discovery");
+    }
 }

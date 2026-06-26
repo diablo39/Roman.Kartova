@@ -28,7 +28,7 @@ export function GraphExplorerPage() {
 
   // useGraph must be called unconditionally; pass a harmless placeholder when focus is absent.
   const safeFocus = focus ?? { kind: "application" as RelationshipKind, id: "" };
-  const { results, isLoading, isError } = useGraph({ focus: safeFocus, expand });
+  const { results, isLoading, isError, refetch } = useGraph({ focus: safeFocus, expand });
 
   const focusId = focus ? `${focus.kind}:${focus.id}` : "";
   const { nodes, edges } = useMemo(() => {
@@ -57,7 +57,16 @@ export function GraphExplorerPage() {
       {isLoading ? (
         <Skeleton className="h-full w-full" />
       ) : isError ? (
-        <p className="text-sm text-error-primary">Couldn&apos;t load the dependency graph.</p>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-error-primary">Couldn&apos;t load the dependency graph.</p>
+          <button
+            type="button"
+            className="text-sm text-brand-primary underline"
+            onClick={() => refetch()}
+          >
+            Try again
+          </button>
+        </div>
       ) : (
         <>
           {results.some((r) => r.truncated) && (
