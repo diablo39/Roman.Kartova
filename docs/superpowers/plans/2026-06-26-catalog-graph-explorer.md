@@ -350,22 +350,14 @@ public static class GraphTraversal
         var nodes = nodeDepth.Select(kv => new GraphTraversalNode(
             new EntityRef(kv.Key.Item1, kv.Key.Item2), kv.Value)).ToList();
 
-        // Re-scan all reachable edges once more to capture every edge between kept nodes
-        // (an edge to a capped-out node is dropped). We re-query with the full kept set as frontier.
+        // Re-scan edges once more over the kept set to capture every edge between two kept
+        // nodes (including cross-links between neighbours); edges to capped-out nodes are dropped.
         var keptRefs = nodes.Select(n => n.Ref).ToList();
         var allTouching = await fetchEdgesTouching(keptRefs, ct);
         foreach (var e in allTouching)
         {
-            var inSet = nodeDepth.ContainsKey(Key(e.Source)) && nodeDepth.ContainsKey(Key(e.Target));
-            if (!inSet) continue;
-            // Respect direction for which edges are meaningful between kept nodes.
-            var include = direction switch
-            {
-                RelationshipDirection.Outgoing => true, // both endpoints kept; orientation already source->target
-                RelationshipDirection.Incoming => true,
-                _ => true,
-            };
-            if (include) keptEdges[e.Id] = e;
+            if (nodeDepth.ContainsKey(Key(e.Source)) && nodeDepth.ContainsKey(Key(e.Target)))
+                keptEdges[e.Id] = e;
         }
 
         return new GraphTraversalResult(nodes, keptEdges.Values.ToList(), truncated);
@@ -373,7 +365,7 @@ public static class GraphTraversal
 }
 ```
 
-> Note: the final edge-capture re-fetch over the kept set guarantees cross-links between already-discovered nodes (e.g. two neighbours that also depend on each other) appear as edges. The `direction` switch on the final pass is uniform today (all kept edges between kept nodes are shown) — kept deliberately explicit so S-05/S-06 can refine it.
+> Note: the final edge-capture re-fetch over the kept set guarantees cross-links between already-discovered nodes (e.g. two neighbours that also depend on each other) appear as edges.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -1211,7 +1203,7 @@ Expected: FAIL — `GraphExplorerPage` not found.
 ```tsx
 // web/src/features/catalog/pages/GraphExplorerPage.tsx
 import { useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { ReactFlow, Background, Controls, MiniMap, type Node, type Edge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
@@ -1233,7 +1225,6 @@ function parseRef(token: string | undefined | null): GraphFocus | null {
 
 export function GraphExplorerPage() {
   const [params, setParams] = useSearchParams();
-  const navigate = useNavigate();
 
   const focus = parseRef(params.get("focus"));
   const expandTokens = (params.get("expand") ?? "").split(",").filter(Boolean);
@@ -1295,14 +1286,12 @@ export function GraphExplorerPage() {
           </div>
         </>
       )}
-      {/* navigate is wired to EntityGraphNode's detail link, kept here so eslint sees the import used */}
-      <span className="hidden" aria-hidden onClick={() => navigate(focusId)} />
     </div>
   );
 }
 ```
 
-> The hidden `navigate` span is a placeholder so the import stays referenced; replace it by passing `navigate` into the node's detail link if EntityGraphNode delegates navigation upward. Cleaner option (preferred): drop `useNavigate` here and let `EntityGraphNode` render a plain React Router `<Link to={data.detailHref}>` (Task 11), then remove the placeholder span and the `useNavigate` import. The code-quality review (gate 2) should flag and resolve this.
+> Node click = expand/collapse only. Navigation to an entity's detail page is the `<Link>` rendered inside `EntityGraphNode` (Task 11), so this page does not need `useNavigate`.
 
 - [ ] **Step 4: Add the lazy route**
 
@@ -1440,14 +1429,10 @@ import { Link } from "react-router-dom";
 Run: `cd web && npx vitest run src/features/catalog/components/__tests__/EntityGraphNode.test.tsx src/features/catalog/components/__tests__/DependencyMiniGraph.test.tsx`
 Expected: PASS (existing + new). If the mini-graph test asserts exact header markup, update it to expect the link.
 
-- [ ] **Step 6: Remove the GraphExplorerPage placeholder**
-
-Now that `EntityGraphNode` navigates via `<Link>`, delete the hidden `navigate` span and the `useNavigate` import from `GraphExplorerPage.tsx` (Task 10 Step 3 note). Re-run `npm run build` to confirm no unused-import error.
-
-- [ ] **Step 7: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add web/src/features/catalog/components/EntityGraphNode.tsx web/src/features/catalog/components/DependencyMiniGraph.tsx web/src/features/catalog/components/__tests__/EntityGraphNode.test.tsx web/src/features/catalog/pages/GraphExplorerPage.tsx
+git add web/src/features/catalog/components/EntityGraphNode.tsx web/src/features/catalog/components/DependencyMiniGraph.tsx web/src/features/catalog/components/__tests__/EntityGraphNode.test.tsx
 git commit -m "feat(web): open-detail link on graph nodes + Open-full-graph button on the mini-graph (E-04.F-02.S-03)"
 ```
 
@@ -1508,7 +1493,7 @@ git push -u origin feat/catalog-graph-explorer
 - §3 #1 traversal endpoint → Tasks 2–5. #2 GraphResponse depth+teamId → Task 2 + Task 4 (enrichment) + Task 5 (teamId asserted). #3 BFS/cycle/cap/direction/depth bounds → Task 3 (pure) + Task 4 (delegate validation) + Task 5 (real-seam). #4 `/graph` under ProtectedShell, canvas fills content → Task 10. #5 URL source of truth → Task 10. #6 expansion composes endpoint + merge → Tasks 7, 9, 10. #7 dagre → Tasks 7, 8. #8 read-only + expand/collapse + open-detail → Tasks 10, 11. #9 reuse EntityGraphNode (data-driven link) → Tasks 8, 11. #10 depth returned not visualised → returned (Task 4), not rendered (Task 10). #11 lazy route → Task 10. #12 mocked-in-tests / pure mappers → Tasks 7, 8, 10. #13 CatalogRead → Task 4. #14 bounded aggregate → Task 4 (no cursor). S-03 button → Task 11. Tests §7.1–§7.6 → Tasks 3, 4, 5, 7, 8, 10, 11, 12.
 - Gate artifacts (real-seam `GetCatalogGraphTests`, unit `GraphTraversalTests`/`graphMerge`/`graphLayout`, component `GraphExplorerPage`) each have an owning task.
 
-**2. Placeholder scan:** No TBD/TODO. The one deliberate transient (the `navigate` placeholder span in Task 10) is explicitly removed in Task 11 Step 6, with code shown both times. The `depth` param string-vs-number note (Task 9) is resolved by `tsc -b`, with both branches stated.
+**2. Placeholder scan:** No TBD/TODO. The `depth` param string-vs-number note (Task 9) is resolved by `tsc -b`, with both branches stated.
 
 **3. Type consistency:** `GraphResponse`/`GraphNodeDto`/`GraphEdgeDto`/`GraphEndpointDto` identical across Tasks 2/4/6/7. `GraphTraversalEdge`/`Node`/`Result` + `BuildAsync` signature identical across Tasks 3/4. `ExplorerNode`/`ExplorerEdge`/`ExplorerGraph` + `mergeGraphs` identical across Tasks 7/8/10. `layoutGraph(graph, focusId)` identical across Tasks 8/10. `useGraph({focus, expand})` + `GraphFocus` identical across Tasks 9/10. `GraphNodeData.detailHref` added in Task 8, consumed in Tasks 8/10/11. Node React Flow `type: "entity"` matches `NODE_TYPES = { entity: EntityGraphNode }` (Tasks 8/10).
 
