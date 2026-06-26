@@ -23,3 +23,9 @@ it("renders the application kind label", () => {
   renderNode({ kind: "application", entityId: "a1", displayName: "Checkout", side: "dependent" });
   expect(screen.getByText("Application")).toBeInTheDocument();
 });
+
+it("emphasises the focused node and still renders its displayName", () => {
+  renderNode({ kind: "service", entityId: "s1", displayName: "Me", side: "focused" });
+  expect(screen.getByText("Me")).toBeInTheDocument();
+  expect(screen.getByText("Me").parentElement?.className).toContain("font-semibold");
+});
