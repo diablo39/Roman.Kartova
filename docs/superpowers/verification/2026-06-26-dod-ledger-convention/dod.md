@@ -13,25 +13,25 @@
 
 | Gate | Status | Updated |
 |------|--------|---------|
-| 1 Build (`TreatWarningsAsErrors`) | ⏳ PENDING | 2026-06-26 |
+| 1 Build (`TreatWarningsAsErrors`) | ✅ PASS | 2026-06-26 |
 | 2 Per-task subagent reviews | ✅ PASS | 2026-06-26 |
-| 3 Full suite (+ real-seam if wiring) | ⏳ PENDING | 2026-06-26 |
+| 3 Full suite (+ real-seam if wiring) | ✅ PASS | 2026-06-26 |
 | 4 Container build (images CI) | N/A | 2026-06-26 |
-| 5 `/simplify` | ⏳ PENDING | 2026-06-26 |
+| 5 `/simplify` | N/A (skipped) | 2026-06-26 |
 | 6 Mutation (conditional) | N/A | 2026-06-26 |
 | 7 `requesting-code-review` | ✅ PASS | 2026-06-26 |
-| 8 `review-pr` | ⏳ PENDING | 2026-06-26 |
-| 9 `deep-review` | ⏳ PENDING | 2026-06-26 |
+| 8 `review-pr` | N/A (skipped) | 2026-06-26 |
+| 9 `deep-review` | N/A (skipped) | 2026-06-26 |
 | Manual / Playwright (ADR-0084) | N/A | 2026-06-26 |
-| Terminal re-verify (build + suite) | ⏳ PENDING | 2026-06-26 |
-| Pre-push CI mirror (`ci-local.sh`) | ⏳ PENDING | 2026-06-26 |
+| Terminal re-verify (build + suite) | ✅ PASS | 2026-06-26 |
+| Pre-push CI mirror (`ci-local.sh`) | ✅ PASS | 2026-06-26 |
 
 ## Gate detail
 
 ### 1 — Build (`TreatWarningsAsErrors=true`)
-**Status:** ⏳ PENDING
-**Evidence:** Only compiled change is a one-line doc-comment in `tests/Kartova.Testing.Auth/KartovaApiFixtureBase.cs` (path repoint) — cannot affect compilation. Real evidence pending the pre-push CI mirror / CI on push.
-**At:** 2026-06-26
+**Status:** ✅ PASS
+**Evidence:** `scripts/ci-local.sh backend` (Release, mirrors ci.yml backend job): `Build succeeded. 0 Warning(s) 0 Error(s)` (Time Elapsed 00:03:47). Only compiled change in the slice is the `KartovaApiFixtureBase.cs` doc-comment repoint.
+**At:** b933196, 2026-06-26
 
 ### 2 — Per-task subagent reviews (spec + quality)
 **Status:** ✅ PASS
@@ -39,9 +39,9 @@
 **At:** 38f39c1, 2026-06-26
 
 ### 3 — Full test suite (unit + arch + integration; real-seam if wiring)
-**Status:** ⏳ PENDING
-**Evidence:** No test-affecting change (hook `.js` is not in the solution; `.cs` change is comment-only; rest is docs/renames). Suite evidence pending CI on push. Real-seam **N/A** (no HTTP/auth/DB wiring).
-**At:** 2026-06-26
+**Status:** ✅ PASS
+**Evidence:** `scripts/ci-local.sh backend` → `backend PASS`, exit 0: all backend test assemblies (unit + architecture + integration/Testcontainers) green in Release `--no-build`. Frontend half unaffected by this slice (no `web/` change) and covered by PR #46 CI run 28236067701. Real-seam **N/A** (no HTTP/auth/DB wiring added).
+**At:** b933196, 2026-06-26
 
 ### 4 — Container build (images CI job)
 **Status:** N/A
@@ -49,8 +49,8 @@
 **At:** 2026-06-26
 
 ### 5 — `/simplify` against branch diff
-**Status:** ⏳ PENDING
-**Evidence:** Pending — see decision note below.
+**Status:** N/A (skipped, human-approved)
+**Evidence:** Deliberately skipped — see decision note below. Code surface is the 80-line hook (already simplified during the Task-2 fix: dead `EVIDENCE_RE` removed in `619e0f8`) + docs/renames; gate 7 final review found nothing to simplify.
 **At:** 2026-06-26
 
 ### 6 — Mutation loop (conditional)
@@ -64,13 +64,13 @@
 **At:** 38f39c1, 2026-06-26
 
 ### 8 — `review-pr` (pr-review-toolkit)
-**Status:** ⏳ PENDING
-**Evidence:** Pending — see decision note below.
+**Status:** N/A (skipped, human-approved)
+**Evidence:** Deliberately skipped — see decision note below. Covered by gate 7 (final whole-branch review, clean) over the same diff; tiny code surface.
 **At:** 2026-06-26
 
 ### 9 — `deep-review`
-**Status:** ⏳ PENDING
-**Evidence:** Pending — see decision note below.
+**Status:** N/A (skipped, human-approved)
+**Evidence:** Deliberately skipped — see decision note below. Covered by gate 7 (final whole-branch review, clean) over the same diff; tiny code surface.
 **At:** 2026-06-26
 
 ### Manual / Playwright verification (ADR-0084)
@@ -79,15 +79,15 @@
 **At:** 2026-06-26
 
 ### Terminal re-verify (build + full suite after gates 5–9)
-**Status:** ⏳ PENDING
-**Evidence:** Pending gates 1/3/5/8/9.
-**At:** 2026-06-26
+**Status:** ✅ PASS
+**Evidence:** Gates 5/8/9 skipped (no code-mutating fixes to invalidate gates 1/3); the post-everything `ci-local.sh backend` run is itself the terminal re-verify — build 0W/0E + backend suite green.
+**At:** b933196, 2026-06-26
 
 ### Pre-push CI mirror (`scripts/ci-local.sh`)
-**Status:** ⏳ PENDING
-**Evidence:** Run before push — this is also the canonical source of gate-1/3/4 evidence for this slice.
-**At:** 2026-06-26
+**Status:** ✅ PASS
+**Evidence:** `scripts/ci-local.sh backend` → `All selected CI jobs passed` (exit 0). Backend scope run locally (the only compiled change); full CI (frontend/images/helm/stryker) re-runs on the PR #46 push as the runner-side source of truth.
+**At:** b933196, 2026-06-26
 
 ## Decision note (gates 5/8/9 for a docs/tooling slice)
 
-The only executable artifact is the ~80-line `dod-check.js` stop hook (verified by a 4-case block/allow test, Task 2) + a `.cs` doc-comment + docs/migration. Gate 7 (final whole-branch review) ran clean over the whole slice. Whether to additionally run gate 5 (`/simplify`), gate 8 (`review-pr`), gate 9 (`deep-review`) on this surface — vs. rely on gate 7 + CI — is a human effort/thoroughness call pending confirmation.
+The only executable artifact is the ~80-line `dod-check.js` stop hook (verified by a 4-case block/allow test, Task 2) + a `.cs` doc-comment + docs/migration. Gate 7 (final whole-branch review) ran clean over the whole slice. **Decision (human-approved 2026-06-26):** gates 5/8/9 skipped for this slice — covered by gate 7 over the same diff and a minimal code surface; gates 1/3 evidenced by the pre-push CI mirror + CI on PR #46.
