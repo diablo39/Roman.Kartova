@@ -32,7 +32,7 @@ export function mergeGraphs(results: GraphResponse[]): ExplorerGraph {
           kind: n.kind as RelationshipKind,
           entityId: n.id,
           displayName: n.displayName,
-          depth: n.depth,
+          depth: Number(n.depth),
         });
       }
     }
