@@ -1887,7 +1887,7 @@
   5. Type `payment-gateway` / `Payment Gateway` / `Handles charges`. Submit. Assert toast "Application registered" + dialog closed + row visible.
   6. Click the row → assert `/catalog/applications/{id}` shows the same data.
   7. `mcp__playwright__browser_console_messages` → assert **zero** errors and zero warnings.
-  8. `mcp__playwright__browser_take_screenshot` for: catalog list (empty), register dialog with errors, register dialog filled, list with one row, application detail. Save into `docs/superpowers/evidence/2026-04-30-slice-4/` (create folder).
+  8. `mcp__playwright__browser_take_screenshot` for: catalog list (empty), register dialog with errors, register dialog filled, list with one row, application detail. Save into `docs/superpowers/verification/2026-04-30-slice-4/` (create folder).
   9. Negative path: `mcp__playwright__browser_navigate` to `/catalog` again — verify no re-login (silent SSO works).
   10. In KeyCloak admin (`http://localhost:8080/admin`), revoke session for the user. Back in SPA, trigger any list re-fetch (e.g., reload). Verify redirect back to KeyCloak login.
 
@@ -1900,7 +1900,7 @@
 - [ ] **Step 6: Commit evidence.**
 
   ```bash
-  git add docs/superpowers/evidence/2026-04-30-slice-4/
+  git add docs/superpowers/verification/2026-04-30-slice-4/
   git commit -m "docs(slice-4): Playwright MCP verification evidence"
   ```
 
@@ -1960,7 +1960,7 @@
   - Backend build: 0 warnings, 0 errors.
   - Backend tests: green (unit + arch + integration).
   - Frontend: tsc clean, eslint clean, vitest green, ≥80% coverage on api/schemas/auth.
-  - Playwright MCP screenshots + console-clean confirmation: `docs/superpowers/evidence/2026-04-30-slice-4/`.
+  - Playwright MCP screenshots + console-clean confirmation: `docs/superpowers/verification/2026-04-30-slice-4/`.
 
   ## Backlog surfaced
   - (List any endpoint shape mismatches discovered while building screens — if none, say "no mismatches surfaced; slice-3 endpoints fit the screens.")

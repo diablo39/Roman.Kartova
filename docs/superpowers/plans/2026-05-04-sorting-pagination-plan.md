@@ -2801,7 +2801,7 @@ Using `mcp__playwright__browser_navigate` and friends, execute:
 
 - [ ] **Step 3: Capture evidence**
 
-Save Playwright screenshots to `docs/superpowers/evidence/2026-05-04-sorting-pagination/` (mirroring the Untitled UI evidence convention). Files: `default-sort.png`, `sort-name-asc.png`, `page-2.png`, `page-1-back.png`.
+Save Playwright screenshots to `docs/superpowers/verification/2026-05-04-sorting-pagination/` (mirroring the Untitled UI evidence convention). Files: `default-sort.png`, `sort-name-asc.png`, `page-2.png`, `page-1-back.png`.
 
 - [ ] **Step 4: Stop dev servers**
 
@@ -2810,7 +2810,7 @@ Stop both `npm run dev` and `docker compose`.
 - [ ] **Step 5: Commit evidence**
 
 ```bash
-git add docs/superpowers/evidence/2026-05-04-sorting-pagination/
+git add docs/superpowers/verification/2026-05-04-sorting-pagination/
 git commit -m "docs(evidence): Playwright smoke for sorting + pagination"
 ```
 

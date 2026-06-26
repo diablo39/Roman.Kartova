@@ -89,5 +89,5 @@ State these as concrete tasks in the plan; verify at the DoD.
 | Postgres roles / grants / migration bootstrap | `PostgresTestBootstrap` (`AppRole` / `BypassRole` / `MigratorRole`) |
 
 ### Harness conventions (learned the hard way)
-- **One fixture per assembly:** wire it from `[AssemblyInitialize]`, with `[assembly: DoNotParallelize]` in `Properties/AssemblyInfo.cs` (the fixture mutates process-global env vars). **Not** per-class `[ClassInitialize]` — that creates one heavyweight Postgres+API fixture per derived class (~6× wall-clock regression; see `docs/superpowers/reviews/2026-05-09-feat-mstest-migration-phase-9-review.md`).
+- **One fixture per assembly:** wire it from `[AssemblyInitialize]`, with `[assembly: DoNotParallelize]` in `Properties/AssemblyInfo.cs` (the fixture mutates process-global env vars). **Not** per-class `[ClassInitialize]` — that creates one heavyweight Postgres+API fixture per derived class (~6× wall-clock regression; see `docs/superpowers/verification/2026-05-09-feat-mstest-migration/phase-9-review.md`).
 - Start independent containers (Postgres + KeyCloak) in parallel — wall-clock is `max`, not sum.

@@ -970,11 +970,11 @@ git commit -m "docs: ADR-0088 superseded by ADR-0094; CLAUDE.md stack row + DESI
 ## Task 14: Cold-start Playwright verification (ADR-0084)
 
 **Files:**
-- Create: `docs/superpowers/evidence/2026-05-01-untitled-ui-migration/console.log`
-- Create: `docs/superpowers/evidence/2026-05-01-untitled-ui-migration/login.png`
-- Create: `docs/superpowers/evidence/2026-05-01-untitled-ui-migration/catalog-list.png`
-- Create: `docs/superpowers/evidence/2026-05-01-untitled-ui-migration/register-dialog.png`
-- Create: `docs/superpowers/evidence/2026-05-01-untitled-ui-migration/application-detail.png`
+- Create: `docs/superpowers/verification/2026-05-01-untitled-ui-migration/console.log`
+- Create: `docs/superpowers/verification/2026-05-01-untitled-ui-migration/login.png`
+- Create: `docs/superpowers/verification/2026-05-01-untitled-ui-migration/catalog-list.png`
+- Create: `docs/superpowers/verification/2026-05-01-untitled-ui-migration/register-dialog.png`
+- Create: `docs/superpowers/verification/2026-05-01-untitled-ui-migration/application-detail.png`
 
 - [ ] **Step 1: Cold-start the docker compose stack**
 
@@ -1016,7 +1016,7 @@ docker compose down
 - [ ] **Step 5: Commit evidence**
 
 ```bash
-git add docs/superpowers/evidence/2026-05-01-untitled-ui-migration/
+git add docs/superpowers/verification/2026-05-01-untitled-ui-migration/
 git commit -m "docs(evidence): cold-start Playwright walk after Untitled UI migration"
 ```
 
@@ -1065,7 +1065,7 @@ gh pr create --title "feat(web): migrate to Untitled UI free-tier (supersede ADR
 - [x] Backend build TWAE 0/0 (untouched)
 - [x] Backend tests 199/199 PASS (untouched)
 - [x] Frontend typecheck + lint + test:coverage + build all green
-- [x] Cold-start Playwright walkthrough — login → catalog → register-application → detail page (evidence committed under `docs/superpowers/evidence/2026-05-01-untitled-ui-migration/`)
+- [x] Cold-start Playwright walkthrough — login → catalog → register-application → detail page (evidence committed under `docs/superpowers/verification/2026-05-01-untitled-ui-migration/`)
 - [x] No `from "radix-ui"`, `from "@radix-ui"`, or `from "lucide-react"` imports remain
 - [x] No `@/components/ui/*` imports remain except `sonner`
 

@@ -428,7 +428,7 @@ Bring up the stack (`docker compose up -d --build`; if the realm changed, `docke
 - **Happy:** `PUT /api/v1/organizations/teams/{DemoTeamId}` with a valid body → **200** (a realm-Member managing the team they admin — the exact case that returned 403 before this change).
 - **Negative:** same token, `PUT /api/v1/organizations/teams/{some-other-team-id}` → **403** (not an Admin of that team).
 - **Invitation:** `POST /api/v1/organizations/invitations` with `{"email":"x@example.com","role":"TeamAdmin"}` as an OrgAdmin → **422** (role no longer valid).
-Save the captured curl output under `docs/superpowers/evidence/2026-06-09-team-admin-membership-authority/` or append to a verification doc.
+Save the captured curl output under `docs/superpowers/verification/2026-06-09-team-admin-membership-authority/` or append to a verification doc.
 
 - [ ] **Step 5: Quality gates (per CLAUDE.md DoD)**
 

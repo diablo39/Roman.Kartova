@@ -178,7 +178,7 @@ Important / Minor findings tracked for Phase H+ follow-up (deep-review §S1-S6 +
 
 **Status:** ✅ **GREEN**
 
-**Evidence:** `docs/superpowers/reviews/2026-05-29-slice-9-deep-review.md`
+**Evidence:** `docs/superpowers/verification/2026-05-29-slice-9/deep-review.md`
 
 Produced fixed-schema report covering Overview / Blocking / Should-fix / Nits / Missing tests / What looks good. 2 Blocking findings:
 1. DoD #4 evidence missing single-invocation full-solution test run → **resolved by this document**

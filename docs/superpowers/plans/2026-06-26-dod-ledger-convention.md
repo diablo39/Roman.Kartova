@@ -133,7 +133,7 @@ Run (Bash, repo root):
 ```
 test -f docs/superpowers/templates/dod-ledger-template.md && grep -c '⏳ PENDING' docs/superpowers/templates/dod-ledger-template.md
 ```
-Expected: prints `24` (12 summary rows + 12 detail blocks all PENDING). If the count differs, a row is missing — fix before commit.
+Expected: prints `25` (12 summary rows + 12 detail blocks + the 1 legend mention, all `⏳ PENDING`). If the count is lower, a row is missing — fix before commit.
 
 - [ ] **Step 3: Commit**
 
@@ -282,13 +282,9 @@ The convention's first real instance, capturing PR #46's true status.
 - Consumes: the template (Task 1).
 - Produces: the queryable ledger for PR #46 — the answer to the original "what's the DoD status?" question.
 
-- [ ] **Step 1: Resolve the current HEAD short-sha for the header**
+- [ ] **Step 1: Use the mini-graph slice head sha for the header**
 
-Run (Bash, repo root):
-```
-git rev-parse --short HEAD
-```
-Use the printed sha in the header below (shown as `<sha>`).
+The ledger documents the mini-graph slice (E-04.F-02.S-01); its gate evidence (CI run 28236067701) corresponds to that slice's head commit `6b9bc3f` — **not** the current branch HEAD, which now also carries the DoD-convention commits. Use `6b9bc3f` wherever the header shows `<sha>`.
 
 - [ ] **Step 2: Write the ledger**
 
@@ -309,12 +305,12 @@ Create `docs/superpowers/verification/2026-06-26-catalog-dependency-mini-graph/d
 | Gate | Status | Updated |
 |------|--------|---------|
 | 1 Build (`TreatWarningsAsErrors`) | ✅ PASS | 2026-06-26 |
-| 2 Per-task subagent reviews | ⏳ PENDING | 2026-06-26 |
+| 2 Per-task subagent reviews | ✅ PASS | 2026-06-26 |
 | 3 Full suite (+ real-seam if wiring) | ✅ PASS | 2026-06-26 |
 | 4 Container build (images CI) | ✅ PASS | 2026-06-26 |
 | 5 `/simplify` | ⏳ PENDING | 2026-06-26 |
 | 6 Mutation (conditional) | N/A | 2026-06-26 |
-| 7 `requesting-code-review` | ⏳ PENDING | 2026-06-26 |
+| 7 `requesting-code-review` | ✅ PASS | 2026-06-26 |
 | 8 `review-pr` | ⏳ PENDING | 2026-06-26 |
 | 9 `deep-review` | ⏳ PENDING | 2026-06-26 |
 | Manual / Playwright (ADR-0084) | ⏳ PENDING | 2026-06-26 |
@@ -329,9 +325,9 @@ Create `docs/superpowers/verification/2026-06-26-catalog-dependency-mini-graph/d
 **At:** PR #46 head, 2026-06-26
 
 ### 2 — Per-task subagent reviews (spec + quality)
-**Status:** ⏳ PENDING
-**Evidence:** Not recorded for this slice (predates the ledger convention).
-**At:** 2026-06-26
+**Status:** ✅ PASS
+**Evidence:** Spec + quality reviews ran clean for all 5 implementation tasks during the original SDD session (recorded in the `.superpowers/sdd` controller ledger; corroborated by the commit chain `c9a8ec3..1ff557b`). Task 3 fixed a TS2698 spread-cast pre-review.
+**At:** PR #46 head, 2026-06-26
 
 ### 3 — Full test suite (unit + arch + integration; real-seam if wiring)
 **Status:** ✅ PASS
@@ -354,9 +350,9 @@ Create `docs/superpowers/verification/2026-06-26-catalog-dependency-mini-graph/d
 **At:** 2026-06-26
 
 ### 7 — `requesting-code-review` at slice boundary
-**Status:** ⏳ PENDING
-**Evidence:** PR #46 has 0 reviews recorded.
-**At:** 2026-06-26
+**Status:** ✅ PASS
+**Evidence:** Final whole-branch code review (superpowers:requesting-code-review) returned ready-to-merge-with-fixes, no Critical/Important findings; the one fix (untested focused-node style branch) landed in `6b9bc3f`. (A subagent review — not posted to the GitHub PR, hence PR #46 shows 0 reviews.)
+**At:** PR #46 head, 2026-06-26
 
 ### 8 — `review-pr` (pr-review-toolkit)
 **Status:** ⏳ PENDING
@@ -383,7 +379,7 @@ Create `docs/superpowers/verification/2026-06-26-catalog-dependency-mini-graph/d
 **Evidence:** CI run 28236067701 green on PR #46 (all 5 jobs) — the runner is the mirror's source of truth.
 **At:** PR #46 head, 2026-06-26
 ```
-Replace `<sha>` with the value from Step 1.
+Replace `<sha>` with `6b9bc3f` (the mini-graph slice head, per Step 1).
 
 - [ ] **Step 3: Verify it parses and reflects reality**
 
