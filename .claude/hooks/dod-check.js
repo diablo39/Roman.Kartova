@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Stop hook: blocks the turn when the last assistant message contains a
-// completion claim without evidence of verification. Enforces the
-// Definition of Done from CLAUDE.md so "finished" means reviewed + tested + run.
+// completion claim without a DoD ledger citation (docs/superpowers/verification/<date>-<topic>/dod.md).
+// Enforces the Definition of Done from CLAUDE.md so "finished" means reviewed + tested + run.
 
 const fs = require('node:fs');
 
@@ -46,7 +46,6 @@ function lastAssistantText(transcriptPath) {
 }
 
 const CLAIM_RE = /slice( \d+)? complete|implementation complete|all done|ready to merge|finished implementing|fully finished|implementation is (complete|finished|ready)|✅ done|\bdone\.$/im;
-const EVIDENCE_RE = /docker compose|docker build|images (ci|job|build)|real[- ]seam|integration test|test suite|build green|suite green|treatwarningsaserrors|pending verification|staged|definition of done|verification pending|e2e smoke|end-to-end/i;
 // A completion claim must point at the slice's DoD ledger (the queryable record of gate status).
 const LEDGER_RE = /superpowers[\/\\]verification[\/\\][^\s)"']+[\/\\]dod\.md/i;
 
