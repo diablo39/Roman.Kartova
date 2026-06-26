@@ -133,12 +133,12 @@ Create `verification/2026-06-26-catalog-dependency-mini-graph/dod.md` from the t
 | Gate | Status | Evidence |
 |------|--------|----------|
 | 1 Build | ✅ PASS | CI run `28236067701` — Frontend + Backend checks |
-| 2 Per-task reviews | ⏳ PENDING | not recorded for this slice |
+| 2 Per-task reviews | ✅ PASS | SDD per-task spec+quality reviews ran clean (controller ledger + commit chain `c9a8ec3..1ff557b`) — upgraded from PENDING on later-found evidence |
 | 3 Full suite | ✅ PASS | CI Frontend (test+typecheck+build) + Backend (arch+unit+integration). Real-seam **N/A** (frontend-only) |
 | 4 Container build | ✅ PASS | CI "Container images" check |
 | 5 `/simplify` | ⏳ PENDING | — |
 | 6 Mutation | N/A | no C# Domain/Application change |
-| 7 `requesting-code-review` | ⏳ PENDING | PR #46: 0 reviews |
+| 7 `requesting-code-review` | ✅ PASS | final whole-branch review ready-to-merge, no Critical/Important, fix `6b9bc3f` — subagent review, not posted to GitHub PR (hence PR #46 shows 0 reviews); upgraded from PENDING on later-found evidence |
 | 8 `review-pr` | ⏳ PENDING | — |
 | 9 `deep-review` | ⏳ PENDING | — |
 | Manual / Playwright (ADR-0084) | ⏳ PENDING | UI slice — not recorded |
