@@ -72,6 +72,7 @@ public class GetCatalogGraphTests : CatalogIntegrationTestBase
 
         var graph = await (await client.GetAsync($"/api/v1/catalog/graph?entityKind=Service&entityId={f}&depth=1&direction=all"))
             .Content.ReadFromJsonAsync<GraphResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.IsTrue(graph!.Nodes.Any(n => n.Id == a), "the depth-1 neighbour should be present");
         Assert.IsFalse(graph!.Nodes.Any(n => n.Id == b));
     }
 
@@ -122,6 +123,8 @@ public class GetCatalogGraphTests : CatalogIntegrationTestBase
             .Content.ReadFromJsonAsync<GraphResponse>(KartovaApiFixtureBase.WireJson);
         // b1 is invisible to org A → only the (empty) focus node, no neighbours/edges.
         Assert.AreEqual(0, graph!.Edges.Count);
+        Assert.IsFalse(graph.Nodes.Any(n => n.DisplayName.Contains("biso")),
+            "no org-B display name should leak to an org-A caller");
     }
 
     [TestMethod]
