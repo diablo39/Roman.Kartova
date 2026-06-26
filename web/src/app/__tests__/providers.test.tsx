@@ -69,4 +69,24 @@ describe("ApiAuthBridge", () => {
 
     expect(providerInstalledWhileLoading()).toBe("tok-live");
   });
+
+  it("the 401 handler uses the live signinRedirect even when installed before auth resolved", () => {
+    const signinRedirectOld = vi.fn();
+    authValue = { isAuthenticated: false, isLoading: true, signinRedirect: signinRedirectOld };
+    const { rerender } = render(<ApiAuthBridge>x</ApiAuthBridge>);
+    const handlerInstalledWhileLoading = setUnauthorizedHandler.mock.calls.at(-1)![0];
+
+    const signinRedirectNew = vi.fn();
+    authValue = {
+      isAuthenticated: true,
+      isLoading: false,
+      user: { access_token: "t" },
+      signinRedirect: signinRedirectNew,
+    };
+    rerender(<ApiAuthBridge>x</ApiAuthBridge>);
+
+    handlerInstalledWhileLoading();
+    expect(signinRedirectNew).toHaveBeenCalledTimes(1);
+    expect(signinRedirectOld).not.toHaveBeenCalled();
+  });
 });
