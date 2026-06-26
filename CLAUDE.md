@@ -62,6 +62,7 @@ General engineering judgment — understand before changing, minimal scope, conf
 | Google Stitch prompts | [docs/design/STITCH-PROMPTS.md](docs/design/STITCH-PROMPTS.md) |
 | UI mockups (Stitch output, canonical) | `docs/ui-screens/{screen-name}/{code.html, screen.png}` |
 | Per-slice implementation specs & plans | `docs/superpowers/specs/YYYY-MM-DD-*-design.md` + `docs/superpowers/plans/YYYY-MM-DD-*-plan.md` |
+| Per-slice verification proof (DoD ledger + reviews + evidence) | `docs/superpowers/verification/{date}-{topic}/` (entry point: `dod.md`) |
 | Testing strategy (tiers, real-seam rule, fixtures) | [docs/TESTING-STRATEGY.md](docs/TESTING-STRATEGY.md) |
 
 ## Conventions
@@ -120,6 +121,8 @@ MVP = phases 0–5 (Foundation → Core Catalog → Auto-Import → Docs → Sta
   7. `/superpowers:requesting-code-review` at slice boundary, against the **full branch diff** (spec + plan as context). Runs on green, final code — so it catches design issues, not test failures.
   8. `/pr-review-toolkit:review-pr`.
   9. `/deep-review` against the branch diff (spec/plan/ADRs/tests). Blocking + Should-fix addressed, nits triaged.
+
+  **DoD ledger (queryable status):** each slice maintains a DoD ledger at `docs/superpowers/verification/<date>-<topic>/dod.md` — copy `docs/superpowers/templates/dod-ledger-template.md` at slice start and update each gate's row the moment that gate runs (not just at close). Reviews, deep-review reports, and raw evidence (screenshots/logs) live as siblings in the same `verification/<date>-<topic>/` folder; `dod.md` is the index. A "what's the DoD status?" question is answered by reading that file's summary table. Completion claims MUST cite the ledger path — the `.claude/hooks/dod-check.js` stop hook blocks claims that don't.
 
   **Terminal re-verify:** gates 5–9 may apply fixes that invalidate the green claims from 1 + 3. So after gate 9, re-run build + full suite and confirm green. Until the eight blocking gates pass, the honest status is **"implementation staged, verification pending"** — never "slice N complete". Steps that can't run locally (e.g., no Docker) → flag *pending user verification*. Stop hook `.claude/hooks/dod-check.js` blocks completion claims that lack evidence.
 
