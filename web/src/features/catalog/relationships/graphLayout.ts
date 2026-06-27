@@ -3,15 +3,14 @@ import dagre from "@dagrejs/dagre";
 import type { Node, Edge } from "@xyflow/react";
 import type { GraphNodeData } from "@/features/catalog/relationships/graphModel";
 import type { ExplorerGraph } from "@/features/catalog/relationships/graphMerge";
-import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
-
 const NODE_W = 180;
 const NODE_H = 56;
 
-const detailHref = (kind: RelationshipKind, id: string) =>
-  `/catalog/${kind === "application" ? "applications" : "services"}/${id}`;
-
-export function layoutGraph(graph: ExplorerGraph, focusId: string): { nodes: Node<GraphNodeData>[]; edges: Edge[] } {
+export function layoutGraph(
+  graph: ExplorerGraph,
+  focusId: string,
+  selectedId: string | null,
+): { nodes: Node<GraphNodeData>[]; edges: Edge[] } {
   const g = new dagre.graphlib.Graph();
   g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 120 });
   g.setDefaultEdgeLabel(() => ({}));
@@ -21,7 +20,6 @@ export function layoutGraph(graph: ExplorerGraph, focusId: string): { nodes: Nod
 
   const nodes: Node<GraphNodeData>[] = graph.nodes.map((n) => {
     const pos = g.node(n.id);
-    const isFocus = n.id === focusId;
     return {
       id: n.id,
       type: "entity",
@@ -30,18 +28,12 @@ export function layoutGraph(graph: ExplorerGraph, focusId: string): { nodes: Nod
         kind: n.kind,
         entityId: n.entityId,
         displayName: n.displayName,
-        side: isFocus ? "focused" : "dependency",
-        detailHref: isFocus ? undefined : detailHref(n.kind, n.entityId),
+        side: n.id === focusId ? "focused" : "dependency",
+        selected: n.id === selectedId,
       },
     };
   });
 
-  const edges: Edge[] = graph.edges.map((e) => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    label: e.label,
-  }));
-
+  const edges: Edge[] = graph.edges.map((e) => ({ id: e.id, source: e.source, target: e.target, label: e.label }));
   return { nodes, edges };
 }

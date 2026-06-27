@@ -1,6 +1,6 @@
 import { it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+
 
 vi.mock("@xyflow/react", () => ({
   Handle: () => null,
@@ -12,9 +12,7 @@ import type { GraphNodeData } from "@/features/catalog/relationships/graphModel"
 
 function renderNode(data: GraphNodeData) {
   return render(
-    <MemoryRouter>
-      <EntityGraphNode {...({ data } as unknown as Parameters<typeof EntityGraphNode>[0])} />
-    </MemoryRouter>,
+    <EntityGraphNode {...({ data } as unknown as Parameters<typeof EntityGraphNode>[0])} />,
   );
 }
 
@@ -35,8 +33,8 @@ it("emphasises the focused node and still renders its displayName", () => {
   expect(screen.getByText("Me").closest("div[class*='font-semibold']")).toBeInTheDocument();
 });
 
-it("renders an open-detail link when detailHref is set", () => {
-  renderNode({ kind: "service", entityId: "a", displayName: "A", side: "dependency", detailHref: "/catalog/services/a" });
-  const link = screen.getByRole("link", { name: /open/i });
-  expect(link).toHaveAttribute("href", "/catalog/services/a");
+it("applies selected styling when data.selected is true", () => {
+  renderNode({ kind: "service", entityId: "a", displayName: "A", side: "dependency", selected: true });
+  expect(screen.getByText("A").closest("div[class*='border-brand-solid']")).not.toBeNull();
 });
+

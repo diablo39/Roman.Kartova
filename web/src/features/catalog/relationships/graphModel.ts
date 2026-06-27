@@ -12,7 +12,7 @@ export type GraphNodeData = {
   entityId: string;
   displayName: string;
   side: GraphSide;
-  detailHref?: string; // explorer only: when set, EntityGraphNode renders an "open detail" link
+  selected?: boolean; // explorer: the currently-selected node (sidebar open on it)
 };
 
 export type GraphNode = {
