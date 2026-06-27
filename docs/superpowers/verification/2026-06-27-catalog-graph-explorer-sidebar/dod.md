@@ -15,7 +15,7 @@
 | 1 Build (lint + tsc -b + vite) | ✅ PASS | 2026-06-27 |
 | 2 Per-task subagent reviews | ✅ PASS | 2026-06-27 |
 | 3 Full suite (frontend; real-seam N/A) | ✅ PASS | 2026-06-27 |
-| 4 Container build (web image) | ⏳ PR CI authoritative | 2026-06-27 |
+| 4 Container build (web image) | ✅ PASS (CI) | 2026-06-27 |
 | 5 `/simplify` | ➖ DEFERRED (proportionate) | 2026-06-27 |
 | 6 Mutation | N/A (frontend-only, no C# change) | 2026-06-27 |
 | 7 `requesting-code-review` (whole-branch) | ✅ PASS | 2026-06-27 |
@@ -23,7 +23,7 @@
 | 9 `deep-review` | ➖ DEFERRED (covered by gate 7) | 2026-06-27 |
 | Manual / Playwright (ADR-0084) | ✅ PASS | 2026-06-27 |
 | Terminal re-verify | ✅ PASS | 2026-06-27 |
-| Pre-push CI mirror | ⏳ PR CI authoritative | 2026-06-27 |
+| Pre-push CI mirror | ✅ PASS (CI run 28283746962) | 2026-06-27 |
 
 ## Gate detail
 
@@ -40,7 +40,7 @@
 **At:** b1f7a0f / 2026-06-27
 
 ### 4 — Container build (web image)
-**Status:** ⏳ PR CI authoritative — no new dep; the web image runs `tsc -b` + vite (both green locally). The PR's `images` CI job is the source of truth.
+**Status:** ✅ PASS — PR #51 CI `images` job green (run 28283746962).
 **At:** b1f7a0f / 2026-06-27
 
 ### 5 — `/simplify`
@@ -72,7 +72,7 @@
 **At:** b1f7a0f / 2026-06-27
 
 ### Pre-push CI mirror (`scripts/ci-local.sh`)
-**Status:** ⏳ PR CI authoritative — the individual frontend gates (lint/tsc/vitest/build) ran green locally; the PR's CI run (frontend + images + backend, Release) is the source of truth.
+**Status:** ✅ PASS — PR #51 CI run 28283746962: all 5 jobs success (Frontend, Container images, Backend, Helm, Stryker drift).
 **At:** b1f7a0f / 2026-06-27
 
 ### Note — pre-existing lint debt touched
