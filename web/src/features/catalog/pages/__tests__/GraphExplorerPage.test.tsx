@@ -8,9 +8,9 @@ vi.mock("@/features/catalog/api/graph", () => ({ useGraph: (a: unknown) => mockU
 
 // ReactFlow stub: render each node as a clickable button.
 vi.mock("@xyflow/react", () => ({
-  ReactFlow: ({ nodes, onNodeClick }: any) => (
+  ReactFlow: ({ nodes, onNodeClick }: { nodes: { id: string; data: { displayName: string } }[]; onNodeClick: (e: unknown, n: { id: string }) => void }) => (
     <div data-testid="rf">
-      {nodes.map((n: any) => (
+      {nodes.map((n: { id: string; data: { displayName: string } }) => (
         <button key={n.id} data-testid={`node-${n.id}`} onClick={() => onNodeClick({}, n)}>{n.data.displayName}</button>
       ))}
     </div>
@@ -19,7 +19,7 @@ vi.mock("@xyflow/react", () => ({
 }));
 // Sidebar stub: expose the expand callback + close.
 vi.mock("@/features/catalog/components/GraphExplorerSidebar", () => ({
-  GraphExplorerSidebar: ({ selected, onToggleExpand, onClose }: any) => (
+  GraphExplorerSidebar: ({ selected, onToggleExpand, onClose }: { selected: { kind: string; id: string }; onToggleExpand: (node: string, dir: "out" | "in") => void; onClose: () => void }) => (
     <div data-testid="sidebar">
       <span>sidebar:{selected.kind}:{selected.id}</span>
       <button onClick={() => onToggleExpand(`${selected.kind}:${selected.id}`, "out")}>expand-out</button>

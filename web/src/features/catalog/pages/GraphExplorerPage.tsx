@@ -39,7 +39,7 @@ export function GraphExplorerPage() {
   );
   const atCap = merged.nodes.length >= SOFT_CAP;
   const { nodes, edges } = useMemo(
-    () => (focus ? layoutGraph(merged, focusId, selected) : { nodes: [] as Node<GraphNodeData>[], edges: [] as Edge[] }),
+    () => (focusId ? layoutGraph(merged, focusId, selected) : { nodes: [] as Node<GraphNodeData>[], edges: [] as Edge[] }),
     [merged, focusId, selected],
   );
 
