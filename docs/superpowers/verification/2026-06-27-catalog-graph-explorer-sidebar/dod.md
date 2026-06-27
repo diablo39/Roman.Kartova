@@ -16,11 +16,11 @@
 | 2 Per-task subagent reviews | ✅ PASS | 2026-06-27 |
 | 3 Full suite (frontend; real-seam N/A) | ✅ PASS | 2026-06-27 |
 | 4 Container build (web image) | ✅ PASS (CI) | 2026-06-27 |
-| 5 `/simplify` | ➖ DEFERRED (proportionate) | 2026-06-27 |
+| 5 `/simplify` | ✅ PASS | 2026-06-27 |
 | 6 Mutation | N/A (frontend-only, no C# change) | 2026-06-27 |
 | 7 `requesting-code-review` (whole-branch) | ✅ PASS | 2026-06-27 |
-| 8 `review-pr` | ➖ DEFERRED (proportionate) | 2026-06-27 |
-| 9 `deep-review` | ➖ DEFERRED (covered by gate 7) | 2026-06-27 |
+| 8 `review-pr` | ✅ PASS | 2026-06-27 |
+| 9 `deep-review` | ✅ PASS | 2026-06-27 |
 | Manual / Playwright (ADR-0084) | ✅ PASS | 2026-06-27 |
 | Terminal re-verify | ✅ PASS | 2026-06-27 |
 | Pre-push CI mirror | ✅ PASS (CI run 28283746962) | 2026-06-27 |
@@ -44,8 +44,8 @@
 **At:** b1f7a0f / 2026-06-27
 
 ### 5 — `/simplify`
-**Status:** ➖ DEFERRED (proportionate) — code-quality/simplification covered by the 6 per-task quality reviews + the opus whole-branch review (gate 7). Re-runnable on demand.
-**At:** 2026-06-27
+**Status:** ✅ PASS — ran 4 cleanup agents (reuse/simplification/efficiency/altitude). Applied (80e5cd7): shared `ENTITY_KIND_LABEL`/`parseEntityRef`/`entityDetailPath` helpers, typed the sidebar entity (`ApplicationResponse|ServiceResponse`), DRY `toggleExpand`, memoized `selectedRef`. Skipped-with-reason: the `useExplorerState` callback-stability refactor (regression risk, marginal benefit), `useLiveRef`/`useEntityDetail` extractions (scope), bfsDepth adjacency memo (low value at ≤150). See `gate-findings.yaml`.
+**At:** 80e5cd7 / 2026-06-27
 
 ### 6 — Mutation loop
 **Status:** N/A — frontend-only slice; no C# Domain/Application change. (Stryker is backend-scoped.)
@@ -56,20 +56,20 @@
 **At:** 90cff0d → fixes 3d45d2a/b1f7a0f / 2026-06-27
 
 ### 8 — `review-pr`
-**Status:** ➖ DEFERRED (proportionate) — overlaps the opus whole-branch review on the same diff + the per-task reviews; PR CI is the independent automated gate.
-**At:** 2026-06-27
+**Status:** ✅ PASS — comprehensive PR review (correctness / silent-failure / type-design / tests). 0 Critical. Real should-fixes fixed in ce72ceb: a failed *expand* query no longer blanks the whole canvas (focus-only fatal `isError` + non-blocking expand-error notice); no-focus visits no longer fire `entityId=""` queries (`enabled` gate); restored the error-state+refetch test. Nits deferred (sidebar skeleton, etc.). See `gate-findings.yaml`.
+**At:** ce72ceb / 2026-06-27
 
 ### 9 — `deep-review`
-**Status:** ➖ DEFERRED — the opus whole-branch review (gate 7) ran against the full diff with spec/plan context + a fixed-schema verdict, i.e. functionally the deep review. Re-runnable on the PR.
-**At:** 2026-06-27
+**Status:** ✅ PASS — fixed-schema deep review vs spec/plan/ADRs/tests. 0 Blocking. Should-fixes: the no-focus `entityId=""` issue (shared with gate 8 → fixed ce72ceb) + test gaps (set-as-focus nav, storage-write-failure fallback → added ce72ceb). The "render-time setState is a deprecated footgun" finding was adjudicated a **delusion** (React-docs-sanctioned prev-key reconcile; gate-7-approved; project convention). See `gate-findings.yaml`.
+**At:** ce72ceb / 2026-06-27
 
 ### Manual / Playwright verification (ADR-0084)
 **Status:** ✅ PASS — cold-started dev server; deep-linked `/graph?focus=application:891f99c8…` → bounced to Keycloak → signed in → **restored to the explorer via OIDC `state`** (deep-link survives re-auth). Graph rendered (depth-2: F App 010 focus + A App 041 + A App 119 + Service 1, both edge directions); nodes carry no inline link (moved to sidebar). **Click A App 041 → right sidebar** with real entity data (Application, "depth 1 from focus" client-BFS, Lifecycle: active, description, Team link) + actions (Expand dependencies/dependents, Set as focus, Open page). **Expand dependencies → "Collapse dependencies"** toggle (directional, state persisted). **Full page reload → sidebar + Collapse state restored from sessionStorage** (no Keycloak bounce — authed from sessionStorage) — the faithful proxy for the token-expiry re-auth (an SPA unload+remount; sessionStorage persists identically). **Console: 0 errors / 0 warnings.** Screenshot: `./playwright/explorer-sidebar-restored.png`.
 **At:** b1f7a0f / 2026-06-27
 
 ### Terminal re-verify
-**Status:** ✅ PASS — after the final-review + lint fixes: `npm run lint` exit 0, `tsc -b` 0 errors, full vitest 654/654.
-**At:** b1f7a0f / 2026-06-27
+**Status:** ✅ PASS — after gates 5/8/9 fixes: `npm run lint` exit 0, `tsc -b` 0 errors, full vitest **658/658** (96 files).
+**At:** ce72ceb / 2026-06-27
 
 ### Pre-push CI mirror (`scripts/ci-local.sh`)
 **Status:** ✅ PASS — PR #51 CI run 28283746962: all 5 jobs success (Frontend, Container images, Backend, Helm, Stryker drift).
