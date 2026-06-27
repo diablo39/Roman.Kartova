@@ -35,23 +35,27 @@ async function fetchGraph(f: GraphFocus, depth: number, direction: GraphDirectio
 }
 
 export function useGraph({ focus, expand }: { focus: GraphFocus; expand: ExpandEntry[] }) {
+  const enabled = focus.id !== "";
   const queries = useQueries({
     queries: [
-      { queryKey: graphKeys.node(focus, FOCUS_DEPTH, "all"), queryFn: () => fetchGraph(focus, FOCUS_DEPTH, "all") },
+      { queryKey: graphKeys.node(focus, FOCUS_DEPTH, "all"), queryFn: () => fetchGraph(focus, FOCUS_DEPTH, "all"), enabled },
       ...expand.map((e) => {
         const f = parseNode(e.node);
         const direction: GraphDirection = e.dir === "out" ? "outgoing" : "incoming";
         return {
           queryKey: graphKeys.node(f, EXPAND_DEPTH, direction),
           queryFn: () => fetchGraph(f, EXPAND_DEPTH, direction),
+          enabled,
         };
       }),
     ],
   });
+  const [focusQuery, ...expandQueries] = queries;
   return {
     results: queries.map((q) => q.data).filter((d): d is GraphResponse => !!d),
     isLoading: queries.some((q) => q.isLoading),
-    isError: queries.some((q) => q.isError),
+    isError: focusQuery?.isError ?? false,
+    expandError: expandQueries.some((q) => q.isError),
     refetch: () => queries.forEach((q) => q.refetch()),
   };
 }

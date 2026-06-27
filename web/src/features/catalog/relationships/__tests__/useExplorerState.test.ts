@@ -74,4 +74,13 @@ describe("useExplorerState", () => {
     expect(result.current.expand).toEqual([]);
     expect(result.current.selected).toBeNull();
   });
+
+  it("storage quota/private-mode setItem failure leaves in-memory state intact", () => {
+    const throwingStore: Storage = { ...memStorage(), setItem: () => { throw new Error("quota exceeded"); } };
+    const { result } = renderHook(() => useExplorerState("application:f", throwingStore));
+    act(() => result.current.toggleExpand("application:a", "out"));
+    expect(result.current.isExpanded("application:a", "out")).toBe(true);
+    act(() => result.current.select("application:a"));
+    expect(result.current.selected).toBe("application:a");
+  });
 });

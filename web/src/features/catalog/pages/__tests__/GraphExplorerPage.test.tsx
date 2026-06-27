@@ -3,6 +3,9 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { GraphExplorerPage } from "@/features/catalog/pages/GraphExplorerPage";
 
+const mockNavigate = vi.fn();
+vi.mock("react-router-dom", async (orig) => ({ ...(await orig<typeof import("react-router-dom")>()), useNavigate: () => mockNavigate }));
+
 const mockUseGraph = vi.fn();
 vi.mock("@/features/catalog/api/graph", () => ({ useGraph: (a: unknown) => mockUseGraph(a) }));
 
@@ -17,12 +20,13 @@ vi.mock("@xyflow/react", () => ({
   ),
   Background: () => null, Controls: () => null, MiniMap: () => null,
 }));
-// Sidebar stub: expose the expand callback + close.
+// Sidebar stub: expose the expand callback, set-focus callback + close.
 vi.mock("@/features/catalog/components/GraphExplorerSidebar", () => ({
-  GraphExplorerSidebar: ({ selected, onToggleExpand, onClose }: { selected: { kind: string; id: string }; onToggleExpand: (node: string, dir: "out" | "in") => void; onClose: () => void }) => (
+  GraphExplorerSidebar: ({ selected, onToggleExpand, onSetFocus, onClose }: { selected: { kind: string; id: string }; onToggleExpand: (node: string, dir: "out" | "in") => void; onSetFocus: () => void; onClose: () => void }) => (
     <div data-testid="sidebar">
       <span>sidebar:{selected.kind}:{selected.id}</span>
       <button onClick={() => onToggleExpand(`${selected.kind}:${selected.id}`, "out")}>expand-out</button>
+      <button onClick={onSetFocus}>set-focus</button>
       <button onClick={onClose}>close</button>
     </div>
   ),
@@ -47,7 +51,8 @@ function renderAt(url: string) {
 
 beforeEach(() => {
   sessionStorage.clear();
-  mockUseGraph.mockReturnValue({ results: [result], isLoading: false, isError: false, refetch: vi.fn() });
+  mockNavigate.mockClear();
+  mockUseGraph.mockReturnValue({ results: [result], isLoading: false, isError: false, expandError: false, refetch: vi.fn() });
 });
 
 describe("GraphExplorerPage", () => {
@@ -82,8 +87,31 @@ describe("GraphExplorerPage", () => {
 
   it("shows the cap notice when nodes exceed the soft cap", () => {
     const big = { nodes: Array.from({ length: 151 }, (_, i) => ({ kind: "service", id: `n${i}`, displayName: `N${i}`, depth: 1, teamId: null })), edges: [], truncated: false };
-    mockUseGraph.mockReturnValue({ results: [big], isLoading: false, isError: false, refetch: vi.fn() });
+    mockUseGraph.mockReturnValue({ results: [big], isLoading: false, isError: false, expandError: false, refetch: vi.fn() });
     renderAt("/graph?focus=service:n0");
     expect(screen.getByText(/large graph/i)).toBeInTheDocument();
+  });
+
+  it("shows the error banner and Try-again calls refetch on focus-fetch failure", () => {
+    const refetch = vi.fn();
+    mockUseGraph.mockReturnValue({ results: [], isLoading: false, isError: true, expandError: false, refetch });
+    renderAt("/graph?focus=service:f");
+    expect(screen.getByText(/couldn't load/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /try again/i }));
+    expect(refetch).toHaveBeenCalledOnce();
+  });
+
+  it("shows expand-error notice non-blockingly while graph nodes still render", () => {
+    mockUseGraph.mockReturnValue({ results: [result], isLoading: false, isError: false, expandError: true, refetch: vi.fn() });
+    renderAt("/graph?focus=service:f");
+    expect(screen.getByText(/some expansions failed/i)).toBeInTheDocument();
+    expect(screen.getByTestId("node-service:a")).toBeInTheDocument();
+  });
+
+  it("set-as-focus navigates to the selected node's focus URL", () => {
+    renderAt("/graph?focus=service:f");
+    fireEvent.click(screen.getByTestId("node-service:a"));
+    fireEvent.click(screen.getByRole("button", { name: /set-focus/i }));
+    expect(mockNavigate).toHaveBeenCalledWith("/graph?focus=service:a");
   });
 });

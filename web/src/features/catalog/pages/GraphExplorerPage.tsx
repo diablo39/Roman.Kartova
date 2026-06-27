@@ -25,7 +25,7 @@ export function GraphExplorerPage() {
   const { expand, selected, isExpanded, toggleExpand, select, reset } = useExplorerState(focusId);
 
   const safeFocus = focus ?? { kind: "application" as RelationshipKind, id: "" };
-  const { results, isLoading, isError, refetch } = useGraph({ focus: safeFocus, expand });
+  const { results, isLoading, isError, expandError, refetch } = useGraph({ focus: safeFocus, expand });
 
   const merged = useMemo(
     () => (focusId ? mergeGraphs(results) : { nodes: [], edges: [], truncated: false }),
@@ -68,6 +68,9 @@ export function GraphExplorerPage() {
         <>
           {atCap && (
             <p className="text-xs text-warning-primary">Large graph (≥{SOFT_CAP} nodes) — collapse a branch or Reset to keep it readable.</p>
+          )}
+          {expandError && (
+            <p className="text-xs text-warning-primary">Some expansions failed to load — try expanding again.</p>
           )}
           <div className="flex min-h-0 flex-1 gap-2">
             <div className="min-h-0 flex-1 overflow-hidden rounded-lg ring-1 ring-secondary">
