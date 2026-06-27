@@ -1,0 +1,96 @@
+# gate-findings.yaml — per-gate findings telemetry for one slice.
+#
+# Purpose: record every issue each DoD gate raised, with a real/delusion verdict,
+# so gate effectiveness is queryable across slices.
+#   Aggregate:  find docs/superpowers/verification -name gate-findings.yaml
+#   Rank gates by precision (real ÷ found) and by real issues caught.
+#
+# Sibling of dod.md in docs/superpowers/verification/<date>-<topic>/.
+# Copy this file there at slice start; append a finding the moment a gate raises one.
+# dod.md records each gate's PASS/FAIL/PENDING/N-A status; this file records what it FOUND.
+# A gate with status PASS and no entries here ⇒ it ran and found nothing.
+
+slice:  2026-06-26-catalog-graph-explorer
+branch: feat/catalog-graph-explorer
+head:   7a05315
+
+# One entry per issue a gate raised.
+#
+# gate     — the dod.md row this finding came from (slug, not number):
+#              build              (1  Build, TreatWarningsAsErrors)
+#              reviews            (2  per-task subagent reviews)
+#              suite              (3  full test suite incl. real-seam)
+#              container          (4  container build / images CI)
+#              simplify           (5  /simplify)
+#              mutation           (6  mutation loop)
+#              requesting-review  (7  requesting-code-review)
+#              review-pr          (8  review-pr)
+#              deep-review        (9  deep-review)
+#              manual             (Manual / Playwright, ADR-0084)
+#              terminal-reverify  (terminal re-verify: build + suite)
+#              ci-mirror          (pre-push CI mirror, ci-local.sh)
+# severity — blocking | should-fix | nit
+# verdict  — real     : a genuine issue that warranted a change
+#            delusion : a false positive the gate raised that was not a real issue
+# title    — one-line description of the finding
+# note     — optional: resolution (fix sha), or why it was a delusion
+findings:
+  - gate: reviews
+    severity: should-fix
+    verdict: delusion
+    title: "All-direction traversal 'misses a node when both endpoints are in the frontier'"
+    note: "Task 3 review. False positive: an edge touching the frontier has exactly one counterpart to discover; both-endpoints-in-frontier means both are already visited (in nodeDepth), so nothing is missed and the edge is still captured by the final edge-inclusion pass. No code change."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "cap/truncation test does not assert edge count"
+    note: "Task 3 review. Minor coverage depth; left as-is (Truncated + node count + endpoint membership already asserted)."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "keptEdges dict declared at top of BuildAsync but only populated in the final pass"
+    note: "Task 3 review. Cosmetic placement nit; behaviour correct. Left as-is."
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "EF fetch over-fetches edges for Outgoing/Incoming (direction filtered in the pure layer)"
+    note: "Task 4 review. Accepted by design: direction logic kept in the unit-testable pure traverser; correct, bounded by frontier. Spec-documented trade-off; revisit only if hub nodes get very large. No change."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "DependsOnAsync test seed helper does not assert the relationship POST succeeded"
+    note: "Task 4 review. Fixed in Task 5 (helper now awaits + asserts Created)."
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "tenant-isolation test asserts only Edges.Count==0, not that no org-B data leaks"
+    note: "Task 5 review. Strengthened in f6be0f5 with a no-leak assertion (no org-B displayName). NB the reviewer's proposed Nodes.Count==0 was itself wrong — the lone focus shell is returned by design with empty displayName/null teamId."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "depth-1 test asserts far node absent but not immediate neighbour present"
+    note: "Task 5 review. Fixed in f6be0f5 (added neighbour-present assertion)."
+  - gate: build
+    severity: should-fix
+    verdict: real
+    title: "graphMerge depth assignment failed tsc -b (OpenAPI int emitted as number|string)"
+    note: "Surfaced during Task 8 (vitest/esbuild masked it; tsc -b caught it). .NET OpenAPI emits int32 as [integer,string]. Fixed in 7b349c4 with Number(n.depth) boundary coercion. A real build-gate defect that the Task 7 vitest-only gate missed."
+
+# Example entries (delete when filling in real data):
+#
+# findings:
+#   - gate: deep-review
+#     severity: blocking
+#     verdict: real
+#     title: "RLS filter missing on graph traversal query"
+#     note: "fixed in 0a1b2c3"
+#   - gate: review-pr
+#     severity: should-fix
+#     verdict: delusion
+#     title: "claimed N+1 in display-name lookup"
+#     note: "already batched over distinct refs; reviewer misread"
+#   - gate: simplify
+#     severity: nit
+#     verdict: real
+#     title: "extract duplicated dagre layout options"
+#     note: "applied"

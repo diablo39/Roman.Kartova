@@ -1,4 +1,5 @@
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
+import { Link } from "react-router-dom";
 import type { GraphNodeData } from "@/features/catalog/relationships/graphModel";
 
 const KIND_LABEL: Record<string, string> = { application: "Application", service: "Service" };
@@ -14,7 +15,19 @@ export function EntityGraphNode({ data }: NodeProps<Node<GraphNodeData>>) {
       }
     >
       <Handle type="target" position={Position.Left} className="!border-0 !bg-transparent" />
-      <div className="text-sm text-primary">{data.displayName}</div>
+      <div className="flex items-center gap-2">
+        <div className="text-sm text-primary">{data.displayName}</div>
+        {data.detailHref && (
+          <Link
+            to={data.detailHref}
+            onClick={(e) => e.stopPropagation()}
+            className="text-xs text-brand-secondary underline"
+            aria-label={`Open ${data.displayName} detail page`}
+          >
+            Open ↗
+          </Link>
+        )}
+      </div>
       <div className="text-xs text-tertiary">{KIND_LABEL[data.kind] ?? data.kind}</div>
       <Handle type="source" position={Position.Right} className="!border-0 !bg-transparent" />
     </div>

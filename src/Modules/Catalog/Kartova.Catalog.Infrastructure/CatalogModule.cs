@@ -140,6 +140,12 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .ProducesProblem(StatusCodes.Status400BadRequest)
               .ProducesProblem(StatusCodes.Status403Forbidden)
               .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+        tenant.MapGet("/graph", CatalogEndpointDelegates.GetCatalogGraphAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRead)
+              .WithName("GetCatalogGraph")
+              .Produces<GraphResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status403Forbidden);
         tenant.MapDelete("/relationships/{id:guid}", CatalogEndpointDelegates.DeleteRelationshipAsync)
               .RequireAuthorization(KartovaPermissions.CatalogRelationshipsWrite)
               .WithName("DeleteRelationship")
@@ -203,6 +209,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<CreateRelationshipHandler>();
         services.AddScoped<DeleteRelationshipHandler>();
         services.AddScoped<ListRelationshipsForEntityHandler>();
+        services.AddScoped<GraphTraversalHandler>();
         services.AddScoped<ICatalogEntityLookup, CatalogEntityLookup>();
 
         // TimeProvider is needed by Application.Deprecate / Decommission for the

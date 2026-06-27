@@ -1,5 +1,6 @@
 import { it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 
 vi.mock("@xyflow/react", () => ({
   Handle: () => null,
@@ -10,7 +11,11 @@ import { EntityGraphNode } from "@/features/catalog/components/EntityGraphNode";
 import type { GraphNodeData } from "@/features/catalog/relationships/graphModel";
 
 function renderNode(data: GraphNodeData) {
-  return render(<EntityGraphNode {...({ data } as unknown as Parameters<typeof EntityGraphNode>[0])} />);
+  return render(
+    <MemoryRouter>
+      <EntityGraphNode {...({ data } as unknown as Parameters<typeof EntityGraphNode>[0])} />
+    </MemoryRouter>,
+  );
 }
 
 it("renders the displayName and a human kind label", () => {
@@ -27,5 +32,11 @@ it("renders the application kind label", () => {
 it("emphasises the focused node and still renders its displayName", () => {
   renderNode({ kind: "service", entityId: "s1", displayName: "Me", side: "focused" });
   expect(screen.getByText("Me")).toBeInTheDocument();
-  expect(screen.getByText("Me").parentElement?.className).toContain("font-semibold");
+  expect(screen.getByText("Me").closest("div[class*='font-semibold']")).toBeInTheDocument();
+});
+
+it("renders an open-detail link when detailHref is set", () => {
+  renderNode({ kind: "service", entityId: "a", displayName: "A", side: "dependency", detailHref: "/catalog/services/a" });
+  const link = screen.getByRole("link", { name: /open/i });
+  expect(link).toHaveAttribute("href", "/catalog/services/a");
 });

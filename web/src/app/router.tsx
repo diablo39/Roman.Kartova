@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { RequireAuth } from "@/shared/auth/RequireAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -15,6 +16,10 @@ import { UserDetailPage } from "@/features/users/pages/UserDetailPage";
 import { CallbackPage } from "./CallbackPage";
 import { AcceptInvitationPage } from "@/features/invitations/pages/AcceptInvitationPage";
 import { MembersListPage } from "@/features/members/pages/MembersListPage";
+
+const GraphExplorerPage = lazy(() =>
+  import("@/features/catalog/pages/GraphExplorerPage").then((m) => ({ default: m.GraphExplorerPage })),
+);
 
 function ProtectedShell() {
   return (
@@ -54,6 +59,14 @@ export function AppRoutes() {
         <Route path="/settings/invitations" element={<InvitationsPage />} />
         <Route path="/users/:id" element={<UserDetailPage />} />
         <Route path="/members" element={<MembersListPage />} />
+        <Route
+          path="/graph"
+          element={
+            <Suspense fallback={<div className="p-8 text-sm text-tertiary">Loading graph…</div>}>
+              <GraphExplorerPage />
+            </Suspense>
+          }
+        />
       </Route>
       <Route path="*" element={<div className="p-8 text-sm">Not found</div>} />
     </Routes>

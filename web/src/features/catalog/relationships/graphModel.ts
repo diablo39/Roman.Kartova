@@ -12,6 +12,7 @@ export type GraphNodeData = {
   entityId: string;
   displayName: string;
   side: GraphSide;
+  detailHref?: string; // explorer only: when set, EntityGraphNode renders an "open detail" link
 };
 
 export type GraphNode = {

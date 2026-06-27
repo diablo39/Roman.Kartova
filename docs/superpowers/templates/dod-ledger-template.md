@@ -4,9 +4,11 @@
 **PR:** <#NN / url> · **Last updated:** <YYYY-MM-DD>
 **Spec:** `docs/superpowers/specs/<date>-<topic>-design.md`
 **Plan:** `docs/superpowers/plans/<date>-<topic>.md`
+**Findings telemetry:** `./gate-findings.yaml` — per-gate issues × severity × real/delusion (copy from `templates/gate-findings-template.yaml`)
 
 > Records the Definition of Done from `CLAUDE.md`. Update each row the moment its gate runs.
 > Legend: ✅ PASS · ❌ FAIL · ⏳ PENDING · N/A — FAIL and N/A require a one-line reason.
+> This table records each gate's **status**; what each gate **found** (and whether it was real) goes in `gate-findings.yaml`.
 
 ## Summary
 
