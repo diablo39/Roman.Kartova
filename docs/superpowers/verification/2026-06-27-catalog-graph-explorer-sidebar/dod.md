@@ -1,7 +1,7 @@
 # DoD Ledger — Catalog Graph Explorer: detail sidebar + directional expand + local state
 
 **Slice:** `2026-06-27-catalog-graph-explorer-sidebar` · **Branch:** `feat/catalog-graph-explorer-sidebar` (stacked on PR #50) · **HEAD:** `b1f7a0f`
-**PR:** <pending> · **Last updated:** 2026-06-27
+**PR:** [#51](https://github.com/diablo39/Roman.Kartova/pull/51) · **Last updated:** 2026-06-27
 **Spec:** `docs/superpowers/specs/2026-06-27-catalog-graph-explorer-sidebar-design.md`
 **Plan:** `docs/superpowers/plans/2026-06-27-catalog-graph-explorer-sidebar.md`
 **Findings telemetry:** `./gate-findings.yaml`
