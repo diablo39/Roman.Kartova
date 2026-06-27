@@ -1,16 +1,19 @@
 import { useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ReactFlow, Background, Controls, MiniMap, type Node, type Edge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
 import { useGraph, type GraphFocus } from "@/features/catalog/api/graph";
-import { mergeGraphs } from "@/features/catalog/relationships/graphMerge";
+import { mergeGraphs, bfsDepth } from "@/features/catalog/relationships/graphMerge";
 import { layoutGraph } from "@/features/catalog/relationships/graphLayout";
+import { useExplorerState } from "@/features/catalog/relationships/useExplorerState";
 import { EntityGraphNode } from "@/features/catalog/components/EntityGraphNode";
+import { GraphExplorerSidebar } from "@/features/catalog/components/GraphExplorerSidebar";
 import type { GraphNodeData } from "@/features/catalog/relationships/graphModel";
 import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
 
 const NODE_TYPES = { entity: EntityGraphNode };
+const SOFT_CAP = 150;
 
 function parseRef(token: string | undefined | null): GraphFocus | null {
   if (!token) return null;
@@ -20,32 +23,32 @@ function parseRef(token: string | undefined | null): GraphFocus | null {
 }
 
 export function GraphExplorerPage() {
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
 
   const focus = parseRef(params.get("focus"));
-  const expandTokens = (params.get("expand") ?? "").split(",").filter(Boolean);
-  const expand = expandTokens.map(parseRef).filter((r): r is GraphFocus => r !== null);
+  const focusId = focus ? `${focus.kind}:${focus.id}` : "";
+  const { expand, selected, isExpanded, toggleExpand, select, reset } = useExplorerState(focusId);
 
-  // useGraph must be called unconditionally; pass a harmless placeholder when focus is absent.
   const safeFocus = focus ?? { kind: "application" as RelationshipKind, id: "" };
   const { results, isLoading, isError, refetch } = useGraph({ focus: safeFocus, expand });
 
-  const focusId = focus ? `${focus.kind}:${focus.id}` : "";
-  const { nodes, edges } = useMemo(() => {
-    if (!focus) return { nodes: [] as Node<GraphNodeData>[], edges: [] as Edge[] };
-    return layoutGraph(mergeGraphs(results), focusId);
-  }, [results, focus, focusId]);
+  const merged = useMemo(
+    () => (focus ? mergeGraphs(results) : { nodes: [], edges: [], truncated: false }),
+    [results, focus],
+  );
+  const atCap = merged.nodes.length >= SOFT_CAP;
+  const { nodes, edges } = useMemo(
+    () => (focus ? layoutGraph(merged, focusId, selected) : { nodes: [] as Node<GraphNodeData>[], edges: [] as Edge[] }),
+    [merged, focusId, selected],
+  );
 
-  function toggleExpand(id: string) {
-    if (id === focusId) return; // focus node is the root
-    const set = new Set(expandTokens);
-    if (set.has(id)) set.delete(id);
-    else set.add(id);
-    const next = new URLSearchParams(params);
-    if (set.size) next.set("expand", [...set].join(","));
-    else next.delete("expand");
-    setParams(next);
-  }
+  // Only show the sidebar for a node actually present in the current graph.
+  const selectedRef = selected && merged.nodes.some((n) => n.id === selected) ? parseRef(selected) : null;
+  const depthFromFocus = useMemo(
+    () => (selected ? bfsDepth(merged, focusId, selected) : null),
+    [merged, focusId, selected],
+  );
 
   if (!focus) {
     return <div className="p-8 text-sm text-tertiary">Pick an entity to explore its dependency graph.</div>;
@@ -53,41 +56,51 @@ export function GraphExplorerPage() {
 
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col gap-2 p-4">
-      <h1 className="text-lg font-semibold text-primary">Dependency graph</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold text-primary">Dependency graph</h1>
+        <button type="button" onClick={reset} className="text-sm text-brand-primary underline">Reset to focus</button>
+      </div>
       {isLoading ? (
         <Skeleton className="h-full w-full" />
       ) : isError ? (
         <div className="flex items-center gap-3">
           <p className="text-sm text-error-primary">Couldn&apos;t load the dependency graph.</p>
-          <button
-            type="button"
-            className="text-sm text-brand-primary underline"
-            onClick={() => refetch()}
-          >
-            Try again
-          </button>
+          <button type="button" className="text-sm text-brand-primary underline" onClick={() => refetch()}>Try again</button>
         </div>
       ) : (
         <>
-          {results.some((r) => r.truncated) && (
-            <p className="text-xs text-tertiary">Showing a partial graph (node limit reached) — refine your focus to see more.</p>
+          {atCap && (
+            <p className="text-xs text-warning-primary">Large graph (≥{SOFT_CAP} nodes) — collapse a branch or Reset to keep it readable.</p>
           )}
-          <div className="min-h-0 flex-1 overflow-hidden rounded-lg ring-1 ring-secondary">
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              nodeTypes={NODE_TYPES}
-              fitView
-              nodesDraggable={false}
-              nodesConnectable={false}
-              elementsSelectable={false}
-              proOptions={{ hideAttribution: true }}
-              onNodeClick={(_, node) => toggleExpand(node.id)}
-            >
-              <Background />
-              <Controls showInteractive={false} />
-              <MiniMap pannable zoomable />
-            </ReactFlow>
+          <div className="flex min-h-0 flex-1 gap-2">
+            <div className="min-h-0 flex-1 overflow-hidden rounded-lg ring-1 ring-secondary">
+              <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                nodeTypes={NODE_TYPES}
+                fitView
+                nodesDraggable={false}
+                nodesConnectable={false}
+                elementsSelectable={false}
+                proOptions={{ hideAttribution: true }}
+                onNodeClick={(_, node) => select(node.id)}
+              >
+                <Background />
+                <Controls showInteractive={false} />
+                <MiniMap pannable zoomable />
+              </ReactFlow>
+            </div>
+            {selectedRef && (
+              <GraphExplorerSidebar
+                selected={selectedRef}
+                depthFromFocus={depthFromFocus}
+                isExpanded={isExpanded}
+                atCap={atCap}
+                onToggleExpand={toggleExpand}
+                onSetFocus={() => navigate(`/graph?focus=${selectedRef.kind}:${selectedRef.id}`)}
+                onClose={() => select(null)}
+              />
+            )}
           </div>
         </>
       )}
