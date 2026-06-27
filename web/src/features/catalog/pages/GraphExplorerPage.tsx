@@ -3,30 +3,24 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { ReactFlow, Background, Controls, MiniMap, type Node, type Edge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
-import { useGraph, type GraphFocus } from "@/features/catalog/api/graph";
+import { useGraph } from "@/features/catalog/api/graph";
 import { mergeGraphs, bfsDepth } from "@/features/catalog/relationships/graphMerge";
 import { layoutGraph } from "@/features/catalog/relationships/graphLayout";
 import { useExplorerState } from "@/features/catalog/relationships/useExplorerState";
 import { EntityGraphNode } from "@/features/catalog/components/EntityGraphNode";
 import { GraphExplorerSidebar } from "@/features/catalog/components/GraphExplorerSidebar";
 import type { GraphNodeData } from "@/features/catalog/relationships/graphModel";
+import { parseEntityRef } from "@/features/catalog/relationships/graphModel";
 import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
 
 const NODE_TYPES = { entity: EntityGraphNode };
 const SOFT_CAP = 150;
 
-function parseRef(token: string | undefined | null): GraphFocus | null {
-  if (!token) return null;
-  const [kind, id] = token.split(":");
-  if ((kind === "application" || kind === "service") && id) return { kind: kind as RelationshipKind, id };
-  return null;
-}
-
 export function GraphExplorerPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
 
-  const focus = parseRef(params.get("focus"));
+  const focus = parseEntityRef(params.get("focus"));
   const focusId = focus ? `${focus.kind}:${focus.id}` : "";
   const { expand, selected, isExpanded, toggleExpand, select, reset } = useExplorerState(focusId);
 
@@ -44,7 +38,10 @@ export function GraphExplorerPage() {
   );
 
   // Only show the sidebar for a node actually present in the current graph.
-  const selectedRef = selected && merged.nodes.some((n) => n.id === selected) ? parseRef(selected) : null;
+  const selectedRef = useMemo(
+    () => (selected && merged.nodes.some((n) => n.id === selected) ? parseEntityRef(selected) : null),
+    [selected, merged],
+  );
   const depthFromFocus = useMemo(
     () => (selected ? bfsDepth(merged, focusId, selected) : null),
     [merged, focusId, selected],

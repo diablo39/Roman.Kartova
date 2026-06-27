@@ -55,13 +55,13 @@ export function useExplorerState(
   );
   const toggleExpand = useCallback(
     (node: string, dir: ExpandDir) => {
-      const exists = state.expand.some((e) => e.node === node && e.dir === dir);
+      const exists = isExpanded(node, dir);
       const expand = exists
         ? state.expand.filter((e) => !(e.node === node && e.dir === dir))
         : [...state.expand, { node, dir }];
       commit({ ...state, expand });
     },
-    [state, commit],
+    [state, commit, isExpanded],
   );
   const select = useCallback((node: string | null) => commit({ ...state, selected: node }), [state, commit]);
   const reset = useCallback(() => commit({ expand: [], selected: null }), [commit]);

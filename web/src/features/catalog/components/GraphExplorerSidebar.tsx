@@ -1,12 +1,13 @@
 // web/src/features/catalog/components/GraphExplorerSidebar.tsx
 import { Link } from "react-router-dom";
 import { useApplication } from "@/features/catalog/api/applications";
+import type { ApplicationResponse } from "@/features/catalog/api/applications";
 import { useService } from "@/features/catalog/api/services";
+import type { ServiceResponse } from "@/features/catalog/api/services";
 import type { ExpandDir } from "@/features/catalog/relationships/useExplorerState";
+import { ENTITY_KIND_LABEL, entityDetailPath } from "@/features/catalog/relationships/graphModel";
 
 type Selected = { kind: "application" | "service"; id: string };
-
-const KIND_LABEL = { application: "Application", service: "Service" } as const;
 
 export function GraphExplorerSidebar(props: {
   selected: Selected;
@@ -19,15 +20,15 @@ export function GraphExplorerSidebar(props: {
 }) {
   const { selected, depthFromFocus, isExpanded, atCap, onToggleExpand, onSetFocus, onClose } = props;
   const nodeKey = `${selected.kind}:${selected.id}`;
-  const detailHref = `/catalog/${selected.kind === "application" ? "applications" : "services"}/${selected.id}`;
+  const detailHref = entityDetailPath(selected.kind, selected.id);
 
   // Both hooks always called (rules of hooks); the inactive one is disabled via id="".
   const appQ = useApplication(selected.kind === "application" ? selected.id : "");
   const svcQ = useService(selected.kind === "service" ? selected.id : "");
   const active = selected.kind === "application" ? appQ : svcQ;
-  const entity = active.data as
-    | { displayName: string; description?: string; lifecycle?: string; health?: string; teamId?: string }
-    | undefined;
+  const entity = active.data as ApplicationResponse | ServiceResponse | undefined;
+  const lifecycle = selected.kind === "application" ? (entity as ApplicationResponse | undefined)?.lifecycle : undefined;
+  const health = selected.kind === "service" ? (entity as ServiceResponse | undefined)?.health : undefined;
 
   const dirRow = (dir: ExpandDir, label: string) => {
     const on = isExpanded(nodeKey, dir);
@@ -48,7 +49,7 @@ export function GraphExplorerSidebar(props: {
       <div className="flex items-start justify-between">
         <div>
           <div className="text-sm font-semibold text-primary">{entity?.displayName ?? selected.id}</div>
-          <div className="text-xs text-tertiary">{KIND_LABEL[selected.kind]}</div>
+          <div className="text-xs text-tertiary">{ENTITY_KIND_LABEL[selected.kind]}</div>
         </div>
         <button type="button" onClick={onClose} aria-label="Close details" className="text-tertiary">✕</button>
       </div>
@@ -60,8 +61,8 @@ export function GraphExplorerSidebar(props: {
           {depthFromFocus != null && (
             <div className="text-tertiary">depth {depthFromFocus} from focus</div>
           )}
-          {entity?.lifecycle && <div><span className="text-tertiary">Lifecycle:</span> {entity.lifecycle}</div>}
-          {entity?.health && <div><span className="text-tertiary">Health:</span> {entity.health}</div>}
+          {lifecycle && <div><span className="text-tertiary">Lifecycle:</span> {lifecycle}</div>}
+          {health && <div><span className="text-tertiary">Health:</span> {health}</div>}
           {entity?.description && <p className="text-secondary">{entity.description}</p>}
           {entity?.teamId && (
             <Link to={`/teams/${entity.teamId}`} className="text-xs text-brand-secondary underline">Team ↗</Link>

@@ -86,3 +86,16 @@ export function toGraphModel(focused: FocusedEntity, relationships: Relationship
 
   return { nodes, edges };
 }
+
+export const ENTITY_KIND_LABEL: Record<string, string> = { application: "Application", service: "Service" };
+
+export function parseEntityRef(token: string | null | undefined): { kind: RelationshipKind; id: string } | null {
+  if (!token) return null;
+  const [kind, id] = token.split(":");
+  if ((kind === "application" || kind === "service") && id) return { kind, id };
+  return null;
+}
+
+export function entityDetailPath(kind: RelationshipKind, id: string): string {
+  return `/catalog/${kind === "application" ? "applications" : "services"}/${id}`;
+}
