@@ -257,6 +257,12 @@ Run `scripts/ci-local.sh` (Release mirror) green before push.
 - Add/delete/edit edges from the canvas (stays in the 1b tables).
 - A top-level `/graph` nav entry (reached via the button + direct URL this slice; promoting to nav can follow once filters land).
 
+### Follow-up: cap the `?expand` set (URL-length guard)
+
+**Problem.** Each expanded node adds `~53 B` to the URL (`application%3A<guid>` + `%2C` separator; `~49 B` for a service). The warm in-app expansion never hits the network, but a **cold deep-link / shared / bookmarked** `/graph?focus&expand=…` is fetched as one `GET /graph?… HTTP/1.1` from the SPA host, whose request-line limit binds (nginx `large_client_header_buffers` ~8 KB, Apache `LimitRequestLine` 8190 → ~150 nodes; legacy IE ~38). The API is **not** a factor — `useGraph` fetches each node's neighbourhood as its own request, so the full list never travels in one query string. Readability degrades well before any of these.
+
+**Fix (when picked up).** Cap the `expand` set to a small max (propose **50**) in `GraphExplorerPage.toggleExpand`: when the cap is reached, don't add the node and surface a non-blocking notice ("Collapse a node to expand more"). Keeps the cold-load URL comfortably under the ~8 KB request-line limit and the canvas legible. Optional later refinement: compress the encoding (e.g. drop the redundant `kind:` prefix, or a packed param) instead of a hard cap. Add a `GraphExplorerPage` test asserting the cap + notice.
+
 ---
 
 ## 11. Implementation order (rough — finalised by writing-plans)
