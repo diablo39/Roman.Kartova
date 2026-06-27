@@ -23,7 +23,7 @@
 | 9 `deep-review` | ✅ PASS | 2026-06-27 |
 | Manual / Playwright (ADR-0084) | ✅ PASS | 2026-06-27 |
 | Terminal re-verify | ✅ PASS | 2026-06-27 |
-| Pre-push CI mirror | ✅ PASS (CI run 28283746962) | 2026-06-27 |
+| Pre-push CI mirror | ✅ PASS (CI run 28284444998) | 2026-06-27 |
 
 ## Gate detail
 
@@ -40,7 +40,7 @@
 **At:** b1f7a0f / 2026-06-27
 
 ### 4 — Container build (web image)
-**Status:** ✅ PASS — PR #51 CI `images` job green (run 28283746962).
+**Status:** ✅ PASS — PR #51 CI `images` job green (run 28284444998).
 **At:** b1f7a0f / 2026-06-27
 
 ### 5 — `/simplify`
@@ -72,7 +72,7 @@
 **At:** ce72ceb / 2026-06-27
 
 ### Pre-push CI mirror (`scripts/ci-local.sh`)
-**Status:** ✅ PASS — PR #51 CI run 28283746962: all 5 jobs success (Frontend, Container images, Backend, Helm, Stryker drift).
+**Status:** ✅ PASS — PR #51 CI run 28284444998 (on the final gate-5/8/9 code): all 5 jobs success (Frontend, Container images, Backend, Helm, Stryker drift). (Earlier run 28283746962 also green pre-gate-5/8/9.)
 **At:** b1f7a0f / 2026-06-27
 
 ### Note — pre-existing lint debt touched
