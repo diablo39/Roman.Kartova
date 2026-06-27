@@ -1,6 +1,6 @@
 # DoD Ledger — Catalog Graph Explorer: detail sidebar + directional expand + local state
 
-**Slice:** `2026-06-27-catalog-graph-explorer-sidebar` · **Branch:** `feat/catalog-graph-explorer-sidebar` (stacked on PR #50) · **HEAD:** `b1f7a0f`
+**Slice:** `2026-06-27-catalog-graph-explorer-sidebar` · **Branch:** `feat/catalog-graph-explorer-sidebar` · **HEAD:** rebased onto master `0c152d6` (#50 squash-merged) on 2026-06-27 — per-gate SHAs below are pre-rebase/historical
 **PR:** [#51](https://github.com/diablo39/Roman.Kartova/pull/51) · **Last updated:** 2026-06-27
 **Spec:** `docs/superpowers/specs/2026-06-27-catalog-graph-explorer-sidebar-design.md`
 **Plan:** `docs/superpowers/plans/2026-06-27-catalog-graph-explorer-sidebar.md`
