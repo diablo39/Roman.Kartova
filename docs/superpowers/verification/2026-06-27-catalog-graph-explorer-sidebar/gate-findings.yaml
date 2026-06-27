@@ -34,7 +34,17 @@ head:   1689e58
 #            delusion : a false positive the gate raised that was not a real issue
 # title    — one-line description of the finding
 # note     — optional: resolution (fix sha), or why it was a delusion
-findings: []
+findings:
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "useExplorerState returns the shared EMPTY object by reference on the empty branch"
+    note: "Task 2 review. Latent trap (never mutated — all writes go through commit which spreads). Left; freeze EMPTY or return fresh if revisited."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "useExplorerState read() doesn't validate individual ExpandEntry item shapes"
+    note: "Task 2 review. App-owned storage key; harmless in practice. Left."
 
 # Example entries (delete when filling in real data):
 #
@@ -54,3 +64,34 @@ findings: []
 #     verdict: real
 #     title: "extract duplicated dagre layout options"
 #     note: "applied"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "graphMerge.test.ts bfsDepth import placed mid-file"
+    note: "Task 3 review. Flagged as a possible import/first lint risk -- but this project's eslint.config.js has no eslint-plugin-import, lint exit 0. Cosmetic only; left."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "parseNode splits on first colon (fragile for IDs containing ':')"
+    note: "Task 3 review. Current node ids are kind:uuid (no colon in uuid); fine. Left."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "EntityGraphNode.tsx missing trailing newline at EOF"
+    note: "Task 4 review. Possible eol-last risk -- but eslint exit 0 (rule not enforced). Cosmetic; left."
+  - gate: suite
+    severity: should-fix
+    verdict: real
+    title: "9 tsc errors masked by vitest (graph.ts parseNode, graphLayout/graphMerge tests) across Tasks 3-4"
+    note: "Controller-caught at Task 5 via tsc -b (vitest=esbuild hides type errors; graphLayout.test still 2-arg + asserted removed detailHref; bfsDepth literal not ExplorerGraph). Fixed in 965f777. tsc now only the 2 expected GraphExplorerPage errors."
+  - gate: reviews
+    severity: should-fix
+    verdict: delusion
+    title: "GraphExplorerSidebar 'missing focusId prop' breaks the contract"
+    note: "Task 5 review. False positive: the plan intentionally dropped focusId from BOTH the sidebar props and the Task 6 page call (sidebar doesn't use it; depth is computed page-side as depthFromFocus). Internally consistent; reviewer compared against the spec prop list, not the plan."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "parseNode id ?? '' silently coerces a malformed (colon-less) node key"
+    note: "Task 5 review. Node keys are always kind:id; acceptable minimal fix. Left."
+
