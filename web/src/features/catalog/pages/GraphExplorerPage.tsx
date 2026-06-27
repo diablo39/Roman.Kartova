@@ -34,8 +34,8 @@ export function GraphExplorerPage() {
   const { results, isLoading, isError, refetch } = useGraph({ focus: safeFocus, expand });
 
   const merged = useMemo(
-    () => (focus ? mergeGraphs(results) : { nodes: [], edges: [], truncated: false }),
-    [results, focus],
+    () => (focusId ? mergeGraphs(results) : { nodes: [], edges: [], truncated: false }),
+    [results, focusId],
   );
   const atCap = merged.nodes.length >= SOFT_CAP;
   const { nodes, edges } = useMemo(
