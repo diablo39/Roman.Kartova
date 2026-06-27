@@ -1,7 +1,7 @@
 # DoD Ledger — Catalog Dependency Graph Explorer
 
 **Slice:** `2026-06-26-catalog-graph-explorer` · **Branch:** `feat/catalog-graph-explorer` · **HEAD:** `34c7f75`
-**PR:** <pending> · **Last updated:** 2026-06-26
+**PR:** [#50](https://github.com/diablo39/Roman.Kartova/pull/50) · **Last updated:** 2026-06-27
 **Spec:** `docs/superpowers/specs/2026-06-26-catalog-graph-explorer-design.md`
 **Plan:** `docs/superpowers/plans/2026-06-26-catalog-graph-explorer.md`
 **Findings telemetry:** `./gate-findings.yaml` — per-gate issues × severity × real/delusion
