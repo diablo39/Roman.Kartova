@@ -1,0 +1,56 @@
+# gate-findings.yaml — per-gate findings telemetry for one slice.
+#
+# Purpose: record every issue each DoD gate raised, with a real/delusion verdict,
+# so gate effectiveness is queryable across slices.
+#   Aggregate:  find docs/superpowers/verification -name gate-findings.yaml
+#   Rank gates by precision (real ÷ found) and by real issues caught.
+#
+# Sibling of dod.md in docs/superpowers/verification/<date>-<topic>/.
+# Copy this file there at slice start; append a finding the moment a gate raises one.
+# dod.md records each gate's PASS/FAIL/PENDING/N-A status; this file records what it FOUND.
+# A gate with status PASS and no entries here ⇒ it ran and found nothing.
+
+slice:  2026-06-27-catalog-graph-explorer-sidebar
+branch: feat/catalog-graph-explorer-sidebar
+head:   1689e58
+
+# One entry per issue a gate raised.
+#
+# gate     — the dod.md row this finding came from (slug, not number):
+#              build              (1  Build, TreatWarningsAsErrors)
+#              reviews            (2  per-task subagent reviews)
+#              suite              (3  full test suite incl. real-seam)
+#              container          (4  container build / images CI)
+#              simplify           (5  /simplify)
+#              mutation           (6  mutation loop)
+#              requesting-review  (7  requesting-code-review)
+#              review-pr          (8  review-pr)
+#              deep-review        (9  deep-review)
+#              manual             (Manual / Playwright, ADR-0084)
+#              terminal-reverify  (terminal re-verify: build + suite)
+#              ci-mirror          (pre-push CI mirror, ci-local.sh)
+# severity — blocking | should-fix | nit
+# verdict  — real     : a genuine issue that warranted a change
+#            delusion : a false positive the gate raised that was not a real issue
+# title    — one-line description of the finding
+# note     — optional: resolution (fix sha), or why it was a delusion
+findings: []
+
+# Example entries (delete when filling in real data):
+#
+# findings:
+#   - gate: deep-review
+#     severity: blocking
+#     verdict: real
+#     title: "RLS filter missing on graph traversal query"
+#     note: "fixed in 0a1b2c3"
+#   - gate: review-pr
+#     severity: should-fix
+#     verdict: delusion
+#     title: "claimed N+1 in display-name lookup"
+#     note: "already batched over distinct refs; reviewer misread"
+#   - gate: simplify
+#     severity: nit
+#     verdict: real
+#     title: "extract duplicated dagre layout options"
+#     note: "applied"
