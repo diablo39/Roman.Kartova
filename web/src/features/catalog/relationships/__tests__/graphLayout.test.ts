@@ -14,7 +14,7 @@ const graph: ExplorerGraph = {
 
 describe("layoutGraph", () => {
   it("assigns a position to every node and marks the focus node", () => {
-    const { nodes, edges } = layoutGraph(graph, "service:f");
+    const { nodes, edges } = layoutGraph(graph, "service:f", null);
     expect(nodes).toHaveLength(2);
     expect(nodes.every((n) => Number.isFinite(n.position.x) && Number.isFinite(n.position.y))).toBe(true);
     expect(nodes.find((n) => n.id === "service:f")!.data.side).toBe("focused");
@@ -22,9 +22,9 @@ describe("layoutGraph", () => {
     expect(edges).toHaveLength(1);
   });
 
-  it("sets a detail href on non-focus nodes only", () => {
-    const { nodes } = layoutGraph(graph, "service:f");
-    expect(nodes.find((n) => n.id === "service:a")!.data.detailHref).toBe("/catalog/services/a");
-    expect(nodes.find((n) => n.id === "service:f")!.data.detailHref).toBeUndefined();
+  it("marks the selected node", () => {
+    const { nodes } = layoutGraph(graph, "service:f", "service:a");
+    expect(nodes.find((n) => n.id === "service:a")!.data.selected).toBe(true);
+    expect(nodes.find((n) => n.id === "service:f")!.data.selected).not.toBe(true);
   });
 });

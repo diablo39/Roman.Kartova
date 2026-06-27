@@ -16,7 +16,7 @@ type GraphDirection = "outgoing" | "incoming" | "all";
 
 function parseNode(node: string): GraphFocus {
   const [kind, id] = node.split(":");
-  return { kind: kind as RelationshipKind, id };
+  return { kind: kind as RelationshipKind, id: id ?? "" };
 }
 
 export const graphKeys = {

@@ -38,9 +38,10 @@ describe("mergeGraphs", () => {
 });
 
 import { bfsDepth } from "@/features/catalog/relationships/graphMerge";
+import type { ExplorerGraph } from "@/features/catalog/relationships/graphMerge";
 
 describe("bfsDepth", () => {
-  const g = {
+  const g: ExplorerGraph = {
     nodes: [
       { id: "service:f", kind: "service", entityId: "f", displayName: "F" },
       { id: "service:a", kind: "service", entityId: "a", displayName: "A" },
@@ -52,7 +53,7 @@ describe("bfsDepth", () => {
       { id: "e2", source: "service:a", target: "service:b", label: "Depends on" },
     ],
     truncated: false,
-  } as const;
+  };
 
   it("returns 0 for the focus itself", () => { expect(bfsDepth(g, "service:f", "service:f")).toBe(0); });
   it("counts undirected hops", () => {
