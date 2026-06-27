@@ -159,8 +159,8 @@
 **E-04.F-02: Relationship Visualization**
 - [x] E-04.F-02.S-01 — Embedded mini dependency graph (catalog-dependency-mini-graph, 2026-06-26; read-only 1-hop React Flow graph above the Dependencies/Dependents tables on Application + Service detail pages; reuses the 1b relationship endpoint; standalone /graph explorer + S-03–S-06 deferred)
 - [ ] E-04.F-02.S-02 — Relationship table below mini-graph
-- [ ] E-04.F-02.S-03 — "Open full graph" button linking to standalone
-- [ ] E-04.F-02.S-04 — Standalone Dependency Graph Explorer (/graph)
+- [x] E-04.F-02.S-03 — "Open full graph" button linking to standalone (catalog-graph-explorer, 2026-06-27; link in the mini-graph header on Application + Service detail pages → `/graph?focus=<kind>:<id>`)
+- [x] E-04.F-02.S-04 — Standalone Dependency Graph Explorer (/graph) (catalog-graph-explorer, 2026-06-27; new RLS-scoped BFS endpoint `GET /catalog/graph` — depth-annotated, cycle-safe, depth 1–4/node-cap 200/`truncated`; URL-driven `/graph?focus&expand` explorer with dagre layout + read-only React Flow, expand/collapse, open-detail links. ADR-0040 second view. Filters S-05 + impact analysis S-06 deferred. On PR — CI is the authoritative full-suite/container gate; gate-6 mutation deferred (env 10-min cap). Verified end-to-end in-browser (ADR-0084))
 - [ ] E-04.F-02.S-05 — Graph filters (team, domain, criticality, origin)
 - [ ] E-04.F-02.S-06 — Visual impact analysis on standalone graph
 
