@@ -14,6 +14,7 @@ const EXPAND_DEPTH = 1;
 
 type GraphDirection = "outgoing" | "incoming" | "all";
 
+// inputs are always well-formed "kind:id" nodeKeys from the expand set; not untrusted (URL focus is validated by parseRef).
 function parseNode(node: string): GraphFocus {
   const [kind, id] = node.split(":");
   return { kind: kind as RelationshipKind, id: id ?? "" };

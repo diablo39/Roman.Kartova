@@ -175,6 +175,7 @@ The eight always-blocking gates per **CLAUDE.md → Definition of Done** apply v
 - Multi-focus / pinning multiple roots; depth-tier shading; saved/named views; cross-tab state sync; URL-shareable deep state (deliberately dropped — Decision 1/2).
 - Any backend change, new endpoint, or codegen.
 - **Supersedes** the v1 `?expand` URL-length cap follow-up (the spec note in `2026-06-26-catalog-graph-explorer-design.md` §10) — no longer URL-bound; the readability soft-cap (Decision 6) replaces it.
+- **Accepted limitation — flat expand set (no transitive collapse).** The expand set is a flat list of `{node,dir}` entries; collapsing a node removes only its own direct contribution. If a descendant was independently expanded (e.g. expand A's dependents → C appears, then expand C), collapsing A's dependents leaves C visible because C's own expansion fetch re-contributes it. The graph stays valid (no orphan edges); it's a UX surprise, not a bug. A transitive cascade-prune (drop expand entries whose node becomes unreachable from focus) is deferred — it needs fixpoint reachability and isn't worth the risk for this edge case.
 
 ---
 

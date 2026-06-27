@@ -58,6 +58,16 @@ describe("useExplorerState", () => {
     expect(result.current.selected).toBeNull();
   });
 
+  it("collapsing one expand entry leaves other entries intact (flat set, no cascade)", () => {
+    const { result } = renderHook(() => useExplorerState("application:f", store));
+    act(() => { result.current.toggleExpand("application:a", "in"); });
+    act(() => { result.current.toggleExpand("application:c", "out"); });
+    // collapse A's dependents — C's own entry must remain (documented flat-set behavior)
+    act(() => result.current.toggleExpand("application:a", "in"));
+    expect(result.current.isExpanded("application:a", "in")).toBe(false);
+    expect(result.current.isExpanded("application:c", "out")).toBe(true);
+  });
+
   it("survives corrupt JSON without throwing", () => {
     store.setItem("graph-explorer:application:f", "{not json");
     const { result } = renderHook(() => useExplorerState("application:f", store));
