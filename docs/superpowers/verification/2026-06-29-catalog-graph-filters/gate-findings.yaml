@@ -51,3 +51,8 @@ findings:
     verdict: real
     title: "Task 8: 'as string[]' casts + wrong 'GraphFilters not exported' comment in page-test mock"
     note: "deferred to final-review triage — cosmetic; GraphFilters IS exported (graphFilter.ts:4). Harmless at runtime, false comment trail"
+  - gate: manual
+    severity: nit
+    verdict: real
+    title: "Escape clears the live filter selection in the graph overlay multiselect"
+    note: "react-aria ListBox default escapeKeyBehavior=clearSelection; consistent app-wide (FilterBar too); click-outside preserves. escapeKeyBehavior='none' trialed (tsc-valid) but ineffective in this Dialog/Popover composition — reverted. Accepted: low severity, non-destructive view state. Deferred."

@@ -15,16 +15,16 @@
 
 | Gate | Status | Updated |
 |------|--------|---------|
-| 1 Build (`TreatWarningsAsErrors`) | ⏳ PENDING | — |
-| 2 Per-task subagent reviews | ⏳ PENDING | — |
-| 3 Full suite (+ real-seam if wiring) | ⏳ PENDING | — |
-| 4 Container build (images CI) | ⏳ PENDING | — |
+| 1 Build (web `npm run build`) | ✅ PASS — tsc -b + vite clean | 2026-06-29 |
+| 2 Per-task subagent reviews | ✅ PASS — 7/7 tasks spec✅+Approved | 2026-06-29 |
+| 3 Full suite (+ real-seam if wiring) | ✅ PASS — 672/672 (real-seam N/A, frontend-only) | 2026-06-29 |
+| 4 Container build (web image CI) | ⏳ PENDING — CI authoritative | — |
 | 5 `/simplify` | ⏳ PENDING | — |
 | 6 Mutation (conditional) | N/A — frontend-only, no C# Domain/Application change | — |
-| 7 `requesting-code-review` | ⏳ PENDING | — |
-| 8 `review-pr` | ⏳ PENDING | — |
+| 7 `requesting-code-review` (final whole-branch) | ✅ PASS — Merge-ready, 0 Blocking/Should-fix | 2026-06-29 |
+| 8 `review-pr` | ⏳ PENDING — on PR | — |
 | 9 `deep-review` | ⏳ PENDING | — |
-| Manual / Playwright (ADR-0084) | ⏳ PENDING | — |
+| Manual / Playwright (ADR-0084) | ✅ PASS — overlay renders; Kind+Team dim correct (focus-exempt, edge styling, partial cross-team), persists; console clean. Nuance: Escape clears the live filter (react-aria listbox default, consistent app-wide; click-outside preserves) | 2026-06-29 |
 | Terminal re-verify (build + suite) | ⏳ PENDING | — |
 | Pre-push CI mirror (`ci-local.sh`) | ⏳ PENDING | — |
 
@@ -76,9 +76,10 @@
 **At:** —
 
 ### Manual / Playwright verification (ADR-0084)
-**Status:** ⏳ PENDING
-**Evidence:** <screenshots folder / console-clean note>. Needs a seeded multi-node graph (DevSeed has no relationships).
-**At:** —
+**Status:** ✅ PASS
+**Evidence:** `./evidence/` (01 baseline 8-node graph · 02 Kind=Service → 5 apps dimmed to opacity 0.3, focus + both services full · 03 Team=jjj → cross-team partial dim, focus + jjj service full). Verified in real browser (logged in, seeded an 8-node cross-team graph via API from focus `A App 015`): overlay renders in a React Flow `<Panel>`; controlled react-aria MultiSelect popovers work; Kind & Team dimming correct (focus never dims, edge styling applies, active-count badge "Filters (1)"); filter persists in sessionStorage (`graph-explorer-filters:<focus>`) and across F5. Console clean (0 errors / 0 warnings).
+**Known nuance (accepted):** pressing **Escape** while a filter dropdown is open clears that facet's selection — this is react-aria's `ListBox` default (`escapeKeyBehavior="clearSelection"`), is consistent with every other MultiSelect in the app (e.g. FilterBar lifecycle/team), and the common dismissal (click-outside) preserves the selection. `escapeKeyBehavior="none"` was trialed but does not suppress the clear in the Dialog/Popover composition; a real fix means fighting react-aria's keyboard layer in a shared a11y primitive — deferred as not worth the risk for a low-severity nuance. Filtering is a non-destructive view state, trivially re-applied.
+**At:** 2026-06-29 / HEAD d5534ca (+ verification seed data)
 
 ### Terminal re-verify (build + full suite after gates 5–9)
 **Status:** ⏳ PENDING
