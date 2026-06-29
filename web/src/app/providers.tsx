@@ -31,8 +31,10 @@ export function ApiAuthBridge({ children }: { children: React.ReactNode }) {
   // a stale null token → 401, and would hand the 401 handler a stale
   // signinRedirect from the loading-phase render.
   const tokenRef = useRef<string | null>(null);
+  // eslint-disable-next-line react-hooks/refs -- intentional: live refs must be set during render before child effects (PR #47); effect-based assignment reintroduces the stale-token 401 race.
   tokenRef.current = auth.user?.access_token ?? null;
   const signinRedirectRef = useRef(auth.signinRedirect);
+  // eslint-disable-next-line react-hooks/refs -- intentional: live refs must be set during render before child effects (PR #47); effect-based assignment reintroduces the stale-token 401 race.
   signinRedirectRef.current = auth.signinRedirect;
   useEffect(() => {
     setAccessTokenProvider(() => tokenRef.current);

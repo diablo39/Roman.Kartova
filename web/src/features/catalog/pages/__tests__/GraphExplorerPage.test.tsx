@@ -1,31 +1,36 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { MemoryRouter, Routes, Route, useSearchParams } from "react-router-dom";
+import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { GraphExplorerPage } from "@/features/catalog/pages/GraphExplorerPage";
+
+const mockNavigate = vi.fn();
+vi.mock("react-router-dom", async (orig) => ({ ...(await orig<typeof import("react-router-dom")>()), useNavigate: () => mockNavigate }));
 
 const mockUseGraph = vi.fn();
 vi.mock("@/features/catalog/api/graph", () => ({ useGraph: (a: unknown) => mockUseGraph(a) }));
 
-// Render React Flow as a div exposing nodes + a click hook so we can drive onNodeClick.
+// ReactFlow stub: render each node as a clickable button.
 vi.mock("@xyflow/react", () => ({
-  ReactFlow: ({ nodes, onNodeClick }: any) => (
+  ReactFlow: ({ nodes, onNodeClick }: { nodes: { id: string; data: { displayName: string } }[]; onNodeClick: (e: unknown, n: { id: string }) => void }) => (
     <div data-testid="rf">
-      {nodes.map((n: any) => (
-        <button key={n.id} data-testid={`node-${n.id}`} onClick={() => onNodeClick({}, n)}>
-          {n.data.displayName}
-        </button>
+      {nodes.map((n: { id: string; data: { displayName: string } }) => (
+        <button key={n.id} data-testid={`node-${n.id}`} onClick={() => onNodeClick({}, n)}>{n.data.displayName}</button>
       ))}
     </div>
   ),
-  Background: () => null,
-  Controls: () => null,
-  MiniMap: () => null,
+  Background: () => null, Controls: () => null, MiniMap: () => null,
 }));
-
-function ExpandProbe() {
-  const [params] = useSearchParams();
-  return <div data-testid="expand">{params.get("expand") ?? ""}</div>;
-}
+// Sidebar stub: expose the expand callback, set-focus callback + close.
+vi.mock("@/features/catalog/components/GraphExplorerSidebar", () => ({
+  GraphExplorerSidebar: ({ selected, onToggleExpand, onSetFocus, onClose }: { selected: { kind: string; id: string }; onToggleExpand: (node: string, dir: "out" | "in") => void; onSetFocus: () => void; onClose: () => void }) => (
+    <div data-testid="sidebar">
+      <span>sidebar:{selected.kind}:{selected.id}</span>
+      <button onClick={() => onToggleExpand(`${selected.kind}:${selected.id}`, "out")}>expand-out</button>
+      <button onClick={onSetFocus}>set-focus</button>
+      <button onClick={onClose}>close</button>
+    </div>
+  ),
+}));
 
 const result = {
   nodes: [
@@ -39,47 +44,74 @@ const result = {
 function renderAt(url: string) {
   return render(
     <MemoryRouter initialEntries={[url]}>
-      <Routes>
-        <Route path="/graph" element={<><GraphExplorerPage /><ExpandProbe /></>} />
-      </Routes>
+      <Routes><Route path="/graph" element={<GraphExplorerPage />} /></Routes>
     </MemoryRouter>,
   );
 }
 
-describe("GraphExplorerPage", () => {
-  beforeEach(() => mockUseGraph.mockReset());
+beforeEach(() => {
+  sessionStorage.clear();
+  mockNavigate.mockClear();
+  mockUseGraph.mockReturnValue({ results: [result], isLoading: false, isError: false, expandError: false, refetch: vi.fn() });
+});
 
-  it("renders focus + neighbour nodes", () => {
-    mockUseGraph.mockReturnValue({ results: [result], isLoading: false, isError: false, refetch: vi.fn() });
+describe("GraphExplorerPage", () => {
+  it("renders nodes and opens the sidebar on node click", () => {
     renderAt("/graph?focus=service:f");
-    expect(screen.getByTestId("node-service:f")).toBeInTheDocument();
     expect(screen.getByTestId("node-service:a")).toBeInTheDocument();
+    expect(screen.queryByTestId("sidebar")).toBeNull();
+    fireEvent.click(screen.getByTestId("node-service:a"));
+    expect(screen.getByText("sidebar:service:a")).toBeInTheDocument();
   });
 
-  it("clicking a non-focus node adds it to ?expand", () => {
-    mockUseGraph.mockReturnValue({ results: [result], isLoading: false, isError: false, refetch: vi.fn() });
+  it("directional expand from the sidebar updates useGraph's expand arg", () => {
     renderAt("/graph?focus=service:f");
     fireEvent.click(screen.getByTestId("node-service:a"));
-    expect(screen.getByTestId("expand").textContent).toContain("service:a");
+    fireEvent.click(screen.getByText("expand-out"));
+    // last useGraph call received the new expand entry
+    const lastArg = mockUseGraph.mock.calls.at(-1)![0];
+    expect(lastArg.expand).toContainEqual({ node: "service:a", dir: "out" });
   });
 
-  it("shows an error state", () => {
-    mockUseGraph.mockReturnValue({ results: [], isLoading: false, isError: true, refetch: vi.fn() });
+  it("Reset clears the sidebar selection", () => {
     renderAt("/graph?focus=service:f");
-    expect(screen.getByText(/couldn.t load/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("node-service:a"));
+    fireEvent.click(screen.getByRole("button", { name: /reset/i }));
+    expect(screen.queryByTestId("sidebar")).toBeNull();
   });
 
-  it("clicking Try again in error state calls refetch", () => {
+  it("shows the missing-focus prompt", () => {
+    renderAt("/graph");
+    expect(screen.getByText(/pick an entity/i)).toBeInTheDocument();
+  });
+
+  it("shows the cap notice when nodes exceed the soft cap", () => {
+    const big = { nodes: Array.from({ length: 151 }, (_, i) => ({ kind: "service", id: `n${i}`, displayName: `N${i}`, depth: 1, teamId: null })), edges: [], truncated: false };
+    mockUseGraph.mockReturnValue({ results: [big], isLoading: false, isError: false, expandError: false, refetch: vi.fn() });
+    renderAt("/graph?focus=service:n0");
+    expect(screen.getByText(/large graph/i)).toBeInTheDocument();
+  });
+
+  it("shows the error banner and Try-again calls refetch on focus-fetch failure", () => {
     const refetch = vi.fn();
-    mockUseGraph.mockReturnValue({ results: [], isLoading: false, isError: true, refetch });
+    mockUseGraph.mockReturnValue({ results: [], isLoading: false, isError: true, expandError: false, refetch });
     renderAt("/graph?focus=service:f");
+    expect(screen.getByText(/couldn't load/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /try again/i }));
     expect(refetch).toHaveBeenCalledOnce();
   });
 
-  it("prompts when focus is missing", () => {
-    mockUseGraph.mockReturnValue({ results: [], isLoading: false, isError: false, refetch: vi.fn() });
-    renderAt("/graph");
-    expect(screen.getByText(/pick an entity/i)).toBeInTheDocument();
+  it("shows expand-error notice non-blockingly while graph nodes still render", () => {
+    mockUseGraph.mockReturnValue({ results: [result], isLoading: false, isError: false, expandError: true, refetch: vi.fn() });
+    renderAt("/graph?focus=service:f");
+    expect(screen.getByText(/some expansions failed/i)).toBeInTheDocument();
+    expect(screen.getByTestId("node-service:a")).toBeInTheDocument();
+  });
+
+  it("set-as-focus navigates to the selected node's focus URL", () => {
+    renderAt("/graph?focus=service:f");
+    fireEvent.click(screen.getByTestId("node-service:a"));
+    fireEvent.click(screen.getByRole("button", { name: /set-focus/i }));
+    expect(mockNavigate).toHaveBeenCalledWith("/graph?focus=service:a");
   });
 });

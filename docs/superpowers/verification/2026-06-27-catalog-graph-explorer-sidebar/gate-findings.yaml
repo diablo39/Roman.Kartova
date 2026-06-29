@@ -1,0 +1,132 @@
+# gate-findings.yaml — per-gate findings telemetry for one slice.
+#
+# Purpose: record every issue each DoD gate raised, with a real/delusion verdict,
+# so gate effectiveness is queryable across slices.
+#   Aggregate:  find docs/superpowers/verification -name gate-findings.yaml
+#   Rank gates by precision (real ÷ found) and by real issues caught.
+#
+# Sibling of dod.md in docs/superpowers/verification/<date>-<topic>/.
+# Copy this file there at slice start; append a finding the moment a gate raises one.
+# dod.md records each gate's PASS/FAIL/PENDING/N-A status; this file records what it FOUND.
+# A gate with status PASS and no entries here ⇒ it ran and found nothing.
+
+slice:  2026-06-27-catalog-graph-explorer-sidebar
+branch: feat/catalog-graph-explorer-sidebar
+head:   1689e58
+
+# One entry per issue a gate raised.
+#
+# gate     — the dod.md row this finding came from (slug, not number):
+#              build              (1  Build, TreatWarningsAsErrors)
+#              reviews            (2  per-task subagent reviews)
+#              suite              (3  full test suite incl. real-seam)
+#              container          (4  container build / images CI)
+#              simplify           (5  /simplify)
+#              mutation           (6  mutation loop)
+#              requesting-review  (7  requesting-code-review)
+#              review-pr          (8  review-pr)
+#              deep-review        (9  deep-review)
+#              manual             (Manual / Playwright, ADR-0084)
+#              terminal-reverify  (terminal re-verify: build + suite)
+#              ci-mirror          (pre-push CI mirror, ci-local.sh)
+# severity — blocking | should-fix | nit
+# verdict  — real     : a genuine issue that warranted a change
+#            delusion : a false positive the gate raised that was not a real issue
+# title    — one-line description of the finding
+# note     — optional: resolution (fix sha), or why it was a delusion
+findings:
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "useExplorerState returns the shared EMPTY object by reference on the empty branch"
+    note: "Task 2 review. Latent trap (never mutated — all writes go through commit which spreads). Left; freeze EMPTY or return fresh if revisited."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "useExplorerState read() doesn't validate individual ExpandEntry item shapes"
+    note: "Task 2 review. App-owned storage key; harmless in practice. Left."
+
+# Example entries (delete when filling in real data):
+#
+# findings:
+#   - gate: deep-review
+#     severity: blocking
+#     verdict: real
+#     title: "RLS filter missing on graph traversal query"
+#     note: "fixed in 0a1b2c3"
+#   - gate: review-pr
+#     severity: should-fix
+#     verdict: delusion
+#     title: "claimed N+1 in display-name lookup"
+#     note: "already batched over distinct refs; reviewer misread"
+#   - gate: simplify
+#     severity: nit
+#     verdict: real
+#     title: "extract duplicated dagre layout options"
+#     note: "applied"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "graphMerge.test.ts bfsDepth import placed mid-file"
+    note: "Task 3 review. Flagged as a possible import/first lint risk -- but this project's eslint.config.js has no eslint-plugin-import, lint exit 0. Cosmetic only; left."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "parseNode splits on first colon (fragile for IDs containing ':')"
+    note: "Task 3 review. Current node ids are kind:uuid (no colon in uuid); fine. Left."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "EntityGraphNode.tsx missing trailing newline at EOF"
+    note: "Task 4 review. Possible eol-last risk -- but eslint exit 0 (rule not enforced). Cosmetic; left."
+  - gate: suite
+    severity: should-fix
+    verdict: real
+    title: "9 tsc errors masked by vitest (graph.ts parseNode, graphLayout/graphMerge tests) across Tasks 3-4"
+    note: "Controller-caught at Task 5 via tsc -b (vitest=esbuild hides type errors; graphLayout.test still 2-arg + asserted removed detailHref; bfsDepth literal not ExplorerGraph). Fixed in 965f777. tsc now only the 2 expected GraphExplorerPage errors."
+  - gate: reviews
+    severity: should-fix
+    verdict: delusion
+    title: "GraphExplorerSidebar 'missing focusId prop' breaks the contract"
+    note: "Task 5 review. False positive: the plan intentionally dropped focusId from BOTH the sidebar props and the Task 6 page call (sidebar doesn't use it; depth is computed page-side as depthFromFocus). Internally consistent; reviewer compared against the spec prop list, not the plan."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "parseNode id ?? '' silently coerces a malformed (colon-less) node key"
+    note: "Task 5 review. Node keys are always kind:id; acceptable minimal fix. Left."
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "DRY + typing cleanups applied"
+    note: "Gate 5 (4 cleanup agents). Applied: shared ENTITY_KIND_LABEL/parseEntityRef/entityDetailPath in graphModel; typed sidebar entity to ApplicationResponse|ServiceResponse; toggleExpand calls isExpanded; memoized selectedRef. Commit 80e5cd7."
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "callback-stability + abstraction refactors deferred"
+    note: "Gate 5. Skipped with reason: functional-setState/Set-memo refactor of the approved useExplorerState (regression risk, marginal benefit), useLiveRef hook + useEntityDetail hook (scope/new abstraction), bfsDepth adjacency memo (low value at <=150 cap), dirRow->component (deferred with the memo refactor). Recorded as follow-ups."
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "a failed EXPAND query blanked the whole canvas (page-wide isError)"
+    note: "Gate 8. Fixed in ce72ceb: isError now focus-query-only (fatal); expand failures surface as a non-blocking notice, partial graph stays visible."
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "no-focus visit fired graph queries with entityId='' from a stale storage slot"
+    note: "Gate 8/9. Fixed in ce72ceb: useGraph queries gated with enabled = focus.id !== ''."
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "test gaps: error-state/refetch, set-as-focus nav, storage-write-failure fallback"
+    note: "Gate 9 (+ gate 8). Spec-claimed behaviors were untested. Added in ce72ceb (full suite 654->658)."
+  - gate: deep-review
+    severity: should-fix
+    verdict: delusion
+    title: "render-time setState in useExplorerState is a 'deprecated footgun'"
+    note: "Gate 9. False positive: the prevKey-guarded render-time reconcile is the React-docs-sanctioned 'adjusting state when a prop changes' pattern, is the project's established convention (task-13), and was explicitly approved by gate 7 (opus). Not changed."
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "sidebar lacks a loading skeleton; truncated-notice wording; close-button test"
+    note: "Gates 8/9 nits. Deferred: TanStack cache usually warm; backend truncation (200) is subsumed by the >=150 soft-cap notice; close path indirectly covered by reset test. Follow-ups."
+
