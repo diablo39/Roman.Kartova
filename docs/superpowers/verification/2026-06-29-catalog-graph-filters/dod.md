@@ -31,24 +31,24 @@
 ## Gate detail
 
 ### 1 — Build (web `npm run build` = `tsc -b` + vite; backend unchanged)
-**Status:** ⏳ PENDING
-**Evidence:** <command + output excerpt, or CI run URL>
-**At:** —
+**Status:** ✅ PASS
+**Evidence:** `npm run build` clean (tsc -b + vite, 0 type errors) locally; CI `Frontend` job green on PR HEAD.
+**At:** 2026-06-29
 
 ### 2 — Per-task subagent reviews (spec + quality)
-**Status:** ⏳ PENDING (per-task, see progress ledger `.superpowers/sdd/progress.md`)
-**Evidence:** <task reviewer reports per task>
-**At:** —
+**Status:** ✅ PASS
+**Evidence:** Tasks 2–8 each reviewed (spec-compliance + code-quality) by a fresh subagent; all spec ✅ + Approved. Per-task reviewer reports in `.superpowers/sdd/task-N-report.md`; ledger `.superpowers/sdd/progress.md`.
+**At:** 2026-06-29
 
 ### 3 — Full test suite (web vitest; real-seam N/A — frontend-only)
-**Status:** ⏳ PENDING
-**Evidence:** <command + counts, or CI run URL>
-**At:** —
+**Status:** ✅ PASS
+**Evidence:** `npm test` → 99 files / 674 tests pass (672 + 2 gate-8 additions). Real-seam tier N/A — no HTTP/auth/DB/middleware change. CI `Frontend` job green on PR HEAD.
+**At:** 2026-06-29
 
 ### 4 — Container build (web image; no API rebuild / codegen)
-**Status:** ⏳ PENDING
-**Evidence:** <CI "Container images" check URL>
-**At:** —
+**Status:** ✅ PASS
+**Evidence:** `docker build -f web/Dockerfile -t kartova/web:ci web` green locally; CI `Container images` check green on PR HEAD (authoritative). No API rebuild / codegen — no endpoint change.
+**At:** 2026-06-29
 
 ### 5 — `/simplify` against branch diff
 **Status:** ✅ PASS
@@ -61,9 +61,9 @@
 **At:** —
 
 ### 7 — `requesting-code-review` at slice boundary (final whole-branch review)
-**Status:** ⏳ PENDING
-**Evidence:** <reviewer report>
-**At:** —
+**Status:** ✅ PASS
+**Evidence:** Final whole-branch review (opus) over the code-only branch diff with spec/plan as context. Verdict **Merge-ready** — 0 Blocking, 0 Should-fix; confirmed all integration seams (`useGraph→mergeGraphs→applyGraphFilters→layoutGraph→ReactFlow/EntityGraphNode`, `useGraphFilters`, `GraphFilterControls`), the `dimmed` memo deps (no stale-filter bug), filters surviving expand/collapse + re-root, null-teamId end-to-end, and positions-unaffected-by-filtering. Carry-over minors all triaged accept.
+**At:** 2026-06-29
 
 ### 8 — `review-pr` (pr-review-toolkit)
 **Status:** ✅ PASS
