@@ -41,3 +41,13 @@ findings:
     verdict: real
     title: "Task 7: name prop on controlled MultiSelect renders inert hidden inputs"
     note: "not fixed — name is a required MultiSelect prop; component is a canvas overlay (no enclosing form) so hidden inputs are inert. Intentional."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Task 8: React import placed after vi.mock block in page test"
+    note: "deferred to final-review triage — harmless (Vitest hoists vi.mock; factory closes over React); organizational only"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Task 8: 'as string[]' casts + wrong 'GraphFilters not exported' comment in page-test mock"
+    note: "deferred to final-review triage — cosmetic; GraphFilters IS exported (graphFilter.ts:4). Harmless at runtime, false comment trail"
