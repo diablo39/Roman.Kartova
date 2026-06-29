@@ -9,8 +9,9 @@ export function EntityGraphNode({ data }: NodeProps<Node<GraphNodeData>>) {
     : data.side === "focused"
       ? "border-2 border-secondary font-semibold shadow-sm"
       : "border border-secondary shadow-xs";
+  const dim = data.dimmed ? "opacity-30" : "";
   return (
-    <div className={`${base} ${variant}`}>
+    <div className={`${base} ${variant} ${dim}`}>
       <Handle type="target" position={Position.Left} className="!border-0 !bg-transparent" />
       <div className="text-sm text-primary">{data.displayName}</div>
       <div className="text-xs text-tertiary">{ENTITY_KIND_LABEL[data.kind] ?? data.kind}</div>

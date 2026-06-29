@@ -27,4 +27,24 @@ describe("layoutGraph", () => {
     expect(nodes.find((n) => n.id === "service:a")!.data.selected).toBe(true);
     expect(nodes.find((n) => n.id === "service:f")!.data.selected).not.toBe(true);
   });
+
+  it("threads dimmed flags onto node data and edge style", () => {
+    const dimGraph = {
+      truncated: false,
+      nodes: [
+        { id: "application:focus", kind: "application", entityId: "focus", displayName: "Focus" },
+        { id: "service:s1", kind: "service", entityId: "s1", displayName: "Svc 1" },
+      ],
+      edges: [{ id: "e1", source: "application:focus", target: "service:s1", label: "depends on" }],
+    } as const;
+    const { nodes, edges } = layoutGraph(
+      dimGraph as unknown as Parameters<typeof layoutGraph>[0],
+      "application:focus",
+      null,
+      { nodeIds: new Set(["service:s1"]), edgeIds: new Set(["e1"]) },
+    );
+    expect(nodes.find((n) => n.id === "service:s1")?.data.dimmed).toBe(true);
+    expect(nodes.find((n) => n.id === "application:focus")?.data.dimmed).toBe(false);
+    expect(edges.find((e) => e.id === "e1")?.style?.opacity).toBe(0.2);
+  });
 });

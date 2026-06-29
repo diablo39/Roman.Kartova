@@ -10,6 +10,7 @@ export function layoutGraph(
   graph: ExplorerGraph,
   focusId: string,
   selectedId: string | null,
+  dimmed: { nodeIds: Set<string>; edgeIds: Set<string> } = { nodeIds: new Set(), edgeIds: new Set() },
 ): { nodes: Node<GraphNodeData>[]; edges: Edge[] } {
   const g = new dagre.graphlib.Graph();
   g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 120 });
@@ -30,10 +31,17 @@ export function layoutGraph(
         displayName: n.displayName,
         side: n.id === focusId ? "focused" : "dependency",
         selected: n.id === selectedId,
+        dimmed: dimmed.nodeIds.has(n.id),
       },
     };
   });
 
-  const edges: Edge[] = graph.edges.map((e) => ({ id: e.id, source: e.source, target: e.target, label: e.label }));
+  const edges: Edge[] = graph.edges.map((e) => ({
+    id: e.id,
+    source: e.source,
+    target: e.target,
+    label: e.label,
+    ...(dimmed.edgeIds.has(e.id) ? { style: { opacity: 0.2 } } : {}),
+  }));
   return { nodes, edges };
 }

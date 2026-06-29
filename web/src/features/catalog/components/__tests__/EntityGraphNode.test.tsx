@@ -38,3 +38,8 @@ it("applies selected styling when data.selected is true", () => {
   expect(screen.getByText("A").closest("div[class*='border-brand-solid']")).not.toBeNull();
 });
 
+it("applies opacity-30 class when data.dimmed is true", () => {
+  renderNode({ kind: "service", entityId: "d1", displayName: "Dimmed", side: "dependency", dimmed: true });
+  expect(screen.getByText("Dimmed").closest("div[class*='opacity-30']")).not.toBeNull();
+});
+
