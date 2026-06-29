@@ -56,3 +56,13 @@ findings:
     verdict: real
     title: "Escape clears the live filter selection in the graph overlay multiselect"
     note: "react-aria ListBox default escapeKeyBehavior=clearSelection; consistent app-wide (FilterBar too); click-outside preserves. escapeKeyBehavior='none' trialed (tsc-valid) but ineffective in this Dialog/Popover composition — reverted. Accepted: low severity, non-destructive view state. Deferred."
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "redundant active-guard in applyGraphFilters + conditional empty-object edge-style spread"
+    note: "both applied in 735decd (behaviour-identical)"
+  - gate: deep-review
+    severity: nit
+    verdict: delusion
+    title: "claimed focus-never-dims missing at page-test level"
+    note: "retracted on verification — GraphExplorerPage.test.tsx:175 asserts application:focus dimmed===false. Self-caught."
