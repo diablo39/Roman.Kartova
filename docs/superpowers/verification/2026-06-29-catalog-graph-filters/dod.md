@@ -1,7 +1,7 @@
 # DoD Ledger — 2026-06-29-catalog-graph-filters
 
-**Slice:** `2026-06-29-catalog-graph-filters` · **Branch:** `feat/catalog-graph-filters` · **HEAD:** `1d24ba2`
-**PR:** <pending> · **Last updated:** 2026-06-29
+**Slice:** `2026-06-29-catalog-graph-filters` · **Branch:** `feat/catalog-graph-filters` · **HEAD:** `fe8cb2d`
+**PR:** #52 (https://github.com/diablo39/Roman.Kartova/pull/52) · **Last updated:** 2026-06-29
 **Spec:** `docs/superpowers/specs/2026-06-29-catalog-graph-filters-design.md`
 **Plan:** `docs/superpowers/plans/2026-06-29-catalog-graph-filters.md`
 **Findings telemetry:** `./gate-findings.yaml`
@@ -22,7 +22,7 @@
 | 5 `/simplify` | ✅ PASS — 4 agents; 2 in-scope wins applied (735decd), rest wash/refactor-scope skipped w/ reasons | 2026-06-29 |
 | 6 Mutation (conditional) | N/A — frontend-only, no C# Domain/Application change | — |
 | 7 `requesting-code-review` (final whole-branch) | ✅ PASS — Merge-ready, 0 Blocking/Should-fix | 2026-06-29 |
-| 8 `review-pr` | ⏳ PENDING — on PR | — |
+| 8 `review-pr` | ✅ PASS — type-design + test-coverage agents; 0 critical/blocking. 2 coverage gaps fixed (fe8cb2d); rest skipped/rejected w/ reasons | 2026-06-29 |
 | 9 `deep-review` | ✅ PASS — 0 blocking / 0 should-fix / 4 nits / 0 missing-test. See `deep-review.md` | 2026-06-29 |
 | Manual / Playwright (ADR-0084) | ✅ PASS — overlay renders; Kind+Team dim correct (focus-exempt, edge styling, partial cross-team), persists; console clean. Nuance: Escape clears the live filter (react-aria listbox default, consistent app-wide; click-outside preserves) | 2026-06-29 |
 | Terminal re-verify (build + suite) | ✅ PASS — clean `npm ci` → typecheck + 672/672 + build, all green post gate-5 edits | 2026-06-29 |
@@ -66,9 +66,9 @@
 **At:** —
 
 ### 8 — `review-pr` (pr-review-toolkit)
-**Status:** ⏳ PENDING
-**Evidence:** <review-pr output>
-**At:** —
+**Status:** ✅ PASS
+**Evidence:** Ran the two highest-signal lenses beyond gates 7/9 — `type-design-analyzer` + `pr-test-analyzer` — on the PR diff. **0 critical / 0 blocking** from both. **Fixed (fe8cb2d):** 2 new-branch coverage gaps in `useGraphFilters` (render-time focus-key reconcile; throwing-`setItem` keeps in-memory state). **Skipped w/ reasons:** `dimmed?`→required (rejected — `toGraphModel`/mini-graph builds `GraphNodeData` without `dimmed`, so optional is required); MultiSelect mutual-exclusion (already documented by the `selectedKeys` JSDoc; console.warn skipped to avoid a runtime side-effect in a shared base); "all"/Ctrl+A sentinel test (pre-existing branch, not added this slice; jsdom-unreliable); `DimmedSets` named-type extraction, `teamIds` JSDoc, both-endpoints edge assertion (nits). Type ratings: `applyGraphFilters`/`GraphFilterControlsProps` strongest (9s); no type rated as a defect.
+**At:** 2026-06-29 / fe8cb2d
 
 ### 9 — `deep-review`
 **Status:** ✅ PASS

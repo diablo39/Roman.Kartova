@@ -66,3 +66,23 @@ findings:
     verdict: delusion
     title: "claimed focus-never-dims missing at page-test level"
     note: "retracted on verification — GraphExplorerPage.test.tsx:175 asserts application:focus dimmed===false. Self-caught."
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "useGraphFilters: focus-key reconcile + throwing-write branches untested"
+    note: "fixed in fe8cb2d — 2 tests added (7/7 green)"
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "GraphNodeData.dimmed should be non-optional"
+    note: "rejected — toGraphModel (mini-graph) builds GraphNodeData without dimmed; optional is required, not a defect"
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "MultiSelect selectedKeys/defaultSelectedKeys mutual exclusion undocumented"
+    note: "already documented by the selectedKeys JSDoc (Task 5); dev console.warn skipped to avoid runtime side-effect in shared base"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "minor type/test nits (DimmedSets name, teamIds JSDoc, both-endpoints edge assertion, all-sentinel test)"
+    note: "not fixed — DimmedSets/teamIds low-value nits; all-sentinel branch is pre-existing (not this slice) + jsdom-unreliable; logic-simple. Deferred."
