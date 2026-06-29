@@ -13,17 +13,15 @@ export function applyGraphFilters(
   filters: GraphFilters,
   focusId: string,
 ): { dimmedNodeIds: Set<string>; dimmedEdgeIds: Set<string> } {
+  // Empty facets match everything (the OR-with-`length === 0` short-circuits), so
+  // with no active filter nothing is added — no separate "active" guard needed.
   const dimmedNodeIds = new Set<string>();
-  const active = filters.kinds.length > 0 || filters.teamIds.length > 0;
-
-  if (active) {
-    for (const n of graph.nodes) {
-      if (n.id === focusId) continue; // focus never dims
-      const kindOk = filters.kinds.length === 0 || filters.kinds.includes(n.kind);
-      const teamOk =
-        filters.teamIds.length === 0 || (n.teamId != null && filters.teamIds.includes(n.teamId));
-      if (!(kindOk && teamOk)) dimmedNodeIds.add(n.id);
-    }
+  for (const n of graph.nodes) {
+    if (n.id === focusId) continue; // focus never dims
+    const kindOk = filters.kinds.length === 0 || filters.kinds.includes(n.kind);
+    const teamOk =
+      filters.teamIds.length === 0 || (n.teamId != null && filters.teamIds.includes(n.teamId));
+    if (!(kindOk && teamOk)) dimmedNodeIds.add(n.id);
   }
 
   const dimmedEdgeIds = new Set<string>();

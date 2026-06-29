@@ -41,7 +41,7 @@ export function layoutGraph(
     source: e.source,
     target: e.target,
     label: e.label,
-    ...(dimmed.edgeIds.has(e.id) ? { style: { opacity: 0.2 } } : {}),
+    style: dimmed.edgeIds.has(e.id) ? { opacity: 0.2 } : undefined,
   }));
   return { nodes, edges };
 }
