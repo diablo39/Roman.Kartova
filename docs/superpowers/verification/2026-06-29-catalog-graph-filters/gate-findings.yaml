@@ -26,3 +26,13 @@ findings:
     verdict: delusion
     title: "Task 5: uncontrolled MultiSelect tests 'deleted'"
     note: "file was new this task; brief scoped it to the 2 controlled cases. FilterBar regression (16/16) covers the uncontrolled/FormData path"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Task 6: missing EOF newline in EntityGraphNode.tsx"
+    note: "fixed in 79f0517 (amended)"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Task 6: dimmed? comment dropped the 'focus never dims' callsite note"
+    note: "restored fuller comment in 79f0517 (amended)"
