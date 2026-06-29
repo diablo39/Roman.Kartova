@@ -36,3 +36,8 @@ findings:
     verdict: real
     title: "Task 6: dimmed? comment dropped the 'focus never dims' callsite note"
     note: "restored fuller comment in 79f0517 (amended)"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Task 7: name prop on controlled MultiSelect renders inert hidden inputs"
+    note: "not fixed — name is a required MultiSelect prop; component is a canvas overlay (no enclosing form) so hidden inputs are inert. Intentional."
