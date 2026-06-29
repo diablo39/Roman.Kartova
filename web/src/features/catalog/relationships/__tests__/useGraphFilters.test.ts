@@ -56,4 +56,30 @@ describe("useGraphFilters", () => {
     const { result } = renderHook(() => useGraphFilters("application:focus", storage));
     expect(result.current.filters).toEqual({ kinds: [], teamIds: [] });
   });
+
+  it("reconciles to the new focus key's stored state when focusKey changes (render-time, not effect)", () => {
+    const storage = makeStorage();
+    storage.setItem(
+      "graph-explorer-filters:service:b",
+      JSON.stringify({ kinds: ["service"], teamIds: [] }),
+    );
+    const { result, rerender } = renderHook(({ key }) => useGraphFilters(key, storage), {
+      initialProps: { key: "application:a" },
+    });
+    expect(result.current.filters).toEqual({ kinds: [], teamIds: [] });
+    rerender({ key: "service:b" });
+    // Immediately reflects the new key's persisted value — the render-time prev-key
+    // reconcile, not a one-render-late effect.
+    expect(result.current.filters).toEqual({ kinds: ["service"], teamIds: [] });
+  });
+
+  it("keeps in-memory state and never throws when storage.setItem throws (private mode / quota)", () => {
+    const storage = makeStorage();
+    storage.setItem = () => {
+      throw new Error("QuotaExceededError");
+    };
+    const { result } = renderHook(() => useGraphFilters("application:focus", storage));
+    expect(() => act(() => result.current.setKinds(["application"]))).not.toThrow();
+    expect(result.current.filters.kinds).toEqual(["application"]);
+  });
 });
