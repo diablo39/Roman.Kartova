@@ -11,6 +11,7 @@ export type ExplorerNode = {
   entityId: string;
   displayName: string;
   depth?: number;
+  teamId?: string;
 };
 export type ExplorerEdge = { id: string; source: string; target: string; label: string };
 export type ExplorerGraph = { nodes: ExplorerNode[]; edges: ExplorerEdge[]; truncated: boolean };
@@ -33,6 +34,7 @@ export function mergeGraphs(results: GraphResponse[]): ExplorerGraph {
           entityId: n.id,
           displayName: n.displayName,
           depth: Number(n.depth),
+          teamId: n.teamId ?? undefined,
         });
       }
     }

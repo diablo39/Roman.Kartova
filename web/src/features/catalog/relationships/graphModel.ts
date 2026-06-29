@@ -13,6 +13,7 @@ export type GraphNodeData = {
   displayName: string;
   side: GraphSide;
   selected?: boolean; // explorer: the currently-selected node (sidebar open on it)
+  dimmed?: boolean; // explorer: faded because it doesn't match the active filters (focus never dims)
 };
 
 export type GraphNode = {

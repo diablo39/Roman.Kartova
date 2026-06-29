@@ -161,7 +161,7 @@
 - [ ] E-04.F-02.S-02 — Relationship table below mini-graph
 - [x] E-04.F-02.S-03 — "Open full graph" button linking to standalone (catalog-graph-explorer, 2026-06-27; link in the mini-graph header on Application + Service detail pages → `/graph?focus=<kind>:<id>`)
 - [x] E-04.F-02.S-04 — Standalone Dependency Graph Explorer (/graph) (catalog-graph-explorer, 2026-06-27; new RLS-scoped BFS endpoint `GET /catalog/graph` — depth-annotated, cycle-safe, depth 1–4/node-cap 200/`truncated`; URL-driven `/graph?focus&expand` explorer with dagre layout + read-only React Flow, expand/collapse, open-detail links. ADR-0040 second view. Filters S-05 + impact analysis S-06 deferred. On PR — CI is the authoritative full-suite/container gate; gate-6 mutation deferred (env 10-min cap). Verified end-to-end in-browser (ADR-0084). UX refinement (catalog-graph-explorer-sidebar, 2026-06-27): replaced single-click-expand + URL `?expand` with select→detail-sidebar + directional Expand/Collapse (uses the `direction` param) + `sessionStorage`-keyed local state (only `?focus` in URL; survives token-expiry re-auth); supersedes the v1 `?expand` URL-cap follow-up)
-- [ ] E-04.F-02.S-05 — Graph filters (team, domain, criticality, origin)
+- [x] E-04.F-02.S-05 — Graph filters (Kind + Team) (catalog-graph-filters, 2026-06-29; client-side dim/fade Kind + Team filters on the standalone `/graph` explorer — canvas-overlay React Flow `<Panel>`, sessionStorage per focus, live-apply; focus never dims, edge dims iff either endpoint dims. Frontend-only, zero backend. Status/origin/domain/criticality deferred — see list-filter-registry. ADR-0040.)
 - [ ] E-04.F-02.S-06 — Visual impact analysis on standalone graph
 
 ### E-05: Search
