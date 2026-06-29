@@ -1,0 +1,13 @@
+# gate-findings.yaml — per-gate findings telemetry for one slice.
+# dod.md records each gate's PASS/FAIL/PENDING/N-A status; this file records what it FOUND.
+# A gate with status PASS and no entries here ⇒ it ran and found nothing.
+
+slice:  2026-06-29-catalog-graph-filters
+branch: feat/catalog-graph-filters
+head:   1d24ba2
+
+# gate slugs: build | reviews | suite | container | simplify | mutation
+#             requesting-review | review-pr | deep-review | manual | terminal-reverify | ci-mirror
+# severity: blocking | should-fix | nit
+# verdict:  real | delusion
+findings: []
