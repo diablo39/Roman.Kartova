@@ -117,14 +117,19 @@ public sealed class Application : ITenantOwned, ITeamScopedResource
         SunsetDate = sunsetDate;
     }
 
-    public void Decommission(TimeProvider clock)
+    /// <summary>
+    /// Transitions a Deprecated application to Decommissioned. Blocked before
+    /// <see cref="SunsetDate"/> unless <paramref name="allowBeforeSunset"/> is set,
+    /// letting an admin bypass the sunset-date guard (ADR-0073 §5.2).
+    /// </summary>
+    public void Decommission(TimeProvider clock, bool allowBeforeSunset = false)
     {
         if (Lifecycle != Lifecycle.Deprecated)
         {
             throw new InvalidLifecycleTransitionException(Lifecycle, nameof(Decommission), SunsetDate);
         }
 
-        if (clock.GetUtcNow() < SunsetDate!.Value)
+        if (!allowBeforeSunset && clock.GetUtcNow() < SunsetDate!.Value)
         {
             throw new InvalidLifecycleTransitionException(
                 Lifecycle, nameof(Decommission), SunsetDate, reason: "before-sunset-date");
