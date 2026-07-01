@@ -7,9 +7,13 @@
 
 # Tool selection (when to reach for Serena vs the built-ins)
 
-This project uses Serena, an MCP server exposing semantic, symbol-aware tools. Serena is **preferred for code navigation, impact analysis, and refactoring** — finding symbols, callers/references, implementations, type hierarchies, repo-wide rename/move, and large whole-symbol edits. Built-in Read/Edit/Grep are **fine for reading a few symbols, small localized edits, and regex discovery**. Reach for Serena when the task is "who calls this / where is it defined / rename across the repo / replace this whole symbol"; don't force it for a one-line change or a quick read.
+This project uses Serena, an MCP server exposing semantic, symbol-aware tools. Serena is **preferred for code navigation, impact analysis, and refactoring** — finding symbols, callers/references, implementations, type hierarchies, repo-wide rename/move, and large whole-symbol edits. Built-in Read/Grep are **fine for reading a few symbols and regex discovery**. Reach for Serena when the task is "who calls this / where is it defined / rename across the repo / replace this whole symbol." For a quick read or a small edit the built-ins stay fine **on new files and non-code**.
 
-**Serena API gotchas:** `find_symbol` takes `name_path_pattern` (not `name_path`); `replace_content` takes `needle` + `repl` (not `old`/`new_string`). `find_symbol(include_body=true)` may return a content reference for a large body — if so, read the line range directly.
+**Two rules this repo keeps getting wrong — apply them:**
+1. **Before changing a shared symbol (a base component, a hook, an exported type) or stating its callers/consumers, run `find_referencing_symbols` — never infer the consumer set from one file or a grep.** This is where Serena beats grep+read on *correctness*, not just speed; skipping it (e.g. "X is the only caller" read off one file) is the most common miss.
+2. **The `serena-guard` hook blocks `Edit`/`Write` on existing `.cs/.ts/.tsx` — route those edits through Serena (`replace_content` / `replace_symbol_body`) regardless of edit size.** A deny there is policy, not a bug. New-file `Write` is allowed. That edit path is only *mechanism* (no semantic payoff over Edit), so spend Serena on the navigation/impact tools during **discovery**, not merely at edit time — that is where the token + correctness win actually is.
+
+**Serena API gotchas:** `find_symbol` takes `name_path_pattern` (not `name_path`); `replace_content` takes `needle` + `repl` (not `old`/`new_string`). `find_symbol(include_body=true)` may return a content reference for a large body — if so, read the line range directly. Serena edits can flip LF→CRLF on this Windows host, but `.gitattributes eol=lf` normalizes the committed blob — verify with `git ls-files --eol` (`w/lf`), not the noisy `git show -w --stat`; no manual `sed` dance needed.
 
 ## Mapping (reach for these when the task fits)
 
@@ -27,7 +31,7 @@ Rename / move / delete a symbol         rename / _move / _safe_delete
 Inline a symbol                         inline_symbol
 Type hierarchy                          type_hierarchy
 
-Built-in Read/Edit/Glob/Grep are fine on code files for: reading a few lines/symbols, small localized edits, regex discovery across many files, and any case where a symbolic tool would be overkill or can't express what you need. Prefer Serena for the navigation / impact / refactor tasks above.
+Built-in Read/Glob/Grep are fine on code files for: reading a few lines/symbols, regex discovery across many files, and any case where a symbolic tool would be overkill or can't express what you need. **Built-in Edit/Write on existing code is hook-blocked — edits route through Serena regardless of size.** Prefer Serena for the navigation / impact / refactor tasks above — including inside subagents doing code mapping (don't let a discovery subagent fall back to grep-only when the question is "who calls / who implements this").
 
 Read/Edit/Glob are fine for non-code files: markdown, JSON, YAML, TOML, .env, config files, lockfiles, plain text, images.
 
@@ -35,7 +39,7 @@ Read/Edit/Glob are fine for non-code files: markdown, JSON, YAML, TOML, .env, co
 
 1. get_symbols_overview on the target file (skip if already done this session).
 2. find_symbol with include_body=true for the specific symbols you'll touch — read only what you need.
-3. Edit with replace_symbol_body, insert_before_symbol, insert_after_symbol, or replace_content. For a small one-line change, the built-in Edit is fine.
+3. Edit with replace_symbol_body, insert_before_symbol, insert_after_symbol, or replace_content — including for a one-line change, since built-in Edit is hook-blocked on existing code.
 
 ## Self-check
 
