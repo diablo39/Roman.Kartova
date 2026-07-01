@@ -248,6 +248,7 @@ internal static class CatalogEndpointDelegates
 
     internal static async Task<IResult> DecommissionApplicationAsync(
         Guid id,
+        [FromBody] DecommissionApplicationRequest? request,
         DecommissionApplicationHandler handler,
         CatalogDbContext db,
         IAuthorizationService auth,
@@ -258,8 +259,15 @@ internal static class CatalogEndpointDelegates
         var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
         if (gate is not null) return gate;
 
+        var overrideSunset = request?.OverrideSunset ?? false;
+        if (overrideSunset)
+        {
+            var ovr = await auth.AuthorizeAsync(user, KartovaPermissions.CatalogApplicationsLifecycleOverride);
+            if (!ovr.Succeeded) return Results.Forbid();
+        }
+
         var resp = await handler.Handle(
-            new DecommissionApplicationCommand(new ApplicationId(id)), db, audit, ct);
+            new DecommissionApplicationCommand(new ApplicationId(id), overrideSunset), db, audit, ct);
 
         if (resp is null) return EndpointResultExtensions.ApplicationNotFound();
         return Results.Ok(resp);

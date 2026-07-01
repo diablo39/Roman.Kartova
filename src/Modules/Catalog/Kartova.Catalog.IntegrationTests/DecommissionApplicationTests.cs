@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Multitenancy;
 using Kartova.Testing.Auth;
 
 namespace Kartova.Catalog.IntegrationTests;
@@ -46,6 +47,64 @@ public class DecommissionApplicationTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
+    public async Task POST_decommission_with_overrideSunset_true_as_OrgAdmin_before_sunsetDate_returns_200_and_sets_lifecycle_to_Decommissioned()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var registered = await RegisterAsync(client, "Decommission App Override 1", "Desc.");
+
+        // Deprecate with a far-future sunsetDate so the "before sunset" guard would
+        // normally reject Decommission with 409 — the override bypasses it.
+        var sunset = DateTimeOffset.UtcNow.AddDays(30);
+        var deprecateResp = await client.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{registered.Id}/deprecate",
+            new DeprecateApplicationRequest(sunset));
+        Assert.IsTrue(deprecateResp.IsSuccessStatusCode);
+
+        var resp = await client.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{registered.Id}/decommission",
+            new DecommissionApplicationRequest(OverrideSunset: true));
+
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(Lifecycle.Decommissioned, body!.Lifecycle);
+    }
+
+    [TestMethod]
+    public async Task POST_decommission_with_overrideSunset_true_as_Member_before_sunsetDate_returns_403()
+    {
+        // Member must belong to the app's owning team to clear the prior
+        // ApplicationTeamScoped resource gate — otherwise a 403 there would be a false
+        // positive for this test's actual target (the override-permission check).
+        var admin = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenant, "Override Team 403");
+        var registerResp = await admin.PostAsJsonAsync(
+            "/api/v1/catalog/applications",
+            new RegisterApplicationRequest("Decommission App Override 2", "Desc.", teamId));
+        Assert.IsTrue(registerResp.IsSuccessStatusCode);
+        var registered = (await registerResp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
+
+        var sunset = DateTimeOffset.UtcNow.AddDays(30);
+        var deprecateResp = await admin.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{registered.Id}/deprecate",
+            new DeprecateApplicationRequest(sunset));
+        Assert.IsTrue(deprecateResp.IsSuccessStatusCode);
+
+        var member = await Fx.CreateAuthenticatedClientAsync("member-override-403@orga.kartova.local", new[] { KartovaRoles.Member });
+        var memberId = await Fx.GetSubClaimAsync("member-override-403@orga.kartova.local");
+        await Fx.SeedTeamMembershipAsync(teamId, memberId, roleByte: 1 /* Member */);
+
+        // Member has catalog.applications.lifecycle.forward but not the OrgAdmin-only
+        // catalog.applications.lifecycle.override permission — AuthorizeAsync fails
+        // and the delegate returns Forbid() before the command is dispatched.
+        var resp = await member.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{registered.Id}/decommission",
+            new DecommissionApplicationRequest(OverrideSunset: true));
+
+        Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
+    }
+
+    [TestMethod]
     public async Task POST_decommission_when_Deprecated_and_before_sunsetDate_returns_409_with_reason_before_sunset_date()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
@@ -77,6 +136,68 @@ public class DecommissionApplicationTests : CatalogIntegrationTestBase
         Assert.IsNotNull(problem.SunsetDate);
         var diff = (problem.SunsetDate!.Value - sunset).Duration();
         Assert.IsTrue(diff <= TimeSpan.FromSeconds(1));
+    }
+
+    [TestMethod]
+    public async Task POST_decommission_as_Member_without_override_before_sunsetDate_returns_409_with_reason_before_sunset_date()
+    {
+        // Member must belong to the app's owning team to clear the prior
+        // ApplicationTeamScoped resource gate (same as the override-403 test above).
+        var admin = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenant, "Override Team 409");
+        var registerResp = await admin.PostAsJsonAsync(
+            "/api/v1/catalog/applications",
+            new RegisterApplicationRequest("Decommission App 2b", "Desc.", teamId));
+        Assert.IsTrue(registerResp.IsSuccessStatusCode);
+        var registered = (await registerResp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
+
+        var sunset = DateTimeOffset.UtcNow.AddDays(30);
+        var deprecateResp = await admin.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{registered.Id}/deprecate",
+            new DeprecateApplicationRequest(sunset));
+        Assert.IsTrue(deprecateResp.IsSuccessStatusCode);
+
+        var member = await Fx.CreateAuthenticatedClientAsync("member-nooverride-409@orga.kartova.local", new[] { KartovaRoles.Member });
+        var memberId = await Fx.GetSubClaimAsync("member-nooverride-409@orga.kartova.local");
+        await Fx.SeedTeamMembershipAsync(teamId, memberId, roleByte: 1 /* Member */);
+
+        // Regression: an empty body / overrideSunset=false request behaves exactly
+        // like the pre-override endpoint — 409 before-sunset-date, no auth bypass
+        // is attempted since the override branch is only entered when the flag is true.
+        var resp = await member.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{registered.Id}/decommission",
+            new DecommissionApplicationRequest(OverrideSunset: false));
+
+        Assert.AreEqual(HttpStatusCode.Conflict, resp.StatusCode);
+        var problem = await resp.Content.ReadFromJsonAsync<ProblemPayload>();
+        Assert.AreEqual(ProblemTypes.LifecycleConflict, problem!.Type);
+        Assert.AreEqual("before-sunset-date", problem.Reason);
+    }
+
+    [TestMethod]
+    public async Task POST_decommission_as_OrgAdmin_without_override_after_sunsetDate_returns_200()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var registered = await RegisterAsync(client, "Decommission App 2c", "Desc.");
+
+        // Same past-sunset crossing pattern as the first test in this file — regression
+        // check that the ordinary (no override) path is unaffected by the new code.
+        var sunset = DateTimeOffset.UtcNow.AddSeconds(1);
+        var deprecateResp = await client.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{registered.Id}/deprecate",
+            new DeprecateApplicationRequest(sunset));
+        Assert.IsTrue(deprecateResp.IsSuccessStatusCode);
+
+        await Task.Delay(2000);
+
+        var resp = await client.PostAsync(
+            $"/api/v1/catalog/applications/{registered.Id}/decommission",
+            content: null);
+
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(Lifecycle.Decommissioned, body!.Lifecycle);
     }
 
     [TestMethod]
