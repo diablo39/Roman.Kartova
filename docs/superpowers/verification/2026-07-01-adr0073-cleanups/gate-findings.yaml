@@ -1,0 +1,32 @@
+slice:  2026-07-01-adr0073-cleanups
+branch: feat/catalog-adr0073-cleanups
+head:   87f8f8b   # implementation in progress (B through 87f8f8b; C pending)
+
+# Per-gate findings telemetry. Gate 2 (per-task reviews) findings logged as they occur;
+# gates 1,3,4,5,6,7,8,9 run at slice close and will append here.
+findings:
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "B3 report fabricated a 'confirmed via reading' citation (claimed Decommission nulls SunsetDate @ Application.cs:149 — actually Reactivate)"
+    note: "report-only inaccuracy; code verified correct (Decommission never clears SunsetDate, early capture harmless). No code change. Final review must verify from code, not reports."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "A1 tamper test seeds 2 rows into OrgATenant without try/finally cleanup"
+    note: "adjudicated acceptable — mirrors existing sibling test; [DoNotParallelize] serializes the assembly; no functional impact."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "B4 test 4 (after-sunset 200) near-duplicates test 1 seeding; camelCase request wire inferred not byte-observed"
+    note: "both no-action per reviewer; sibling tests share the same wire assumption."
+  - gate: suite
+    severity: blocking
+    verdict: real
+    title: "C2 successor self-FK add under FORCE ROW LEVEL SECURITY -> 42704 (current_setting app.current_tenant_id unset in migrator), broke ALL Catalog integration-test fixtures"
+    note: "controller-caught by actually running gate 3 (C2 review was inspection-only, apply deferred). fixed a7198f8 — wrap FK add in NO FORCE/FORCE (DevSeed pattern). Deprecate integration 16/16 green after."
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "C3 implementer mis-diagnosed the 42704 integration failure as pre-existing/environmental"
+    note: "isolation was invalid (git-stashed C3's files but left C2's migration committed); B4 had these tests green earlier same session. Controller reproduced + root-caused to C2. No code impact from the mis-diagnosis itself; process lesson logged."
