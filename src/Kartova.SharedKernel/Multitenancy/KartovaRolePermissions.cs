@@ -38,6 +38,7 @@ public static class KartovaRolePermissions
                 KartovaPermissions.CatalogApplicationsEditMetadata,
                 KartovaPermissions.CatalogApplicationsLifecycleForward,
                 KartovaPermissions.CatalogApplicationsLifecycleReverse,
+                KartovaPermissions.CatalogApplicationsLifecycleOverride,
                 KartovaPermissions.CatalogServicesRegister,
                 KartovaPermissions.CatalogRelationshipsWrite,
                 KartovaPermissions.TeamRead,
