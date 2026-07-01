@@ -41,4 +41,24 @@ public static class CatalogAuditEntries
             app.Id.Value.ToString(),
             data);
     }
+
+    /// <summary>
+    /// Builds the <see cref="AuditEntry"/> for a successor set/clear while
+    /// Deprecated (ADR-0110 §5.3, <c>application.successor_changed</c>).
+    /// <paramref name="from"/> is the pre-change successor id — the handler
+    /// must read it BEFORE invoking <c>Application.SetSuccessor</c>. Guids
+    /// stored as strings for jsonb-stability (like B3's override keys).
+    /// </summary>
+    public static AuditEntry SuccessorChanged(DomainApplication app, Guid? from)
+    {
+        var data = new Dictionary<string, string?>
+        {
+            ["from"] = from?.ToString(),
+            ["to"] = app.SuccessorApplicationId?.ToString(),
+        };
+        return new(CatalogAuditActions.ApplicationSuccessorChanged,
+            CatalogAuditTargetTypes.Application,
+            app.Id.Value.ToString(),
+            data);
+    }
 }

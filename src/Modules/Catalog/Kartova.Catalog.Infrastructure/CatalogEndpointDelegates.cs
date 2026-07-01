@@ -288,6 +288,47 @@ internal static class CatalogEndpointDelegates
         return Results.Ok(resp);
     }
 
+    /// <summary>
+    /// PUT /applications/{id}/successor — set/clear successor while Deprecated
+    /// (ADR-0110 §5.3, ADR-0096 PUT-idempotent-replacement; <see langword="null"/>
+    /// clears). Successor existence pre-check mirrors the identical 422 envelope
+    /// in <see cref="DeprecateApplicationAsync"/> — cross-tenant ids are invisible
+    /// under RLS, so both an unknown id and a cross-tenant id surface 422 here.
+    /// A self-successor id DOES exist (it's the app's own row), so it passes this
+    /// check and is rejected 400 by the domain guard
+    /// (<c>Application.SetSuccessor</c> → <c>RejectSelfSuccessor</c>). Not-Deprecated
+    /// source surfaces 409 via the same domain method.
+    /// </summary>
+    internal static async Task<IResult> SetApplicationSuccessorAsync(
+        Guid id,
+        [FromBody] SetApplicationSuccessorRequest request,
+        SetApplicationSuccessorHandler handler,
+        CatalogDbContext db,
+        IAuthorizationService auth,
+        ClaimsPrincipal user,
+        IAuditWriter audit,
+        CancellationToken ct)
+    {
+        var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
+        if (gate is not null) return gate;
+
+        if (request.SuccessorApplicationId is { } successorId
+            && !await db.Applications.AnyAsync(ApplicationSortSpecs.IdEquals(successorId), ct))
+        {
+            return Results.Problem(
+                type: ProblemTypes.InvalidSuccessor,
+                title: "Invalid successor",
+                detail: "The supplied successorApplicationId does not resolve to an application in the current tenant.",
+                statusCode: StatusCodes.Status422UnprocessableEntity);
+        }
+
+        var resp = await handler.Handle(
+            new SetApplicationSuccessorCommand(new ApplicationId(id), request.SuccessorApplicationId), db, audit, ct);
+
+        if (resp is null) return EndpointResultExtensions.ApplicationNotFound();
+        return Results.Ok(resp);
+    }
+
     internal static async Task<IResult> ReactivateApplicationAsync(
         Guid id,
         ReactivateApplicationHandler handler,
