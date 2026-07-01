@@ -165,17 +165,20 @@ export function useDeprecateApplication(id: string) {
 
 /**
  * POST /applications/{id}/decommission — Deprecated → Decommissioned.
- * No request body, no If-Match. Server returns
- * `409` with `reason=before-sunset-date` when invoked before the configured
- * sunset date.
+ * No If-Match. Optional body `{ overrideSunset }` (OrgAdmin-only escape hatch,
+ * ADR-0073): when omitted or `false`, the server enforces the sunset date and
+ * returns `409` with `reason=before-sunset-date` when invoked before it.
  */
 export function useDecommissionApplication(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
+    mutationFn: async (input?: { overrideSunset?: boolean }) => {
       const { data, error, response } = await apiClient.POST(
         "/api/v1/catalog/applications/{id}/decommission",
-        { params: { path: { id } } }
+        {
+          params: { path: { id } },
+          body: input ? { overrideSunset: input.overrideSunset ?? false } : undefined,
+        }
       );
       if (error) throwWithStatus(error, response);
       return unwrapData(data);

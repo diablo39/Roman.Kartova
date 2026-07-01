@@ -425,6 +425,22 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DecommissionApplicationRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -2934,6 +2950,15 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "DecommissionApplicationRequest": {
+        "type": "object",
+        "properties": {
+          "overrideSunset": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
