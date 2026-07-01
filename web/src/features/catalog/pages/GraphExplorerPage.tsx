@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ReactFlow, Background, Controls, MiniMap, type Node, type Edge } from "@xyflow/react";
+import { ReactFlow, Background, Controls, MiniMap, Panel, type Node, type Edge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
 import { useGraph } from "@/features/catalog/api/graph";
@@ -12,6 +12,10 @@ import { GraphExplorerSidebar } from "@/features/catalog/components/GraphExplore
 import type { GraphNodeData } from "@/features/catalog/relationships/graphModel";
 import { parseEntityRef } from "@/features/catalog/relationships/graphModel";
 import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
+import { useGraphFilters } from "@/features/catalog/relationships/useGraphFilters";
+import { applyGraphFilters } from "@/features/catalog/relationships/graphFilter";
+import { GraphFilterControls } from "@/features/catalog/components/GraphFilterControls";
+import { useTeamsList } from "@/features/teams/api/teams";
 
 const NODE_TYPES = { entity: EntityGraphNode };
 const SOFT_CAP = 150;
@@ -23,6 +27,8 @@ export function GraphExplorerPage() {
   const focus = parseEntityRef(params.get("focus"));
   const focusId = focus ? `${focus.kind}:${focus.id}` : "";
   const { expand, selected, isExpanded, toggleExpand, select, reset } = useExplorerState(focusId);
+  const { filters, setKinds, setTeamIds, clear, activeCount } = useGraphFilters(focusId);
+  const teamsList = useTeamsList({ sortBy: "displayName", sortOrder: "asc", limit: 200 });
 
   const safeFocus = focus ?? { kind: "application" as RelationshipKind, id: "" };
   const { results, isLoading, isError, expandError, refetch } = useGraph({ focus: safeFocus, expand });
@@ -32,9 +38,16 @@ export function GraphExplorerPage() {
     [results, focusId],
   );
   const atCap = merged.nodes.length >= SOFT_CAP;
+  const dimmed = useMemo(
+    () => applyGraphFilters(merged, filters, focusId),
+    [merged, filters, focusId],
+  );
   const { nodes, edges } = useMemo(
-    () => (focusId ? layoutGraph(merged, focusId, selected) : { nodes: [] as Node<GraphNodeData>[], edges: [] as Edge[] }),
-    [merged, focusId, selected],
+    () =>
+      focusId
+        ? layoutGraph(merged, focusId, selected, { nodeIds: dimmed.dimmedNodeIds, edgeIds: dimmed.dimmedEdgeIds })
+        : { nodes: [] as Node<GraphNodeData>[], edges: [] as Edge[] },
+    [merged, focusId, selected, dimmed],
   );
 
   // Only show the sidebar for a node actually present in the current graph.
@@ -88,6 +101,17 @@ export function GraphExplorerPage() {
                 <Background />
                 <Controls showInteractive={false} />
                 <MiniMap pannable zoomable />
+                <Panel position="top-left">
+                  <GraphFilterControls
+                    kinds={filters.kinds}
+                    teamIds={filters.teamIds}
+                    teams={teamsList.items ?? []}
+                    activeCount={activeCount}
+                    onKindsChange={setKinds}
+                    onTeamIdsChange={setTeamIds}
+                    onClear={clear}
+                  />
+                </Panel>
               </ReactFlow>
             </div>
             {selectedRef && (

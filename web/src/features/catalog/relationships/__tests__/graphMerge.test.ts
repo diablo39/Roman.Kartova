@@ -62,3 +62,20 @@ describe("bfsDepth", () => {
   });
   it("returns null for an unreachable node", () => { expect(bfsDepth(g, "service:f", "service:x")).toBeNull(); });
 });
+
+describe("teamId threading", () => {
+  it("threads teamId from the response onto the merged node (null → undefined)", () => {
+    const merged = mergeGraphs([
+      {
+        truncated: false,
+        nodes: [
+          { kind: "application", id: "a1", displayName: "App 1", depth: 0, teamId: "team-1" },
+          { kind: "service", id: "s1", displayName: "Svc 1", depth: 1, teamId: null },
+        ],
+        edges: [],
+      } as unknown as GraphResponse,
+    ]);
+    expect(merged.nodes.find((n) => n.id === "application:a1")?.teamId).toBe("team-1");
+    expect(merged.nodes.find((n) => n.id === "service:s1")?.teamId).toBeUndefined();
+  });
+});

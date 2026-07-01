@@ -27,6 +27,7 @@ This is the **canonical, per-list record of the filter decision** required by AD
 | Teams | `/teams` | `displayName` text search | **built** | E-03.F-02 | Renders via the shared `<FilterBar>` + `useListFilters`; default sort **`displayName asc`**. `<FilterBar>` shell is a collapsible disclosure panel (expanded by default), standard across all consumers. First consumer of the ADR-0107 surface (slice 2026-06-21). |
 | Members / Users | `/members` (`GET /users`) | `role` (single-select) + `q` name/email search (FilterBar) | **built** | E-03.F-01.S-05 | Role single-select + name/email text search via `<FilterBar>`/`useListFilters`; submit-driven + URL-backed (`?role=&q=`). |
 | Entity Relationships | App/Service detail → Relationships section (`GET /catalog/relationships?entityKind=&entityId=`) | none (no `<FilterBar>` facets) | **deferred** | E-04.F-01/F-02.S-02 | Per-entity embedded list (backend Slice 1a 2026-06-24; UI Slice 1b). `direction` (outgoing/incoming/all) is a **core query param**, not a facet. Facets considered + all deferred: `origin` (only `manual` exists → E-04.F-01.S-03/04 when scan/agent land), `type` (only 2 creatable now), related-entity-`kind` (only 2 kinds) → all → E-05 faceted search. **Sort:** `{ CreatedAt (default desc), Type }`; sort-by-related-name opt-out (cross-table keyset, deferred). Default deviates from `displayName asc` — relationship rows have no own displayName. |
+| Dependency-graph filters | `/graph` | `kind` (multi-select) + `teamId` (multi-select) | **built** | E-04.F-02.S-05 | Canvas-overlay surface (React Flow `<Panel>`, ADR-0040) — **client-side dim/fade** of non-matching nodes (focus never dims; an edge dims iff either endpoint dims), **live-apply** (no submit), state in `sessionStorage` keyed by focus (only `?focus` in URL). Reuses the controlled `MultiSelect` + `useTeamsList`, **not** the `<FilterBar>` chrome (ADR-0040). Filter Proposal outcomes — `kind`: built · `teamId`: built · **status** (Lifecycle/Health): deferred (needs `GraphNodeDto` enrichment + combined-status story) · **origin**: deferred (only `Manual` exists → Phase 2 scan/agent / E-06) · **domain** + **criticality**: deferred (no backing field → new-field epic). Slice 2026-06-29. |
 
 ## Planned filtering surfaces (not yet built)
 
@@ -34,7 +35,6 @@ These backlog stories define multi-attribute filtering that, when built, MUST us
 
 - **Tag filtering across catalog** — multi-tag, AND/OR, URL-shareable, live (E-03.F-04.S-03).
 - **Faceted search** — multi-select by entity type / team / tags / owner, live counts (E-05.F-01.S-02).
-- **Dependency-graph filters** — team / domain / criticality / entity-type / origin (E-04.F-02.S-05). Distinct canvas-overlay surface; borrows the control vocabulary, not required to use `<FilterBar>` (ADR-0040).
 - **Repo-import filters** — name / language / activity (E-08.F-02.S-02).
 - **Dashboards** — status board, environment map, maturity/risk heatmaps (E-06, E-17, E-18, E-20).
 

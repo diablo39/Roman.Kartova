@@ -1,0 +1,88 @@
+# gate-findings.yaml — per-gate findings telemetry for one slice.
+# dod.md records each gate's PASS/FAIL/PENDING/N-A status; this file records what it FOUND.
+# A gate with status PASS and no entries here ⇒ it ran and found nothing.
+
+slice:  2026-06-29-catalog-graph-filters
+branch: feat/catalog-graph-filters
+head:   1d24ba2
+
+# gate slugs: build | reviews | suite | container | simplify | mutation
+#             requesting-review | review-pr | deep-review | manual | terminal-reverify | ci-mirror
+# severity: blocking | should-fix | nit
+# verdict:  real | delusion
+findings:
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Task 5: missing EOF newline in multi-select.test.tsx"
+    note: "fixed in 43fc997 (amended)"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Task 5: new Set(selectedKeys) allocates per render in MultiSelect"
+    note: "not fixed — negligible for small option lists; useMemo only if profiling warrants"
+  - gate: reviews
+    severity: nit
+    verdict: delusion
+    title: "Task 5: uncontrolled MultiSelect tests 'deleted'"
+    note: "file was new this task; brief scoped it to the 2 controlled cases. FilterBar regression (16/16) covers the uncontrolled/FormData path"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Task 6: missing EOF newline in EntityGraphNode.tsx"
+    note: "fixed in 79f0517 (amended)"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Task 6: dimmed? comment dropped the 'focus never dims' callsite note"
+    note: "restored fuller comment in 79f0517 (amended)"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Task 7: name prop on controlled MultiSelect renders inert hidden inputs"
+    note: "not fixed — name is a required MultiSelect prop; component is a canvas overlay (no enclosing form) so hidden inputs are inert. Intentional."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Task 8: React import placed after vi.mock block in page test"
+    note: "deferred to final-review triage — harmless (Vitest hoists vi.mock; factory closes over React); organizational only"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Task 8: 'as string[]' casts + wrong 'GraphFilters not exported' comment in page-test mock"
+    note: "deferred to final-review triage — cosmetic; GraphFilters IS exported (graphFilter.ts:4). Harmless at runtime, false comment trail"
+  - gate: manual
+    severity: nit
+    verdict: real
+    title: "Escape clears the live filter selection in the graph overlay multiselect"
+    note: "react-aria ListBox default escapeKeyBehavior=clearSelection; consistent app-wide (FilterBar too); click-outside preserves. escapeKeyBehavior='none' trialed (tsc-valid) but ineffective in this Dialog/Popover composition — reverted. Accepted: low severity, non-destructive view state. Deferred."
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "redundant active-guard in applyGraphFilters + conditional empty-object edge-style spread"
+    note: "both applied in 735decd (behaviour-identical)"
+  - gate: deep-review
+    severity: nit
+    verdict: delusion
+    title: "claimed focus-never-dims missing at page-test level"
+    note: "retracted on verification — GraphExplorerPage.test.tsx:175 asserts application:focus dimmed===false. Self-caught."
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "useGraphFilters: focus-key reconcile + throwing-write branches untested"
+    note: "fixed in fe8cb2d — 2 tests added (7/7 green)"
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "GraphNodeData.dimmed should be non-optional"
+    note: "rejected — toGraphModel (mini-graph) builds GraphNodeData without dimmed; optional is required, not a defect"
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "MultiSelect selectedKeys/defaultSelectedKeys mutual exclusion undocumented"
+    note: "already documented by the selectedKeys JSDoc (Task 5); dev console.warn skipped to avoid runtime side-effect in shared base"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "minor type/test nits (DimmedSets name, teamIds JSDoc, both-endpoints edge assertion, all-sentinel test)"
+    note: "not fixed — DimmedSets/teamIds low-value nits; all-sentinel branch is pre-existing (not this slice) + jsdom-unreliable; logic-simple. Deferred."

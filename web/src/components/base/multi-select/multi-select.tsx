@@ -28,6 +28,12 @@ export interface MultiSelectProps {
   options: MultiSelectOption[];
   /** Uncontrolled initial selection (option `value`s). */
   defaultSelectedKeys?: string[];
+  /** Controlled selection (option `value`s). When provided, the component is
+   *  controlled and `defaultSelectedKeys` is ignored. */
+  selectedKeys?: string[];
+  /** Fires on every selection change with the sorted selected `value`s.
+   *  Enables live-apply use outside a <form> (e.g. the graph filter overlay). */
+  onChange?: (values: string[]) => void;
   placeholder?: string;
   size?: "sm" | "md";
   className?: string;
@@ -39,18 +45,24 @@ export const MultiSelect = ({
   label,
   options,
   defaultSelectedKeys,
+  selectedKeys,
+  onChange,
   placeholder = "Select…",
   size = "sm",
   className,
   ref,
   ...props
 }: MultiSelectProps) => {
-  const [selected, setSelected] = useState<Set<string>>(() => new Set(defaultSelectedKeys ?? []));
+  const [internal, setInternal] = useState<Set<string>>(() => new Set(defaultSelectedKeys ?? []));
+  const isControlled = selectedKeys !== undefined;
+  const selected = isControlled ? new Set(selectedKeys) : internal;
 
-  const onChange = (keys: Selection) => {
+  const handleChange = (keys: Selection) => {
     // react-aria emits the "all" sentinel on a keyboard select-all (Ctrl/Cmd+A);
     // map it to every option value so select-all selects, rather than clearing.
-    setSelected(keys === "all" ? new Set(options.map(o => o.value)) : new Set([...keys].map(k => String(k))));
+    const next = keys === "all" ? new Set(options.map((o) => o.value)) : new Set([...keys].map((k) => String(k)));
+    if (!isControlled) setInternal(next);
+    onChange?.([...next].sort());
   };
 
   // Summary text: placeholder when empty, the single label when one, "N selected" otherwise.
@@ -81,7 +93,7 @@ export const MultiSelect = ({
               aria-label={props["aria-label"]}
               selectionMode="multiple"
               selectedKeys={selected}
-              onSelectionChange={onChange}
+              onSelectionChange={handleChange}
               items={options}
               className="outline-hidden"
             >
