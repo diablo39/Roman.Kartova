@@ -32,6 +32,16 @@ public sealed class GetApplicationByIdHandler(IUserDirectory directory)
         if (app is null) return null;
 
         var creator = await directory.GetAsync(app.CreatedByUserId, ct);
-        return app.ToResponse() with { CreatedBy = creator };
+
+        string? successorDisplayName = null;
+        if (app.SuccessorApplicationId is { } successorId)
+        {
+            successorDisplayName = await db.Applications
+                .Where(ApplicationSortSpecs.IdEquals(successorId))
+                .Select(a => a.DisplayName)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        return app.ToResponse() with { CreatedBy = creator, SuccessorDisplayName = successorDisplayName };
     }
 }
