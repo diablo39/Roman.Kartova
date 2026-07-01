@@ -258,4 +258,29 @@ export function useAssignApplicationTeam(id: string) {
   });
 }
 
+/**
+ * PUT /applications/{id}/successor — set or clear the successor while the
+ * application is Deprecated (ADR-0110 §5.3). PUT is idempotent replacement;
+ * `null` clears. No If-Match — mirrors `useAssignApplicationTeam`. Server
+ * returns 422 `invalid-successor` for an unknown/cross-tenant/self id and
+ * 409 when the source application is not Deprecated.
+ */
+export function useSetApplicationSuccessor(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (successorApplicationId: string | null) => {
+      const { data, error, response } = await apiClient.PUT(
+        "/api/v1/catalog/applications/{id}/successor",
+        { params: { path: { id } }, body: { successorApplicationId } }
+      );
+      if (error) throwWithStatus(error, response);
+      return unwrapData(data);
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(applicationKeys.detail(id), data);
+      qc.invalidateQueries({ queryKey: applicationKeys.detail(id) });
+    },
+  });
+}
+
 export type { ApplicationResponse, Lifecycle };

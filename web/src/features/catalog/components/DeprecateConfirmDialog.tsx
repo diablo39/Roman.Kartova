@@ -17,6 +17,7 @@ import {
   type ApplicationResponse,
 } from "@/features/catalog/api/applications";
 import { isLifecycle, lifecycleLabel } from "@/features/catalog/lifecycle";
+import { EntitySearchCombobox } from "@/features/catalog/components/EntitySearchCombobox";
 import {
   applyProblemDetailsToForm,
   type ProblemDetails,
@@ -60,6 +61,11 @@ export function DeprecateConfirmDialog({ application, open, onOpenChange }: Prop
     resolver: zodResolver(deprecateApplicationSchema),
     defaultValues: { sunsetDate: initialSunset },
   });
+
+  // ADR-0110 §5.3: optional successor picked at deprecate time. Tracked
+  // separately for display (the combobox is a search box, not a controlled
+  // select) so the picked name can be shown next to a Clear affordance.
+  const [successorName, setSuccessorName] = useState<string | null>(null);
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
@@ -120,6 +126,41 @@ export function DeprecateConfirmDialog({ application, open, onOpenChange }: Prop
                 />
               )}
             </FormField>
+
+            <div>
+              <label className="text-sm font-medium text-secondary">
+                Successor (optional)
+              </label>
+              <p className="mt-0.5 text-xs text-tertiary">
+                Point consumers to a replacement application.
+              </p>
+              <div className="mt-1.5">
+                {successorName ? (
+                  <div className="flex items-center justify-between rounded-lg border border-secondary px-3 py-2 text-sm">
+                    <span className="text-primary">{successorName}</span>
+                    <button
+                      type="button"
+                      className="text-tertiary hover:text-primary"
+                      onClick={() => {
+                        form.setValue("successorApplicationId", undefined);
+                        setSuccessorName(null);
+                      }}
+                    >
+                      Clear
+                    </button>
+                  </div>
+                ) : (
+                  <EntitySearchCombobox
+                    kind="application"
+                    excludeId={application.id}
+                    onSelect={(entity) => {
+                      form.setValue("successorApplicationId", entity.id);
+                      setSuccessorName(entity.displayName);
+                    }}
+                  />
+                )}
+              </div>
+            </div>
 
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" color="secondary" size="sm" onClick={() => onOpenChange(false)}>
