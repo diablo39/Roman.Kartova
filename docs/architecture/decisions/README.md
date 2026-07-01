@@ -2,7 +2,7 @@
 platform: Kartova
 description: SaaS service catalog and developer portal platform (Backstage + Compass + Statuspage)
 adr_count: 106
-last_updated: 2026-06-25
+last_updated: 2026-07-01
 architecture:
   backend: .NET 10 (LTS) / ASP.NET Core + EF Core (ADR-0027)
   backend_pattern: Modular monolith (ADR-0082) with Clean Architecture per module — Domain / Application / Infrastructure / Contracts (ADR-0028); inter-module via Wolverine mediator or Kafka events
@@ -113,7 +113,7 @@ open_source_strategy: fully proprietary, no OSS core / source-available (ADR-002
 # Architecture Decision Records — Kartova
 
 **Status:** Living document
-**Last updated:** 2026-06-21
+**Last updated:** 2026-07-01
 **Total accepted:** 104
 **Convention:** Michael Nygard template (Status / Context / Decision / Rationale / Alternatives / Consequences / References)
 
@@ -234,6 +234,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0107](ADR-0107-list-filtering-consideration-and-filterbar-ui.md) | List Filtering — Consideration Mandate and Standard `<FilterBar>` UI | Frontend Architecture | Accepted | 0039, 0040, 0094, 0095 | Every list slice's design MUST include a **Filter Proposal** (candidate fields, each implement-now/defer/none, human-signed-off; deferral explicit) mirrored into `docs/design/list-filter-registry.md`. Built filters render through a shared `<FilterBar>` + `useListFilters` that composes `useListUrlState` and feeds the ADR-0095 cursor `f` map. Review-enforced; server-side filtering only in MVP. ADR-0095 keeps only the `f`-map wire format. |
 | [0108](ADR-0108-relationship-edge-authority-either-endpoint.md) | Relationship Edge Authority — Either-Endpoint Team Membership | Authentication & Authorization | Accepted | 0056, 0067, 0068, 0090, 0101, 0103 | Create/delete a manual relationship edge requires `OrgAdmin` or membership of *either* connected entity's owning team (symmetric). Replaces the source-side-only authority in the Slice 1a relationships design §3 #7 so the provider/target side can record incoming dependencies. A member of neither team is still 403. No approval workflow; accountability via origin=manual + created_by + audit. |
 | [0109](ADR-0109-api-serializes-enums-as-camelcase-strings.md) | REST API Serializes Enums as camelCase JSON Strings | API & Integration Architecture | Accepted | 0029, 0034, 0091, 0092, 0104 | All enums cross the API boundary as camelCase strings via `JsonStringEnumConverter` + `JsonNamingPolicy.CamelCase`; the OpenAPI doc + generated TS client are the single source of truth (frontend must not hand-author PascalCase enum literals). Enum query params bind case-insensitively (400 on unknown). The mismatch class is invisible to per-file `tsc --noEmit` — the composite `tsc -b`/`npm run build` is the binding type gate. |
+| [0110](ADR-0110-successor-reference-dedicated-application-field.md) | Deprecated-Application Successor Is a Dedicated Application→Application Field | Domain Model | Accepted | 0073, 0068, 0108, 0098, 0018 | The ADR-0073 successor reference is a nullable self-referential `SuccessorApplicationId` field on the `Application` aggregate (App→App, real self-FK), not a relationship-graph edge — successor is migration *guidance*, not runtime topology, so the "Deprecated ⇒ successor" invariant lives with the transition and the FK+RLS give integrity. Set at Deprecate, editable while Deprecated, cleared on Reactivate; optional; existence→422, self-ref→400. App→Service succession deferred (would drop the FK for polymorphic `{kind,id}`). |
 
 ## By category (quick navigation)
 
@@ -252,7 +253,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Scan / Import Architecture**: 0054, 0055, 0056, 0057
 - **Observability & Monitoring**: 0058, 0059, 0060
 - **Billing**: 0061, 0062, 0063
-- **Domain Model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073, 0103
+- **Domain Model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073, 0103, 0110
 - **Scale & Performance**: 0074, 0075, 0076
 - **Non-Functional / Cross-Cutting**: 0077, 0078, 0079
 - **Testing & Quality**: 0083, 0097
@@ -277,7 +278,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Resource identifier / entity ID format**: 0092, 0098
 - **Retention / archival / deletion**: 0017, 0019, 0020, 0073, 0102
 - **Audit & logging**: 0018, 0050, 0058, 0102, 0105
-- **Domain model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073, 0103
+- **Domain model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073, 0103, 0110
 - **Scale & performance**: 0013, 0031, 0074, 0075, 0076
 - **Availability & SLA**: 0005, 0023, 0053, 0076
 - **Billing & pricing**: 0061, 0062, 0063
@@ -346,7 +347,9 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **EF Core** → 0012, 0027, 0077
 - **Elasticsearch** → 0002, 0013
 - **Email / SMTP** → 0049, 0051
-- **Entity lifecycle (Active/Deprecated/Retired)** → 0073
+- **Entity lifecycle (Active/Deprecated/Retired)** → 0073, 0110
+- **Successor reference (deprecation migration guidance)** → 0110, 0073
+- **Sunset date / admin override (decommission)** → 0073, 0110
 - **Entity types (9 fixed)** → 0064
 - **Entitlements** → 0061, 0062
 - **Error envelope** → 0029
