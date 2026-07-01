@@ -5,41 +5,15 @@
 **Stack:** .NET 10 (LTS) / ASP.NET Core + EF Core · Wolverine (CQRS mediator + outbound + outbox) · KafkaFlow (inbound Kafka consumers) · React + TypeScript · PostgreSQL 18 (RLS) · Elasticsearch · Apache Kafka (Strimzi/KRaft) · MinIO (S3) · KeyCloak (OIDC/JWT) · Kubernetes
 
 
-# Tool selection (when to reach for Serena vs the built-ins)
+# Tool selection (C# code intelligence + built-ins)
 
-This project uses Serena, an MCP server exposing semantic, symbol-aware tools. Serena is **preferred for code navigation, impact analysis, and refactoring** — finding symbols, callers/references, implementations, type hierarchies, repo-wide rename/move, and large whole-symbol edits. Built-in Read/Edit/Grep are **fine for reading a few symbols, small localized edits, and regex discovery**. Reach for Serena when the task is "who calls this / where is it defined / rename across the repo / replace this whole symbol"; don't force it for a one-line change or a quick read.
+For **C# navigation, impact analysis, and refactor planning**, prefer the **roslyn-codelens** MCP tools (`find_callers`, `find_references`, `find_implementations`, `get_type_hierarchy`, `search_symbols`, `analyze_method`, `analyze_change_impact`, `find_unused_symbols`) — compiler-accurate, beats grep on correctness. The active solution `Kartova.slnx` is auto-loaded. Reach for them the moment "who calls / who references / where is this implemented / what does changing this break" matters — **before** extending a hot method, renaming a shared symbol, or scoping a refactor. Never infer a symbol's caller/consumer set from one file or a grep; confirm it with `find_references` / `find_callers`.
 
-**Serena API gotchas:** `find_symbol` takes `name_path_pattern` (not `name_path`); `replace_content` takes `needle` + `repl` (not `old`/`new_string`). `find_symbol(include_body=true)` may return a content reference for a large body — if so, read the line range directly.
-
-## Mapping (reach for these when the task fits)
-
-Task                                    Tool to use
---------------------------------------  ----------------------------------------
-See a code file's structure             get_symbols_overview
-Read a specific symbol's body           find_symbol (include_body=true)
-Find a symbol by name across the repo   find_symbol
-Find references / callers               find_referencing_symbols
-Find declarations / implementations     find_declaration / _find_implementations
-Edit a symbol's body                    replace_symbol_body
-Insert near a symbol                    insert_before_symbol / _insert_after_symbol
-Pattern replace inside a file           replace_content
-Rename / move / delete a symbol         rename / _move / _safe_delete
-Inline a symbol                         inline_symbol
-Type hierarchy                          type_hierarchy
-
-Built-in Read/Edit/Glob/Grep are fine on code files for: reading a few lines/symbols, small localized edits, regex discovery across many files, and any case where a symbolic tool would be overkill or can't express what you need. Prefer Serena for the navigation / impact / refactor tasks above.
-
-Read/Edit/Glob are fine for non-code files: markdown, JSON, YAML, TOML, .env, config files, lockfiles, plain text, images.
-
-## Workflow for a structural / multi-symbol edit
-
-1. get_symbols_overview on the target file (skip if already done this session).
-2. find_symbol with include_body=true for the specific symbols you'll touch — read only what you need.
-3. Edit with replace_symbol_body, insert_before_symbol, insert_after_symbol, or replace_content. For a small one-line change, the built-in Edit is fine.
+Built-in `Read`/`Glob`/`Grep` handle reading a few symbols, regex discovery, and one-off lookups. Built-in `Edit`/`Write` are the edit path for **all** files, code and non-code. TypeScript/React have no dedicated code-intelligence MCP in this repo — use Grep/Read for discovery and Edit/Write for changes.
 
 ## Self-check
 
-Before a navigation, impact-analysis, or refactor step on code, ask: "Would a symbol-aware tool (find_symbol / find_referencing_symbols / rename) beat grep+read here?" If yes, use Serena. Routine reads and small edits don't need this check.
+Before a navigation, impact-analysis, or refactor step on **C#**, ask: "Would roslyn-codelens (`find_callers` / `find_references` / `analyze_change_impact`) beat grep+read here?" If yes, use it. Routine reads and small edits don't need this check.
 
 # Project defaults
 
