@@ -44,6 +44,11 @@ public static class ProblemTypes
     // Catalog ?health= multi-select filter — services list (ADR-0107).
     public const string InvalidHealthFilter    = Base + "invalid-health-filter";
 
+    // Deprecate successor reference — ADR-0110 §5.3. Non-existent (or
+    // cross-tenant, invisible under RLS) successor id surfaces 422; a
+    // self-successor id is rejected by the domain guard as 400 instead.
+    public const string InvalidSuccessor       = Base + "invalid-successor";
+
     // Logo upload validation — slice 9 (spec §6.4). One URI per failure mode
     // so SPA / API consumers can dispatch on `type` instead of HTTP status.
     public const string UnsupportedLogoMedia   = Base + "unsupported-logo-media";   // 415: Content-Type not in allow-list.

@@ -82,7 +82,8 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .ProducesProblem(StatusCodes.Status400BadRequest)
               .ProducesProblem(StatusCodes.Status403Forbidden)
               .ProducesProblem(StatusCodes.Status404NotFound)
-              .ProducesProblem(StatusCodes.Status409Conflict);
+              .ProducesProblem(StatusCodes.Status409Conflict)
+              .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         // POST decommission — Deprecated → Decommissioned transition. Empty body, no
         // If-Match (same rationale as deprecate). Two failure modes share the 409:
         // wrong source state, and "now < sunsetDate" — the latter carries

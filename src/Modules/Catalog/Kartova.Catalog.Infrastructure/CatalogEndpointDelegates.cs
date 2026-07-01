@@ -238,8 +238,23 @@ internal static class CatalogEndpointDelegates
         var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
         if (gate is not null) return gate;
 
+        // Successor existence pre-check (RLS-scoped) — mirrors the invalid-created-by
+        // 422 envelope above. A cross-tenant id is invisible under RLS, so both an
+        // unknown id and a cross-tenant id surface 422 here. A self-successor id DOES
+        // exist (it's this row), so it passes this check and is rejected as 400 by the
+        // domain guard (Application.Deprecate → RejectSelfSuccessor).
+        if (request.SuccessorApplicationId is { } successorId
+            && !await db.Applications.AnyAsync(ApplicationSortSpecs.IdEquals(successorId), ct))
+        {
+            return Results.Problem(
+                type: ProblemTypes.InvalidSuccessor,
+                title: "Invalid successor",
+                detail: "The supplied successorApplicationId does not resolve to an application in the current tenant.",
+                statusCode: StatusCodes.Status422UnprocessableEntity);
+        }
+
         var resp = await handler.Handle(
-            new DeprecateApplicationCommand(new ApplicationId(id), request.SunsetDate),
+            new DeprecateApplicationCommand(new ApplicationId(id), request.SunsetDate, request.SuccessorApplicationId),
             db, audit, ct);
 
         if (resp is null) return EndpointResultExtensions.ApplicationNotFound();

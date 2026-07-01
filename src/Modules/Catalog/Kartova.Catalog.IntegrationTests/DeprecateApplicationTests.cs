@@ -103,6 +103,69 @@ public class DeprecateApplicationTests : CatalogIntegrationTestBase
         Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
     }
 
+    // ADR-0110 §5.3 — successor reference on deprecate.
+
+    [TestMethod]
+    public async Task POST_deprecate_with_valid_successor_returns_200_and_sets_successorApplicationId()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var target = await RegisterAsync(client, "Deprecate Successor Target", "Desc.");
+        var successor = await RegisterAsync(client, "Deprecate Successor App", "Desc.");
+
+        var resp = await client.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{target.Id}/deprecate",
+            new DeprecateApplicationRequest(DateTimeOffset.UtcNow.AddDays(30), successor.Id));
+
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(successor.Id, body!.SuccessorApplicationId);
+    }
+
+    [TestMethod]
+    public async Task POST_deprecate_with_unknown_successor_returns_422()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var target = await RegisterAsync(client, "Deprecate Unknown Successor", "Desc.");
+
+        var resp = await client.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{target.Id}/deprecate",
+            new DeprecateApplicationRequest(DateTimeOffset.UtcNow.AddDays(30), Guid.NewGuid()));
+
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
+        var problem = await resp.Content.ReadFromJsonAsync<ProblemPayload>();
+        Assert.AreEqual(ProblemTypes.InvalidSuccessor, problem!.Type);
+    }
+
+    [TestMethod]
+    public async Task POST_deprecate_with_self_successor_returns_400()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var target = await RegisterAsync(client, "Deprecate Self Successor", "Desc.");
+
+        var resp = await client.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{target.Id}/deprecate",
+            new DeprecateApplicationRequest(DateTimeOffset.UtcNow.AddDays(30), target.Id));
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+        var problem = await resp.Content.ReadFromJsonAsync<ProblemPayload>();
+        Assert.AreEqual(ProblemTypes.ValidationFailed, problem!.Type);
+    }
+
+    [TestMethod]
+    public async Task POST_deprecate_without_successor_returns_200_and_null_successorApplicationId()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var target = await RegisterAsync(client, "Deprecate No Successor", "Desc.");
+
+        var resp = await client.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{target.Id}/deprecate",
+            new DeprecateApplicationRequest(DateTimeOffset.UtcNow.AddDays(30)));
+
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.IsNull(body!.SuccessorApplicationId);
+    }
+
     // ADR-0103: register requires a valid owning team in the tenant. All callers
     // register as OrgA, so seed the team in OrgA's tenant (BYPASSRLS, idempotent).
     private async Task<ApplicationResponse> RegisterAsync(HttpClient client, string displayName, string description)
