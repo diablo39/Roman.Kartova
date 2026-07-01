@@ -20,6 +20,7 @@ public sealed class Application : ITenantOwned, ITeamScopedResource
     public DateTimeOffset CreatedAt { get; private set; }
     public Lifecycle Lifecycle { get; private set; } = Lifecycle.Active;
     public DateTimeOffset? SunsetDate { get; private set; }
+    public Guid? SuccessorApplicationId { get; private set; }
     public Guid TeamId { get; private set; }
     public uint Version { get; private set; }
 
@@ -100,7 +101,7 @@ public sealed class Application : ITenantOwned, ITeamScopedResource
         Description = description;
     }
 
-    public void Deprecate(DateTimeOffset sunsetDate, TimeProvider clock)
+    public void Deprecate(DateTimeOffset sunsetDate, TimeProvider clock, Guid? successorApplicationId = null)
     {
         if (Lifecycle != Lifecycle.Active)
         {
@@ -113,8 +114,27 @@ public sealed class Application : ITenantOwned, ITeamScopedResource
                 "sunsetDate must be in the future.", nameof(sunsetDate));
         }
 
+        RejectSelfSuccessor(successorApplicationId);
+
         Lifecycle = Lifecycle.Deprecated;
         SunsetDate = sunsetDate;
+        SuccessorApplicationId = successorApplicationId;
+    }
+
+    /// <summary>
+    /// Sets or clears the successor reference while Deprecated (ADR-0110 §5.3).
+    /// App→App only — a single <see cref="Guid"/>, not polymorphic. Existence
+    /// validation is a handler concern (C3/C4); the domain has no DB access.
+    /// </summary>
+    public void SetSuccessor(Guid? successorApplicationId)
+    {
+        if (Lifecycle != Lifecycle.Deprecated)
+        {
+            throw new InvalidLifecycleTransitionException(Lifecycle, nameof(SetSuccessor), SunsetDate);
+        }
+
+        RejectSelfSuccessor(successorApplicationId);
+        SuccessorApplicationId = successorApplicationId;
     }
 
     /// <summary>
@@ -147,6 +167,7 @@ public sealed class Application : ITenantOwned, ITeamScopedResource
 
         Lifecycle = Lifecycle.Active;
         SunsetDate = null;
+        SuccessorApplicationId = null;
     }
 
     /// <summary>
@@ -178,6 +199,14 @@ public sealed class Application : ITenantOwned, ITeamScopedResource
 
         Lifecycle = Lifecycle.Deprecated;
         SunsetDate = newSunsetDate;
+    }
+
+    private void RejectSelfSuccessor(Guid? successorApplicationId)
+    {
+        if (successorApplicationId == _id)
+        {
+            throw new ArgumentException("An application cannot be its own successor.", nameof(successorApplicationId));
+        }
     }
 
     private static void ValidateDisplayName(string displayName)
