@@ -41,11 +41,12 @@ public sealed record ApplicationResponse(
 {
     public UserDisplayInfo? CreatedBy { get; init; }
 
-    // ADR-0110 §5.3: successor reference set on deprecate. Init-only after the
-    // positional list for the same reason as CreatedBy — constructor arity stays
-    // stable for existing positional call sites. SuccessorDisplayName mirrors the
-    // CreatedBy enrichment pattern: null on the write path (deprecate), populated
-    // only by detail-read handlers (task C5).
+    // ADR-0110: successor reference, set at deprecate time or via PUT
+    // /successor while Deprecated. Init-only after the positional list for the
+    // same reason as CreatedBy — constructor arity stays stable for existing
+    // positional call sites. SuccessorDisplayName mirrors the CreatedBy
+    // enrichment pattern: null on the write path, populated only by the
+    // detail-read handler.
     public Guid? SuccessorApplicationId { get; init; }
     public string? SuccessorDisplayName { get; init; }
 }

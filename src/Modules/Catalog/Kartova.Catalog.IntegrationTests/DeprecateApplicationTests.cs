@@ -105,7 +105,7 @@ public class DeprecateApplicationTests : CatalogIntegrationTestBase
         Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
     }
 
-    // ADR-0110 §5.3 — successor reference on deprecate.
+    // ADR-0110 — successor reference on deprecate.
 
     [TestMethod]
     public async Task POST_deprecate_with_valid_successor_returns_200_and_sets_successorApplicationId()
@@ -122,7 +122,7 @@ public class DeprecateApplicationTests : CatalogIntegrationTestBase
         var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
         Assert.AreEqual(successor.Id, body!.SuccessorApplicationId);
 
-        // ADR-0110 §5.3 — setting a successor at deprecate also writes a
+        // ADR-0110 — setting a successor at deprecate also writes a
         // dedicated application.successor_changed audit row (in addition to
         // the lifecycle_changed row), so the successor assignment is itself
         // auditable.

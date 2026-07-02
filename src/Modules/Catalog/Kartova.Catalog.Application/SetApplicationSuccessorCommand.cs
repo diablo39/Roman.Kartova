@@ -1,7 +1,7 @@
 namespace Kartova.Catalog.Application;
 
 /// <summary>
-/// Sets or clears the successor of a Deprecated Application (ADR-0110 §5.3).
+/// Sets or clears the successor of a Deprecated Application (ADR-0110).
 /// <see cref="Kartova.Catalog.Domain.Application.SetSuccessor"/> rejects a
 /// non-Deprecated source with <c>InvalidLifecycleTransitionException</c> (409)
 /// and a self-reference with <c>ArgumentException</c> (400) — this command

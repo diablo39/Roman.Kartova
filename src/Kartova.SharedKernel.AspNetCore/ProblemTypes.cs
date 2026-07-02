@@ -44,7 +44,7 @@ public static class ProblemTypes
     // Catalog ?health= multi-select filter — services list (ADR-0107).
     public const string InvalidHealthFilter    = Base + "invalid-health-filter";
 
-    // Deprecate successor reference — ADR-0110 §5.3. Non-existent (or
+    // Deprecate successor reference — ADR-0110. Non-existent (or
     // cross-tenant, invisible under RLS) successor id surfaces 422; a
     // self-successor id is rejected by the domain guard as 400 instead.
     public const string InvalidSuccessor       = Base + "invalid-successor";

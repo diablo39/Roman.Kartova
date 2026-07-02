@@ -158,6 +158,11 @@ export function useDeprecateApplication(id: string) {
     },
     onSuccess: (data) => {
       qc.setQueryData(applicationKeys.detail(id), data);
+      // The deprecate response (ToResponse) carries SuccessorApplicationId but not
+      // the enriched SuccessorDisplayName (only the detail GET resolves it). When a
+      // successor was set at deprecate time, invalidate detail so the successor link
+      // re-fetches the name instead of rendering "—". Mirrors useSetApplicationSuccessor.
+      qc.invalidateQueries({ queryKey: applicationKeys.detail(id) });
       qc.invalidateQueries({ queryKey: applicationKeys.list() });
     },
   });
@@ -260,7 +265,7 @@ export function useAssignApplicationTeam(id: string) {
 
 /**
  * PUT /applications/{id}/successor — set or clear the successor while the
- * application is Deprecated (ADR-0110 §5.3). PUT is idempotent replacement;
+ * application is Deprecated (ADR-0110). PUT is idempotent replacement;
  * `null` clears. No If-Match — mirrors `useAssignApplicationTeam`. Server
  * returns 422 `invalid-successor` for an unknown/cross-tenant/self id and
  * 409 when the source application is not Deprecated.

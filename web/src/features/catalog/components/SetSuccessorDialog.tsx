@@ -19,7 +19,7 @@ interface Props {
 
 /**
  * Set/clear successor modal — usable post-hoc while the application is
- * Deprecated (ADR-0110 §5.3). PUT /applications/{id}/successor is idempotent
+ * Deprecated (ADR-0110). PUT /applications/{id}/successor is idempotent
  * replacement (ADR-0096); `null` clears the successor.
  *
  * Server-error UX:

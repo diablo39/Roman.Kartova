@@ -15,7 +15,7 @@ interface Props {
  * Successor picker: shows the picked application as a chip with a Clear
  * affordance, or an {@link EntitySearchCombobox} to pick one. Shared by
  * DeprecateConfirmDialog (successor at deprecate time) and SetSuccessorDialog
- * (post-hoc set/clear) — ADR-0110 §5.3. The two callers differ only in how
+ * (post-hoc set/clear) — ADR-0110. The two callers differ only in how
  * they commit the selection (react-hook-form value vs. a mutation).
  */
 export function SuccessorPicker({

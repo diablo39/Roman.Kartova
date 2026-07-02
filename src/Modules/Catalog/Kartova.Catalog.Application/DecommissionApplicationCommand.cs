@@ -21,7 +21,7 @@ namespace Kartova.Catalog.Application;
 /// POST call site keeps compiling. This command layer only threads the flag to
 /// <see cref="Kartova.Catalog.Domain.Application.Decommission"/>'s
 /// <c>allowBeforeSunset</c> parameter and audits the bypass — it does NOT authorize the
-/// override itself; that gate lives at the endpoint (slice 5 spec §5.2, wired separately).
+/// override itself; that gate lives at the endpoint (this slice's design spec, wired separately).
 /// </para>
 ///
 /// <c>Id</c> is fully qualified to <see cref="Kartova.Catalog.Domain.ApplicationId"/>

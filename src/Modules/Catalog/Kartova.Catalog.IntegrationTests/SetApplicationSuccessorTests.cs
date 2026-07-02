@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
 using Kartova.SharedKernel.AspNetCore;
@@ -9,7 +11,7 @@ using Kartova.Testing.Auth;
 namespace Kartova.Catalog.IntegrationTests;
 
 /// <summary>
-/// Real-seam tests for PUT /applications/{id}/successor (ADR-0110 §5.3). Mirrors
+/// Real-seam tests for PUT /applications/{id}/successor (ADR-0110). Mirrors
 /// <see cref="DeprecateApplicationTests"/>'s structure and helpers. PUT is
 /// idempotent replacement (ADR-0096) — a null body clears the successor.
 ///
@@ -154,6 +156,84 @@ public sealed class SetApplicationSuccessorTests : CatalogIntegrationTestBase
             new SetApplicationSuccessorRequest(target.Id));
 
         Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+        // Self-reference is a domain guard (RejectSelfSuccessor → ArgumentException),
+        // mapped to the generic validation-failed envelope — pin the type so a future
+        // change to the mapping (e.g. a dedicated successor-self-reference type) is a
+        // conscious decision, matching the sibling assertion in DeprecateApplicationTests.
+        var problem = await resp.Content.ReadFromJsonAsync<ProblemPayload>();
+        Assert.AreEqual(ProblemTypes.ValidationFailed, problem!.Type);
+    }
+
+    [TestMethod]
+    public async Task PUT_successor_on_Deprecated_app_with_cross_tenant_successor_id_returns_422()
+    {
+        // The successor id resolves to a REAL application — but in another tenant.
+        // RejectUnknownSuccessorAsync's existence check runs under RLS, so the OrgB
+        // row is invisible to OrgA and collapses to the same 422 as an unknown id.
+        // This is the case that actually proves cross-tenant successor linkage is
+        // impossible: a random Guid (the test above) would 422 even if RLS scoping
+        // were broken; a real cross-tenant id would leak through if it were.
+        var orgA = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var target = await RegisterAsync(orgA, "Successor XT Target", "Desc.");
+
+        var deprecateResp = await orgA.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{target.Id}/deprecate",
+            new DeprecateApplicationRequest(DateTimeOffset.UtcNow.AddDays(30)));
+        Assert.IsTrue(deprecateResp.IsSuccessStatusCode);
+
+        var orgBSuccessor = await RegisterInOrgBAsync("Cross-Tenant Successor");
+
+        var resp = await orgA.PutAsJsonAsync(
+            $"/api/v1/catalog/applications/{target.Id}/successor",
+            new SetApplicationSuccessorRequest(orgBSuccessor.Id));
+
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
+        var problem = await resp.Content.ReadFromJsonAsync<ProblemPayload>();
+        Assert.AreEqual(ProblemTypes.InvalidSuccessor, problem!.Type);
+    }
+
+    [TestMethod]
+    public async Task PUT_successor_set_change_clear_writes_successor_changed_audit_rows_with_from_to()
+    {
+        // Accountability: each set/change/clear must emit an application.successor_changed
+        // row capturing the transition. The deprecate-time path only ever writes from=null;
+        // the change (A→B) and clear (B→null) transitions are unique to the PUT path.
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var target = await RegisterAsync(client, "Successor Audit Target", "Desc.");
+        var appA = await RegisterAsync(client, "Successor Audit A", "Desc.");
+        var appB = await RegisterAsync(client, "Successor Audit B", "Desc.");
+
+        var deprecateResp = await client.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{target.Id}/deprecate",
+            new DeprecateApplicationRequest(DateTimeOffset.UtcNow.AddDays(30)));
+        Assert.IsTrue(deprecateResp.IsSuccessStatusCode);
+
+        foreach (var successor in new Guid?[] { appA.Id, appB.Id, null })
+        {
+            var put = await client.PutAsJsonAsync(
+                $"/api/v1/catalog/applications/{target.Id}/successor",
+                new SetApplicationSuccessorRequest(successor));
+            Assert.IsTrue(put.IsSuccessStatusCode);
+        }
+
+        var tenantId = Fx.TenantIdForEmail(OrgAUser);
+        var rows = (await Fx.ReadAuditLogAsync(tenantId.Value))
+            .Where(r => r.Action == CatalogAuditActions.ApplicationSuccessorChanged
+                        && r.TargetId == target.Id.ToString())
+            .OrderBy(r => r.Seq)
+            .ToList();
+
+        Assert.AreEqual(3, rows.Count);
+        AssertFromTo(rows[0].DataJson!, from: null, to: appA.Id.ToString());
+        AssertFromTo(rows[1].DataJson!, from: appA.Id.ToString(), to: appB.Id.ToString());
+        AssertFromTo(rows[2].DataJson!, from: appB.Id.ToString(), to: null);
+    }
+
+    private static void AssertFromTo(string dataJson, string? from, string? to)
+    {
+        using var data = JsonDocument.Parse(dataJson);
+        Assert.AreEqual(from, data.RootElement.GetProperty("from").GetString());
+        Assert.AreEqual(to, data.RootElement.GetProperty("to").GetString());
     }
 
     [TestMethod]
@@ -204,6 +284,21 @@ public sealed class SetApplicationSuccessorTests : CatalogIntegrationTestBase
         var resp = await client.PostAsJsonAsync(
             "/api/v1/catalog/applications",
             new RegisterApplicationRequest(displayName, description, teamId));
+        Assert.IsTrue(resp.IsSuccessStatusCode);
+        return (await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
+    }
+
+    // Registers an application in OrgB's tenant (its own team, seeded BYPASSRLS) so
+    // OrgA can reference it as a would-be cross-tenant successor. The row is real but
+    // invisible to OrgA under RLS.
+    private async Task<ApplicationResponse> RegisterInOrgBAsync(string displayName)
+    {
+        var orgB = await Fx.CreateAuthenticatedClientAsync(OrgBUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(
+            Fx.TenantIdForEmail(OrgBUser), "OrgB Lifecycle Team");
+        var resp = await orgB.PostAsJsonAsync(
+            "/api/v1/catalog/applications",
+            new RegisterApplicationRequest(displayName, "Desc.", teamId));
         Assert.IsTrue(resp.IsSuccessStatusCode);
         return (await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
     }

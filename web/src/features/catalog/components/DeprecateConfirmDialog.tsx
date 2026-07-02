@@ -62,7 +62,7 @@ export function DeprecateConfirmDialog({ application, open, onOpenChange }: Prop
     defaultValues: { sunsetDate: initialSunset },
   });
 
-  // ADR-0110 §5.3: optional successor picked at deprecate time. Tracked
+  // ADR-0110: optional successor picked at deprecate time. Tracked
   // separately for display (the combobox is a search box, not a controlled
   // select) so the picked name can be shown next to a Clear affordance.
   const [successorName, setSuccessorName] = useState<string | null>(null);

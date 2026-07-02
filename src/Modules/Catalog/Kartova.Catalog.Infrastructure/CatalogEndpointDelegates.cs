@@ -277,7 +277,7 @@ internal static class CatalogEndpointDelegates
 
     /// <summary>
     /// PUT /applications/{id}/successor — set/clear successor while Deprecated
-    /// (ADR-0110 §5.3, ADR-0096 PUT-idempotent-replacement; <see langword="null"/>
+    /// (ADR-0110, ADR-0096 PUT-idempotent-replacement; <see langword="null"/>
     /// clears). Successor existence pre-check mirrors the identical 422 envelope
     /// in <see cref="DeprecateApplicationAsync"/> — cross-tenant ids are invisible
     /// under RLS, so both an unknown id and a cross-tenant id surface 422 here.

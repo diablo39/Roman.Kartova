@@ -122,9 +122,10 @@ public sealed class Application : ITenantOwned, ITeamScopedResource
     }
 
     /// <summary>
-    /// Sets or clears the successor reference while Deprecated (ADR-0110 §5.3).
+    /// Sets or clears the successor reference while Deprecated (ADR-0110).
     /// App→App only — a single <see cref="Guid"/>, not polymorphic. Existence
-    /// validation is a handler concern (C3/C4); the domain has no DB access.
+    /// validation is an endpoint concern (RejectUnknownSuccessorAsync); the domain
+    /// has no DB access.
     /// </summary>
     public void SetSuccessor(Guid? successorApplicationId)
     {
@@ -140,7 +141,7 @@ public sealed class Application : ITenantOwned, ITeamScopedResource
     /// <summary>
     /// Transitions a Deprecated application to Decommissioned. Blocked before
     /// <see cref="SunsetDate"/> unless <paramref name="allowBeforeSunset"/> is set,
-    /// letting an admin bypass the sunset-date guard (ADR-0073 §5.2).
+    /// letting an admin bypass the sunset-date guard (ADR-0073).
     /// </summary>
     public void Decommission(TimeProvider clock, bool allowBeforeSunset = false)
     {

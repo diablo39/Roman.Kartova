@@ -96,7 +96,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .ProducesProblem(StatusCodes.Status403Forbidden)
               .ProducesProblem(StatusCodes.Status404NotFound)
               .ProducesProblem(StatusCodes.Status409Conflict);
-        // PUT successor — set/clear successor while Deprecated (ADR-0110 §5.3).
+        // PUT successor — set/clear successor while Deprecated (ADR-0110).
         // PUT = idempotent replacement (ADR-0096); null clears. Same forward
         // permission as deprecate/decommission (Member-or-OrgAdmin on the app's
         // team). 422 = unknown/cross-tenant successor id (delegate pre-check);

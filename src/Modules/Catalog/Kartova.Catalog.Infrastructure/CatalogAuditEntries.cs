@@ -13,7 +13,7 @@ namespace Kartova.Catalog.Infrastructure;
 ///
 /// <para>
 /// <paramref name="overrodeSunset"/> + <paramref name="bypassedSunset"/> record a
-/// sunset-override bypass (slice 5 spec §5.2, Decommission only). They are additive:
+/// sunset-override bypass (this slice's design spec, Decommission only). They are additive:
 /// omitted by every caller except the override path, so the <c>overrodeSunset</c> /
 /// <c>bypassedSunsetDate</c> keys are present in the data bag only when a bypass
 /// actually occurred — normal entries are byte-for-byte unchanged.
@@ -44,10 +44,12 @@ public static class CatalogAuditEntries
 
     /// <summary>
     /// Builds the <see cref="AuditEntry"/> for a successor set/clear while
-    /// Deprecated (ADR-0110 §5.3, <c>application.successor_changed</c>).
-    /// <paramref name="from"/> is the pre-change successor id — the handler
-    /// must read it BEFORE invoking <c>Application.SetSuccessor</c>. Guids
-    /// stored as strings for jsonb-stability (like B3's override keys).
+    /// Deprecated (ADR-0110, <c>application.successor_changed</c>).
+    /// <paramref name="from"/> is the pre-change successor id — the caller must
+    /// read it BEFORE the transition. Emitted from two paths: the set-successor
+    /// handler (from = prior successor) and the deprecate handler (from = null,
+    /// since an Active app has no successor). Guids stored as strings for
+    /// jsonb-stability (like the sunset-override keys on LifecycleChanged).
     /// </summary>
     public static AuditEntry SuccessorChanged(DomainApplication app, Guid? from)
     {

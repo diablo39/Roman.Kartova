@@ -329,7 +329,7 @@ describe("ApplicationDetailPage — LifecycleMenu gating", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Successor link + manage-button gating (ADR-0110 §5.3, Task C6)
+// Successor link + manage-button gating (ADR-0110, Task C6)
 // ---------------------------------------------------------------------------
 
 const deprecatedAppWithSuccessor = {

@@ -60,7 +60,7 @@ export function ApplicationDetailPage() {
   // Defense-in-depth: hide Edit when terminal OR when user lacks the permission.
   // The server still returns 409 LifecycleConflict / 403 if a stale client tries anyway.
   const canEdit = !permissionsLoading && canEditMetadata && app.lifecycle !== "decommissioned";
-  // ADR-0110 §5.3: successor management gated on Deprecated + (OrgAdmin or team member) + lifecycle.forward.
+  // ADR-0110: successor management gated on Deprecated + (OrgAdmin or team member) + lifecycle.forward.
   const canManageSuccessor =
     !permissionsLoading &&
     canForwardLifecycle &&

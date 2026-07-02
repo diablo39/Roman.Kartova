@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
 using Kartova.SharedKernel.AspNetCore;
@@ -67,6 +69,81 @@ public class DecommissionApplicationTests : CatalogIntegrationTestBase
         Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
         var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
         Assert.AreEqual(Lifecycle.Decommissioned, body!.Lifecycle);
+    }
+
+    [TestMethod]
+    public async Task POST_decommission_override_before_sunset_writes_lifecycle_changed_audit_with_override_keys()
+    {
+        // ADR-0073's justification for the override is that the bypass is logged. Prove
+        // the handler COMPUTES bypassed (not just that the factory can emit the keys):
+        // an OrgAdmin override before the far-future sunset must write overrodeSunset
+        // + bypassedSunsetDate onto the Decommission lifecycle_changed row.
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var registered = await RegisterAsync(client, "Decommission Override Audit", "Desc.");
+
+        var sunset = DateTimeOffset.UtcNow.AddDays(30);
+        var deprecateResp = await client.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{registered.Id}/deprecate",
+            new DeprecateApplicationRequest(sunset));
+        Assert.IsTrue(deprecateResp.IsSuccessStatusCode);
+
+        var resp = await client.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{registered.Id}/decommission",
+            new DecommissionApplicationRequest(OverrideSunset: true));
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+
+        var decommissionRow = await ReadDecommissionAuditRowAsync(registered.Id);
+        using var data = JsonDocument.Parse(decommissionRow.DataJson!);
+        Assert.AreEqual("true", data.RootElement.GetProperty("overrodeSunset").GetString());
+        var bypassed = DateTimeOffset.Parse(data.RootElement.GetProperty("bypassedSunsetDate").GetString()!);
+        Assert.IsTrue((bypassed - sunset).Duration() <= TimeSpan.FromSeconds(1));
+    }
+
+    [TestMethod]
+    public async Task POST_decommission_override_true_after_sunset_omits_override_audit_keys()
+    {
+        // The override flag being true is not sufficient — the handler only records the
+        // bypass when it ACTUALLY bypassed (now < sunset). After the sunset has elapsed
+        // the transition is legal on its own, so bypassed=false and the override keys
+        // must be absent. Kills the `now < sunset` mutation on the bypass computation.
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var registered = await RegisterAsync(client, "Decommission Override Audit After", "Desc.");
+
+        var sunset = DateTimeOffset.UtcNow.AddSeconds(1);
+        var deprecateResp = await client.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{registered.Id}/deprecate",
+            new DeprecateApplicationRequest(sunset));
+        Assert.IsTrue(deprecateResp.IsSuccessStatusCode);
+
+        await Task.Delay(2000);
+
+        var resp = await client.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{registered.Id}/decommission",
+            new DecommissionApplicationRequest(OverrideSunset: true));
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+
+        var decommissionRow = await ReadDecommissionAuditRowAsync(registered.Id);
+        using var data = JsonDocument.Parse(decommissionRow.DataJson!);
+        Assert.IsFalse(data.RootElement.TryGetProperty("overrodeSunset", out _));
+        Assert.IsFalse(data.RootElement.TryGetProperty("bypassedSunsetDate", out _));
+    }
+
+    // Returns the single lifecycle_changed row for the Deprecated→Decommissioned
+    // transition (the Active→Deprecated row shares the action, so filter on to=Decommissioned).
+    private async Task<KartovaApiFixture.AuditRowRecord> ReadDecommissionAuditRowAsync(Guid targetId)
+    {
+        var tenantId = Fx.TenantIdForEmail(OrgAUser);
+        var rows = await Fx.ReadAuditLogAsync(tenantId.Value);
+        return rows.Single(r =>
+        {
+            if (r.Action != CatalogAuditActions.ApplicationLifecycleChanged
+                || r.TargetId != targetId.ToString())
+            {
+                return false;
+            }
+            using var d = JsonDocument.Parse(r.DataJson!);
+            return d.RootElement.GetProperty("to").GetString() == nameof(Lifecycle.Decommissioned);
+        });
     }
 
     [TestMethod]
