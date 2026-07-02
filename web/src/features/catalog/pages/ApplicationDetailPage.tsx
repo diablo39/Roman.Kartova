@@ -27,6 +27,7 @@ export function ApplicationDetailPage() {
   const canEditMetadata = hasPermission(KartovaPermissions.CatalogApplicationsEditMetadata);
   const canForwardLifecycle = hasPermission(KartovaPermissions.CatalogApplicationsLifecycleForward);
   const canReverseLifecycle = hasPermission(KartovaPermissions.CatalogApplicationsLifecycleReverse);
+  const canOverrideSunset = hasPermission(KartovaPermissions.CatalogApplicationsLifecycleOverride);
 
   if (query.isLoading) {
     return (
@@ -79,6 +80,7 @@ export function ApplicationDetailPage() {
                   application={app}
                   canForward={canForwardLifecycle}
                   canReverse={canReverseLifecycle}
+                  canOverride={canOverrideSunset}
                 />
               )}
               <AssignTeamPicker applicationId={app.id} currentTeamId={app.teamId} />

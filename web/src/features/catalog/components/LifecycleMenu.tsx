@@ -16,6 +16,13 @@ interface Props {
   canForward?: boolean;
   /** Gate reverse-lifecycle items (Reactivate, Restore to Deprecated). Defaults to true for back-compat. */
   canReverse?: boolean;
+  /**
+   * Whether the user holds the sunset-override permission. When true, the
+   * Decommission item stays enabled before the sunset date so the override
+   * checkbox in DecommissionConfirmDialog is reachable (ADR-0073 admin override).
+   * Defaults to false — non-holders keep the "disabled until sunset" behaviour.
+   */
+  canOverride?: boolean;
 }
 
 type DialogKind = "deprecate" | "decommission" | "reactivate" | "unDecommission" | null;
@@ -42,6 +49,7 @@ function buildItems(
   now: number,
   canForward: boolean,
   canReverse: boolean,
+  canOverride: boolean,
 ): MenuItem[] {
   const items: MenuItem[] = [];
 
@@ -51,11 +59,15 @@ function buildItems(
   if (lifecycle === "deprecated" && canForward) {
     const sunset = sunsetDate ? new Date(sunsetDate) : null;
     const beforeSunset = sunset !== null && now < sunset.getTime();
+    // Override holders may decommission before sunset (via the dialog's override
+    // checkbox), so the item stays enabled for them; non-holders see it disabled
+    // with the "After <date>" hint until the sunset elapses.
+    const blockedBySunset = beforeSunset && !canOverride;
     items.push({
       key: "decommission",
       label: "Decommission",
-      isDisabled: beforeSunset,
-      addon: beforeSunset && sunset ? `After ${sunset.toLocaleDateString()}` : undefined,
+      isDisabled: blockedBySunset,
+      addon: blockedBySunset && sunset ? `After ${sunset.toLocaleDateString()}` : undefined,
     });
   }
   // Reverse items — OrgAdmin only.
@@ -82,7 +94,12 @@ function buildItems(
  * "decommissioned") via JsonStringEnumConverter(JsonNamingPolicy.CamelCase);
  * all comparisons in this file use those literals directly.
  */
-export function LifecycleMenu({ application, canForward = true, canReverse = true }: Props) {
+export function LifecycleMenu({
+  application,
+  canForward = true,
+  canReverse = true,
+  canOverride = false,
+}: Props) {
   const [openDialog, setOpenDialog] = useState<DialogKind>(null);
 
   // Lazy `useState` keeps the impure `Date.now()` read off the render path
@@ -91,8 +108,8 @@ export function LifecycleMenu({ application, canForward = true, canReverse = tru
   const [now] = useState(() => Date.now());
 
   const items = useMemo(
-    () => buildItems(application.lifecycle, application.sunsetDate, now, canForward, canReverse),
-    [application.lifecycle, application.sunsetDate, now, canForward, canReverse]
+    () => buildItems(application.lifecycle, application.sunsetDate, now, canForward, canReverse, canOverride),
+    [application.lifecycle, application.sunsetDate, now, canForward, canReverse, canOverride]
   );
 
   // No items available (e.g. decommissioned with no reverse permission, or active
