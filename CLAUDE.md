@@ -9,6 +9,8 @@
 
 For **C# navigation, impact analysis, and refactor planning**, prefer the **roslyn-codelens** MCP tools (`find_callers`, `find_references`, `find_implementations`, `get_type_hierarchy`, `search_symbols`, `analyze_method`, `analyze_change_impact`, `find_unused_symbols`) — compiler-accurate, beats grep on correctness. The active solution `Kartova.slnx` is auto-loaded. Reach for them the moment "who calls / who references / where is this implemented / what does changing this break" matters — **before** extending a hot method, renaming a shared symbol, or scoping a refactor. Never infer a symbol's caller/consumer set from one file or a grep; confirm it with `find_references` / `find_callers`.
 
+The built-in **`LSP`** tool (Roslyn language server) is the other compiler-accurate option for C# — `goToDefinition`, `findReferences`, `hover`, `documentSymbol`, `workspaceSymbol`, `goToImplementation`, and call-hierarchy (`prepareCallHierarchy` / `incomingCalls` / `outgoingCalls`). Use it for precise position-based lookups (definition/references/hover at a specific line:char) and call graphs; prefer roslyn-codelens for higher-level impact analysis (`analyze_change_impact`, `find_unused_symbols`). Either beats grep for "who calls / where is this defined / where is this implemented" on C#.
+
 Built-in `Read`/`Glob`/`Grep` handle reading a few symbols, regex discovery, and one-off lookups. Built-in `Edit`/`Write` are the edit path for **all** files, code and non-code. TypeScript/React have no dedicated code-intelligence MCP in this repo — use Grep/Read for discovery and Edit/Write for changes.
 
 ## Self-check
