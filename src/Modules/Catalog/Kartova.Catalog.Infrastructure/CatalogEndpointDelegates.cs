@@ -238,20 +238,7 @@ internal static class CatalogEndpointDelegates
         var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
         if (gate is not null) return gate;
 
-        // Successor existence pre-check (RLS-scoped) — mirrors the invalid-created-by
-        // 422 envelope above. A cross-tenant id is invisible under RLS, so both an
-        // unknown id and a cross-tenant id surface 422 here. A self-successor id DOES
-        // exist (it's this row), so it passes this check and is rejected as 400 by the
-        // domain guard (Application.Deprecate → RejectSelfSuccessor).
-        if (request.SuccessorApplicationId is { } successorId
-            && !await db.Applications.AnyAsync(ApplicationSortSpecs.IdEquals(successorId), ct))
-        {
-            return Results.Problem(
-                type: ProblemTypes.InvalidSuccessor,
-                title: "Invalid successor",
-                detail: "The supplied successorApplicationId does not resolve to an application in the current tenant.",
-                statusCode: StatusCodes.Status422UnprocessableEntity);
-        }
+        if (await RejectUnknownSuccessorAsync(request.SuccessorApplicationId, db, ct) is { } bad) return bad;
 
         var resp = await handler.Handle(
             new DeprecateApplicationCommand(new ApplicationId(id), request.SunsetDate, request.SuccessorApplicationId),
@@ -312,15 +299,7 @@ internal static class CatalogEndpointDelegates
         var gate = await LoadAndAuthorizeApplicationAsync(id, db, auth, user, ct);
         if (gate is not null) return gate;
 
-        if (request.SuccessorApplicationId is { } successorId
-            && !await db.Applications.AnyAsync(ApplicationSortSpecs.IdEquals(successorId), ct))
-        {
-            return Results.Problem(
-                type: ProblemTypes.InvalidSuccessor,
-                title: "Invalid successor",
-                detail: "The supplied successorApplicationId does not resolve to an application in the current tenant.",
-                statusCode: StatusCodes.Status422UnprocessableEntity);
-        }
+        if (await RejectUnknownSuccessorAsync(request.SuccessorApplicationId, db, ct) is { } bad) return bad;
 
         var resp = await handler.Handle(
             new SetApplicationSuccessorCommand(new ApplicationId(id), request.SuccessorApplicationId), db, audit, ct);
@@ -749,6 +728,25 @@ internal static class CatalogEndpointDelegates
 
         return null;
     }
+
+    /// <summary>
+    /// Successor existence pre-check (RLS-scoped), shared by the Deprecate and
+    /// Set-Successor endpoints. A cross-tenant id is invisible under RLS, so both
+    /// an unknown id and a cross-tenant id surface the same 422 here. A self-successor
+    /// id DOES exist (it's this row), so it passes this check and is rejected as 400
+    /// by the domain guard (<c>Application</c> → <c>RejectSelfSuccessor</c>). Returns
+    /// <c>null</c> when the successor is null or resolves; otherwise the 422 problem.
+    /// </summary>
+    private static async Task<IResult?> RejectUnknownSuccessorAsync(
+        Guid? successorId, CatalogDbContext db, CancellationToken ct)
+        => successorId is { } id
+            && !await db.Applications.AnyAsync(ApplicationSortSpecs.IdEquals(id), ct)
+            ? Results.Problem(
+                type: ProblemTypes.InvalidSuccessor,
+                title: "Invalid successor",
+                detail: "The supplied successorApplicationId does not resolve to an application in the current tenant.",
+                statusCode: StatusCodes.Status422UnprocessableEntity)
+            : null;
 
     /// <summary>
     /// Runs the shared <see cref="KartovaTeamPolicies.ApplicationTeamScoped"/> resource gate

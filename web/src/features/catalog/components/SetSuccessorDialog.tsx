@@ -8,7 +8,7 @@ import {
   useSetApplicationSuccessor,
   type ApplicationResponse,
 } from "@/features/catalog/api/applications";
-import { EntitySearchCombobox } from "@/features/catalog/components/EntitySearchCombobox";
+import { SuccessorPicker } from "@/features/catalog/components/SuccessorPicker";
 import type { ProblemDetails } from "@/shared/forms/problemDetails";
 
 interface Props {
@@ -83,25 +83,13 @@ export function SetSuccessorDialog({ application, open, onOpenChange }: Props) {
 
           <div className="space-y-5">
             <div>
-              {pendingName ? (
-                <div className="flex items-center justify-between rounded-lg border border-secondary px-3 py-2 text-sm">
-                  <span className="text-primary">{pendingName}</span>
-                  <button
-                    type="button"
-                    className="text-tertiary hover:text-primary"
-                    onClick={handleClear}
-                    disabled={mutation.isPending}
-                  >
-                    Clear
-                  </button>
-                </div>
-              ) : (
-                <EntitySearchCombobox
-                  kind="application"
-                  excludeId={application.id}
-                  onSelect={(entity) => handleSelect(entity.id, entity.displayName)}
-                />
-              )}
+              <SuccessorPicker
+                selectedName={pendingName}
+                excludeId={application.id}
+                onSelect={handleSelect}
+                onClear={handleClear}
+                clearDisabled={mutation.isPending}
+              />
             </div>
 
             <div className="flex justify-end gap-2 pt-2">

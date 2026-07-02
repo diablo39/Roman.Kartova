@@ -17,7 +17,7 @@ import {
   type ApplicationResponse,
 } from "@/features/catalog/api/applications";
 import { isLifecycle, lifecycleLabel } from "@/features/catalog/lifecycle";
-import { EntitySearchCombobox } from "@/features/catalog/components/EntitySearchCombobox";
+import { SuccessorPicker } from "@/features/catalog/components/SuccessorPicker";
 import {
   applyProblemDetailsToForm,
   type ProblemDetails,
@@ -135,30 +135,18 @@ export function DeprecateConfirmDialog({ application, open, onOpenChange }: Prop
                 Point consumers to a replacement application.
               </p>
               <div className="mt-1.5">
-                {successorName ? (
-                  <div className="flex items-center justify-between rounded-lg border border-secondary px-3 py-2 text-sm">
-                    <span className="text-primary">{successorName}</span>
-                    <button
-                      type="button"
-                      className="text-tertiary hover:text-primary"
-                      onClick={() => {
-                        form.setValue("successorApplicationId", undefined);
-                        setSuccessorName(null);
-                      }}
-                    >
-                      Clear
-                    </button>
-                  </div>
-                ) : (
-                  <EntitySearchCombobox
-                    kind="application"
-                    excludeId={application.id}
-                    onSelect={(entity) => {
-                      form.setValue("successorApplicationId", entity.id);
-                      setSuccessorName(entity.displayName);
-                    }}
-                  />
-                )}
+                <SuccessorPicker
+                  selectedName={successorName}
+                  excludeId={application.id}
+                  onSelect={(id, displayName) => {
+                    form.setValue("successorApplicationId", id);
+                    setSuccessorName(displayName);
+                  }}
+                  onClear={() => {
+                    form.setValue("successorApplicationId", undefined);
+                    setSuccessorName(null);
+                  }}
+                />
               </div>
             </div>
 
