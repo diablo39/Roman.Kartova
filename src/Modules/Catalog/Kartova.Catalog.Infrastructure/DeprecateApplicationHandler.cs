@@ -33,6 +33,10 @@ public sealed class DeprecateApplicationHandler
         app.Deprecate(cmd.SunsetDate, _clock, cmd.SuccessorApplicationId);
         await db.SaveChangesAsync(ct);
         await audit.AppendAsync(CatalogAuditEntries.LifecycleChanged(app, from), ct);
+        if (cmd.SuccessorApplicationId is not null)
+        {
+            await audit.AppendAsync(CatalogAuditEntries.SuccessorChanged(app, from: null), ct);
+        }
         return app.ToResponse();
     }
 }

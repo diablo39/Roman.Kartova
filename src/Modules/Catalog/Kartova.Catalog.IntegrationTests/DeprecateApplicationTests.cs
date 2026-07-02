@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
 using Kartova.SharedKernel.AspNetCore;
@@ -119,6 +121,19 @@ public class DeprecateApplicationTests : CatalogIntegrationTestBase
         Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
         var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
         Assert.AreEqual(successor.Id, body!.SuccessorApplicationId);
+
+        // ADR-0110 §5.3 — setting a successor at deprecate also writes a
+        // dedicated application.successor_changed audit row (in addition to
+        // the lifecycle_changed row), so the successor assignment is itself
+        // auditable.
+        var tenantId = Fx.TenantIdForEmail(OrgAUser);
+        var rows = await Fx.ReadAuditLogAsync(tenantId.Value);
+        var successorRow = rows.Single(r =>
+            r.Action == CatalogAuditActions.ApplicationSuccessorChanged &&
+            r.TargetId == target.Id.ToString());
+        using var data = JsonDocument.Parse(successorRow.DataJson!);
+        Assert.IsNull(data.RootElement.GetProperty("from").GetString());
+        Assert.AreEqual(successor.Id.ToString(), data.RootElement.GetProperty("to").GetString());
     }
 
     [TestMethod]
