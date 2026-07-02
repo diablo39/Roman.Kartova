@@ -139,6 +139,26 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
+    public async Task ListApplications_CursorWithWrongTypedSortValue_Returns400InvalidCursor()
+    {
+        await Fx.SeedApplicationsAsync(OrgATenant, count: 2, namePrefix: "wrong-typed-sort-");
+
+        var client = Fx.CreateClientForOrgA();
+
+        var first = await client.GetAsync("/api/v1/catalog/applications?sortBy=createdAt&sortOrder=asc&limit=1");
+        Assert.AreEqual(HttpStatusCode.OK, first.StatusCode);
+        var page = await first.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
+        Assert.IsNotNull(page!.NextCursor);
+        var tampered = TamperSortValue(page.NextCursor!, "not-a-date");
+
+        var resp = await client.GetAsync(
+            $"/api/v1/catalog/applications?sortBy=createdAt&sortOrder=asc&limit=1&cursor={Uri.EscapeDataString(tampered)}");
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+        StringAssert.Contains(await resp.Content.ReadAsStringAsync(), "invalid-cursor");
+    }
+
+    [TestMethod]
     [DataRow(0)]
     [DataRow(201)]
     [DataRow(-1)]
@@ -685,5 +705,22 @@ public sealed class ListApplicationsPaginationTests : CatalogIntegrationTestBase
             await Fx.DeleteUserInOrganizationAsync(creator);
             await Fx.DeleteApplicationsByPrefixAsync(tenantId, unique);
         }
+    }
+
+    /// <summary>
+    /// Base64url-decodes a cursor issued by <c>CursorCodec</c>, overwrites its
+    /// opaque sort-value field ("s") with <paramref name="tamperedSortValue"/>,
+    /// and re-encodes — mirroring the codec's own base64url + JSON wire format
+    /// (ADR-0095) without depending on its private <c>CursorPayload</c> record.
+    /// Used to simulate a tampered/replayed cursor whose sort value is the
+    /// wrong type for the query's sort key.
+    /// </summary>
+    private static string TamperSortValue(string cursor, string tamperedSortValue)
+    {
+        var bytes = System.Buffers.Text.Base64Url.DecodeFromChars(cursor.AsSpan());
+        var node = System.Text.Json.Nodes.JsonNode.Parse(bytes)!.AsObject();
+        node["s"] = tamperedSortValue;
+        var tamperedBytes = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(node);
+        return System.Buffers.Text.Base64Url.EncodeToString(tamperedBytes);
     }
 }

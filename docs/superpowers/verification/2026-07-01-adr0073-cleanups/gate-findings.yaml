@@ -1,0 +1,80 @@
+slice:  2026-07-01-adr0073-cleanups
+branch: feat/catalog-adr0073-cleanups
+head:   e022858   # sub-slices A/B/C complete; all blocking gates green
+
+# Per-gate findings telemetry. Gate 2 (per-task reviews) findings logged as they occur;
+# gates 1,3,4,5,6,7,8,9 run at slice close and will append here.
+findings:
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "B3 report fabricated a 'confirmed via reading' citation (claimed Decommission nulls SunsetDate @ Application.cs:149 — actually Reactivate)"
+    note: "report-only inaccuracy; code verified correct (Decommission never clears SunsetDate, early capture harmless). No code change. Final review must verify from code, not reports."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "A1 tamper test seeds 2 rows into OrgATenant without try/finally cleanup"
+    note: "adjudicated acceptable — mirrors existing sibling test; [DoNotParallelize] serializes the assembly; no functional impact."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "B4 test 4 (after-sunset 200) near-duplicates test 1 seeding; camelCase request wire inferred not byte-observed"
+    note: "both no-action per reviewer; sibling tests share the same wire assumption."
+  - gate: suite
+    severity: blocking
+    verdict: real
+    title: "C2 successor self-FK add under FORCE ROW LEVEL SECURITY -> 42704 (current_setting app.current_tenant_id unset in migrator), broke ALL Catalog integration-test fixtures"
+    note: "controller-caught by actually running gate 3 (C2 review was inspection-only, apply deferred). fixed a7198f8 — wrap FK add in NO FORCE/FORCE (DevSeed pattern). Deprecate integration 16/16 green after."
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "C3 implementer mis-diagnosed the 42704 integration failure as pre-existing/environmental"
+    note: "isolation was invalid (git-stashed C3's files but left C2's migration committed); B4 had these tests green earlier same session. Controller reproduced + root-caused to C2. No code impact from the mis-diagnosis itself; process lesson logged."
+
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "Successor guard + picker duplicated (C# 422 block; web chip/Clear/combobox)"
+    note: "Unanimous across 3 cleanup agents. Extracted RejectUnknownSuccessorAsync + shared SuccessorPicker.tsx. Fixed in 2a1b885. 4 lower-value items skipped with reasons."
+
+  - gate: review-pr
+    severity: critical
+    verdict: real
+    title: "Cross-tenant successor 422 never tested (OrgBUser declared-unused)"
+    note: "RLS-scoped existence check is the whole point of the successor guard; a random-GUID test doesn't exercise RLS. Added real-seam cross-tenant PUT test (OrgB app referenced from OrgA -> 422). Fixed b4fcc55. NOTE: gate-7 general reviewer wrongly claimed this WAS covered — verified against source; gate-8 was correct."
+
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "Override-decommission + successor_changed audit rows unasserted end-to-end"
+    note: "Handler computes override bypass + emits keys, but no seam test read the audit log for the override path; PUT successor set/change/clear from/to untested. Added assertions (override before/after sunset; from/to across set->change->clear). Fixed b4fcc55."
+
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "Deprecate-with-successor left detail cache stale (successor link showed dash)"
+    note: "useDeprecateApplication.onSuccess invalidated only list(); ToResponse lacks enriched SuccessorDisplayName. Added invalidate(detail(id)). Fixed b4fcc55; Playwright-confirmed name renders immediately."
+
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "Comment rot — nonexistent ADR section refs + wrong self-successor status"
+    note: "ADR-0110 has no 5.3, ADR-0073 no 5.2 (verified against ADR headings); self-successor doc said 422 (actually 400). Swept 18 files; corrected docs. Fixed b4fcc55."
+
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "Type-design: successor should be ApplicationId? not Guid?"
+    note: "Accepted-with-reason, not applied: matches the aggregate's deliberate _id-as-raw-Guid decision (strong-typed keys break EF LINQ translation; self-ref check compares against _id). Converting would reintroduce the friction the codebase engineered away."
+
+  - gate: manual-playwright
+    severity: blocking
+    verdict: real
+    title: "Sunset-override checkbox unreachable via UI before sunset"
+    note: "LifecycleMenu disabled Decommission on beforeSunset alone, ignoring the override permission — an OrgAdmin could never open the dialog to use the override checkbox (its sole use case). Spec FE section specified the checkbox but missed the menu entry point. Threaded canOverride into LifecycleMenu. Fixed e022858; browser-confirmed + unit test added."
+
+  - gate: ci-local
+    severity: nit
+    verdict: delusion
+    title: "backend job FAIL — Docker named-pipe TimeoutException"
+    note: "14 failures (Identity 8 + Api 6) all Docker.DotNet MakeRequestAsync timeouts under container saturation, not regressions. Re-ran both assemblies in isolation -> 8/8 + 6/6 green. Documented full-suite Docker-flake pattern."

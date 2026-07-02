@@ -20,6 +20,7 @@ public sealed class Application : ITenantOwned, ITeamScopedResource
     public DateTimeOffset CreatedAt { get; private set; }
     public Lifecycle Lifecycle { get; private set; } = Lifecycle.Active;
     public DateTimeOffset? SunsetDate { get; private set; }
+    public Guid? SuccessorApplicationId { get; private set; }
     public Guid TeamId { get; private set; }
     public uint Version { get; private set; }
 
@@ -100,7 +101,7 @@ public sealed class Application : ITenantOwned, ITeamScopedResource
         Description = description;
     }
 
-    public void Deprecate(DateTimeOffset sunsetDate, TimeProvider clock)
+    public void Deprecate(DateTimeOffset sunsetDate, TimeProvider clock, Guid? successorApplicationId = null)
     {
         if (Lifecycle != Lifecycle.Active)
         {
@@ -113,18 +114,43 @@ public sealed class Application : ITenantOwned, ITeamScopedResource
                 "sunsetDate must be in the future.", nameof(sunsetDate));
         }
 
+        RejectSelfSuccessor(successorApplicationId);
+
         Lifecycle = Lifecycle.Deprecated;
         SunsetDate = sunsetDate;
+        SuccessorApplicationId = successorApplicationId;
     }
 
-    public void Decommission(TimeProvider clock)
+    /// <summary>
+    /// Sets or clears the successor reference while Deprecated (ADR-0110).
+    /// App→App only — a single <see cref="Guid"/>, not polymorphic. Existence
+    /// validation is an endpoint concern (RejectUnknownSuccessorAsync); the domain
+    /// has no DB access.
+    /// </summary>
+    public void SetSuccessor(Guid? successorApplicationId)
+    {
+        if (Lifecycle != Lifecycle.Deprecated)
+        {
+            throw new InvalidLifecycleTransitionException(Lifecycle, nameof(SetSuccessor), SunsetDate);
+        }
+
+        RejectSelfSuccessor(successorApplicationId);
+        SuccessorApplicationId = successorApplicationId;
+    }
+
+    /// <summary>
+    /// Transitions a Deprecated application to Decommissioned. Blocked before
+    /// <see cref="SunsetDate"/> unless <paramref name="allowBeforeSunset"/> is set,
+    /// letting an admin bypass the sunset-date guard (ADR-0073).
+    /// </summary>
+    public void Decommission(TimeProvider clock, bool allowBeforeSunset = false)
     {
         if (Lifecycle != Lifecycle.Deprecated)
         {
             throw new InvalidLifecycleTransitionException(Lifecycle, nameof(Decommission), SunsetDate);
         }
 
-        if (clock.GetUtcNow() < SunsetDate!.Value)
+        if (!allowBeforeSunset && clock.GetUtcNow() < SunsetDate!.Value)
         {
             throw new InvalidLifecycleTransitionException(
                 Lifecycle, nameof(Decommission), SunsetDate, reason: "before-sunset-date");
@@ -142,6 +168,7 @@ public sealed class Application : ITenantOwned, ITeamScopedResource
 
         Lifecycle = Lifecycle.Active;
         SunsetDate = null;
+        SuccessorApplicationId = null;
     }
 
     /// <summary>
@@ -173,6 +200,14 @@ public sealed class Application : ITenantOwned, ITeamScopedResource
 
         Lifecycle = Lifecycle.Deprecated;
         SunsetDate = newSunsetDate;
+    }
+
+    private void RejectSelfSuccessor(Guid? successorApplicationId)
+    {
+        if (successorApplicationId == _id)
+        {
+            throw new ArgumentException("An application cannot be its own successor.", nameof(successorApplicationId));
+        }
     }
 
     private static void ValidateDisplayName(string displayName)

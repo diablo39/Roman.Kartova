@@ -1,13 +1,17 @@
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { ModalOverlay, Modal, Dialog } from "@/components/application/modals/modal";
 import { Button } from "@/components/base/buttons/button";
+import { Checkbox } from "@/components/base/checkbox/checkbox";
 
 import {
   useDecommissionApplication,
   type ApplicationResponse,
 } from "@/features/catalog/api/applications";
 import { isLifecycle, lifecycleLabel } from "@/features/catalog/lifecycle";
+import { usePermissions } from "@/shared/auth/usePermissions";
+import { KartovaPermissions } from "@/shared/auth/permissions";
 import type { ProblemDetails } from "@/shared/forms/problemDetails";
 
 interface Props {
@@ -19,8 +23,10 @@ interface Props {
 /**
  * Decommission confirmation modal — terminal-state warning.
  *
- * No form, no body — the API expects an empty POST. The user only confirms
- * the destructive action.
+ * No form — the user only confirms the destructive action. OrgAdmins holding
+ * `catalog.applications.lifecycle.override` may additionally tick "Override
+ * sunset date" (ADR-0073) while the app is still before its sunset date; the
+ * checkbox disappears once sunset has elapsed (override is then meaningless).
  *
  * Server-error UX:
  *  - 409 with `reason="before-sunset-date"` (server-supplied) and a
@@ -30,10 +36,17 @@ interface Props {
  */
 export function DecommissionConfirmDialog({ application, open, onOpenChange }: Props) {
   const mutation = useDecommissionApplication(application.id);
+  const { hasPermission } = usePermissions();
+  const [overrideSunset, setOverrideSunset] = useState(false);
+
+  const canOverride =
+    hasPermission(KartovaPermissions.CatalogApplicationsLifecycleOverride) &&
+    !!application.sunsetDate &&
+    new Date(application.sunsetDate) > new Date();
 
   const onConfirm = async () => {
     try {
-      await mutation.mutateAsync();
+      await mutation.mutateAsync(canOverride ? { overrideSunset } : undefined);
       toast.success(`${application.displayName} decommissioned.`);
       onOpenChange(false);
     } catch (err) {
@@ -75,6 +88,17 @@ export function DecommissionConfirmDialog({ application, open, onOpenChange }: P
               This is a terminal state. The application will be hidden from default views and become read-only. This cannot be undone in the current product version.
             </p>
           </div>
+
+          {canOverride && (
+            <div className="mb-4">
+              <Checkbox
+                label="Override sunset date"
+                hint="Decommission now even though the sunset date hasn't passed yet. This is audit-logged."
+                isSelected={overrideSunset}
+                onChange={setOverrideSunset}
+              />
+            </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" color="secondary" size="sm" onClick={() => onOpenChange(false)}>

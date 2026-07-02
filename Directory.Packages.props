@@ -11,6 +11,10 @@
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.7" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.Common" Version="5.0.0" />
+    <!-- Pulled in transitively by Microsoft.AspNetCore.OpenApi (resolves 2.0.0). Pinned via a direct -->
+    <!-- PackageReference in Kartova.Api to the patched 2.x release for GHSA-v5pm-xwqc-g5wc -->
+    <!-- (CVE-2026-49451, uncontrolled recursion). Flows to downstream projects that reference the API. -->
+    <PackageVersion Include="Microsoft.OpenApi" Version="2.7.5" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="5.0.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.2" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.2" />

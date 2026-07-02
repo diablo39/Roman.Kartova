@@ -55,6 +55,20 @@ public sealed class KartovaRolePermissionsTests
     }
 
     [TestMethod]
+    public void OrgAdmin_uniquely_owns_override_lifecycle()
+    {
+        var orgAdmin = KartovaRolePermissions.ForRole(KartovaRoles.OrgAdmin);
+        Assert.IsTrue(orgAdmin.Contains(KartovaPermissions.CatalogApplicationsLifecycleOverride));
+
+        foreach (var role in new[] { KartovaRoles.Viewer, KartovaRoles.Member })
+        {
+            var perms = KartovaRolePermissions.ForRole(role);
+            Assert.IsFalse(perms.Contains(KartovaPermissions.CatalogApplicationsLifecycleOverride),
+                $"{role} must not have override-lifecycle permission.");
+        }
+    }
+
+    [TestMethod]
     public void Viewer_subset_of_Member()
     {
         var viewer = KartovaRolePermissions.ForRole(KartovaRoles.Viewer);

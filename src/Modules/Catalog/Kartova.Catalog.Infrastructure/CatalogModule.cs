@@ -82,7 +82,8 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .ProducesProblem(StatusCodes.Status400BadRequest)
               .ProducesProblem(StatusCodes.Status403Forbidden)
               .ProducesProblem(StatusCodes.Status404NotFound)
-              .ProducesProblem(StatusCodes.Status409Conflict);
+              .ProducesProblem(StatusCodes.Status409Conflict)
+              .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         // POST decommission — Deprecated → Decommissioned transition. Empty body, no
         // If-Match (same rationale as deprecate). Two failure modes share the 409:
         // wrong source state, and "now < sunsetDate" — the latter carries
@@ -95,6 +96,21 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .ProducesProblem(StatusCodes.Status403Forbidden)
               .ProducesProblem(StatusCodes.Status404NotFound)
               .ProducesProblem(StatusCodes.Status409Conflict);
+        // PUT successor — set/clear successor while Deprecated (ADR-0110).
+        // PUT = idempotent replacement (ADR-0096); null clears. Same forward
+        // permission as deprecate/decommission (Member-or-OrgAdmin on the app's
+        // team). 422 = unknown/cross-tenant successor id (delegate pre-check);
+        // 409 = source not Deprecated; 400 = self-successor — both domain guards
+        // inside Application.SetSuccessor().
+        tenant.MapPut("/applications/{id:guid}/successor", CatalogEndpointDelegates.SetApplicationSuccessorAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogApplicationsLifecycleForward)
+              .WithName("SetApplicationSuccessor")
+              .Produces<ApplicationResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
+              .ProducesProblem(StatusCodes.Status404NotFound)
+              .ProducesProblem(StatusCodes.Status409Conflict)
+              .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         // POST reactivate — reverse lifecycle transition (Deprecated/Decommissioned → Active).
         // OrgAdmin only (CatalogApplicationsLifecycleReverse). Empty body, no If-Match —
         // same rationale as deprecate/decommission. The domain invariant inside
@@ -200,6 +216,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<EditApplicationHandler>();
         services.AddScoped<DeprecateApplicationHandler>();
         services.AddScoped<DecommissionApplicationHandler>();
+        services.AddScoped<SetApplicationSuccessorHandler>();
         services.AddScoped<ReactivateApplicationHandler>();
         services.AddScoped<UnDecommissionApplicationHandler>();
         services.AddScoped<AssignApplicationTeamHandler>();

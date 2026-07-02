@@ -1,11 +1,12 @@
 import { lazy, Suspense, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "@/components/base/card/card";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
 import { Button } from "@/components/base/buttons/button";
 import { useApplication } from "@/features/catalog/api/applications";
 import { LifecycleMenu } from "@/features/catalog/components/LifecycleMenu";
 import { EditApplicationDialog } from "@/features/catalog/components/EditApplicationDialog";
+import { SetSuccessorDialog } from "@/features/catalog/components/SetSuccessorDialog";
 import { AssignTeamPicker } from "@/features/teams/components/AssignTeamPicker";
 import { CreatedByLink } from "@/features/users/components/CreatedByLink";
 import { usePermissions } from "@/shared/auth/usePermissions";
@@ -20,11 +21,13 @@ export function ApplicationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const query = useApplication(id ?? "");
   const [editOpen, setEditOpen] = useState(false);
+  const [successorDialogOpen, setSuccessorDialogOpen] = useState(false);
 
-  const { hasPermission, isLoading: permissionsLoading } = usePermissions();
+  const { hasPermission, isLoading: permissionsLoading, role, teamIds } = usePermissions();
   const canEditMetadata = hasPermission(KartovaPermissions.CatalogApplicationsEditMetadata);
   const canForwardLifecycle = hasPermission(KartovaPermissions.CatalogApplicationsLifecycleForward);
   const canReverseLifecycle = hasPermission(KartovaPermissions.CatalogApplicationsLifecycleReverse);
+  const canOverrideSunset = hasPermission(KartovaPermissions.CatalogApplicationsLifecycleOverride);
 
   if (query.isLoading) {
     return (
@@ -58,6 +61,12 @@ export function ApplicationDetailPage() {
   // Defense-in-depth: hide Edit when terminal OR when user lacks the permission.
   // The server still returns 409 LifecycleConflict / 403 if a stale client tries anyway.
   const canEdit = !permissionsLoading && canEditMetadata && app.lifecycle !== "decommissioned";
+  // ADR-0110: successor management gated on Deprecated + (OrgAdmin or team member) + lifecycle.forward.
+  const canManageSuccessor =
+    !permissionsLoading &&
+    canForwardLifecycle &&
+    (role === "OrgAdmin" || (app.teamId !== null && teamIds.includes(app.teamId)));
+  const showSuccessorAction = app.lifecycle === "deprecated" && canManageSuccessor;
 
   return (
     <>
@@ -71,6 +80,7 @@ export function ApplicationDetailPage() {
                   application={app}
                   canForward={canForwardLifecycle}
                   canReverse={canReverseLifecycle}
+                  canOverride={canOverrideSunset}
                 />
               )}
               <AssignTeamPicker applicationId={app.id} currentTeamId={app.teamId} />
@@ -100,6 +110,33 @@ export function ApplicationDetailPage() {
             </div>
             <Field label="Created" value={app.createdAt ?? "—"} />
           </section>
+          {(app.successorApplicationId || showSuccessorAction) && (
+            <>
+              <hr className="border-secondary" />
+              <section className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-tertiary">Successor</div>
+                  <div className="mt-1 text-sm">
+                    {app.successorApplicationId ? (
+                      <Link
+                        to={`/catalog/applications/${app.successorApplicationId}`}
+                        className="text-brand-secondary hover:underline"
+                      >
+                        {app.successorDisplayName ?? "—"} →
+                      </Link>
+                    ) : (
+                      <span className="italic text-tertiary">None set</span>
+                    )}
+                  </div>
+                </div>
+                {showSuccessorAction && (
+                  <Button color="secondary" size="sm" onClick={() => setSuccessorDialogOpen(true)}>
+                    {app.successorApplicationId ? "Change successor" : "Set successor"}
+                  </Button>
+                )}
+              </section>
+            </>
+          )}
           <hr className="border-secondary" />
           <Suspense fallback={<Skeleton className="h-80 w-full" />}>
             <DependencyMiniGraph entityKind="application" entityId={app.id} displayName={app.displayName} />
@@ -116,6 +153,10 @@ export function ApplicationDetailPage() {
 
       {editOpen && (
         <EditApplicationDialog application={app} open onOpenChange={setEditOpen} />
+      )}
+
+      {successorDialogOpen && (
+        <SetSuccessorDialog application={app} open onOpenChange={setSuccessorDialogOpen} />
       )}
     </>
   );

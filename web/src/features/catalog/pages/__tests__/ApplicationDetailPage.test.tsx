@@ -20,12 +20,15 @@ vi.mock("@/shared/auth/usePermissions", () => ({
 
 import { KartovaPermissions } from "@/shared/auth/permissions";
 
-function mockPermissions(perms: string[]) {
+function mockPermissions(
+  perms: string[],
+  overrides?: { role?: string; teamIds?: string[] }
+) {
   usePermissionsMock.mockReturnValue({
-    role: "test",
+    role: overrides?.role ?? "test",
     hasPermission: (p: string) => perms.includes(p),
     isLoading: false,
-    teamIds: [],
+    teamIds: overrides?.teamIds ?? [],
     teamAdminTeamIds: [],
     isError: false,
   });
@@ -322,5 +325,153 @@ describe("ApplicationDetailPage — LifecycleMenu gating", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /open lifecycle menu/i })).toBeInTheDocument(),
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Successor link + manage-button gating (ADR-0110, Task C6)
+// ---------------------------------------------------------------------------
+
+const deprecatedAppWithSuccessor = {
+  ...activeApp,
+  lifecycle: "deprecated",
+  teamId: "team-1",
+  successorApplicationId: "00000000-0000-0000-0000-000000000def",
+  successorDisplayName: "Payments v2",
+};
+
+const deprecatedAppNoSuccessor = {
+  ...activeApp,
+  lifecycle: "deprecated",
+  teamId: "team-1",
+  successorApplicationId: null,
+  successorDisplayName: null,
+};
+
+describe("ApplicationDetailPage — successor link + manage button gating", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("renders the successor link when successorApplicationId is present", async () => {
+    mockPermissions([KartovaPermissions.CatalogRead]);
+
+    const get = vi.fn().mockResolvedValue({ data: deprecatedAppWithSuccessor, error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(harness(qc, "/catalog/applications/00000000-0000-0000-0000-000000000001"));
+
+    const link = await screen.findByRole("link", { name: /Payments v2/i });
+    expect(link).toHaveAttribute(
+      "href",
+      "/catalog/applications/00000000-0000-0000-0000-000000000def"
+    );
+  });
+
+  it("hides the successor section when no successor is set and the user cannot manage it", async () => {
+    mockPermissions([KartovaPermissions.CatalogRead]);
+
+    const get = vi.fn().mockResolvedValue({ data: deprecatedAppNoSuccessor, error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(harness(qc, "/catalog/applications/00000000-0000-0000-0000-000000000001"));
+
+    await waitFor(() => expect(screen.getByText("Payment Gateway")).toBeInTheDocument());
+    expect(screen.queryByText(/successor/i)).toBeNull();
+  });
+
+  it("shows the 'Change successor' button when Deprecated + OrgAdmin", async () => {
+    mockPermissions(
+      [KartovaPermissions.CatalogApplicationsLifecycleForward],
+      { role: "OrgAdmin", teamIds: [] }
+    );
+
+    const get = vi.fn().mockResolvedValue({ data: deprecatedAppWithSuccessor, error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(harness(qc, "/catalog/applications/00000000-0000-0000-0000-000000000001"));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /change successor/i })).toBeInTheDocument()
+    );
+  });
+
+  it("shows the 'Set successor' button when Deprecated + team member with forward permission", async () => {
+    mockPermissions(
+      [KartovaPermissions.CatalogApplicationsLifecycleForward],
+      { role: "Member", teamIds: ["team-1"] }
+    );
+
+    const get = vi.fn().mockResolvedValue({ data: deprecatedAppNoSuccessor, error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(harness(qc, "/catalog/applications/00000000-0000-0000-0000-000000000001"));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /set successor/i })).toBeInTheDocument()
+    );
+  });
+
+  it("hides the manage button when Deprecated but the user lacks forward permission", async () => {
+    mockPermissions([KartovaPermissions.CatalogRead], { role: "OrgAdmin", teamIds: [] });
+
+    const get = vi.fn().mockResolvedValue({ data: deprecatedAppWithSuccessor, error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(harness(qc, "/catalog/applications/00000000-0000-0000-0000-000000000001"));
+
+    await waitFor(() => expect(screen.getByText("Payment Gateway")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /(change|set) successor/i })).toBeNull();
+  });
+
+  it("hides the manage button when not Deprecated, even with permission + OrgAdmin", async () => {
+    mockPermissions(
+      [KartovaPermissions.CatalogApplicationsLifecycleForward],
+      { role: "OrgAdmin", teamIds: [] }
+    );
+
+    const get = vi.fn().mockResolvedValue({ data: activeApp, error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(harness(qc, "/catalog/applications/00000000-0000-0000-0000-000000000001"));
+
+    await waitFor(() => expect(screen.getByText("Payment Gateway")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /(change|set) successor/i })).toBeNull();
+  });
+
+  it("hides the manage button when Deprecated + forward permission but not OrgAdmin nor a team member", async () => {
+    mockPermissions(
+      [KartovaPermissions.CatalogApplicationsLifecycleForward],
+      { role: "Member", teamIds: ["some-other-team"] }
+    );
+
+    const get = vi.fn().mockResolvedValue({ data: deprecatedAppWithSuccessor, error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: get, POST: vi.fn(),
+    } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(harness(qc, "/catalog/applications/00000000-0000-0000-0000-000000000001"));
+
+    await waitFor(() => expect(screen.getByText("Payment Gateway")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /(change|set) successor/i })).toBeNull();
   });
 });

@@ -71,6 +71,17 @@ public sealed class EfApplicationConfiguration : IEntityTypeConfiguration<Kartov
             .HasColumnName("sunset_date")
             .HasColumnType("timestamptz");                    // nullable by default
 
+        // Optional self-referential successor pointer (ADR-0110). Nullable — most
+        // applications have no successor. Restrict delete: an application referenced
+        // as a successor cannot be deleted while the pointer exists.
+        b.Property(x => x.SuccessorApplicationId).HasColumnName("successor_application_id");
+        b.HasOne<Kartova.Catalog.Domain.Application>()
+            .WithMany()
+            .HasForeignKey(x => x.SuccessorApplicationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => x.SuccessorApplicationId)
+            .HasDatabaseName("ix_catalog_applications_successor_application_id");
+
         b.Property(x => x.Version)
             .HasColumnName("xmin")
             .HasColumnType("xid")

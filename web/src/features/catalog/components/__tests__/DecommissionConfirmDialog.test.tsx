@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 
 import * as clientModule from "@/features/catalog/api/client";
+import * as perms from "@/shared/auth/usePermissions";
+import { KartovaPermissions } from "@/shared/auth/permissions";
 import { DecommissionConfirmDialog } from "../DecommissionConfirmDialog";
 import type { ApplicationResponse } from "@/features/catalog/api/applications";
 
@@ -21,22 +23,43 @@ const baseApp: ApplicationResponse = {
   version: "v1",
 };
 
+/** Future-dated sunset — needed for the override-checkbox tests (checkbox is
+ *  meaningless once sunset has already elapsed). */
+const futureSunsetApp: ApplicationResponse = {
+  ...baseApp,
+  sunsetDate: "2099-06-15T00:00:00Z",
+};
+
+function mockPerms(can: boolean) {
+  vi.spyOn(perms, "usePermissions").mockReturnValue({
+    hasPermission: (p: string) => can && p === KartovaPermissions.CatalogApplicationsLifecycleOverride,
+    role: can ? "OrgAdmin" : "Member",
+    teamIds: [],
+    teamAdminTeamIds: [],
+    isLoading: false,
+    isError: false,
+  } as never);
+}
+
 function setup({
   post,
   application = baseApp,
   open = true,
   onOpenChange = vi.fn(),
+  canOverride = false,
 }: {
   post: ReturnType<typeof vi.fn>;
   application?: ApplicationResponse;
   open?: boolean;
   onOpenChange?: (b: boolean) => void;
+  canOverride?: boolean;
 }) {
   vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
     GET: vi.fn(),
     POST: post,
     PUT: vi.fn(),
   } as never);
+  mockPerms(canOverride);
 
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
@@ -143,5 +166,52 @@ describe("DecommissionConfirmDialog", () => {
 
     await waitFor(() => expect(screen.getByText(/server exploded/i)).toBeInTheDocument());
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
+  });
+
+  it("shows the override checkbox and posts overrideSunset:true when permitted and sunset is future", async () => {
+    const post = vi.fn().mockResolvedValue({
+      data: { ...futureSunsetApp, lifecycle: "decommissioned" },
+      error: undefined,
+      response: { status: 200 } as Response,
+    });
+    setup({ post, application: futureSunsetApp, canOverride: true });
+
+    const checkbox = screen.getByRole("checkbox", { name: /override sunset date/i });
+    expect(checkbox).toBeInTheDocument();
+
+    await userEvent.click(checkbox);
+    await userEvent.click(screen.getByRole("button", { name: /^decommission$/i }));
+
+    await waitFor(() => expect(post).toHaveBeenCalled());
+    expect(post).toHaveBeenCalledWith(
+      "/api/v1/catalog/applications/{id}/decommission",
+      expect.objectContaining({
+        params: { path: { id: futureSunsetApp.id } },
+        body: { overrideSunset: true },
+      })
+    );
+  });
+
+  it("hides the override checkbox and sends no override when the user lacks the override permission", async () => {
+    const post = vi.fn().mockResolvedValue({
+      data: { ...futureSunsetApp, lifecycle: "decommissioned" },
+      error: undefined,
+      response: { status: 200 } as Response,
+    });
+    setup({ post, application: futureSunsetApp, canOverride: false });
+
+    expect(screen.queryByRole("checkbox", { name: /override sunset date/i })).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: /^decommission$/i }));
+
+    await waitFor(() => expect(post).toHaveBeenCalled());
+    const [, options] = post.mock.calls[0] as [string, { body?: { overrideSunset?: boolean } }];
+    expect(options.body?.overrideSunset ?? false).toBe(false);
+  });
+
+  it("hides the override checkbox when permitted but sunset date has already passed", () => {
+    setup({ post: vi.fn(), application: baseApp, canOverride: true });
+
+    expect(screen.queryByRole("checkbox", { name: /override sunset date/i })).toBeNull();
   });
 });

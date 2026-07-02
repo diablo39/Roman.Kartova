@@ -67,6 +67,23 @@ describe("LifecycleMenu", () => {
     expect(item).toHaveAttribute("aria-disabled", "true");
   });
 
+  it("Deprecated + before sunset + canOverride enables Decommission (override reachable)", async () => {
+    // ADR-0073 admin override: an override holder must be able to open the
+    // decommission dialog before sunset to use the override checkbox. Without
+    // canOverride the item is disabled (previous case); with it, enabled.
+    const user = userEvent.setup();
+    render(
+      <LifecycleMenu
+        application={{ ...baseApp, lifecycle: "deprecated", sunsetDate: FAR_FUTURE }}
+        canOverride
+      />,
+      { wrapper }
+    );
+    await user.click(screen.getByRole("button", { name: /open lifecycle menu/i }));
+    const item = await screen.findByRole("menuitem", { name: /decommission/i });
+    expect(item).not.toHaveAttribute("aria-disabled", "true");
+  });
+
   it("Deprecated + after sunset enables Decommission", async () => {
     const user = userEvent.setup();
     render(

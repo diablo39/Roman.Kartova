@@ -14,4 +14,5 @@ namespace Kartova.Catalog.Application;
 /// </summary>
 public sealed record DeprecateApplicationCommand(
     Kartova.Catalog.Domain.ApplicationId Id,
-    DateTimeOffset SunsetDate);
+    DateTimeOffset SunsetDate,
+    Guid? SuccessorApplicationId = null);

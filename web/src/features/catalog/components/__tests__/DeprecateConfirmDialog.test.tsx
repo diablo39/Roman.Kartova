@@ -21,6 +21,19 @@ const baseApp: ApplicationResponse = {
   version: "v1",
 };
 
+const otherApp = {
+  kind: "application" as const,
+  // RFC 4122 v4-shaped id: deprecateApplicationSchema's zod .uuid() validator
+  // requires a valid version/variant nibble, unlike the all-zeros fixture id
+  // used elsewhere — a nil-style id here would fail RHF validation silently.
+  id: "11111111-1111-4111-8111-111111111111",
+  displayName: "Payments v2",
+};
+
+vi.mock("@/features/catalog/api/relationships", () => ({
+  useEntitySearch: () => ({ data: [otherApp], isLoading: false, isError: false }),
+}));
+
 function setup({
   post,
   application = baseApp,
@@ -139,5 +152,43 @@ describe("DeprecateConfirmDialog", () => {
 
     await waitFor(() => expect(screen.getByText(/server exploded/i)).toBeInTheDocument());
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
+  });
+
+  it("selecting a successor includes its id in the deprecate payload", async () => {
+    const post = vi.fn().mockResolvedValue({
+      data: { ...baseApp, lifecycle: "deprecated" },
+      error: undefined,
+      response: { status: 200 } as Response,
+    });
+    setup({ post });
+
+    await userEvent.type(screen.getByRole("combobox"), "Payments v2");
+    await waitFor(() => expect(screen.getByText("Payments v2")).toBeInTheDocument());
+    await userEvent.click(screen.getByText("Payments v2"));
+
+    await userEvent.click(screen.getByRole("button", { name: /^deprecate$/i }));
+
+    await waitFor(() => expect(post).toHaveBeenCalled());
+    expect(post).toHaveBeenCalledWith(
+      "/api/v1/catalog/applications/{id}/deprecate",
+      expect.objectContaining({
+        body: expect.objectContaining({ successorApplicationId: otherApp.id }),
+      })
+    );
+  });
+
+  it("omitting a successor submits a payload with no successorApplicationId", async () => {
+    const post = vi.fn().mockResolvedValue({
+      data: { ...baseApp, lifecycle: "deprecated" },
+      error: undefined,
+      response: { status: 200 } as Response,
+    });
+    setup({ post });
+
+    await userEvent.click(screen.getByRole("button", { name: /^deprecate$/i }));
+
+    await waitFor(() => expect(post).toHaveBeenCalled());
+    const [, options] = post.mock.calls[0] as [string, { body: Record<string, unknown> }];
+    expect(options.body.successorApplicationId).toBeUndefined();
   });
 });

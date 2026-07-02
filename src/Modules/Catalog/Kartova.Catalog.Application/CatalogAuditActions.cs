@@ -12,6 +12,7 @@ public static class CatalogAuditActions
     public const string ApplicationRegistered = "application.registered";
     public const string ApplicationEdited = "application.edited";
     public const string ApplicationLifecycleChanged = "application.lifecycle_changed";
+    public const string ApplicationSuccessorChanged = "application.successor_changed";
     public const string ApplicationTeamAssigned = "application.team_assigned";
     public const string ServiceRegistered = "service.registered";
     public const string RelationshipCreated = "relationship.created";

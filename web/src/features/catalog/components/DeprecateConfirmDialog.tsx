@@ -17,6 +17,7 @@ import {
   type ApplicationResponse,
 } from "@/features/catalog/api/applications";
 import { isLifecycle, lifecycleLabel } from "@/features/catalog/lifecycle";
+import { SuccessorPicker } from "@/features/catalog/components/SuccessorPicker";
 import {
   applyProblemDetailsToForm,
   type ProblemDetails,
@@ -60,6 +61,11 @@ export function DeprecateConfirmDialog({ application, open, onOpenChange }: Prop
     resolver: zodResolver(deprecateApplicationSchema),
     defaultValues: { sunsetDate: initialSunset },
   });
+
+  // ADR-0110: optional successor picked at deprecate time. Tracked
+  // separately for display (the combobox is a search box, not a controlled
+  // select) so the picked name can be shown next to a Clear affordance.
+  const [successorName, setSuccessorName] = useState<string | null>(null);
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
@@ -120,6 +126,29 @@ export function DeprecateConfirmDialog({ application, open, onOpenChange }: Prop
                 />
               )}
             </FormField>
+
+            <div>
+              <label className="text-sm font-medium text-secondary">
+                Successor (optional)
+              </label>
+              <p className="mt-0.5 text-xs text-tertiary">
+                Point consumers to a replacement application.
+              </p>
+              <div className="mt-1.5">
+                <SuccessorPicker
+                  selectedName={successorName}
+                  excludeId={application.id}
+                  onSelect={(id, displayName) => {
+                    form.setValue("successorApplicationId", id);
+                    setSuccessorName(displayName);
+                  }}
+                  onClear={() => {
+                    form.setValue("successorApplicationId", undefined);
+                    setSuccessorName(null);
+                  }}
+                />
+              </div>
+            </div>
 
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" color="secondary" size="sm" onClick={() => onOpenChange(false)}>

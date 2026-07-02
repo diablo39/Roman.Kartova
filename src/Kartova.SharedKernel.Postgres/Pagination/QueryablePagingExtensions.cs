@@ -205,21 +205,29 @@ public static class QueryablePagingExtensions
 
     private static object ConvertCursorValue(object value, Type targetType)
     {
-        if (targetType == typeof(DateTimeOffset) && value is string s)
+        try
         {
-            return DateTimeOffset.Parse(s, System.Globalization.CultureInfo.InvariantCulture);
+            if (targetType == typeof(DateTimeOffset) && value is string s)
+            {
+                return DateTimeOffset.Parse(s, System.Globalization.CultureInfo.InvariantCulture);
+            }
+            if (targetType == typeof(DateTime) && value is string s2)
+            {
+                return DateTime.Parse(s2, System.Globalization.CultureInfo.InvariantCulture).ToUniversalTime();
+            }
+            if (targetType == typeof(Guid) && value is string s3)
+            {
+                return Guid.Parse(s3);
+            }
+            // Convert.ChangeType handles primitives that implement IConvertible (string, int, long, double, bool, etc.).
+            // Types without IConvertible (Guid, DateTimeOffset, custom value types) need explicit cases above.
+            return Convert.ChangeType(value, targetType, System.Globalization.CultureInfo.InvariantCulture)!;
         }
-        if (targetType == typeof(DateTime) && value is string s2)
+        catch (Exception ex) when (ex is FormatException or InvalidCastException or OverflowException)
         {
-            return DateTime.Parse(s2, System.Globalization.CultureInfo.InvariantCulture).ToUniversalTime();
+            throw new InvalidCursorException(
+                $"Cursor sort value '{value}' is not compatible with expected type {targetType.Name}.", ex);
         }
-        if (targetType == typeof(Guid) && value is string s3)
-        {
-            return Guid.Parse(s3);
-        }
-        // Convert.ChangeType handles primitives that implement IConvertible (string, int, long, double, bool, etc.).
-        // Types without IConvertible (Guid, DateTimeOffset, custom value types) need explicit cases above.
-        return Convert.ChangeType(value, targetType, System.Globalization.CultureInfo.InvariantCulture)!;
     }
 
     private static object NormalizeForCursor(object value) => value switch
