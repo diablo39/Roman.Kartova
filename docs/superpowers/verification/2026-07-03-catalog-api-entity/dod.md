@@ -21,7 +21,7 @@
 | 4 Container build (images CI) | ⏳ PENDING (for controller) | — |
 | 5 `/simplify` | ⏳ PENDING (for controller) | — |
 | 6 Mutation (conditional) | ⏳ PENDING (for controller) — BLOCKING: diff touches `Api` Domain + Application/Infrastructure handler logic | — |
-| 7 `requesting-code-review` | ⏳ PENDING (for controller) | — |
+| 7 `requesting-code-review` (SDD final whole-branch review) | ✅ PASS — **no blocking**; 5 should-fix items applied (fb95205), 2 nits deferred | 2026-07-03 |
 | 8 `review-pr` | ⏳ PENDING (for controller) | — |
 | 9 `deep-review` | ⏳ PENDING (for controller) | — |
 | Manual / Playwright (ADR-0084) | ⏳ PENDING (for controller) | — |
