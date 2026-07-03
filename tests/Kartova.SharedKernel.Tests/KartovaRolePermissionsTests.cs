@@ -149,4 +149,16 @@ public sealed class KartovaRolePermissionsTests
         Assert.IsFalse(KartovaRolePermissions.ForRole(KartovaRoles.Viewer)
             .Contains(KartovaPermissions.CatalogRelationshipsWrite));
     }
+
+    [TestMethod]
+    public void Member_and_OrgAdmin_can_register_apis_but_Viewer_cannot()
+    {
+        Assert.IsTrue(KartovaRolePermissions.ForRole(KartovaRoles.Member).Contains(KartovaPermissions.CatalogApisRegister));
+        Assert.IsTrue(KartovaRolePermissions.ForRole(KartovaRoles.OrgAdmin).Contains(KartovaPermissions.CatalogApisRegister));
+        Assert.IsFalse(KartovaRolePermissions.ForRole(KartovaRoles.Viewer).Contains(KartovaPermissions.CatalogApisRegister));
+    }
+
+    [TestMethod]
+    public void CatalogApisRegister_is_in_the_All_set() =>
+        Assert.IsTrue(KartovaPermissions.All.Contains(KartovaPermissions.CatalogApisRegister));
 }

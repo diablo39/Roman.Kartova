@@ -11,6 +11,7 @@ public static class KartovaPermissions
     public const string CatalogApplicationsLifecycleReverse = "catalog.applications.lifecycle.reverse";
     public const string CatalogApplicationsLifecycleOverride = "catalog.applications.lifecycle.override";
     public const string CatalogServicesRegister = "catalog.services.register";
+    public const string CatalogApisRegister = "catalog.apis.register";
     public const string CatalogRelationshipsWrite = "catalog.relationships.write";
 
     public const string TeamRead          = "team.read";
@@ -35,6 +36,7 @@ public static class KartovaPermissions
         CatalogApplicationsLifecycleReverse,
         CatalogApplicationsLifecycleOverride,
         CatalogServicesRegister,
+        CatalogApisRegister,
         CatalogRelationshipsWrite,
         TeamRead,
         TeamCreate,
