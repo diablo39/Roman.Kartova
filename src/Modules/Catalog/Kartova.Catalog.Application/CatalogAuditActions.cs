@@ -15,6 +15,7 @@ public static class CatalogAuditActions
     public const string ApplicationSuccessorChanged = "application.successor_changed";
     public const string ApplicationTeamAssigned = "application.team_assigned";
     public const string ServiceRegistered = "service.registered";
+    public const string ApiRegistered = "api.registered";
     public const string RelationshipCreated = "relationship.created";
     public const string RelationshipRemoved = "relationship.removed";
 }
@@ -27,5 +28,6 @@ public static class CatalogAuditTargetTypes
 {
     public const string Application = "Application";
     public const string Service = "Service";
+    public const string Api = "Api";
     public const string Relationship = "Relationship";
 }
