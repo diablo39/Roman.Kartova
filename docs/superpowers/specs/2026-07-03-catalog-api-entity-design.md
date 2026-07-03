@@ -211,7 +211,7 @@ Enums serialize camelCase over the wire (ADR-0109).
 | `TeamId` does not resolve to a team in the tenant | 422 | `…/invalid-team` |
 | GET by id not found in current tenant | 404 | `…/resource-not-found` |
 | Bad `sortBy`/`sortOrder` on list | 400 | `InvalidSortFieldException` → `PagingExceptionHandler` |
-| Bad `limit` on list | 422 | `InvalidLimitException` (ADR-0095 cursor-list envelope) |
+| Bad `limit` on list | 400 | `invalid-limit` (ADR-0095 cursor-list envelope) |
 
 ---
 

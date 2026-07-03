@@ -7,16 +7,20 @@ using Kartova.Testing.Auth;
 
 namespace Kartova.Catalog.IntegrationTests;
 
+/// <summary>Cursor-pagination and sort-order integration tests for the APIs list endpoint (ADR-0095).</summary>
 [TestClass]
-public class ListApisPaginationTests : CatalogIntegrationTestBase
+public sealed class ListApisPaginationTests : CatalogIntegrationTestBase
 {
     private const string OrgAUser = "admin@orga.kartova.local";
 
-    private static async Task Seed(HttpClient client, Guid teamId, string name, string version = "v1")
+    private static async Task Seed(HttpClient client, Guid teamId, string name, string version = "v1") =>
+        await SeedWithStyle(client, teamId, name, ApiStyle.Rest, version);
+
+    private static async Task SeedWithStyle(HttpClient client, Guid teamId, string name, ApiStyle style, string version)
     {
         var resp = await client.PostAsJsonAsync("/api/v1/catalog/apis", new
         {
-            displayName = name, description = "seed.", style = ApiStyle.Rest, version, specUrl = (string?)null, teamId,
+            displayName = name, description = "seed.", style, version, specUrl = (string?)null, teamId,
         });
         Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode);
     }
@@ -80,13 +84,32 @@ public class ListApisPaginationTests : CatalogIntegrationTestBase
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
         var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Api Sort Team");
-        await Seed(client, teamId, "z-api", version: "1.0");
-        await Seed(client, teamId, "a-api", version: "2.0");
+        var unique = Guid.NewGuid().ToString("N");
+        await SeedWithStyle(client, teamId, $"vsort-{unique}-1", ApiStyle.Grpc, "1.0");
+        await SeedWithStyle(client, teamId, $"vsort-{unique}-2", ApiStyle.Rest, "3.0");
+        await SeedWithStyle(client, teamId, $"vsort-{unique}-3", ApiStyle.GraphQL, "2.0");
 
-        var byVersion = await client.GetAsync("/api/v1/catalog/apis?sortBy=version&sortOrder=asc");
-        Assert.AreEqual(HttpStatusCode.OK, byVersion.StatusCode);
-        var byStyle = await client.GetAsync("/api/v1/catalog/apis?sortBy=style&sortOrder=desc");
-        Assert.AreEqual(HttpStatusCode.OK, byStyle.StatusCode);
+        // sortBy=version asc: real order must be 1.0, 2.0, 3.0 — fails if the Version
+        // sort spec is swapped or broken (e.g. sorting by displayName/style instead).
+        var byVersionResp = await client.GetAsync("/api/v1/catalog/apis?sortBy=version&sortOrder=asc&limit=200");
+        Assert.AreEqual(HttpStatusCode.OK, byVersionResp.StatusCode);
+        var byVersion = await byVersionResp.Content.ReadFromJsonAsync<CursorPage<ApiResponse>>(KartovaApiFixtureBase.WireJson);
+        var byVersionSeeded = byVersion!.Items
+            .Where(i => i.DisplayName.StartsWith($"vsort-{unique}-", StringComparison.Ordinal))
+            .Select(i => i.Version).ToList();
+        CollectionAssert.AreEqual(new[] { "1.0", "2.0", "3.0" }, byVersionSeeded, "sortBy=version asc must order by version");
+
+        // sortBy=style desc: styles are Rest(0) < Grpc(1) < GraphQL(2) by enum declaration
+        // order (see ApiStyle) — desc must yield GraphQL, Grpc, Rest. Fails if the Style
+        // sort spec is swapped or broken.
+        var byStyleResp = await client.GetAsync("/api/v1/catalog/apis?sortBy=style&sortOrder=desc&limit=200");
+        Assert.AreEqual(HttpStatusCode.OK, byStyleResp.StatusCode);
+        var byStyle = await byStyleResp.Content.ReadFromJsonAsync<CursorPage<ApiResponse>>(KartovaApiFixtureBase.WireJson);
+        var byStyleSeeded = byStyle!.Items
+            .Where(i => i.DisplayName.StartsWith($"vsort-{unique}-", StringComparison.Ordinal))
+            .Select(i => i.Style).ToList();
+        CollectionAssert.AreEqual(
+            new[] { ApiStyle.GraphQL, ApiStyle.Grpc, ApiStyle.Rest }, byStyleSeeded, "sortBy=style desc must order by style");
     }
 
     [TestMethod]

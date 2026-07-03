@@ -70,6 +70,10 @@ public class ApiTests
         Assert.ThrowsExactly<ArgumentException>(() => Create(desc: new string('x', 4097)));
 
     [TestMethod]
+    public void Create_accepts_description_of_exactly_4096() =>
+        Assert.AreEqual(4096, Create(desc: new string('x', 4096)).Description.Length);
+
+    [TestMethod]
     [DataRow("")]
     [DataRow("   ")]
     public void Create_throws_on_empty_version(string version) =>
@@ -78,6 +82,10 @@ public class ApiTests
     [TestMethod]
     public void Create_throws_on_version_over_64() =>
         Assert.ThrowsExactly<ArgumentException>(() => Create(version: new string('9', 65)));
+
+    [TestMethod]
+    public void Create_accepts_version_of_exactly_64() =>
+        Assert.AreEqual(64, Create(version: new string('9', 64)).Version.Length);
 
     [TestMethod]
     public void Create_throws_on_undefined_style() =>
@@ -90,6 +98,15 @@ public class ApiTests
     [TestMethod]
     public void Create_throws_on_spec_url_over_2048() =>
         Assert.ThrowsExactly<ArgumentException>(() => Create(specUrl: "https://x.example.com/" + new string('a', 2048)));
+
+    [TestMethod]
+    public void Create_accepts_spec_url_of_exactly_2048()
+    {
+        const string prefix = "https://x.example.com/";
+        var specUrl = prefix + new string('a', 2048 - prefix.Length);
+        Assert.AreEqual(2048, specUrl.Length);
+        Assert.AreEqual(2048, Create(specUrl: specUrl).SpecUrl!.Length);
+    }
 
     [TestMethod]
     public void Create_throws_on_empty_created_by() =>

@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
+using Kartova.Catalog.Domain;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.Testing.Auth;
@@ -43,6 +44,34 @@ public class AuditWiringTests : CatalogIntegrationTestBase
         // Organization rows — verify the whole tenant chain stays contiguous and
         // linked (seq 1..n, each prev_hash == predecessor row_hash). Design §7.
         AssertChainLinked(rows);
+    }
+
+    // --- Happy: register API writes a correct api.registered audit row ---
+    [TestMethod]
+    public async Task RegisterApi_WritesApiRegisteredAuditRow()
+    {
+        var (tenantId, teamId, client) = await ArrangeAsync("Audit Api Team", nameClaim: "Ada Catalog");
+
+        var resp = await client.PostAsJsonAsync("/api/v1/catalog/apis", new
+        {
+            displayName = "Audit Reg Api", description = "Desc.", style = ApiStyle.Rest, version = "v1",
+            specUrl = (string?)null, teamId,
+        });
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode,
+            $"Expected 201. Body: {await resp.Content.ReadAsStringAsync()}");
+        var body = await resp.Content.ReadFromJsonAsync<ApiResponse>(KartovaApiFixtureBase.WireJson);
+
+        var rows = await Fx.ReadAuditLogAsync(tenantId);
+        var row = rows.Single(r =>
+            r.Action == CatalogAuditActions.ApiRegistered &&
+            r.TargetId == body!.Id.ToString());
+        Assert.AreEqual(await Fx.GetSubClaimAsync(OrgAUser), row.ActorId);
+        Assert.AreEqual("Ada Catalog", row.ActorDisplay);
+        Assert.AreEqual("User", row.ActorType);
+        Assert.AreEqual(CatalogAuditTargetTypes.Api, row.TargetType);
+        using var data = JsonDocument.Parse(row.DataJson!);
+        Assert.AreEqual("Audit Reg Api", data.RootElement.GetProperty("displayName").GetString());
+        Assert.AreEqual(teamId.ToString(), data.RootElement.GetProperty("teamId").GetString());
     }
 
     private static void AssertChainLinked(IReadOnlyList<KartovaApiFixture.AuditRowRecord> rows)
