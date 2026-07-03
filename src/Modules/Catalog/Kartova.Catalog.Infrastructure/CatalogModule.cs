@@ -223,6 +223,9 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<RegisterServiceHandler>();
         services.AddScoped<GetServiceByIdHandler>();
         services.AddScoped<ListServicesHandler>();
+        services.AddScoped<RegisterApiHandler>();
+        services.AddScoped<GetApiByIdHandler>();
+        services.AddScoped<ListApisHandler>();
         services.AddScoped<CreateRelationshipHandler>();
         services.AddScoped<DeleteRelationshipHandler>();
         services.AddScoped<ListRelationshipsForEntityHandler>();
