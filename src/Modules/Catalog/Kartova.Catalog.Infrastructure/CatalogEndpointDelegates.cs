@@ -534,6 +534,74 @@ internal static class CatalogEndpointDelegates
         return Results.Ok(page);
     }
 
+    internal static async Task<IResult> RegisterApiAsync(
+        [FromBody] RegisterApiRequest request,
+        RegisterApiHandler handler,
+        CatalogDbContext db,
+        ITenantContext tenant,
+        ClaimsPrincipal caller,
+        ICurrentUser currentUser,
+        IAuthorizationService auth,
+        IOrganizationTeamExistenceChecker teamChecker,
+        IAuditWriter audit,
+        CancellationToken ct)
+    {
+        // ADR-0103: a new API requires an existing owning team in the tenant.
+        // RLS-scoped checker → a cross-tenant id resolves as "not found" (same 422 branch).
+        if (!await teamChecker.ExistsAsync(request.TeamId, ct))
+        {
+            return Results.Problem(
+                type: ProblemTypes.InvalidTeam,
+                title: "Invalid team",
+                detail: "The supplied teamId does not resolve to a team in the current tenant.",
+                statusCode: StatusCodes.Status422UnprocessableEntity);
+        }
+
+        // Target-team membership gate (reuses the shared ApplicationTeamScoped policy).
+        if (await AuthorizeTargetTeamAsync(auth, caller, request.TeamId) is { } forbidden)
+            return forbidden;
+
+        var response = await handler.Handle(
+            new RegisterApiCommand(
+                request.DisplayName, request.Description, request.Style, request.Version, request.SpecUrl, request.TeamId),
+            db, tenant, currentUser, audit, ct);
+
+        return Results.Created($"/api/v1/catalog/apis/{response.Id}", response);
+    }
+
+    internal static async Task<IResult> GetApiByIdAsync(
+        Guid id,
+        GetApiByIdHandler handler,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        var resp = await handler.Handle(new GetApiByIdQuery(id), db, ct);
+        if (resp is null) return EndpointResultExtensions.ApiNotFound();
+        return Results.Ok(resp);
+    }
+
+    internal static async Task<IResult> ListApisAsync(
+        [FromQuery] string? sortBy,
+        [FromQuery] string? sortOrder,
+        [FromQuery] string? cursor,
+        [FromQuery] string? limit,
+        ListApisHandler handler,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        var (parsedSortBy, parsedSortOrder, effectiveLimit) =
+            CursorListBinding.Bind<ApiSortField>(sortBy, sortOrder, limit, ApiSortSpecs.AllowedFieldNames);
+
+        var query = new ListApisQuery(
+            SortBy: parsedSortBy ?? ApiSortField.DisplayName,
+            SortOrder: parsedSortOrder ?? SortOrder.Asc,
+            Cursor: cursor,
+            Limit: effectiveLimit);
+
+        var page = await handler.Handle(query, db, ct);
+        return Results.Ok(page);
+    }
+
     internal static async Task<IResult> CreateRelationshipAsync(
         [FromBody] CreateRelationshipRequest req,
         ICatalogEntityLookup lookup,

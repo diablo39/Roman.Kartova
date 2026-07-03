@@ -27,6 +27,10 @@ internal static class EndpointResultExtensions
     internal static IResult ServiceNotFound() =>
         ResourceNotFound("Service", "No service with that id is visible in the current tenant.");
 
+    /// <inheritdoc cref="ApplicationNotFound"/>
+    internal static IResult ApiNotFound() =>
+        ResourceNotFound("API", "No API with that id is visible in the current tenant.");
+
     private static IResult ResourceNotFound(string entity, string detail) => Results.Problem(
         type: ProblemTypes.ResourceNotFound,
         title: $"{entity} not found",

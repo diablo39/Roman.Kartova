@@ -185,6 +185,23 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               // Kartova.Api.OpenApi.CursorListQueryParameterTransformer (same as ListApplications);
               // the C# binding stays string? so the RFC 7807 parse-failure envelopes survive.
               .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+        tenant.MapPost("/apis", CatalogEndpointDelegates.RegisterApiAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogApisRegister)
+              .WithName("RegisterApi")
+              .Produces<ApiResponse>(StatusCodes.Status201Created)
+              .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
+              .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+        tenant.MapGet("/apis/{id:guid}", CatalogEndpointDelegates.GetApiByIdAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRead)
+              .WithName("GetApiById")
+              .Produces<ApiResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status404NotFound);
+        tenant.MapGet("/apis", CatalogEndpointDelegates.ListApisAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRead)
+              .WithName("ListApis")
+              .Produces<CursorPage<ApiResponse>>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         // PUT assign-team — set or clear Application.TeamId. Claim gate stops
         // Viewer/anon; the resource gate (ApplicationTeamScoped — OrgAdmin OR
         // member of the app's current team) runs inside the delegate against
