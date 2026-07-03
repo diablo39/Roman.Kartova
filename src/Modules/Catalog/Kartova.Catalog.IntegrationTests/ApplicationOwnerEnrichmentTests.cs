@@ -145,4 +145,63 @@ public sealed class ApplicationOwnerEnrichmentTests : CatalogIntegrationTestBase
             await Fx.DeleteApplicationAsync(tenantId, appId);
         }
     }
+
+    [TestMethod]
+    public async Task GET_application_by_id_returns_SuccessorDisplayName_populated_when_successor_is_set()
+    {
+        const string orgAUser = "admin@orga.kartova.local";
+        var unique = $"e1-detail-successor-{Guid.NewGuid():N}";
+        var client = await Fx.CreateAuthenticatedClientAsync(orgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(orgAUser), "Successor Enrichment Team");
+
+        var successorResp = await client.PostAsJsonAsync(
+            "/api/v1/catalog/applications",
+            new RegisterApplicationRequest($"{unique}-successor", "Desc.", teamId));
+        Assert.IsTrue(successorResp.IsSuccessStatusCode);
+        var successor = (await successorResp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
+
+        var targetResp = await client.PostAsJsonAsync(
+            "/api/v1/catalog/applications",
+            new RegisterApplicationRequest($"{unique}-target", "Desc.", teamId));
+        Assert.IsTrue(targetResp.IsSuccessStatusCode);
+        var target = (await targetResp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!;
+
+        var deprecateResp = await client.PostAsJsonAsync(
+            $"/api/v1/catalog/applications/{target.Id}/deprecate",
+            new DeprecateApplicationRequest(DateTimeOffset.UtcNow.AddDays(30), successor.Id));
+        Assert.IsTrue(deprecateResp.IsSuccessStatusCode);
+
+        var resp = await client.GetAsync($"/api/v1/catalog/applications/{target.Id}");
+
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.IsNotNull(body);
+        Assert.AreEqual(successor.Id, body!.SuccessorApplicationId);
+        Assert.AreEqual(successor.DisplayName, body.SuccessorDisplayName);
+    }
+
+    [TestMethod]
+    public async Task GET_application_by_id_returns_SuccessorDisplayName_null_when_no_successor_is_set()
+    {
+        var unique = $"e1-detail-nosuccessor-{Guid.NewGuid():N}";
+        var tenantId = Fx.TenantIdForEmail("admin@orga.kartova.local");
+        var appId = await Fx.SeedSingleApplicationAsync(
+            tenantId, Guid.NewGuid(), teamId: null, namePrefix: unique);
+
+        try
+        {
+            var client = Fx.CreateClientForOrgA();
+            var resp = await client.GetAsync($"/api/v1/catalog/applications/{appId}");
+
+            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+            var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
+            Assert.IsNotNull(body);
+            Assert.IsNull(body!.SuccessorApplicationId);
+            Assert.IsNull(body!.SuccessorDisplayName);
+        }
+        finally
+        {
+            await Fx.DeleteApplicationAsync(tenantId, appId);
+        }
+    }
 }

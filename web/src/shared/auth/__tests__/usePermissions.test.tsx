@@ -70,6 +70,7 @@ describe("usePermissions", () => {
           "catalog.applications.edit-metadata",
           "catalog.applications.lifecycle.forward",
           "catalog.applications.lifecycle.reverse",
+          "catalog.applications.lifecycle.override",
           "catalog.services.register",
           "catalog.relationships.write",
           "team.read",

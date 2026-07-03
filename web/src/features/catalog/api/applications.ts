@@ -158,6 +158,11 @@ export function useDeprecateApplication(id: string) {
     },
     onSuccess: (data) => {
       qc.setQueryData(applicationKeys.detail(id), data);
+      // The deprecate response (ToResponse) carries SuccessorApplicationId but not
+      // the enriched SuccessorDisplayName (only the detail GET resolves it). When a
+      // successor was set at deprecate time, invalidate detail so the successor link
+      // re-fetches the name instead of rendering "—". Mirrors useSetApplicationSuccessor.
+      qc.invalidateQueries({ queryKey: applicationKeys.detail(id) });
       qc.invalidateQueries({ queryKey: applicationKeys.list() });
     },
   });
@@ -165,17 +170,20 @@ export function useDeprecateApplication(id: string) {
 
 /**
  * POST /applications/{id}/decommission — Deprecated → Decommissioned.
- * No request body, no If-Match. Server returns
- * `409` with `reason=before-sunset-date` when invoked before the configured
- * sunset date.
+ * No If-Match. Optional body `{ overrideSunset }` (OrgAdmin-only escape hatch,
+ * ADR-0073): when omitted or `false`, the server enforces the sunset date and
+ * returns `409` with `reason=before-sunset-date` when invoked before it.
  */
 export function useDecommissionApplication(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
+    mutationFn: async (input?: { overrideSunset?: boolean }) => {
       const { data, error, response } = await apiClient.POST(
         "/api/v1/catalog/applications/{id}/decommission",
-        { params: { path: { id } } }
+        {
+          params: { path: { id } },
+          body: input ? { overrideSunset: input.overrideSunset ?? false } : undefined,
+        }
       );
       if (error) throwWithStatus(error, response);
       return unwrapData(data);
@@ -251,6 +259,31 @@ export function useAssignApplicationTeam(id: string) {
     onSuccess: (data) => {
       qc.setQueryData(applicationKeys.detail(id), data);
       qc.invalidateQueries({ queryKey: applicationKeys.list() });
+    },
+  });
+}
+
+/**
+ * PUT /applications/{id}/successor — set or clear the successor while the
+ * application is Deprecated (ADR-0110). PUT is idempotent replacement;
+ * `null` clears. No If-Match — mirrors `useAssignApplicationTeam`. Server
+ * returns 422 `invalid-successor` for an unknown/cross-tenant/self id and
+ * 409 when the source application is not Deprecated.
+ */
+export function useSetApplicationSuccessor(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (successorApplicationId: string | null) => {
+      const { data, error, response } = await apiClient.PUT(
+        "/api/v1/catalog/applications/{id}/successor",
+        { params: { path: { id } }, body: { successorApplicationId } }
+      );
+      if (error) throwWithStatus(error, response);
+      return unwrapData(data);
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(applicationKeys.detail(id), data);
+      qc.invalidateQueries({ queryKey: applicationKeys.detail(id) });
     },
   });
 }

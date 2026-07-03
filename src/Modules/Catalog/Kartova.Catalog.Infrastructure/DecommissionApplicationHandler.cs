@@ -29,9 +29,14 @@ public sealed class DecommissionApplicationHandler
         if (app is null) return null;
 
         var from = app.Lifecycle;
-        app.Decommission(_clock);
+        var priorSunset = app.SunsetDate;
+        var bypassed = cmd.OverrideSunset && priorSunset is { } sunset && _clock.GetUtcNow() < sunset;
+        app.Decommission(_clock, allowBeforeSunset: cmd.OverrideSunset);
         await db.SaveChangesAsync(ct);
-        await audit.AppendAsync(CatalogAuditEntries.LifecycleChanged(app, from), ct);
+        await audit.AppendAsync(
+            CatalogAuditEntries.LifecycleChanged(
+                app, from, overrodeSunset: bypassed, bypassedSunset: bypassed ? priorSunset : null),
+            ct);
         return app.ToResponse();
     }
 }

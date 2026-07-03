@@ -49,4 +49,28 @@ public class CatalogAuditEntriesTests
         Assert.AreEqual("Active", entry.Data!["to"]);
         Assert.IsNull(entry.Data!["sunsetDate"]);
     }
+
+    [TestMethod]
+    public void LifecycleChanged_NoOverride_OmitsOverrideKeys()
+    {
+        var app = NewDeprecatedApp(out _);
+
+        var entry = CatalogAuditEntries.LifecycleChanged(app, from: Lifecycle.Active);
+
+        Assert.IsFalse(entry.Data!.ContainsKey("overrodeSunset"));
+        Assert.IsFalse(entry.Data!.ContainsKey("bypassedSunsetDate"));
+    }
+
+    [TestMethod]
+    public void LifecycleChanged_WithOverride_RecordsBypassAndSunsetDate()
+    {
+        var app = NewDeprecatedApp(out var sunset);
+
+        var entry = CatalogAuditEntries.LifecycleChanged(
+            app, from: Lifecycle.Deprecated, overrodeSunset: true, bypassedSunset: sunset);
+
+        Assert.AreEqual("Deprecated", entry.Data!["from"]);
+        Assert.AreEqual("true", entry.Data!["overrodeSunset"]);
+        Assert.AreEqual(sunset.ToString("O"), entry.Data!["bypassedSunsetDate"]);
+    }
 }

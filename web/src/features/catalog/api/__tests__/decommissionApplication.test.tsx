@@ -58,7 +58,7 @@ describe("useDecommissionApplication", () => {
       wrapper: makeWrapper(qc),
     });
 
-    const data = await result.current.mutateAsync();
+    const data = await result.current.mutateAsync(undefined);
 
     expect(data).toEqual(decommissionedResponse);
     expect(post).toHaveBeenCalledWith(
@@ -86,7 +86,7 @@ describe("useDecommissionApplication", () => {
     });
 
     await waitFor(async () => {
-      await expect(result.current.mutateAsync()).rejects.toMatchObject({ __status: 409 });
+      await expect(result.current.mutateAsync(undefined)).rejects.toMatchObject({ __status: 409 });
     });
   });
 });

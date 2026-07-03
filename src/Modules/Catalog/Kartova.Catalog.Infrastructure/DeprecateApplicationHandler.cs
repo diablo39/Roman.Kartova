@@ -30,9 +30,13 @@ public sealed class DeprecateApplicationHandler
         if (app is null) return null;
 
         var from = app.Lifecycle;
-        app.Deprecate(cmd.SunsetDate, _clock);
+        app.Deprecate(cmd.SunsetDate, _clock, cmd.SuccessorApplicationId);
         await db.SaveChangesAsync(ct);
         await audit.AppendAsync(CatalogAuditEntries.LifecycleChanged(app, from), ct);
+        if (cmd.SuccessorApplicationId is not null)
+        {
+            await audit.AppendAsync(CatalogAuditEntries.SuccessorChanged(app, from: null), ct);
+        }
         return app.ToResponse();
     }
 }

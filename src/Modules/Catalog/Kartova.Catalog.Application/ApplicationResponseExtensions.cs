@@ -18,5 +18,8 @@ public static class ApplicationResponseExtensions
             app.Lifecycle,
             app.SunsetDate,
             app.TeamId,
-            VersionEncoding.Encode(app.Version));
+            VersionEncoding.Encode(app.Version))
+        {
+            SuccessorApplicationId = app.SuccessorApplicationId,
+        };
 }

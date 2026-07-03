@@ -191,6 +191,46 @@ public class ApplicationLifecycleTests
     }
 
     [TestMethod]
+    public void Decommission_BeforeSunset_WithOverride_Succeeds()
+    {
+        // Admin bypass (§5.2, ADR-0073): clock is still before sunset, but
+        // allowBeforeSunset short-circuits the before-sunset-date guard.
+        var app = NewActive();
+        app.Deprecate(Now.AddDays(30), Clock());
+
+        app.Decommission(Clock(Now.AddDays(15)), allowBeforeSunset: true);
+
+        Assert.AreEqual(Lifecycle.Decommissioned, app.Lifecycle);
+    }
+
+    [TestMethod]
+    public void Decommission_BeforeSunset_WithoutOverride_Throws()
+    {
+        // Default (allowBeforeSunset: false) must preserve the existing throw path —
+        // this mirrors Decommission_when_Deprecated_and_before_sunsetDate_throws_with_reason_before_sunset_date.
+        var app = NewActive();
+        app.Deprecate(Now.AddDays(30), Clock());
+
+        var ex = Assert.ThrowsExactly<InvalidLifecycleTransitionException>(
+            () => app.Decommission(Clock(Now.AddDays(15))));
+        Assert.AreEqual("before-sunset-date", ex.Reason);
+    }
+
+    [TestMethod]
+    public void Decommission_AfterSunset_WithOverrideFlag_StillSucceeds()
+    {
+        // Clock already past sunset — the override flag is a no-op here since the
+        // before-sunset guard would not have fired anyway.
+        var app = NewActive();
+        var sunset = Now.AddDays(1);
+        app.Deprecate(sunset, Clock());
+
+        app.Decommission(Clock(sunset.AddDays(1)), allowBeforeSunset: true);
+
+        Assert.AreEqual(Lifecycle.Decommissioned, app.Lifecycle);
+    }
+
+    [TestMethod]
     public void Decommission_when_Active_throws_InvalidLifecycleTransitionException()
     {
         var app = NewActive();

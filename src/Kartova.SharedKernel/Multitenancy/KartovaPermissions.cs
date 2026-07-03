@@ -9,6 +9,7 @@ public static class KartovaPermissions
     public const string CatalogApplicationsEditMetadata = "catalog.applications.edit-metadata";
     public const string CatalogApplicationsLifecycleForward = "catalog.applications.lifecycle.forward";
     public const string CatalogApplicationsLifecycleReverse = "catalog.applications.lifecycle.reverse";
+    public const string CatalogApplicationsLifecycleOverride = "catalog.applications.lifecycle.override";
     public const string CatalogServicesRegister = "catalog.services.register";
     public const string CatalogRelationshipsWrite = "catalog.relationships.write";
 
@@ -32,6 +33,7 @@ public static class KartovaPermissions
         CatalogApplicationsEditMetadata,
         CatalogApplicationsLifecycleForward,
         CatalogApplicationsLifecycleReverse,
+        CatalogApplicationsLifecycleOverride,
         CatalogServicesRegister,
         CatalogRelationshipsWrite,
         TeamRead,
