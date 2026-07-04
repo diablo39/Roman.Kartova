@@ -35,8 +35,7 @@ export const registerApiSchema = z.object({
     .string()
     .max(2048, "Spec URL must be at most 2048 characters")
     .refine((v) => v === "" || isAbsoluteUrl(v), "Spec URL must be an absolute URL (include a scheme and host)")
-    .optional()
-    .or(z.literal("")),
+    .optional(),
   teamId: z.string().uuid("Team is required"),
 });
 

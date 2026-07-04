@@ -3,6 +3,7 @@ import { Table } from "@/components/application/table/table";
 import { Card, CardContent } from "@/components/base/card/card";
 import { SortableHead, TablePager, TableSkeleton, fromSort, toSort } from "@/components/application/data-table/data-table";
 import { CreatedByLink } from "@/features/users/components/CreatedByLink";
+import { Badge } from "@/components/base/badges/badges";
 import { API_STYLE_LABEL } from "@/features/catalog/schemas/registerApi";
 import type { CursorListResult, SortDirection } from "@/lib/list/types";
 import type { ApiResponse } from "@/features/catalog/api/apis";
@@ -75,9 +76,9 @@ export function ApisTable({ list, sortBy, sortOrder, onSortChange, teamNameById 
                 </Link>
               </Table.Cell>
               <Table.Cell className="text-sm">
-                <span className="inline-flex items-center rounded-md bg-secondary px-2 py-0.5 text-xs font-medium text-secondary ring-1 ring-inset ring-secondary">
+                <Badge type="pill-color" color="gray" size="sm">
                   {API_STYLE_LABEL[api.style]}
-                </span>
+                </Badge>
               </Table.Cell>
               <Table.Cell className="font-mono text-sm text-tertiary">{api.version}</Table.Cell>
               <Table.Cell className="text-sm">

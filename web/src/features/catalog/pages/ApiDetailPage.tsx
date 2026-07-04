@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "@/components/base/card/card";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
 import { CreatedByLink } from "@/features/users/components/CreatedByLink";
+import { Badge } from "@/components/base/badges/badges";
 import { useApi } from "@/features/catalog/api/apis";
 import { useTeamsList } from "@/features/teams/api/teams";
 import { API_STYLE_LABEL } from "@/features/catalog/schemas/registerApi";
@@ -43,9 +44,9 @@ export function ApiDetailPage() {
       <CardHeader className="space-y-3">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="text-2xl font-semibold text-primary">{api.displayName}</h2>
-          <span className="inline-flex items-center rounded-md bg-secondary px-2 py-0.5 text-xs font-medium text-secondary ring-1 ring-inset ring-secondary">
+          <Badge type="pill-color" color="gray" size="md">
             {API_STYLE_LABEL[api.style]}
-          </span>
+          </Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
