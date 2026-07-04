@@ -22,11 +22,11 @@
 | 5 `/simplify` | ✅ PASS — 4 agents (reuse/simplification/efficiency/altitude) all clean; 1 cosmetic nit (fully-qualified ApiStyle ×2 in matrix test) skipped w/ reason (intentional — avoids Domain `using` in a Contracts-scoped test file). No code changes. | 2026-07-03 |
 | 6 Mutation (conditional) | ⛔ WAIVED by owner (Roman, 2026-07-03) — diff touches Domain so normally blocking; owner elected to skip. Mitigation: gate-7 final review added strong oracles for the exact logic mutation targets (boundary `>N` accepts, Style/Version sort specs, `api.registered` audit row) — commit fb95205. | 2026-07-03 |
 | 7 `requesting-code-review` (SDD final whole-branch review) | ✅ PASS — **no blocking**; 5 should-fix items applied (fb95205), 2 nits deferred | 2026-07-03 |
-| 8 `review-pr` | ⏳ RUNNING (was incorrectly marked "covered by 7+9" — that was a rationalization, not execution; now running the actual pr-review-toolkit) | 2026-07-04 |
+| 8 `review-pr` | ✅ PASS — pr-review-toolkit actually run (5 lenses). Surfaced 2 real findings the prior reviews missed: (a) ApiResponse round-trip under-verified [pr-test-analyzer], (b) false ValidateSpecUrl comment + fabricated FU-4 cite [comment-analyzer]. Both fixed (07e5d5f) + empty-teamId 422 pinned + handler doc. Suggestions/nits triaged as follow-ups. | 2026-07-04 |
 | 9 `deep-review` | ✅ PASS — 0 blocking; 1 should-fix (OpenAPI 422→400 annotation on GET /apis, inherited from Service sibling, doc-only) + 3 missing-test refinements (sortBy=createdAt order, PrevCursor, CreatedBy enrichment) → follow-ups. Report: `deep-review.md` | 2026-07-03 |
-| Manual / Playwright (ADR-0084) | ⏳ PENDING (for controller) | — |
-| Terminal re-verify (build + suite) | ⏳ PENDING (for controller — after gates 5–9) | — |
-| Pre-push CI mirror (`ci-local.sh`) | ⏳ PENDING (for controller) | — |
+| Manual / Playwright (ADR-0084) | N/A — backend-only slice; no UI surface (list screen/filters deferred to FU-9). Web changes were the permission 5-sync only (no browser-verifiable screen). | 2026-07-04 |
+| Terminal re-verify (build + suite) | ✅ PASS — full `dotnet test Kartova.slnx` EXIT=0 on final code (Catalog.IntegrationTests 229, Catalog.Tests 176, Organization.IntegrationTests 142, ArchitectureTests 69, +all others 0-fail); build 0W/0E. Post-gate-8 (comment+test-only, 07e5d5f): build 0/0 + Catalog.IntegrationTests re-run 229/229. Frontend 690/690. | 2026-07-04 |
+| Pre-push CI mirror (`ci-local.sh`) | ◑ PARTIAL — ran Debug gates (1/3) + `docker compose build` (gate 4 images) locally; the full Release-config `ci-local.sh` pass (Release build+test, helm, stryker) was NOT run locally. CI runs Release on PR #55. | 2026-07-04 |
 
 ## Gate detail
 
