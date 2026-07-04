@@ -101,8 +101,9 @@ public sealed class Api : ITenantOwned, ITeamScopedResource
         if (specUrl is null) return;
         if (specUrl.Length > 2048)
             throw new ArgumentException("API spec URL must be <= 2048 characters.", nameof(specUrl));
-        // Strict absolute URI with host (spec URLs are real fetchable links — unlike the
-        // relaxed ServiceEndpoint address rule granted by ADR-0111 §Decision 6, FU-4).
+        // Strict absolute-URI-with-host (spec URLs are real fetchable links). ServiceEndpoint
+        // uses the same strict rule today; ADR-0111 Decision 6 plans to relax ServiceEndpoint
+        // to bare host:port in a future Service-modification slice — spec URLs will stay strict.
         if (!Uri.TryCreate(specUrl, UriKind.Absolute, out var uri) || string.IsNullOrEmpty(uri.Authority))
             throw new ArgumentException("API spec URL must be an absolute URI with a host.", nameof(specUrl));
     }

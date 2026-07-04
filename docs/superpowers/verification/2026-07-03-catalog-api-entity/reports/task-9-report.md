@@ -52,3 +52,20 @@ Applied fixes from the final whole-branch review (test-strengthening + one doc f
 
 - `dotnet test src/Modules/Catalog/Kartova.Catalog.Tests -v q` → **176/176 passed** (FIX 1).
 - `dotnet test src/Modules/Catalog/Kartova.Catalog.IntegrationTests --filter "FullyQualifiedName~ListApisPaginationTests|FullyQualifiedName~RegisterApiTests|FullyQualifiedName~RegisterApi_WritesApiRegisteredAuditRow" -v q` → **17/17 passed** (7 `ListApisPaginationTests` + 10 `RegisterApiTests`, including the new `RegisterApi_WritesApiRegisteredAuditRow` from `AuditWiringTests`, and the strengthened `List_honors_sortBy_version_and_style`).
+
+## Gate-8 fixes
+
+Applied fixes from the gate-8 PR review. Test-strengthening + comment-accuracy only — no runtime logic changed.
+
+**FIX A — strengthened round-trip test (`POST_with_valid_payload_returns_201_and_roundtrips`):** POST-body assertions extended to `Description`, `SpecUrl`, `TenantId` (`Fx.TenantIdForEmail(OrgAUser).Value`), and `CreatedAt > DateTimeOffset.MinValue`. The GET-by-id response is now deserialized and compared field-by-field against the POST body (`Id`, `DisplayName`, `Description`, `Style`, `Version`, `SpecUrl`, `TeamId`, `CreatedByUserId`, `CreatedAt`) — not full record equality, since `GetApiByIdHandler` populates `CreatedBy` (enrichment) while the POST response leaves it null. `CreatedAt` is compared with a <1ms tolerance rather than exact equality: Postgres `timestamptz` truncates to microsecond precision, and the in-memory POST response (full .NET tick precision, pre-persist) intermittently differed from the DB-round-tripped GET response by a sub-microsecond amount, which failed on the first run (`04/07/2026 08:00:17 +00:00` vs the same printed value, differing below display precision). A field-swap in `ApiResponseExtensions.ToResponse` or a wrong-row GET now fails this test.
+
+**FIX B — empty-teamId path documented + tested:** added `POST_with_empty_team_id_returns_422`, POSTing with `teamId = Guid.Empty`. **Observed status: 422 UnprocessableEntity** (not 400/500) — confirmed by both the test and by reading `CatalogEndpointDelegates.RegisterApiAsync`: `IOrganizationTeamExistenceChecker.ExistsAsync(Guid.Empty, ct)` runs first and resolves `false` (no team has that id), hitting the same `ProblemTypes.InvalidTeam` 422 branch as `POST_with_unknown_team_returns_422` — the domain's `teamId == Guid.Empty` guard in `Api.Create` never executes on the wired path (it's reachable only via direct unit tests of the domain type). Pinned as intentional, not ambiguous dead code.
+
+**FIX C — corrected false comment in `Api.cs` (`ValidateSpecUrl`):** the claim that spec-URL validation is strict "unlike the relaxed `ServiceEndpoint` address rule" was false — `ServiceEndpoint` uses the identical strict `Uri.TryCreate(..., UriKind.Absolute)` + non-empty-`Authority` check *today*; the relaxation is a **deferred**, not-yet-executed item in ADR-0111 Decision 6, and "FU-4" is not an ADR-0111 tag. Replaced with: "Strict absolute-URI-with-host (spec URLs are real fetchable links). `ServiceEndpoint` uses the same strict rule today; ADR-0111 Decision 6 plans to relax `ServiceEndpoint` to bare host:port in a future Service-modification slice — spec URLs will stay strict."
+
+**FIX D — named types in `RegisterApiHandler` XML doc:** "Tenant id + created-by come from context" → "Tenant id + created-by come from `<see cref="ITenantContext"/>` / `<see cref="ICurrentUser"/>`", matching `RegisterServiceHandler`'s phrasing.
+
+### Verification
+
+- `dotnet build Kartova.slnx -v q` → **Build succeeded. 0 Warning(s), 0 Error(s).**
+- `dotnet test src/Modules/Catalog/Kartova.Catalog.IntegrationTests --filter "FullyQualifiedName~RegisterApiTests" -v q` → **11/11 passed** (9 pre-existing + `POST_with_empty_team_id_returns_422` + strengthened round-trip test).

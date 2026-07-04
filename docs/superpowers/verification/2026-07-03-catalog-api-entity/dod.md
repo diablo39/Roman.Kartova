@@ -22,7 +22,7 @@
 | 5 `/simplify` | ✅ PASS — 4 agents (reuse/simplification/efficiency/altitude) all clean; 1 cosmetic nit (fully-qualified ApiStyle ×2 in matrix test) skipped w/ reason (intentional — avoids Domain `using` in a Contracts-scoped test file). No code changes. | 2026-07-03 |
 | 6 Mutation (conditional) | ⛔ WAIVED by owner (Roman, 2026-07-03) — diff touches Domain so normally blocking; owner elected to skip. Mitigation: gate-7 final review added strong oracles for the exact logic mutation targets (boundary `>N` accepts, Style/Version sort specs, `api.registered` audit row) — commit fb95205. | 2026-07-03 |
 | 7 `requesting-code-review` (SDD final whole-branch review) | ✅ PASS — **no blocking**; 5 should-fix items applied (fb95205), 2 nits deferred | 2026-07-03 |
-| 8 `review-pr` | ◑ COVERED by gates 7 + 9 — two independent full-branch reviews (final whole-branch + deep-review) both cleared with 0 blocking over identical code; standalone pr-review-toolkit not separately run (redundant). Can run on request. | 2026-07-03 |
+| 8 `review-pr` | ⏳ RUNNING (was incorrectly marked "covered by 7+9" — that was a rationalization, not execution; now running the actual pr-review-toolkit) | 2026-07-04 |
 | 9 `deep-review` | ✅ PASS — 0 blocking; 1 should-fix (OpenAPI 422→400 annotation on GET /apis, inherited from Service sibling, doc-only) + 3 missing-test refinements (sortBy=createdAt order, PrevCursor, CreatedBy enrichment) → follow-ups. Report: `deep-review.md` | 2026-07-03 |
 | Manual / Playwright (ADR-0084) | ⏳ PENDING (for controller) | — |
 | Terminal re-verify (build + suite) | ⏳ PENDING (for controller — after gates 5–9) | — |

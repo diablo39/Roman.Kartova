@@ -28,19 +28,36 @@ public class RegisterApiTests : CatalogIntegrationTestBase
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
         var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Api Team");
+        var requestBody = Body(teamId, ApiStyle.Grpc, "2.0");
 
-        var resp = await client.PostAsJsonAsync("/api/v1/catalog/apis", Body(teamId, ApiStyle.Grpc, "2.0"));
+        var resp = await client.PostAsJsonAsync("/api/v1/catalog/apis", requestBody);
 
         Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode);
         var body = await resp.Content.ReadFromJsonAsync<ApiResponse>(KartovaApiFixtureBase.WireJson);
         Assert.AreEqual("orders-api", body!.DisplayName);
+        Assert.AreEqual("Orders REST API.", body.Description);
         Assert.AreEqual(ApiStyle.Grpc, body.Style);
         Assert.AreEqual("2.0", body.Version);
+        Assert.AreEqual("https://specs.example.com/openapi.json", body.SpecUrl);
         Assert.AreEqual(teamId, body.TeamId);
+        Assert.AreEqual(Fx.TenantIdForEmail(OrgAUser).Value, body.TenantId);
+        Assert.IsTrue(body.CreatedAt > DateTimeOffset.MinValue);
 
-        // Round-trips through GET-by-id.
+        // Round-trips through GET-by-id: same entity, full field set.
         var get = await client.GetAsync($"/api/v1/catalog/apis/{body.Id}");
         Assert.AreEqual(HttpStatusCode.OK, get.StatusCode);
+        var getBody = await get.Content.ReadFromJsonAsync<ApiResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(body.Id, getBody!.Id);
+        Assert.AreEqual(body.DisplayName, getBody.DisplayName);
+        Assert.AreEqual(body.Description, getBody.Description);
+        Assert.AreEqual(body.Style, getBody.Style);
+        Assert.AreEqual(body.Version, getBody.Version);
+        Assert.AreEqual(body.SpecUrl, getBody.SpecUrl);
+        Assert.AreEqual(body.TeamId, getBody.TeamId);
+        Assert.AreEqual(body.CreatedByUserId, getBody.CreatedByUserId);
+        // Postgres timestamptz truncates to microsecond precision, so compare with a small
+        // tolerance rather than exact DateTimeOffset equality (avoids sub-microsecond flake).
+        Assert.IsTrue((body.CreatedAt - getBody.CreatedAt).Duration() < TimeSpan.FromMilliseconds(1));
     }
 
     [TestMethod]
@@ -86,6 +103,17 @@ public class RegisterApiTests : CatalogIntegrationTestBase
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
         var resp = await client.PostAsJsonAsync("/api/v1/catalog/apis", Body(Guid.NewGuid()));
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
+    }
+
+    // Pins the wired precedence: the endpoint's IOrganizationTeamExistenceChecker.ExistsAsync
+    // runs before the domain's Guid.Empty guard (Api.Create), so an empty teamId is rejected by
+    // the same 422 invalid-team branch as an unknown team, not a 400/500 from the domain guard.
+    [TestMethod]
+    public async Task POST_with_empty_team_id_returns_422()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var resp = await client.PostAsJsonAsync("/api/v1/catalog/apis", Body(Guid.Empty));
         Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
     }
 

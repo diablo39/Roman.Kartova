@@ -8,8 +8,9 @@ using Kartova.SharedKernel.Multitenancy;
 namespace Kartova.Catalog.Infrastructure;
 
 /// <summary>Direct-dispatch handler for <see cref="RegisterApiCommand"/> (ADR-0093).
-/// Tenant id + created-by come from context; the owning team id is validated by the
-/// delegate before dispatch. Audit row written in-transaction (fail-closed).</summary>
+/// Tenant id + created-by come from <see cref="ITenantContext"/> / <see cref="ICurrentUser"/>;
+/// the owning team id is validated by the delegate before dispatch. Audit row written
+/// in-transaction (fail-closed).</summary>
 public sealed class RegisterApiHandler
 {
     private readonly TimeProvider _clock;
