@@ -213,4 +213,75 @@ public sealed class ListApisPaginationTests : CatalogIntegrationTestBase
             $"/api/v1/catalog/apis?style=grpc&sortBy=displayName&sortOrder=asc&limit=1&cursor={Uri.EscapeDataString(first.NextCursor!)}");
         Assert.AreEqual(HttpStatusCode.BadRequest, mismatchResp.StatusCode);
     }
+
+    [TestMethod]
+    public async Task List_filters_by_teamId()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamA = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Api TeamId Filter A");
+        var teamB = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Api TeamId Filter B");
+        var unique = Guid.NewGuid().ToString("N");
+        await Seed(client, teamA, $"tidfilt-{unique}-a");
+        await Seed(client, teamB, $"tidfilt-{unique}-b");
+
+        var resp = await client.GetAsync($"/api/v1/catalog/apis?teamId={teamB}&limit=200");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApiResponse>>(KartovaApiFixtureBase.WireJson);
+        var seeded = page!.Items.Select(i => i.DisplayName)
+            .Where(n => n.StartsWith($"tidfilt-{unique}", StringComparison.Ordinal)).ToList();
+        CollectionAssert.AreEqual(new[] { $"tidfilt-{unique}-b" }, seeded, "teamId filter must return only TeamB's api");
+    }
+
+    [TestMethod]
+    public async Task List_filters_by_style_and_team_combined()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Api Style Team Combined");
+        var unique = Guid.NewGuid().ToString("N");
+        await SeedWithStyle(client, teamId, $"combo-{unique}-grpc", ApiStyle.Grpc, "v1");
+        await SeedWithStyle(client, teamId, $"combo-{unique}-rest", ApiStyle.Rest, "v1");
+
+        var resp = await client.GetAsync($"/api/v1/catalog/apis?style=grpc&teamId={teamId}&limit=200");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApiResponse>>(KartovaApiFixtureBase.WireJson);
+        var seeded = page!.Items.Select(i => i.DisplayName)
+            .Where(n => n.StartsWith($"combo-{unique}", StringComparison.Ordinal)).ToList();
+        CollectionAssert.AreEqual(
+            new[] { $"combo-{unique}-grpc" }, seeded, "style+teamId must AND-compose to only the matching grpc api");
+    }
+
+    [TestMethod]
+    public async Task List_filter_is_tenant_isolated()
+    {
+        var clientA = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamA = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Api Filter Iso Team");
+        var uniqueName = $"iso-filt-{Guid.NewGuid():N}";
+        await Seed(clientA, teamA, uniqueName);
+
+        var clientB = await Fx.CreateAuthenticatedClientAsync("admin@orgb.kartova.local");
+        var resp = await clientB.GetAsync($"/api/v1/catalog/apis?style=rest&displayNameContains={uniqueName}&limit=200");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var pageB = await resp.Content.ReadFromJsonAsync<CursorPage<ApiResponse>>(KartovaApiFixtureBase.WireJson);
+        Assert.IsFalse(pageB!.Items.Any(a => a.DisplayName == uniqueName), "RLS must isolate OrgA's api even with active filters");
+    }
+
+    [TestMethod]
+    public async Task List_displayNameContains_treats_wildcards_literally()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Api Wildcard Escape Team");
+        var unique = Guid.NewGuid().ToString("N");
+        var literalName = $"wc-{unique}-a_b";
+        var lookalikeName = $"wc-{unique}-axb";
+        await Seed(client, teamId, literalName);
+        await Seed(client, teamId, lookalikeName);
+
+        var resp = await client.GetAsync($"/api/v1/catalog/apis?displayNameContains={literalName}&limit=200");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApiResponse>>(KartovaApiFixtureBase.WireJson);
+        var seeded = page!.Items.Select(i => i.DisplayName)
+            .Where(n => n.StartsWith($"wc-{unique}", StringComparison.Ordinal)).ToList();
+        CollectionAssert.AreEqual(
+            new[] { literalName }, seeded, "'_' in displayNameContains must be escaped as a literal, not a LIKE single-char wildcard");
+    }
 }
