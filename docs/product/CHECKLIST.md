@@ -12,7 +12,7 @@
 | Phase | Status | Progress |
 |-------|--------|----------|
 | Phase 0: Foundation | In Progress | 12/31 |
-| Phase 1: Core Catalog & Notifications | In Progress | 16/60 |
+| Phase 1: Core Catalog & Notifications | In Progress | 17/60 |
 | Phase 2: Auto-Import | Not Started | 0/36 |
 | Phase 3: Documentation | Not Started | 0/15 |
 | Phase 4: Status Page | Not Started | 0/16 |
@@ -21,7 +21,7 @@
 | Phase 7: Intelligence | Not Started | 0/13 |
 | Phase 8: Analytics | Not Started | 0/14 |
 | Phase 9: Advanced | Not Started | 0/0 |
-| **Total** | | **23/212** |
+| **Total** | | **24/212** |
 
 ---
 
@@ -104,7 +104,7 @@
 - [x] E-02.F-02.S-02 — Service detail page with health and consumers (catalog-service-ui-surface, 2026-06-20: full Services frontend surface — list page (`/catalog/services`, default sort `displayName desc` — later flipped to `displayName asc`, list-filter-surface-catalog, 2026-06-22) + Register-Service dialog with 0..50 endpoints editor + read-only detail page (`/catalog/services/:id`); Services nav promoted from disabled. Frontend-only — S-01 backend/permission/audit + real-seam tests already on master. Health renders a read-only `Unknown` badge (no write path until E-15/E-16); **consumers deferred to E-04**. Mirrors the Application UI surface (useCursorList/useListUrlState/DataTable per ADR-0095, Untitled UI per ADR-0094). Codegen client regenerated. 477 frontend tests green; all DoD gates green.)
 
 **E-02.F-03: API Entity Management (Sync & Async)** — *model pinned by [ADR-0111](../architecture/decisions/ADR-0111-api-first-class-entity-provider-instance-fields.md) (API first-class entity; provider/instance = FK fields; consumers = edges; exposure derived; amends ADR-0068). Design: `docs/superpowers/specs/2026-07-03-catalog-api-entity-design.md`.*
-- [ ] E-02.F-03.S-01 — Register sync API (REST/gRPC/GraphQL) — *design staged 2026-07-03 (API node only: style/version/spec-URL, team-owned, POST/GET/list, sortable all cols, filters deferred). Downstream layers registered as follow-ups FU-1..FU-11 in the design §11: provider FK, instance FK + derived exposure, endpoint redefinition (drop protocol→description), `Api` kind in E-04 + consumer edges, System surface (E-03.F-03), async (S-02), unified view (S-03), API UI + filters, exposure opt-out, polymorphic provider.*
+- [x] E-02.F-03.S-01 — Register sync API (REST/gRPC/GraphQL) — *shipped 2026-07-04 (PR #55, catalog-api-entity). API node: `Api` aggregate (style/version/optional spec-URL, team-owned), POST/GET-by-id/cursor-list, RLS `catalog_apis`, `catalog.apis.register` permission (5-sync), `api.registered` audit, sortable all cols, filters deferred. Real-seam tests (Catalog integ 229, frontend 690). All 8 always-blocking DoD gates green (gate 6 mutation waived by owner); ledger `docs/superpowers/verification/2026-07-03-catalog-api-entity/dod.md`. Downstream layers registered as follow-ups FU-1..FU-11 in the design §11: provider FK, instance FK + derived exposure, endpoint redefinition (drop protocol→description), `Api` kind in E-04 + consumer edges, System surface (E-03.F-03), async (S-02), unified view (S-03), API UI + filters, exposure opt-out, polymorphic provider. Non-blocking deep-review follow-ups: OpenAPI 422→400 annotation on GET /apis; sortBy=createdAt order / PrevCursor / CreatedBy-enrichment test refinements.*
 - [ ] E-02.F-03.S-02 — Register async API with AsyncAPI spec
 - [ ] E-02.F-03.S-03 — Unified sync/async API view per service
 
