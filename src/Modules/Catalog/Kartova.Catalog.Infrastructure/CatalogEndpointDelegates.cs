@@ -17,6 +17,7 @@ using Microsoft.EntityFrameworkCore;
 using ApplicationId = Kartova.Catalog.Domain.ApplicationId;
 using Lifecycle = Kartova.Catalog.Domain.Lifecycle;
 using HealthStatus = Kartova.Catalog.Domain.HealthStatus;
+using ApiStyle = Kartova.Catalog.Domain.ApiStyle;
 using EntityRef = Kartova.Catalog.Domain.EntityRef;
 using EntityKind = Kartova.Catalog.Domain.EntityKind;
 using RelationshipType = Kartova.Catalog.Domain.RelationshipType;
@@ -585,6 +586,9 @@ internal static class CatalogEndpointDelegates
         [FromQuery] string? sortOrder,
         [FromQuery] string? cursor,
         [FromQuery] string? limit,
+        [FromQuery] string? displayNameContains,
+        [FromQuery] Guid[]? teamId,
+        [FromQuery] string[]? style,
         ListApisHandler handler,
         CatalogDbContext db,
         CancellationToken ct)
@@ -592,14 +596,35 @@ internal static class CatalogEndpointDelegates
         var (parsedSortBy, parsedSortOrder, effectiveLimit) =
             CursorListBinding.Bind<ApiSortField>(sortBy, sortOrder, limit, ApiSortSpecs.AllowedFieldNames);
 
+        // Repeated ?style= tokens (wire form: camelCase enum names). Reject numeric/unknown
+        // tokens with 400 invalid-style-filter so the contract stays names-only (mirrors the
+        // health token parse in ListServicesAsync). HashSet de-dups so the f-map stays canonical.
+        var styles = new HashSet<ApiStyle>();
+        foreach (var raw in style ?? Array.Empty<string>())
+        {
+            if (int.TryParse(raw, out _)
+                || !Enum.TryParse<ApiStyle>(raw, ignoreCase: true, out var parsed)
+                || !Enum.IsDefined(parsed))
+            {
+                return Results.Problem(
+                    type: ProblemTypes.InvalidStyleFilter,
+                    title: "Invalid style filter",
+                    detail: $"'{raw}' is not a valid API style. Expected one of: rest, grpc, graphQL.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+            styles.Add(parsed);
+        }
+
+        var name = string.IsNullOrWhiteSpace(displayNameContains) ? null : displayNameContains.Trim();
+
         var query = new ListApisQuery(
             SortBy: parsedSortBy ?? ApiSortField.DisplayName,
             SortOrder: parsedSortOrder ?? SortOrder.Asc,
             Cursor: cursor,
             Limit: effectiveLimit,
-            // Filter query-string binding lands in the API-UI slice (FU-9 Task 2); empty ⇒ no predicate.
-            TeamId: Array.Empty<Guid>(),
-            Style: Array.Empty<Kartova.Catalog.Domain.ApiStyle>());
+            TeamId: (teamId ?? Array.Empty<Guid>()).ToHashSet().ToArray(),
+            Style: styles.ToArray(),
+            DisplayNameContains: name);
 
         var page = await handler.Handle(query, db, ct);
         return Results.Ok(page);
