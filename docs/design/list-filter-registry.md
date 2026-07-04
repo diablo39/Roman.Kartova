@@ -33,6 +33,7 @@ This is the **canonical, per-list record of the filter decision** required by AD
 
 These backlog stories define multi-attribute filtering that, when built, MUST use `<FilterBar>` (ADR-0107):
 
+- **APIs list** (`/catalog/apis`) — style (multi-select) + team (multi-select) + name typeahead, via `<FilterBar>`. Backend API-entity slice (2026-07-03) ships the endpoint sort allowlist `{displayName, style, version, createdAt}` (default `displayName asc`); **all filters deferred** to the API-UI slice (`2026-07-03-catalog-api-entity-design.md` §11 FU-9). Deferral explicit, not silent.
 - **Tag filtering across catalog** — multi-tag, AND/OR, URL-shareable, live (E-03.F-04.S-03).
 - **Faceted search** — multi-select by entity type / team / tags / owner, live counts (E-05.F-01.S-02).
 - **Repo-import filters** — name / language / activity (E-08.F-02.S-02).

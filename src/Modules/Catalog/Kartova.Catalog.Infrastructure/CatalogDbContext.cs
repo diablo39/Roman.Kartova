@@ -21,6 +21,8 @@ public sealed class CatalogDbContext : DbContext
 
     public DbSet<Kartova.Catalog.Domain.Service> Services => Set<Kartova.Catalog.Domain.Service>();
 
+    public DbSet<Kartova.Catalog.Domain.Api> Apis => Set<Kartova.Catalog.Domain.Api>();
+
     public DbSet<Kartova.Catalog.Domain.Relationship> Relationships => Set<Kartova.Catalog.Domain.Relationship>();
 
     /// <inheritdoc />
@@ -47,6 +49,7 @@ public sealed class CatalogDbContext : DbContext
 
         modelBuilder.ApplyConfiguration(new EfApplicationConfiguration());
         modelBuilder.ApplyConfiguration(new EfServiceConfiguration());
+        modelBuilder.ApplyConfiguration(new EfApiConfiguration());
         modelBuilder.ApplyConfiguration(new EfRelationshipConfiguration());
     }
 }

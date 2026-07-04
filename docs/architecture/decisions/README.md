@@ -1,8 +1,8 @@
 ---
 platform: Kartova
 description: SaaS service catalog and developer portal platform (Backstage + Compass + Statuspage)
-adr_count: 106
-last_updated: 2026-07-01
+adr_count: 107
+last_updated: 2026-07-03
 architecture:
   backend: .NET 10 (LTS) / ASP.NET Core + EF Core (ADR-0027)
   backend_pattern: Modular monolith (ADR-0082) with Clean Architecture per module — Domain / Application / Infrastructure / Contracts (ADR-0028); inter-module via Wolverine mediator or Kafka events
@@ -96,7 +96,8 @@ domain_model:
   entity_types: 9 fixed + JSONB custom_attributes (MVP); 10th Custom Entity in Phase 2 (ADR-0064)
   org_structure: hybrid hierarchy (Org → Team → System → Component) + cross-cutting tags (ADR-0065)
   ownership: application owner is a required team (`Application.TeamId`); individual is created-by provenance (`CreatedByUserId`) — immutable (ADR-0103); multi-team co-ownership with platform flag + quorum approval deferred to E-03.F-05 (ADR-0066)
-  relationships: fixed 7-type vocabulary (depends-on / owns / consumes / produces / exposes / implements / part-of) (ADR-0068)
+  relationships: fixed 7-type vocabulary (depends-on / provides-api-for / consumes-api-from / publishes-to / subscribes-from / deployed-on / part-of) (ADR-0068); ADR-0111 amends 0068 — provide/consume target the first-class API entity, provider-side derived
+  api_entity: API is a first-class team-owned entity; provider (`Api.implementedByApplicationId`) + instance (`Service.applicationId`) are nullable FK fields, exposure derives (full-auto), consumers are edges; `ServiceEndpoint` = labeled address (protocol dropped, moved to `Api.Style`) (ADR-0111)
   relationship_origin: manual | scan | agent, immutable (ADR-0067)
   required_fields: owner, lifecycle, etc. enforced on all creation paths (ADR-0069)
   scorecards: per-org configurable rule sets, weighted (ADR-0070)
@@ -113,8 +114,8 @@ open_source_strategy: fully proprietary, no OSS core / source-available (ADR-002
 # Architecture Decision Records — Kartova
 
 **Status:** Living document
-**Last updated:** 2026-07-01
-**Total accepted:** 104
+**Last updated:** 2026-07-03
+**Total accepted:** 105
 **Convention:** Michael Nygard template (Status / Context / Decision / Rationale / Alternatives / Consequences / References)
 
 ## How to use this index
@@ -235,6 +236,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0108](ADR-0108-relationship-edge-authority-either-endpoint.md) | Relationship Edge Authority — Either-Endpoint Team Membership | Authentication & Authorization | Accepted | 0056, 0067, 0068, 0090, 0101, 0103 | Create/delete a manual relationship edge requires `OrgAdmin` or membership of *either* connected entity's owning team (symmetric). Replaces the source-side-only authority in the Slice 1a relationships design §3 #7 so the provider/target side can record incoming dependencies. A member of neither team is still 403. No approval workflow; accountability via origin=manual + created_by + audit. |
 | [0109](ADR-0109-api-serializes-enums-as-camelcase-strings.md) | REST API Serializes Enums as camelCase JSON Strings | API & Integration Architecture | Accepted | 0029, 0034, 0091, 0092, 0104 | All enums cross the API boundary as camelCase strings via `JsonStringEnumConverter` + `JsonNamingPolicy.CamelCase`; the OpenAPI doc + generated TS client are the single source of truth (frontend must not hand-author PascalCase enum literals). Enum query params bind case-insensitively (400 on unknown). The mismatch class is invisible to per-file `tsc --noEmit` — the composite `tsc -b`/`npm run build` is the binding type gate. |
 | [0110](ADR-0110-successor-reference-dedicated-application-field.md) | Deprecated-Application Successor Is a Dedicated Application→Application Field | Domain Model | Accepted | 0073, 0068, 0108, 0098, 0018 | The ADR-0073 successor reference is a nullable self-referential `SuccessorApplicationId` field on the `Application` aggregate (App→App, real self-FK), not a relationship-graph edge — successor is migration *guidance*, not runtime topology, so the "Deprecated ⇒ successor" invariant lives with the transition and the FK+RLS give integrity. Set at Deprecate, editable while Deprecated, cleared on Reactivate; optional; existence→422, self-ref→400. App→Service succession deferred (would drop the FK for polymorphic `{kind,id}`). |
+| [0111](ADR-0111-api-first-class-entity-provider-instance-fields.md) | API Is a First-Class Entity — Provider/Instance as FK Fields, Consumers as Edges, Exposure Derived | Domain Model | Accepted | 0068 (amends), 0110, 0064, 0103, 0040, 0067 | API becomes a first-class team-owned entity (sync: style/version/spec-URL). Provider (`Api.implementedByApplicationId`) and instance (`Service.applicationId`) are nullable **FK fields** (ADR-0110 precedent — structural, low-cardinality); a Service **derives** exposure of its Application's APIs (full-auto). Consumers stay **edges** (`consumes-api-from`, repointed at the API node); service↔service `depends-on` derives. **Amends ADR-0068**: `provides-api-for`/`consumes-api-from` target the API entity, provider-side derived. `ServiceEndpoint` drops `Protocol`, gains optional `Description` (relaxed URL). App-only provider (polymorphic App/Service deferred). |
 
 ## By category (quick navigation)
 
@@ -253,7 +255,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Scan / Import Architecture**: 0054, 0055, 0056, 0057
 - **Observability & Monitoring**: 0058, 0059, 0060
 - **Billing**: 0061, 0062, 0063
-- **Domain Model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073, 0103, 0110
+- **Domain Model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073, 0103, 0110, 0111
 - **Scale & Performance**: 0074, 0075, 0076
 - **Non-Functional / Cross-Cutting**: 0077, 0078, 0079
 - **Testing & Quality**: 0083, 0097
@@ -278,7 +280,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Resource identifier / entity ID format**: 0092, 0098
 - **Retention / archival / deletion**: 0017, 0019, 0020, 0073, 0102
 - **Audit & logging**: 0018, 0050, 0058, 0102, 0105
-- **Domain model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073, 0103, 0110
+- **Domain model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073, 0103, 0110, 0111
 - **Scale & performance**: 0013, 0031, 0074, 0075, 0076
 - **Availability & SLA**: 0005, 0023, 0053, 0076
 - **Billing & pricing**: 0061, 0062, 0063
@@ -308,16 +310,18 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Agent (hybrid)** → 0041, 0042, 0043, 0044, 0045
 - **AOT compilation** → 0041, 0046
 - **API versioning** → 0030
+- **API entity (first-class: style/version/spec-URL)** → 0111, 0064
+- **API provider / instance-of (FK fields, exposure derived)** → 0111, 0110
 - **Apicurio** → 0037
 - **Approval workflow (discovery inbox)** → 0045
 - **ASP.NET Core** → 0027, 0028, 0034, 0060
 - **Audit log** → 0016, 0017, 0018, 0050, 0058, 0073, 0102, 0105
 - **Audit checkpoint / chain verification** → 0018, 0105
 - **Avro / JSON / Protobuf schemas** → 0037
-- **Backstage / Compass (reference products — ownership model)** → 0103
+- **Backstage / Compass (reference products — ownership + API model)** → 0103, 0111
 - **Bearer tokens (long-lived)** → 0042, 0077
 - **Billing** → 0061, 0062, 0063
-- **Blast radius / Impact analysis** → 0040, 0067, 0068
+- **Blast radius / Impact analysis** → 0040, 0067, 0068, 0111
 - **Blob storage** → 0004, 0020
 - **Block Kit (Slack)** → 0048
 - **Bulk endpoints / partial success** → 0032
@@ -338,7 +342,7 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Data residency** → 0015, 0021
 - **Dead Letter Queue (DLQ)** → 0033
 - **Deep scan** → 0054, 0055
-- **Dependency graph** → 0040, 0067, 0068
+- **Dependency graph** → 0040, 0067, 0068, 0111
 - **DNS challenge / ACME** → 0052
 - **Docker Compose (local dev)** → 0024
 - **Docker image / Helm chart (agent)** → 0043
@@ -350,7 +354,8 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Entity lifecycle (Active/Deprecated/Retired)** → 0073, 0110
 - **Successor reference (deprecation migration guidance)** → 0110, 0073
 - **Sunset date / admin override (decommission)** → 0073, 0110
-- **Entity types (9 fixed)** → 0064
+- **Entity types (9 fixed)** → 0064, 0111
+- **Service endpoint (labeled address; protocol dropped → Api.Style)** → 0111
 - **Entitlements** → 0061, 0062
 - **Error envelope** → 0029
 - **Exponential backoff / retry** → 0033, 0055

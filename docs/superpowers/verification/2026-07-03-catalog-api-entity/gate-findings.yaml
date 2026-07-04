@@ -1,0 +1,40 @@
+# gate-findings.yaml — per-gate findings telemetry for one slice.
+#
+# Purpose: record every issue each DoD gate raised, with a real/delusion verdict,
+# so gate effectiveness is queryable across slices.
+#   Aggregate:  find docs/superpowers/verification -name gate-findings.yaml
+#   Rank gates by precision (real ÷ found) and by real issues caught.
+#
+# Sibling of dod.md in docs/superpowers/verification/<date>-<topic>/.
+# Copy this file there at slice start; append a finding the moment a gate raises one.
+# dod.md records each gate's PASS/FAIL/PENDING/N-A status; this file records what it FOUND.
+# A gate with status PASS and no entries here ⇒ it ran and found nothing.
+
+slice:  2026-07-03-catalog-api-entity
+branch: feat/catalog-api-entity
+head:   8093eb1
+
+# One entry per issue a gate raised.
+#
+# gate     — the dod.md row this finding came from (slug, not number):
+#              build              (1  Build, TreatWarningsAsErrors)
+#              reviews            (2  per-task subagent reviews)
+#              suite              (3  full test suite incl. real-seam)
+#              container          (4  container build / images CI)
+#              simplify           (5  /simplify)
+#              mutation           (6  mutation loop)
+#              requesting-review  (7  requesting-code-review)
+#              review-pr          (8  review-pr)
+#              deep-review        (9  deep-review)
+#              manual             (Manual / Playwright, ADR-0084)
+#              terminal-reverify  (terminal re-verify: build + suite)
+#              ci-mirror          (pre-push CI mirror, ci-local.sh)
+# severity — blocking | should-fix | nit
+# verdict  — real     : a genuine issue that warranted a change
+#            delusion : a false positive the gate raised that was not a real issue
+# title    — one-line description of the finding
+# note     — optional: resolution (fix sha), or why it was a delusion
+#
+# Gates 1 and 3 (this Task 9 pass) found no issues — both passed clean.
+# Gates 2, 4-9, manual, terminal-reverify, ci-mirror not yet run (controller's scope).
+findings: []
