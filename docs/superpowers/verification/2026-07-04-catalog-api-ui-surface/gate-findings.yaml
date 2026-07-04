@@ -1,0 +1,66 @@
+slice:  2026-07-04-catalog-api-ui-surface
+branch: feat/catalog-api-ui-surface
+head:   334409d
+
+# Per-gate findings telemetry. dod.md records status; this records what each gate FOUND.
+findings:
+  - gate: reviews
+    severity: blocking
+    verdict: real
+    title: "ListApisQuery ctor change breaks existing delegate call site (CS7036)"
+    note: "surfaced by Task 1 implementer pre-flight; resolved by stubbing CatalogEndpointDelegates.ListApisAsync with empty arrays (c63bc91), full binding in Task 2 (e23e7b5)"
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "ListApis never registered in CursorListQueryParameterTransformer (S-01 gap) — generated TS types bare string, broke tsc"
+    note: "surfaced by Task 5 implementer; fixed in 4384267 (register ListApis sortBy/sortOrder/limit) + snapshot regen"
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "registerApi test used invalid RFC-4122 UUID; zod v4 .uuid() rejects"
+    note: "Task 4; fixed test fixture to valid v4 UUID (225bd90). Schema itself correct."
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "RegisterApiDialog resolver validated separately-managed teamId (RHF default '' blocked submit)"
+    note: "Task 7; fixed by resolving against registerApiSchema.omit({teamId:true}) (588a8af), mirroring sibling pick pattern"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "isAbsoluteUrl duplicated across registerApi/registerService/registerApplication schemas"
+    note: "pre-existing pattern; candidate for shared validators module (not addressed — follow-up)"
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "API style pill hand-rolled as raw <span> in ApisTable + ApiDetailPage instead of shared Badge"
+    note: "fixed in 88d07d0 (use Badge type=pill-color)"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "registerApi specUrl had redundant trailing empty-string union (refine already accepts \"\")"
+    note: "fixed in 88d07d0"
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "4th copy of hand-rolled enum-multiselect filter parse (?style= mirrors ?health=/?lifecycle=)"
+    note: "cross-cutting; NOT applied in-slice (would unilaterally touch untouched sibling endpoints) — logged as follow-up"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "teamId filter had no real-seam integration test (= ANY translation only unit/InMemory-tested); no tenant-isolation-with-filter; no combined-filter; no LikeEscaping wildcard-literalization test"
+    note: "all 4 added in 65ce979; ListApisPaginationTests 14/14 green"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "Enum.TryParse accepts comma-combined style token (?style=rest,grpc) — sibling-inherited quirk"
+    note: "harmless (multi-select sends repeated params); identical to ListServicesAsync; tighten Services too if ever changed"
+  - gate: requesting-review
+    severity: nit
+    verdict: delusion
+    title: "registry/checklist updates not in code diff — confirm committed"
+    note: "not a real gap — they are committed at 334409d; excluded only because the review diff was scoped to code files"
+  - gate: mutation
+    severity: should-fix
+    verdict: real
+    title: "gate 6 mutation not run (env cap + integration-tests-per-mutant); waived with mitigation"
+    note: "changed logic is verbatim ListServices mirror; predicate/f-map paths covered by unit + 14 real-seam tests. Waiver, not green."
