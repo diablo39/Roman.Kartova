@@ -1,6 +1,6 @@
 # Kartova — Development Progress Checklist
 
-**Last updated:** 2026-06-22
+**Last updated:** 2026-07-04
 
 ## How to use
 - [ ] = Not started
@@ -12,7 +12,7 @@
 | Phase | Status | Progress |
 |-------|--------|----------|
 | Phase 0: Foundation | In Progress | 12/31 |
-| Phase 1: Core Catalog & Notifications | In Progress | 17/60 |
+| Phase 1: Core Catalog & Notifications | In Progress | 26/60 |
 | Phase 2: Auto-Import | Not Started | 0/36 |
 | Phase 3: Documentation | Not Started | 0/15 |
 | Phase 4: Status Page | Not Started | 0/16 |
@@ -21,7 +21,7 @@
 | Phase 7: Intelligence | Not Started | 0/13 |
 | Phase 8: Analytics | Not Started | 0/14 |
 | Phase 9: Advanced | Not Started | 0/0 |
-| **Total** | | **24/212** |
+| **Total** | | **38/212** |
 
 ---
 
