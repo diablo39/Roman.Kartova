@@ -596,7 +596,10 @@ internal static class CatalogEndpointDelegates
             SortBy: parsedSortBy ?? ApiSortField.DisplayName,
             SortOrder: parsedSortOrder ?? SortOrder.Asc,
             Cursor: cursor,
-            Limit: effectiveLimit);
+            Limit: effectiveLimit,
+            // Filter query-string binding lands in the API-UI slice (FU-9 Task 2); empty ⇒ no predicate.
+            TeamId: Array.Empty<Guid>(),
+            Style: Array.Empty<Kartova.Catalog.Domain.ApiStyle>());
 
         var page = await handler.Handle(query, db, ct);
         return Results.Ok(page);

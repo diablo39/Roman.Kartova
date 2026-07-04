@@ -3,6 +3,7 @@ using Kartova.Catalog.Contracts;
 using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Pagination;
 using Kartova.SharedKernel.Postgres.Pagination;
+using Microsoft.EntityFrameworkCore;
 using DomainApi = Kartova.Catalog.Domain.Api;
 
 namespace Kartova.Catalog.Infrastructure;
@@ -19,10 +20,41 @@ public sealed class ListApisHandler(IUserDirectory directory)
     {
         var spec = ApiSortSpecs.Resolve(q.SortBy);
 
-        var page = await db.Apis
+        // Apply filters BEFORE pagination so a hidden row never becomes a cursor boundary
+        // (same invariant as ListServicesHandler).
+        IQueryable<DomainApi> source = db.Apis;
+
+        if (q.TeamId.Length > 0)
+            source = source.Where(a => q.TeamId.Contains(a.TeamId));   // = ANY(@p)
+
+        if (q.Style.Length > 0)
+            source = source.Where(a => q.Style.Contains(a.Style));     // = ANY(@p)
+
+        if (q.DisplayNameContains is { } name)
+        {
+            var pattern = $"%{LikeEscaping.EscapeLike(name)}%";
+            source = source.Where(a => EF.Functions.ILike(a.DisplayName, pattern, "\\"));
+        }
+
+        // Only non-empty dimensions are encoded so the cursor stays canonical and a
+        // mid-pagination change trips CursorFilterMismatchException.
+        Dictionary<string, string>? filters = null;
+        if (q.TeamId.Length > 0 || q.Style.Length > 0 || q.DisplayNameContains is not null)
+        {
+            filters = new Dictionary<string, string>(StringComparer.Ordinal);
+            if (q.TeamId.Length > 0)
+                filters["teamId"] = string.Join(",", q.TeamId.Select(g => g.ToString("D")).Order());
+            if (q.Style.Length > 0)
+                filters["style"] = string.Join(",", q.Style.Select(s => s.ToString()).Order());
+            if (q.DisplayNameContains is { } dn)
+                filters["displayNameContains"] = dn;
+        }
+
+        var page = await source
             .ToCursorPagedAsync(
                 spec, q.SortOrder, q.Cursor, q.Limit,
-                ApiSortSpecs.IdSelector, IdExtractor, ct);
+                ApiSortSpecs.IdSelector, IdExtractor, ct,
+                expectedFilters: filters);
 
         var creatorIds = new HashSet<Guid>(page.Items.Select(a => a.CreatedByUserId));
         var creators = await directory.GetManyAsync(creatorIds, ct);
