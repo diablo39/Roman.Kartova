@@ -1,7 +1,7 @@
 # DoD Ledger — Catalog API UI surface + list filters (E-02.F-03 FU-9)
 
 **Slice:** `2026-07-04-catalog-api-ui-surface` · **Branch:** `feat/catalog-api-ui-surface` · **HEAD:** `334409d` (pre-gate)
-**PR:** <pending> · **Last updated:** 2026-07-04
+**PR:** [#57](https://github.com/diablo39/Roman.Kartova/pull/57) · **Last updated:** 2026-07-04
 **Spec:** `docs/superpowers/specs/2026-07-04-catalog-api-ui-surface-design.md`
 **Plan:** `docs/superpowers/plans/2026-07-04-catalog-api-ui-surface.md`
 **Findings telemetry:** `./gate-findings.yaml`
