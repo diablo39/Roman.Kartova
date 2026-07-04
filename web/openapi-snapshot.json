@@ -1299,6 +1299,12 @@
             "name": "sortBy",
             "in": "query",
             "schema": {
+              "enum": [
+                "displayName",
+                "style",
+                "version",
+                "createdAt"
+              ],
               "type": "string"
             }
           },
@@ -1306,6 +1312,10 @@
             "name": "sortOrder",
             "in": "query",
             "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
               "type": "string"
             }
           },
@@ -1320,7 +1330,38 @@
             "name": "limit",
             "in": "query",
             "schema": {
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "displayNameContains",
+            "in": "query",
+            "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "teamId",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "style",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
