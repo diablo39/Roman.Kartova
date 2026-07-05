@@ -9,6 +9,12 @@ export const relationshipTypeLabel: Record<CreatableRelationshipType, string> = 
 const CREATABLE_TYPES: CreatableRelationshipType[] = ["dependsOn"];
 const KINDS: RelationshipKind[] = ["application", "service"];
 
+// Shared predicate: is this kind one the app/service-only graph UI can render? (FU-A: `api`
+// and any other non-app/service kind must be filtered out before reaching graph nodes/edges.)
+export function isRenderableKind(kind: string): kind is RelationshipKind {
+  return kind === "application" || kind === "service";
+}
+
 // Mirror of backend RelationshipTypeRules.IsAllowedPair (ADR-0068, creatable UI subset).
 // Only `dependsOn` is creatable from the UI this slice; API edge types (providesApiFor,
 // consumesApiFrom, instanceOf) and the `api` kind land with the API graph UI (FU-A).

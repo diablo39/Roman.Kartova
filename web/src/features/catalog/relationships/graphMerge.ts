@@ -1,6 +1,7 @@
 import type { GraphResponse } from "@/features/catalog/api/graph";
 import {
   relationshipTypeLabel,
+  isRenderableKind,
   type RelationshipKind,
   type CreatableRelationshipType,
 } from "@/features/catalog/relationships/relationshipTypeRules";
@@ -17,10 +18,6 @@ export type ExplorerEdge = { id: string; source: string; target: string; label: 
 export type ExplorerGraph = { nodes: ExplorerNode[]; edges: ExplorerEdge[]; truncated: boolean };
 
 const nodeId = (kind: string, id: string) => `${kind}:${id}`;
-
-// FU-A: the explorer graph doesn't render `api` (or any non-app/service) nodes yet — filter
-// them out here so a backend-created API edge can't reach the explorer and mis-route on click.
-const isRenderableKind = (kind: string): kind is RelationshipKind => kind === "application" || kind === "service";
 
 export function mergeGraphs(results: GraphResponse[]): ExplorerGraph {
   const nodes = new Map<string, ExplorerNode>();

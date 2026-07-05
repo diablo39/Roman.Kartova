@@ -79,27 +79,14 @@ public class RelationshipTests
     }
 
     [TestMethod]
-    public void CreateManual_instanceOf_service_to_application_is_valid()
+    [DataRow(RelationshipType.InstanceOf, EntityKind.Service, EntityKind.Application)]
+    [DataRow(RelationshipType.ProvidesApiFor, EntityKind.Service, EntityKind.Api)]
+    [DataRow(RelationshipType.ConsumesApiFrom, EntityKind.Application, EntityKind.Api)]
+    public void CreateManual_valid_pair_sets_type(RelationshipType type, EntityKind sourceKind, EntityKind targetKind)
     {
-        var rel = Relationship.CreateManual(Svc(Guid.NewGuid()), App(Guid.NewGuid()),
-            RelationshipType.InstanceOf, Guid.NewGuid(), T(), TimeProvider.System);
-        Assert.AreEqual(RelationshipType.InstanceOf, rel.Type);
-    }
-
-    [TestMethod]
-    public void CreateManual_providesApiFor_service_to_api_is_valid()
-    {
-        var rel = Relationship.CreateManual(Svc(Guid.NewGuid()), Api(Guid.NewGuid()),
-            RelationshipType.ProvidesApiFor, Guid.NewGuid(), T(), TimeProvider.System);
-        Assert.AreEqual(RelationshipType.ProvidesApiFor, rel.Type);
-    }
-
-    [TestMethod]
-    public void CreateManual_consumesApiFrom_application_to_api_is_valid()
-    {
-        var rel = Relationship.CreateManual(App(Guid.NewGuid()), Api(Guid.NewGuid()),
-            RelationshipType.ConsumesApiFrom, Guid.NewGuid(), T(), TimeProvider.System);
-        Assert.AreEqual(RelationshipType.ConsumesApiFrom, rel.Type);
+        var rel = Relationship.CreateManual(new EntityRef(sourceKind, Guid.NewGuid()), new EntityRef(targetKind, Guid.NewGuid()),
+            type, Guid.NewGuid(), T(), TimeProvider.System);
+        Assert.AreEqual(type, rel.Type);
     }
 
     [TestMethod]

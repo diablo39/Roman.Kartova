@@ -12,8 +12,8 @@ public static class RelationshipTypeRules
     {
         RelationshipType.DependsOn => true,
         RelationshipType.InstanceOf => source == EntityKind.Service && target == EntityKind.Application,
-        RelationshipType.ProvidesApiFor => source is EntityKind.Application or EntityKind.Service && target == EntityKind.Api,
-        RelationshipType.ConsumesApiFrom => source is EntityKind.Application or EntityKind.Service && target == EntityKind.Api,
+        RelationshipType.ProvidesApiFor or RelationshipType.ConsumesApiFrom =>
+            source is EntityKind.Application or EntityKind.Service && target == EntityKind.Api,
         _ => false,
     };
 }
