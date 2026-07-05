@@ -14,6 +14,7 @@ import {
   type RelationshipResponse,
 } from "@/features/catalog/api/relationships";
 import { relationshipTypeLabel, offerableTypes, type RelationshipKind, type CreatableRelationshipType } from "@/features/catalog/relationships/relationshipTypeRules";
+import { entityDetailPath } from "@/features/catalog/relationships/graphModel";
 import { AddRelationshipDialog } from "@/features/catalog/components/AddRelationshipDialog";
 import type { FixedRole } from "@/features/catalog/relationships/relationshipTypeRules";
 import { Tooltip, TooltipTrigger } from "@/components/base/tooltip/tooltip";
@@ -28,8 +29,7 @@ interface Props {
 }
 
 function entityLink(kind: string, id: string) {
-  const seg = kind === "application" ? "applications" : kind === "api" ? "apis" : "services";
-  return `/catalog/${seg}/${id}`;
+  return entityDetailPath(kind as RelationshipKind, id);
 }
 
 const relationshipOriginLabel: Record<string, string> = { manual: "Manual", scan: "Scan", agent: "Agent" };
@@ -42,7 +42,10 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
     hasPermission(KartovaPermissions.CatalogRelationshipsWrite) &&
     (role === "OrgAdmin" || teamIds.includes(entityTeamId));
 
-  const outgoing = useRelationshipsList({ entityKind, entityId, direction: "outgoing" });
+  const outgoing = useRelationshipsList(
+    { entityKind, entityId, direction: "outgoing" },
+    { enabled: variant === "full" },
+  );
   const incoming = useRelationshipsList({ entityKind, entityId, direction: "incoming" });
   const del = useDeleteRelationship();
   const [dialog, setDialog] = useState<null | FixedRole>(null);

@@ -7,6 +7,8 @@ interface UseCursorListOptions<TItem> {
   fetchPage: (cursor: string | undefined) => Promise<CursorPageEnvelope<TItem>>;
   /** Garbage-collection time for cached pages (ms). Default 15 min. */
   gcTime?: number;
+  /** When false, the query is disabled (no fetch). Default true. */
+  enabled?: boolean;
 }
 
 /**
@@ -24,7 +26,7 @@ interface UseCursorListOptions<TItem> {
 export function useCursorList<TItem>(
   options: UseCursorListOptions<TItem>,
 ): CursorListResult<TItem> {
-  const { queryKey, fetchPage, gcTime = 15 * 60 * 1000 } = options;
+  const { queryKey, fetchPage, gcTime = 15 * 60 * 1000, enabled = true } = options;
   const keyStr = JSON.stringify(queryKey);
   const [stack, setStack] = useState<(string | undefined)[]>([undefined]);
   const [seenKey, setSeenKey] = useState(keyStr);
@@ -45,6 +47,7 @@ export function useCursorList<TItem>(
     queryKey: [...queryKey, { cursor: currentCursor }],
     queryFn: () => fetchPage(currentCursor),
     gcTime,
+    enabled,
   });
 
   const goNext = useCallback(() => {

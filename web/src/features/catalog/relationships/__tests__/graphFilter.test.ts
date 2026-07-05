@@ -54,4 +54,19 @@ describe("applyGraphFilters", () => {
     expect(dimmedEdgeIds.has("e-focus-a1")).toBe(false); // both endpoints applications
     expect(dimmedEdgeIds.has("e-a1-s1")).toBe(true);     // s1 dimmed
   });
+
+  it("api kind filter dims non-api nodes but never the focus", () => {
+    const graphWithApi: ExplorerGraph = {
+      ...graph,
+      nodes: [
+        ...graph.nodes,
+        { id: "api:api1", kind: "api", entityId: "api1", displayName: "Orders API", teamId: "t1" },
+      ],
+    };
+    const { dimmedNodeIds } = applyGraphFilters(graphWithApi, { kinds: ["api"], teamIds: [] }, focusId);
+    expect(dimmedNodeIds.has("api:api1")).toBe(false);
+    expect(dimmedNodeIds.has("application:a1")).toBe(true);
+    expect(dimmedNodeIds.has("service:s1")).toBe(true);
+    expect(dimmedNodeIds.has("application:focus")).toBe(false); // focus exempt
+  });
 });

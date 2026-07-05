@@ -25,9 +25,13 @@ export const relationshipKeys = {
       : ([...relationshipKeys.all, "list"] as const),
 };
 
-export function useRelationshipsList(params: RelationshipsListParams) {
+export function useRelationshipsList(
+  params: RelationshipsListParams,
+  opts?: { enabled?: boolean },
+) {
   return useCursorList<RelationshipResponse>({
     queryKey: relationshipKeys.list(params),
+    enabled: opts?.enabled,
     fetchPage: async (cursor) => {
       const { data, error } = await apiClient.GET("/api/v1/catalog/relationships", {
         params: {

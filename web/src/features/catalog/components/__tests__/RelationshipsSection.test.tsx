@@ -89,4 +89,5 @@ it("incoming-only variant hides Outgoing group and disables add/delete", () => {
   expect(screen.queryByRole("button", { name: /add/i })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
   expect(screen.getByText("Billing").closest("a")).toHaveAttribute("href", "/catalog/services/s2");
+  expect(screen.getByText("Consumes API from")).toBeInTheDocument();
 });
