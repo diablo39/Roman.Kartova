@@ -24,7 +24,7 @@
 | 9 `deep-review` | ✅ no Blocking; should-fixes applied `1b8be1c`/`58dc853`; report `./deep-review.md` | 2026-07-05 |
 | Manual / Playwright (ADR-0084) | ✅ 5 flows verified, console clean; evidence `verify-1..5-*.png` | 2026-07-05 |
 | Terminal re-verify (build + suite) | ✅ 721/721 + build clean on `58dc853` | 2026-07-05 |
-| Pre-push CI mirror (`ci-local.sh`) | ⚠️ flaked (host EPERM) — direct Release build+test green; ubuntu CI validates on PR | 2026-07-05 |
+| Pre-push CI mirror (`ci-local.sh`) | ✅ `frontend` PASS after killing a stray vite process that held the lightningcss lock | 2026-07-05 |
 
 ## Gate detail
 
@@ -68,4 +68,6 @@ Dialog opened in a real browser (react-aria blank-page guard held). Console: 0 e
 ✅ After fix waves: `npm run test` → **721/721**; `npm run build` → 0 errors, on final commit `58dc853`.
 
 ### Pre-push CI mirror
-⚠️ `scripts/ci-local.sh frontend` failed twice on the **known Windows host flake**: `npm ci` cannot `unlink` `node_modules/lightningcss-win32-x64-msvc/lightningcss.win32-x64-msvc.node` (EPERM — native `.node` held by AV/handle), documented in project memory. This is the install step, not the wrapped checks. The Release-equivalent checks all pass when run directly: `npm run build` (tsc -b && vite build) → 0 errors; `npm run test` → 721/721. Per CLAUDE.md, ci-local runs on the host (not the ubuntu runner) and can't catch/avoid host flakes — the PR's ubuntu `frontend` job does a clean `npm ci` and is the source of truth. Watch the PR check.
+✅ `scripts/ci-local.sh frontend` → PASS (clean `npm ci` + Release `tsc -b && vite build` + typecheck + vitest).
+
+Initial two runs EPERM-failed: `npm ci` could not `unlink node_modules/lightningcss-win32-x64-msvc/lightningcss.win32-x64-msvc.node`. **Root cause diagnosed via PowerShell:** a live vite dev server (node PID on :5173 + its esbuild child) held an open handle on that native `.node`, so `npm ci`'s wholesale `node_modules` delete was blocked. `TaskStop` on the launcher had killed the wrapper shell but not the vite process tree. Killing the actual vite/esbuild PIDs (verified :5173 freed) released the handle; the re-run passed cleanly. Not a code issue and not tool-specific (any delete hits the OS lock); the fix is killing the holder.
