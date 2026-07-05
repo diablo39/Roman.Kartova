@@ -17,13 +17,13 @@
 | 3 Full suite (+ real-seam) | ✅ PASS | 2026-07-05 |
 | 4 Container build (images CI) | ✅ PASS | 2026-07-05 |
 | 5 `/simplify` | ✅ PASS | 2026-07-05 |
-| 6 Mutation (blocking — Domain rule logic) | ⏳ PENDING (Stryker running) | 2026-07-05 |
+| 6 Mutation (blocking — Domain rule logic) | ✅ PASS (100%) | 2026-07-05 |
 | 7 `requesting-code-review` (opus whole-branch) | ✅ PASS | 2026-07-05 |
 | 8 `review-pr` (pr-review-toolkit) | ✅ PASS | 2026-07-05 |
 | 9 `deep-review` | ✅ PASS | 2026-07-05 |
 | Manual / Playwright (ADR-0084) | ✅ PASS | 2026-07-05 |
-| Terminal re-verify (build + suite) | ⏳ PENDING (after migration commit) | 2026-07-05 |
-| Pre-push CI mirror (`ci-local.sh`) | ✅ PASS (re-run after migration pending) | 2026-07-05 |
+| Terminal re-verify (build + suite) | ✅ PASS | 2026-07-05 |
+| Pre-push CI mirror (`ci-local.sh`) | ✅ PASS (re-run backend/images/frontend after migration) | 2026-07-05 |
 
 ## Gate detail
 
@@ -43,7 +43,7 @@
 **Status:** ✅ PASS — 4 angle-agents; applied 3 cleanups (shared `isRenderableKind`, merged api-pair rule arm, DataRow valid-pair test) in 840cecd; skipped `SeedApiAsync` hoist (per-file convention). See `gate-findings.yaml`.
 
 ### 6 — Mutation loop (blocking — Domain rule logic changed)
-**Status:** ⏳ PENDING — Stryker on `Kartova.Catalog.Domain` (`--since:master`, incremental) running; scope = `RelationshipTypeRules.cs` + enums. Result + score to be recorded. (CI `stryker` job only validates config routing, so a real run is required here.)
+**Status:** ✅ PASS — Stryker on `Kartova.Catalog.Domain` (`--since:master`): **100.00% mutation score** on changed files (`RelationshipTypeRules.cs` + `EntityKind`/`RelationshipType`); all tested mutants killed, 149 ignored by since-filter (unchanged), 121 by mutation-type filter. (CI `stryker` job only validates config routing, so this real run satisfies the blocking gate.)
 
 ### 7 — `requesting-code-review` (opus whole-branch)
 **Status:** ✅ PASS — opus whole-branch review: no blocking; 1 should-fix (FE graph mis-nav) + nits → fixed 06cd66b. Distinct lens from per-task reviews.
@@ -58,7 +58,7 @@
 **Status:** ✅ PASS — logged in (admin@orga), app detail → Add-relationship dialog **Type dropdown offers only "Depends on"** (no "Part of"); Target kind = application/service (no api, FU-A deferred). **Found a real 500** (`GET /relationships` direction=incoming/all) from a stray `type='PartOf'` row unmappable after enum removal — fresh test DBs missed it. Fixed via data migration `PurgePartOfRelationships` + dev-DB purge; re-verified: dependency graph + Dependencies + Dependents all render, **zero console errors**. Evidence: `./verify-add-relationship-dialog.png`.
 
 ### Terminal re-verify (build + full suite after gates 5–9)
-**Status:** ⏳ PENDING — re-run `dotnet build` + Catalog integration (migration runs on fresh Testcontainers DB) on the final commit after the migration + doc commit.
+**Status:** ✅ PASS — at 9f2a625: `dotnet build Kartova.slnx -c Debug` → 0/0; `dotnet test Kartova.Catalog.IntegrationTests` → 245/245 (the `PurgePartOfRelationships` migration runs at fixture setup, validating the RLS-toggle SQL on fresh DBs).
 
 ### Pre-push CI mirror (`scripts/ci-local.sh`)
 **Status:** ✅ PASS at 840cecd (backend/images/stryker/frontend/helm all PASS). Re-run (or `backend images`) after migration commit pending before push.
