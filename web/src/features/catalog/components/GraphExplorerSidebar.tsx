@@ -6,8 +6,9 @@ import { useService } from "@/features/catalog/api/services";
 import type { ServiceResponse } from "@/features/catalog/api/services";
 import type { ExpandDir } from "@/features/catalog/relationships/useExplorerState";
 import { ENTITY_KIND_LABEL, entityDetailPath } from "@/features/catalog/relationships/graphModel";
+import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
 
-type Selected = { kind: "application" | "service"; id: string };
+type Selected = { kind: RelationshipKind; id: string };
 
 export function GraphExplorerSidebar(props: {
   selected: Selected;
