@@ -23,6 +23,22 @@ public class GetCatalogGraphTests : CatalogIntegrationTestBase
         return body!.Id;
     }
 
+    private static async Task<Guid> SeedApiAsync(HttpClient client, Guid teamId, string name)
+    {
+        var resp = await client.PostAsJsonAsync("/api/v1/catalog/apis", new
+        {
+            displayName = name,
+            description = "x",
+            style = ApiStyle.Rest,
+            version = "v1",
+            specUrl = (string?)null,
+            teamId,
+        });
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode, $"SeedApi '{name}' failed: {resp.StatusCode}");
+        var body = await resp.Content.ReadFromJsonAsync<ApiResponse>(KartovaApiFixtureBase.WireJson);
+        return body!.Id;
+    }
+
     private static async Task DependsOnAsync(HttpClient client, Guid src, Guid tgt)
     {
         var resp = await client.PostAsJsonAsync("/api/v1/catalog/relationships", new
@@ -184,5 +200,32 @@ public class GetCatalogGraphTests : CatalogIntegrationTestBase
         Assert.IsTrue(
             graph.Edges.Any(e => e.Source.Id == b && e.Target.Id == a),
             "B→A cross-edge is present even though B→A was not traversed during discovery");
+    }
+
+    [TestMethod]
+    public async Task GET_graph_focused_on_api_returns_provider_edge_and_enriched_api_node()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Graph Api Team");
+        var apiId = await SeedApiAsync(client, teamId, "graph-api");
+        var providerSvc = await SeedServiceAsync(client, teamId, "graph-provider-svc");
+
+        var rel = await client.PostAsJsonAsync("/api/v1/catalog/relationships", new
+        {
+            sourceKind = EntityKind.Service, sourceId = providerSvc,
+            type = RelationshipType.ProvidesApiFor,
+            targetKind = EntityKind.Api, targetId = apiId,
+        });
+        Assert.AreEqual(HttpStatusCode.Created, rel.StatusCode, $"seed provider edge: {rel.StatusCode}");
+
+        var resp = await client.GetAsync($"/api/v1/catalog/graph?entityKind=Api&entityId={apiId}&depth=1&direction=all");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var graph = await resp.Content.ReadFromJsonAsync<GraphResponse>(KartovaApiFixtureBase.WireJson);
+
+        var apiNode = graph!.Nodes.Single(n => n.Id == apiId);
+        Assert.AreEqual("graph-api", apiNode.DisplayName);
+        Assert.AreEqual(teamId, apiNode.TeamId);
+        Assert.IsTrue(graph.Nodes.Any(n => n.Id == providerSvc), "provider service node should be present at depth 1");
+        Assert.AreEqual(1, graph.Edges.Count);
     }
 }

@@ -170,30 +170,4 @@ describe("AddRelationshipDialog", () => {
     const typeSelect = screen.getByTestId("relationship-type-select") as HTMLSelectElement;
     expect(Array.from(typeSelect.options).map((o) => o.value)).toEqual(["dependsOn"]);
   });
-
-  it("forces the other kind to Application (disabled) for PartOf, source side, Service fixed", () => {
-    vi.spyOn(api, "useCreateRelationship").mockReturnValue({
-      mutateAsync: vi.fn(),
-      isPending: false,
-    } as never);
-
-    harness(
-      <AddRelationshipDialog
-        open
-        onOpenChange={vi.fn()}
-        fixedRole="source"
-        fixedEntity={svc}
-      />,
-    );
-
-    fireEvent.change(screen.getByTestId("relationship-type-select"), {
-      target: { value: "partOf" },
-    });
-
-    const kindSelect = screen.getByTestId(
-      "relationship-otherkind-select",
-    ) as HTMLSelectElement;
-    expect(Array.from(kindSelect.options).map((o) => o.value)).toEqual(["application"]);
-    expect(kindSelect.disabled).toBe(true);
-  });
 });

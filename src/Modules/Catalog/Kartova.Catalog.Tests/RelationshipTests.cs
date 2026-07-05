@@ -1,62 +1,66 @@
 using Kartova.Catalog.Domain;
+using Kartova.SharedKernel.Multitenancy;
 
 namespace Kartova.Catalog.Tests;
 
 [TestClass]
 public class RelationshipTests
 {
+    private static EntityRef Svc(Guid id) => new(EntityKind.Service, id);
+    private static EntityRef App(Guid id) => new(EntityKind.Application, id);
+    private static EntityRef Api(Guid id) => new(EntityKind.Api, id);
+    private static TenantId T() => new(Guid.NewGuid());
+
     [TestMethod]
     public void EntityRef_rejects_empty_id()
-    {
-        Assert.ThrowsExactly<ArgumentException>(() => new EntityRef(EntityKind.Service, Guid.Empty));
-    }
+        => Assert.ThrowsExactly<ArgumentException>(() => new EntityRef(EntityKind.Service, Guid.Empty));
 
     [TestMethod]
     public void EntityRef_rejects_undefined_kind()
-    {
-        Assert.ThrowsExactly<ArgumentException>(() => new EntityRef((EntityKind)99, Guid.NewGuid()));
-    }
+        => Assert.ThrowsExactly<ArgumentException>(() => new EntityRef((EntityKind)99, Guid.NewGuid()));
 
     [TestMethod]
     public void EntityRef_value_equality_holds()
     {
         var id = Guid.NewGuid();
-        Assert.AreEqual(new EntityRef(EntityKind.Service, id), new EntityRef(EntityKind.Service, id));
-        Assert.AreNotEqual(new EntityRef(EntityKind.Service, id), new EntityRef(EntityKind.Application, id));
+        Assert.AreEqual(new EntityRef(EntityKind.Api, id), new EntityRef(EntityKind.Api, id));
+        Assert.AreNotEqual(new EntityRef(EntityKind.Api, id), new EntityRef(EntityKind.Service, id));
     }
 
     [TestMethod]
-    public void IsCreatable_only_dependsOn_and_partOf()
+    public void IsCreatable_is_dependsOn_instanceOf_provides_consumes()
     {
-        Assert.IsTrue(RelationshipTypeRules.IsCreatable(RelationshipType.DependsOn));
-        Assert.IsTrue(RelationshipTypeRules.IsCreatable(RelationshipType.PartOf));
-        foreach (var t in new[] { RelationshipType.ProvidesApiFor, RelationshipType.ConsumesApiFrom,
-                     RelationshipType.PublishesTo, RelationshipType.SubscribesFrom, RelationshipType.DeployedOn })
-            Assert.IsFalse(RelationshipTypeRules.IsCreatable(t), $"{t} must not be creatable in slice 1a");
+        foreach (var t in new[] { RelationshipType.DependsOn, RelationshipType.InstanceOf,
+                     RelationshipType.ProvidesApiFor, RelationshipType.ConsumesApiFrom })
+            Assert.IsTrue(RelationshipTypeRules.IsCreatable(t), $"{t} must be creatable");
+
+        foreach (var t in new[] { RelationshipType.PublishesTo, RelationshipType.SubscribesFrom, RelationshipType.DeployedOn })
+            Assert.IsFalse(RelationshipTypeRules.IsCreatable(t), $"{t} must not be creatable yet");
     }
 
-    // Non-creatable types hit the `_ => false` default arm (covers it so the mutant there is killed).
-    [DataRow(RelationshipType.ProvidesApiFor, EntityKind.Service, EntityKind.Application, false)]
-    [DataRow(RelationshipType.PublishesTo, EntityKind.Service, EntityKind.Service, false)]
-
     [TestMethod]
-    // depends-on: any of {App,Service} → any of {App,Service}
+    // depends-on: any → any (incl. Api endpoints)
     [DataRow(RelationshipType.DependsOn, EntityKind.Service, EntityKind.Service, true)]
-    [DataRow(RelationshipType.DependsOn, EntityKind.Application, EntityKind.Service, true)]
-    [DataRow(RelationshipType.DependsOn, EntityKind.Service, EntityKind.Application, true)]
-    [DataRow(RelationshipType.DependsOn, EntityKind.Application, EntityKind.Application, true)]
-    // part-of: Service → Application ONLY
-    [DataRow(RelationshipType.PartOf, EntityKind.Service, EntityKind.Application, true)]
-    [DataRow(RelationshipType.PartOf, EntityKind.Application, EntityKind.Service, false)]
-    [DataRow(RelationshipType.PartOf, EntityKind.Service, EntityKind.Service, false)]
-    [DataRow(RelationshipType.PartOf, EntityKind.Application, EntityKind.Application, false)]
+    [DataRow(RelationshipType.DependsOn, EntityKind.Application, EntityKind.Api, true)]
+    // instance-of: Service → Application ONLY
+    [DataRow(RelationshipType.InstanceOf, EntityKind.Service, EntityKind.Application, true)]
+    [DataRow(RelationshipType.InstanceOf, EntityKind.Application, EntityKind.Service, false)]
+    [DataRow(RelationshipType.InstanceOf, EntityKind.Service, EntityKind.Api, false)]
+    [DataRow(RelationshipType.InstanceOf, EntityKind.Service, EntityKind.Service, false)]
+    // provides-api-for: {App,Service} → Api ONLY
+    [DataRow(RelationshipType.ProvidesApiFor, EntityKind.Application, EntityKind.Api, true)]
+    [DataRow(RelationshipType.ProvidesApiFor, EntityKind.Service, EntityKind.Api, true)]
+    [DataRow(RelationshipType.ProvidesApiFor, EntityKind.Service, EntityKind.Application, false)]
+    [DataRow(RelationshipType.ProvidesApiFor, EntityKind.Api, EntityKind.Application, false)]
+    // consumes-api-from: {App,Service} → Api ONLY
+    [DataRow(RelationshipType.ConsumesApiFrom, EntityKind.Service, EntityKind.Api, true)]
+    [DataRow(RelationshipType.ConsumesApiFrom, EntityKind.Application, EntityKind.Api, true)]
+    [DataRow(RelationshipType.ConsumesApiFrom, EntityKind.Api, EntityKind.Service, false)]
+    [DataRow(RelationshipType.ConsumesApiFrom, EntityKind.Service, EntityKind.Service, false)]
+    // non-creatable type hits the default arm → false
+    [DataRow(RelationshipType.PublishesTo, EntityKind.Service, EntityKind.Service, false)]
     public void IsAllowedPair_matrix(RelationshipType type, EntityKind source, EntityKind target, bool expected)
-    {
-        Assert.AreEqual(expected, RelationshipTypeRules.IsAllowedPair(type, source, target));
-    }
-
-    private static EntityRef Svc(Guid id) => new(EntityKind.Service, id);
-    private static EntityRef App(Guid id) => new(EntityKind.Application, id);
+        => Assert.AreEqual(expected, RelationshipTypeRules.IsAllowedPair(type, source, target));
 
     [TestMethod]
     public void CreateManual_dependsOn_sets_fields_and_manual_origin()
@@ -64,8 +68,7 @@ public class RelationshipTests
         var src = Svc(Guid.NewGuid());
         var tgt = Svc(Guid.NewGuid());
         var creator = Guid.NewGuid();
-        var rel = Relationship.CreateManual(src, tgt, RelationshipType.DependsOn, creator,
-            new Kartova.SharedKernel.Multitenancy.TenantId(Guid.NewGuid()), TimeProvider.System);
+        var rel = Relationship.CreateManual(src, tgt, RelationshipType.DependsOn, creator, T(), TimeProvider.System);
 
         Assert.AreEqual(src, rel.Source);
         Assert.AreEqual(tgt, rel.Target);
@@ -76,12 +79,14 @@ public class RelationshipTests
     }
 
     [TestMethod]
-    public void CreateManual_partOf_service_to_application_is_valid()
+    [DataRow(RelationshipType.InstanceOf, EntityKind.Service, EntityKind.Application)]
+    [DataRow(RelationshipType.ProvidesApiFor, EntityKind.Service, EntityKind.Api)]
+    [DataRow(RelationshipType.ConsumesApiFrom, EntityKind.Application, EntityKind.Api)]
+    public void CreateManual_valid_pair_sets_type(RelationshipType type, EntityKind sourceKind, EntityKind targetKind)
     {
-        var rel = Relationship.CreateManual(Svc(Guid.NewGuid()), App(Guid.NewGuid()),
-            RelationshipType.PartOf, Guid.NewGuid(),
-            new Kartova.SharedKernel.Multitenancy.TenantId(Guid.NewGuid()), TimeProvider.System);
-        Assert.AreEqual(RelationshipType.PartOf, rel.Type);
+        var rel = Relationship.CreateManual(new EntityRef(sourceKind, Guid.NewGuid()), new EntityRef(targetKind, Guid.NewGuid()),
+            type, Guid.NewGuid(), T(), TimeProvider.System);
+        Assert.AreEqual(type, rel.Type);
     }
 
     [TestMethod]
@@ -89,34 +94,28 @@ public class RelationshipTests
     {
         var same = Svc(Guid.NewGuid());
         Assert.ThrowsExactly<ArgumentException>(() => Relationship.CreateManual(
-            same, same, RelationshipType.DependsOn, Guid.NewGuid(),
-            new Kartova.SharedKernel.Multitenancy.TenantId(Guid.NewGuid()), TimeProvider.System));
+            same, same, RelationshipType.DependsOn, Guid.NewGuid(), T(), TimeProvider.System));
     }
 
     [TestMethod]
     public void CreateManual_rejects_non_creatable_type()
     {
         var ex = Assert.ThrowsExactly<ArgumentException>(() => Relationship.CreateManual(
-            Svc(Guid.NewGuid()), Svc(Guid.NewGuid()), RelationshipType.PublishesTo, Guid.NewGuid(),
-            new Kartova.SharedKernel.Multitenancy.TenantId(Guid.NewGuid()), TimeProvider.System));
-        // Assert the not-creatable guard fired (its message), not the bad-pair guard below it —
-        // both throw ArgumentException, so the type-only check let the not-creatable (IsCreatable) guard's throw-removal mutant survive.
+            Svc(Guid.NewGuid()), Svc(Guid.NewGuid()), RelationshipType.PublishesTo, Guid.NewGuid(), T(), TimeProvider.System));
         StringAssert.Contains(ex.Message, "not yet available");
     }
 
     [TestMethod]
-    public void CreateManual_rejects_disallowed_pair_partOf_app_to_service()
+    public void CreateManual_rejects_disallowed_pair_providesApiFor_api_to_application()
     {
         Assert.ThrowsExactly<ArgumentException>(() => Relationship.CreateManual(
-            App(Guid.NewGuid()), Svc(Guid.NewGuid()), RelationshipType.PartOf, Guid.NewGuid(),
-            new Kartova.SharedKernel.Multitenancy.TenantId(Guid.NewGuid()), TimeProvider.System));
+            Api(Guid.NewGuid()), App(Guid.NewGuid()), RelationshipType.ProvidesApiFor, Guid.NewGuid(), T(), TimeProvider.System));
     }
 
     [TestMethod]
     public void CreateManual_rejects_empty_creator()
     {
         Assert.ThrowsExactly<ArgumentException>(() => Relationship.CreateManual(
-            Svc(Guid.NewGuid()), Svc(Guid.NewGuid()), RelationshipType.DependsOn, Guid.Empty,
-            new Kartova.SharedKernel.Multitenancy.TenantId(Guid.NewGuid()), TimeProvider.System));
+            Svc(Guid.NewGuid()), Svc(Guid.NewGuid()), RelationshipType.DependsOn, Guid.Empty, T(), TimeProvider.System));
     }
 }

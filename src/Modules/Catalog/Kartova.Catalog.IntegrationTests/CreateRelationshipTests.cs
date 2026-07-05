@@ -40,6 +40,22 @@ public class CreateRelationshipTests : CatalogIntegrationTestBase
         return body!.Id;
     }
 
+    private static async Task<Guid> SeedApiAsync(HttpClient client, Guid teamId, string name)
+    {
+        var resp = await client.PostAsJsonAsync("/api/v1/catalog/apis", new
+        {
+            displayName = name,
+            description = "x",
+            style = ApiStyle.Rest,
+            version = "v1",
+            specUrl = (string?)null,
+            teamId,
+        });
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode, $"SeedApi '{name}' failed: {resp.StatusCode}");
+        var body = await resp.Content.ReadFromJsonAsync<ApiResponse>(KartovaApiFixtureBase.WireJson);
+        return body!.Id;
+    }
+
     [TestMethod]
     public async Task POST_dependsOn_between_two_services_returns_201_and_manual_origin()
     {
@@ -187,32 +203,144 @@ public class CreateRelationshipTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
-    public async Task POST_partOf_service_to_application_returns_201()
+    public async Task POST_application_providesApiFor_api_returns_201()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Team PartOf 201");
-        var svcId = await SeedServiceAsync(client, teamId, "svc-partof-201");
-        var appId = await SeedApplicationAsync(client, teamId, "app-partof-201");
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Team ProvidesApi 201");
+        var appId = await SeedApplicationAsync(client, teamId, "app-provider-201");
+        var apiId = await SeedApiAsync(client, teamId, "orders-api-201");
 
-        var resp = await PostRelAsync(client, EntityKind.Service, svcId, RelationshipType.PartOf, EntityKind.Application, appId);
+        var resp = await PostRelAsync(client, EntityKind.Application, appId, RelationshipType.ProvidesApiFor, EntityKind.Api, apiId);
 
         Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode);
         var body = await resp.Content.ReadFromJsonAsync<RelationshipResponse>(KartovaApiFixtureBase.WireJson);
-        Assert.AreEqual(RelationshipType.PartOf, body!.Type);
+        Assert.AreEqual(RelationshipType.ProvidesApiFor, body!.Type);
+        Assert.AreEqual("orders-api-201", body.Target.DisplayName);
     }
 
     [TestMethod]
-    public async Task POST_partOf_application_to_service_returns_400()
+    public async Task POST_two_services_can_provide_the_same_api()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Team PartOf 400");
-        var appId = await SeedApplicationAsync(client, teamId, "app-partof-400");
-        var svcId = await SeedServiceAsync(client, teamId, "svc-partof-400");
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Team Shared Api");
+        var apiId = await SeedApiAsync(client, teamId, "shared-contract");
+        var connectorA = await SeedServiceAsync(client, teamId, "connector-a");
+        var connectorB = await SeedServiceAsync(client, teamId, "connector-b");
 
-        // Application→Service is a disallowed pair for PartOf
-        var resp = await PostRelAsync(client, EntityKind.Application, appId, RelationshipType.PartOf, EntityKind.Service, svcId);
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(client, EntityKind.Service, connectorA, RelationshipType.ProvidesApiFor, EntityKind.Api, apiId)).StatusCode);
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(client, EntityKind.Service, connectorB, RelationshipType.ProvidesApiFor, EntityKind.Api, apiId)).StatusCode);
+
+        // Airtight oracle: the Api's graph must show both distinct providers, not just 2xN POSTs.
+        var graph = await (await client.GetAsync($"/api/v1/catalog/graph?entityKind=Api&entityId={apiId}&depth=1&direction=all"))
+            .Content.ReadFromJsonAsync<GraphResponse>(KartovaApiFixtureBase.WireJson);
+        var providerEdges = graph!.Edges.Where(e => e.Type == RelationshipType.ProvidesApiFor && e.Target.Id == apiId).ToList();
+        Assert.AreEqual(2, providerEdges.Count, "both provider edges should point at the shared Api");
+        Assert.IsTrue(providerEdges.Any(e => e.Source.Id == connectorA));
+        Assert.IsTrue(providerEdges.Any(e => e.Source.Id == connectorB));
+    }
+
+    [TestMethod]
+    public async Task POST_instanceOf_application_to_service_returns_400()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Team InstanceOf Bad Pair");
+        var appId = await SeedApplicationAsync(client, teamId, "app-instanceof-badpair");
+        var svcId = await SeedServiceAsync(client, teamId, "svc-instanceof-badpair");
+
+        // InstanceOf is Service→Application only; Application→Service is a disallowed pair.
+        var resp = await PostRelAsync(client, EntityKind.Application, appId, RelationshipType.InstanceOf, EntityKind.Service, svcId);
 
         Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task POST_service_consumesApiFrom_api_returns_201()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Consumer");
+        var svcId = await SeedServiceAsync(client, teamId, "svc-consumer-201");
+        var apiId = await SeedApiAsync(client, teamId, "consumed-api-201");
+
+        var resp = await PostRelAsync(client, EntityKind.Service, svcId, RelationshipType.ConsumesApiFrom, EntityKind.Api, apiId);
+
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task POST_service_instanceOf_application_returns_201()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel InstanceOf 201");
+        var svcId = await SeedServiceAsync(client, teamId, "svc-instance-201");
+        var appId = await SeedApplicationAsync(client, teamId, "app-instance-201");
+
+        var resp = await PostRelAsync(client, EntityKind.Service, svcId, RelationshipType.InstanceOf, EntityKind.Application, appId);
+
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode);
+        var body = await resp.Content.ReadFromJsonAsync<RelationshipResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(RelationshipType.InstanceOf, body!.Type);
+    }
+
+    [TestMethod]
+    public async Task POST_providesApiFor_unknown_api_returns_422()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Team Unknown Api");
+        var appId = await SeedApplicationAsync(client, teamId, "app-unknown-api-422");
+
+        var resp = await PostRelAsync(client, EntityKind.Application, appId, RelationshipType.ProvidesApiFor, EntityKind.Api, Guid.NewGuid());
+
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task POST_disallowed_pair_providesApiFor_api_to_application_returns_400()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Team Bad Pair");
+        var apiId = await SeedApiAsync(client, teamId, "api-badpair");
+        var appId = await SeedApplicationAsync(client, teamId, "app-badpair");
+
+        // Api→Application is a disallowed pair for ProvidesApiFor
+        var resp = await PostRelAsync(client, EntityKind.Api, apiId, RelationshipType.ProvidesApiFor, EntityKind.Application, appId);
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task POST_duplicate_providesApiFor_returns_409()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Team Dup Api");
+        var appId = await SeedApplicationAsync(client, teamId, "app-dup-provider");
+        var apiId = await SeedApiAsync(client, teamId, "api-dup-provider");
+
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(client, EntityKind.Application, appId, RelationshipType.ProvidesApiFor, EntityKind.Api, apiId)).StatusCode);
+        Assert.AreEqual(HttpStatusCode.Conflict,
+            (await PostRelAsync(client, EntityKind.Application, appId, RelationshipType.ProvidesApiFor, EntityKind.Api, apiId)).StatusCode);
+    }
+
+    [TestMethod]
+    public async Task POST_providesApiFor_by_member_of_api_team_returns_201()
+    {
+        // ADR-0108 either-team: a member of the API's owning team (but not provider app's) may declare the edge.
+        var admin = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var appTeam = await Fx.SeedTeamInOrganizationAsync(tenant, "Provider App Team");
+        var apiTeam = await Fx.SeedTeamInOrganizationAsync(tenant, "Api Owner Team");
+        var appId = await SeedApplicationAsync(admin, appTeam, "app-authz-provider");
+        var apiId = await SeedApiAsync(admin, apiTeam, "api-authz-target");
+
+        var member = await Fx.CreateAuthenticatedClientAsync("member@orga.kartova.local", new[] { KartovaRoles.Member });
+        var memberId = await Fx.GetSubClaimAsync("member@orga.kartova.local");
+        await Fx.SeedTeamMembershipAsync(apiTeam, memberId, roleByte: 1 /* Member */);
+
+        var resp = await PostRelAsync(member, EntityKind.Application, appId, RelationshipType.ProvidesApiFor, EntityKind.Api, apiId);
+
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode);
     }
 
     [TestMethod]

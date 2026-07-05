@@ -1,6 +1,7 @@
 import type { RelationshipResponse } from "@/features/catalog/api/relationships";
 import {
   relationshipTypeLabel,
+  isRenderableKind,
   type RelationshipKind,
   type CreatableRelationshipType,
 } from "@/features/catalog/relationships/relationshipTypeRules";
@@ -46,6 +47,9 @@ export function toGraphModel(focused: FocusedEntity, relationships: Relationship
     if (!focusedIsSource && !focusedIsTarget) continue;
 
     const other = focusedIsSource ? r.target : r.source;
+    // FU-A: the graph doesn't render `api` (or any non-app/service) nodes yet — skip such
+    // neighbours entirely so a backend-created API edge doesn't silently mis-route on click.
+    if (!isRenderableKind(other.kind)) continue;
     const otherId = nodeId(other.kind, other.id);
     const side: GraphSide = focusedIsSource ? "dependency" : "dependent";
 

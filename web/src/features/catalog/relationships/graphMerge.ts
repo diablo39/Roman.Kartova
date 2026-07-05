@@ -1,6 +1,7 @@
 import type { GraphResponse } from "@/features/catalog/api/graph";
 import {
   relationshipTypeLabel,
+  isRenderableKind,
   type RelationshipKind,
   type CreatableRelationshipType,
 } from "@/features/catalog/relationships/relationshipTypeRules";
@@ -26,11 +27,12 @@ export function mergeGraphs(results: GraphResponse[]): ExplorerGraph {
   for (const r of results) {
     truncated = truncated || r.truncated;
     for (const n of r.nodes) {
+      if (!isRenderableKind(n.kind)) continue;
       const id = nodeId(n.kind, n.id);
       if (!nodes.has(id)) {
         nodes.set(id, {
           id,
-          kind: n.kind as RelationshipKind,
+          kind: n.kind,
           entityId: n.id,
           displayName: n.displayName,
           depth: Number(n.depth),
@@ -39,6 +41,7 @@ export function mergeGraphs(results: GraphResponse[]): ExplorerGraph {
       }
     }
     for (const e of r.edges) {
+      if (!isRenderableKind(e.source.kind) || !isRenderableKind(e.target.kind)) continue;
       if (!edges.has(e.id)) {
         edges.set(e.id, {
           id: e.id,

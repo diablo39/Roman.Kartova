@@ -8,5 +8,5 @@ public enum RelationshipType
     PublishesTo,
     SubscribesFrom,
     DeployedOn,
-    PartOf,
+    InstanceOf,
 }

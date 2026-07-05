@@ -43,13 +43,6 @@ describe("toGraphModel", () => {
     expect(m.edges).toEqual([{ id: "r2", source: "application:a1", target: "service:s1", label: "Depends on" }]);
   });
 
-  it("labels a partOf edge 'Part of'", () => {
-    const m = toGraphModel(focused, [
-      rel({ id: "r3", type: "partOf", source: { kind: "service", id: "s1", displayName: "Me" }, target: { kind: "application", id: "a9", displayName: "Billing" } }),
-    ]);
-    expect(m.edges[0]!.label).toBe("Part of");
-  });
-
   it("dedupes a neighbour seen in both directions to one node (dependency side) with both edges", () => {
     const m = toGraphModel(focused, [
       rel({ id: "out", source: { kind: "service", id: "s1", displayName: "Me" }, target: { kind: "service", id: "s2", displayName: "AuthService" } }),
@@ -65,6 +58,20 @@ describe("toGraphModel", () => {
       rel({ id: "x", source: { kind: "service", id: "zzz", displayName: "Other" }, target: { kind: "service", id: "yyy", displayName: "Another" } }),
     ]);
     expect(m.nodes).toHaveLength(1); // focused only
+    expect(m.edges).toHaveLength(0);
+  });
+
+  it("excludes a providesApiFor edge whose other endpoint is an api-kind node (FU-A deferred)", () => {
+    const m = toGraphModel(focused, [
+      rel({
+        id: "api1",
+        type: "providesApiFor",
+        source: { kind: "service", id: "s1", displayName: "Me" },
+        target: { kind: "api", id: "api-1", displayName: "Orders API" } as RelationshipResponse["target"],
+      }),
+    ]);
+    expect(m.nodes).toHaveLength(1); // focused only, no api node
+    expect(m.nodes[0]!.id).toBe(focusedNodeId);
     expect(m.edges).toHaveLength(0);
   });
 });

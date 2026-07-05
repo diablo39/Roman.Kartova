@@ -1,27 +1,32 @@
 export type RelationshipKind = "application" | "service";
-export type CreatableRelationshipType = "dependsOn" | "partOf";
+export type CreatableRelationshipType = "dependsOn";
 export type FixedRole = "source" | "target";
 
 export const relationshipTypeLabel: Record<CreatableRelationshipType, string> = {
   dependsOn: "Depends on",
-  partOf: "Part of",
 };
 
-const CREATABLE_TYPES: CreatableRelationshipType[] = ["dependsOn", "partOf"];
+const CREATABLE_TYPES: CreatableRelationshipType[] = ["dependsOn"];
 const KINDS: RelationshipKind[] = ["application", "service"];
 
-// Mirror of backend RelationshipTypeRules.IsAllowedPair (ADR-0068, creatable subset).
+// Shared predicate: is this kind one the app/service-only graph UI can render? (FU-A: `api`
+// and any other non-app/service kind must be filtered out before reaching graph nodes/edges.)
+export function isRenderableKind(kind: string): kind is RelationshipKind {
+  return kind === "application" || kind === "service";
+}
+
+// Mirror of backend RelationshipTypeRules.IsAllowedPair (ADR-0068, creatable UI subset).
+// Only `dependsOn` is creatable from the UI this slice; API edge types (providesApiFor,
+// consumesApiFrom, instanceOf) and the `api` kind land with the API graph UI (FU-A).
 export function isAllowedPair(
-  type: CreatableRelationshipType,
-  source: RelationshipKind,
-  target: RelationshipKind,
+  _type: CreatableRelationshipType,
+  _source: RelationshipKind,
+  _target: RelationshipKind,
 ): boolean {
-  switch (type) {
-    case "dependsOn":
-      return true;
-    case "partOf":
-      return source === "service" && target === "application";
-  }
+  // Only `dependsOn` is creatable this slice, so this is unconditionally true. The
+  // "dependsOn allows every kind pair" unit test is a placeholder oracle for that fact —
+  // not live coverage of per-type pair rules — until FU-A reintroduces per-type pairs.
+  return true; // dependsOn: any → any
 }
 
 // Valid kinds for the OTHER endpoint given the chosen type and which side is fixed.
