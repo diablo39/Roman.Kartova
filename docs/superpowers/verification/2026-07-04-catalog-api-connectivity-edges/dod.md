@@ -1,7 +1,7 @@
 # DoD Ledger — Catalog: API connectivity via edges
 
 **Slice:** `2026-07-04-catalog-api-connectivity-edges` · **Branch:** `feat/catalog-api-connectivity-edges` · **HEAD:** `<pending final>`
-**PR:** <pending> · **Last updated:** 2026-07-05
+**PR:** [#58](https://github.com/diablo39/Roman.Kartova/pull/58) · **Last updated:** 2026-07-05
 **Spec:** `docs/superpowers/specs/2026-07-04-catalog-api-connectivity-edges-design.md`
 **Plan:** `docs/superpowers/plans/2026-07-04-catalog-api-connectivity-edges.md`
 **Findings telemetry:** `./gate-findings.yaml`
