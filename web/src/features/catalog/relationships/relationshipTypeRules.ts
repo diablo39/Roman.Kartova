@@ -23,8 +23,8 @@ const CREATABLE_TYPES: CreatableRelationshipType[] = [
 ];
 const ALL_KINDS: RelationshipKind[] = ["application", "service", "api"];
 
-// Shared predicate: is this a known relationship kind at all (app/service/api)? Distinct from
-// isRenderableKind — the app/service-only graph UI still excludes `api` nodes/edges from render.
+// Shared predicate: is this a known relationship kind at all (application/service/api)?
+// Used to validate untrusted tokens — URL graph focus and persisted filter kinds.
 export function isRelationshipKind(kind: string): kind is RelationshipKind {
   return kind === "application" || kind === "service" || kind === "api";
 }
