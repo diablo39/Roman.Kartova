@@ -29,7 +29,7 @@ export function GraphExplorerSidebar(props: {
   const appQ = useApplication(selected.kind === "application" ? selected.id : "");
   const svcQ = useService(selected.kind === "service" ? selected.id : "");
   const apiQ = useApi(selected.kind === "api" ? selected.id : "");
-  const active = selected.kind === "application" ? appQ : selected.kind === "service" ? svcQ : apiQ;
+  const active = { application: appQ, service: svcQ, api: apiQ }[selected.kind];
   const entity = active.data as ApplicationResponse | ServiceResponse | ApiResponse | undefined;
   const lifecycle = selected.kind === "application" ? (entity as ApplicationResponse | undefined)?.lifecycle : undefined;
   const health = selected.kind === "service" ? (entity as ServiceResponse | undefined)?.health : undefined;

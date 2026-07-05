@@ -91,6 +91,12 @@ export function toGraphModel(focused: FocusedEntity, relationships: Relationship
 
 export const ENTITY_KIND_LABEL: Record<string, string> = { application: "Application", service: "Service", api: "API" };
 
+const ENTITY_PATH_SEGMENT: Record<RelationshipKind, string> = {
+  application: "applications",
+  service: "services",
+  api: "apis",
+};
+
 export function parseEntityRef(token: string | null | undefined): { kind: RelationshipKind; id: string } | null {
   if (!token) return null;
   const [kind, id] = token.split(":");
@@ -99,6 +105,5 @@ export function parseEntityRef(token: string | null | undefined): { kind: Relati
 }
 
 export function entityDetailPath(kind: RelationshipKind, id: string): string {
-  const seg = kind === "application" ? "applications" : kind === "service" ? "services" : "apis";
-  return `/catalog/${seg}/${id}`;
+  return `/catalog/${ENTITY_PATH_SEGMENT[kind]}/${id}`;
 }

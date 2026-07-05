@@ -91,4 +91,9 @@ describe("toGraphModel", () => {
     expect(parseEntityRef("api:abc")).toEqual({ kind: "api", id: "abc" });
     expect(parseEntityRef("broker:abc")).toBeNull();
   });
+
+  it("rejects a token missing the id", () => {
+    expect(parseEntityRef("api")).toBeNull();
+    expect(parseEntityRef("api:")).toBeNull();
+  });
 });
