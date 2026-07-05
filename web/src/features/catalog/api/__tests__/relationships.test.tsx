@@ -65,4 +65,16 @@ describe("relationships api", () => {
       params: { query: expect.objectContaining({ displayNameContains: "au", limit: 10 }) },
     }));
   });
+
+  it("useEntitySearch hits the apis endpoint for Api kind", async () => {
+    const page = { items: [{ id: "api9", displayName: "Orders API" }], nextCursor: null, prevCursor: null };
+    const GET = vi.fn().mockResolvedValue({ data: page, error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET } as never);
+    const qc = newQc();
+    const { result } = renderHook(() => useEntitySearch("api", "or", { enabled: true }), { wrapper: wrapper(qc) });
+    await waitFor(() => expect(result.current.data).toEqual([{ kind: "api", id: "api9", displayName: "Orders API" }]));
+    expect(GET).toHaveBeenCalledWith("/api/v1/catalog/apis", expect.objectContaining({
+      params: { query: expect.objectContaining({ displayNameContains: "or", limit: 10 }) },
+    }));
+  });
 });

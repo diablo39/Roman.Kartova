@@ -105,12 +105,12 @@ export function AddRelationshipDialog({ open, onOpenChange, fixedRole, fixedEnti
           className="bg-primary rounded-xl shadow-xl p-6 outline-none space-y-4"
         >
           <h2 className="text-lg font-semibold text-primary">
-            {fixedRole === "source" ? "Add dependency" : "Add dependent"}
+            {fixedRole === "source" ? "Add outgoing relationship" : "Add incoming relationship"}
           </h2>
           <p className="text-sm text-tertiary">
             {fixedRole === "source"
-              ? `${fixedEntity.displayName} depends on…`
-              : `…depends on ${fixedEntity.displayName}`}
+              ? `Pick a type and the target for ${fixedEntity.displayName}.`
+              : `Pick a type and the source for ${fixedEntity.displayName}.`}
           </p>
 
           <label className="block text-sm">

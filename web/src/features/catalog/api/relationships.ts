@@ -88,6 +88,11 @@ export function useEntitySearch(
         if (error) throw error;
         return unwrapData(data).items.map((e) => ({ kind, id: e.id, displayName: e.displayName }));
       }
+      if (kind === "api") {
+        const { data, error } = await apiClient.GET("/api/v1/catalog/apis", { params: { query: q } });
+        if (error) throw error;
+        return unwrapData(data).items.map((e) => ({ kind, id: e.id, displayName: e.displayName }));
+      }
       const { data, error } = await apiClient.GET("/api/v1/catalog/services", { params: { query: q } });
       if (error) throw error;
       return unwrapData(data).items.map((e) => ({ kind, id: e.id, displayName: e.displayName }));
