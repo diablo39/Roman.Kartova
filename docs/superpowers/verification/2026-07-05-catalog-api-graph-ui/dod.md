@@ -1,7 +1,7 @@
 # DoD Ledger — 2026-07-05 Catalog API graph UI (FU-A + FU-A1)
 
 **Slice:** `2026-07-05-catalog-api-graph-ui` · **Branch:** `feat/catalog-api-graph-ui` · **HEAD:** `58dc853`
-**PR:** <opened at close> · **Last updated:** 2026-07-05
+**PR:** [#59](https://github.com/diablo39/Roman.Kartova/pull/59) · **Last updated:** 2026-07-05
 **Spec:** `docs/superpowers/specs/2026-07-05-catalog-api-graph-ui-design.md`
 **Plan:** `docs/superpowers/plans/2026-07-05-catalog-api-graph-ui.md`
 **Findings telemetry:** `./gate-findings.yaml`
