@@ -17,6 +17,9 @@ export function isAllowedPair(
   _source: RelationshipKind,
   _target: RelationshipKind,
 ): boolean {
+  // Only `dependsOn` is creatable this slice, so this is unconditionally true. The
+  // "dependsOn allows every kind pair" unit test is a placeholder oracle for that fact —
+  // not live coverage of per-type pair rules — until FU-A reintroduces per-type pairs.
   return true; // dependsOn: any → any
 }
 

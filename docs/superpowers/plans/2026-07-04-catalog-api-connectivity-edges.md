@@ -519,7 +519,7 @@ git commit -m "test(catalog): graph surfaces enriched Api nodes + provider edges
 - Consumes: backend enum surface (Task 1) reflected in the regenerated OpenAPI schema.
 - Produces: `CreatableRelationshipType = "dependsOn"` (only); UI no longer offers `partOf`. No new UI types (`api`/`instanceOf`/`providesApiFor`/`consumesApiFrom` land in FU-A).
 
-> Scope note: this task does **not** teach the graph/dialog the `Api` kind or the new edge types. Backend-created API edges are not reachable from the current UI (dialog offers only `dependsOn`; dev seed has none), so no FE render path hits them this slice. Full API graph UI = FU-A.
+> Scope note: this task does **not** teach the graph/dialog the `Api` kind or the new edge types. API edges are creatable via the API; the FE graph excludes non-application/service neighbours this slice (guarded in `toGraphModel`/`mergeGraphs`), and full `api`-node rendering/navigation lands in FU-A.
 
 - [ ] **Step 1: Remove `partOf` from the rules module**
 

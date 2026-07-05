@@ -21,7 +21,7 @@ describe("relationshipTypeRules", () => {
     expect(allowedOtherKinds("dependsOn", "source", "application")).toEqual(["application", "service"]);
   });
 
-  it("labels both creatable types", () => {
+  it("labels the dependsOn type", () => {
     expect(relationshipTypeLabel.dependsOn).toBe("Depends on");
   });
 });

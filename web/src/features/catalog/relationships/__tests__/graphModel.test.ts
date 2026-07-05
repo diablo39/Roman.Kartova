@@ -60,4 +60,18 @@ describe("toGraphModel", () => {
     expect(m.nodes).toHaveLength(1); // focused only
     expect(m.edges).toHaveLength(0);
   });
+
+  it("excludes a providesApiFor edge whose other endpoint is an api-kind node (FU-A deferred)", () => {
+    const m = toGraphModel(focused, [
+      rel({
+        id: "api1",
+        type: "providesApiFor",
+        source: { kind: "service", id: "s1", displayName: "Me" },
+        target: { kind: "api", id: "api-1", displayName: "Orders API" } as RelationshipResponse["target"],
+      }),
+    ]);
+    expect(m.nodes).toHaveLength(1); // focused only, no api node
+    expect(m.nodes[0]!.id).toBe(focusedNodeId);
+    expect(m.edges).toHaveLength(0);
+  });
 });

@@ -18,6 +18,10 @@ export type ExplorerGraph = { nodes: ExplorerNode[]; edges: ExplorerEdge[]; trun
 
 const nodeId = (kind: string, id: string) => `${kind}:${id}`;
 
+// FU-A: the explorer graph doesn't render `api` (or any non-app/service) nodes yet — filter
+// them out here so a backend-created API edge can't reach the explorer and mis-route on click.
+const isRenderableKind = (kind: string): kind is RelationshipKind => kind === "application" || kind === "service";
+
 export function mergeGraphs(results: GraphResponse[]): ExplorerGraph {
   const nodes = new Map<string, ExplorerNode>();
   const edges = new Map<string, ExplorerEdge>();
@@ -26,11 +30,12 @@ export function mergeGraphs(results: GraphResponse[]): ExplorerGraph {
   for (const r of results) {
     truncated = truncated || r.truncated;
     for (const n of r.nodes) {
+      if (!isRenderableKind(n.kind)) continue;
       const id = nodeId(n.kind, n.id);
       if (!nodes.has(id)) {
         nodes.set(id, {
           id,
-          kind: n.kind as RelationshipKind,
+          kind: n.kind,
           entityId: n.id,
           displayName: n.displayName,
           depth: Number(n.depth),
@@ -39,6 +44,7 @@ export function mergeGraphs(results: GraphResponse[]): ExplorerGraph {
       }
     }
     for (const e of r.edges) {
+      if (!isRenderableKind(e.source.kind) || !isRenderableKind(e.target.kind)) continue;
       if (!edges.has(e.id)) {
         edges.set(e.id, {
           id: e.id,

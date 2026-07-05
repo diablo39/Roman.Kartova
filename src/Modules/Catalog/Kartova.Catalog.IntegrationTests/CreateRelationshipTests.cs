@@ -231,6 +231,28 @@ public class CreateRelationshipTests : CatalogIntegrationTestBase
             (await PostRelAsync(client, EntityKind.Service, connectorA, RelationshipType.ProvidesApiFor, EntityKind.Api, apiId)).StatusCode);
         Assert.AreEqual(HttpStatusCode.Created,
             (await PostRelAsync(client, EntityKind.Service, connectorB, RelationshipType.ProvidesApiFor, EntityKind.Api, apiId)).StatusCode);
+
+        // Airtight oracle: the Api's graph must show both distinct providers, not just 2xN POSTs.
+        var graph = await (await client.GetAsync($"/api/v1/catalog/graph?entityKind=Api&entityId={apiId}&depth=1&direction=all"))
+            .Content.ReadFromJsonAsync<GraphResponse>(KartovaApiFixtureBase.WireJson);
+        var providerEdges = graph!.Edges.Where(e => e.Type == RelationshipType.ProvidesApiFor && e.Target.Id == apiId).ToList();
+        Assert.AreEqual(2, providerEdges.Count, "both provider edges should point at the shared Api");
+        Assert.IsTrue(providerEdges.Any(e => e.Source.Id == connectorA));
+        Assert.IsTrue(providerEdges.Any(e => e.Source.Id == connectorB));
+    }
+
+    [TestMethod]
+    public async Task POST_instanceOf_application_to_service_returns_400()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Team InstanceOf Bad Pair");
+        var appId = await SeedApplicationAsync(client, teamId, "app-instanceof-badpair");
+        var svcId = await SeedServiceAsync(client, teamId, "svc-instanceof-badpair");
+
+        // InstanceOf is Service→Application only; Application→Service is a disallowed pair.
+        var resp = await PostRelAsync(client, EntityKind.Application, appId, RelationshipType.InstanceOf, EntityKind.Service, svcId);
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
     }
 
     [TestMethod]

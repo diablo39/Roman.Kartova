@@ -120,7 +120,7 @@ Changes to **existing shared enums** (`EntityKind`, `RelationshipType`) and one 
 - `CatalogEntityLookup.Find` (switch on `EntityKind`) — edited here; the `_ => null` default currently swallows `Api` → must add the branch or unknown-Api silently 422s even when it exists.
 - `EntityRef` ctor (`Enum.IsDefined`) — additive, no change needed.
 - Graph DTO mapping (`GraphTraversalHandler`, `GraphNodeDto`) passes `Kind` through — no change.
-- FE `graphModel.ts` `parseEntityRef`/`ENTITY_KIND_LABEL` handle only `application|service` — **intentionally left** (Api nodes not rendered until FU-A); confirm no runtime path forces an Api node into the FE graph this slice (backend-created Api edges won't appear in FE until FU-A wires them).
+- FE `graphModel.ts` `parseEntityRef`/`ENTITY_KIND_LABEL` handle only `application|service` — **intentionally left** (Api nodes not rendered until FU-A). API edges are creatable via the API; `toGraphModel`/`mergeGraphs` explicitly skip any neighbour whose kind isn't `application`/`service`, so a backend-created Api edge is excluded from the graph rather than mis-routed. Full `api`-node rendering/navigation lands in FU-A.
 
 **`ProvidesApiFor`/`ConsumesApiFrom` (enable):** already-defined enum values; grep confirms only `RelationshipType.cs` + rules reference them today. Making them creatable is additive.
 
