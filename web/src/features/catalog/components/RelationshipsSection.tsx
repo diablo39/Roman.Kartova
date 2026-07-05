@@ -13,7 +13,7 @@ import {
   useDeleteRelationship,
   type RelationshipResponse,
 } from "@/features/catalog/api/relationships";
-import { relationshipTypeLabel, type RelationshipKind, type CreatableRelationshipType } from "@/features/catalog/relationships/relationshipTypeRules";
+import { relationshipTypeLabel, isRenderableKind, type RelationshipKind, type CreatableRelationshipType } from "@/features/catalog/relationships/relationshipTypeRules";
 import { AddRelationshipDialog } from "@/features/catalog/components/AddRelationshipDialog";
 import type { FixedRole } from "@/features/catalog/relationships/relationshipTypeRules";
 import { Tooltip, TooltipTrigger } from "@/components/base/tooltip/tooltip";
@@ -96,7 +96,7 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
         </Table>
       ) : list.isError ? (
         <p className="text-sm text-error-primary">Couldn&apos;t load relationships.</p>
-      ) : list.items.length === 0 ? (
+      ) : list.items.filter((r) => isRenderableKind(related(r).kind)).length === 0 ? (
         <p className="text-sm italic text-tertiary">{emptyCopy}</p>
       ) : (
         <>
@@ -109,7 +109,7 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
               {canManage && <Table.Head id="actions"> </Table.Head>}
             </Table.Header>
             <Table.Body>
-              {list.items.map((r) => {
+              {list.items.filter((r) => isRenderableKind(related(r).kind)).map((r) => {
                 const e = related(r);
                 const label =
                   relationshipTypeLabel[r.type as CreatableRelationshipType] ?? r.type;
