@@ -11,6 +11,13 @@ vi.mock("@/features/catalog/api/apis", () => ({ useApi: () => ({ data: api, isLo
 vi.mock("@/features/teams/api/teams", () => ({
   useTeamsList: () => ({ items: [{ id: "team1", displayName: "Platform" }], isLoading: false, isError: false }),
 }));
+vi.mock("@/features/catalog/api/relationships", () => ({
+  useRelationshipsList: () => ({ items: [], isLoading: false, isError: false, hasNext: false, hasPrev: false, goNext: () => {}, goPrev: () => {} }),
+  useDeleteRelationship: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+vi.mock("@/shared/auth/usePermissions", () => ({
+  usePermissions: () => ({ hasPermission: () => false, role: "Member", teamIds: [], teamAdminTeamIds: [], isLoading: false, isError: false }),
+}));
 
 import { ApiDetailPage } from "../ApiDetailPage";
 
@@ -31,5 +38,13 @@ describe("ApiDetailPage", () => {
     const link = screen.getByRole("link", { name: /spec/i });
     expect(link).toHaveAttribute("href", "https://example.com/spec.json");
     expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
+  });
+
+  it("mounts a read-only incoming relationships section", () => {
+    renderPage();
+    expect(screen.getByText("Incoming")).toBeInTheDocument();
+    expect(screen.queryByText("Outgoing")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /add/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
   });
 });

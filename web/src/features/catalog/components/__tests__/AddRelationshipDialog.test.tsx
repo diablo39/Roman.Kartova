@@ -5,11 +5,8 @@ import { AddRelationshipDialog } from "@/features/catalog/components/AddRelation
 import * as api from "@/features/catalog/api/relationships";
 
 vi.mock("@/features/catalog/components/EntitySearchCombobox", () => ({
-  EntitySearchCombobox: ({ onSelect }: { onSelect: (e: unknown) => void }) => (
-    <button
-      type="button"
-      onClick={() => onSelect({ kind: "application", id: "app9", displayName: "Checkout" })}
-    >
+  EntitySearchCombobox: ({ kind, onSelect }: { kind: string; onSelect: (e: unknown) => void }) => (
+    <button type="button" onClick={() => onSelect({ kind, id: "e9", displayName: "Picked" })}>
       pick-entity
     </button>
   ),
@@ -70,7 +67,7 @@ describe("AddRelationshipDialog", () => {
         sourceId: "s1",
         type: "dependsOn",
         targetKind: "application",
-        targetId: "app9",
+        targetId: "e9",
       }),
     );
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
@@ -144,7 +141,7 @@ describe("AddRelationshipDialog", () => {
     await waitFor(() =>
       expect(mutateAsync).toHaveBeenCalledWith({
         sourceKind: "application",
-        sourceId: "app9",
+        sourceId: "e9",
         type: "dependsOn",
         targetKind: "service",
         targetId: "s1",
@@ -169,5 +166,43 @@ describe("AddRelationshipDialog", () => {
 
     const typeSelect = screen.getByTestId("relationship-type-select") as HTMLSelectElement;
     expect(Array.from(typeSelect.options).map((o) => o.value)).toEqual(["dependsOn"]);
+  });
+
+  it("offers API edge types from an application source and posts an api target", async () => {
+    const mutateAsync = vi.fn().mockResolvedValue({ id: "r1" });
+    vi.spyOn(api, "useCreateRelationship").mockReturnValue({ mutateAsync, isPending: false } as never);
+    harness(
+      <AddRelationshipDialog open onOpenChange={vi.fn()} fixedRole="source"
+        fixedEntity={{ kind: "application", id: "a1", displayName: "Checkout" }} />,
+    );
+    const typeSelect = screen.getByTestId("relationship-type-select") as HTMLSelectElement;
+    expect(Array.from(typeSelect.options).map((o) => o.value)).toEqual(["dependsOn", "providesApiFor", "consumesApiFrom"]);
+    fireEvent.change(typeSelect, { target: { value: "providesApiFor" } });
+    fireEvent.click(screen.getByText("pick-entity"));
+    fireEvent.click(screen.getByRole("button", { name: /add relationship/i }));
+    await waitFor(() =>
+      expect(mutateAsync).toHaveBeenCalledWith({
+        sourceKind: "application", sourceId: "a1", type: "providesApiFor", targetKind: "api", targetId: "e9",
+      }),
+    );
+  });
+
+  it("offers instanceOf from a service source", () => {
+    vi.spyOn(api, "useCreateRelationship").mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
+    harness(
+      <AddRelationshipDialog open onOpenChange={vi.fn()} fixedRole="source" fixedEntity={svc} />,
+    );
+    const typeSelect = screen.getByTestId("relationship-type-select") as HTMLSelectElement;
+    expect(Array.from(typeSelect.options).map((o) => o.value)).toEqual(["dependsOn", "instanceOf", "providesApiFor", "consumesApiFrom"]);
+  });
+
+  it("uses generic outgoing/incoming titles (not dependency-specific)", () => {
+    vi.spyOn(api, "useCreateRelationship").mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
+    const { rerender } = harness(
+      <AddRelationshipDialog open onOpenChange={vi.fn()} fixedRole="source" fixedEntity={svc} />,
+    );
+    expect(screen.getByText("Add outgoing relationship")).toBeInTheDocument();
+    rerender(<AddRelationshipDialog open onOpenChange={vi.fn()} fixedRole="target" fixedEntity={svc} />);
+    expect(screen.getByText("Add incoming relationship")).toBeInTheDocument();
   });
 });

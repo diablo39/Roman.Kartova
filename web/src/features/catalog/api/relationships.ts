@@ -25,9 +25,13 @@ export const relationshipKeys = {
       : ([...relationshipKeys.all, "list"] as const),
 };
 
-export function useRelationshipsList(params: RelationshipsListParams) {
+export function useRelationshipsList(
+  params: RelationshipsListParams,
+  opts?: { enabled?: boolean },
+) {
   return useCursorList<RelationshipResponse>({
     queryKey: relationshipKeys.list(params),
+    enabled: opts?.enabled,
     fetchPage: async (cursor) => {
       const { data, error } = await apiClient.GET("/api/v1/catalog/relationships", {
         params: {
@@ -85,6 +89,11 @@ export function useEntitySearch(
       const q = { displayNameContains: query, sortBy: "displayName", sortOrder: "asc", limit: 10 } as const;
       if (kind === "application") {
         const { data, error } = await apiClient.GET("/api/v1/catalog/applications", { params: { query: q } });
+        if (error) throw error;
+        return unwrapData(data).items.map((e) => ({ kind, id: e.id, displayName: e.displayName }));
+      }
+      if (kind === "api") {
+        const { data, error } = await apiClient.GET("/api/v1/catalog/apis", { params: { query: q } });
         if (error) throw error;
         return unwrapData(data).items.map((e) => ({ kind, id: e.id, displayName: e.displayName }));
       }

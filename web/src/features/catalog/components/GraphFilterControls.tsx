@@ -6,6 +6,7 @@ import type { RelationshipKind } from "@/features/catalog/relationships/relation
 const KIND_OPTIONS = [
   { label: "Application", value: "application" },
   { label: "Service", value: "service" },
+  { label: "API", value: "api" },
 ];
 
 export interface GraphFilterControlsProps {

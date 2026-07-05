@@ -7,6 +7,7 @@ import { Badge } from "@/components/base/badges/badges";
 import { useApi } from "@/features/catalog/api/apis";
 import { useTeamsList } from "@/features/teams/api/teams";
 import { API_STYLE_LABEL } from "@/features/catalog/schemas/registerApi";
+import { RelationshipsSection } from "@/features/catalog/components/RelationshipsSection";
 
 export function ApiDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -88,6 +89,16 @@ export function ApiDetailPage() {
             </div>
           </div>
         </section>
+
+        <hr className="border-secondary" />
+
+        <RelationshipsSection
+          entityKind="api"
+          entityId={api.id}
+          entityTeamId={api.teamId}
+          entityDisplayName={api.displayName}
+          variant="incoming-only"
+        />
       </CardContent>
     </Card>
   );

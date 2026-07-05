@@ -142,4 +142,20 @@ describe("useCursorList", () => {
     await waitFor(() => expect(result.current.items.map(i => i.id)).toEqual(["a"]));
     expect(result.current.hasPrev).toBe(false);
   });
+
+  it("does not fetch when enabled is false", async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const fetchPage = vi.fn().mockResolvedValue({ items: [], nextCursor: null, prevCursor: null });
+
+    const { result } = renderHook(
+      () => useCursorList<Row>({ queryKey: ["t"], fetchPage, enabled: false }),
+      { wrapper: wrapper(qc) }
+    );
+
+    // give any accidental fetch a tick to fire
+    await Promise.resolve();
+    expect(fetchPage).not.toHaveBeenCalled();
+    expect(result.current.items).toEqual([]);
+    expect(result.current.isLoading).toBe(false);
+  });
 });

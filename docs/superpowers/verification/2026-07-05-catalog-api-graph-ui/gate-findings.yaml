@@ -1,0 +1,92 @@
+# gate-findings.yaml — per-gate findings telemetry for the API graph UI slice (FU-A + FU-A1).
+# dod.md records each gate's status; this file records what each gate FOUND.
+
+slice:  2026-07-05-catalog-api-graph-ui
+branch: feat/catalog-api-graph-ui
+head:   58dc853
+
+findings:
+  # ---- Gate 2: per-task subagent reviews ----
+  - gate: reviews
+    severity: blocking
+    verdict: real
+    title: "Widening RelationshipKind broke GraphExplorerSidebar Selected type (build red) — files not in plan's file list"
+    note: "Task 1; widened Selected.kind to RelationshipKind. fixed in 5015f40"
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "useEntitySearch api branch + generic dialog copy had no direct test coverage"
+    note: "Task 4; added api-branch hook test + copy test. fixed in bce6b4c"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "isRelationshipKind doc comment name-dropped the removed isRenderableKind"
+    note: "Task 6; comment corrected. fixed in 856f039"
+
+  # ---- Gate 7: requesting-code-review (whole-branch, opus) ----
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "incoming-only variant fired an outgoing relationships fetch that never renders (per API pageview)"
+    note: "threaded optional enabled through useCursorList/useRelationshipsList. fixed in 1b8be1c"
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "graphFilter api dimming test named in spec §5.2 was absent"
+    note: "added api dimming case to graphFilter.test.ts. fixed in 1b8be1c"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "entityLink duplicated entityDetailPath's kind->path map"
+    note: "entityLink now delegates to entityDetailPath. fixed in 1b8be1c"
+
+  # ---- Gate 5: /simplify ----
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "nested 3-way ternary in entityDetailPath (CLAUDE.md-flagged pattern)"
+    note: "replaced with ENTITY_PATH_SEGMENT Record lookup. fixed in 58dc853"
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "nested 3-way ternary selecting active query in GraphExplorerSidebar"
+    note: "replaced with { application, service, api }[kind] lookup. fixed in 58dc853"
+  - gate: simplify
+    severity: nit
+    verdict: delusion
+    title: "useEntitySearch three GET branches could collapse to one parameterized path"
+    note: "declined — openapi-fetch requires literal path args; parameterizing loses type inference"
+
+  # ---- Gate 8: review-pr (code-reviewer + test-analyzer) ----
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "AddRelationshipDialog types[0]!/otherKinds[0]! could be undefined for api-as-source"
+    note: "unreachable — ApiDetailPage always mounts variant=incoming-only (no source-role dialog); React bails on identical undefined state, no crash. Not fixed."
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "malformed parseEntityRef token / direct enabled:false hook assertion untested"
+    note: "test-analyzer minors; parseEntityRef malformed case added (58dc853); enabled covered by useCursorList test (58dc853)"
+
+  # ---- Gate 9: deep-review ----
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "new enabled/skip-outgoing-fetch behavior had zero direct test coverage"
+    note: "added useCursorList enabled:false unit test. fixed in 58dc853"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "gate-findings.yaml referenced by dod.md but did not exist"
+    note: "this file — created during gate-8/9 close-out"
+  - gate: deep-review
+    severity: nit
+    verdict: delusion
+    title: "GraphExplorerSidebar + useCursorList absent from spec/plan file tables"
+    note: "declined — added mid-execution (sidebar via Task-1 cross-file fix, useCursorList via gate-7 fix); spec/plan are historical records, not retro-edited"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "parseEntityRef malformed-token (missing id) case untested"
+    note: "added parseEntityRef('api')/('api:') null tests. fixed in 58dc853"

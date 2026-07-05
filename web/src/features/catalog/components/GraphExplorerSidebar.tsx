@@ -4,10 +4,13 @@ import { useApplication } from "@/features/catalog/api/applications";
 import type { ApplicationResponse } from "@/features/catalog/api/applications";
 import { useService } from "@/features/catalog/api/services";
 import type { ServiceResponse } from "@/features/catalog/api/services";
+import { useApi } from "@/features/catalog/api/apis";
+import type { ApiResponse } from "@/features/catalog/api/apis";
 import type { ExpandDir } from "@/features/catalog/relationships/useExplorerState";
 import { ENTITY_KIND_LABEL, entityDetailPath } from "@/features/catalog/relationships/graphModel";
+import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
 
-type Selected = { kind: "application" | "service"; id: string };
+type Selected = { kind: RelationshipKind; id: string };
 
 export function GraphExplorerSidebar(props: {
   selected: Selected;
@@ -25,8 +28,9 @@ export function GraphExplorerSidebar(props: {
   // Both hooks always called (rules of hooks); the inactive one is disabled via id="".
   const appQ = useApplication(selected.kind === "application" ? selected.id : "");
   const svcQ = useService(selected.kind === "service" ? selected.id : "");
-  const active = selected.kind === "application" ? appQ : svcQ;
-  const entity = active.data as ApplicationResponse | ServiceResponse | undefined;
+  const apiQ = useApi(selected.kind === "api" ? selected.id : "");
+  const active = { application: appQ, service: svcQ, api: apiQ }[selected.kind];
+  const entity = active.data as ApplicationResponse | ServiceResponse | ApiResponse | undefined;
   const lifecycle = selected.kind === "application" ? (entity as ApplicationResponse | undefined)?.lifecycle : undefined;
   const health = selected.kind === "service" ? (entity as ServiceResponse | undefined)?.health : undefined;
 

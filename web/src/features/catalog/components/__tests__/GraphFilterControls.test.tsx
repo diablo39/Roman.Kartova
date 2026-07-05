@@ -32,6 +32,17 @@ describe("GraphFilterControls", () => {
     expect(onClear).toHaveBeenCalled();
   });
 
+  it("offers an API kind option", async () => {
+    render(
+      <GraphFilterControls
+        kinds={[]} teamIds={[]} teams={teams} activeCount={0}
+        onKindsChange={() => {}} onTeamIdsChange={() => {}} onClear={() => {}}
+      />,
+    );
+    await userEvent.click(screen.getByLabelText("Filter by kind"));
+    expect(screen.getByText("API")).toBeInTheDocument();
+  });
+
   it("renders without Clear when no filter is active", () => {
     render(
       <GraphFilterControls

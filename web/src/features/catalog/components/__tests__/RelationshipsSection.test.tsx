@@ -44,7 +44,7 @@ it("renders the dependency target link and the dependent source link", () => {
 it("hides Add and Delete when the user cannot manage", () => {
   mockLists(); mockPerms(false);
   renderSection();
-  expect(screen.queryByRole("button", { name: /add dependency/i })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /add outgoing/i })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
 });
 
@@ -56,4 +56,38 @@ it("deletes a row after confirm", async () => {
   renderSection();
   fireEvent.click(screen.getAllByRole("button", { name: /delete/i })[0]!);
   await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith("r1"));
+});
+
+it("renders api-target rows with a link to the API detail page", () => {
+  vi.spyOn(api, "useRelationshipsList").mockImplementation((p: api.RelationshipsListParams) =>
+    listResult(p.direction === "outgoing"
+      ? [{ id: "r3", type: "providesApiFor", origin: "manual", source: { kind: "service", id: "s1", displayName: "Me" }, target: { kind: "api", id: "api-1", displayName: "Orders API" }, createdByUserId: "u1", createdAt: "2026-06-25T00:00:00Z" }]
+      : []));
+  vi.spyOn(api, "useDeleteRelationship").mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
+  mockPerms(true);
+  renderSection();
+  expect(screen.getByText("Orders API").closest("a")).toHaveAttribute("href", "/catalog/apis/api-1");
+  expect(screen.getByText("Provides API for")).toBeInTheDocument();
+});
+
+it("incoming-only variant hides Outgoing group and disables add/delete", () => {
+  vi.spyOn(api, "useRelationshipsList").mockImplementation((p: api.RelationshipsListParams) =>
+    listResult(p.direction === "incoming"
+      ? [{ id: "r4", type: "consumesApiFrom", origin: "manual",
+          source: { kind: "service", id: "s2", displayName: "Billing" },
+          target: { kind: "api", id: "api-1", displayName: "Orders API" }, createdByUserId: "u1", createdAt: "2026-06-25T00:00:00Z" }]
+      : []));
+  vi.spyOn(api, "useDeleteRelationship").mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
+  mockPerms(true);
+  render(
+    <MemoryRouter>
+      <RelationshipsSection entityKind="api" entityId="api-1" entityTeamId="t1" entityDisplayName="Orders API" variant="incoming-only" />
+    </MemoryRouter>,
+  );
+  expect(screen.queryByText("Outgoing")).not.toBeInTheDocument();
+  expect(screen.getByText("Incoming")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /add/i })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
+  expect(screen.getByText("Billing").closest("a")).toHaveAttribute("href", "/catalog/services/s2");
+  expect(screen.getByText("Consumes API from")).toBeInTheDocument();
 });
