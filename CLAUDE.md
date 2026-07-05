@@ -31,7 +31,7 @@ General engineering judgment — understand before changing, minimal scope, conf
 | Topic | File |
 |-------|------|
 | Product requirements (source of truth) | [docs/product/PRODUCT-REQUIREMENTS.md](docs/product/PRODUCT-REQUIREMENTS.md) |
-| Backlog index (30 epics, 73 features, 209 stories) | [docs/product/EPICS-AND-STORIES.md](docs/product/EPICS-AND-STORIES.md) |
+| Backlog index (31 epics, 83 features, 224 stories) | [docs/product/EPICS-AND-STORIES.md](docs/product/EPICS-AND-STORIES.md) |
 | Progress checklist | [docs/product/CHECKLIST.md](docs/product/CHECKLIST.md) |
 | Phase files (0–9) | `docs/product/phases/phase-N-*.md` |
 | ADR library + keyword index | [docs/architecture/decisions/README.md](docs/architecture/decisions/README.md) |
