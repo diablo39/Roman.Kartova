@@ -1,11 +1,9 @@
 import { useCallback, useState } from "react";
 import type { GraphFilters } from "@/features/catalog/relationships/graphFilter";
-import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
+import { isRelationshipKind, type RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
 
 const EMPTY: GraphFilters = { kinds: [], teamIds: [] };
 const storageKey = (focusKey: string) => `graph-explorer-filters:${focusKey}`;
-
-const isKind = (k: unknown): k is RelationshipKind => k === "application" || k === "service";
 
 function read(storage: Storage, focusKey: string): GraphFilters {
   try {
@@ -15,7 +13,7 @@ function read(storage: Storage, focusKey: string): GraphFilters {
     if (!parsed || typeof parsed !== "object") return EMPTY;
     const p = parsed as Partial<GraphFilters>;
     return {
-      kinds: Array.isArray(p.kinds) ? p.kinds.filter(isKind) : [],
+      kinds: Array.isArray(p.kinds) ? p.kinds.filter(isRelationshipKind) : [],
       teamIds: Array.isArray(p.teamIds) ? p.teamIds.filter((t): t is string => typeof t === "string") : [],
     };
   } catch {

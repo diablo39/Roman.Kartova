@@ -82,4 +82,12 @@ describe("useGraphFilters", () => {
     expect(() => act(() => result.current.setKinds(["application"]))).not.toThrow();
     expect(result.current.filters.kinds).toEqual(["application"]);
   });
+
+  it("retains a persisted api kind on rehydrate", () => {
+    const storage = makeStorage();
+    const first = renderHook(() => useGraphFilters("application:focus", storage));
+    act(() => first.result.current.setKinds(["api"]));
+    const second = renderHook(() => useGraphFilters("application:focus", storage));
+    expect(second.result.current.filters.kinds).toEqual(["api"]);
+  });
 });
