@@ -1,0 +1,55 @@
+slice:  2026-07-04-catalog-api-connectivity-edges
+branch: feat/catalog-api-connectivity-edges
+head:   <pending final>
+
+findings:
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "FE graph mis-routed/raw-labelled an out-of-band api-node edge (not guarded)"
+    note: "fixed 06cd66b — isRenderableKind guard in graphModel/graphMerge"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "stale FE test title + isAllowedPair unused-param placeholder"
+    note: "fixed 06cd66b / 840cecd"
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "InstanceOf lacked an HTTP-layer 400 negative (symmetry gap)"
+    note: "added POST_instanceOf_application_to_service_returns_400 in 06cd66b"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "duplicated isRenderableKind predicate (graphModel inline vs graphMerge)"
+    note: "applied 840cecd — hoisted shared predicate to relationshipTypeRules.ts"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "identical ProvidesApiFor/ConsumesApiFrom IsAllowedPair arms"
+    note: "applied 840cecd — merged into one arm"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "three near-identical CreateManual valid-pair tests"
+    note: "applied 840cecd — collapsed to one [DataRow] test"
+  - gate: simplify
+    severity: nit
+    verdict: delusion
+    title: "hoist SeedApiAsync to fixture base"
+    note: "skipped — repo convention is per-file seed helpers (SeedApplicationAsync/SeedServiceAsync already duplicated across 4 files)"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "relationships-list render path (RelationshipsSection) not guarded like the graph"
+    note: "fixed e15fa3a — same isRenderableKind filter applied to the list"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "no dedicated cross-tenant-Api 422 integration test"
+    note: "accepted — identical RLS mechanism to Application/Service already verified; low risk"
+  - gate: manual
+    severity: blocking
+    verdict: real
+    title: "500 on GET /relationships (incoming/all) — stray type='PartOf' row unmappable after enum removal"
+    note: "fixed — data migration PurgePartOfRelationships (DELETE with RLS toggle) + dev-DB purge; browser re-verified clean. Missed by tests (fresh DBs have no such row) — caught by ADR-0084 browser check."

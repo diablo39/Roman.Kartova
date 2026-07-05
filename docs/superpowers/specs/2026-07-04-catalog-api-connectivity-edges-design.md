@@ -52,7 +52,9 @@ All three ride the **existing** relationship subsystem (create endpoint, either-
 | 6 | Allowed pairs: `ProvidesApiFor`,`ConsumesApiFrom`: `{Application, Service} → Api`. `InstanceOf`: `Service → Application`. `DependsOn`: `any → any` (unchanged, may now touch `Api`). | Provider/consumer originate at a component and point at the contract; instance-of is service→app. |
 | 7 | **No cardinality caps** on any new edge (a Service may be `InstanceOf` several Apps; an Api may have N providers). Exact-duplicate edges still blocked by `ux_relationships_edge` (409). | Max-flexibility (user decision). Guards can be added later if a real invariant appears. |
 | 8 | `ICatalogEntityLookup.Find` gains an `Api` branch (existence + `DisplayName` + `TeamId` from `db.Apis`). | Powers 422-on-unknown-Api, either-team authz using the Api's team, and Api graph-node enrichment — all for free once the lookup resolves Api. |
-| 9 | **No new endpoint, no new permission, no 5-sync, no FK column, no derivation, no schema migration.** | Reuses the existing create/delete/graph endpoints and their authz; enum values are string-persisted. |
+| 9 | **No new endpoint, no new permission, no 5-sync, no FK column, no derivation, no *schema* migration.** One **data-only** migration purges pre-existing `type='PartOf'` rows (see note below). | Reuses the existing create/delete/graph endpoints and their authz; enum values are string-persisted. |
+
+> **Data migration (added during verification, ADR-0084).** `PartOf` was a *shipped, creatable* relationship type, so existing `type='PartOf'` rows fail enum materialization once the value is removed → 500 on any read that includes them (caught in-browser; fresh test/CI DBs had none). Migration `PurgePartOfRelationships` runs `DELETE FROM relationships WHERE type='PartOf'` (toggling FORCE-RLS off for the owner-run cross-tenant purge, then restoring ENABLE+FORCE). Schema unchanged.
 | 10 | Frontend: **hygiene only** this slice — remove `partOf` from `relationshipTypeRules.ts` + its test. No `Api` kind in the dialog/graph yet. | Option 1 scope. Prevents the UI offering a now-rejected type; full API graph UI = FU-A. |
 
 ---

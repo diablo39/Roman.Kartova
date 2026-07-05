@@ -36,7 +36,7 @@ This ADR originally made the API **provider** link and the Service→App **insta
 - **FU-11 (polymorphic provider):** obsolete — edges already allow App *or* Service (and future System) as provider with no schema change.
 
 ### Vocabulary consequence
-`RelationshipType` gains `InstanceOf`; `ProvidesApiFor`/`ConsumesApiFrom` (dormant) become creatable with `Api` as target; `EntityKind` gains `Api`. The pre-existing `PartOf(Service→Application)` edge — which overlapped instance-of — is **removed** (System grouping not yet built) and will be reintroduced for System `part-of`/`contains` in E-03.F-03. All enum values persist as strings → **no schema migration**.
+`RelationshipType` gains `InstanceOf`; `ProvidesApiFor`/`ConsumesApiFrom` (dormant) become creatable with `Api` as target; `EntityKind` gains `Api`. The pre-existing `PartOf(Service→Application)` edge — which overlapped instance-of — is **removed** (System grouping not yet built) and will be reintroduced for System `part-of`/`contains` in E-03.F-03. All enum values persist as strings → **no schema migration**. Because `PartOf` was a *shipped, creatable* type, a **data-only migration** purges any pre-existing `type='PartOf'` rows (which would otherwise fail enum materialization → 500); no schema change. (Surfaced by browser verification, ADR-0084; fresh test DBs had no such row.)
 
 Implemented by `docs/superpowers/specs/2026-07-04-catalog-api-connectivity-edges-design.md`.
 

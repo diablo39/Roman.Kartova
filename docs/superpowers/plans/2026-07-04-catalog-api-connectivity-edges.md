@@ -13,7 +13,7 @@
 
 ## Global Constraints
 
-- **No schema migration** — `EntityRef.Kind`, `Relationship.Type`, `Relationship.Origin` map via `HasConversion<string>()` (varchar, no CHECK). Enum add/remove needs no DB change. Adding a migration is a plan violation.
+- **No schema migration** — `EntityRef.Kind`, `Relationship.Type`, `Relationship.Origin` map via `HasConversion<string>()` (varchar, no CHECK). Enum add/remove needs no DB change. **Exception (found during verification):** a *data-only* migration is required to purge pre-existing `type='PartOf'` rows — `PartOf` was a shipped creatable value, so stranded rows fail enum materialization (500). Schema is unchanged; the migration only runs `DELETE ... WHERE type='PartOf'` (RLS toggled for the owner-run cross-tenant purge).
 - **No new endpoint, permission, FK column, or derivation.** Reuse `CreateRelationship`/`DeleteRelationship`/`GraphTraversal` and their authz (ADR-0108 either-team). No `KartovaPermissions` 5-sync.
 - **Enum wire format = camelCase** (ADR-0109). Persisted string form is the C# name (e.g. `InstanceOf`), asserted via `.ToString()` in audit tests.
 - **`TreatWarningsAsErrors=true`** — 0 warnings, 0 errors, whole solution.
