@@ -1,6 +1,6 @@
 # ADR-0111: API Is a First-Class Entity — Provider/Instance as FK Fields, Consumers as Edges, Exposure Derived
 
-**Status:** Accepted
+**Status:** Accepted (Revised 2026-07-04 — provider/instance are edges, not FK fields)
 **Date:** 2026-07-03
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** Domain Model
@@ -18,6 +18,29 @@ Two existing decisions bear on how APIs connect to the rest of the catalog:
 We must decide, coherently: where the API's provider link lives, how a running Service relates to its Application and to APIs, how consumers are modelled, and what that means for the existing `ServiceEndpoint`.
 
 ## Decision
+
+## Revision — 2026-07-04 (provider/instance modeled as edges)
+
+This ADR originally made the API **provider** link and the Service→App **instance** link dedicated **FK fields** (Decision 2). That is **reversed**: both are now **relationship edges**, making the model all-edge for connectivity. Consumers were already edges (Decision 4), so the catalog now has a single, uniform edge mechanism.
+
+**Trigger:** the FK provider was single-valued (`Api.implementedByApplicationId` → one app). A real requirement — **one API contract implemented by N connector services** — is many-implementers-to-one-contract, which a single FK cannot express (and FU-11's polymorphic-provider only changes the provider's *type*, not its *cardinality*).
+
+**Why this is consistent with ADR-0110, not a contradiction:** ADR-0110 reserves FK fields for *structural, invariant-bearing, **low-cardinality*** refs. Once provider is shown to be **many**, it fails the low-cardinality test — so ADR-0110's own rule points to an edge. Backstage (this ADR's cited model) likewise expresses `providesApis` as a reference list, not a single owner. Edges also keep one uniform graph-traversal path (no synthesize-from-FK special case) and let discovery metadata (`RelationshipOrigin`, future confidence) hang off the link.
+
+**Trade-off accepted:** referential integrity moves from DB-level FK to write-time existence checks (`ICatalogEntityLookup` → 422), consistent with how `DependsOn` edges already validate. Cardinality is intentionally **not** capped (max-flexibility); exact-duplicate edges remain blocked by the unique edge index.
+
+### What the revision overrides
+- **Decision 2 (FK fields):** superseded. Provider = `provides-api-for` edge (`{Application, Service} → Api`); instance = new `instance-of` edge (`Service → Application`). No FK columns added.
+- **Decision 3 (derived exposure):** exposure is no longer derived from FKs. For now it is expressed by explicit edges; deriving `exposes`/`depends-on` from `instance-of ∘ provides-api-for` is a deferred follow-up (compute-over-edges, not over-FKs).
+- **Decision 4 (consumers as edges):** unchanged — `consumes-api-from` edge → Api.
+- **FU-11 (polymorphic provider):** obsolete — edges already allow App *or* Service (and future System) as provider with no schema change.
+
+### Vocabulary consequence
+`RelationshipType` gains `InstanceOf`; `ProvidesApiFor`/`ConsumesApiFrom` (dormant) become creatable with `Api` as target; `EntityKind` gains `Api`. The pre-existing `PartOf(Service→Application)` edge — which overlapped instance-of — is **removed** (System grouping not yet built) and will be reintroduced for System `part-of`/`contains` in E-03.F-03. All enum values persist as strings → **no schema migration**.
+
+Implemented by `docs/superpowers/specs/2026-07-04-catalog-api-connectivity-edges-design.md`.
+
+---
 
 **1. API is a first-class, tenant-owned, team-owned aggregate** (ADR-0103), sibling to Application/Service. Sync API carries `Style ∈ {Rest, Grpc, GraphQL}`, `Version` (freeform), optional `SpecUrl`. Async API is deferred (E-02.F-03.S-02) and adds messaging protocol + channels.
 
