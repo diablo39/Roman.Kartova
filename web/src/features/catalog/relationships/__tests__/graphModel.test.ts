@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { toGraphModel, type FocusedEntity } from "@/features/catalog/relationships/graphModel";
+import {
+  toGraphModel,
+  parseEntityRef,
+  entityDetailPath,
+  ENTITY_KIND_LABEL,
+  type FocusedEntity,
+} from "@/features/catalog/relationships/graphModel";
 import type { RelationshipResponse } from "@/features/catalog/api/relationships";
 
 const focused: FocusedEntity = { kind: "service", id: "s1", displayName: "Me" };
@@ -61,7 +67,7 @@ describe("toGraphModel", () => {
     expect(m.edges).toHaveLength(0);
   });
 
-  it("excludes a providesApiFor edge whose other endpoint is an api-kind node (FU-A deferred)", () => {
+  it("includes a providesApiFor edge's other endpoint as an api-kind node", () => {
     const m = toGraphModel(focused, [
       rel({
         id: "api1",
@@ -70,8 +76,19 @@ describe("toGraphModel", () => {
         target: { kind: "api", id: "api-1", displayName: "Orders API" } as RelationshipResponse["target"],
       }),
     ]);
-    expect(m.nodes).toHaveLength(1); // focused only, no api node
-    expect(m.nodes[0]!.id).toBe(focusedNodeId);
-    expect(m.edges).toHaveLength(0);
+    const other = m.nodes.find((n) => n.id === "api:api-1")!;
+    expect(other.data.kind).toBe("api");
+    expect(other.data.side).toBe("dependency");
+    expect(m.edges).toEqual([{ id: "api1", source: "service:s1", target: "api:api-1", label: "Provides API for" }]);
+  });
+
+  it("labels and routes api kind", () => {
+    expect(ENTITY_KIND_LABEL.api).toBe("API");
+    expect(entityDetailPath("api", "x1")).toBe("/catalog/apis/x1");
+  });
+
+  it("parses an api entity ref", () => {
+    expect(parseEntityRef("api:abc")).toEqual({ kind: "api", id: "abc" });
+    expect(parseEntityRef("broker:abc")).toBeNull();
   });
 });

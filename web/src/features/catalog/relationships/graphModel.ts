@@ -1,7 +1,7 @@
 import type { RelationshipResponse } from "@/features/catalog/api/relationships";
 import {
   relationshipTypeLabel,
-  isRenderableKind,
+  isRelationshipKind,
   type RelationshipKind,
   type CreatableRelationshipType,
 } from "@/features/catalog/relationships/relationshipTypeRules";
@@ -47,9 +47,6 @@ export function toGraphModel(focused: FocusedEntity, relationships: Relationship
     if (!focusedIsSource && !focusedIsTarget) continue;
 
     const other = focusedIsSource ? r.target : r.source;
-    // FU-A: the graph doesn't render `api` (or any non-app/service) nodes yet — skip such
-    // neighbours entirely so a backend-created API edge doesn't silently mis-route on click.
-    if (!isRenderableKind(other.kind)) continue;
     const otherId = nodeId(other.kind, other.id);
     const side: GraphSide = focusedIsSource ? "dependency" : "dependent";
 
@@ -92,15 +89,16 @@ export function toGraphModel(focused: FocusedEntity, relationships: Relationship
   return { nodes, edges };
 }
 
-export const ENTITY_KIND_LABEL: Record<string, string> = { application: "Application", service: "Service" };
+export const ENTITY_KIND_LABEL: Record<string, string> = { application: "Application", service: "Service", api: "API" };
 
 export function parseEntityRef(token: string | null | undefined): { kind: RelationshipKind; id: string } | null {
   if (!token) return null;
   const [kind, id] = token.split(":");
-  if ((kind === "application" || kind === "service") && id) return { kind, id };
+  if (kind && id && isRelationshipKind(kind)) return { kind, id };
   return null;
 }
 
 export function entityDetailPath(kind: RelationshipKind, id: string): string {
-  return `/catalog/${kind === "application" ? "applications" : "services"}/${id}`;
+  const seg = kind === "application" ? "applications" : kind === "service" ? "services" : "apis";
+  return `/catalog/${seg}/${id}`;
 }

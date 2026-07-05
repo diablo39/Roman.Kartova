@@ -6,10 +6,13 @@ import { GraphExplorerSidebar } from "@/features/catalog/components/GraphExplore
 
 const mockApp = vi.fn();
 const mockSvc = vi.fn();
+const mockApi = vi.fn();
 vi.mock("@/features/catalog/api/applications", () => ({ useApplication: (id: string) => mockApp(id) }));
 vi.mock("@/features/catalog/api/services", () => ({ useService: (id: string) => mockSvc(id) }));
+vi.mock("@/features/catalog/api/apis", () => ({ useApi: (id: string) => mockApi(id) }));
 
 const appData = { id: "a", displayName: "A App 041", description: "Seeded #42", lifecycle: "Active", teamId: "t1" };
+const apiData = { id: "api-1", displayName: "Orders API" };
 
 function renderSidebar(props: Partial<Parameters<typeof GraphExplorerSidebar>[0]> = {}) {
   return render(
@@ -32,6 +35,7 @@ describe("GraphExplorerSidebar", () => {
   beforeEach(() => {
     mockApp.mockReturnValue({ data: appData, isLoading: false, isError: false });
     mockSvc.mockReturnValue({ data: undefined, isLoading: false, isError: false });
+    mockApi.mockReturnValue({ data: undefined, isLoading: false, isError: false });
   });
 
   it("renders entity metadata + depth", () => {
@@ -58,6 +62,14 @@ describe("GraphExplorerSidebar", () => {
     renderSidebar({ atCap: true, isExpanded: (_n, d) => d === "out" });
     expect(screen.getByRole("button", { name: /expand dependents/i })).toBeDisabled();
     expect(screen.getByRole("button", { name: /collapse dependencies/i })).toBeEnabled();
+  });
+
+  it("renders an api-kind selected node with the API label and detail link", () => {
+    mockApi.mockReturnValue({ data: apiData, isLoading: false, isError: false });
+    renderSidebar({ selected: { kind: "api", id: "api-1" } });
+    expect(screen.getByText("Orders API")).toBeInTheDocument();
+    expect(screen.getByText("API")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /open page/i })).toHaveAttribute("href", "/catalog/apis/api-1");
   });
 
   it("shows an error state but keeps the actions usable", () => {

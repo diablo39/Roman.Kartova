@@ -35,6 +35,23 @@ describe("mergeGraphs", () => {
     expect(g.nodes.map((n) => n.id).sort()).toEqual(["service:a","service:b","service:c"]);
     expect(g.edges.map((e) => e.id).sort()).toEqual(["e1","e2"]);
   });
+
+  it("includes api nodes and edges", () => {
+    const merged = mergeGraphs([
+      {
+        nodes: [
+          { kind: "service", id: "s1", displayName: "Me", depth: 0, teamId: "t1" },
+          { kind: "api", id: "api-1", displayName: "Orders API", depth: 1, teamId: "t1" },
+        ],
+        edges: [
+          { id: "e1", source: { kind: "service", id: "s1" }, target: { kind: "api", id: "api-1" }, type: "providesApiFor", origin: "manual" },
+        ],
+        truncated: false,
+      } as never,
+    ]);
+    expect(merged.nodes.find((n) => n.id === "api:api-1")?.kind).toBe("api");
+    expect(merged.edges).toEqual([{ id: "e1", source: "service:s1", target: "api:api-1", label: "Provides API for" }]);
+  });
 });
 
 import { bfsDepth } from "@/features/catalog/relationships/graphMerge";
