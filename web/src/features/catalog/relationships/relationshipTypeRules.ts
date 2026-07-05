@@ -1,27 +1,23 @@
 export type RelationshipKind = "application" | "service";
-export type CreatableRelationshipType = "dependsOn" | "partOf";
+export type CreatableRelationshipType = "dependsOn";
 export type FixedRole = "source" | "target";
 
 export const relationshipTypeLabel: Record<CreatableRelationshipType, string> = {
   dependsOn: "Depends on",
-  partOf: "Part of",
 };
 
-const CREATABLE_TYPES: CreatableRelationshipType[] = ["dependsOn", "partOf"];
+const CREATABLE_TYPES: CreatableRelationshipType[] = ["dependsOn"];
 const KINDS: RelationshipKind[] = ["application", "service"];
 
-// Mirror of backend RelationshipTypeRules.IsAllowedPair (ADR-0068, creatable subset).
+// Mirror of backend RelationshipTypeRules.IsAllowedPair (ADR-0068, creatable UI subset).
+// Only `dependsOn` is creatable from the UI this slice; API edge types (providesApiFor,
+// consumesApiFrom, instanceOf) and the `api` kind land with the API graph UI (FU-A).
 export function isAllowedPair(
-  type: CreatableRelationshipType,
-  source: RelationshipKind,
-  target: RelationshipKind,
+  _type: CreatableRelationshipType,
+  _source: RelationshipKind,
+  _target: RelationshipKind,
 ): boolean {
-  switch (type) {
-    case "dependsOn":
-      return true;
-    case "partOf":
-      return source === "service" && target === "application";
-  }
+  return true; // dependsOn: any → any
 }
 
 // Valid kinds for the OTHER endpoint given the chosen type and which side is fixed.

@@ -43,13 +43,6 @@ describe("toGraphModel", () => {
     expect(m.edges).toEqual([{ id: "r2", source: "application:a1", target: "service:s1", label: "Depends on" }]);
   });
 
-  it("labels a partOf edge 'Part of'", () => {
-    const m = toGraphModel(focused, [
-      rel({ id: "r3", type: "partOf", source: { kind: "service", id: "s1", displayName: "Me" }, target: { kind: "application", id: "a9", displayName: "Billing" } }),
-    ]);
-    expect(m.edges[0]!.label).toBe("Part of");
-  });
-
   it("dedupes a neighbour seen in both directions to one node (dependency side) with both edges", () => {
     const m = toGraphModel(focused, [
       rel({ id: "out", source: { kind: "service", id: "s1", displayName: "Me" }, target: { kind: "service", id: "s2", displayName: "AuthService" } }),
