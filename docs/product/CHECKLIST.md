@@ -11,7 +11,7 @@
 
 | Phase | Status | Progress |
 |-------|--------|----------|
-| Phase 0: Foundation | In Progress | 12/31 |
+| Phase 0: Foundation | In Progress | 12/43 |
 | Phase 1: Core Catalog & Notifications | In Progress | 26/60 |
 | Phase 2: Auto-Import | Not Started | 0/36 |
 | Phase 3: Documentation | Not Started | 0/15 |
@@ -25,7 +25,7 @@
 
 ---
 
-## Phase 0: Foundation (31 stories; 2 dropped — ADR-0106)
+## Phase 0: Foundation (43 stories; 2 dropped — ADR-0106)
 
 ### E-01: Project Foundation & Infrastructure
 
@@ -83,6 +83,34 @@
 
 **Cross-cutting: API Contract Infrastructure**
 - [x] **Cross-cutting: cursor-pagination contract.** ADR-0095 + reference impl on Applications list. (2026-05-04)
+
+---
+
+### E-01a: Kartova Product Documentation Portal
+
+*First-party end-user docs for using Kartova itself — standalone in-repo docs site (off-the-shelf engine, TBD), separate from E-11 (tenant service docs). Phase-0 scaffolding; content accrues via docs-as-you-go. The docs-as-you-go DoD gate + hook wiring is implemented within this epic.*
+
+**E-01a.F-01: Documentation Portal Foundation**
+- [ ] E-01a.F-01.S-01 — Standalone docs-site project in-repo (chosen engine) building to a static site
+- [ ] E-01a.F-01.S-02 — CI + deploy pipeline for the docs site (separate from the app)
+- [ ] E-01a.F-01.S-03 — Navigation + full-text search + landing page
+- [ ] E-01a.F-01.S-04 — Link to the docs portal from within the app shell
+
+**E-01a.F-02: Getting-Started & Onboarding Guides**
+- [ ] E-01a.F-02.S-01 — Getting-started guide (org/team, first app, invite members); linked from the E-09 wizard
+- [ ] E-01a.F-02.S-02 — Git-connection & auto-import walkthrough
+
+**E-01a.F-03: Catalog Concept & Data-Model Reference**
+- [ ] E-01a.F-03.S-01 — Entity-kinds reference (Application / Service / API)
+- [ ] E-01a.F-03.S-02 — Relationship-type glossary (depends-on / provides-api-for / consumes-api-from / instance-of; linked from in-app tooltips)
+- [ ] E-01a.F-03.S-03 — Graph & exposure model explainer
+
+**E-01a.F-04: Feature How-Tos & FAQ**
+- [ ] E-01a.F-04.S-01 — Per-area how-to guides (catalog, relationships/graph, status page, scorecards, CLI, policies)
+- [ ] E-01a.F-04.S-02 — FAQ / troubleshooting / terms glossary
+
+**E-01a.F-05: Contextual In-App Help**
+- [ ] E-01a.F-05.S-01 — Wire in-app "?" affordances + relationship tooltips to deep-link portal articles
 
 ---
 

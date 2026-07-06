@@ -1,6 +1,6 @@
 # Phase 0: Foundation
 
-**Version:** v1.0 | **Epics:** 1 | **Features:** 8 | **Stories:** 33
+**Version:** v1.0 | **Epics:** 2 | **Features:** 13 | **Stories:** 45
 **Dependencies:** None (first phase)
 
 ---
@@ -88,3 +88,48 @@
 | E-01.F-08.S-01 | As a developer, I need a database indexing strategy designed for multi-tenant scale (1000+ tenants, millions of entities) so that queries perform at target latency | Indexes defined for all common query patterns; tenant_id included in composite indexes; query plan analysis for key queries; p95 < 200ms for catalog reads | [0012](../../architecture/decisions/ADR-0012-postgresql-row-level-security-for-tenant-isolation.md) |
 | E-01.F-08.S-02 | As a developer, I need an Elasticsearch index strategy (per-tenant vs shared with tenant filtering) so that search scales with the tenant count | Index strategy documented and implemented; search p95 < 500ms at target scale; index lifecycle management for retention | [0002](../../architecture/decisions/ADR-0002-elasticsearch-for-search.md), [0013](../../architecture/decisions/ADR-0013-elasticsearch-shared-index-with-tenant-routing.md) |
 | E-01.F-08.S-03 | As a developer, I need the multi-tenant database isolation strategy to be row-level security (not schema-per-tenant) so that it scales to 1000+ tenants | RLS policies on all tables; tenant_id automatically injected in queries; cross-tenant access impossible; verified with integration tests | [0012](../../architecture/decisions/ADR-0012-postgresql-row-level-security-for-tenant-isolation.md), [0014](../../architecture/decisions/ADR-0014-tenant-claim-extracted-from-jwt.md) |
+
+---
+
+### Epic E-01a: Kartova Product Documentation Portal
+
+> First-party end-user documentation for using **Kartova itself** — a standalone documentation site (off-the-shelf engine, **TBD** at build time) whose source lives in this repo (e.g. `docs-portal/`) and deploys as its own site, distinct from E-11 (which renders *tenants'* docs for *their own* services). Placed in Phase 0 as foundational scaffolding: the portal + its CI/deploy stand up early, and content accrues over time via the docs-as-you-go rule.
+>
+> **Open decisions (build-time):** docs engine choice (Docusaurus / MkDocs / Starlight / …); the **docs-as-you-go DoD rule** — a conditional DoD gate (blocking for user-facing diffs) plus `.claude/hooks/dod-check.js` wiring — is implemented **as part of this epic** (it can only be enforced once the portal is live). **Related:** E-09 (onboarding wizard), E-11 (tenant service docs), existing in-app relationship tooltips.
+
+#### Feature E-01a.F-01: Documentation Portal Foundation
+
+| Story ID | User Story | Acceptance Criteria |
+|----------|-----------|-------------------|
+| E-01a.F-01.S-01 | As a maintainer, I want a standalone documentation-site project in the repo using an off-the-shelf docs engine so that Kartova's own docs have a home separate from the app | `docs-portal/` project scaffolded with the chosen engine; `build` produces a static site; authoring README documents how to add pages |
+| E-01a.F-01.S-02 | As a maintainer, I want a CI + deploy pipeline for the docs site (separate from the app) so that docs publish automatically and broken builds are caught | CI job builds the portal on PRs touching `docs-portal/`; deploys to its own host (e.g. docs.kartova.*); a broken docs build fails CI |
+| E-01a.F-01.S-03 | As a user, I want site navigation, full-text search, and a landing page so that I can find documentation quickly | Sidebar/nav generated from the content tree; in-site full-text search; landing/index page |
+| E-01a.F-01.S-04 | As a user, I want a link to the docs portal from within the Kartova app so that help is one click away | "Docs"/"Help" link in the app shell (top-nav or user menu) opens the portal |
+
+#### Feature E-01a.F-02: Getting-Started & Onboarding Guides
+
+| Story ID | User Story | Acceptance Criteria |
+|----------|-----------|-------------------|
+| E-01a.F-02.S-01 | As a new user, I want a getting-started guide (create org/team, register first application, invite members) so that I can begin using Kartova unaided | Step-by-step guide with screenshots; linked from the E-09 onboarding wizard completion and relevant empty states |
+| E-01a.F-02.S-02 | As a new user, I want a git-connection & auto-import walkthrough so that I can onboard my repos | Covers the E-07/E-08 connect + first-import flow; troubleshooting for common connection failures |
+
+#### Feature E-01a.F-03: Catalog Concept & Data-Model Reference
+
+| Story ID | User Story | Acceptance Criteria | ADRs |
+|----------|-----------|-------------------|------|
+| E-01a.F-03.S-01 | As a user, I want a reference for the entity kinds (Application, Service, API) so that I know what each is and when to use it | One page per kind; fields explained; when-to-use guidance; examples | |
+| E-01a.F-03.S-02 | As a user, I want a relationship-type glossary so that I understand each relationship's meaning and direction | Per type (depends-on, provides-api-for, consumes-api-from, instance-of): meaning, direction, cardinality, valid entity pairs; consistent with the relationship vocabulary + API entity model ADRs; diagram; linked from the in-app relationship tooltips | [0068](../../architecture/decisions/ADR-0068-relationship-vocabulary.md), [0111](../../architecture/decisions/ADR-0111-api-first-class-entity-provider-instance-fields.md) |
+| E-01a.F-03.S-03 | As a user, I want an explainer of the graph & exposure model so that I understand how edges compose | How edges compose in the graph; derived exposure / service↔service depends-on (once FU-B lands); ties the glossary to the graph explorer | |
+
+#### Feature E-01a.F-04: Feature How-Tos & FAQ
+
+| Story ID | User Story | Acceptance Criteria |
+|----------|-----------|-------------------|
+| E-01a.F-04.S-01 | As a user, I want task-oriented how-to guides per feature area so that I can accomplish common tasks | One how-to per major area (catalog CRUD, relationships/graph, status page, scorecards, CLI, policies); accrue as each feature ships |
+| E-01a.F-04.S-02 | As a user, I want an FAQ / troubleshooting section and a terms glossary so that I can self-serve answers | Common questions; error-message index; searchable |
+
+#### Feature E-01a.F-05: Contextual In-App Help
+
+| Story ID | User Story | Acceptance Criteria |
+|----------|-----------|-------------------|
+| E-01a.F-05.S-01 | As a user, I want in-app help affordances to deep-link the relevant portal article so that help is contextual | "?" icons on key screens link to the matching article/anchor; the existing relationship tooltips link to the glossary (F-03.S-02) |
