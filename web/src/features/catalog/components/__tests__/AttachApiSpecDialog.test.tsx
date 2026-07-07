@@ -65,4 +65,18 @@ describe("AttachApiSpecDialog", () => {
     renderDialog({ hasExistingSpec: true });
     expect(screen.getByRole("heading", { name: /replace spec/i })).toBeInTheDocument();
   });
+
+  it("preserves a manual media-type override while continuing to type", async () => {
+    renderDialog();
+    await userEvent.type(screen.getByLabelText(/paste/i), "{{\"openapi\":\"3.0.0\"}");
+    await userEvent.selectOptions(screen.getByTestId("spec-media-type-select"), "application/yaml");
+    await userEvent.type(screen.getByLabelText(/paste/i), "\nmore content");
+    await userEvent.click(screen.getByRole("button", { name: /attach spec/i }));
+    await waitFor(() =>
+      expect(mutateAsync).toHaveBeenCalledWith({
+        content: "{\"openapi\":\"3.0.0\"}\nmore content",
+        mediaType: "application/yaml",
+      }),
+    );
+  });
 });

@@ -27,6 +27,7 @@ export function AttachApiSpecDialog({ apiId, open, onOpenChange, hasExistingSpec
   const [content, setContent] = useState("");
   const [fileName, setFileName] = useState<string | undefined>(undefined);
   const [mediaType, setMediaType] = useState<MediaType>("application/json");
+  const [mediaTypeTouched, setMediaTypeTouched] = useState(false);
   const [error, setError] = useState<string>("");
 
   useEffect(() => {
@@ -35,6 +36,7 @@ export function AttachApiSpecDialog({ apiId, open, onOpenChange, hasExistingSpec
       setContent("");
       setFileName(undefined);
       setMediaType("application/json");
+      setMediaTypeTouched(false);
       setError("");
     }
   }, [open]);
@@ -45,6 +47,7 @@ export function AttachApiSpecDialog({ apiId, open, onOpenChange, hasExistingSpec
     setFileName(file.name);
     setContent(text);
     setMediaType(inferMediaType(file.name, text));
+    setMediaTypeTouched(false);
   };
 
   const onSubmit = async () => {
@@ -83,14 +86,19 @@ export function AttachApiSpecDialog({ apiId, open, onOpenChange, hasExistingSpec
             </div>
 
             <TextArea label="…or paste spec content" rows={10} value={content}
-              onChange={(v) => { setContent(v); setMediaType(inferMediaType(fileName, v)); }}
+              onChange={(v) => {
+                setContent(v);
+                if (!mediaTypeTouched) setMediaType(inferMediaType(fileName, v));
+              }}
               isDisabled={mutation.isPending} />
 
             <div className="flex flex-col gap-1">
               <label htmlFor="spec-media-type" className="text-sm font-medium text-secondary">Format</label>
               <select id="spec-media-type" data-testid="spec-media-type-select"
                 className="rounded-md border border-secondary px-3 py-2 text-sm bg-primary text-primary"
-                value={mediaType} onChange={(e) => setMediaType(e.target.value as MediaType)} disabled={mutation.isPending}>
+                value={mediaType}
+                onChange={(e) => { setMediaType(e.target.value as MediaType); setMediaTypeTouched(true); }}
+                disabled={mutation.isPending}>
                 <option value="application/json">JSON</option>
                 <option value="application/yaml">YAML</option>
               </select>
