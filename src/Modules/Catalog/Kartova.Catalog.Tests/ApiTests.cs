@@ -123,4 +123,12 @@ public class ApiTests
         Assert.ThrowsExactly<ArgumentNullException>(
             () => Api.Create("a", "d", ApiStyle.Rest, "v1", null, Creator, Team, Tenant, nullClock!));
     }
+
+    [TestMethod]
+    public void Create_accepts_AsyncApi_style()
+    {
+        var a = Api.Create("orders-events", "Order events.", ApiStyle.AsyncApi, "1.0", null,
+            Creator, Team, Tenant, Clock);
+        Assert.AreEqual(ApiStyle.AsyncApi, a.Style);
+    }
 }
