@@ -58,6 +58,33 @@ public sealed class ApiSpecTests
     }
 
     [TestMethod]
+    public void Create_rejects_empty_createdByUserId()
+        => Assert.ThrowsExactly<ArgumentException>(
+            () => ApiSpec.Create(Api, Tenant, "{}", ApiMediaType.ApplicationJson, Guid.Empty, Now));
+
+    [TestMethod]
+    public void Replace_rejects_empty_content()
+    {
+        var s = ApiSpec.Create(Api, Tenant, "{}", ApiMediaType.ApplicationJson, User, Now);
+        Assert.ThrowsExactly<ArgumentException>(() => s.Replace("   ", ApiMediaType.ApplicationJson));
+    }
+
+    [TestMethod]
+    public void Replace_rejects_unknown_media_type()
+    {
+        var s = ApiSpec.Create(Api, Tenant, "{}", ApiMediaType.ApplicationJson, User, Now);
+        Assert.ThrowsExactly<ArgumentException>(() => s.Replace("{}", "text/xml"));
+    }
+
+    [TestMethod]
+    public void Create_accepts_content_exactly_at_cap()
+    {
+        var atCap = new string('x', ApiSpec.MaxContentBytes);   // exactly MaxContentBytes UTF-8 bytes
+        var s = ApiSpec.Create(Api, Tenant, atCap, ApiMediaType.ApplicationJson, User, Now);
+        Assert.AreEqual(ApiSpec.MaxContentBytes, System.Text.Encoding.UTF8.GetByteCount(s.Content));
+    }
+
+    [TestMethod]
     public void IsAllowed_matches_only_json_and_yaml()
     {
         Assert.IsTrue(ApiMediaType.IsAllowed("application/json"));
