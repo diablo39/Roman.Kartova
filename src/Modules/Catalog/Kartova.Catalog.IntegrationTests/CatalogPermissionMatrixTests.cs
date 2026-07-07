@@ -333,10 +333,11 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
         }
         else if (method == HttpMethod.Put && pathTemplate.EndsWith("/spec"))
         {
-            // Raw-body PUT (ADR-0112) — not JsonContent.Create, which appends a
-            // charset param that fails the delegate's exact Content-Type match.
-            req.Content = new StringContent("{\"openapi\":\"3.0.0\"}");
-            req.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+            // Raw-body PUT (ADR-0112). Use the natural client content — JsonContent.Create
+            // emits `application/json; charset=utf-8`, which the delegate now normalizes
+            // before its allow-list check. Exercising the real path (rather than a hand-shaped
+            // charset-free body) guards against the charset-415 regression.
+            req.Content = JsonContent.Create(new { openapi = "3.0.0" });
         }
         else if (method == HttpMethod.Put)
         {

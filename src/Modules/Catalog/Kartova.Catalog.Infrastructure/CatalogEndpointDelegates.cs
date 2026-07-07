@@ -651,7 +651,12 @@ internal static class CatalogEndpointDelegates
         IAuditWriter audit,
         CancellationToken ct)
     {
-        var mediaType = request.ContentType;
+        // Parse the header so a charset (or any other) parameter is stripped before the
+        // allow-list check — real clients send `application/json; charset=utf-8`, which is
+        // NOT exact-equal to the bare media type ApiMediaType.IsAllowed matches on. Gate on
+        // the parsed bare type; a malformed header fails to parse and is rejected too.
+        System.Net.Http.Headers.MediaTypeHeaderValue.TryParse(request.ContentType, out var parsedMediaType);
+        var mediaType = parsedMediaType?.MediaType;
         if (!Kartova.Catalog.Domain.ApiMediaType.IsAllowed(mediaType))
         {
             return Results.Problem(

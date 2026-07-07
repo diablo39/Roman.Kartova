@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
 using Kartova.SharedKernel.Multitenancy;
@@ -60,6 +61,46 @@ public class ApiSpecTests : CatalogIntegrationTestBase
         Assert.AreEqual(HttpStatusCode.OK, getResp.StatusCode);
         Assert.AreEqual("application/json", getResp.Content.Headers.ContentType?.MediaType);
         Assert.AreEqual(SpecJson, await getResp.Content.ReadAsStringAsync());
+    }
+
+    [TestMethod]
+    public async Task PUT_with_charset_suffixed_content_type_returns_201_and_echoes_bare_media_type()
+    {
+        // Real clients (StringContent(s, Encoding.UTF8, "application/json"), browsers, most tooling)
+        // send `application/json; charset=utf-8`. The delegate must normalize to the bare media type
+        // before the allow-list check (else 415 on the happy path) and store/echo it bare.
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Spec Team Charset");
+        var apiId = await RegisterApiAsync(client, teamId);
+
+        var req = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/catalog/apis/{apiId}/spec")
+        {
+            Content = new StringContent(SpecJson, Encoding.UTF8, "application/json"),
+        };
+        Assert.AreEqual("utf-8", req.Content.Headers.ContentType?.CharSet,
+            "Test precondition: StringContent must emit a charset param to exercise the regression.");
+
+        var putResp = await client.SendAsync(req);
+        Assert.AreEqual(HttpStatusCode.Created, putResp.StatusCode);
+
+        var getResp = await client.GetAsync($"/api/v1/catalog/apis/{apiId}/spec");
+        Assert.AreEqual(HttpStatusCode.OK, getResp.StatusCode);
+        Assert.AreEqual("application/json", getResp.Content.Headers.ContentType?.MediaType);
+        Assert.IsNull(getResp.Content.Headers.ContentType?.CharSet,
+            "Stored/echoed media type must be bare (no charset).");
+        Assert.AreEqual(SpecJson, await getResp.Content.ReadAsStringAsync());
+    }
+
+    [TestMethod]
+    public async Task PUT_with_empty_body_returns_400()
+    {
+        // Whitespace-only content trips ApiSpec's IsNullOrWhiteSpace reject → ArgumentException → 400.
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Spec Team Empty");
+        var apiId = await RegisterApiAsync(client, teamId);
+
+        var resp = await client.SendAsync(SpecRequest(HttpMethod.Put, apiId, "   "));
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
     }
 
     [TestMethod]
