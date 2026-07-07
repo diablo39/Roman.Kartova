@@ -79,4 +79,8 @@ public static class ProblemTypes
     // ADR-0100 one-email-per-tenant data-integrity breach (config drift / out-of-band
     // import). Server-side, not client-fixable → typed 500 with a generic, PII-free detail.
     public const string OneEmailPerTenant  = Base + "one-email-per-tenant";   // 500
+
+    // API spec upload — ADR-0112.
+    public const string UnsupportedSpecMediaType = Base + "unsupported-spec-media-type"; // 415: Content-Type not application/json or application/yaml.
+    public const string SpecTooLarge             = Base + "spec-too-large";              // 400: declared or streamed length exceeded ApiSpec.MaxContentBytes.
 }

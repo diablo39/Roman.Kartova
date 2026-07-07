@@ -54,6 +54,8 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
         (HttpMethod.Post, "/api/v1/catalog/apis",                          KartovaPermissions.CatalogApisRegister),
         (HttpMethod.Get,  "/api/v1/catalog/apis",                          KartovaPermissions.CatalogRead),
         (HttpMethod.Get,  "/api/v1/catalog/apis/{apiId}",                  KartovaPermissions.CatalogRead),
+        (HttpMethod.Put,  "/api/v1/catalog/apis/{apiId}/spec",             KartovaPermissions.CatalogApisRegister),
+        (HttpMethod.Get,  "/api/v1/catalog/apis/{apiId}/spec",             KartovaPermissions.CatalogRead),
     };
 
     [TestMethod]
@@ -328,6 +330,13 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
                 targetKind = "Service",
                 targetId   = Guid.NewGuid(),
             });
+        }
+        else if (method == HttpMethod.Put && pathTemplate.EndsWith("/spec"))
+        {
+            // Raw-body PUT (ADR-0112) — not JsonContent.Create, which appends a
+            // charset param that fails the delegate's exact Content-Type match.
+            req.Content = new StringContent("{\"openapi\":\"3.0.0\"}");
+            req.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
         }
         else if (method == HttpMethod.Put)
         {
