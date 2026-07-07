@@ -270,6 +270,86 @@ public class ApiSpecTests : CatalogIntegrationTestBase
         Assert.AreEqual(HttpStatusCode.Created, underResp.StatusCode);
     }
 
+    /// <summary>
+    /// Same cap as <see cref="PUT_over_configured_cap_returns_400_naming_the_limit"/>, but the
+    /// oversized body is sent as a non-seekable <see cref="StreamContent"/> with chunked transfer
+    /// encoding, so HttpClient cannot compute a Content-Length header. This means the declared-length
+    /// pre-check in <c>UpsertApiSpecAsync</c> is a no-op here (<c>request.ContentLength</c> is null),
+    /// so a 400 can only come from the streamed <c>ReadCappedAsync</c> cap (ADR-0112).
+    /// </summary>
+    [TestMethod]
+    public async Task PUT_over_configured_cap_via_chunked_body_returns_400_naming_the_limit()
+    {
+        const int cap = 2048; // within the validator band [1024, 50 MiB]
+        using var factory = Fx.WithWebHostBuilder(b =>
+            b.ConfigureTestServices(s => s.PostConfigure<CatalogSpecOptions>(o => o.MaxContentBytes = cap)));
+
+        var sub = await Fx.GetSubClaimAsync(OrgAUser);
+        var token = Fx.Signer.IssueForTenant(
+            Fx.TenantIdForEmail(OrgAUser), new[] { KartovaRoles.OrgAdmin }, subject: sub.ToString());
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Spec Team Cap Chunked");
+        var apiId = await RegisterApiAsync(client, teamId);
+
+        var oversized = "{\"x\":\"" + new string('a', cap) + "\"}"; // > cap bytes
+        var bytes = Encoding.UTF8.GetBytes(oversized);
+        var req = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/catalog/apis/{apiId}/spec")
+        {
+            Content = new StreamContent(new NonSeekableStream(new MemoryStream(bytes))),
+        };
+        req.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+        req.Headers.TransferEncodingChunked = true;
+
+        // Load-bearing: confirms no Content-Length is sent, so the declared-length
+        // pre-check cannot be what catches this — only the streamed ReadCappedAsync cap can.
+        Assert.IsNull(req.Content.Headers.ContentLength,
+            "Test precondition: a non-seekable StreamContent with chunked transfer-encoding must not " +
+            "carry a Content-Length header, otherwise this test would exercise the declared-length " +
+            "pre-check instead of the streamed ReadCappedAsync cap.");
+
+        var resp = await client.SendAsync(req);
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+        var body = await resp.Content.ReadAsStringAsync();
+        StringAssert.Contains(body, cap.ToString());
+    }
+
+    /// <summary>Wraps a <see cref="MemoryStream"/> to hide seek support, forcing HttpClient to send
+    /// the request body via chunked transfer-encoding instead of a declared Content-Length.</summary>
+    private sealed class NonSeekableStream(MemoryStream inner) : Stream
+    {
+        public override bool CanRead => inner.CanRead;
+        public override bool CanSeek => false;
+        public override bool CanWrite => inner.CanWrite;
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush() => inner.Flush();
+        public override int Read(byte[] buffer, int offset, int count) => inner.Read(buffer, offset, count);
+
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+            => inner.ReadAsync(buffer, offset, count, cancellationToken);
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+            => inner.ReadAsync(buffer, cancellationToken);
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) inner.Dispose();
+            base.Dispose(disposing);
+        }
+    }
+
     [TestMethod]
     public async Task PUT_without_token_returns_401()
     {

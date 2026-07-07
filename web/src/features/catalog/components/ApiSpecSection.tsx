@@ -34,13 +34,16 @@ export function ApiSpecSection({ api }: { api: ApiResponse }) {
                 <Badge type="pill-color" color="gray" size="sm">{formatLabel(spec.data.mediaType)}</Badge>
                 <CopyButton text={spec.data.content} />
               </div>
-              <pre className="max-h-[480px] overflow-auto rounded-md border border-secondary bg-secondary/30 p-3 font-mono text-xs text-primary whitespace-pre-wrap break-all">
+              <pre className="max-h-[480px] overflow-auto rounded-md border border-secondary bg-secondary/30 p-3 font-mono text-xs text-primary whitespace-pre-wrap break-words">
                 {spec.data.content}
               </pre>
             </>
           )}
           {spec.isLoading && <p className="text-sm text-tertiary">Loading spec…</p>}
           {spec.isError && <p className="text-sm text-error-primary">Couldn't load the spec.</p>}
+          {!spec.isLoading && !spec.isError && !spec.data && (
+            <p className="text-sm text-tertiary italic">Spec unavailable.</p>
+          )}
         </div>
       ) : (
         <p className="text-sm text-tertiary italic">No spec attached.</p>

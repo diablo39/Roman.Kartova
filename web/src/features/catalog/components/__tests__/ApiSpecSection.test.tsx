@@ -45,4 +45,11 @@ describe("ApiSpecSection", () => {
     expect(screen.getByRole("button", { name: /replace/i })).toBeInTheDocument();
     specIsError = false;
   });
+
+  it("shows a fallback message instead of a blank gap when hasSpec is true but data is null", () => {
+    specData = null; specIsError = false; perms = new Set(["catalog.apis.register"]);
+    render(<ApiSpecSection api={api(true)} />);
+    expect(screen.getByText(/spec unavailable/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /replace/i })).toBeInTheDocument();
+  });
 });
