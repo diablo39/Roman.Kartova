@@ -52,7 +52,7 @@ public sealed class ApiSpecTests
     public void Replace_updates_content_and_media_type()
     {
         var s = ApiSpec.Create(Api, Tenant, "{}", ApiMediaType.ApplicationJson, User, Now);
-        s.Replace("channels: {}", ApiMediaType.ApplicationYaml, User, Now.AddMinutes(1));
+        s.Replace("channels: {}", ApiMediaType.ApplicationYaml);
         Assert.AreEqual("channels: {}", s.Content);
         Assert.AreEqual(ApiMediaType.ApplicationYaml, s.MediaType);
     }

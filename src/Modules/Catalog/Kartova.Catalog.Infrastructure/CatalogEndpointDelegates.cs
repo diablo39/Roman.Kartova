@@ -679,22 +679,11 @@ internal static class CatalogEndpointDelegates
         var content = await ReadCappedAsync(reader, Kartova.Catalog.Domain.ApiSpec.MaxContentBytes, ct);
         if (content is null) return SpecTooLarge();
 
-        try
-        {
-            var created = await handler.Handle(
-                new UpsertApiSpecCommand(id, content, mediaType!), db, tenant, currentUser, audit, ct);
-            return created
-                ? Results.Created($"/api/v1/catalog/apis/{id}/spec", null as object)
-                : Results.NoContent();
-        }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                type: ProblemTypes.ValidationFailed,
-                title: "Invalid API spec",
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
-        }
+        var created = await handler.Handle(
+            new UpsertApiSpecCommand(id, content, mediaType!), db, tenant, currentUser, audit, ct);
+        return created
+            ? Results.Created($"/api/v1/catalog/apis/{id}/spec", null as object)
+            : Results.NoContent();
     }
 
     /// <summary>

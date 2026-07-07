@@ -28,7 +28,7 @@ public sealed class UpsertApiSpecHandler(TimeProvider clock)
         }
         else
         {
-            existing.Replace(cmd.Content, cmd.MediaType, user.UserId, now);
+            existing.Replace(cmd.Content, cmd.MediaType);
             created = false;
         }
 

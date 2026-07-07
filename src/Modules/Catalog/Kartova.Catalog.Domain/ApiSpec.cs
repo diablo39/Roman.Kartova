@@ -43,11 +43,9 @@ public sealed class ApiSpec : ITenantOwned
 
     /// <summary>Replaces the stored document in place (upsert path). Provenance stays the
     /// original <see cref="CreatedByUserId"/>/<see cref="CreatedAt"/> — one current spec, no history.</summary>
-    public void Replace(string content, string mediaType, Guid updatedByUserId, DateTimeOffset updatedAt)
+    public void Replace(string content, string mediaType)
     {
         Validate(content, mediaType);
-        if (updatedByUserId == Guid.Empty)
-            throw new ArgumentException("updatedByUserId is required.", nameof(updatedByUserId));
         Content = content;
         MediaType = mediaType;
     }
