@@ -30,8 +30,9 @@ export function ApisTable({ list, sortBy, sortOrder, onSortChange, teamNameById 
           <Table.Head id="team">Team</Table.Head>
           <Table.Head id="createdBy">Created by</Table.Head>
           <Table.Head id="createdAt">Created</Table.Head>
+          <Table.Head id="hasSpec">Spec</Table.Head>
         </Table.Header>
-        <TableSkeleton rows={5} cells={6} />
+        <TableSkeleton rows={5} cells={7} />
       </Table>
     );
   }
@@ -66,6 +67,7 @@ export function ApisTable({ list, sortBy, sortOrder, onSortChange, teamNameById 
           <Table.Head id="team">Team</Table.Head>
           <Table.Head id="createdBy">Created by</Table.Head>
           <SortableHead id="createdAt">Created</SortableHead>
+          <Table.Head id="hasSpec">Spec</Table.Head>
         </Table.Header>
         <Table.Body>
           {list.items.map((api) => (
@@ -91,6 +93,11 @@ export function ApisTable({ list, sortBy, sortOrder, onSortChange, teamNameById 
               </Table.Cell>
               <Table.Cell className="text-sm text-tertiary">
                 {api.createdAt ? new Date(api.createdAt).toLocaleDateString() : ""}
+              </Table.Cell>
+              <Table.Cell data-testid={`api-hasspec-${api.id}`} className="text-sm">
+                {api.hasSpec
+                  ? <Badge type="pill-color" color="success" size="sm">Spec</Badge>
+                  : <span className="text-tertiary">—</span>}
               </Table.Cell>
             </Table.Row>
           ))}
