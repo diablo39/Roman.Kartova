@@ -97,7 +97,7 @@ domain_model:
   org_structure: hybrid hierarchy (Org → Team → System → Component) + cross-cutting tags (ADR-0065)
   ownership: application owner is a required team (`Application.TeamId`); individual is created-by provenance (`CreatedByUserId`) — immutable (ADR-0103); multi-team co-ownership with platform flag + quorum approval deferred to E-03.F-05 (ADR-0066)
   relationships: fixed 7-type vocabulary (depends-on / provides-api-for / consumes-api-from / publishes-to / subscribes-from / deployed-on / part-of) (ADR-0068); ADR-0111 amends 0068 — provide/consume target the first-class API entity, provider-side derived
-  api_entity: API is a first-class team-owned entity, one unified aggregate keyed by `Style` (`Rest`/`Grpc`/`GraphQL`/`AsyncApi`); provider (`Api.implementedByApplicationId`) + instance (`Service.applicationId`) are nullable FK fields, exposure derives (full-auto), consumers are edges; `ServiceEndpoint` = labeled address (protocol dropped, moved to `Api.Style`) (ADR-0111 amended 2026-07-07)
+  api_entity: API is a first-class team-owned entity, one unified aggregate keyed by `Style` (`Rest`/`Grpc`/`GraphQL`/`AsyncApi`); provider/instance/consumer links are all relationship edges (2026-07-04 all-edge revision), exposure + service↔service depends-on derive; `ServiceEndpoint` = labeled address (protocol dropped, moved to `Api.Style`) (ADR-0111 amended 2026-07-07)
   api_spec_storage: spec documents (OpenAPI/AsyncAPI) stored as `text` in RLS-scoped `catalog_api_specs`, 1:1 with the owning API, transactional; not MinIO for this data class (ADR-0112)
   relationship_origin: manual | scan | agent, immutable (ADR-0067)
   required_fields: owner, lifecycle, etc. enforced on all creation paths (ADR-0069)
