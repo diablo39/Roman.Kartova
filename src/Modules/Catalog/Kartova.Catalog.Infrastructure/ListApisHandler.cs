@@ -59,11 +59,13 @@ public sealed class ListApisHandler(IUserDirectory directory)
         var creatorIds = new HashSet<Guid>(page.Items.Select(a => a.CreatedByUserId));
         var creators = await directory.GetManyAsync(creatorIds, ct);
 
-        var pageApiIds = page.Items.Select(a => a.Id.Value).ToList();
-        var idsWithSpec = new HashSet<Guid>(await db.ApiSpecs
-            .Where(s => pageApiIds.Contains(s.ApiId.Value))
-            .Select(s => s.ApiId.Value)
-            .ToListAsync(ct));
+        var pageApiIds = page.Items.Select(a => a.Id).ToList();
+        var idsWithSpec = (await db.ApiSpecs
+            .Where(s => pageApiIds.Contains(s.ApiId))
+            .Select(s => s.ApiId)
+            .ToListAsync(ct))
+            .Select(id => id.Value)
+            .ToHashSet();
 
         var items = page.Items
             .Select(a =>
