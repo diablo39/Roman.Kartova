@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 // ApplicationId is aliased rather than imported via `using Kartova.Catalog.Domain`
 // because that would clash with `System.ApplicationId` in the BCL — same trick
 // ApplicationSortSpecs uses for `DomainApplication`.
@@ -649,7 +650,7 @@ internal static class CatalogEndpointDelegates
         IAuthorizationService auth,
         ClaimsPrincipal caller,
         IAuditWriter audit,
-        Microsoft.Extensions.Options.IOptions<CatalogSpecOptions> specOptions,
+        IOptions<CatalogSpecOptions> specOptions,
         CancellationToken ct)
     {
         // Parse the header so a charset (or any other) parameter is stripped before the
