@@ -4,8 +4,12 @@ using System.Net.Http.Json;
 using System.Text;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
+using Kartova.Catalog.Infrastructure;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.Testing.Auth;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Kartova.Catalog.IntegrationTests;
 
@@ -236,15 +240,34 @@ public class ApiSpecTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
-    public async Task PUT_with_oversized_content_returns_400()
+    public async Task PUT_over_configured_cap_returns_400_naming_the_limit()
     {
-        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Spec Team 400");
+        const int cap = 2048; // within the validator band [1024, 50 MiB]
+        using var factory = Fx.WithWebHostBuilder(b =>
+            b.ConfigureTestServices(s => s.PostConfigure<CatalogSpecOptions>(o => o.MaxContentBytes = cap)));
+
+        // WithWebHostBuilder returns a plain WebApplicationFactory<Program> (not the
+        // KartovaApiFixture wrapper), so it doesn't expose CreateAuthenticatedClientAsync —
+        // mint the JWT manually via the shared signer, same as
+        // Kartova.Organization.IntegrationTests/InvitationFailureWiringTests.cs.
+        var sub = await Fx.GetSubClaimAsync(OrgAUser);
+        var token = Fx.Signer.IssueForTenant(
+            Fx.TenantIdForEmail(OrgAUser), new[] { KartovaRoles.OrgAdmin }, subject: sub.ToString());
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Spec Team Cap");
         var apiId = await RegisterApiAsync(client, teamId);
 
-        var oversized = new string('a', ApiSpec.MaxContentBytes + 1);
-        var resp = await client.SendAsync(SpecRequest(HttpMethod.Put, apiId, oversized));
-        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+        var over = "{\"x\":\"" + new string('a', cap) + "\"}"; // > cap bytes
+        var overResp = await client.SendAsync(SpecRequest(HttpMethod.Put, apiId, over));
+        Assert.AreEqual(HttpStatusCode.BadRequest, overResp.StatusCode);
+        var body = await overResp.Content.ReadAsStringAsync();
+        StringAssert.Contains(body, cap.ToString());
+
+        var under = "{\"x\":1}"; // < cap bytes
+        var underResp = await client.SendAsync(SpecRequest(HttpMethod.Put, apiId, under));
+        Assert.AreEqual(HttpStatusCode.Created, underResp.StatusCode);
     }
 
     [TestMethod]
