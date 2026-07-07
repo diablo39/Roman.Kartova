@@ -12,7 +12,7 @@
 | Phase | Status | Progress |
 |-------|--------|----------|
 | Phase 0: Foundation | In Progress | 12/43 |
-| Phase 1: Core Catalog & Notifications | In Progress | 26/60 |
+| Phase 1: Core Catalog & Notifications | In Progress | 27/60 |
 | Phase 2: Auto-Import | Not Started | 0/36 |
 | Phase 3: Documentation | Not Started | 0/15 |
 | Phase 4: Status Page | Not Started | 0/16 |
@@ -21,7 +21,7 @@
 | Phase 7: Intelligence | Not Started | 0/13 |
 | Phase 8: Analytics | Not Started | 0/14 |
 | Phase 9: Advanced | Not Started | 0/0 |
-| **Total** | | **38/212** |
+| **Total** | | **39/212** |
 
 ---
 
@@ -133,7 +133,7 @@
 
 **E-02.F-03: API Entity Management (Sync & Async)** — *model pinned by [ADR-0111](../architecture/decisions/ADR-0111-api-first-class-entity-provider-instance-fields.md) (API first-class entity; provider/instance/consumer all **edges** — revised 2026-07-04 to all-edge; exposure derived over edges; amends ADR-0068). Design: `docs/superpowers/specs/2026-07-03-catalog-api-entity-design.md`.*
 - [x] E-02.F-03.S-01 — Register sync API (REST/gRPC/GraphQL) — *shipped 2026-07-04 (PR #55, catalog-api-entity). API node: `Api` aggregate (style/version/optional spec-URL, team-owned), POST/GET-by-id/cursor-list, RLS `catalog_apis`, `catalog.apis.register` permission (5-sync), `api.registered` audit, sortable all cols, filters deferred. Real-seam tests (Catalog integ 229, frontend 690). All 8 always-blocking DoD gates green (gate 6 mutation waived by owner); ledger `docs/superpowers/verification/2026-07-03-catalog-api-entity/dod.md`. Downstream layers registered as follow-ups FU-1..FU-11 in the design §11: provider FK, instance FK + derived exposure, endpoint redefinition (drop protocol→description), `Api` kind in E-04 + consumer edges, System surface (E-03.F-03), async (S-02), unified view (S-03), API UI + filters, exposure opt-out, polymorphic provider. Non-blocking deep-review follow-ups: OpenAPI 422→400 annotation on GET /apis; sortBy=createdAt order / PrevCursor / CreatedBy-enrichment test refinements. **FU-9 shipped 2026-07-04** (catalog-api-ui-surface): `/catalog/apis` list + `/catalog/apis/:id` detail + Register-API dialog, mirroring the Service UI; name typeahead (`displayNameContains`) + style multi-select + team multi-select list filters via `<FilterBar>`/`useListFilters` (backend `ListApis` filter params mirror `ListServices`); sort allowlist unchanged `{displayName, style, version, createdAt}`, default `displayName asc`. Registry updated: `docs/design/list-filter-registry.md`. Remaining follow-ups FU-1..FU-8, FU-10, FU-11 still open; S-02/S-03 still open.* **API connectivity via edges shipped 2026-07-05** (catalog-api-connectivity-edges): all-edge model per **ADR-0111 revised** (provider/instance are edges, not FK) — **supersedes FU-1 (provider FK), FU-2 (instance FK), FU-11 (polymorphic provider)**. `EntityKind += Api`; `RelationshipType += InstanceOf, − PartOf`; `RelationshipTypeRules` enables `ProvidesApiFor`/`ConsumesApiFrom` ({App,Service}→Api) + `InstanceOf` (Service→Application); `CatalogEntityLookup` resolves Api nodes (422/enrichment/either-team authz). One API contract can have N provider edges (driving case). FE hygiene: dropped `partOf` from relationship UI + shared `isRenderableKind` guard (graph + relationships list) — API-node rendering deferred to **FU-A**. Data migration `PurgePartOfRelationships` purges stranded `PartOf` rows (found via ADR-0084 browser check). Spec/plan/deep-review + DoD ledger: `docs/superpowers/verification/2026-07-04-catalog-api-connectivity-edges/`. New follow-ups: FU-A (API graph UI), FU-B (derived exposure/depends), FU-C (async), FU-D (System + PartOf return), FU-E (unified view).
-- [ ] E-02.F-03.S-02 — Register async API with AsyncAPI spec
+- [x] E-02.F-03.S-02 — AsyncAPI specs + async-first API model (shipped 2026-07-07): unified API entity + `AsyncApi` style + `catalog_api_specs` spec-blob storage (text + media-type), PUT/GET /apis/{id}/spec endpoints, `HasSpec` flag on `Api`, ADR-0112 + ADR-0111 amendment; UI spec display/versions/broker-edge integration deferred.
 - [ ] E-02.F-03.S-03 — Unified sync/async API view per service
 
 **E-02.F-04: Infrastructure & Broker Entity Management**
