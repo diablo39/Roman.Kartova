@@ -15,7 +15,8 @@ public sealed class GetApiByIdHandler(IUserDirectory directory)
         var api = await db.Apis.FirstOrDefaultAsync(ApiSortSpecs.IdEquals(q.Id), ct);
         if (api is null) return null;
 
+        var hasSpec = await db.ApiSpecs.AnyAsync(s => s.ApiId == api.Id, ct);
         var creator = await directory.GetAsync(api.CreatedByUserId, ct);
-        return api.ToResponse() with { CreatedBy = creator };
+        return api.ToResponse() with { CreatedBy = creator, HasSpec = hasSpec };
     }
 }
