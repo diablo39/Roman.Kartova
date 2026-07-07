@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import { useApiSpec } from "@/features/catalog/api/apis";
@@ -40,6 +40,7 @@ export function ApiSpecSection({ api }: { api: ApiResponse }) {
             </>
           )}
           {spec.isLoading && <p className="text-sm text-tertiary">Loading spec…</p>}
+          {spec.isError && <p className="text-sm text-error-primary">Couldn't load the spec.</p>}
         </div>
       ) : (
         <p className="text-sm text-tertiary italic">No spec attached.</p>
@@ -52,6 +53,12 @@ export function ApiSpecSection({ api }: { api: ApiResponse }) {
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    return () => clearTimeout(timerRef.current);
+  }, []);
+
   return (
     <Button
       type="button"
@@ -60,7 +67,8 @@ function CopyButton({ text }: { text: string }) {
       onClick={() => {
         void navigator.clipboard.writeText(text);
         setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
+        clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => setCopied(false), 1500);
       }}
     >
       {copied ? "Copied" : "Copy"}

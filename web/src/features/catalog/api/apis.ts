@@ -99,7 +99,7 @@ export function useApiSpec(id: string, hasSpec: boolean) {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (res.status === 404) return null;
-      if (!res.ok) throw new Error(`Failed to load spec: ${res.status}`);
+      if (!res.ok) throwWithStatus({ message: `Failed to load spec: ${res.status}` }, res);
       const content = await res.text();
       const mediaType = res.headers.get("Content-Type")?.split(";")[0]?.trim() ?? "application/json";
       return { content, mediaType };

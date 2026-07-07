@@ -4,8 +4,9 @@ import { ApiSpecSection } from "../ApiSpecSection";
 import type { ApiResponse } from "@/features/catalog/api/apis";
 
 let specData: { content: string; mediaType: string } | null = null;
+let specIsError = false;
 vi.mock("@/features/catalog/api/apis", () => ({
-  useApiSpec: () => ({ data: specData, isLoading: false, isError: false }),
+  useApiSpec: () => ({ data: specData, isLoading: false, isError: specIsError }),
   useUpsertApiSpec: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 let perms = new Set<string>(["catalog.apis.register"]);
@@ -35,5 +36,13 @@ describe("ApiSpecSection", () => {
     specData = null; perms = new Set();
     render(<ApiSpecSection api={api(false)} />);
     expect(screen.queryByRole("button", { name: /attach spec/i })).not.toBeInTheDocument();
+  });
+
+  it("shows an error message + still renders Replace when the spec fails to load", () => {
+    specData = null; specIsError = true; perms = new Set(["catalog.apis.register"]);
+    render(<ApiSpecSection api={api(true)} />);
+    expect(screen.getByText(/couldn't load the spec/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /replace/i })).toBeInTheDocument();
+    specIsError = false;
   });
 });
