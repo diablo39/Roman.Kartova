@@ -18,6 +18,8 @@ Store spec documents as **`text`** in a dedicated, RLS-scoped **`catalog_api_spe
 
 **Not** MinIO/S3 for this data class.
 
+**Amended 2026-07-07 (UI slice):** the enforced upload size cap is **operator-configurable** — `Catalog:ApiSpec:MaxContentBytes`, **default 5 MiB**, validated into a `[1 KiB, 50 MiB]` band at startup — rather than a hardcoded domain constant. It is enforced at the upload endpoint (declared-length pre-check + streamed read cap), not as a domain invariant; the `ApiSpec` aggregate validates only non-emptiness and `media_type`. The validation band bounds the endpoint's per-request buffer, so a misconfiguration cannot become an unbounded-memory vector.
+
 ## Rationale
 
 - **Free tenant isolation.** A Postgres table under the same RLS policy as every other catalog table needs no separate per-tenant prefixing or bucket-policy scheme (contrast ADR-0004's `tenants/{tenant-id}/` prefix convention).
