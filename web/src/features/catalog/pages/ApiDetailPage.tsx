@@ -8,6 +8,7 @@ import { useApi } from "@/features/catalog/api/apis";
 import { useTeamsList } from "@/features/teams/api/teams";
 import { API_STYLE_LABEL } from "@/features/catalog/schemas/registerApi";
 import { RelationshipsSection } from "@/features/catalog/components/RelationshipsSection";
+import { ApiSpecSection } from "@/features/catalog/components/ApiSpecSection";
 
 export function ApiDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -89,6 +90,10 @@ export function ApiDetailPage() {
             </div>
           </div>
         </section>
+
+        <hr className="border-secondary" />
+
+        <ApiSpecSection api={api} />
 
         <hr className="border-secondary" />
 
