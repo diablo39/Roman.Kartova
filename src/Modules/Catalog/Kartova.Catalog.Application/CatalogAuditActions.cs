@@ -16,6 +16,7 @@ public static class CatalogAuditActions
     public const string ApplicationTeamAssigned = "application.team_assigned";
     public const string ServiceRegistered = "service.registered";
     public const string ApiRegistered = "api.registered";
+    public const string ApiSpecUpdated = "api.spec.updated";
     public const string RelationshipCreated = "relationship.created";
     public const string RelationshipRemoved = "relationship.removed";
 }

@@ -26,8 +26,12 @@ describe("registerApiSchema", () => {
   it("rejects an empty version", () => {
     expect(registerApiSchema.safeParse({ ...valid, version: "" }).success).toBe(false);
   });
-  it("exposes all three styles with labels", () => {
-    expect(API_STYLES).toEqual(["rest", "grpc", "graphQL"]);
+  it("exposes all four styles with labels", () => {
+    expect(API_STYLES).toEqual(["rest", "grpc", "graphQL", "asyncApi"]);
     expect(API_STYLE_LABEL.graphQL).toBe("GraphQL");
+  });
+  it("accepts asyncApi style", () => {
+    expect(registerApiSchema.shape.style.safeParse("asyncApi").success).toBe(true);
+    expect(API_STYLE_LABEL.asyncApi).toBe("AsyncAPI");
   });
 });

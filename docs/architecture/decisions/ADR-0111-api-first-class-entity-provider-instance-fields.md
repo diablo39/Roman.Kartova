@@ -1,10 +1,10 @@
 # ADR-0111: API Is a First-Class Entity — Provider/Instance as FK Fields, Consumers as Edges, Exposure Derived
 
-**Status:** Accepted (Revised 2026-07-04 — provider/instance are edges, not FK fields)
+**Status:** Accepted (Revised 2026-07-04 — provider/instance are edges, not FK fields; Amended 2026-07-07 — unified API entity, async is a `Style` value)
 **Date:** 2026-07-03
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** Domain Model
-**Related:** ADR-0068 (**amends** — relationship vocabulary), ADR-0110 (precedent — structural refs are fields), ADR-0064 (fixed entity taxonomy), ADR-0103 (required owning team), ADR-0067 (relationship origin), ADR-0040 (dependency graph), PRODUCT-REQUIREMENTS §3 (entity table)
+**Related:** ADR-0068 (**amends** — relationship vocabulary), ADR-0110 (precedent — structural refs are fields), ADR-0064 (fixed entity taxonomy), ADR-0103 (required owning team), ADR-0067 (relationship origin), ADR-0040 (dependency graph), ADR-0112 (spec-artifact storage, 2026-07-07 amendment), PRODUCT-REQUIREMENTS §3 (entity table)
 
 ## Context
 
@@ -18,6 +18,14 @@ Two existing decisions bear on how APIs connect to the rest of the catalog:
 We must decide, coherently: where the API's provider link lives, how a running Service relates to its Application and to APIs, how consumers are modelled, and what that means for the existing `ServiceEndpoint`.
 
 ## Decision
+
+### Amendment 2026-07-07 (E-02.F-03.S-02) — unified API entity; async is a `Style` value
+
+This amendment supersedes the "Sync only now; async... is additive" framing in §1 and the Neutral consequence below. API is **one unified entity**, not a sync/async split: `Api.Style` gains a fourth value, `AsyncApi`, alongside `Rest`/`Grpc`/`GraphQL`. Async's messaging protocol, channels, and operations are carried **by the stored AsyncAPI spec document** (ADR-0112), **not** by structured columns on `Api` — there is no separate "Api (Async)" entity type or async-specific schema. Structured `publishes-to`/`subscribes-from` edges and Broker linkage remain **deferred** (FU-C, needs E-02.F-04, edge-authoring path); when built, they will parse channels from the stored spec document rather than duplicate them as columns.
+
+Spec documents (OpenAPI for `Rest`/`Grpc`/`GraphQL`, AsyncAPI for `AsyncApi`) are stored as `text` in the new `catalog_api_specs` table — see ADR-0112.
+
+Implemented by `docs/superpowers/specs/2026-07-07-catalog-async-api-spec-storage-design.md`.
 
 ## Revision — 2026-07-04 (provider/instance modeled as edges)
 
@@ -94,11 +102,12 @@ Implemented by `docs/superpowers/specs/2026-07-04-catalog-api-connectivity-edges
 
 **Neutral**
 
-- Sync only now; async (messaging protocol, channels, `publishes-to`/`subscribes-from`) is additive (E-02.F-03.S-02).
+- Sync only now; async (messaging protocol, channels, `publishes-to`/`subscribes-from`) is additive (E-02.F-03.S-02). **Superseded by the 2026-07-07 amendment above:** async landed as `Api.Style = AsyncApi` on the same unified entity, with protocol/channel detail carried by the stored spec document (ADR-0112), not structured columns.
 
 ## References
 
-- ADR-0068 (amended), ADR-0110 (precedent), ADR-0064, ADR-0103, ADR-0040, ADR-0067.
+- ADR-0068 (amended), ADR-0110 (precedent), ADR-0064, ADR-0103, ADR-0040, ADR-0067, ADR-0112 (spec-artifact storage — 2026-07-07 amendment).
 - PRODUCT-REQUIREMENTS §3 (entity taxonomy).
 - First implementing slice: `docs/superpowers/specs/2026-07-03-catalog-api-entity-design.md` (this slice — the API node).
+- 2026-07-07 amendment implementing slice: `docs/superpowers/specs/2026-07-07-catalog-async-api-spec-storage-design.md` (E-02.F-03.S-02 — unified entity, async `Style` value, spec storage).
 - Downstream layers registered as follow-ups therein (provider FK, instance FK + derived exposure, consumer-edge repoint, endpoint redefinition, System surface, async).

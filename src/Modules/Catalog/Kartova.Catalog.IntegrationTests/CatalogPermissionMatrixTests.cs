@@ -54,6 +54,8 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
         (HttpMethod.Post, "/api/v1/catalog/apis",                          KartovaPermissions.CatalogApisRegister),
         (HttpMethod.Get,  "/api/v1/catalog/apis",                          KartovaPermissions.CatalogRead),
         (HttpMethod.Get,  "/api/v1/catalog/apis/{apiId}",                  KartovaPermissions.CatalogRead),
+        (HttpMethod.Put,  "/api/v1/catalog/apis/{apiId}/spec",             KartovaPermissions.CatalogApisRegister),
+        (HttpMethod.Get,  "/api/v1/catalog/apis/{apiId}/spec",             KartovaPermissions.CatalogRead),
     };
 
     [TestMethod]
@@ -328,6 +330,14 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
                 targetKind = "Service",
                 targetId   = Guid.NewGuid(),
             });
+        }
+        else if (method == HttpMethod.Put && pathTemplate.EndsWith("/spec"))
+        {
+            // Raw-body PUT (ADR-0112). Use the natural client content — JsonContent.Create
+            // emits `application/json; charset=utf-8`, which the delegate now normalizes
+            // before its allow-list check. Exercising the real path (rather than a hand-shaped
+            // charset-free body) guards against the charset-415 regression.
+            req.Content = JsonContent.Create(new { openapi = "3.0.0" });
         }
         else if (method == HttpMethod.Put)
         {

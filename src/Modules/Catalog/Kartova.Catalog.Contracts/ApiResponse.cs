@@ -22,4 +22,8 @@ public sealed record ApiResponse(
     DateTimeOffset CreatedAt)
 {
     public UserDisplayInfo? CreatedBy { get; init; }
+
+    /// <summary>True when a spec document is stored for this API (ADR-0112). Computed by the read
+    /// handlers via EXISTS — the document itself is never carried on this response.</summary>
+    public bool HasSpec { get; init; }
 }

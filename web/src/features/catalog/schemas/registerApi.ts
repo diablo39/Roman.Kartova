@@ -6,7 +6,7 @@ type ApiStyleValue = components["schemas"]["ApiResponse"]["style"];
 
 /** Style values in wire form (camelCase per JsonStringEnumConverter + JsonNamingPolicy.CamelCase).
  *  The `satisfies` clause fails the build if any literal's casing drifts from the generated client. */
-export const API_STYLES = ["rest", "grpc", "graphQL"] as const satisfies readonly ApiStyleValue[];
+export const API_STYLES = ["rest", "grpc", "graphQL", "asyncApi"] as const satisfies readonly ApiStyleValue[];
 
 /** Human-friendly labels for the style <select>, table badge, and detail page.
  *  Typed as a total Record so a missing/extra key fails `tsc`. */
@@ -14,6 +14,7 @@ export const API_STYLE_LABEL: Record<ApiStyleValue, string> = {
   rest: "REST",
   grpc: "gRPC",
   graphQL: "GraphQL",
+  asyncApi: "AsyncAPI",
 };
 
 function isAbsoluteUrl(value: string): boolean {

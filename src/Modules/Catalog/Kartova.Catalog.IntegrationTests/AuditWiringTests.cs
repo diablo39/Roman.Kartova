@@ -74,6 +74,42 @@ public class AuditWiringTests : CatalogIntegrationTestBase
         Assert.AreEqual(teamId.ToString(), data.RootElement.GetProperty("teamId").GetString());
     }
 
+    // --- Happy: PUT spec writes a correct api.spec.updated audit row ---
+    [TestMethod]
+    public async Task PutSpec_WritesApiSpecUpdatedAuditRow()
+    {
+        var (tenantId, teamId, client) = await ArrangeAsync("Audit Spec Team", nameClaim: "Ada Catalog");
+
+        var apiResp = await client.PostAsJsonAsync("/api/v1/catalog/apis", new
+        {
+            displayName = "Audit Spec Api", description = "Desc.", style = ApiStyle.Rest, version = "v1",
+            specUrl = (string?)null, teamId,
+        });
+        Assert.AreEqual(HttpStatusCode.Created, apiResp.StatusCode,
+            $"Expected 201. Body: {await apiResp.Content.ReadAsStringAsync()}");
+        var api = await apiResp.Content.ReadFromJsonAsync<ApiResponse>(KartovaApiFixtureBase.WireJson);
+
+        var specReq = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/catalog/apis/{api!.Id}/spec")
+        {
+            Content = new StringContent("{\"openapi\":\"3.0.0\"}", System.Text.Encoding.UTF8, "application/json"),
+        };
+        var specResp = await client.SendAsync(specReq);
+        Assert.AreEqual(HttpStatusCode.Created, specResp.StatusCode,
+            $"Expected 201. Body: {await specResp.Content.ReadAsStringAsync()}");
+
+        var rows = await Fx.ReadAuditLogAsync(tenantId);
+        var row = rows.Single(r =>
+            r.Action == CatalogAuditActions.ApiSpecUpdated &&
+            r.TargetId == api.Id.ToString());
+        Assert.AreEqual(await Fx.GetSubClaimAsync(OrgAUser), row.ActorId);
+        Assert.AreEqual("Ada Catalog", row.ActorDisplay);
+        Assert.AreEqual("User", row.ActorType);
+        Assert.AreEqual(CatalogAuditTargetTypes.Api, row.TargetType);
+        using var data = JsonDocument.Parse(row.DataJson!);
+        Assert.AreEqual("application/json", data.RootElement.GetProperty("mediaType").GetString());
+        Assert.AreEqual("true", data.RootElement.GetProperty("created").GetString());
+    }
+
     private static void AssertChainLinked(IReadOnlyList<KartovaApiFixture.AuditRowRecord> rows)
     {
         for (var i = 0; i < rows.Count; i++)

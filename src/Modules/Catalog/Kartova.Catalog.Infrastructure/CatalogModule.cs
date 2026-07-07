@@ -202,6 +202,24 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .WithName("ListApis")
               .Produces<CursorPage<ApiResponse>>(StatusCodes.Status200OK)
               .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+        // PUT/GET spec sub-resource (ADR-0112). Raw-body PUT (not [FromBody]) so the
+        // handler controls content-type gating (415) and a hard size cap (400) ahead
+        // of JSON model binding. Create-or-replace: 201 first write, 204 on replace.
+        tenant.MapPut("/apis/{id:guid}/spec", CatalogEndpointDelegates.UpsertApiSpecAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogApisRegister)
+              .WithName("UpsertApiSpec")
+              .Accepts<string>("application/json", "application/yaml")
+              .Produces(StatusCodes.Status201Created)
+              .Produces(StatusCodes.Status204NoContent)
+              .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
+              .ProducesProblem(StatusCodes.Status404NotFound)
+              .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
+        tenant.MapGet("/apis/{id:guid}/spec", CatalogEndpointDelegates.GetApiSpecAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRead)
+              .WithName("GetApiSpec")
+              .Produces<string>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status404NotFound);
         // PUT assign-team — set or clear Application.TeamId. Claim gate stops
         // Viewer/anon; the resource gate (ApplicationTeamScoped — OrgAdmin OR
         // member of the app's current team) runs inside the delegate against
@@ -243,6 +261,8 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<RegisterApiHandler>();
         services.AddScoped<GetApiByIdHandler>();
         services.AddScoped<ListApisHandler>();
+        services.AddScoped<UpsertApiSpecHandler>();
+        services.AddScoped<GetApiSpecHandler>();
         services.AddScoped<CreateRelationshipHandler>();
         services.AddScoped<DeleteRelationshipHandler>();
         services.AddScoped<ListRelationshipsForEntityHandler>();

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text;
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.SharedKernel.AspNetCore;
@@ -630,6 +631,78 @@ internal static class CatalogEndpointDelegates
         return Results.Ok(page);
     }
 
+    /// <summary>
+    /// Create-or-replace the stored spec document for an API (ADR-0112). Raw-body
+    /// binding (not <c>[FromBody]</c>) so this delegate — not the JSON model binder —
+    /// controls content-type gating (415) and the hard size cap (400) ahead of reading
+    /// the body. <see cref="LoadAndAuthorizeApiAsync"/> covers 404 (not visible under
+    /// RLS) and 403 (caller is neither OrgAdmin nor a member of the API's owning team).
+    /// Returns 201 on first write, 204 on replace.
+    /// </summary>
+    internal static async Task<IResult> UpsertApiSpecAsync(
+        Guid id,
+        HttpRequest request,
+        UpsertApiSpecHandler handler,
+        CatalogDbContext db,
+        ITenantContext tenant,
+        ICurrentUser currentUser,
+        IAuthorizationService auth,
+        ClaimsPrincipal caller,
+        IAuditWriter audit,
+        CancellationToken ct)
+    {
+        // Parse the header so a charset (or any other) parameter is stripped before the
+        // allow-list check — real clients send `application/json; charset=utf-8`, which is
+        // NOT exact-equal to the bare media type ApiMediaType.IsAllowed matches on. Gate on
+        // the parsed bare type; a malformed header fails to parse and is rejected too.
+        System.Net.Http.Headers.MediaTypeHeaderValue.TryParse(request.ContentType, out var parsedMediaType);
+        var mediaType = parsedMediaType?.MediaType;
+        if (!Kartova.Catalog.Domain.ApiMediaType.IsAllowed(mediaType))
+        {
+            return Results.Problem(
+                type: ProblemTypes.UnsupportedSpecMediaType,
+                title: "Unsupported media type",
+                detail: "API spec Content-Type must be application/json or application/yaml.",
+                statusCode: StatusCodes.Status415UnsupportedMediaType);
+        }
+
+        // Declared-length pre-check (cheap early-out); the streamed read below is
+        // capped independently so a chunked-transfer request (no Content-Length)
+        // cannot bypass the limit.
+        if (request.ContentLength is { } declaredLength && declaredLength > Kartova.Catalog.Domain.ApiSpec.MaxContentBytes)
+            return SpecTooLarge();
+
+        var gate = await LoadAndAuthorizeApiAsync(id, db, auth, caller, ct);
+        if (gate is not null) return gate;
+
+        using var reader = new StreamReader(request.Body, Encoding.UTF8);
+        var content = await ReadCappedAsync(reader, Kartova.Catalog.Domain.ApiSpec.MaxContentBytes, ct);
+        if (content is null) return SpecTooLarge();
+
+        var created = await handler.Handle(
+            new UpsertApiSpecCommand(id, content, mediaType!), db, tenant, currentUser, audit, ct);
+        return created
+            ? Results.Created($"/api/v1/catalog/apis/{id}/spec", null as object)
+            : Results.NoContent();
+    }
+
+    /// <summary>
+    /// Reads back the stored spec document for an API, verbatim (no re-serialization),
+    /// with the original <c>Content-Type</c> it was stored under. RLS scopes visibility —
+    /// a cross-tenant id and a missing spec both surface as 404.
+    /// </summary>
+    internal static async Task<IResult> GetApiSpecAsync(
+        Guid id,
+        GetApiSpecHandler handler,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        var spec = await handler.Handle(new GetApiSpecQuery(id), db, ct);
+        return spec is null
+            ? EndpointResultExtensions.ApiNotFound()
+            : Results.Text(spec.Value.Content, spec.Value.MediaType);
+    }
+
     internal static async Task<IResult> CreateRelationshipAsync(
         [FromBody] CreateRelationshipRequest req,
         ICatalogEntityLookup lookup,
@@ -823,6 +896,59 @@ internal static class CatalogEndpointDelegates
         if (!authResult.Succeeded) return Results.Forbid();
 
         return null;
+    }
+
+    /// <summary>
+    /// Loads the API by id and runs the shared <see cref="KartovaTeamPolicies.ApplicationTeamScoped"/>
+    /// resource gate against it (<c>Api</c> implements <see cref="ITeamScopedResource"/> directly).
+    /// Returns <c>null</c> on success; otherwise the response to short-circuit with (404 if the
+    /// API is not visible under RLS, 403 if the caller is neither OrgAdmin nor a member of the
+    /// API's owning team). Used by the spec upsert endpoint (ADR-0112).
+    /// </summary>
+    private static async Task<IResult?> LoadAndAuthorizeApiAsync(
+        Guid id,
+        CatalogDbContext db,
+        IAuthorizationService auth,
+        ClaimsPrincipal user,
+        CancellationToken ct)
+    {
+        var api = await db.Apis.FirstOrDefaultAsync(ApiSortSpecs.IdEquals(id), ct);
+        if (api is null) return EndpointResultExtensions.ApiNotFound();
+
+        var authResult = await auth.AuthorizeAsync(user, api, KartovaTeamPolicies.ApplicationTeamScoped);
+        if (!authResult.Succeeded) return Results.Forbid();
+
+        return null;
+    }
+
+    /// <summary>400 problem result for an API spec whose declared or streamed length
+    /// exceeds <see cref="Kartova.Catalog.Domain.ApiSpec.MaxContentBytes"/> (ADR-0112).</summary>
+    private static IResult SpecTooLarge()
+        => Results.Problem(
+            type: ProblemTypes.SpecTooLarge,
+            title: "Spec too large",
+            detail: $"API spec content must not exceed {Kartova.Catalog.Domain.ApiSpec.MaxContentBytes} bytes.",
+            statusCode: StatusCodes.Status400BadRequest);
+
+    /// <summary>
+    /// Reads the request body up to <paramref name="maxBytes"/> UTF-8 bytes, returning
+    /// <c>null</c> if the cap is exceeded. Re-caps independently of any declared
+    /// Content-Length so a chunked-transfer body cannot bypass the limit (ADR-0112).
+    /// </summary>
+    private static async Task<string?> ReadCappedAsync(StreamReader reader, int maxBytes, CancellationToken ct)
+    {
+        var sb = new StringBuilder();
+        var buffer = new char[8192];
+        var byteCount = 0;
+        int read;
+        while ((read = await reader.ReadBlockAsync(buffer, 0, buffer.Length).WaitAsync(ct)) > 0)
+        {
+            byteCount += Encoding.UTF8.GetByteCount(buffer, 0, read);
+            if (byteCount > maxBytes) return null;
+            sb.Append(buffer, 0, read);
+        }
+
+        return sb.ToString();
     }
 
     /// <summary>

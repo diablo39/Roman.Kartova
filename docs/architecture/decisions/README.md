@@ -1,8 +1,8 @@
 ---
 platform: Kartova
 description: SaaS service catalog and developer portal platform (Backstage + Compass + Statuspage)
-adr_count: 107
-last_updated: 2026-07-03
+adr_count: 108
+last_updated: 2026-07-07
 architecture:
   backend: .NET 10 (LTS) / ASP.NET Core + EF Core (ADR-0027)
   backend_pattern: Modular monolith (ADR-0082) with Clean Architecture per module — Domain / Application / Infrastructure / Contracts (ADR-0028); inter-module via Wolverine mediator or Kafka events
@@ -97,7 +97,8 @@ domain_model:
   org_structure: hybrid hierarchy (Org → Team → System → Component) + cross-cutting tags (ADR-0065)
   ownership: application owner is a required team (`Application.TeamId`); individual is created-by provenance (`CreatedByUserId`) — immutable (ADR-0103); multi-team co-ownership with platform flag + quorum approval deferred to E-03.F-05 (ADR-0066)
   relationships: fixed 7-type vocabulary (depends-on / provides-api-for / consumes-api-from / publishes-to / subscribes-from / deployed-on / part-of) (ADR-0068); ADR-0111 amends 0068 — provide/consume target the first-class API entity, provider-side derived
-  api_entity: API is a first-class team-owned entity; provider (`Api.implementedByApplicationId`) + instance (`Service.applicationId`) are nullable FK fields, exposure derives (full-auto), consumers are edges; `ServiceEndpoint` = labeled address (protocol dropped, moved to `Api.Style`) (ADR-0111)
+  api_entity: API is a first-class team-owned entity, one unified aggregate keyed by `Style` (`Rest`/`Grpc`/`GraphQL`/`AsyncApi`); provider/instance/consumer links are all relationship edges (2026-07-04 all-edge revision), exposure + service↔service depends-on derive; `ServiceEndpoint` = labeled address (protocol dropped, moved to `Api.Style`) (ADR-0111 amended 2026-07-07)
+  api_spec_storage: spec documents (OpenAPI/AsyncAPI) stored as `text` in RLS-scoped `catalog_api_specs`, 1:1 with the owning API, transactional; not MinIO for this data class (ADR-0112)
   relationship_origin: manual | scan | agent, immutable (ADR-0067)
   required_fields: owner, lifecycle, etc. enforced on all creation paths (ADR-0069)
   scorecards: per-org configurable rule sets, weighted (ADR-0070)
@@ -114,8 +115,8 @@ open_source_strategy: fully proprietary, no OSS core / source-available (ADR-002
 # Architecture Decision Records — Kartova
 
 **Status:** Living document
-**Last updated:** 2026-07-03
-**Total accepted:** 105
+**Last updated:** 2026-07-07
+**Total accepted:** 106
 **Convention:** Michael Nygard template (Status / Context / Decision / Rationale / Alternatives / Consequences / References)
 
 ## How to use this index
@@ -236,7 +237,8 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0108](ADR-0108-relationship-edge-authority-either-endpoint.md) | Relationship Edge Authority — Either-Endpoint Team Membership | Authentication & Authorization | Accepted | 0056, 0067, 0068, 0090, 0101, 0103 | Create/delete a manual relationship edge requires `OrgAdmin` or membership of *either* connected entity's owning team (symmetric). Replaces the source-side-only authority in the Slice 1a relationships design §3 #7 so the provider/target side can record incoming dependencies. A member of neither team is still 403. No approval workflow; accountability via origin=manual + created_by + audit. |
 | [0109](ADR-0109-api-serializes-enums-as-camelcase-strings.md) | REST API Serializes Enums as camelCase JSON Strings | API & Integration Architecture | Accepted | 0029, 0034, 0091, 0092, 0104 | All enums cross the API boundary as camelCase strings via `JsonStringEnumConverter` + `JsonNamingPolicy.CamelCase`; the OpenAPI doc + generated TS client are the single source of truth (frontend must not hand-author PascalCase enum literals). Enum query params bind case-insensitively (400 on unknown). The mismatch class is invisible to per-file `tsc --noEmit` — the composite `tsc -b`/`npm run build` is the binding type gate. |
 | [0110](ADR-0110-successor-reference-dedicated-application-field.md) | Deprecated-Application Successor Is a Dedicated Application→Application Field | Domain Model | Accepted | 0073, 0068, 0108, 0098, 0018 | The ADR-0073 successor reference is a nullable self-referential `SuccessorApplicationId` field on the `Application` aggregate (App→App, real self-FK), not a relationship-graph edge — successor is migration *guidance*, not runtime topology, so the "Deprecated ⇒ successor" invariant lives with the transition and the FK+RLS give integrity. Set at Deprecate, editable while Deprecated, cleared on Reactivate; optional; existence→422, self-ref→400. App→Service succession deferred (would drop the FK for polymorphic `{kind,id}`). |
-| [0111](ADR-0111-api-first-class-entity-provider-instance-fields.md) | API Is a First-Class Entity — Provider/Instance as FK Fields, Consumers as Edges, Exposure Derived | Domain Model | Accepted | 0068 (amends), 0110, 0064, 0103, 0040, 0067 | API becomes a first-class team-owned entity (sync: style/version/spec-URL). Provider (`Api.implementedByApplicationId`) and instance (`Service.applicationId`) are nullable **FK fields** (ADR-0110 precedent — structural, low-cardinality); a Service **derives** exposure of its Application's APIs (full-auto). Consumers stay **edges** (`consumes-api-from`, repointed at the API node); service↔service `depends-on` derives. **Amends ADR-0068**: `provides-api-for`/`consumes-api-from` target the API entity, provider-side derived. `ServiceEndpoint` drops `Protocol`, gains optional `Description` (relaxed URL). App-only provider (polymorphic App/Service deferred). |
+| [0111](ADR-0111-api-first-class-entity-provider-instance-fields.md) | API Is a First-Class Entity — Provider/Instance as FK Fields, Consumers as Edges, Exposure Derived | Domain Model | Accepted (Revised 2026-07-04; **Amended 2026-07-07**) | 0068 (amends), 0110, 0064, 0103, 0040, 0067, 0112 | API is a first-class team-owned entity, **one unified aggregate** keyed by `Style` (`Rest`/`Grpc`/`GraphQL`/`AsyncApi`) — async carries protocol/channel detail in the stored spec document (ADR-0112), not columns. Provider/instance/consumer links are all relationship edges (2026-07-04 revision); service↔service `depends-on` derives. **Amends ADR-0068**: `provides-api-for`/`consumes-api-from` target the API entity. `ServiceEndpoint` drops `Protocol`, gains optional `Description` (relaxed URL). |
+| [0112](ADR-0112-api-spec-artifacts-stored-in-postgres.md) | API Spec Artifacts Stored as `text` in Postgres, Not MinIO | Data Platform / Domain Model | Accepted | 0004 (narrows), 0034, 0111 (amended alongside), 0001, 0012 | Spec documents (OpenAPI for `Rest`/`Grpc`/`GraphQL`, AsyncAPI for `AsyncApi`) are stored as `text` in a dedicated RLS-scoped `catalog_api_specs` table, 1:1 with the owning API, written transactionally; `media_type` tags serialization, semantic format derives from `Api.Style`. Not MinIO/S3 for this data class — free tenant isolation + transactional integrity + TOAST handles the ~1 MB tail. Revisit to MinIO if E-21 version history causes table bloat. |
 
 ## By category (quick navigation)
 
@@ -255,7 +257,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Scan / Import Architecture**: 0054, 0055, 0056, 0057
 - **Observability & Monitoring**: 0058, 0059, 0060
 - **Billing**: 0061, 0062, 0063
-- **Domain Model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073, 0103, 0110, 0111
+- **Domain Model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073, 0103, 0110, 0111, 0112
 - **Scale & Performance**: 0074, 0075, 0076
 - **Non-Functional / Cross-Cutting**: 0077, 0078, 0079
 - **Testing & Quality**: 0083, 0097
@@ -280,7 +282,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Resource identifier / entity ID format**: 0092, 0098
 - **Retention / archival / deletion**: 0017, 0019, 0020, 0073, 0102
 - **Audit & logging**: 0018, 0050, 0058, 0102, 0105
-- **Domain model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073, 0103, 0110, 0111
+- **Domain model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073, 0103, 0110, 0111, 0112
 - **Scale & performance**: 0013, 0031, 0074, 0075, 0076
 - **Availability & SLA**: 0005, 0023, 0053, 0076
 - **Billing & pricing**: 0061, 0062, 0063
@@ -310,8 +312,10 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Agent (hybrid)** → 0041, 0042, 0043, 0044, 0045
 - **AOT compilation** → 0041, 0046
 - **API versioning** → 0030
-- **API entity (first-class: style/version/spec-URL)** → 0111, 0064
-- **API provider / instance-of (FK fields, exposure derived)** → 0111, 0110
+- **API entity (first-class, unified: `Style` incl. `AsyncApi`)** → 0111, 0064
+- **API provider / instance-of (relationship edges)** → 0111, 0110
+- **API spec storage (`catalog_api_specs`, Postgres `text`, not MinIO)** → 0112, 0004
+- **AsyncAPI (spec format for `Api.Style = AsyncApi`)** → 0112, 0111
 - **Apicurio** → 0037
 - **Approval workflow (discovery inbox)** → 0045
 - **ASP.NET Core** → 0027, 0028, 0034, 0060
@@ -574,3 +578,4 @@ _No ADRs have been deprecated or superseded yet. When an ADR is superseded by a 
 | 2026-06-10 | ADR-0103 (Application ownership is a required team; individual is created-by provenance) accepted — `Application.TeamId` required (owning team, no ownerless apps); `CreatedByUserId` immutable provenance; registration membership-gated (OrgAdmin any team, Member own teams only); offboarding drops app reassignment (team retains). Aligns with Backstage/Compass ownership model. ADR-0102 updated accordingly. Landed with slice 10 (ownership realignment amendment). |
 | 2026-06-11 | ADR-0104 (Payload-free operation outcomes are enums) accepted — results with no success payload (`ChangeMemberRoleOutcome`, `OffboardMemberOutcome`) are C# enums, not boolean-flag records; payload-carrying results (`AssignApplicationTeamResult`) stay records; endpoints map via an exhaustive `switch` + `_ => throw`. Removes representable illegal states + the two tautological result-shape test files. Landed with slice 10 (member-lifecycle review follow-up). |
 | 2026-06-16 | ADR-0105 (Audit-chain checkpoints and external anchoring) accepted — Tier 1: insert-only, RLS-scoped `audit_checkpoint` table snapshots a verified chain head so routine verification re-walks only the tail (`AuditChainVerifier.VerifyFromCheckpointAsync`), written by a daily `LeaderElectedPeriodicService` sweep (ADR-0099) that enumerates tenants via a BYPASSRLS context and checkpoints each through the tenant-scoped path. Tier 2 (deferred): export checkpoint hashes to a WORM/signed store outside the DB trust boundary for rollback/truncation detection. Builds on ADR-0018. |
+| 2026-07-07 | ADR-0112 (API spec artifacts stored as `text` in Postgres, not MinIO) accepted — dedicated RLS-scoped `catalog_api_specs` table, 1:1 with the owning API, transactional; narrows ADR-0004 for this data class. ADR-0111 amended alongside it: API is one unified entity keyed by `Style` (`Rest`/`Grpc`/`GraphQL`/`AsyncApi`) — async protocol/channel detail carried by the stored spec document, not structured columns. Landed with E-02.F-03.S-02. |
