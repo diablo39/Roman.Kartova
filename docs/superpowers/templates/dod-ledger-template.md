@@ -23,9 +23,9 @@
 | 7 `requesting-code-review` | ⏳ PENDING | — |
 | 8 `review-pr` | ⏳ PENDING | — |
 | 9 `deep-review` | ⏳ PENDING | — |
-| Manual / Playwright (ADR-0084) | ⏳ PENDING | — |
 | Terminal re-verify (build + suite) | ⏳ PENDING | — |
-| Pre-push CI mirror (`ci-local.sh`) | ⏳ PENDING | — |
+| 10 Visual / API verification (ADR-0084) | ⏳ PENDING | — |
+| 11 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING | — |
 
 ## Gate detail
 
@@ -74,17 +74,17 @@
 **Evidence:** <link to deep-review.md>
 **At:** <commit / date>
 
-### Manual / Playwright verification (ADR-0084)
-**Status:** ⏳ PENDING
-**Evidence:** <screenshots folder / console-clean note, or N/A reason (no UI change)>
-**At:** <commit / date>
-
 ### Terminal re-verify (build + full suite after gates 5–9)
 **Status:** ⏳ PENDING
 **Evidence:** <command + output / CI run URL>
 **At:** <commit / date>
 
-### Pre-push CI mirror (`scripts/ci-local.sh`)
+### 10 — Visual / API verification (observe the running system)
 **Status:** ⏳ PENDING
-**Evidence:** <command + result, or CI run URL (the runner is the mirror's source of truth)>
+**Evidence:** <UI: screenshot(s) of the changed surface under verification/<slice>/ + console-clean note; API: live request/response captured against the running stack. Or N/A reason (no runtime surface — docs/pure refactor). Distinct from gate 3 (automated tests).>
+**At:** <commit / date>
+
+### 11 — CI green on the PR (terminal; `scripts/ci-local.sh` = required pre-push mirror)
+**Status:** ⏳ PENDING
+**Evidence:** <PR CI run URL (all jobs green — the runner is the source of truth) + pre-push `ci-local.sh` result. A CI-only failure → fix determinism, don't re-push blindly.>
 **At:** <commit / date>

@@ -841,6 +841,46 @@ internal static class CatalogEndpointDelegates
     }
 
     /// <summary>
+    /// GET /api-surface?entityKind=&amp;entityId= — a Service's or Application's unified API surface
+    /// (provides direct+derived, consumes direct). Bounded flat result (ADR-0095 carve-out), not a
+    /// cursor list. Claim gate: catalog.read. `entityKind=api` is rejected 400 (an API has no surface);
+    /// an unknown/cross-tenant focus entity is 422 invalid-entity.
+    /// </summary>
+    internal static async Task<IResult> GetApiSurfaceAsync(
+        [FromQuery] string entityKind,
+        [FromQuery] Guid entityId,
+        GetApiSurfaceHandler handler,
+        ICatalogEntityLookup lookup,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        if (!Enum.TryParse<EntityKind>(entityKind, ignoreCase: true, out var kind)
+            || !Enum.IsDefined(kind)
+            || kind == EntityKind.Api
+            || entityId == Guid.Empty)
+        {
+            return Results.Problem(
+                type: ProblemTypes.ValidationFailed,
+                title: "Invalid entity reference",
+                detail: "entityKind must be 'service' or 'application' and entityId must be non-empty.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        // Focus entity must exist in this tenant (RLS ⇒ cross-tenant id resolves as absent → 422).
+        if (await lookup.Find(kind, entityId, ct) is null)
+        {
+            return Results.Problem(
+                type: ProblemTypes.InvalidEntity,
+                title: "Invalid entity",
+                detail: "The entity does not exist in this tenant.",
+                statusCode: StatusCodes.Status422UnprocessableEntity);
+        }
+
+        var surface = await handler.Handle(new GetApiSurfaceQuery(kind, entityId), db, ct);
+        return Results.Ok(surface);
+    }
+
+    /// <summary>
     /// GET /graph?entityKind=&amp;entityId=&amp;depth=&amp;direction= — BFS dependency neighbourhood
     /// around the focus entity. depth 1..4 (default 2); direction outgoing|incoming|all (default all).
     /// Bounded aggregate (node cap + truncated flag) — not a cursor list. Claim gate: catalog.read.

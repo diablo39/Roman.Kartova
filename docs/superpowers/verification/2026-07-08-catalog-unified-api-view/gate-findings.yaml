@@ -1,0 +1,121 @@
+# gate-findings.yaml — per-gate findings telemetry for one slice.
+#
+# Purpose: record every issue each DoD gate raised, with a real/delusion verdict,
+# so gate effectiveness is queryable across slices.
+#   Aggregate:  find docs/superpowers/verification -name gate-findings.yaml
+#   Rank gates by precision (real ÷ found) and by real issues caught.
+#
+# Sibling of dod.md in docs/superpowers/verification/<date>-<topic>/.
+# Copy this file there at slice start; append a finding the moment a gate raises one.
+# dod.md records each gate's PASS/FAIL/PENDING/N-A status; this file records what it FOUND.
+# A gate with status PASS and no entries here ⇒ it ran and found nothing.
+
+slice:  2026-07-08-catalog-unified-api-view
+branch: feat/catalog-unified-api-view
+head:   788859b
+
+# One entry per issue a gate raised.
+#
+# gate     — the dod.md row this finding came from (slug, not number):
+#              build              (1  Build, TreatWarningsAsErrors)
+#              reviews            (2  per-task subagent reviews)
+#              suite              (3  full test suite incl. real-seam)
+#              container          (4  container build / images CI)
+#              simplify           (5  /simplify)
+#              mutation           (6  mutation loop)
+#              requesting-review  (7  requesting-code-review)
+#              review-pr          (8  review-pr)
+#              deep-review        (9  deep-review)
+#              manual             (Manual / Playwright, ADR-0084)
+#              terminal-reverify  (terminal re-verify: build + suite)
+#              ci-mirror          (pre-push CI mirror, ci-local.sh)
+# severity — blocking | should-fix | nit
+# verdict  — real     : a genuine issue that warranted a change
+#            delusion : a false positive the gate raised that was not a real issue
+# title    — one-line description of the finding
+# note     — optional: resolution (fix sha), or why it was a delusion
+findings:
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "[Task1] BoundedListResult requires a reason arg; [ExcludeFromCodeCoverage] illegal on enum (CS0592)"
+    note: "impl caught both plan-code errors; reason supplied, attribute dropped from enum (arch test excludes enums). Correct."
+  - gate: reviews
+    severity: nit
+    verdict: delusion
+    title: "[Task5] reviewer flagged brief-literal hr/panel ordering as spec ❌"
+    note: "adjudicated non-issue: verified single-hr separators between miniGraph|panel|relationships; layout identical. No fix."
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "M1 nondeterministic derived `via` when service instance-of 2 apps providing same API"
+    note: "fixed 9f561b7 — OrderBy(ViaApplicationId).First() tie-break + unit test."
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "M2 hasSpec=true never exercised end-to-end (ApiSpecs join only tested empty)"
+    note: "fixed 9f561b7 — integ test PUTs spec then asserts hasSpec:true."
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "M3 per-via-app lookup.Find N+1"
+    note: "resolved by /simplify batch (306b9e2) — single db.Applications Contains query."
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "duplicate style-label/order maps; generic loading skeleton; 3 sequential source-edge queries; via-name N+1"
+    note: "applied 306b9e2 — reuse API_STYLE_LABEL/API_STYLES, TableSkeleton, single batched edge query, batched via-names."
+  - gate: simplify
+    severity: nit
+    verdict: delusion
+    title: "extract entityKind-parse helper across 3 endpoints; extract has-spec query helper"
+    note: "skipped — would rewrite two other shipped endpoints / ListApisHandler, out of this slice's scope (not a false read, but out-of-scope to act on here)."
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "silent-failure: mapper ContainsKey silently drops dangling-edge API"
+    note: "currently unreachable (edges validate target; no API-delete path). Kept filter; comment made honest (788859b). Throwing would 500 the panel on a can't-happen state."
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "type-design/comment: ApiSurfaceItem doc overstated ViaApplicationDisplayName always-set for Derived; handler batched-query comment ambiguous post-/simplify"
+    note: "fixed 788859b — corrected Via* invariant doc + honest comments + null-via-name mapper test."
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "test-analyzer: 3 integration depth gaps (multi-app instance-of, empty-surface-at-seam, provide+consume-same-api)"
+    note: "deferred to sub-slice B (analyzer: non-blocking follow-ups before B builds on this). Registered in CHECKLIST/ledger."
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "S1 422-on-unknown-focus diverges from sibling read endpoints (empty-200); spec rationale misattributed precedent"
+    note: "kept 422 (single-entity focus view, defensible); corrected spec Decision-11 rationale to state intentional divergence + revisit note. Surfaced in PR."
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "N1 derived via lossy on multi-instance-of (min-guid tie-break arbitrary to user)"
+    note: "intended per spec Decision 6 (via singular); unit-tested deterministic. Accepted."
+  - gate: ci-mirror
+    severity: blocking
+    verdict: delusion
+    title: "backend + frontend FAIL in ci-local run #1"
+    note: "both environment flakes — Keycloak Testcontainers saturation (re-run isolated 8/8) + npm-ci EPERM from stale vite dev server holding lightningcss (killed → recovered). Not code defects."
+
+# Example entries (delete when filling in real data):
+#
+# findings:
+#   - gate: deep-review
+#     severity: blocking
+#     verdict: real
+#     title: "RLS filter missing on graph traversal query"
+#     note: "fixed in 0a1b2c3"
+#   - gate: review-pr
+#     severity: should-fix
+#     verdict: delusion
+#     title: "claimed N+1 in display-name lookup"
+#     note: "already batched over distinct refs; reviewer misread"
+#   - gate: simplify
+#     severity: nit
+#     verdict: real
+#     title: "extract duplicated dagre layout options"
+#     note: "applied"
