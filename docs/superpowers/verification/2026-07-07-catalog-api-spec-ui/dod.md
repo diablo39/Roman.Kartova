@@ -1,7 +1,7 @@
 # DoD Ledger — Catalog: API spec UI (attach/view) + configurable size cap
 
 **Slice:** `2026-07-07-catalog-api-spec-ui` · **Branch:** `feat/catalog-api-spec-ui` · **HEAD:** `9f8216a`
-**PR:** <pending> · **Last updated:** 2026-07-08
+**PR:** [#62](https://github.com/diablo39/Roman.Kartova/pull/62) · **Last updated:** 2026-07-08
 **Gate status:** 8 always-blocking gates green; gate 6 (mutation, conditional-blocking) is a documented env-cap **waiver** with compensating boundary tests — see gate 6 detail. Pre-push CI mirror deferred to CI.
 **Spec:** `docs/superpowers/specs/2026-07-07-catalog-api-spec-ui-and-configurable-cap-design.md`
 **Plan:** `docs/superpowers/plans/2026-07-07-catalog-api-spec-ui-and-configurable-cap.md`
