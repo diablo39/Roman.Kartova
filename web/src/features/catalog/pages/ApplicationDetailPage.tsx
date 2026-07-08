@@ -12,6 +12,7 @@ import { CreatedByLink } from "@/features/users/components/CreatedByLink";
 import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
 import { RelationshipsSection } from "@/features/catalog/components/RelationshipsSection";
+import { ApiSurfaceSection } from "@/features/catalog/components/ApiSurfaceSection";
 
 const DependencyMiniGraph = lazy(() =>
   import("@/features/catalog/components/DependencyMiniGraph").then((m) => ({ default: m.DependencyMiniGraph })),
@@ -141,6 +142,8 @@ export function ApplicationDetailPage() {
           <Suspense fallback={<Skeleton className="h-80 w-full" />}>
             <DependencyMiniGraph entityKind="application" entityId={app.id} displayName={app.displayName} />
           </Suspense>
+          <hr className="border-secondary" />
+          <ApiSurfaceSection entityKind="application" entityId={app.id} />
           <hr className="border-secondary" />
           <RelationshipsSection
             entityKind="application"
