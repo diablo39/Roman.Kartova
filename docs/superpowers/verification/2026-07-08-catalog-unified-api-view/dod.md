@@ -1,7 +1,7 @@
 # DoD Ledger — Unified API view per service (sub-slice A)
 
 **Slice:** `2026-07-08-catalog-unified-api-view` · **Branch:** `feat/catalog-unified-api-view` · **HEAD:** `788859b` (+ this docs/verification commit)
-**PR:** <filled on open> · **Last updated:** 2026-07-08
+**PR:** #63 — https://github.com/diablo39/Roman.Kartova/pull/63 · **Last updated:** 2026-07-08
 **Spec:** `docs/superpowers/specs/2026-07-08-catalog-unified-api-view-design.md`
 **Plan:** `docs/superpowers/plans/2026-07-08-catalog-unified-api-view.md`
 **Findings telemetry:** `./gate-findings.yaml`
