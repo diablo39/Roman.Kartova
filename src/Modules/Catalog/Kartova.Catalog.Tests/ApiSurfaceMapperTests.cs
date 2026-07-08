@@ -62,6 +62,28 @@ public sealed class ApiSurfaceMapperTests
     }
 
     [TestMethod]
+    public void Derived_via_app_selection_is_deterministic_when_no_direct_edge()
+    {
+        var appLow = Guid.Parse("00000000-0000-0000-0000-000000000001");
+        var appHigh = Guid.Parse("ffffffff-ffff-ffff-ffff-ffffffffffff");
+
+        var result = ApiSurfaceMapper.Build(
+            provides:
+            [
+                new ApiSurfaceMapper.ProvidesEdge(Api1, ApiSurfaceOrigin.Derived, appHigh),
+                new ApiSurfaceMapper.ProvidesEdge(Api1, ApiSurfaceOrigin.Derived, appLow),
+            ],
+            consumesApiIds: [],
+            apis: Meta(Api1),
+            appNames: new Dictionary<Guid, string> { [appLow] = "Low", [appHigh] = "High" });
+
+        var item = result.Provides.Single();   // deduped to one row
+        Assert.AreEqual(ApiSurfaceOrigin.Derived, item.Origin);
+        Assert.AreEqual(appLow, item.ViaApplicationId);
+        Assert.AreEqual("Low", item.ViaApplicationDisplayName);
+    }
+
+    [TestMethod]
     public void Consumes_ids_map_to_direct_items()
     {
         var result = ApiSurfaceMapper.Build(

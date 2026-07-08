@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
@@ -213,5 +214,36 @@ public sealed class GetApiSurfaceTests : CatalogIntegrationTestBase
         var resp = await client.GetAsync(
             $"/api/v1/catalog/api-surface?entityKind=service&entityId={Guid.Empty}");
         Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Direct_provides_reflects_HasSpec_true_after_spec_upload()
+    {
+        // Proves the handler's db.ApiSpecs presence-join returns positive end-to-end — the other
+        // tests here only exercise the empty/false path (no spec ever uploaded).
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(
+            Fx.TenantIdForEmail(OrgAUser), "Surface HasSpec Team " + Guid.NewGuid());
+
+        var svcId = await SeedServiceAsync(client, teamId, "svc-hasspec-surface");
+        var apiId = await SeedApiAsync(client, teamId, "api-hasspec-surface");
+
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(client, EntityKind.Service, svcId, RelationshipType.ProvidesApiFor, EntityKind.Api, apiId)).StatusCode);
+
+        var specReq = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/catalog/apis/{apiId}/spec")
+        {
+            Content = new StringContent("{\"openapi\":\"3.0.0\",\"info\":{\"title\":\"HasSpec\",\"version\":\"1\"}}"),
+        };
+        specReq.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+        Assert.AreEqual(HttpStatusCode.Created, (await client.SendAsync(specReq)).StatusCode);
+
+        var resp = await client.GetAsync(
+            $"/api/v1/catalog/api-surface?entityKind=service&entityId={svcId}");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var body = await resp.Content.ReadFromJsonAsync<ApiSurfaceResponse>(KartovaApiFixtureBase.WireJson);
+
+        var item = body!.Provides.Single(i => i.ApiId == apiId);
+        Assert.IsTrue(item.HasSpec);
     }
 }

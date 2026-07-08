@@ -21,12 +21,20 @@ public static class ApiSurfaceMapper
         IReadOnlyDictionary<Guid, string> appNames)
     {
         // Provides: group by API id, DIRECT wins over DERIVED when an API appears both ways.
+        // Among DERIVED candidates (no direct edge present), pick deterministically by smallest
+        // ViaApplicationId — otherwise the surviving via-app is order-dependent when a service is
+        // instance-of multiple applications that all provide the same API.
         var providesItems = provides
             .GroupBy(p => p.ApiId)
             .Select(g =>
             {
-                var chosen = g.FirstOrDefault(p => p.Origin == ApiSurfaceOrigin.Direct) ?? g.First();
-                return chosen;
+                var direct = g.FirstOrDefault(p => p.Origin == ApiSurfaceOrigin.Direct);
+                if (direct is not null)
+                {
+                    return direct;
+                }
+
+                return g.OrderBy(p => p.ViaApplicationId).First();
             })
             .Where(p => apis.ContainsKey(p.ApiId)) // defensive: skip if metadata missing
             .Select(p =>
