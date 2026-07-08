@@ -68,6 +68,7 @@ public static class ProblemTypes
     public const string InvitationGone         = Base + "invitation-gone";         // 410: expired, revoked, or already accepted.
 
     // Relationships — catalog manual relationships slice.
+    public const string InvalidEntity            = Base + "invalid-entity";            // 422: entity kind/id not a valid API-surface target.
     public const string InvalidSourceEntity      = Base + "invalid-source-entity";    // 422
     public const string InvalidTargetEntity      = Base + "invalid-target-entity";    // 422
     public const string RelationshipAlreadyExists = Base + "relationship-already-exists"; // 409
