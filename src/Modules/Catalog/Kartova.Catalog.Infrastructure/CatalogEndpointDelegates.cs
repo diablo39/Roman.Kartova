@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 // ApplicationId is aliased rather than imported via `using Kartova.Catalog.Domain`
 // because that would clash with `System.ApplicationId` in the BCL — same trick
 // ApplicationSortSpecs uses for `DomainApplication`.
@@ -649,6 +650,7 @@ internal static class CatalogEndpointDelegates
         IAuthorizationService auth,
         ClaimsPrincipal caller,
         IAuditWriter audit,
+        IOptions<CatalogSpecOptions> specOptions,
         CancellationToken ct)
     {
         // Parse the header so a charset (or any other) parameter is stripped before the
@@ -666,18 +668,20 @@ internal static class CatalogEndpointDelegates
                 statusCode: StatusCodes.Status415UnsupportedMediaType);
         }
 
+        var maxBytes = specOptions.Value.MaxContentBytes;
+
         // Declared-length pre-check (cheap early-out); the streamed read below is
         // capped independently so a chunked-transfer request (no Content-Length)
         // cannot bypass the limit.
-        if (request.ContentLength is { } declaredLength && declaredLength > Kartova.Catalog.Domain.ApiSpec.MaxContentBytes)
-            return SpecTooLarge();
+        if (request.ContentLength is { } declaredLength && declaredLength > maxBytes)
+            return SpecTooLarge(maxBytes);
 
         var gate = await LoadAndAuthorizeApiAsync(id, db, auth, caller, ct);
         if (gate is not null) return gate;
 
         using var reader = new StreamReader(request.Body, Encoding.UTF8);
-        var content = await ReadCappedAsync(reader, Kartova.Catalog.Domain.ApiSpec.MaxContentBytes, ct);
-        if (content is null) return SpecTooLarge();
+        var content = await ReadCappedAsync(reader, maxBytes, ct);
+        if (content is null) return SpecTooLarge(maxBytes);
 
         var created = await handler.Handle(
             new UpsertApiSpecCommand(id, content, mediaType!), db, tenant, currentUser, audit, ct);
@@ -922,12 +926,12 @@ internal static class CatalogEndpointDelegates
     }
 
     /// <summary>400 problem result for an API spec whose declared or streamed length
-    /// exceeds <see cref="Kartova.Catalog.Domain.ApiSpec.MaxContentBytes"/> (ADR-0112).</summary>
-    private static IResult SpecTooLarge()
+    /// exceeds the configured <c>Catalog:ApiSpec:MaxContentBytes</c> (ADR-0112).</summary>
+    private static IResult SpecTooLarge(int maxBytes)
         => Results.Problem(
             type: ProblemTypes.SpecTooLarge,
             title: "Spec too large",
-            detail: $"API spec content must not exceed {Kartova.Catalog.Domain.ApiSpec.MaxContentBytes} bytes.",
+            detail: $"API spec content must not exceed {maxBytes} bytes.",
             statusCode: StatusCodes.Status400BadRequest);
 
     /// <summary>

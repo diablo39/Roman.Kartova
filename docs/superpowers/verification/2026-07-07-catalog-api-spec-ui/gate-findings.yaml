@@ -1,0 +1,55 @@
+slice:  2026-07-07-catalog-api-spec-ui
+branch: feat/catalog-api-spec-ui
+head:   509fa0e
+
+findings:
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "AttachApiSpecDialog re-inferred media type on every keystroke, overwriting a manual JSON/YAML override"
+    note: "fixed in 73e4528 (mediaTypeTouched flag) + test"
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "ApiSpecSection: hasSpec && spec.isError rendered an empty gap (silent spec-load failure)"
+    note: "fixed in 509fa0e (isError branch + test)"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "useApiSpec GET error used throw new Error (no __status), inconsistent with PUT's throwWithStatus"
+    note: "fixed in 509fa0e"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "CopyButton setTimeout had no unmount cleanup (possible post-unmount setState)"
+    note: "fixed in 509fa0e"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "useApiSpec/useUpsertApiSpec omit Authorization header when no token instead of failing fast"
+    note: "accepted; app is auth-gated, backend 401 surfaces. Not fixed."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "AttachApiSpecDialog/ApiSpecSection use native <select>/<input file> rather than Untitled UI (ADR-0094)"
+    note: "accepted; spec sanctioned a lean modal. Noted for future polish."
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "Streaming ReadCappedAsync path untested — integration test sends Content-Length so only the declared-length pre-check runs; a stale-limit regression in ReadCappedAsync would pass green"
+    note: "to fix: add chunked/no-Content-Length integration case at the overridden cap"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "CopyButton shows 'Copied' even if clipboard.writeText rejects; onFile swallows file.text() rejection; several untested hook branches"
+    note: "non-blocking follow-ups"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "Duplicate of review-pr I-1: streamed/chunked configured-cap enforcement (ReadCappedAsync) untested — corroborated by two independent reviewers"
+    note: "to fix in one pass: chunked no-Content-Length integration test at overridden cap"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "ApiSpecSection: hasSpec true but GET returns null (404 race) renders empty gap; <pre> break-all breaks tokens mid-char"
+    note: "to fix: fall back to empty-state when data null; use break-words"

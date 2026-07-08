@@ -13,6 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using Wolverine;
 
 namespace Kartova.Catalog.Infrastructure;
@@ -240,6 +241,13 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         // raw AddDbContext would silently bypass RLS for any future Catalog entity.
         services.AddModuleDbContext<CatalogDbContext>(npg =>
             npg.MigrationsAssembly(typeof(CatalogDbContext).Assembly.FullName));
+
+        // Configurable stored-spec size cap (ADR-0112). Default 5 MiB; validated on start
+        // into a safe band so an operator typo can't create an unbounded-buffer OOM vector.
+        services.AddOptions<CatalogSpecOptions>()
+            .Bind(configuration.GetSection(CatalogSpecOptions.SectionName))
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<CatalogSpecOptions>, CatalogSpecOptionsValidator>();
 
         // Handler is invoked directly from the endpoint delegate (synchronous,
         // in-process) so it must be resolvable from the HTTP request scope

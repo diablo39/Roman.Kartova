@@ -4,11 +4,11 @@ namespace Kartova.Catalog.Domain;
 
 /// <summary>The current stored spec document (OpenAPI/AsyncAPI) for one <see cref="Api"/>
 /// (ADR-0112). 1:1 with the owning API (unique <c>api_id</c>); versions deferred to E-21.
-/// Content is opaque text — not parsed or validated for schema correctness this slice.</summary>
+/// Content is opaque text — not parsed or validated for schema correctness this slice.
+/// Size is bounded at the upload endpoint (configurable `Catalog:ApiSpec:MaxContentBytes`),
+/// not here.</summary>
 public sealed class ApiSpec : ITenantOwned
 {
-    public const int MaxContentBytes = 5 * 1024 * 1024;   // 5 MiB hard cap
-
     private Guid _id;
 
     public Guid Id => _id;
@@ -54,8 +54,6 @@ public sealed class ApiSpec : ITenantOwned
     {
         if (string.IsNullOrWhiteSpace(content))
             throw new ArgumentException("API spec content must not be empty.", nameof(content));
-        if (System.Text.Encoding.UTF8.GetByteCount(content) > MaxContentBytes)
-            throw new ArgumentException($"API spec content must be <= {MaxContentBytes} bytes.", nameof(content));
         if (!ApiMediaType.IsAllowed(mediaType))
             throw new ArgumentException("API spec media type must be application/json or application/yaml.", nameof(mediaType));
     }

@@ -5,9 +5,13 @@ import { MemoryRouter, Routes, Route } from "react-router-dom";
 const api = {
   id: "a1", tenantId: "t", displayName: "Orders API", description: "Order management",
   style: "graphQL", version: "v2", specUrl: "https://example.com/spec.json", teamId: "team1",
-  createdByUserId: "u1", createdAt: "2026-07-04T10:00:00Z", createdBy: null,
+  createdByUserId: "u1", createdAt: "2026-07-04T10:00:00Z", createdBy: null, hasSpec: false,
 };
-vi.mock("@/features/catalog/api/apis", () => ({ useApi: () => ({ data: api, isLoading: false, isError: false }) }));
+vi.mock("@/features/catalog/api/apis", () => ({
+  useApi: () => ({ data: api, isLoading: false, isError: false }),
+  useApiSpec: () => ({ data: null, isLoading: false, isError: false }),
+  useUpsertApiSpec: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
 vi.mock("@/features/teams/api/teams", () => ({
   useTeamsList: () => ({ items: [{ id: "team1", displayName: "Platform" }], isLoading: false, isError: false }),
 }));

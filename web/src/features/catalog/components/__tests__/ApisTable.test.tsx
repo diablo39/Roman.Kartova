@@ -15,10 +15,11 @@ const baseList = {
   hasNext: false, hasPrev: false, goNext: vi.fn(), goPrev: vi.fn(), reset: vi.fn(),
 };
 
-function renderTable() {
+function renderTable(overrides: Partial<typeof baseList> = {}) {
+  const list = { ...baseList, ...overrides };
   return render(
     <MemoryRouter>
-      <ApisTable list={baseList as never} sortBy="displayName" sortOrder="asc"
+      <ApisTable list={list as never} sortBy="displayName" sortOrder="asc"
         onSortChange={vi.fn()} teamNameById={new Map([["team1", "Platform"]])} />
     </MemoryRouter>,
   );
@@ -33,5 +34,16 @@ describe("ApisTable", () => {
     renderTable();
     expect(screen.getByText("GraphQL")).toBeInTheDocument();
     expect(screen.getByText("Platform")).toBeInTheDocument();
+  });
+  it("renders Spec column: check when hasSpec, dash otherwise", () => {
+    renderTable({
+      items: [
+        { id: "a1", displayName: "Has", style: "rest", version: "v1", teamId: "t1", hasSpec: true, createdAt: "2026-07-07T00:00:00Z", createdBy: null },
+        { id: "a2", displayName: "None", style: "rest", version: "v1", teamId: "t1", hasSpec: false, createdAt: "2026-07-07T00:00:00Z", createdBy: null },
+      ] as unknown as ApiResponse[],
+    });
+    expect(screen.getByRole("columnheader", { name: /spec/i })).toBeInTheDocument();
+    expect(screen.getByTestId("api-hasspec-a1")).toBeInTheDocument();
+    expect(screen.getByTestId("api-hasspec-a2")).toHaveTextContent("—");
   });
 });

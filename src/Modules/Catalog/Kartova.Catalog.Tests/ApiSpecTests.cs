@@ -26,24 +26,6 @@ public sealed class ApiSpecTests
             () => ApiSpec.Create(Api, Tenant, "   ", ApiMediaType.ApplicationJson, User, Now));
 
     [TestMethod]
-    public void Create_rejects_oversized_content()
-    {
-        var big = new string('x', ApiSpec.MaxContentBytes + 1);
-        Assert.ThrowsExactly<ArgumentException>(
-            () => ApiSpec.Create(Api, Tenant, big, ApiMediaType.ApplicationJson, User, Now));
-    }
-
-    [TestMethod]
-    public void Create_rejects_content_over_cap_by_utf8_byte_count()
-    {
-        // 'é' (U+00E9) is 2 bytes in UTF-8; char count stays under the cap, byte count exceeds it.
-        var s = new string('é', ApiSpec.MaxContentBytes / 2 + 1);
-        Assert.IsTrue(s.Length <= ApiSpec.MaxContentBytes, "char length must be under the cap to prove byte-count logic");
-        Assert.ThrowsExactly<ArgumentException>(
-            () => ApiSpec.Create(Api, Tenant, s, ApiMediaType.ApplicationJson, User, Now));
-    }
-
-    [TestMethod]
     public void Create_rejects_unknown_media_type()
         => Assert.ThrowsExactly<ArgumentException>(
             () => ApiSpec.Create(Api, Tenant, "{}", "text/xml", User, Now));
@@ -74,14 +56,6 @@ public sealed class ApiSpecTests
     {
         var s = ApiSpec.Create(Api, Tenant, "{}", ApiMediaType.ApplicationJson, User, Now);
         Assert.ThrowsExactly<ArgumentException>(() => s.Replace("{}", "text/xml"));
-    }
-
-    [TestMethod]
-    public void Create_accepts_content_exactly_at_cap()
-    {
-        var atCap = new string('x', ApiSpec.MaxContentBytes);   // exactly MaxContentBytes UTF-8 bytes
-        var s = ApiSpec.Create(Api, Tenant, atCap, ApiMediaType.ApplicationJson, User, Now);
-        Assert.AreEqual(ApiSpec.MaxContentBytes, System.Text.Encoding.UTF8.GetByteCount(s.Content));
     }
 
     [TestMethod]
