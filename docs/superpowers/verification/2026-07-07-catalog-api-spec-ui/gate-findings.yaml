@@ -33,3 +33,23 @@ findings:
     verdict: real
     title: "AttachApiSpecDialog/ApiSpecSection use native <select>/<input file> rather than Untitled UI (ADR-0094)"
     note: "accepted; spec sanctioned a lean modal. Noted for future polish."
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "Streaming ReadCappedAsync path untested — integration test sends Content-Length so only the declared-length pre-check runs; a stale-limit regression in ReadCappedAsync would pass green"
+    note: "to fix: add chunked/no-Content-Length integration case at the overridden cap"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "CopyButton shows 'Copied' even if clipboard.writeText rejects; onFile swallows file.text() rejection; several untested hook branches"
+    note: "non-blocking follow-ups"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "Duplicate of review-pr I-1: streamed/chunked configured-cap enforcement (ReadCappedAsync) untested — corroborated by two independent reviewers"
+    note: "to fix in one pass: chunked no-Content-Length integration test at overridden cap"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "ApiSpecSection: hasSpec true but GET returns null (404 race) renders empty gap; <pre> break-all breaks tokens mid-char"
+    note: "to fix: fall back to empty-state when data null; use break-words"
