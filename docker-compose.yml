@@ -119,6 +119,19 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  web:
+    build:
+      context: web
+      dockerfile: Dockerfile
+    image: kartova/web:dev
+    depends_on:
+      api:
+        condition: service_started
+      keycloak:
+        condition: service_healthy
+    ports:
+      - "4173:8080"
+
 volumes:
   postgres-data:
   keycloak-db-data:
