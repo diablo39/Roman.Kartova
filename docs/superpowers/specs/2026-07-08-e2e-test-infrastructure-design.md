@@ -43,7 +43,8 @@ Gate-findings telemetry across 11 slices was scored (this conversation): the **m
 | 3 | **No build args / no runtime injection.** Container built with defaults → calls `localhost:8080`/`8180`, which the host Playwright browser reaches via compose's published ports. | Build-time defaults already align with the compose stack. Real-k8s per-env URL injection is a **latent gap** (§8), out of scope. |
 | 4 | **Auth = real UI login per test** via a shared `login()` fixture (`admin@orga`/`dev_password_12`). Lands on `/`, drives the Keycloak page, returns to `/`, navigates in-SPA. | Zero storageState/token plumbing (sessionStorage isn't persisted by Playwright `storageState`; ROPC needs client changes). Exercises the real OIDC callback every run. Fine for a 3-test suite (~1–2s/test). Upgrade to login-once-reuse later only if flake/slowness bites. The gate-10 bugs were **post-login**, so auth is plumbing, not the SUT. |
 | 5 | **Project layout = top-level `e2e/`** as its own npm project (own `package.json`, `@playwright/test` + `pg`), *not* inside `web/`. | Isolates Playwright deps from web's vite/vitest (avoids the lightningcss `npm ci` EPERM interaction). E2E is cross-cutting — drives the whole stack, not a web unit. |
-| 6 | **Drift injection = per-test `pg` fixture, insert + teardown-delete**, scoped to the drift test only, tenant GUC set (owner conn / `NO FORCE`→`FORCE` toggle per the C2-migration pattern). | The unknown-kind row is *exactly* what 500s the relationships surface — a global seed would break the smoke/override tests. Must be isolated. No API path exists (enum value removed), so DB is the only route; a guarded test-seed endpoint was rejected as extra backend surface. |
+| 6 | **Drift injection = per-test `pg` fixture, insert + teardown-delete**, scoped to the drift test only, connecting as the `kartova_bypass_rls` role (bypasses RLS for the insert; row still carries orgA `tenant_id` so it's in-scope for the app). | The unknown-`type` row is *exactly* what 500s the relationships surface — a global seed would break the smoke/override tests. Must be isolated. No API path exists (enum value removed), so DB is the only route; a guarded test-seed endpoint was rejected as extra backend surface. |
+| 10 | **Backend hardening (added post-brainstorm, plan-phase discovery):** the gate-10 500 was fixed by data-**purge** only — the read path still throws on an unmappable `type`. Add a single **EF global query filter** on `Relationship`: `HasQueryFilter(r => KnownRelationshipTypes.Contains(r.Type))` where `KnownRelationshipTypes = Enum.GetValues<RelationshipType>()`. Unknown-`type` rows are excluded at the SQL layer (`type IN (...)`) from **every** read path (list, graph, api-surface) and never materialize. | One place, cannot be forgotten, covers all 3 read handlers (`ListRelationshipsForEntityHandler`, `GraphTraversalHandler`, `GetApiSurfaceHandler`) without touching them. Fixes a real latent prod bug: any future enum removal / bad row currently recurs the 500. No existing `HasQueryFilter` on the entity; tenant scoping is RLS, so no filter-composition conflict. **Reactivates gate 6 (mutation).** |
 | 7 | **Three journeys only** (TESTING-STRATEGY "thin"): smoke (login → Applications list renders), lifecycle-override regression, relationship-drift graceful-degrade. | Covers both gate-10 blocking classes + one end-to-end wire-up proof. |
 | 8 | **CI cadence = nightly `schedule:` + `workflow_dispatch:`, NOT `pull_request`.** | Full stack on the runner is minutes + inherits Keycloak/compose saturation flake. Nightly regression net keeps per-PR CI fast. **Consequence:** E2E is *not* a gate-11 check on ordinary slice PRs; for **this** slice's own DoD it is verified via a manual `workflow_dispatch` run + local `e2e/run.sh` evidence. |
 | 9 | **Gate-10 retarget is part of this slice** (CLAUDE.md edit + CHECKLIST tick + proposed ADR). | The doc change is the point of the analysis that started this; shipping the suite without retargeting gate 10 would leave the process guidance stale. |
@@ -68,6 +69,8 @@ e2e/
   run.sh                       docker compose up -d --build (pg,keycloak,migrator,api,web) → wait-healthy → playwright test → (report)
 web/Dockerfile                 runtime base → nginx-unprivileged; EXPOSE 8080
 web/nginx.conf                 listen 8080
+src/Modules/Catalog/Kartova.Catalog.Infrastructure/EfRelationshipConfiguration.cs
+                               + global query filter HasQueryFilter(r => KnownRelationshipTypes.Contains(r.Type)) (drift hardening)
 docker-compose.yml             + web service (build web/Dockerfile, 4173:8080, depends_on api+keycloak)
 .github/workflows/ci.yml       + e2e job (schedule + workflow_dispatch); artifacts: playwright-report, traces
 scripts/ci-local.sh            + optional `e2e` subcommand (local parity)
@@ -103,6 +106,7 @@ This slice *is* the tier-5 layer; its "tests" are the E2E specs themselves. Alti
 - `e2e/tests/lifecycle-override.spec.ts` — deterministic UI-state regression (gate-10 class #1).
 - `e2e/tests/relationship-drift.spec.ts` — negative/degrade case against injected drifted data (gate-10 class #2).
 - `e2e/fixtures/auth.ts`, `e2e/fixtures/db.ts` — real Keycloak login + real Postgres/RLS drift injection (the real seams).
+- **Backend real-seam test for the hardening** (`Kartova.Catalog.IntegrationTests`) — seed an unknown-`type` row (bypass-RLS insert), assert it is excluded from `ListRelationshipsForEntity` / graph / api-surface reads and none 500 (≥1 happy: known types still returned; ≥1 negative: unknown-`type` row absent). This is the gate-3 seam proof for decision 10; the E2E drift spec is the top-of-stack proof.
 - **Container-build coverage:** the `web/Dockerfile` base-image change is exercised by CI's existing `images` job (builds `kartova/web:ci`) *and* by `e2e/run.sh` building + booting the `web` service — the runtime the image never otherwise gets asserted on.
 
 Each journey has ≥1 explicit assertion with a strong oracle (visible row / reachable control / rendered-not-500). Retries (2) absorb known compose/KC saturation flake without masking real failures (trace-on-retry preserved).
@@ -122,7 +126,7 @@ Each journey has ≥1 explicit assertion with a strong oracle (visible row / rea
 
 Production **business** code changed: none (Dockerfile/nginx/compose are infra; no Domain/Application diff). The bulk is **test code** (excluded from the ~400/800-LOC count). Well under ceiling; no decomposition.
 
-- **Gate 6 (mutation): N/A** — no Domain/Application logic in the diff.
+- **Gate 6 (mutation): APPLIES** — reactivated by decision 10 (the `Relationship` query-filter hardening is backend logic). Scoped to the filter predicate + `KnownRelationshipTypes` and any handler touchpoints; target ≥80% on the changed backend files. Low surface (a `Contains` allowlist), but run for real.
 - **Gate 3 (real-seam integration): satisfied by the E2E suite itself** (this slice's seam is the running stack).
 - **Gate 11 (CI green on PR):** the E2E job is nightly/dispatch, so it is **not** an automatic PR gate; verified for this slice via a manual `workflow_dispatch` run + local `e2e/run.sh` evidence (recorded in the DoD ledger).
 
@@ -143,6 +147,6 @@ Production **business** code changed: none (Dockerfile/nginx/compose are infra; 
 1. `e2e/run.sh` brings up the full stack incl. the rootless `web` container and runs all 3 specs green locally.
 2. `nginxinc/nginx-unprivileged` serves the app; container runs as non-root; CI `images` job still green.
 3. The override spec **fails** against a reintroduction of the gate-10 bug (menu ignores override perm) and passes on fixed code.
-4. The drift spec **fails** (500) if the `isRenderableKind` guard is reverted, and passes (graceful) with it.
+4. The drift spec: with the `Relationship` global query filter in place, injecting a `type='PartOf'` row leaves the surface rendering (row excluded, no 500); reverting the filter makes the surface 500 (regression tripwire). A backend integration test asserts the same at the seam (unknown-`type` row excluded from list/graph/api-surface reads).
 5. Nightly `e2e` CI job + `workflow_dispatch` present; a manual dispatch run is green (artifacts uploaded).
 6. Gate 10 reworded in CLAUDE.md; `E-01.F-02.S-03` ticked; ADR previewed + (on approval) saved.
