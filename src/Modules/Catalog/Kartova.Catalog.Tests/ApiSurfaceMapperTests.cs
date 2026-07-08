@@ -84,6 +84,21 @@ public sealed class ApiSurfaceMapperTests
     }
 
     [TestMethod]
+    public void Derived_via_app_name_is_null_when_application_not_in_app_names()
+    {
+        var result = ApiSurfaceMapper.Build(
+            provides: [new ApiSurfaceMapper.ProvidesEdge(Api1, ApiSurfaceOrigin.Derived, App1)],
+            consumesApiIds: [],
+            apis: Meta(Api1),
+            appNames: new Dictionary<Guid, string>()); // App1 intentionally not present
+
+        var item = result.Provides.Single();
+        Assert.AreEqual(ApiSurfaceOrigin.Derived, item.Origin);
+        Assert.AreEqual(App1, item.ViaApplicationId);
+        Assert.IsNull(item.ViaApplicationDisplayName);
+    }
+
+    [TestMethod]
     public void Consumes_ids_map_to_direct_items()
     {
         var result = ApiSurfaceMapper.Build(

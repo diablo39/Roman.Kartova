@@ -36,7 +36,9 @@ public static class ApiSurfaceMapper
 
                 return g.OrderBy(p => p.ViaApplicationId).First();
             })
-            .Where(p => apis.ContainsKey(p.ApiId)) // defensive: skip if metadata missing
+            // Currently unreachable: edges validate target existence at creation and there is no API-delete path,
+            // so every referenced id is in `apis`. Guards a future delete/soft-delete path.
+            .Where(p => apis.ContainsKey(p.ApiId))
             .Select(p =>
             {
                 var meta = apis[p.ApiId];
@@ -50,6 +52,8 @@ public static class ApiSurfaceMapper
 
         var consumesItems = consumesApiIds
             .Distinct()
+            // Currently unreachable: edges validate target existence at creation and there is no API-delete path,
+            // so every referenced id is in `apis`. Guards a future delete/soft-delete path.
             .Where(id => apis.ContainsKey(id))
             .Select(id =>
             {

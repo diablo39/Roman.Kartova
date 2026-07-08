@@ -14,8 +14,8 @@ public sealed class GetApiSurfaceHandler
     public async Task<ApiSurfaceResponse> Handle(
         GetApiSurfaceQuery q, CatalogDbContext db, CancellationToken ct)
     {
-        // One round-trip for every edge where the focus entity is the source (three relevant types),
-        // then partition in memory — avoids 2-3 sequential queries over the same source-row set.
+        // Single round-trip: fetch all edges where the focus entity is the source across the three relevant types
+        // (provides / instance-of / consumes), then partition in memory below.
         var sourceEdges = await db.Relationships
             .Where(r => r.Source.Kind == q.Kind && r.Source.Id == q.EntityId
                 && (r.Type == RelationshipType.ProvidesApiFor
