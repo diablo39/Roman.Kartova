@@ -168,6 +168,30 @@ internal static class DevSeed
             {
                 logger.LogInformation("Dev seed: applications already present (Count={Count}).", existing);
             }
+
+            // Deterministic fixture for the E2E lifecycle-override journey: a Deprecated
+            // (lifecycle=2) app with a far-future sunset_date so an override-holding
+            // OrgAdmin sees the "Override sunset date" checkbox in the Decommission
+            // dialog. Placed outside the `existing == 0` guard above (and thus runs on
+            // every DevSeed invocation, not just first-seed) so it stays present even
+            // once the 120-app block has already been seeded on a running dev DB.
+            // Idempotent via ON CONFLICT (id) DO NOTHING on the fixed id below. Read-only
+            // in the E2E test (never decommissioned) → stable across runs.
+            await using var fixtureCmd = conn.CreateCommand();
+            fixtureCmd.CommandText = """
+                INSERT INTO catalog_applications
+                    (id, tenant_id, display_name, description, created_by_user_id, team_id, created_at, lifecycle, sunset_date)
+                VALUES ($1, $2, $3, $4, $5, $6, now(), 2, TIMESTAMPTZ '2099-01-01T00:00:00Z')
+                ON CONFLICT (id) DO NOTHING;
+                """;
+            fixtureCmd.Parameters.AddWithValue(Guid.Parse("e2e00000-0000-0000-0000-000000000001"));
+            fixtureCmd.Parameters.AddWithValue(OrgATenantId);
+            fixtureCmd.Parameters.AddWithValue("E2E Sunset Override Fixture");
+            fixtureCmd.Parameters.AddWithValue("Deprecated app with far-future sunset date, seeded for the E2E lifecycle-override journey.");
+            fixtureCmd.Parameters.AddWithValue(TeamAdminUserId);
+            fixtureCmd.Parameters.AddWithValue(DemoTeamId);
+            var fixtureRows = await fixtureCmd.ExecuteNonQueryAsync();
+            logger.LogInformation("Dev seed: E2E sunset-override fixture app {Result}.", fixtureRows == 1 ? "inserted" : "already present");
         }
         finally
         {
