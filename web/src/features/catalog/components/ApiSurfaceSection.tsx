@@ -1,24 +1,45 @@
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/base/badges/badges";
 import { Table } from "@/components/application/table/table";
-import { Skeleton } from "@/components/base/skeleton/skeleton";
+import { TableSkeleton } from "@/components/application/data-table/data-table";
 import { useApiSurface, type ApiSurfaceItem } from "@/features/catalog/api/apiSurface";
+import { API_STYLE_LABEL, API_STYLES } from "@/features/catalog/schemas/registerApi";
 
-// Wire values are camelCase per ADR-0109.
-const STYLE_LABEL: Record<string, string> = {
-  rest: "REST",
-  grpc: "gRPC",
-  graphQL: "GraphQL",
-  asyncApi: "AsyncAPI",
-};
-
-const STYLE_ORDER: Record<string, number> = { rest: 0, grpc: 1, graphQL: 2, asyncApi: 3 };
+function styleOrder(style: string): number {
+  const index = API_STYLES.indexOf(style as (typeof API_STYLES)[number]);
+  return index === -1 ? 99 : index;
+}
 
 function sortItems(items: ApiSurfaceItem[]): ApiSurfaceItem[] {
   return [...items].sort(
-    (a, b) =>
-      (STYLE_ORDER[a.style] ?? 99) - (STYLE_ORDER[b.style] ?? 99) ||
-      a.displayName.localeCompare(b.displayName),
+    (a, b) => styleOrder(a.style) - styleOrder(b.style) || a.displayName.localeCompare(b.displayName),
+  );
+}
+
+function ApiSurfaceLoadingSkeleton() {
+  return (
+    <section className="space-y-6" aria-label="APIs">
+      {[
+        { title: "Provides", cells: 5 },
+        { title: "Consumes", cells: 4 },
+      ].map(({ title, cells }) => (
+        <div className="space-y-2" key={title}>
+          <h3 className="text-sm font-semibold text-primary">{title}</h3>
+          <Table aria-label={title}>
+            <Table.Header>
+              <Table.Head id="name" isRowHeader>
+                Name
+              </Table.Head>
+              <Table.Head id="style">Style</Table.Head>
+              <Table.Head id="version">Version</Table.Head>
+              <Table.Head id="spec">Spec</Table.Head>
+              {cells === 5 && <Table.Head id="origin">Origin</Table.Head>}
+            </Table.Header>
+            <TableSkeleton rows={2} cells={cells} />
+          </Table>
+        </div>
+      ))}
+    </section>
   );
 }
 
@@ -30,7 +51,7 @@ interface Props {
 export function ApiSurfaceSection({ entityKind, entityId }: Props) {
   const query = useApiSurface(entityKind, entityId);
 
-  if (query.isLoading) return <Skeleton className="h-40 w-full" />;
+  if (query.isLoading) return <ApiSurfaceLoadingSkeleton />;
   if (query.isError || !query.data)
     return <p className="text-sm text-error-primary">Couldn&apos;t load APIs.</p>;
 
@@ -92,7 +113,7 @@ function ApiTable({
                   </Table.Cell>
                   <Table.Cell>
                     <Badge type="pill-color" size="sm" color="brand">
-                      {STYLE_LABEL[i.style] ?? i.style}
+                      {API_STYLE_LABEL[i.style as keyof typeof API_STYLE_LABEL] ?? i.style}
                     </Badge>
                   </Table.Cell>
                   <Table.Cell className="font-mono text-sm">{i.version}</Table.Cell>

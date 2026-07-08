@@ -876,7 +876,7 @@ internal static class CatalogEndpointDelegates
                 statusCode: StatusCodes.Status422UnprocessableEntity);
         }
 
-        var surface = await handler.Handle(new GetApiSurfaceQuery(kind, entityId), db, lookup, ct);
+        var surface = await handler.Handle(new GetApiSurfaceQuery(kind, entityId), db, ct);
         return Results.Ok(surface);
     }
 

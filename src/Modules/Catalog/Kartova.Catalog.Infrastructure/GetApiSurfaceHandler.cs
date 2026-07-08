@@ -12,29 +12,29 @@ namespace Kartova.Catalog.Infrastructure;
 public sealed class GetApiSurfaceHandler
 {
     public async Task<ApiSurfaceResponse> Handle(
-        GetApiSurfaceQuery q, CatalogDbContext db, ICatalogEntityLookup lookup, CancellationToken ct)
+        GetApiSurfaceQuery q, CatalogDbContext db, CancellationToken ct)
     {
-        // 1. Direct provides (component -> Api).
-        var directProvides = await db.Relationships
+        // One round-trip for every edge where the focus entity is the source (three relevant types),
+        // then partition in memory — avoids 2-3 sequential queries over the same source-row set.
+        var sourceEdges = await db.Relationships
             .Where(r => r.Source.Kind == q.Kind && r.Source.Id == q.EntityId
-                        && r.Type == RelationshipType.ProvidesApiFor
-                        && r.Target.Kind == EntityKind.Api)
-            .Select(r => r.Target.Id)
+                && (r.Type == RelationshipType.ProvidesApiFor
+                    || r.Type == RelationshipType.InstanceOf
+                    || r.Type == RelationshipType.ConsumesApiFrom))
+            .Select(r => new { r.Type, TargetKind = r.Target.Kind, TargetId = r.Target.Id })
             .ToListAsync(ct);
 
-        var provides = directProvides
-            .Select(id => new ApiSurfaceMapper.ProvidesEdge(id, ApiSurfaceOrigin.Direct, null))
+        var provides = sourceEdges
+            .Where(e => e.Type == RelationshipType.ProvidesApiFor && e.TargetKind == EntityKind.Api)
+            .Select(e => new ApiSurfaceMapper.ProvidesEdge(e.TargetId, ApiSurfaceOrigin.Direct, null))
             .ToList();
 
-        // 2. Derived exposes — Service only: instance-of App(s), then those apps' provided APIs.
         if (q.Kind == EntityKind.Service)
         {
-            var instanceAppIds = await db.Relationships
-                .Where(r => r.Source.Kind == EntityKind.Service && r.Source.Id == q.EntityId
-                            && r.Type == RelationshipType.InstanceOf
-                            && r.Target.Kind == EntityKind.Application)
-                .Select(r => r.Target.Id)
-                .ToListAsync(ct);
+            var instanceAppIds = sourceEdges
+                .Where(e => e.Type == RelationshipType.InstanceOf && e.TargetKind == EntityKind.Application)
+                .Select(e => e.TargetId)
+                .ToList();
 
             if (instanceAppIds.Count > 0)
             {
@@ -51,13 +51,10 @@ public sealed class GetApiSurfaceHandler
             }
         }
 
-        // 3. Direct consumes.
-        var consumesApiIds = await db.Relationships
-            .Where(r => r.Source.Kind == q.Kind && r.Source.Id == q.EntityId
-                        && r.Type == RelationshipType.ConsumesApiFrom
-                        && r.Target.Kind == EntityKind.Api)
-            .Select(r => r.Target.Id)
-            .ToListAsync(ct);
+        var consumesApiIds = sourceEdges
+            .Where(e => e.Type == RelationshipType.ConsumesApiFrom && e.TargetKind == EntityKind.Api)
+            .Select(e => e.TargetId)
+            .ToList();
 
         // 4. Batch-load API metadata for every referenced id.
         var apiGuids = provides.Select(p => p.ApiId).Concat(consumesApiIds).Distinct().ToList();
@@ -91,12 +88,12 @@ public sealed class GetApiSurfaceHandler
             .Distinct()
             .ToList();
 
-        var appNames = new Dictionary<Guid, string>();
-        foreach (var appId in viaAppIds)
-        {
-            var found = await lookup.Find(EntityKind.Application, appId, ct);
-            if (found is not null) appNames[appId] = found.DisplayName;
-        }
+        var appNames = viaAppIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : await db.Applications
+                .Where(a => viaAppIds.Contains(EF.Property<Guid>(a, EfApplicationConfiguration.IdFieldName)))
+                .Select(a => new { Id = EF.Property<Guid>(a, EfApplicationConfiguration.IdFieldName), a.DisplayName })
+                .ToDictionaryAsync(x => x.Id, x => x.DisplayName, ct);
 
         return ApiSurfaceMapper.Build(provides, consumesApiIds, apis, appNames);
     }
