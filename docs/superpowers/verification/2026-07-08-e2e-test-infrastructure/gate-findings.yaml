@@ -1,0 +1,68 @@
+# gate-findings.yaml — per-gate findings telemetry for one slice.
+# dod.md records each gate's status; this file records what each gate FOUND (+ real/delusion).
+
+slice:  2026-07-08-e2e-test-infrastructure
+branch: feat/e2e-test-infrastructure
+head:   3f08131
+
+# gate slugs: build | reviews | suite | container | simplify | mutation
+#             requesting-review | review-pr | deep-review | manual | terminal-reverify | ci-mirror
+# severity: blocking | should-fix | nit   · verdict: real | delusion
+#
+# NOTE: gates 5 (simplify), 6 (mutation), 8 (review-pr), 9 (deep-review), 11 (ci) NOT yet run — no entries.
+findings:
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "[T1] brief's drift INSERT used source_kind='Application' on a Service id → row excluded by predicate before materialization (false-RED)"
+    note: "impl caught it, changed to 'Service' so the row is in query scope and reproduces the genuine enum-materialization 500. Reviewer confirmed sound."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "[T3] web compose service lacks restart: unless-stopped (siblings have it)"
+    note: "accepted — dev/E2E-only service; brief omitted it. Final-review triage: accept."
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "[T6] recreating Keycloak regenerated admin@orga sub → collided with existing Postgres users row (one-email-per-tenant 500)"
+    note: "fixed 2ac06c6 — pinned realm user id 601eecd8-... to match DevSeed/Postgres. Stable on fresh CI volumes; 4 other realm users unpinned (latent). Documented in ADR-0113."
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "[T6] API CORS did not trust http://localhost:4173 (web container origin)"
+    note: "fixed 2ac06c6 — Cors__AllowedOrigins__1 in docker-compose (additive per .NET array-merge; index-0/5173 preserved; CorsTests still valid)."
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "run.sh committed mode 100644 (non-executable) but e2e.yml + ci-local invoke ./e2e/run.sh → Permission denied on Linux runner"
+    note: "fixed 3f08131 — git update-index --chmod=+x (now 100755). The whole-branch (gate-7) review caught this; per-task reviews (gate-2) missed it — different-lens value."
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "Relationship query filter makes drifted rows silent AND API-undeletable (delete-by-id inherits the filter → 404); no log/metric"
+    note: "documented as an accepted limitation in ADR-0113 (3f08131). Cleanup stays SQL/migration (as PurgePartOfRelationships did). Observability + OrgAdmin cleanup path (IgnoreQueryFilters) = follow-up."
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "CLAUDE.md gate-10 rewording grammar slip ('real stack surface' missing 'to')"
+    note: "fixed 3f08131."
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "~7-line fixture-app navigation duplicated across lifecycle-override + relationship-drift specs"
+    note: "accepted — extract a shared gotoFixtureApp() helper when a 3rd spec needs it."
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "crypto.randomUUID() used as a global in db.ts"
+    note: "accepted — Node 20 (setup-node + engines) guarantees global crypto."
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "no CI guard forces :4173 to stay CORS-whitelisted (compose env only, not CorsTests)"
+    note: "accepted — E2E (nightly) is the backstop; compounds with the compose-only CORS entry. Optional CorsTests cross-ref comment."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "[T10] unrequested concurrency block added to e2e.yml"
+    note: "accepted — consistent with ci.yml style; nightly self-overlap implausible."
