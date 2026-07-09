@@ -17,9 +17,10 @@ public sealed class GraphTraversalHandler
         int? maxNodes = null)
     {
         // Precompute tenant's full set of derived service->service depends-on edges ONCE (RLS-scoped).
-        // Keyed by source/target for fast frontier lookup; provenance carried on the synthetic edge.
+        // Keyed by source AND target for O(1) frontier lookup; provenance carried on the synthetic edge.
         var derivedAll = await ComputeDerivedEdges(db, ct);
         var derivedBySource = derivedAll.ToLookup(e => e.SourceServiceId);
+        var derivedByTarget = derivedAll.ToLookup(e => e.TargetServiceId);
 
         var result = await GraphTraversal.BuildAsync(
             q.Focus, q.Depth, q.Direction, maxNodes ?? DefaultNodeCap,
@@ -39,12 +40,15 @@ public sealed class GraphTraversalHandler
 
                 // Merge in derived depends-on edges touching this frontier so they drive discovery
                 // too (source OR target in the current frontier), deduped by (source, target) pair.
-                var frontierIds = ids.ToHashSet();
+                // Every hit already touches a frontier service by construction (it came from that
+                // service's source- or target-keyed lookup), so no extra frontier filter is needed.
+                // NOTE: a derived edge is smuggled through the persisted GraphTraversalEdge type with a
+                // synthetic Id + a placeholder RelationshipOrigin (never surfaced — it is re-split out
+                // by `Provenance is not null` below into DerivedEdgeDto). This keeps GraphTraversal.BuildAsync's
+                // signature unchanged; a typed derived channel would be the deeper fix if BuildAsync ever changes.
                 var derivedHits = frontier
                     .Where(f => f.Kind == EntityKind.Service)
-                    .SelectMany(f => derivedBySource[f.Id].Concat(
-                        derivedAll.Where(e => e.TargetServiceId == f.Id)))
-                    .Where(e => frontierIds.Contains(e.SourceServiceId) || frontierIds.Contains(e.TargetServiceId))
+                    .SelectMany(f => derivedBySource[f.Id].Concat(derivedByTarget[f.Id]))
                     .DistinctBy(e => (e.SourceServiceId, e.TargetServiceId))
                     .Select(e => new GraphTraversalEdge(
                         new EntityRef(EntityKind.Service, e.SourceServiceId),
