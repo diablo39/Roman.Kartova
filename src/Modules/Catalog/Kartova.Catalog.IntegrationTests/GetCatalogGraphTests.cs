@@ -305,24 +305,53 @@ public class GetCatalogGraphTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
-    public async Task derived_edges_never_cross_tenants()
+    public async Task derived_edges_are_tenant_isolated()
     {
-        var clientA = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var teamA = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Graph Iso Derived A");
-        var svcS = await SeedServiceAsync(clientA, teamA, "iso-consumer");
-        var api = await SeedApiAsync(clientA, teamA, "Iso API");
-        Assert.AreEqual(HttpStatusCode.Created,
-            (await PostRelAsync(clientA, EntityKind.Service, svcS, RelationshipType.ConsumesApiFrom, EntityKind.Api, api)).StatusCode);
+        // Both tenants seed a COMPLETE derived topology (svcS --consumes--> api <--provides-- app --instance-of-- svcT),
+        // so each tenant genuinely has its own derived depends-on edge. This proves tenant A's precompute
+        // is scoped to tenant A's data, not merely that an incomplete topology trivially yields zero edges.
 
+        // Tenant B: appB / svcTB instance-of appB / apiB provided by appB / svcSB consumes apiB.
         var clientB = await Fx.CreateAuthenticatedClientAsync(OrgBUser);
         var teamB = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgBUser), "Graph Iso Derived B");
-        var svcTB = await SeedServiceAsync(clientB, teamB, "iso-provider-b");
-        // orgB has no visibility into orgA's api, so this simply seeds unrelated orgB data;
-        // no derived edge can legitimately link across tenants regardless.
-        _ = svcTB;
+        var svcSB = await SeedServiceAsync(clientB, teamB, "iso-consumer-b");
+        var svcTB = await SeedServiceAsync(clientB, teamB, "iso-provider-instance-b");
+        var appB = await SeedApplicationAsync(clientB, teamB, "Iso App B");
+        var apiB = await SeedApiAsync(clientB, teamB, "Iso API B");
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(clientB, EntityKind.Service, svcTB, RelationshipType.InstanceOf, EntityKind.Application, appB)).StatusCode);
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(clientB, EntityKind.Application, appB, RelationshipType.ProvidesApiFor, EntityKind.Api, apiB)).StatusCode);
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(clientB, EntityKind.Service, svcSB, RelationshipType.ConsumesApiFrom, EntityKind.Api, apiB)).StatusCode);
 
-        var resp = await clientA.GetAsync($"/api/v1/catalog/graph?entityKind=Service&entityId={svcS}&depth=2&direction=all");
+        // Tenant A: appA / svcTA instance-of appA / apiA provided by appA / svcSA consumes apiA.
+        var clientA = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamA = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Graph Iso Derived A");
+        var svcSA = await SeedServiceAsync(clientA, teamA, "iso-consumer-a");
+        var svcTA = await SeedServiceAsync(clientA, teamA, "iso-provider-instance-a");
+        var appA = await SeedApplicationAsync(clientA, teamA, "Iso App A");
+        var apiA = await SeedApiAsync(clientA, teamA, "Iso API A");
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(clientA, EntityKind.Service, svcTA, RelationshipType.InstanceOf, EntityKind.Application, appA)).StatusCode);
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(clientA, EntityKind.Application, appA, RelationshipType.ProvidesApiFor, EntityKind.Api, apiA)).StatusCode);
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(clientA, EntityKind.Service, svcSA, RelationshipType.ConsumesApiFrom, EntityKind.Api, apiA)).StatusCode);
+
+        var resp = await clientA.GetAsync($"/api/v1/catalog/graph?entityKind=service&entityId={svcSA}&depth=2&direction=all");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
         var graph = await resp.Content.ReadFromJsonAsync<GraphResponse>(KartovaApiFixtureBase.WireJson);
-        Assert.AreEqual(0, graph!.DerivedEdges.Count);
+
+        Assert.AreEqual(1, graph!.DerivedEdges.Count, "tenant A must see exactly its own derived edge");
+        var derived = graph.DerivedEdges.Single();
+        Assert.AreEqual(svcSA, derived.Source.Id);
+        Assert.AreEqual(svcTA, derived.Target.Id);
+
+        var leakedIds = new[] { svcSB, svcTB, appB, apiB };
+        Assert.IsFalse(graph.Nodes.Any(n => leakedIds.Contains(n.Id)),
+            "no tenant-B node should leak into tenant A's graph nodes");
+        Assert.IsFalse(graph.DerivedEdges.Any(e => leakedIds.Contains(e.Source.Id) || leakedIds.Contains(e.Target.Id)),
+            "no tenant-B id should appear in tenant A's derived edges");
     }
 }
