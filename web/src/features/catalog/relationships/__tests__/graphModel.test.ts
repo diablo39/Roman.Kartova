@@ -97,3 +97,55 @@ describe("toGraphModel", () => {
     expect(parseEntityRef("api:")).toBeNull();
   });
 });
+
+describe("toGraphModel derived edges", () => {
+  it("adds dashed edge + node for a derived dependency (focused → other)", () => {
+    const m = toGraphModel(focused, [], {
+      dependencies: [{ serviceId: "t9", displayName: "Provider", label: "via Orders API" }],
+      dependents: [],
+    });
+    const other = m.nodes.find((n) => n.id === "service:t9")!;
+    expect(other.data.side).toBe("dependency");
+    const edge = m.edges.find((e) => e.derived)!;
+    expect(edge.id).toBe("service:s1->service:t9:derived");
+    expect(edge.source).toBe("service:s1");
+    expect(edge.target).toBe("service:t9");
+    expect(edge.label).toBe("via Orders API");
+  });
+
+  it("adds dashed edge + node for a derived dependent (other → focused)", () => {
+    const m = toGraphModel(focused, [], {
+      dependencies: [],
+      dependents: [{ serviceId: "s9", displayName: "Consumer", label: "via Payments API" }],
+    });
+    const other = m.nodes.find((n) => n.id === "service:s9")!;
+    expect(other.data.side).toBe("dependent");
+    const edge = m.edges.find((e) => e.derived)!;
+    expect(edge.id).toBe("service:s9->service:s1:derived");
+    expect(edge.source).toBe("service:s9");
+    expect(edge.target).toBe("service:s1");
+  });
+
+  it("does not add a self-edge when a derived neighbour is the focused entity itself", () => {
+    const m = toGraphModel(focused, [], {
+      dependencies: [{ serviceId: "s1", displayName: "Me", label: "via Orders API" }],
+      dependents: [],
+    });
+    expect(m.edges.some((e) => e.derived)).toBe(false);
+    expect(m.nodes).toHaveLength(1);
+  });
+
+  it("dedupes a derived neighbour already present as a persisted neighbour, still adding the derived edge", () => {
+    const m = toGraphModel(
+      focused,
+      [rel({ id: "out", source: { kind: "service", id: "s1", displayName: "Me" }, target: { kind: "service", id: "s2", displayName: "AuthService" } })],
+      {
+        dependencies: [{ serviceId: "s2", displayName: "AuthService", label: "via Orders API" }],
+        dependents: [],
+      },
+    );
+    expect(m.nodes.filter((n) => n.id === "service:s2")).toHaveLength(1);
+    expect(m.edges.filter((e) => e.derived)).toHaveLength(1);
+    expect(m.edges).toHaveLength(2);
+  });
+});

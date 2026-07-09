@@ -4,12 +4,18 @@ import { ReactFlow, Background, type Node, type Edge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
 import { useRelationshipsList } from "@/features/catalog/api/relationships";
+import { useDerivedDependencies, type DerivedDependencyItem } from "@/features/catalog/api/derivedDependencies";
 import { toGraphModel, type FocusedEntity, type GraphNodeData } from "@/features/catalog/relationships/graphModel";
 import { EntityGraphNode } from "@/features/catalog/components/EntityGraphNode";
 import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
 
 const NODE_TYPES = { entity: EntityGraphNode };
 const GRAPH_LIMIT = 50;
+
+function derivedLabel(paths: DerivedDependencyItem["paths"]): string {
+  const apiName = paths[0]?.apiName ?? "API";
+  return paths.length <= 1 ? `via ${apiName}` : `via ${apiName} +${paths.length - 1}`;
+}
 
 interface Props {
   entityKind: RelationshipKind;
@@ -20,11 +26,22 @@ interface Props {
 export function DependencyMiniGraph({ entityKind, entityId, displayName }: Props) {
   const navigate = useNavigate();
   const list = useRelationshipsList({ entityKind, entityId, direction: "all", limit: GRAPH_LIMIT });
+  const derivedQuery = useDerivedDependencies(entityId, { enabled: entityKind === "service" });
 
   const model = useMemo(() => {
     const focused: FocusedEntity = { kind: entityKind, id: entityId, displayName };
-    return toGraphModel(focused, list.items ?? []);
-  }, [list.items, entityKind, entityId, displayName]);
+    const derived = derivedQuery.data
+      ? {
+          dependencies: derivedQuery.data.dependencies.map((d) => ({
+            serviceId: d.serviceId, displayName: d.displayName, label: derivedLabel(d.paths),
+          })),
+          dependents: derivedQuery.data.dependents.map((d) => ({
+            serviceId: d.serviceId, displayName: d.displayName, label: derivedLabel(d.paths),
+          })),
+        }
+      : undefined;
+    return toGraphModel(focused, list.items ?? [], derived);
+  }, [list.items, entityKind, entityId, displayName, derivedQuery.data]);
 
   return (
     <section className="space-y-2" aria-label="Dependency graph">
@@ -45,7 +62,10 @@ export function DependencyMiniGraph({ entityKind, entityId, displayName }: Props
           <div className="h-80 w-full overflow-hidden rounded-lg ring-1 ring-secondary">
             <ReactFlow
               nodes={model.nodes as Node[]}
-              edges={model.edges as Edge[]}
+              edges={model.edges.map((e) => ({
+                ...e,
+                ...(e.derived ? { style: { strokeDasharray: "6 4", stroke: "var(--color-fg-quaternary, #98A2B3)" } } : {}),
+              })) as Edge[]}
               nodeTypes={NODE_TYPES}
               fitView
               nodesDraggable={false}
@@ -61,6 +81,10 @@ export function DependencyMiniGraph({ entityKind, entityId, displayName }: Props
               <Background />
             </ReactFlow>
           </div>
+          <p className="text-xs text-tertiary">
+            <span className="mr-3">— explicit</span>
+            <span className="font-mono">- - derived</span>
+          </p>
           {list.hasNext && (
             <p className="text-xs text-tertiary">
               Showing the first {GRAPH_LIMIT} relationships — see the tables below for the full list.

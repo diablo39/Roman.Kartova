@@ -24,11 +24,14 @@ export type GraphNode = {
   data: GraphNodeData;
 };
 
-export type GraphEdge = { id: string; source: string; target: string; label: string };
+export type GraphEdge = { id: string; source: string; target: string; label: string; derived?: boolean };
 
 export type GraphModel = { nodes: GraphNode[]; edges: GraphEdge[] };
 
 export type FocusedEntity = { kind: RelationshipKind; id: string; displayName: string };
+
+export type DerivedNeighbour = { serviceId: string; displayName: string; label: string };
+export type DerivedDependencySets = { dependencies: DerivedNeighbour[]; dependents: DerivedNeighbour[] };
 
 const nodeId = (kind: string, id: string) => `${kind}:${id}`;
 
@@ -36,7 +39,11 @@ const nodeId = (kind: string, id: string) => `${kind}:${id}`;
 const COL_X: Record<GraphSide, number> = { dependent: 0, focused: 320, dependency: 640 };
 const ROW_GAP = 90;
 
-export function toGraphModel(focused: FocusedEntity, relationships: RelationshipResponse[]): GraphModel {
+export function toGraphModel(
+  focused: FocusedEntity,
+  relationships: RelationshipResponse[],
+  derived?: DerivedDependencySets,
+): GraphModel {
   const focusedId = nodeId(focused.kind, focused.id);
   const neighbours = new Map<string, GraphNodeData>();
   const edges: GraphEdge[] = [];
@@ -68,6 +75,22 @@ export function toGraphModel(focused: FocusedEntity, relationships: Relationship
       target: nodeId(r.target.kind, r.target.id),
       label: relationshipTypeLabel[r.type as CreatableRelationshipType] ?? r.type,
     });
+  }
+
+  if (derived) {
+    const addDerived = (n: DerivedNeighbour, side: GraphSide, source: string, target: string) => {
+      const otherId = nodeId("service", n.serviceId);
+      if (otherId === focusedId) return; // no self-edge (Compute already excludes S==T, but guard anyway)
+      if (!neighbours.has(otherId)) {
+        neighbours.set(otherId, { kind: "service", entityId: n.serviceId, displayName: n.displayName, side });
+      }
+      const id = `${source}->${target}:derived`;
+      if (!edges.some((e) => e.id === id)) {
+        edges.push({ id, source, target, label: n.label, derived: true });
+      }
+    };
+    for (const d of derived.dependencies) addDerived(d, "dependency", focusedId, nodeId("service", d.serviceId));
+    for (const d of derived.dependents) addDerived(d, "dependent", nodeId("service", d.serviceId), focusedId);
   }
 
   const nodes: GraphNode[] = [

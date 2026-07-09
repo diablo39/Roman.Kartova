@@ -25,6 +25,7 @@ vi.mock("@xyflow/react", () => ({
 
 import { DependencyMiniGraph } from "@/features/catalog/components/DependencyMiniGraph";
 import * as api from "@/features/catalog/api/relationships";
+import * as derivedApi from "@/features/catalog/api/derivedDependencies";
 
 function listResult(items: Partial<api.RelationshipResponse>[], extra: Record<string, unknown> = {}) {
   return { items, isLoading: false, isError: false, hasNext: false, hasPrev: false, goNext: vi.fn(), goPrev: vi.fn(), ...extra } as never;
@@ -45,6 +46,9 @@ function renderGraph() {
 beforeEach(() => {
   vi.restoreAllMocks();
   navigate.mockReset();
+  vi.spyOn(derivedApi, "useDerivedDependencies").mockReturnValue({
+    data: undefined, isLoading: false, isError: false,
+  } as never);
 });
 
 it("renders nodes and edges from the relationship list", () => {
@@ -71,6 +75,23 @@ it("shows an overflow note when more relationships exist", () => {
   vi.spyOn(api, "useRelationshipsList").mockReturnValue(listResult(outgoing, { hasNext: true }));
   renderGraph();
   expect(screen.getByText(/see the tables below/i)).toBeInTheDocument();
+});
+
+it("merges derived dependency as an extra dashed edge", () => {
+  vi.spyOn(api, "useRelationshipsList").mockReturnValue(listResult(outgoing)); // focused + 1 persisted neighbour
+  vi.spyOn(derivedApi, "useDerivedDependencies").mockReturnValue({
+    data: {
+      dependencies: [{
+        serviceId: "s3", displayName: "PaymentsService", teamId: null,
+        paths: [{ apiId: "a1", apiName: "Orders API", viaApplicationId: null, viaApplicationDisplayName: null }],
+      }],
+      dependents: [],
+    },
+    isLoading: false, isError: false,
+  } as never);
+  renderGraph();
+  expect(screen.getByTestId("node-count")).toHaveTextContent("3"); // focused + persisted + derived neighbour
+  expect(screen.getByTestId("edge-count")).toHaveTextContent("2"); // 1 persisted + 1 derived
 });
 
 it("navigates to a neighbour on node click but not for the focused node", () => {
