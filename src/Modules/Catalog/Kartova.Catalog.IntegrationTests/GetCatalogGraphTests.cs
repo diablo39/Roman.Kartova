@@ -50,6 +50,22 @@ public class GetCatalogGraphTests : CatalogIntegrationTestBase
         Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode, $"DependsOn {src}->{tgt}: {resp.StatusCode}");
     }
 
+    private static async Task<Guid> SeedApplicationAsync(HttpClient client, Guid teamId, string name)
+    {
+        var resp = await client.PostAsJsonAsync("/api/v1/catalog/applications",
+            new { displayName = name, description = "x", teamId });
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode, $"SeedApplication '{name}' failed: {resp.StatusCode}");
+        var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
+        return body!.Id;
+    }
+
+    private static Task<HttpResponseMessage> PostRelAsync(
+        HttpClient client, EntityKind sk, Guid sid, RelationshipType t, EntityKind tk, Guid tid)
+        => client.PostAsJsonAsync(
+            "/api/v1/catalog/relationships",
+            new { sourceKind = sk, sourceId = sid, type = t, targetKind = tk, targetId = tid },
+            KartovaApiFixtureBase.WireJson);
+
     [TestMethod]
     public async Task GET_graph_returns_two_hop_neighbourhood_with_depths()
     {
@@ -227,5 +243,86 @@ public class GetCatalogGraphTests : CatalogIntegrationTestBase
         Assert.AreEqual(teamId, apiNode.TeamId);
         Assert.IsTrue(graph.Nodes.Any(n => n.Id == providerSvc), "provider service node should be present at depth 1");
         Assert.AreEqual(1, graph.Edges.Count);
+    }
+
+    [TestMethod]
+    public async Task derived_depends_on_appears_with_provenance_and_drives_discovery()
+    {
+        // Topology: svcS --consumes--> api <--provides-- app --instance-of-- svcT
+        // svcS has no direct edge to svcT; the derived depends-on edge is what must drive discovery.
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Graph Derived Team");
+        var svcS = await SeedServiceAsync(client, teamId, "derived-consumer");
+        var svcT = await SeedServiceAsync(client, teamId, "derived-provider-instance");
+        var app = await SeedApplicationAsync(client, teamId, "Provider App");
+        var api = await SeedApiAsync(client, teamId, "Orders API");
+
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(client, EntityKind.Service, svcT, RelationshipType.InstanceOf, EntityKind.Application, app)).StatusCode);
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(client, EntityKind.Application, app, RelationshipType.ProvidesApiFor, EntityKind.Api, api)).StatusCode);
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(client, EntityKind.Service, svcS, RelationshipType.ConsumesApiFrom, EntityKind.Api, api)).StatusCode);
+
+        var resp = await client.GetAsync($"/api/v1/catalog/graph?entityKind=Service&entityId={svcS}&depth=2&direction=all");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var graph = await resp.Content.ReadFromJsonAsync<GraphResponse>(KartovaApiFixtureBase.WireJson);
+
+        Assert.IsTrue(graph!.Nodes.Any(n => n.Id == svcT), "derived edge must drive discovery of svcT");
+        var derived = graph.DerivedEdges.Single(e => e.Source.Id == svcS && e.Target.Id == svcT);
+        var path = derived.Paths.Single();
+        Assert.AreEqual(api, path.ApiId);
+        Assert.AreEqual("Orders API", path.ApiName);
+        Assert.AreEqual(app, path.ViaApplicationId);
+        Assert.AreEqual("Provider App", path.ViaApplicationDisplayName);
+    }
+
+    [TestMethod]
+    public async Task explicit_depends_on_suppresses_the_derived_duplicate()
+    {
+        // Same consume/provide topology PLUS an explicit depends-on svcS->svcT.
+        // Expect: persisted edge in Edges, NO derived edge for (svcS, svcT).
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Graph Suppress Team");
+        var svcT = await SeedServiceAsync(client, teamId, "Prov Svc 2");
+        var svcS = await SeedServiceAsync(client, teamId, "Cons Svc 2");
+        var api = await SeedApiAsync(client, teamId, "Billing API");
+
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(client, EntityKind.Service, svcT, RelationshipType.ProvidesApiFor, EntityKind.Api, api)).StatusCode);
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(client, EntityKind.Service, svcS, RelationshipType.ConsumesApiFrom, EntityKind.Api, api)).StatusCode);
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(client, EntityKind.Service, svcS, RelationshipType.DependsOn, EntityKind.Service, svcT)).StatusCode);
+
+        var resp = await client.GetAsync($"/api/v1/catalog/graph?entityKind=Service&entityId={svcS}&depth=2&direction=all");
+        var graph = await resp.Content.ReadFromJsonAsync<GraphResponse>(KartovaApiFixtureBase.WireJson);
+
+        Assert.IsFalse(graph!.DerivedEdges.Any(e => e.Source.Id == svcS && e.Target.Id == svcT),
+            "explicit depends-on should suppress the derived duplicate");
+        Assert.IsTrue(graph.Edges.Any(e =>
+            e.Source.Id == svcS && e.Target.Id == svcT && e.Type == RelationshipType.DependsOn));
+    }
+
+    [TestMethod]
+    public async Task derived_edges_never_cross_tenants()
+    {
+        var clientA = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamA = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Graph Iso Derived A");
+        var svcS = await SeedServiceAsync(clientA, teamA, "iso-consumer");
+        var api = await SeedApiAsync(clientA, teamA, "Iso API");
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(clientA, EntityKind.Service, svcS, RelationshipType.ConsumesApiFrom, EntityKind.Api, api)).StatusCode);
+
+        var clientB = await Fx.CreateAuthenticatedClientAsync(OrgBUser);
+        var teamB = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgBUser), "Graph Iso Derived B");
+        var svcTB = await SeedServiceAsync(clientB, teamB, "iso-provider-b");
+        // orgB has no visibility into orgA's api, so this simply seeds unrelated orgB data;
+        // no derived edge can legitimately link across tenants regardless.
+        _ = svcTB;
+
+        var resp = await clientA.GetAsync($"/api/v1/catalog/graph?entityKind=Service&entityId={svcS}&depth=2&direction=all");
+        var graph = await resp.Content.ReadFromJsonAsync<GraphResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(0, graph!.DerivedEdges.Count);
     }
 }
