@@ -38,7 +38,7 @@
 **E-01.F-02: CI/CD Pipeline**
 - [ ] E-01.F-02.S-01 — CI pipeline (build, test, lint)
 - [ ] E-01.F-02.S-02 — CD pipeline to staging
-- [ ] E-01.F-02.S-03 — End-to-end test infrastructure (checked-in Playwright suite)
+- [x] E-01.F-02.S-03 — End-to-end test infrastructure (checked-in Playwright suite): compose-orchestrated Playwright suite: rootless web container, real-UI-login-per-test, per-test pg drift fixture; 3 journeys smoke/lifecycle-override/relationship-drift; nightly+dispatch CI; relationship read-hardening query filter; gate 10 retargeted
 
 **E-01.F-03: Database Foundation**
 - [x] E-01.F-03.S-01 — Multi-tenant database schema with tenant isolation
