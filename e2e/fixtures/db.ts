@@ -1,5 +1,10 @@
 import { Client } from "pg";
 
+// These mirror .NET-side sources of truth that a TS project can't import across
+// the language boundary — keep in sync:
+//   ORG_A_TENANT      → SeededOrgs.OrgA / DevSeed.OrgATenantId
+//   role/password     → PostgresTestBootstrap.BypassRole / BypassPassword
+//                       (compose wires the same into ConnectionStrings__KartovaBypass)
 const ORG_A_TENANT = "11111111-1111-1111-1111-111111111111";
 const CONN =
   process.env.E2E_PG_URL ??

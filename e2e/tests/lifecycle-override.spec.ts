@@ -1,22 +1,15 @@
 import { test, expect } from "@playwright/test";
 import { login } from "../fixtures/auth";
+import { APP_DETAIL_URL, findFixtureAppLink } from "../fixtures/nav";
 
 test("lifecycle: override-holder can reach the sunset-override checkbox before sunset", async ({ page }) => {
   await login(page);
 
-  // DevSeed has 120 apps ("A App 000".."Z App NNN") sorted displayName asc; the
-  // fixture ("E2E Sunset Override Fixture") sorts after all "E App ..." rows
-  // (space < '2' in ASCII) so it isn't on page 1. Use the list's search filter
-  // (FilterBar text control, aria-label "Search applications") to reach it via
-  // an in-SPA row click — never page.goto the detail URL directly (cold-load
-  // deep links bounce, bug #47).
-  await page.getByRole("textbox", { name: "Search applications" }).fill("E2E Sunset Override Fixture");
-  await page.keyboard.press("Enter");
-
-  const link = page.getByRole("link", { name: "E2E Sunset Override Fixture" });
-  await expect(link).toBeVisible();
+  // In-SPA navigate to the deprecated+future-sunset fixture app (see nav.ts for
+  // why filter-then-click rather than a deep-link goto).
+  const link = await findFixtureAppLink(page);
   await link.click();
-  await expect(page).toHaveURL(/\/catalog\/applications\/[0-9a-f-]+$/);
+  await expect(page).toHaveURL(APP_DETAIL_URL);
 
   // Open the lifecycle dropdown (LifecycleMenu trigger).
   await page.getByRole("button", { name: "Open lifecycle menu" }).click();

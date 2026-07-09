@@ -170,7 +170,7 @@ internal static class DevSeed
             }
 
             // Deterministic fixture for the E2E lifecycle-override journey: a Deprecated
-            // (lifecycle=2) app with a far-future sunset_date so an override-holding
+            // app with a far-future sunset_date so an override-holding
             // OrgAdmin sees the "Override sunset date" checkbox in the Decommission
             // dialog. Placed outside the `existing == 0` guard above (and thus runs on
             // every DevSeed invocation, not just first-seed) so it stays present even
@@ -181,7 +181,7 @@ internal static class DevSeed
             fixtureCmd.CommandText = """
                 INSERT INTO catalog_applications
                     (id, tenant_id, display_name, description, created_by_user_id, team_id, created_at, lifecycle, sunset_date)
-                VALUES ($1, $2, $3, $4, $5, $6, now(), 2, TIMESTAMPTZ '2099-01-01T00:00:00Z')
+                VALUES ($1, $2, $3, $4, $5, $6, now(), $7, TIMESTAMPTZ '2099-01-01T00:00:00Z')
                 ON CONFLICT (id) DO NOTHING;
                 """;
             fixtureCmd.Parameters.AddWithValue(Guid.Parse("e2e00000-0000-0000-0000-000000000001"));
@@ -190,6 +190,9 @@ internal static class DevSeed
             fixtureCmd.Parameters.AddWithValue("Deprecated app with far-future sunset date, seeded for the E2E lifecycle-override journey.");
             fixtureCmd.Parameters.AddWithValue(TeamAdminUserId);
             fixtureCmd.Parameters.AddWithValue(DemoTeamId);
+            // lifecycle column (smallint) — use the pinned enum, not a magic literal
+            // (mirrors the (byte)TeamRoleKind.Admin cast above; Lifecycle values are load-bearing).
+            fixtureCmd.Parameters.AddWithValue((short)Kartova.Catalog.Domain.Lifecycle.Deprecated);
             var fixtureRows = await fixtureCmd.ExecuteNonQueryAsync();
             logger.LogInformation("Dev seed: E2E sunset-override fixture app {Result}.", fixtureRows == 1 ? "inserted" : "already present");
         }

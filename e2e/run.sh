@@ -5,19 +5,22 @@ cd "$(dirname "$0")/.."   # repo root
 echo "==> Bringing up the stack (pg, keycloak, migrator, api, web)"
 docker compose up -d --build postgres keycloak-db keycloak migrator api web
 
+# Poll a URL until it responds or the attempt budget is exhausted.
+wait_for() {  # wait_for <url> <tries> <label>
+  local url=$1 tries=$2 label=$3
+  for ((i = 1; i <= tries; i++)); do
+    curl -sf "$url" >/dev/null && return 0
+    sleep 2
+  done
+  echo "$label not ready after $((tries * 2))s"
+  return 1
+}
+
 echo "==> Waiting for API readiness"
-for i in $(seq 1 60); do
-  curl -sf http://localhost:8080/health/ready >/dev/null && break
-  sleep 2
-  [ "$i" = 60 ] && { echo "API not ready"; docker compose logs api; exit 1; }
-done
+wait_for http://localhost:8080/health/ready 60 "API" || { docker compose logs api; exit 1; }
 
 echo "==> Waiting for web"
-for i in $(seq 1 30); do
-  curl -sf http://localhost:4173/ >/dev/null && break
-  sleep 2
-  [ "$i" = 30 ] && { echo "web not ready"; exit 1; }
-done
+wait_for http://localhost:4173/ 30 "web" || exit 1
 
 echo "==> Running Playwright"
 cd e2e
