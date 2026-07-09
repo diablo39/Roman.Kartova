@@ -23,15 +23,19 @@ test("drift: an unmappable relationship.type does not 500 the relationships surf
     await expect(page).toHaveURL(APP_DETAIL_URL);
     expect((await relationshipsResponse).status()).toBe(200);
 
-    // RelationshipsSection renders as <section aria-label="Relationships">
-    // (group headings are "Outgoing" / "Incoming", not a literal "Relationships"
-    // heading) — anchor on the region landmark + a group heading, and assert no
-    // error surface. The drift row is a self-referential edge on the fixture app,
-    // so it would surface as an extra row if the filter failed to exclude it.
+    // RelationshipsSection renders as <section aria-label="Relationships"> with
+    // group headings "Outgoing" / "Incoming" (no literal "Relationships" heading).
     await expect(page.getByRole("region", { name: "Relationships" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Outgoing" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Incoming" })).toBeVisible();
     await expect(page.getByText(/couldn.?t load relationships|something went wrong|failed to load/i)).toHaveCount(0);
+
+    // Exclusion, not just no-500: the fixture app has no real relationships, and
+    // the injected drift edge is a self-referential PartOf row — so it MUST NOT
+    // appear as an outgoing row. Assert the empty-state copy is shown. This guards
+    // the class where a broken filter maps unknown types to a default (no 500) but
+    // still leaks the row into the UI — which the status-200 check alone would miss.
+    await expect(page.getByText("No outgoing relationships.")).toBeVisible();
   } finally {
     await cleanup();
   }

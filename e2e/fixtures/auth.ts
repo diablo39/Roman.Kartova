@@ -4,10 +4,11 @@ const KC_USER = process.env.E2E_USER ?? "admin@orga.kartova.local";
 const KC_PASS = process.env.E2E_PASS ?? "dev_password_12";
 
 /**
- * Log in through the real Keycloak login page. Always lands on "/" first —
- * never deep-links (cold-load deep links bounce, bug #47) — then drives the
- * live Keycloak login form and waits for the SPA to land back on the
- * catalog applications list.
+ * Log in through the real Keycloak login page. Starts at "/" (the app root)
+ * and drives the live Keycloak login form, then waits for the SPA to land on
+ * the catalog applications list. (Deep-link cold-loads are fine — the OIDC
+ * returnTo round-trip that fixed #47 predates this work — but this helper only
+ * needs the root, so it starts there.)
  *
  * Selectors confirmed against the live Keycloak login page (kartova realm,
  * default theme): the form fields are PatternFly inputs with plain `id`

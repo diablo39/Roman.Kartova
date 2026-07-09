@@ -79,8 +79,9 @@ per-environment URL configuration for real deployments (see Consequences).
 A shared `login()` fixture (`e2e/fixtures/auth.ts`) drives the actual
 Keycloak login page with `admin@orga.kartova.local` / `dev_password_12` on
 every test, landing on `/`, completing the OIDC redirect, and returning to
-`/` before in-SPA navigation (working around the known deep-link cold-load
-bounce, tracked separately as bug #47). This was chosen over
+`/` before in-SPA navigation. (The login helper starts at `/` for simplicity;
+deep-link cold-loads themselves are fine — the OIDC `returnTo` round-trip that
+fixed #47 predates this work.) This was chosen over
 storageState/token reuse because `oidc-client-ts` persists the session in
 `sessionStorage`, which Playwright's `storageState` mechanism does not
 capture, and a ROPC shortcut would require client changes purely to serve

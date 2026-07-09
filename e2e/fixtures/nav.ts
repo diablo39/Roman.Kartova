@@ -17,11 +17,11 @@ export const APP_DETAIL_URL = /\/catalog\/applications\/[0-9a-f-]+$/;
  * filter, returning the row link **without clicking it** (the caller clicks, so
  * a spec can register a `waitForResponse` before the navigation fires).
  *
- * Why filter-then-click instead of `page.goto`: DevSeed seeds 120 apps
- * ("A App 000".."Z App NNN") sorted displayName asc, so a fixture named
- * "E2E ..." sorts past list page 1; and cold-load deep links bounce (bug #47).
- * The list's FilterBar text control (aria-label "Search applications") plus an
- * in-SPA row click is the reliable path.
+ * Uses the list's FilterBar text control (aria-label "Search applications") to
+ * locate the row by name, then an in-SPA click. Deep-link `page.goto` would also
+ * work (the #47 returnTo round-trip is in place), and the fixture currently sits
+ * on list page 1 — but filtering by name is pagination- and sort-order-
+ * independent, so it stays reliable as DevSeed's app set grows or reorders.
  */
 export async function findFixtureAppLink(page: Page, name: string = FIXTURE_APP_NAME): Promise<Locator> {
   await page.getByRole("textbox", { name: "Search applications" }).fill(name);

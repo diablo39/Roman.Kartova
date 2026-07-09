@@ -20,7 +20,7 @@ echo "==> Waiting for API readiness"
 wait_for http://localhost:8080/health/ready 60 "API" || { docker compose logs api; exit 1; }
 
 echo "==> Waiting for web"
-wait_for http://localhost:4173/ 30 "web" || exit 1
+wait_for http://localhost:4173/ 30 "web" || { docker compose logs web; exit 1; }
 
 echo "==> Running Playwright"
 cd e2e
