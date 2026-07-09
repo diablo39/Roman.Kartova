@@ -60,7 +60,7 @@ export function mergeGraphs(results: GraphResponse[]): ExplorerGraph {
       const target = nodeId(d.target.kind, d.target.id);
       const id = `${source}->${target}:derived`;
       if (edges.has(id)) continue;
-      const apiNames = d.paths.map((p) => p.apiName);
+      const apiNames = [...new Set(d.paths.map((p) => p.apiName))];
       const label =
         apiNames.length === 1
           ? `depends on · via ${apiNames[0]}`
@@ -71,6 +71,8 @@ export function mergeGraphs(results: GraphResponse[]): ExplorerGraph {
         target,
         label,
         derived: true,
+        // Full per-path provenance is carried for B2's DerivedDependenciesSection (per-API/app expander);
+        // B1's explorer surfaces the summary via the compact label above.
         provenance: d.paths.map((p) => ({ apiName: p.apiName, viaAppName: p.viaApplicationDisplayName })),
       });
     }

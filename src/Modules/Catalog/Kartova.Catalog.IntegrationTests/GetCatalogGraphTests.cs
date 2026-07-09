@@ -278,6 +278,37 @@ public class GetCatalogGraphTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
+    public async Task derived_edge_drives_incoming_directional_discovery()
+    {
+        // Topology: svcS --consumes--> api <--provides-- app --instance-of-- svcT
+        // Focus on the PROVIDER svcT with direction=incoming: the derived S->T edge is the only
+        // path back to svcS, so svcS must be discovered and the derived edge reported.
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Graph Derived Incoming Team");
+        var svcS = await SeedServiceAsync(client, teamId, "derived-incoming-consumer");
+        var svcT = await SeedServiceAsync(client, teamId, "derived-incoming-provider-instance");
+        var app = await SeedApplicationAsync(client, teamId, "Incoming Provider App");
+        var api = await SeedApiAsync(client, teamId, "Incoming Orders API");
+
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(client, EntityKind.Service, svcS, RelationshipType.ConsumesApiFrom, EntityKind.Api, api)).StatusCode);
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(client, EntityKind.Service, svcT, RelationshipType.InstanceOf, EntityKind.Application, app)).StatusCode);
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(client, EntityKind.Application, app, RelationshipType.ProvidesApiFor, EntityKind.Api, api)).StatusCode);
+
+        var resp = await client.GetAsync(
+            $"/api/v1/catalog/graph?entityKind=service&entityId={svcT}&depth=2&direction=incoming");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var graph = await resp.Content.ReadFromJsonAsync<GraphResponse>(KartovaApiFixtureBase.WireJson);
+
+        Assert.IsTrue(graph!.Nodes.Any(n => n.Id == svcS),
+            "the derived edge must drive incoming discovery of the consumer svcS");
+        Assert.IsTrue(graph.DerivedEdges.Any(e => e.Source.Id == svcS && e.Target.Id == svcT),
+            "the derived S->T edge must be present when focused on the provider with direction=incoming");
+    }
+
+    [TestMethod]
     public async Task explicit_depends_on_suppresses_the_derived_duplicate()
     {
         // Same consume/provide topology PLUS an explicit depends-on svcS->svcT.

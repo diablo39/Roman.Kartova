@@ -164,6 +164,11 @@ public sealed class GraphTraversalHandler
         return derivedKept.Select(e => new DerivedEdgeDto(
             new GraphEndpointDto(e.Source.Kind, e.Source.Id),
             new GraphEndpointDto(e.Target.Kind, e.Target.Id),
+            // The empty/null fallbacks below are currently UNREACHABLE: apiIds/appIds above are re-derived
+            // from a fresh RLS-scoped query on every request, and there is no Api/Application/Service delete
+            // path today, so a provenance id can never fail to resolve to a name. A future entity-delete slice
+            // MUST revisit this — deleting a referenced Api/Application would otherwise silently render blank
+            // provenance instead of surfacing the dangling reference.
             e.Provenance!.Select(p => new DerivationPathDto(
                 p.ApiId,
                 apiNames.TryGetValue(p.ApiId, out var apiName) ? apiName : string.Empty,
