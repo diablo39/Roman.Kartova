@@ -66,3 +66,55 @@ findings:
     verdict: real
     title: "[T10] unrequested concurrency block added to e2e.yml"
     note: "accepted — consistent with ci.yml style; nightly self-overlap implausible."
+  # ---- Gate 8 (review-pr, 4 lenses) ----
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "comment-analyzer: auth.ts/nav.ts/ADR cite 'bug #47' as active, but #47 was fixed (commit 40ae435) before this branch's base"
+    note: "fixed 8258a49 — deep-link cold-loads work now; corrected the stale justification comments. Caught by gate 8, missed by gates 2+7."
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "comment-analyzer: nav.ts claims fixture 'sorts past page 1' — actually rank ~26 of 120 (page size 50) = ON page 1"
+    note: "fixed 8258a49 — reworded to justify filter-nav as pagination-independent (not required). Behavior unaffected (specs passed either way)."
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "pr-test-analyzer: relationship-drift spec asserted only 200, not row EXCLUSION — a filter mapping unknown→default (no 500) would pass"
+    note: "fixed 8258a49 — added 'No outgoing relationships.' empty-state assertion. Re-verified 3/3."
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "silent-failure: run.sh web-readiness failure didn't dump docker logs (asymmetric with API path)"
+    note: "fixed 8258a49 — added docker compose logs web on failure."
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "silent-failure: db.ts cleanup DELETE doesn't assert rowCount; auth.ts bad-creds surfaces as opaque 30s timeout"
+    note: "accepted — workers:1 serializes DB (leak low-risk); auth failure still fails the test. Non-blocking follow-ups."
+  # ---- Gate 9 (deep-review, opus, spec/plan/ADR cross-ref) ----
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "ADR/spec claim the seam test proves exclusion on all 3 read paths, but only the list path is tested"
+    note: "fixed — narrowed ADR-0113 to 'list proven at seam; graph/api-surface inherit the entity-level filter'; graph/api-surface seam tests = low-value follow-up."
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "ADR-0113 omitted the load-bearing :4173 realm redirectUris + CORS wiring"
+    note: "fixed — added a 'Realm + CORS wiring for the :4173 origin' subsection to the Decision."
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "CHECKLIST marked E-01.F-02.S-03 [x] while dod.md declared verification partial"
+    note: "fixed — annotated CHECKLIST with true gate status (1-5,7-10 green; 6 waived; 11 pending push)."
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "dod.md/gate-findings head pinned 3f08131 while branch HEAD advanced (b66e2f6, 8258a49)"
+    note: "fixed — ledger head bumped to 8258a49."
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "spec §2 + plan Task 10 still carry pre-correction framing (bug #47 active; add e2e to ci.yml)"
+    note: "left as-is — specs/plans are point-in-time historical records (prior-slice practice); the authoritative ADR + shipped code are corrected."

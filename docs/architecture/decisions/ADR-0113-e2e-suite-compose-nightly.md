@@ -123,10 +123,29 @@ where `KnownRelationshipTypes = Enum.GetValues<RelationshipType>()`. Unknown-
 `GraphTraversalHandler`, `GetApiSurfaceHandler` — without touching any of
 those handlers individually. No existing `HasQueryFilter` was present on
 this entity; tenant scoping is enforced via RLS (`SET LOCAL
-app.current_tenant_id`), so there is no filter-composition conflict. A
-backend integration test (`Kartova.Catalog.IntegrationTests`) proves the
-same exclusion at the seam, independent of the E2E suite's top-of-stack
-proof.
+app.current_tenant_id`), so there is no filter-composition conflict. Because
+the filter is applied at entity-config scope, all three read handlers inherit
+it uniformly — a backend integration test (`RelationshipTypeHardeningTests`)
+proves exclusion at the seam via the **list** path; the graph and api-surface
+handlers inherit the same entity-level filter (a dedicated seam test for each
+is a low-value follow-up, tracked in the slice's DoD ledger). The E2E suite
+provides the independent top-of-stack proof.
+
+### Realm + CORS wiring for the :4173 origin
+
+Because the web container serves on `http://localhost:4173` (not the dev
+server's 5173), the suite also required two supporting changes, both recorded
+here so a future reader debugging ":4173" finds the rationale:
+
+- **Keycloak realm** (`deploy/keycloak/kartova-realm.json`, `kartova-web`
+  client): added `http://localhost:4173/callback` + `/silent-callback` to
+  `redirectUris`, `http://localhost:4173` to `webOrigins`, and `4173/*` to
+  `post.logout.redirect.uris` (5173 entries kept). Without these the OIDC
+  redirect is rejected as an invalid `redirect_uri`.
+- **API CORS** (`docker-compose.yml`): `Cors__AllowedOrigins__1:
+  http://localhost:4173` appends 4173 as array index 1 on top of the
+  appsettings index-0 (5173) via ASP.NET Core config-provider array binding —
+  additive, leaving `CorsTests` (index 0) valid.
 
 ### Three journeys, thin per `docs/TESTING-STRATEGY.md`
 
