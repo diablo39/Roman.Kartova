@@ -3,6 +3,7 @@ import {
   toGraphModel,
   parseEntityRef,
   entityDetailPath,
+  derivedViaLabel,
   ENTITY_KIND_LABEL,
   type FocusedEntity,
 } from "@/features/catalog/relationships/graphModel";
@@ -95,6 +96,24 @@ describe("toGraphModel", () => {
   it("rejects a token missing the id", () => {
     expect(parseEntityRef("api")).toBeNull();
     expect(parseEntityRef("api:")).toBeNull();
+  });
+});
+
+describe("derivedViaLabel", () => {
+  it("formats a single distinct api name", () => {
+    expect(derivedViaLabel(["Orders API"])).toBe("via Orders API");
+  });
+
+  it("collapses two paths through the same api to one name (no +1)", () => {
+    expect(derivedViaLabel(["Orders API", "Orders API"])).toBe("via Orders API");
+  });
+
+  it("appends a +N suffix for multiple distinct api names", () => {
+    expect(derivedViaLabel(["Orders API", "Billing API"])).toBe("via Orders API +1");
+  });
+
+  it("dedupes before counting distinct names for the +N suffix", () => {
+    expect(derivedViaLabel(["Orders API", "Orders API", "Billing API"])).toBe("via Orders API +1");
   });
 });
 

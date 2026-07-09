@@ -29,6 +29,18 @@ export function DerivedDependenciesSection({ entityId }: Props) {
   );
 }
 
+function DerivedTableHeader() {
+  return (
+    <Table.Header>
+      <Table.Head id="service" isRowHeader>
+        Service
+      </Table.Head>
+      <Table.Head id="kind">Kind</Table.Head>
+      <Table.Head id="provenance">Via</Table.Head>
+    </Table.Header>
+  );
+}
+
 function DerivedTable({
   title,
   emptyCopy,
@@ -46,13 +58,7 @@ function DerivedTable({
       ) : (
         <div className="overflow-hidden rounded-lg ring-1 ring-secondary">
           <Table aria-label={title}>
-            <Table.Header>
-              <Table.Head id="service" isRowHeader>
-                Service
-              </Table.Head>
-              <Table.Head id="kind">Kind</Table.Head>
-              <Table.Head id="provenance">Via</Table.Head>
-            </Table.Header>
+            <DerivedTableHeader />
             <Table.Body>
               {items.map((i) => (
                 <Table.Row key={i.serviceId} id={i.serviceId}>
@@ -106,13 +112,7 @@ function DerivedDependenciesSkeleton() {
         <div className="space-y-2" key={title}>
           <h3 className="text-sm font-semibold text-primary">{title}</h3>
           <Table aria-label={title}>
-            <Table.Header>
-              <Table.Head id="service" isRowHeader>
-                Service
-              </Table.Head>
-              <Table.Head id="kind">Kind</Table.Head>
-              <Table.Head id="provenance">Via</Table.Head>
-            </Table.Header>
+            <DerivedTableHeader />
             <TableSkeleton rows={2} cells={3} />
           </Table>
         </div>

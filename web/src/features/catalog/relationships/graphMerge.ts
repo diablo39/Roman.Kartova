@@ -4,6 +4,7 @@ import {
   type RelationshipKind,
   type CreatableRelationshipType,
 } from "@/features/catalog/relationships/relationshipTypeRules";
+import { derivedViaLabel } from "@/features/catalog/relationships/graphModel";
 
 export type ExplorerNode = {
   id: string;
@@ -60,11 +61,7 @@ export function mergeGraphs(results: GraphResponse[]): ExplorerGraph {
       const target = nodeId(d.target.kind, d.target.id);
       const id = `${source}->${target}:derived`;
       if (edges.has(id)) continue;
-      const apiNames = [...new Set(d.paths.map((p) => p.apiName))];
-      const label =
-        apiNames.length === 1
-          ? `depends on · via ${apiNames[0]}`
-          : `depends on · via ${apiNames[0]} +${apiNames.length - 1}`;
+      const label = `depends on · ${derivedViaLabel(d.paths.map((p) => p.apiName))}`;
       edges.set(id, {
         id,
         source,

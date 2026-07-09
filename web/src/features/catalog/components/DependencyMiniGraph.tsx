@@ -5,16 +5,24 @@ import "@xyflow/react/dist/style.css";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
 import { useRelationshipsList } from "@/features/catalog/api/relationships";
 import { useDerivedDependencies, type DerivedDependencyItem } from "@/features/catalog/api/derivedDependencies";
-import { toGraphModel, type FocusedEntity, type GraphNodeData } from "@/features/catalog/relationships/graphModel";
+import {
+  toGraphModel,
+  derivedViaLabel,
+  type FocusedEntity,
+  type GraphNodeData,
+} from "@/features/catalog/relationships/graphModel";
 import { EntityGraphNode } from "@/features/catalog/components/EntityGraphNode";
 import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
 
 const NODE_TYPES = { entity: EntityGraphNode };
 const GRAPH_LIMIT = 50;
 
-function derivedLabel(paths: DerivedDependencyItem["paths"]): string {
-  const apiName = paths[0]?.apiName ?? "API";
-  return paths.length <= 1 ? `via ${apiName}` : `via ${apiName} +${paths.length - 1}`;
+function toNeighbour(d: DerivedDependencyItem) {
+  return {
+    serviceId: d.serviceId,
+    displayName: d.displayName,
+    label: derivedViaLabel(d.paths.map((p) => p.apiName)),
+  };
 }
 
 interface Props {
@@ -32,12 +40,8 @@ export function DependencyMiniGraph({ entityKind, entityId, displayName }: Props
     const focused: FocusedEntity = { kind: entityKind, id: entityId, displayName };
     const derived = derivedQuery.data
       ? {
-          dependencies: derivedQuery.data.dependencies.map((d) => ({
-            serviceId: d.serviceId, displayName: d.displayName, label: derivedLabel(d.paths),
-          })),
-          dependents: derivedQuery.data.dependents.map((d) => ({
-            serviceId: d.serviceId, displayName: d.displayName, label: derivedLabel(d.paths),
-          })),
+          dependencies: derivedQuery.data.dependencies.map(toNeighbour),
+          dependents: derivedQuery.data.dependents.map(toNeighbour),
         }
       : undefined;
     return toGraphModel(focused, list.items ?? [], derived);

@@ -130,3 +130,11 @@ export function parseEntityRef(token: string | null | undefined): { kind: Relati
 export function entityDetailPath(kind: RelationshipKind, id: string): string {
   return `/catalog/${ENTITY_PATH_SEGMENT[kind]}/${id}`;
 }
+
+// Shared "via {api}" label for a derived edge: dedupes by distinct api name so a service reachable
+// through the same API twice (e.g. provided directly and via an app) still collapses to one name.
+export function derivedViaLabel(apiNames: string[]): string {
+  const distinct = [...new Set(apiNames)];
+  const first = distinct[0] ?? "API";
+  return distinct.length <= 1 ? `via ${first}` : `via ${first} +${distinct.length - 1}`;
+}

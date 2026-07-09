@@ -9,7 +9,11 @@ vi.mock("react-router-dom", async (importOriginal) => {
 });
 
 vi.mock("@xyflow/react", () => ({
-  ReactFlow: (props: { nodes: { id: string; data: unknown }[]; edges: unknown[]; onNodeClick?: (e: unknown, n: unknown) => void }) => (
+  ReactFlow: (props: {
+    nodes: { id: string; data: unknown }[];
+    edges: { id: string; label: string }[];
+    onNodeClick?: (e: unknown, n: unknown) => void;
+  }) => (
     <div data-testid="rf">
       <span data-testid="node-count">{props.nodes.length}</span>
       <span data-testid="edge-count">{props.edges.length}</span>
@@ -17,6 +21,11 @@ vi.mock("@xyflow/react", () => ({
         <button key={n.id} onClick={() => props.onNodeClick?.({}, n)}>
           {(n.data as { displayName: string }).displayName}
         </button>
+      ))}
+      {props.edges.map((e) => (
+        <span key={e.id} data-testid="edge-label">
+          {e.label}
+        </span>
       ))}
     </div>
   ),
@@ -92,6 +101,26 @@ it("merges derived dependency as an extra dashed edge", () => {
   renderGraph();
   expect(screen.getByTestId("node-count")).toHaveTextContent("3"); // focused + persisted + derived neighbour
   expect(screen.getByTestId("edge-count")).toHaveTextContent("2"); // 1 persisted + 1 derived
+});
+
+it("collapses the derived label to one api name when two paths go through the same api", () => {
+  vi.spyOn(api, "useRelationshipsList").mockReturnValue(listResult([]));
+  vi.spyOn(derivedApi, "useDerivedDependencies").mockReturnValue({
+    data: {
+      dependencies: [{
+        serviceId: "s3", displayName: "PaymentsService", teamId: null,
+        paths: [
+          { apiId: "a1", apiName: "Orders API", viaApplicationId: null, viaApplicationDisplayName: null },
+          { apiId: "a1", apiName: "Orders API", viaApplicationId: "app1", viaApplicationDisplayName: "App 1" },
+        ],
+      }],
+      dependents: [],
+    },
+    isLoading: false, isError: false,
+  } as never);
+  renderGraph();
+  // Bug fix: two paths through the same API must render "via Orders API", not "via Orders API +1".
+  expect(screen.getByTestId("edge-label")).toHaveTextContent("via Orders API");
 });
 
 it("does not fetch derived dependencies for a non-service entity (ADR-0111 §5 service-only)", () => {
