@@ -10,6 +10,7 @@ import { useTeamsList } from "@/features/teams/api/teams";
 import { PROTOCOL_LABEL } from "@/features/catalog/schemas/registerService";
 import { RelationshipsSection } from "@/features/catalog/components/RelationshipsSection";
 import { ApiSurfaceSection } from "@/features/catalog/components/ApiSurfaceSection";
+import { DerivedDependenciesSection } from "@/features/catalog/components/DerivedDependenciesSection";
 
 const DependencyMiniGraph = lazy(() =>
   import("@/features/catalog/components/DependencyMiniGraph").then((m) => ({ default: m.DependencyMiniGraph })),
@@ -123,6 +124,8 @@ export function ServiceDetailPage() {
           </Suspense>
           <hr className="border-secondary" />
           <ApiSurfaceSection entityKind="service" entityId={svc.id} />
+          <hr className="border-secondary" />
+          <DerivedDependenciesSection entityId={svc.id} />
           <hr className="border-secondary" />
           <RelationshipsSection
             entityKind="service"
