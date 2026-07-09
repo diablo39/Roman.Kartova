@@ -179,4 +179,64 @@ public sealed class GetDerivedDependenciesTests : CatalogIntegrationTestBase
         var resp = await otherClient.GetAsync($"/api/v1/catalog/derived-dependencies?entityId={ctx.S}");
         Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
     }
+
+    [TestMethod]
+    public async Task Wrong_kind_id_application_returns_422()
+    {
+        // The endpoint is service-only: a real-but-non-service id resolves absent via
+        // lookup.Find(EntityKind.Service, ...) and hits the same 422 branch as an unknown id.
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Derived Wrong Kind " + Guid.NewGuid());
+        var appId = await SeedApplicationAsync(client, teamId, "derived-wrong-kind-app");
+
+        var resp = await client.GetAsync($"/api/v1/catalog/derived-dependencies?entityId={appId}");
+
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Multiple_neighbours_both_directions_carry_team_id()
+    {
+        // Focus F: two derived dependencies (F consumes Api1 from T1, Api2 from T2) and one derived
+        // dependent (C consumes Api3 provided by F). T1/T2/C share a known team so we can assert the
+        // team join resolved correctly and wasn't swapped between the two directions.
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var focusTeamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Derived Multi Focus " + Guid.NewGuid());
+        var neighbourTeamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Derived Multi Neighbours " + Guid.NewGuid());
+
+        var f = await SeedServiceAsync(client, focusTeamId, "multi-focus");
+        var t1 = await SeedServiceAsync(client, neighbourTeamId, "multi-provider-1");
+        var t2 = await SeedServiceAsync(client, neighbourTeamId, "multi-provider-2");
+        var c = await SeedServiceAsync(client, neighbourTeamId, "multi-consumer");
+        var api1 = await SeedApiAsync(client, neighbourTeamId, "multi-api-1");
+        var api2 = await SeedApiAsync(client, neighbourTeamId, "multi-api-2");
+        var api3 = await SeedApiAsync(client, focusTeamId, "multi-api-3");
+
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(client, EntityKind.Service, t1, RelationshipType.ProvidesApiFor, EntityKind.Api, api1)).StatusCode);
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(client, EntityKind.Service, f, RelationshipType.ConsumesApiFrom, EntityKind.Api, api1)).StatusCode);
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(client, EntityKind.Service, t2, RelationshipType.ProvidesApiFor, EntityKind.Api, api2)).StatusCode);
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(client, EntityKind.Service, f, RelationshipType.ConsumesApiFrom, EntityKind.Api, api2)).StatusCode);
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(client, EntityKind.Service, f, RelationshipType.ProvidesApiFor, EntityKind.Api, api3)).StatusCode);
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(client, EntityKind.Service, c, RelationshipType.ConsumesApiFrom, EntityKind.Api, api3)).StatusCode);
+
+        var body = await GetAsync(client, f);
+
+        Assert.IsNotNull(body);
+        Assert.AreEqual(2, body!.Dependencies.Count);
+        var depIds = body.Dependencies.Select(d => d.ServiceId).ToList();
+        Assert.IsTrue(depIds.Contains(t1));
+        Assert.IsTrue(depIds.Contains(t2));
+        Assert.IsFalse(depIds.Contains(f), "focus must not depend on itself");
+        Assert.IsTrue(body.Dependents.Count >= 1);
+        Assert.IsTrue(body.Dependents.Any(d => d.ServiceId == c));
+        Assert.IsTrue(
+            body.Dependencies.Concat(body.Dependents).Any(d => d.TeamId == neighbourTeamId),
+            "team join must resolve to the seeded neighbour team on at least one item");
+    }
 }

@@ -133,6 +133,29 @@ it("does not fetch derived dependencies for a non-service entity (ADR-0111 §5 s
   expect(derivedApi.useDerivedDependencies).toHaveBeenCalledWith("a1", { enabled: false });
 });
 
+it("shows a degradation notice when the derived-dependency fetch fails, without dropping the graph", () => {
+  vi.spyOn(api, "useRelationshipsList").mockReturnValue(listResult(outgoing));
+  vi.spyOn(derivedApi, "useDerivedDependencies").mockReturnValue({
+    data: undefined, isLoading: false, isError: true,
+  } as never);
+  renderGraph();
+  expect(screen.getByTestId("rf")).toBeInTheDocument(); // persisted edges still render
+  expect(screen.getByText(/derived dependencies couldn.t be loaded/i)).toBeInTheDocument();
+});
+
+it("does not show the derived-fetch notice for a non-service entity", () => {
+  vi.spyOn(api, "useRelationshipsList").mockReturnValue(listResult(outgoing));
+  vi.spyOn(derivedApi, "useDerivedDependencies").mockReturnValue({
+    data: undefined, isLoading: false, isError: true,
+  } as never);
+  render(
+    <MemoryRouter>
+      <DependencyMiniGraph entityKind="application" entityId="a1" displayName="App" />
+    </MemoryRouter>,
+  );
+  expect(screen.queryByText(/derived dependencies couldn.t be loaded/i)).not.toBeInTheDocument();
+});
+
 it("navigates to a neighbour on node click but not for the focused node", () => {
   vi.spyOn(api, "useRelationshipsList").mockReturnValue(listResult(outgoing));
   renderGraph();

@@ -62,6 +62,18 @@ it("shows empty copy for both tables when there are no derived edges", () => {
   expect(screen.getByText(/nothing derives a dependency on this service/i)).toBeInTheDocument();
 });
 
+it("renders the loading skeleton while the query is in flight", () => {
+  vi.spyOn(api, "useDerivedDependencies").mockReturnValue({
+    data: undefined,
+    isLoading: true,
+    isError: false,
+  } as never);
+  renderSection("svc1");
+  expect(screen.getByRole("region", { name: /derived dependencies/i })).toBeInTheDocument();
+  expect(screen.getAllByRole("columnheader", { name: "Service" }).length).toBeGreaterThan(0);
+  expect(screen.queryByText(/no derived dependencies/i)).not.toBeInTheDocument();
+});
+
 it("shows an error message when the query fails", () => {
   vi.spyOn(api, "useDerivedDependencies").mockReturnValue({
     data: undefined,

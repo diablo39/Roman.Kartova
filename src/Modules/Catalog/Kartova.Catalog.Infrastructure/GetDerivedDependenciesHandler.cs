@@ -37,6 +37,9 @@ public sealed class GetDerivedDependenciesHandler
         foreach (var id in otherIds)
             svc[id] = await lookup.Find(EntityKind.Service, id, ct);
 
+        // Mirrors DerivedProvenanceNames.Map's invariant: otherServiceId came off an RLS-scoped derived-edge
+        // query, so it's in-tenant by construction and Find resolves — the `?? string.Empty`/null fallback below
+        // is defensive/unreachable today; a future service-delete slice must revisit it (see DerivedProvenanceNames.cs).
         DerivedDependencyItem ToItem(Guid otherServiceId, IReadOnlyList<DerivedDependencies.Path> paths)
         {
             var info = svc.GetValueOrDefault(otherServiceId);

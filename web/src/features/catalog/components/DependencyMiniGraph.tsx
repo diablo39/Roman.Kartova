@@ -94,6 +94,9 @@ export function DependencyMiniGraph({ entityKind, entityId, displayName }: Props
               Showing the first {GRAPH_LIMIT} relationships — see the tables below for the full list.
             </p>
           )}
+          {entityKind === "service" && derivedQuery.isError && (
+            <p className="text-xs text-error-primary">Derived dependencies couldn&apos;t be loaded.</p>
+          )}
         </>
       )}
     </section>
