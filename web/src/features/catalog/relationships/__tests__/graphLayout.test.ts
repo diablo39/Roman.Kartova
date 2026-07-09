@@ -48,3 +48,33 @@ describe("layoutGraph", () => {
     expect(edges.find((e) => e.id === "e1")?.style?.opacity).toBe(0.2);
   });
 });
+
+describe("layoutGraph — derived edge styling", () => {
+  const derivedGraph: ExplorerGraph = {
+    nodes: [
+      { id: "service:f", kind: "service", entityId: "f", displayName: "Focus", depth: 0 },
+      { id: "service:a", kind: "service", entityId: "a", displayName: "A", depth: 1 },
+    ],
+    edges: [
+      { id: "service:f->service:a:derived", source: "service:f", target: "service:a", label: "depends on · via Orders API", derived: true },
+    ],
+    truncated: false,
+  };
+
+  it("renders derived edges dashed", () => {
+    const { edges } = layoutGraph(derivedGraph, "service:f", null);
+    const e = edges.find((x) => x.id === "service:f->service:a:derived");
+    expect(e).toBeDefined();
+    expect(e!.style?.strokeDasharray).toBeDefined();
+  });
+
+  it("still dims a derived edge that is also filtered out", () => {
+    const { edges } = layoutGraph(derivedGraph, "service:f", null, {
+      nodeIds: new Set(),
+      edgeIds: new Set(["service:f->service:a:derived"]),
+    });
+    const e = edges.find((x) => x.id === "service:f->service:a:derived");
+    expect(e!.style?.strokeDasharray).toBeDefined();
+    expect(e!.style?.opacity).toBe(0.2);
+  });
+});

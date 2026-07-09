@@ -112,6 +112,12 @@ export function GraphExplorerPage() {
                     onClear={clear}
                   />
                 </Panel>
+                <Panel position="bottom-left">
+                  <div className="rounded-md bg-primary/90 px-2 py-1 text-xs text-tertiary ring-1 ring-secondary">
+                    <span className="mr-3">— explicit</span>
+                    <span className="font-mono">- - derived</span>
+                  </div>
+                </Panel>
               </ReactFlow>
             </div>
             {selectedRef && (
