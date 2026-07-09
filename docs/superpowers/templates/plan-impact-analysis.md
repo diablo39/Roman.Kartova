@@ -1,5 +1,5 @@
 <!--
-  Plan section template — C# impact analysis (codelens/LSP).
+  Plan section template — C# impact analysis (codelens).
   Copy the "## Impact Analysis" block below into the plan document, immediately
   after "## Global Constraints" and before the first "### Task N".
 
@@ -13,16 +13,16 @@
 
   RULE: each changed symbol's blast radius MUST come from roslyn-codelens
   (find_callers / find_references / analyze_change_impact; find_implementations
-  / get_type_hierarchy for interface or base-type changes) or the built-in LSP
-  equivalents — NOT a grep guess. Cite counts and the notable call sites, and
+  / get_type_hierarchy for interface or base-type changes) — NOT a grep guess.
+  Cite counts and the notable call sites, and
   confirm every caller is covered by a task in this plan.
 -->
 
-## Impact Analysis (codelens/LSP)
+## Impact Analysis (codelens)
 
-**Method:** roslyn-codelens (`find_callers` / `find_references` / `analyze_change_impact`) · built-in `LSP` fallback. Grep is not sufficient here.
+**Method:** roslyn-codelens (`find_callers` / `find_references` / `analyze_change_impact`). Grep is not sufficient here.
 
-> **If codelens/LSP is unavailable this session** (e.g. MCP not loaded — headless `claude -p` does not start project MCP servers): say so explicitly in the `Tool run` column (`grep — codelens unavailable`), ground the table with grep as a stopgap, and add to Blast-radius notes: "**Re-run `find_callers`/`find_references` at execution time before editing; add a task for any caller not in this table.**" Honest degradation — never present grep as if it were codelens.
+> **If codelens is unavailable this session** (e.g. MCP not loaded — headless `claude -p` does not start project MCP servers): say so explicitly in the `Tool run` column (`grep — codelens unavailable`), ground the table with grep as a stopgap, and add to Blast-radius notes: "**Re-run `find_callers`/`find_references` at execution time before editing; add a task for any caller not in this table.**" Honest degradation — never present grep as if it were codelens.
 
 | Changed symbol | Change | Tool run | Callers / refs | Notable call sites | Covered by task |
 |----------------|--------|----------|----------------|--------------------|-----------------|
