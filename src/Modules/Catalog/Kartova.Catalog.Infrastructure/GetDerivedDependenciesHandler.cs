@@ -15,6 +15,9 @@ public sealed class GetDerivedDependenciesHandler
     public async Task<DerivedDependenciesResponse> Handle(
         GetDerivedDependenciesQuery q, CatalogDbContext db, ICatalogEntityLookup lookup, CancellationToken ct)
     {
+        // Conscious deferral: the shared loader computes the tenant's FULL derived-edge set (needed by the
+        // graph BFS); this bounded endpoint filters down to just q.ServiceId below. A focus-scoped loader
+        // overload is a deferred optimization (spec §11 materialization) if this endpoint ever shows latency.
         var all = await DerivedEdgeLoader.LoadAsync(db, ct);
 
         var dependencyEdges = all.Where(e => e.SourceServiceId == q.ServiceId).ToList(); // focus depends on TargetServiceId

@@ -94,6 +94,16 @@ it("merges derived dependency as an extra dashed edge", () => {
   expect(screen.getByTestId("edge-count")).toHaveTextContent("2"); // 1 persisted + 1 derived
 });
 
+it("does not fetch derived dependencies for a non-service entity (ADR-0111 §5 service-only)", () => {
+  vi.spyOn(api, "useRelationshipsList").mockReturnValue(listResult([]));
+  render(
+    <MemoryRouter>
+      <DependencyMiniGraph entityKind="application" entityId="a1" displayName="App" />
+    </MemoryRouter>,
+  );
+  expect(derivedApi.useDerivedDependencies).toHaveBeenCalledWith("a1", { enabled: false });
+});
+
 it("navigates to a neighbour on node click but not for the focused node", () => {
   vi.spyOn(api, "useRelationshipsList").mockReturnValue(listResult(outgoing));
   renderGraph();
