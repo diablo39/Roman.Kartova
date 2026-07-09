@@ -47,11 +47,16 @@ public sealed class KeycloakRealmSeedRules
             .Select(e => e.GetString()).ToList();
         CollectionAssert.Contains(redirects, "http://localhost:5173/callback");
         CollectionAssert.Contains(redirects, "http://localhost:5173/silent-callback");
+        // 4173 = the E2E web container origin (ADR-0113); the dev-server 5173 stays.
+        CollectionAssert.Contains(redirects, "http://localhost:4173/callback");
+        CollectionAssert.Contains(redirects, "http://localhost:4173/silent-callback");
 
         var origins = web.GetProperty("webOrigins").EnumerateArray()
             .Select(e => e.GetString()).ToList();
+        // Exact set (not Contains) so an UNINTENDED origin still fails this guard.
+        // 5173 = vite dev server; 4173 = the E2E rootless web container (ADR-0113).
         CollectionAssert.AreEquivalent(
-            new[] { "http://localhost:5173" },
+            new[] { "http://localhost:5173", "http://localhost:4173" },
             origins,
             "additional web origins would silently widen CORS for kartova-web tokens.");
     }

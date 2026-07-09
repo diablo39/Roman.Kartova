@@ -9,6 +9,14 @@ public sealed class EfRelationshipConfiguration : IEntityTypeConfiguration<Relat
 {
     internal const string IdFieldName = "_id";
 
+    // Drift hardening: relationships.type is persisted as a string. A row whose value
+    // is not a current RelationshipType member (e.g. a legacy 'PartOf' left by data
+    // drift) would throw at EF materialization and 500 every read over the tenant's
+    // relationships. Excluding unmappable rows at the SQL layer (type IN (...)) makes
+    // all read paths (list / graph / api-surface) tolerant. Insert-time validation
+    // still prevents new unknown types; this guards against pre-existing drift.
+    private static readonly RelationshipType[] KnownRelationshipTypes = Enum.GetValues<RelationshipType>();
+
     public void Configure(EntityTypeBuilder<Relationship> b)
     {
         b.ToTable("relationships");
@@ -44,5 +52,7 @@ public sealed class EfRelationshipConfiguration : IEntityTypeConfiguration<Relat
 
         // Indexes for relationships are declared in the AddRelationships migration, not here:
         // EF 10 cannot reference ComplexProperty (Source/Target) columns by name in HasIndex.
+
+        b.HasQueryFilter(r => KnownRelationshipTypes.Contains(r.Type));
     }
 }

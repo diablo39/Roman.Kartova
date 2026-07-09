@@ -105,6 +105,12 @@ services:
       KartovaIdentity__Keycloak__AdminClientId: "kartova-admin"
       KartovaIdentity__Keycloak__AdminClientSecret: "admin-dev-secret"
       KartovaIdentity__Keycloak__FrontendBaseUrl: "http://localhost:5173"
+      # E2E (Task 6): appsettings.Development.json's Cors:AllowedOrigins:0 is localhost:5173.
+      # The e2e web container serves on 4173, so the SPA's XHR/fetch calls to the API get
+      # blocked by CORS preflight unless 4173 is also trusted. Appended as index 1 (env-var
+      # config merges into the array on top of appsettings; index 0/5173 is left untouched
+      # for the local-dev/tests contract in CorsTests.cs).
+      Cors__AllowedOrigins__1: "http://localhost:4173"
       ASPNETCORE_ENVIRONMENT: Development
       GIT_COMMIT: "${GIT_COMMIT:-dev}"
       BUILD_TIME: "${BUILD_TIME:-unknown}"
@@ -118,6 +124,19 @@ services:
       keycloak:
         condition: service_healthy
     restart: unless-stopped
+
+  web:
+    build:
+      context: web
+      dockerfile: Dockerfile
+    image: kartova/web:dev
+    depends_on:
+      api:
+        condition: service_started
+      keycloak:
+        condition: service_healthy
+    ports:
+      - "4173:8080"
 
 volumes:
   postgres-data:

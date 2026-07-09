@@ -1,0 +1,32 @@
+name: E2E
+
+on:
+  schedule:
+    - cron: "17 3 * * *"   # nightly 03:17 UTC (off the :00 fleet)
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: E2E (Playwright, nightly)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run E2E
+        run: ./e2e/run.sh
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report
+          retention-days: 7
