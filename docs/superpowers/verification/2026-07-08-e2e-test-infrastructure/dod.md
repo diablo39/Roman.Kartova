@@ -62,4 +62,7 @@
 ✅ E2E suite drives the real running stack (rootless web container + real Keycloak + real Postgres): **3/3** via `e2e/run.sh`. Tripwires confirmed: override spec FAILS with `canOverride` forced false; drift spec 500s when the query filter is removed. Playwright HTML report is the artifact.
 
 ### 11 — CI green on the PR (terminal; `ci-local.sh` = pre-push mirror)
-⏳ PENDING — run `scripts/ci-local.sh` (Release mirror) pre-push, then open the PR and confirm the per-PR CI (backend/images/frontend/helm) green. The E2E job is nightly/dispatch (separate `e2e.yml`), NOT per-PR — this slice's E2E is verified by gate 10's `run.sh` run + a manual `workflow_dispatch` after merge.
+🟢 Pre-push mirror PASS (real tests); PR CI is the terminal authority (pending push).
+- `ci-local.sh backend images` run #1: **images PASS**; backend FAIL = 1 REAL regression — `KeycloakRealmSeedRules` arch test pinned `kartova-web` to exactly 1 webOrigin, broken by the Task-6 :4173 addition. **Fixed** (commit adds {5173,4173} + 4173 redirects); 8/8 realm arch tests green.
+- `ci-local.sh backend` run #2 (post-fix): arch **69/69** (fix confirmed); backend FAIL = **Docker-saturation flake only** — `Kartova.Organization.IntegrationTests` all failed at assembly-init `System.TimeoutException` (Testcontainers under load), assembly unrelated to the diff. **Re-ran isolated → 142/142 PASS** (1m56s). Documented full-suite flake pattern; not a code defect.
+- Net: all real backend tests + images green locally. Push branch → open PR → confirm the runner's per-PR CI (backend/images/frontend/helm) green (source of truth). E2E job is nightly/dispatch (separate `e2e.yml`), NOT per-PR.

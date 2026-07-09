@@ -118,3 +118,14 @@ findings:
     verdict: real
     title: "spec §2 + plan Task 10 still carry pre-correction framing (bug #47 active; add e2e to ci.yml)"
     note: "left as-is — specs/plans are point-in-time historical records (prior-slice practice); the authoritative ADR + shipped code are corrected."
+  # ---- Gate 11 (ci-local pre-push mirror) ----
+  - gate: ci-mirror
+    severity: blocking
+    verdict: real
+    title: "KeycloakRealmSeedRules arch test pins kartova-web to exactly 1 webOrigin — Task-6 :4173 addition broke it (Release full-suite)"
+    note: "REAL regression my Catalog-scoped gate-3 missed (cross-assembly arch test vs the realm JSON). Fixed: expected set now {5173,4173}, kept exact-match guard + assert 4173 redirects. 8/8 realm tests green. This is why full ci-local (gate 11) matters."
+  - gate: ci-mirror
+    severity: blocking
+    verdict: delusion
+    title: "ci-local backend #2 FAIL — Kartova.Organization.IntegrationTests all fail at assembly-init System.TimeoutException"
+    note: "environmental Docker-saturation flake (Testcontainers init timed out under load running many integration assemblies locally), NOT a regression — assembly unrelated to the diff. Re-ran ISOLATED → 142/142 pass (1m56s). Documented full-suite Docker-flake pattern. images job PASS."
