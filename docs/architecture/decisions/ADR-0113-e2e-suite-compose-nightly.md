@@ -225,6 +225,15 @@ pass; it is not folded into or replaced by E2E — both lenses continue to run
   predates this slice and is not solved by it; it is called out here because
   the rootless image change touches the same Dockerfile and would be the
   natural place to fix it later. Tracked as a follow-up, not blocking.
+- **The query filter makes drifted rows silent and API-undeletable.** Rows
+  with an unmappable `type` vanish from every read with no log or metric, and
+  because delete-by-id inherits the same filter they return `404` and cannot
+  be removed through the API — cleanup requires a direct SQL/migration pass
+  (as the original `PurgePartOfRelationships` fix did). This is an accepted
+  trade for now: drift is rare and operationally cleaned at the DB, matching
+  prior practice. Follow-ups if drift proves recurrent: emit a warning/metric
+  when unmappable rows exist for a tenant, and/or expose an OrgAdmin
+  list/cleanup path via `IgnoreQueryFilters()`.
 - **Additional journeys are deferred.** Search, graph explorer, notifications,
   and other flows have no E2E coverage yet; added incrementally as future
   regressions warrant, per the "thin E2E" testing strategy.
