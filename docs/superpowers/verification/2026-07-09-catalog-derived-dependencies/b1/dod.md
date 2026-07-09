@@ -23,7 +23,7 @@
 | 9 `deep-review` (opus, spec/plan/ADR) | ✅ 0 blocking, 1 should-fix (provenance defer — resolved), 3 nits (accepted), 3 missing-test (1 added, 2 by-construction) — `./deep-review.md` | 2026-07-09 |
 | Manual / API (gate 10) | ✅ API: 14 real-seam tests + live-stack shape + 401 auth-enforced; 🟡 **Visual: PENDING USER VERIFICATION** (Playwright MCP not connected) — `./gate10-visual-api.md` | 2026-07-09 |
 | Terminal re-verify (build + suite) | ✅ ci-local Release: backend PASS (full suite), frontend PASS, on final commit `62644e8` | 2026-07-09 |
-| 11 CI green (pre-push mirror) | ✅ ci-local backend/images/frontend/helm all PASS (first backend FAIL was the Docker-saturation flake — cleared: `Kartova.Api.IntegrationTests` 6/6 isolated + backend-alone PASS on quiet Docker). ⏳ PR runner-green after push. | 2026-07-09 |
+| 11 CI green (PR runner) | ✅ **PR #65 all 5 checks green** — Backend, Container images, Frontend, Helm, Stryker-config-drift. (ci-local pre-push mirror also green; the earlier local backend FAIL was the Docker-saturation flake, cleared by isolated 6/6 + backend-alone PASS and confirmed by the runner.) | 2026-07-09 |
 
 ## Notes
 - **Gate 6 is BLOCKING** for B1 (Application derivation logic) — not waived; passed at 89.74%.
