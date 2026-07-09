@@ -3653,6 +3653,59 @@
           }
         }
       },
+      "DerivationPathDto": {
+        "required": [
+          "apiId",
+          "apiName",
+          "viaApplicationId",
+          "viaApplicationDisplayName"
+        ],
+        "type": "object",
+        "properties": {
+          "apiId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "apiName": {
+            "type": "string"
+          },
+          "viaApplicationId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "viaApplicationDisplayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DerivedEdgeDto": {
+        "required": [
+          "source",
+          "target",
+          "paths"
+        ],
+        "type": "object",
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/GraphEndpointDto"
+          },
+          "target": {
+            "$ref": "#/components/schemas/GraphEndpointDto"
+          },
+          "paths": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DerivationPathDto"
+            }
+          }
+        }
+      },
       "EditApplicationRequest": {
         "required": [
           "displayName",
@@ -3780,6 +3833,7 @@
         "required": [
           "nodes",
           "edges",
+          "derivedEdges",
           "truncated"
         ],
         "type": "object",
@@ -3794,6 +3848,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/GraphEdgeDto"
+            }
+          },
+          "derivedEdges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DerivedEdgeDto"
             }
           },
           "truncated": {
