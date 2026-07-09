@@ -148,9 +148,20 @@ describe("mergeGraphs — derived edges", () => {
     expect(edge!.label).toBe("depends on · via Orders API +1");
   });
 
-  it("skips a derived edge when an explicit edge already exists for that id", () => {
-    const r = { nodes: [], edges: [], truncated: false, derivedEdges: undefined } as unknown as GraphResponse;
-    const g = mergeGraphs([r]);
-    expect(g.edges.some((e) => e.derived)).toBe(false);
+  it("dedupes_a_derived_edge_seen_in_multiple_results", () => {
+    const r = {
+      nodes: [node(S, "S", 0), node(T, "T", 1)],
+      edges: [],
+      truncated: false,
+      derivedEdges: [
+        {
+          source: { kind: "service", id: S },
+          target: { kind: "service", id: T },
+          paths: [{ apiId: API, apiName: "Orders API", viaApplicationId: null, viaApplicationDisplayName: null }],
+        },
+      ],
+    } as unknown as GraphResponse;
+    const g = mergeGraphs([r, r]);
+    expect(g.edges.filter((e) => e.derived).length).toBe(1);
   });
 });
