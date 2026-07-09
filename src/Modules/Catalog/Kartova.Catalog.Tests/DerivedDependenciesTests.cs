@@ -118,4 +118,21 @@ public class DerivedDependenciesTests
         var sorted = vias.OrderBy(v => v).ToList();
         CollectionAssert.AreEqual(sorted, vias);
     }
+
+    [TestMethod]
+    public void duplicate_raw_tuples_dedupe_to_one_path()
+    {
+        // S consumes Api1 twice (duplicate raw edges); T provides Api1 → one edge with a single deduped path.
+        var edges = Compute(consumes: [(S, Api1), (S, Api1)], serviceProvides: [(T, Api1)]);
+        Assert.AreEqual(1, edges.Single().Paths.Count);
+    }
+
+    [TestMethod]
+    public void edges_are_ordered_by_source_then_target()
+    {
+        // U and S both consume Api1 that T provides. Returned edges must already be sorted by (source, target).
+        var edges = Compute(consumes: [(U, Api1), (S, Api1)], serviceProvides: [(T, Api1)]);
+        var expected = edges.OrderBy(e => e.SourceServiceId).ThenBy(e => e.TargetServiceId).ToList();
+        CollectionAssert.AreEqual(expected, edges.ToList());
+    }
 }
