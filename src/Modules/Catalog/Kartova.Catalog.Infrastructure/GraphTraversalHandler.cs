@@ -60,6 +60,6 @@ public sealed class GraphTraversalHandler
             new GraphEndpointDto(e.Target.Kind, e.Target.Id),
             e.Type, e.Origin)).ToList();
 
-        return new GraphResponse(nodes, edges, result.Truncated);
+        return new GraphResponse(nodes, edges, Array.Empty<DerivedEdgeDto>(), result.Truncated);
     }
 }
