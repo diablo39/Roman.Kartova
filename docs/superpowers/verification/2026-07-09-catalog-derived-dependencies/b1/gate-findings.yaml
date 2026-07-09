@@ -1,0 +1,102 @@
+# gate-findings.yaml — per-gate findings telemetry for one slice.
+#
+# Purpose: record every issue each DoD gate raised, with a real/delusion verdict,
+# so gate effectiveness is queryable across slices.
+#   Aggregate:  find docs/superpowers/verification -name gate-findings.yaml
+#   Rank gates by precision (real ÷ found) and by real issues caught.
+#
+# Sibling of dod.md in docs/superpowers/verification/<date>-<topic>/.
+# Copy this file there at slice start; append a finding the moment a gate raises one.
+# dod.md records each gate's PASS/FAIL/PENDING/N-A status; this file records what it FOUND.
+# A gate with status PASS and no entries here ⇒ it ran and found nothing.
+
+slice:  2026-07-09-catalog-derived-dependencies   # B1
+branch: feat/catalog-derived-dependencies
+head:   62644e8
+
+# One entry per issue a gate raised.
+#
+# gate     — the dod.md row this finding came from (slug, not number):
+#              build              (1  Build, TreatWarningsAsErrors)
+#              reviews            (2  per-task subagent reviews)
+#              suite              (3  full test suite incl. real-seam)
+#              container          (4  container build / images CI)
+#              simplify           (5  /simplify)
+#              mutation           (6  mutation loop)
+#              requesting-review  (7  requesting-code-review)
+#              review-pr          (8  review-pr)
+#              deep-review        (9  deep-review)
+#              manual             (Manual / Playwright, ADR-0084)
+#              terminal-reverify  (terminal re-verify: build + suite)
+#              ci-mirror          (pre-push CI mirror, ci-local.sh)
+# severity — blocking | should-fix | nit
+# verdict  — real     : a genuine issue that warranted a change
+#            delusion : a false positive the gate raised that was not a real issue
+# title    — one-line description of the finding
+# note     — optional: resolution (fix sha), or why it was a delusion
+findings:
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "Task 2 helper .Distinct() on paths had zero coverage (mutant would survive)"
+    note: "added duplicate-tuple + edge-order mutant-kill tests; fixed in c266910"
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "Task 3 tenant-isolation test was a weak oracle (A had no provider → trivially 0)"
+    note: "rewrote as real cross-tenant oracle (both tenants seed full topology); ccdbc36"
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "Task 5 derived-edge dedup branch untested (misnamed test proved only the no-op)"
+    note: "replaced with real dedup oracle across merged results; 8253ca3"
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "per-frontier O(n) rescan of derivedAll instead of a target lookup"
+    note: "added derivedByTarget ToLookup + dropped redundant frontier filter; 1740d52"
+  - gate: simplify
+    severity: should-fix
+    verdict: delusion
+    title: "run the two name-batch loads via Task.WhenAll"
+    note: "false positive — EF DbContext is not thread-safe; concurrent queries on one context throw"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "document the synthetic-edge / placeholder-origin sentinel tradeoff"
+    note: "comment added; 1740d52"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "multi-path edge label counted paths not distinct API names (misleading +N)"
+    note: "dedupe api names in label; 62644e8"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "tenant-wide precompute scans unconditionally (even non-service focus / depth)"
+    note: "accepted on-read D1 deferral (spec §11 materialization); documented"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "derived-edge directional discovery not integration-tested"
+    note: "added derived_edge_drives_incoming_directional_discovery; 62644e8"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "name-resolution fallback silent-by-design (unreachable today, no delete path)"
+    note: "invariant comment added tying it to future entity-delete slice; 62644e8"
+  - gate: review-pr
+    severity: should-fix
+    verdict: delusion
+    title: "derived×node-cap interaction untested — merge-blocking"
+    note: "correct-by-construction (BuildAsync cap logic is edge-origin-agnostic + unit-tested); documented, not blocking"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "GraphTraversalEdge nullable Provenance + placeholder Origin weakens invariants (4/10)"
+    note: "accepted single-call-site shortcut (BuildAsync frozen); tech-debt if a 2nd producer appears"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "ExplorerEdge.provenance populated but not rendered in B1 explorer"
+    note: "explicitly deferred to B2 DerivedDependenciesSection with a comment; 62644e8"

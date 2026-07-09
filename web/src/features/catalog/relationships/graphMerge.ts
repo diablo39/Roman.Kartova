@@ -13,7 +13,14 @@ export type ExplorerNode = {
   depth?: number;
   teamId?: string;
 };
-export type ExplorerEdge = { id: string; source: string; target: string; label: string };
+export type ExplorerEdge = {
+  id: string;
+  source: string;
+  target: string;
+  label: string;
+  derived?: boolean;
+  provenance?: { apiName: string; viaAppName?: string | null }[];
+};
 export type ExplorerGraph = { nodes: ExplorerNode[]; edges: ExplorerEdge[]; truncated: boolean };
 
 const nodeId = (kind: string, id: string) => `${kind}:${id}`;
@@ -47,6 +54,27 @@ export function mergeGraphs(results: GraphResponse[]): ExplorerGraph {
           label: relationshipTypeLabel[e.type as CreatableRelationshipType] ?? e.type,
         });
       }
+    }
+    for (const d of r.derivedEdges ?? []) {
+      const source = nodeId(d.source.kind, d.source.id);
+      const target = nodeId(d.target.kind, d.target.id);
+      const id = `${source}->${target}:derived`;
+      if (edges.has(id)) continue;
+      const apiNames = [...new Set(d.paths.map((p) => p.apiName))];
+      const label =
+        apiNames.length === 1
+          ? `depends on · via ${apiNames[0]}`
+          : `depends on · via ${apiNames[0]} +${apiNames.length - 1}`;
+      edges.set(id, {
+        id,
+        source,
+        target,
+        label,
+        derived: true,
+        // Full per-path provenance is carried for B2's DerivedDependenciesSection (per-API/app expander);
+        // B1's explorer surfaces the summary via the compact label above.
+        provenance: d.paths.map((p) => ({ apiName: p.apiName, viaAppName: p.viaApplicationDisplayName })),
+      });
     }
   }
   return { nodes: [...nodes.values()], edges: [...edges.values()], truncated };

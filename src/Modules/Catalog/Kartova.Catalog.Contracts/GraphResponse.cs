@@ -7,6 +7,7 @@ namespace Kartova.Catalog.Contracts;
 public sealed record GraphResponse(
     IReadOnlyList<GraphNodeDto> Nodes,
     IReadOnlyList<GraphEdgeDto> Edges,
+    IReadOnlyList<DerivedEdgeDto> DerivedEdges,
     bool Truncated);
 
 [ExcludeFromCodeCoverage]

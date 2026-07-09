@@ -36,12 +36,17 @@ export function layoutGraph(
     };
   });
 
-  const edges: Edge[] = graph.edges.map((e) => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    label: e.label,
-    style: dimmed.edgeIds.has(e.id) ? { opacity: 0.2 } : undefined,
-  }));
+  const edges: Edge[] = graph.edges.map((e) => {
+    const dimmedStyle = dimmed.edgeIds.has(e.id) ? { opacity: 0.2 } : {};
+    const derivedStyle = e.derived ? { strokeDasharray: "6 4", stroke: "var(--color-fg-quaternary, #98A2B3)" } : {};
+    const style = { ...derivedStyle, ...dimmedStyle };
+    return {
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      label: e.label,
+      style: Object.keys(style).length ? style : undefined,
+    };
+  });
   return { nodes, edges };
 }

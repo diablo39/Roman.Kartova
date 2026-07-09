@@ -9,7 +9,7 @@ const edge = (id: string, s: string, t: string) =>
 
 describe("mergeGraphs", () => {
   it("maps one response to nodes keyed by kind:id with labelled edges", () => {
-    const r: GraphResponse = { nodes: [node("f", "Focus", 0), node("a", "A", 1)], edges: [edge("e1", "f", "a")], truncated: false };
+    const r: GraphResponse = { nodes: [node("f", "Focus", 0), node("a", "A", 1)], edges: [edge("e1", "f", "a")], truncated: false, derivedEdges: [] };
     const g = mergeGraphs([r]);
     expect(g.nodes.map((n) => n.id).sort()).toEqual(["service:a", "service:f"]);
     expect(g.edges).toEqual([{ id: "e1", source: "service:f", target: "service:a", label: "Depends on" }]);
@@ -17,20 +17,20 @@ describe("mergeGraphs", () => {
   });
 
   it("dedupes a node and an edge that appear in two responses", () => {
-    const r1: GraphResponse = { nodes: [node("f", "Focus", 0), node("a", "A", 1)], edges: [edge("e1", "f", "a")], truncated: false };
-    const r2: GraphResponse = { nodes: [node("a", "A", 0), node("b", "B", 1)], edges: [edge("e1", "f", "a"), edge("e2", "a", "b")], truncated: false };
+    const r1: GraphResponse = { nodes: [node("f", "Focus", 0), node("a", "A", 1)], edges: [edge("e1", "f", "a")], truncated: false, derivedEdges: [] };
+    const r2: GraphResponse = { nodes: [node("a", "A", 0), node("b", "B", 1)], edges: [edge("e1", "f", "a"), edge("e2", "a", "b")], truncated: false, derivedEdges: [] };
     const g = mergeGraphs([r1, r2]);
     expect(g.nodes.map((n) => n.id).sort()).toEqual(["service:a", "service:b", "service:f"]);
     expect(g.edges.map((e) => e.id).sort()).toEqual(["e1", "e2"]);
   });
 
   it("ORs the truncated flag across responses", () => {
-    expect(mergeGraphs([{ nodes: [], edges: [], truncated: false }, { nodes: [], edges: [], truncated: true }]).truncated).toBe(true);
+    expect(mergeGraphs([{ nodes: [], edges: [], truncated: false, derivedEdges: [] }, { nodes: [], edges: [], truncated: true, derivedEdges: [] }]).truncated).toBe(true);
   });
 
   it("unions an outgoing result and an incoming result for the same node", () => {
-    const out: GraphResponse = { nodes: [node("a","A",0), node("b","B",1)], edges: [edge("e1","a","b")], truncated: false };
-    const inc: GraphResponse = { nodes: [node("a","A",0), node("c","C",1)], edges: [edge("e2","c","a")], truncated: false };
+    const out: GraphResponse = { nodes: [node("a","A",0), node("b","B",1)], edges: [edge("e1","a","b")], truncated: false, derivedEdges: [] };
+    const inc: GraphResponse = { nodes: [node("a","A",0), node("c","C",1)], edges: [edge("e2","c","a")], truncated: false, derivedEdges: [] };
     const g = mergeGraphs([out, inc]);
     expect(g.nodes.map((n) => n.id).sort()).toEqual(["service:a","service:b","service:c"]);
     expect(g.edges.map((e) => e.id).sort()).toEqual(["e1","e2"]);
@@ -94,5 +94,74 @@ describe("teamId threading", () => {
     ]);
     expect(merged.nodes.find((n) => n.id === "application:a1")?.teamId).toBe("team-1");
     expect(merged.nodes.find((n) => n.id === "service:s1")?.teamId).toBeUndefined();
+  });
+});
+
+const S = "11111111-1111-1111-1111-111111111111";
+const T = "22222222-2222-2222-2222-222222222222";
+const API = "66666666-6666-6666-6666-666666666666";
+const API2 = "77777777-7777-7777-7777-777777777777";
+const APP = "44444444-4444-4444-4444-444444444444";
+
+describe("mergeGraphs — derived edges", () => {
+  it("folds a derivedEdges entry into a dashed, provenance-labelled ExplorerEdge", () => {
+    const r = {
+      nodes: [node(S, "S", 0), node(T, "T", 1)],
+      edges: [],
+      truncated: false,
+      derivedEdges: [
+        {
+          source: { kind: "service", id: S },
+          target: { kind: "service", id: T },
+          paths: [{ apiId: API, apiName: "Orders API", viaApplicationId: APP, viaApplicationDisplayName: "App 1" }],
+        },
+      ],
+    } as unknown as GraphResponse;
+    const g = mergeGraphs([r]);
+    const edge = g.edges.find((e) => e.derived);
+    expect(edge).toBeDefined();
+    expect(edge!.id).toBe(`service:${S}->service:${T}:derived`);
+    expect(edge!.source).toBe(`service:${S}`);
+    expect(edge!.target).toBe(`service:${T}`);
+    expect(edge!.label).toBe("depends on · via Orders API");
+    expect(edge!.provenance).toEqual([{ apiName: "Orders API", viaAppName: "App 1" }]);
+  });
+
+  it("compacts the label when there are multiple provenance paths", () => {
+    const r = {
+      nodes: [node(S, "S", 0), node(T, "T", 1)],
+      edges: [],
+      truncated: false,
+      derivedEdges: [
+        {
+          source: { kind: "service", id: S },
+          target: { kind: "service", id: T },
+          paths: [
+            { apiId: API, apiName: "Orders API", viaApplicationId: APP, viaApplicationDisplayName: "App 1" },
+            { apiId: API2, apiName: "Billing API", viaApplicationId: null, viaApplicationDisplayName: null },
+          ],
+        },
+      ],
+    } as unknown as GraphResponse;
+    const g = mergeGraphs([r]);
+    const edge = g.edges.find((e) => e.derived);
+    expect(edge!.label).toBe("depends on · via Orders API +1");
+  });
+
+  it("dedupes_a_derived_edge_seen_in_multiple_results", () => {
+    const r = {
+      nodes: [node(S, "S", 0), node(T, "T", 1)],
+      edges: [],
+      truncated: false,
+      derivedEdges: [
+        {
+          source: { kind: "service", id: S },
+          target: { kind: "service", id: T },
+          paths: [{ apiId: API, apiName: "Orders API", viaApplicationId: null, viaApplicationDisplayName: null }],
+        },
+      ],
+    } as unknown as GraphResponse;
+    const g = mergeGraphs([r, r]);
+    expect(g.edges.filter((e) => e.derived).length).toBe(1);
   });
 });

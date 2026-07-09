@@ -4,7 +4,8 @@ using Kartova.Catalog.Domain;
 namespace Kartova.Catalog.Application;
 
 public sealed record GraphTraversalEdge(
-    EntityRef Source, EntityRef Target, Guid Id, RelationshipType Type, RelationshipOrigin Origin);
+    EntityRef Source, EntityRef Target, Guid Id, RelationshipType Type, RelationshipOrigin Origin,
+    IReadOnlyList<DerivedDependencies.Path>? Provenance = null);
 
 public sealed record GraphTraversalNode(EntityRef Ref, int Depth);
 
