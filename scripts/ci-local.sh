@@ -11,7 +11,9 @@
 # Usage:
 #   scripts/ci-local.sh                 # run all jobs
 #   scripts/ci-local.sh backend images  # run only the named jobs
-#   Jobs: backend images stryker frontend helm
+#   Jobs: backend images stryker frontend helm e2e
+#   (e2e is opt-in — not part of the default set; mirrors the nightly
+#   .github/workflows/e2e.yml, not ci.yml)
 #
 # Run from the repo root (Git Bash on Windows is fine).
 set -uo pipefail
@@ -59,11 +61,16 @@ job_helm() {  # ci.yml: lint + template with a dummy connection string
   && helm template deploy/helm/kartova/ --set database.connectionString="$cs" > /tmp/kartova-rendered.yaml
 }
 
+job_e2e() {  # e2e.yml (nightly, opt-in): full stack + playwright
+  ./e2e/run.sh
+}
+
 want backend  && run_job backend  job_backend
 want images   && run_job images   job_images
 want stryker  && run_job stryker  job_stryker
 want frontend && run_job frontend job_frontend
 want helm     && run_job helm     job_helm
+want e2e      && run_job e2e      job_e2e
 
 printf '\n========== SUMMARY ==========\n'
 for j in "${JOBS[@]}"; do printf '  %-10s %s\n' "$j" "${RESULT[$j]:-skipped}"; done
