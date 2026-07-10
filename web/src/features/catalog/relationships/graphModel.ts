@@ -15,6 +15,13 @@ export type GraphNodeData = {
   side: GraphSide;
   selected?: boolean; // explorer: the currently-selected node (sidebar open on it)
   dimmed?: boolean; // explorer: faded because it doesn't match the active filters (focus never dims)
+  // explorer: node-level expand affordance (undefined on mini-graph / non-explorer models)
+  expandableOut?: boolean;
+  expandableIn?: boolean;
+  expandedOut?: boolean;
+  expandedIn?: boolean;
+  unloadedOut?: number;
+  unloadedIn?: number;
 };
 
 export type GraphNode = {
