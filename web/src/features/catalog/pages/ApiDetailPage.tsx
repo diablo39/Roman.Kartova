@@ -42,73 +42,77 @@ export function ApiDetailPage() {
   const api = query.data;
 
   return (
-    <Card>
-      <CardHeader className="space-y-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-2xl font-semibold text-primary">{api.displayName}</h2>
-          <Badge type="pill-color" color="gray" size="md">
-            {API_STYLE_LABEL[api.style]}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <section>
-          <h3 className="text-sm font-medium text-tertiary">Description</h3>
-          <p className="mt-1 text-sm text-secondary">
-            {api.description ? api.description : <span className="italic">No description</span>}
-          </p>
-        </section>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader className="space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-2xl font-semibold text-primary">{api.displayName}</h2>
+            <Badge type="pill-color" color="gray" size="md">
+              {API_STYLE_LABEL[api.style]}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <section>
+            <h3 className="text-sm font-medium text-tertiary">Description</h3>
+            <p className="mt-1 text-sm text-secondary">
+              {api.description ? api.description : <span className="italic">No description</span>}
+            </p>
+          </section>
 
-        <hr className="border-secondary" />
+          <hr className="border-secondary" />
 
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Field label="ID" value={api.id} mono />
-          <Field label="Version" value={api.version} mono />
-          <div>
-            <div className="text-xs uppercase tracking-wide text-tertiary">Team</div>
-            <div className="mt-1 text-sm">
-              <Link to={`/teams/${api.teamId}`} className="text-primary hover:underline">
-                {teamNameById.get(api.teamId) ?? "View team"}
-              </Link>
+          <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Field label="ID" value={api.id} mono />
+            <Field label="Version" value={api.version} mono />
+            <div>
+              <div className="text-xs uppercase tracking-wide text-tertiary">Team</div>
+              <div className="mt-1 text-sm">
+                <Link to={`/teams/${api.teamId}`} className="text-primary hover:underline">
+                  {teamNameById.get(api.teamId) ?? "View team"}
+                </Link>
+              </div>
             </div>
-          </div>
-          <div>
-            <div className="text-xs uppercase tracking-wide text-tertiary">Created by</div>
-            <div className="mt-1 text-sm"><CreatedByLink user={api.createdBy} /></div>
-          </div>
-          <Field label="Created" value={api.createdAt ? new Date(api.createdAt).toLocaleString() : "—"} />
-          <div>
-            <div className="text-xs uppercase tracking-wide text-tertiary">Spec</div>
-            <div className="mt-1 text-sm">
-              {api.specUrl ? (
-                <a href={api.specUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline break-all">
-                  View spec
-                </a>
-              ) : (
-                <span className="text-tertiary italic">No spec URL</span>
-              )}
+            <div>
+              <div className="text-xs uppercase tracking-wide text-tertiary">Created by</div>
+              <div className="mt-1 text-sm"><CreatedByLink user={api.createdBy} /></div>
             </div>
-          </div>
-        </section>
+            <Field label="Created" value={api.createdAt ? new Date(api.createdAt).toLocaleString() : "—"} />
+            <div>
+              <div className="text-xs uppercase tracking-wide text-tertiary">Spec</div>
+              <div className="mt-1 text-sm">
+                {api.specUrl ? (
+                  <a href={api.specUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline break-all">
+                    View spec
+                  </a>
+                ) : (
+                  <span className="text-tertiary italic">No spec URL</span>
+                )}
+              </div>
+            </div>
+          </section>
 
-        <hr className="border-secondary" />
+          <hr className="border-secondary" />
 
-        <RelationshipsSection
-          entityKind="api"
-          entityId={api.id}
-          entityTeamId={api.teamId}
-          entityDisplayName={api.displayName}
-          variant="incoming-only"
-        />
+          <RelationshipsSection
+            entityKind="api"
+            entityId={api.id}
+            entityTeamId={api.teamId}
+            entityDisplayName={api.displayName}
+            variant="incoming-only"
+          />
+        </CardContent>
+      </Card>
 
-        <hr className="border-secondary" />
-
-        {/* Spec render lives last: an OpenAPI doc can be long, so it sits below
-            metadata + relationships rather than pushing them off-screen. A dedicated
-            "Definition" tab is the planned end-state (E-11.F-02.S-04). */}
-        <ApiSpecSection api={api} />
-      </CardContent>
-    </Card>
+      {/* Spec render in its own card: an OpenAPI doc can be long, so it's visually
+          separated below the entity card (Backstage keeps the definition in its own
+          full-width card). A dedicated "Definition" tab is the end-state (E-11.F-02.S-04). */}
+      <Card>
+        <CardContent>
+          <ApiSpecSection api={api} />
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
