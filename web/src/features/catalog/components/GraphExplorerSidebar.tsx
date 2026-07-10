@@ -20,8 +20,9 @@ export function GraphExplorerSidebar(props: {
   onToggleExpand: (node: string, dir: ExpandDir) => void;
   onSetFocus: () => void;
   onClose: () => void;
+  onImpactAnalysis?: () => void;
 }) {
-  const { selected, depthFromFocus, isExpanded, atCap, onToggleExpand, onSetFocus, onClose } = props;
+  const { selected, depthFromFocus, isExpanded, atCap, onToggleExpand, onSetFocus, onClose, onImpactAnalysis } = props;
   const nodeKey = `${selected.kind}:${selected.id}`;
   const detailHref = entityDetailPath(selected.kind, selected.id);
 
@@ -75,6 +76,15 @@ export function GraphExplorerSidebar(props: {
       )}
 
       <div className="mt-auto space-y-2">
+        {(selected.kind === "service" || selected.kind === "application") && onImpactAnalysis && (
+          <button
+            type="button"
+            onClick={onImpactAnalysis}
+            className="w-full rounded-md border border-secondary px-3 py-1.5 text-sm text-primary"
+          >
+            Impact analysis
+          </button>
+        )}
         {dirRow("out", "dependencies")}
         {dirRow("in", "dependents")}
         <button type="button" onClick={onSetFocus} className="w-full rounded-md border border-secondary px-3 py-1.5 text-sm text-primary">

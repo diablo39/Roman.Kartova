@@ -80,4 +80,28 @@ describe("GraphExplorerSidebar", () => {
     fireEvent.click(screen.getByRole("button", { name: /expand dependencies/i }));
     expect(onToggleExpand).toHaveBeenCalledWith("application:a", "out");
   });
+
+  it("shows Impact analysis for service/application and hides it for api", () => {
+    const onImpactAnalysis = vi.fn();
+    const { rerender } = renderSidebar({ selected: { kind: "service", id: "s1" }, onImpactAnalysis });
+    expect(screen.getByRole("button", { name: /impact analysis/i })).toBeInTheDocument();
+
+    mockSvc.mockReturnValue({ data: undefined, isLoading: false, isError: false });
+    mockApi.mockReturnValue({ data: apiData, isLoading: false, isError: false });
+    rerender(
+      <MemoryRouter>
+        <GraphExplorerSidebar
+          selected={{ kind: "api", id: "a1" }}
+          depthFromFocus={1}
+          isExpanded={() => false}
+          atCap={false}
+          onToggleExpand={vi.fn()}
+          onSetFocus={vi.fn()}
+          onClose={vi.fn()}
+          onImpactAnalysis={onImpactAnalysis}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByRole("button", { name: /impact analysis/i })).toBeNull();
+  });
 });
