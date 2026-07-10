@@ -1,7 +1,7 @@
 # DoD Ledger — Derived service↔service depends-on (sub-slice B2)
 
 **Slice:** `2026-07-09-catalog-derived-dependencies` (B2) · **Branch:** `feat/catalog-derived-dependencies-b2` · **HEAD:** `fab30c5`
-**PR:** <pending> · **Last updated:** 2026-07-09
+**PR:** [#66](https://github.com/diablo39/Roman.Kartova/pull/66) · **Last updated:** 2026-07-10
 **Spec:** `docs/superpowers/specs/2026-07-09-catalog-derived-service-dependencies-design.md`
 **Plan:** `docs/superpowers/plans/2026-07-09-catalog-derived-dependencies-b2.md`
 **Findings telemetry:** `./gate-findings.yaml`
@@ -23,7 +23,7 @@
 | 9 `deep-review` | ✅ PASS | 2026-07-09 |
 | Terminal re-verify (build + suite) | ✅ PASS | 2026-07-09 |
 | 10 Visual / API verification | ✅ PASS | 2026-07-09 |
-| 11 CI green on PR (`ci-local.sh` pre-push) | ⏳ PENDING | — |
+| 11 CI green on PR (`ci-local.sh` pre-push) | ✅ PASS | 2026-07-10 |
 
 ## Gate detail
 
@@ -64,4 +64,4 @@
 - **Visual** (`./gate10-service-detail-derived.png`): service-detail `Derived dependencies` section renders — Dependencies row "B2 Verify Provider" · Derived badge · "via B2 Verify Orders API · B2 Verify Provider App" (linked); Dependents empty state. Mini-graph shows the **dashed** derived edge labeled "via B2 Verify Orders API" + "— explicit / - - derived" legend. **0 console errors.** "Add relationship" dialog opens with the page intact (ADR-0084 `isRowHeader` guard holds through a heavier modal render — no blank-page). **At:** 2e3dd3d
 
 ### 11 — CI green on PR
-**Status:** ⏳ PENDING
+**Status:** ✅ PASS — PR [#66](https://github.com/diablo39/Roman.Kartova/pull/66), run 29072918415. All 5 jobs green: **Backend (arch + unit + integration)**, **Container images**, **Frontend (test + typecheck + build)**, **Helm (lint + template)**, **Stryker config drift**. Pre-push `ci-local.sh` (Release) mirror: build + backend-unit + frontend + helm + stryker all PASS locally; Release backend-integration hung locally (detached-process/Docker overnight flake — same tests green in Debug at gate 3 + terminal re-verify) and passed authoritatively on the CI runner. **At:** 3e16328
