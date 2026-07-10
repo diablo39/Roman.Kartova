@@ -89,6 +89,55 @@ public class GetCatalogGraphTests : CatalogIntegrationTestBase
         Assert.AreEqual("graph-a", graph.Nodes.Single(n => n.Id == a).DisplayName);
         Assert.AreEqual(2, graph.Edges.Count);
         Assert.IsFalse(graph.Truncated);
+
+        // Degree: F→A→B. F out=1/in=0, A out=1/in=1, B out=0/in=1.
+        Assert.AreEqual(1, graph.Nodes.Single(n => n.Id == f).OutDegree);
+        Assert.AreEqual(0, graph.Nodes.Single(n => n.Id == f).InDegree);
+        Assert.AreEqual(1, graph.Nodes.Single(n => n.Id == a).OutDegree);
+        Assert.AreEqual(1, graph.Nodes.Single(n => n.Id == a).InDegree);
+        Assert.AreEqual(0, graph.Nodes.Single(n => n.Id == b).OutDegree);
+        Assert.AreEqual(1, graph.Nodes.Single(n => n.Id == b).InDegree);
+    }
+
+    [TestMethod]
+    public async Task GET_graph_degree_counts_edges_to_unloaded_boundary_neighbours()
+    {
+        // F→A→B→C, query depth=2 from F: nodes are F(0),A(1),B(2); C is unloaded (depth 3).
+        // B's out-edge B→C must still be counted → B.OutDegree == 1 even though C is absent.
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Graph Degree Boundary");
+        var f = await SeedServiceAsync(client, teamId, "deg-f");
+        var a = await SeedServiceAsync(client, teamId, "deg-a");
+        var b = await SeedServiceAsync(client, teamId, "deg-b");
+        var c = await SeedServiceAsync(client, teamId, "deg-c");
+        await DependsOnAsync(client, f, a);
+        await DependsOnAsync(client, a, b);
+        await DependsOnAsync(client, b, c);
+
+        var graph = await (await client.GetAsync($"/api/v1/catalog/graph?entityKind=Service&entityId={f}&depth=2&direction=all"))
+            .Content.ReadFromJsonAsync<GraphResponse>(KartovaApiFixtureBase.WireJson);
+
+        Assert.IsFalse(graph!.Nodes.Any(n => n.Id == c), "C is beyond depth 2 and must be absent");
+        Assert.AreEqual(1, graph.Nodes.Single(n => n.Id == b).OutDegree,
+            "boundary node B reports its B→C degree even though C is unloaded");
+        Assert.AreEqual(1, graph.Nodes.Single(n => n.Id == b).InDegree, "A→B");
+    }
+
+    [TestMethod]
+    public async Task GET_graph_degree_is_tenant_isolated()
+    {
+        // Org B: b1→b2. Org A focuses b1 (invisible under RLS) → focus node degree must be 0.
+        var orgB = await Fx.CreateAuthenticatedClientAsync(OrgBUser);
+        var teamB = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgBUser), "B Deg Iso");
+        var b1 = await SeedServiceAsync(orgB, teamB, "bdeg-1");
+        var b2 = await SeedServiceAsync(orgB, teamB, "bdeg-2");
+        await DependsOnAsync(orgB, b1, b2);
+
+        var orgA = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var graph = await (await orgA.GetAsync($"/api/v1/catalog/graph?entityKind=Service&entityId={b1}&depth=2&direction=all"))
+            .Content.ReadFromJsonAsync<GraphResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.IsTrue(graph!.Nodes.All(n => n.OutDegree == 0 && n.InDegree == 0),
+            "org-B relationships must not contribute to an org-A caller's node degrees");
     }
 
     [TestMethod]

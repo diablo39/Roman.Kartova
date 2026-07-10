@@ -77,10 +77,23 @@ public sealed class GraphTraversalHandler
                 info[key] = await lookup.Find(n.Ref.Kind, n.Ref.Id, ct);
         }
 
+        // Per-node explicit-relationship degree (RLS-scoped). Boundary nodes have no fetched
+        // neighbours, so degree cannot come from result.Edges — one batched count over the
+        // returned node ids (≤ node cap). Ids are globally unique, so counting by Id is exact.
+        var nodeIds = result.Nodes.Select(n => n.Ref.Id).Distinct().ToList();
+        var degreeRows = await db.Relationships
+            .Where(r => nodeIds.Contains(r.Source.Id) || nodeIds.Contains(r.Target.Id))
+            .Select(r => new { SourceId = r.Source.Id, TargetId = r.Target.Id })
+            .ToListAsync(ct);
+        var outDeg = degreeRows.GroupBy(x => x.SourceId).ToDictionary(g => g.Key, g => g.Count());
+        var inDeg = degreeRows.GroupBy(x => x.TargetId).ToDictionary(g => g.Key, g => g.Count());
+
         var nodes = result.Nodes.Select(n =>
         {
             var found = info[(n.Ref.Kind, n.Ref.Id)];
-            return new GraphNodeDto(n.Ref.Kind, n.Ref.Id, found?.DisplayName ?? string.Empty, n.Depth, found?.TeamId);
+            return new GraphNodeDto(
+                n.Ref.Kind, n.Ref.Id, found?.DisplayName ?? string.Empty, n.Depth, found?.TeamId,
+                outDeg.GetValueOrDefault(n.Ref.Id), inDeg.GetValueOrDefault(n.Ref.Id));
         }).ToList();
 
         // Persisted edges (Provenance == null) -> GraphEdgeDto; derived edges (Provenance != null) -> DerivedEdgeDto.
