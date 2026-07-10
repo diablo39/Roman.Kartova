@@ -1,7 +1,7 @@
 # DoD Ledger — 2026-07-10 Catalog graph node expand affordance
 
 **Slice:** `2026-07-10-catalog-graph-node-expand-affordance` · **Branch:** `feat/catalog-graph-node-expand-affordance` · **HEAD:** `9032635`
-**PR:** _pending push_ · **Last updated:** 2026-07-10
+**PR:** [#67](https://github.com/diablo39/Roman.Kartova/pull/67) · **Last updated:** 2026-07-10
 **Spec:** `docs/superpowers/specs/2026-07-10-catalog-graph-node-expand-affordance-design.md`
 **Plan:** `docs/superpowers/plans/2026-07-10-catalog-graph-node-expand-affordance.md`
 **Findings telemetry:** `./gate-findings.yaml`
