@@ -1,0 +1,84 @@
+# gate-findings.yaml — per-gate findings telemetry
+# Slice: 2026-07-10-catalog-graph-impact-analysis (E-04.F-02.S-06)
+# dod.md records each gate's status; this file records what each gate FOUND + a real/delusion verdict.
+
+slice: 2026-07-10-catalog-graph-impact-analysis
+branch: feat/catalog-graph-impact-analysis
+head: 57b7d5b
+
+findings:
+  # Gate 2 — per-task reviews
+  - gate: per-task-review
+    task: "2+3 (endpoint)"
+    severity: info
+    verdict: real
+    note: "EF bare `r.Type == X` collapsed to WHERE FALSE under the entity's Contains-shaped global query filter; implementer switched to array .Contains(). Reviewer verified RLS-safe (global filter is drift-hardening, not tenancy)."
+  - gate: per-task-review
+    task: "5-8 (FE cluster)"
+    severity: minor
+    verdict: real
+    note: "Redundant `data.impactTier > 0` guard in EntityGraphNode (harmless). Fixed at gate 5."
+
+  # Gate 5 — simplify
+  - gate: simplify
+    severity: minor
+    verdict: real
+    note: "Redundant `> 0` removed (commit 9dc769b). Rest of slice already minimal."
+
+  # Gate 6 — mutation
+  - gate: mutation
+    severity: info
+    verdict: real
+    note: "ImpactAnalysis.cs mutation score 90.48% (>=80%). A few survivors below cutoff; over threshold, not chased."
+
+  # Gate 7 — final whole-branch review
+  - gate: requesting-code-review
+    severity: should-fix
+    verdict: real
+    outcome: fixed
+    note: "Filter dim unioned OVER impact overlay → an impacted node in a filtered-out team faded while the banner still counted it (banner > glowing). Fixed: impact overlay supersedes filters (impacted∪focus never dim)."
+  - gate: requesting-code-review
+    severity: should-fix
+    verdict: real
+    outcome: fixed
+    note: "Impact fetch error/loading not surfaced (same as gate 8b/9)."
+
+  # Gate 8 — pr-review-toolkit
+  - gate: review-pr/code-reviewer
+    severity: important
+    verdict: real
+    outcome: fixed
+    note: "IMPACT_RING only distinguished tiers 1-2; tier-3 shared the >=4 brand fallback, contradicting design §6 + acceptance tier-3 example. Fixed: tier-3 = --color-bg-success-solid + test."
+  - gate: review-pr/silent-failure-hunter
+    severity: high
+    verdict: real
+    outcome: fixed
+    note: "useImpactAnalysis isError/isLoading never read → failed/in-flight impact fetch rendered nothing. Fixed: error strip + Try again + Analysing indicator."
+  - gate: review-pr/silent-failure-hunter
+    severity: info
+    verdict: delusion
+    note: "Considered flagging `info?.DisplayName ?? string.Empty` — judged NOT a defect (mirrors documented GraphTraversalHandler boundary-node pattern; RLS rules out cross-tenant leakage). Not reported."
+
+  # Gate 9 — deep-review
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    outcome: fixed
+    note: "Design doc §5.3/§5.4 stale (api→422 + bespoke ImpactAnalysisResponse/ImpactNode DTO); code correctly follows the plan (api→400, reuse GraphResponse). Doc reconciled."
+  - gate: deep-review
+    severity: missing-test
+    verdict: real
+    outcome: fixed
+    note: "Tier-3 glow ring unverified; page-level impact dimming not asserted end-to-end. Both tests added."
+
+  # Gate 3 — full suite
+  - gate: full-suite
+    severity: info
+    verdict: delusion
+    note: "Api.IntegrationTests 7-fail in combined ci-local run = Docker-endpoint saturation flake at assembly-init (KeycloakBuilder), unrelated to /impact. Isolated re-run 6/6 pass. Environmental, not a code defect."
+
+  # Gate 10 — visual
+  - gate: visual
+    severity: info
+    verdict: real
+    note: "Browser-verified glow-by-tier + banner + Close + live API 200, 0 console errors. Non-impacted dimming not shown (3-node seed has nothing outside the radius) — covered by page + unit tests."

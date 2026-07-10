@@ -175,6 +175,12 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .Produces<DerivedDependenciesResponse>(StatusCodes.Status200OK)
               .ProducesProblem(StatusCodes.Status400BadRequest)
               .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+        tenant.MapGet("/impact", CatalogEndpointDelegates.GetImpactAnalysisAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRead)
+              .WithName("GetImpactAnalysis")
+              .Produces<GraphResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         tenant.MapDelete("/relationships/{id:guid}", CatalogEndpointDelegates.DeleteRelationshipAsync)
               .RequireAuthorization(KartovaPermissions.CatalogRelationshipsWrite)
               .WithName("DeleteRelationship")
@@ -289,6 +295,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<GraphTraversalHandler>();
         services.AddScoped<GetApiSurfaceHandler>();
         services.AddScoped<GetDerivedDependenciesHandler>();
+        services.AddScoped<GetImpactAnalysisHandler>();
         services.AddScoped<ICatalogEntityLookup, CatalogEntityLookup>();
 
         // TimeProvider is needed by Application.Deprecate / Decommission for the

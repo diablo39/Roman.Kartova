@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { GraphExplorerPage } from "@/features/catalog/pages/GraphExplorerPage";
 
@@ -9,6 +9,9 @@ vi.mock("react-router-dom", async (orig) => ({ ...(await orig<typeof import("rea
 
 const mockUseGraph = vi.fn();
 vi.mock("@/features/catalog/api/graph", () => ({ useGraph: (a: unknown) => mockUseGraph(a) }));
+
+const mockUseImpactAnalysis = vi.fn();
+vi.mock("@/features/catalog/api/impact", () => ({ useImpactAnalysis: (a: unknown) => mockUseImpactAnalysis(a) }));
 
 // ReactFlow stub: render each node via its nodeTypes component (so affordance chevrons/menu
 // actually render); wrap it in a clickable div; capture nodes for assertions.
@@ -47,12 +50,13 @@ import React from "react";
 
 // Sidebar stub: expose the expand callback, set-focus callback + close.
 vi.mock("@/features/catalog/components/GraphExplorerSidebar", () => ({
-  GraphExplorerSidebar: ({ selected, onToggleExpand, onSetFocus, onClose }: { selected: { kind: string; id: string }; onToggleExpand: (node: string, dir: "out" | "in") => void; onSetFocus: () => void; onClose: () => void }) => (
+  GraphExplorerSidebar: ({ selected, onToggleExpand, onSetFocus, onClose, onImpactAnalysis }: { selected: { kind: string; id: string }; onToggleExpand: (node: string, dir: "out" | "in") => void; onSetFocus: () => void; onClose: () => void; onImpactAnalysis?: () => void }) => (
     <div data-testid="sidebar">
       <span>sidebar:{selected.kind}:{selected.id}</span>
       <button onClick={() => onToggleExpand(`${selected.kind}:${selected.id}`, "out")}>expand-out</button>
       <button onClick={onSetFocus}>set-focus</button>
       <button onClick={onClose}>close</button>
+      {onImpactAnalysis && <button onClick={onImpactAnalysis}>Impact analysis</button>}
     </div>
   ),
 }));
@@ -92,6 +96,7 @@ beforeEach(() => {
   mockNavigate.mockClear();
   _capturedNodes = [];
   mockUseGraph.mockReturnValue({ results: [result], isLoading: false, isError: false, expandError: false, refetch: vi.fn() });
+  mockUseImpactAnalysis.mockReturnValue({ data: undefined });
   mockUseGraphFilters.mockReturnValue({
     filters: { kinds: [] as string[], teamIds: [] as string[] },
     setKinds: vi.fn(), setTeamIds: vi.fn(), clear: vi.fn(), isActive: false, activeCount: 0,
@@ -184,6 +189,103 @@ describe("GraphExplorerPage", () => {
     const passed = capturedReactFlowNodes();
     expect(passed.find((n) => n.id === "service:s1")?.data.dimmed).toBe(true);
     expect(passed.find((n) => n.id === "application:focus")?.data.dimmed).toBe(false);
+  });
+
+  it("runs impact analysis: banner shows counts and Close clears it", () => {
+    mockUseImpactAnalysis.mockReturnValue({
+      data: {
+        truncated: false,
+        nodes: [
+          { kind: "service", id: "f", displayName: "Focus", depth: 0, teamId: null },
+          { kind: "service", id: "a", displayName: "A", depth: 1, teamId: null },
+          { kind: "service", id: "b", displayName: "B", depth: 2, teamId: null },
+        ],
+        edges: [],
+      },
+    });
+
+    renderAt("/graph?focus=service:f");
+    fireEvent.click(screen.getByTestId("node-service:a"));
+    fireEvent.click(screen.getByRole("button", { name: /impact analysis/i }));
+
+    expect(screen.getByText(/2 downstream/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /close analysis/i }));
+    expect(screen.queryByText(/downstream/)).toBeNull();
+  });
+
+  it("impact overlay wins over filters: impacted nodes never dim, non-impacted always dim", () => {
+    // Arrange: focus + one impacted node (a) + one non-impacted node (b), with an active
+    // kind filter that would otherwise dim everything except "application".
+    mockUseGraph.mockReturnValue({
+      results: [
+        {
+          truncated: false,
+          nodes: [
+            { kind: "service", id: "f", displayName: "Focus", depth: 0, teamId: null },
+            { kind: "service", id: "a", displayName: "A", depth: 1, teamId: null },
+            { kind: "service", id: "b", displayName: "B", depth: 1, teamId: null },
+          ],
+          edges: [
+            { id: "e1", source: { kind: "service", id: "f" }, target: { kind: "service", id: "a" }, type: "dependsOn", origin: "manual" },
+            { id: "e2", source: { kind: "service", id: "f" }, target: { kind: "service", id: "b" }, type: "dependsOn", origin: "manual" },
+          ],
+        },
+      ],
+      isLoading: false, isError: false, expandError: false, refetch: vi.fn(),
+    });
+    mockUseImpactAnalysis.mockReturnValue({
+      data: {
+        truncated: false,
+        nodes: [
+          { kind: "service", id: "f", displayName: "Focus", depth: 0, teamId: null },
+          { kind: "service", id: "a", displayName: "A", depth: 1, teamId: null },
+        ],
+        edges: [],
+      },
+      isError: false, isLoading: false,
+    });
+    // Active filter that does not include "b" — would dim it under the filter-only path too,
+    // but must NOT be the reason "a" (impacted) stays lit: impact must win regardless.
+    mockUseGraphFilters.mockReturnValue({
+      filters: { kinds: ["application"], teamIds: [] as string[] },
+      setKinds: vi.fn(), setTeamIds: vi.fn(), clear: vi.fn(), isActive: true, activeCount: 1,
+    });
+
+    renderAt("/graph?focus=service:f");
+    fireEvent.click(screen.getByTestId("node-service:a"));
+    fireEvent.click(screen.getByRole("button", { name: /impact analysis/i }));
+
+    const passed = capturedReactFlowNodes();
+    expect(passed.find((n) => n.id === "service:a")?.data.dimmed).toBe(false);
+    expect(passed.find((n) => n.id === "service:b")?.data.dimmed).toBe(true);
+    expect(passed.find((n) => n.id === "service:f")?.data.dimmed).toBe(false);
+  });
+
+  it("shows an error strip with Try again / Close when impact analysis fetch fails", () => {
+    const refetch = vi.fn();
+    mockUseImpactAnalysis.mockReturnValue({ data: undefined, isError: true, isLoading: false, refetch });
+
+    renderAt("/graph?focus=service:f");
+    fireEvent.click(screen.getByTestId("node-service:a"));
+    fireEvent.click(screen.getByRole("button", { name: /impact analysis/i }));
+
+    const errorStrip = screen.getByText(/couldn't run impact analysis/i).closest("div") as HTMLElement;
+    fireEvent.click(within(errorStrip).getByRole("button", { name: /try again/i }));
+    expect(refetch).toHaveBeenCalledOnce();
+
+    fireEvent.click(within(errorStrip).getByRole("button", { name: /^close$/i }));
+    expect(screen.queryByText(/couldn't run impact analysis/i)).toBeNull();
+  });
+
+  it("shows a pending indicator while impact analysis is loading", () => {
+    mockUseImpactAnalysis.mockReturnValue({ data: undefined, isError: false, isLoading: true, refetch: vi.fn() });
+
+    renderAt("/graph?focus=service:f");
+    fireEvent.click(screen.getByTestId("node-service:a"));
+    fireEvent.click(screen.getByRole("button", { name: /impact analysis/i }));
+
+    expect(screen.getByText(/analysing impact/i)).toBeInTheDocument();
   });
 
   it("shows an expand-dependencies chevron on a node whose backend outDegree exceeds loaded out-edges", async () => {

@@ -917,6 +917,46 @@ internal static class CatalogEndpointDelegates
     }
 
     /// <summary>
+    /// GET /impact?entityKind=&amp;entityId= — a Service's or Application's blast radius: the transitive set
+    /// of entities that depend on it over explicit ∪ derived depends-on (E-04.F-02.S-06), tiered by hop
+    /// distance. Reuses the <see cref="GraphResponse"/> contract (tier in Depth). Claim gate: catalog.read.
+    /// `entityKind=api`/malformed/empty id → 400 (structural, per GetApiSurfaceAsync); unknown or cross-tenant
+    /// service/application → 422 (RLS-scoped lookup returns null).
+    /// </summary>
+    internal static async Task<IResult> GetImpactAnalysisAsync(
+        [FromQuery] string entityKind,
+        [FromQuery] Guid entityId,
+        GetImpactAnalysisHandler handler,
+        ICatalogEntityLookup lookup,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        if (!Enum.TryParse<EntityKind>(entityKind, ignoreCase: true, out var kind)
+            || !Enum.IsDefined(kind)
+            || kind == EntityKind.Api
+            || entityId == Guid.Empty)
+        {
+            return Results.Problem(
+                type: ProblemTypes.ValidationFailed,
+                title: "Invalid entity reference",
+                detail: "entityKind must be 'service' or 'application' and entityId must be non-empty.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (await lookup.Find(kind, entityId, ct) is null)
+        {
+            return Results.Problem(
+                type: ProblemTypes.InvalidEntity,
+                title: "Invalid entity",
+                detail: "The entity does not exist in this tenant.",
+                statusCode: StatusCodes.Status422UnprocessableEntity);
+        }
+
+        var result = await handler.Handle(new GetImpactAnalysisQuery(kind, entityId), db, lookup, ct);
+        return Results.Ok(result);
+    }
+
+    /// <summary>
     /// GET /graph?entityKind=&amp;entityId=&amp;depth=&amp;direction= — BFS dependency neighbourhood
     /// around the focus entity. depth 1..4 (default 2); direction outgoing|incoming|all (default all).
     /// Bounded aggregate (node cap + truncated flag) — not a cursor list. Claim gate: catalog.read.
