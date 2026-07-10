@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
@@ -19,6 +19,24 @@ export function ApiSpecSection({ api }: { api: ApiResponse }) {
 
   const formatLabel = (m: string) => (m.includes("yaml") ? "YAML" : "JSON");
 
+  const content = spec.data?.content;
+  const mediaType = spec.data?.mediaType;
+  // Memoized: detectSpecKind parses the (potentially large) spec, so recompute
+  // only when the spec text changes — not on every unrelated re-render.
+  const kind = useMemo(() => (content ? detectSpecKind(content, mediaType) : "other"), [content, mediaType]);
+
+  const rawView = spec.data ? (
+    <>
+      <div className="flex items-center gap-2">
+        <Badge type="pill-color" color="gray" size="sm">{formatLabel(spec.data.mediaType)}</Badge>
+        <CopyButton text={spec.data.content} />
+      </div>
+      <pre className="max-h-[480px] overflow-auto rounded-md border border-secondary bg-secondary/30 p-3 font-mono text-xs text-primary whitespace-pre-wrap break-words">
+        {spec.data.content}
+      </pre>
+    </>
+  ) : null;
+
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
@@ -32,24 +50,12 @@ export function ApiSpecSection({ api }: { api: ApiResponse }) {
 
       {hasSpec ? (
         <div className="space-y-2">
-          {spec.data && (() => {
-            const kind = detectSpecKind(spec.data.content, spec.data.mediaType);
-            const rawView = (
-              <>
-                <div className="flex items-center gap-2">
-                  <Badge type="pill-color" color="gray" size="sm">{formatLabel(spec.data.mediaType)}</Badge>
-                  <CopyButton text={spec.data.content} />
-                </div>
-                <pre className="max-h-[480px] overflow-auto rounded-md border border-secondary bg-secondary/30 p-3 font-mono text-xs text-primary whitespace-pre-wrap break-words">
-                  {spec.data.content}
-                </pre>
-              </>
-            );
-
-            if (kind !== "openapi") return rawView;
-
-            return <SpecViews content={spec.data.content} mediaType={spec.data.mediaType} rawView={rawView} />;
-          })()}
+          {spec.data &&
+            (kind === "openapi" ? (
+              <SpecViews content={spec.data.content} mediaType={spec.data.mediaType} rawView={rawView} />
+            ) : (
+              rawView
+            ))}
           {spec.isLoading && <p className="text-sm text-tertiary">Loading spec…</p>}
           {spec.isError && <p className="text-sm text-error-primary">Couldn't load the spec.</p>}
           {!spec.isLoading && !spec.isError && !spec.data && (
@@ -81,7 +87,7 @@ function SpecViews({ content, mediaType, rawView }: { content: string; mediaType
   );
   return (
     <div className="space-y-2">
-      <div className="inline-flex gap-1 rounded-lg border border-secondary p-0.5">
+      <div className="inline-flex gap-1 rounded-lg border border-secondary p-0.5" role="group" aria-label="Spec view">
         {tab("rendered", "Rendered")}
         {tab("raw", "Raw")}
       </div>
