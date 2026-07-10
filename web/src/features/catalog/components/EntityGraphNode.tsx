@@ -28,10 +28,9 @@ export function EntityGraphNode({ data }: NodeProps<Node<GraphNodeData>>) {
     1: "ring-2 ring-[color:var(--color-bg-error-solid)]",
     2: "ring-2 ring-[color:var(--color-bg-warning-solid)]",
   };
-  const impact =
-    data.impactTier && data.impactTier > 0
-      ? (IMPACT_RING[data.impactTier] ?? "ring-2 ring-[color:var(--color-bg-brand-solid)]")
-      : "";
+  const impact = data.impactTier
+    ? IMPACT_RING[data.impactTier] ?? "ring-2 ring-[color:var(--color-bg-brand-solid)]"
+    : "";
 
   const dirInfo = (dir: ExpandDir) => {
     const expandable = dir === "out" ? data.expandableOut : data.expandableIn;
