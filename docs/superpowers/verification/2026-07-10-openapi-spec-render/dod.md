@@ -1,7 +1,7 @@
 # DoD Ledger — OpenAPI Spec Render (E-11.F-02.S-01)
 
 **Slice:** `2026-07-10-openapi-spec-render` · **Branch:** `feat/catalog-openapi-spec-render` · **HEAD:** `8cc4bab`
-**PR:** <pending> · **Last updated:** 2026-07-10
+**PR:** [#69](https://github.com/diablo39/Roman.Kartova/pull/69) · **Last updated:** 2026-07-10
 **Spec:** `docs/superpowers/specs/2026-07-10-openapi-spec-render-design.md`
 **Plan:** `docs/superpowers/plans/2026-07-10-openapi-spec-render.md`
 **Findings telemetry:** `./gate-findings.yaml`
@@ -93,4 +93,4 @@
 **At:** 8cc4bab / 2026-07-10
 
 ### 11 — CI green on the PR (terminal; `scripts/ci-local.sh` = required pre-push mirror)
-**Status:** ⏳ PENDING
+**Status:** ⏳ PENDING — pre-push mirror `scripts/ci-local.sh frontend` **PASS** (Release: npm ci → codegen → typecheck → test → build). PR [#69](https://github.com/diablo39/Roman.Kartova/pull/69) pushed; awaiting runner.
