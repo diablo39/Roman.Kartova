@@ -1,7 +1,7 @@
 # DoD Ledger — Catalog: Visual impact analysis on the graph explorer
 
 **Slice:** `2026-07-10-catalog-graph-impact-analysis` · **Branch:** `feat/catalog-graph-impact-analysis` · **HEAD:** `57b7d5b`
-**PR:** #TBD · **Last updated:** 2026-07-10
+**PR:** #68 · **Last updated:** 2026-07-10
 **Spec:** `docs/superpowers/specs/2026-07-10-catalog-graph-impact-analysis-design.md`
 **Plan:** `docs/superpowers/plans/2026-07-10-catalog-graph-impact-analysis.md`
 **Findings telemetry:** `./gate-findings.yaml`
@@ -23,7 +23,7 @@
 | 9 `deep-review` | ✅ | opus, against spec/plan/ADRs. 0 Blocking, 2 Should-fix + 2 Missing-tests (all fixed). |
 | Terminal re-verify (build + suite) | ✅ | After gates 5–9 fixes (commit 57b7d5b): ci-local backend/images/frontend/helm + isolated Api.IntegrationTests all green. |
 | 10 Visual / API verification (ADR-0084) | ✅ | Real-browser: seeded 3 svc + 2 depends-on via live API; impact glow-by-tier + banner "2 downstream (1× tier-1, 1× tier-2)" + Close restore; 0 console errors; live `GET /impact` 200 (depths 0/1/2). Screenshots committed. (Non-impacted **dimming** not shown — 3-node seed has nothing outside the radius; covered by page + unit tests.) |
-| 11 CI green on PR (terminal) | ⏳ | Pre-push mirror (`ci-local.sh`) green on 57b7d5b (backend confirmed via isolated re-run). PR CI pending push. |
+| 11 CI green on PR (terminal) | ✅ | PR #68 CI all green (run 29098507842): Backend 3m23s, Container images, Frontend, Helm, Stryker config drift. Backend passed cleanly on the runner — confirms the local Api.IntegrationTests failure was environmental. |
 
 ## Gate detail
 
@@ -52,7 +52,7 @@ Task 1 (Compute) Approved; Tasks 2+3 (endpoint red/green) Approved — EF `.Cont
 `gate10-visual-report.md`, `impact-active.png`, `impact-closed.png`, `impact-api-response.json`. Cold-start dev server + real OIDC login; live-API seed; glow-by-tier + banner + Close verified; 0 console errors.
 
 ### 11 — CI on PR
-Pre-push mirror green. **Terminal gate: pending the PR's CI run.**
+Pre-push mirror green; **PR #68 CI all green** (run 29098507842) — Backend/images/frontend/helm/stryker-drift all pass.
 
 ## Nits / follow-ups (non-blocking; final-review triage)
 - `nodeCap={200}` literal in `GraphExplorerPage` JSX duplicates `GetImpactAnalysisHandler.DefaultNodeCap` (`truncated` flag is authoritative). — accepted nit.
