@@ -4,13 +4,14 @@ import { ReactFlow, Background, Controls, MiniMap, Panel, type Node, type Edge }
 import "@xyflow/react/dist/style.css";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
 import { useGraph } from "@/features/catalog/api/graph";
-import { mergeGraphs, bfsDepth } from "@/features/catalog/relationships/graphMerge";
+import { mergeGraphs, bfsDepth, loadedDegrees } from "@/features/catalog/relationships/graphMerge";
 import { layoutGraph } from "@/features/catalog/relationships/graphLayout";
 import { useExplorerState } from "@/features/catalog/relationships/useExplorerState";
 import { EntityGraphNode } from "@/features/catalog/components/EntityGraphNode";
 import { GraphExplorerSidebar } from "@/features/catalog/components/GraphExplorerSidebar";
+import { GraphActionsProvider, type GraphActions } from "@/features/catalog/relationships/GraphActionsContext";
 import type { GraphNodeData } from "@/features/catalog/relationships/graphModel";
-import { parseEntityRef } from "@/features/catalog/relationships/graphModel";
+import { parseEntityRef, entityDetailPath } from "@/features/catalog/relationships/graphModel";
 import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
 import { useGraphFilters } from "@/features/catalog/relationships/useGraphFilters";
 import { applyGraphFilters } from "@/features/catalog/relationships/graphFilter";
@@ -42,13 +43,37 @@ export function GraphExplorerPage() {
     () => applyGraphFilters(merged, filters, focusId),
     [merged, filters, focusId],
   );
+  const loaded = useMemo(() => loadedDegrees(merged), [merged]);
+  const decorate = useMemo(() => {
+    const m = new Map<string, Partial<GraphNodeData>>();
+    for (const n of merged.nodes) {
+      const ld = loaded.get(n.id) ?? { out: 0, in: 0 };
+      const outDeg = n.outDegree ?? 0;
+      const inDeg = n.inDegree ?? 0;
+      m.set(n.id, {
+        expandableOut: ld.out < outDeg,
+        expandableIn: ld.in < inDeg,
+        expandedOut: isExpanded(n.id, "out"),
+        expandedIn: isExpanded(n.id, "in"),
+        unloadedOut: Math.max(0, outDeg - ld.out),
+        unloadedIn: Math.max(0, inDeg - ld.in),
+      });
+    }
+    return m;
+  }, [merged, loaded, isExpanded]);
   const { nodes, edges } = useMemo(
     () =>
       focusId
-        ? layoutGraph(merged, focusId, selected, { nodeIds: dimmed.dimmedNodeIds, edgeIds: dimmed.dimmedEdgeIds })
+        ? layoutGraph(merged, focusId, selected, { nodeIds: dimmed.dimmedNodeIds, edgeIds: dimmed.dimmedEdgeIds }, decorate)
         : { nodes: [] as Node<GraphNodeData>[], edges: [] as Edge[] },
-    [merged, focusId, selected, dimmed],
+    [merged, focusId, selected, dimmed, decorate],
   );
+  const actions = useMemo<GraphActions>(() => ({
+    toggleExpand,
+    setFocus: (kind, id) => navigate(`/graph?focus=${kind}:${id}`),
+    openPage: (kind, id) => navigate(entityDetailPath(kind, id)),
+    atCap,
+  }), [toggleExpand, navigate, atCap]);
 
   // Only show the sidebar for a node actually present in the current graph.
   const selectedRef = useMemo(
@@ -87,38 +112,40 @@ export function GraphExplorerPage() {
           )}
           <div className="flex min-h-0 flex-1 gap-2">
             <div className="min-h-0 flex-1 overflow-hidden rounded-lg ring-1 ring-secondary">
-              <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                nodeTypes={NODE_TYPES}
-                fitView
-                nodesDraggable={false}
-                nodesConnectable={false}
-                elementsSelectable={false}
-                proOptions={{ hideAttribution: true }}
-                onNodeClick={(_, node) => select(node.id)}
-              >
-                <Background />
-                <Controls showInteractive={false} />
-                <MiniMap pannable zoomable />
-                <Panel position="top-left">
-                  <GraphFilterControls
-                    kinds={filters.kinds}
-                    teamIds={filters.teamIds}
-                    teams={teamsList.items ?? []}
-                    activeCount={activeCount}
-                    onKindsChange={setKinds}
-                    onTeamIdsChange={setTeamIds}
-                    onClear={clear}
-                  />
-                </Panel>
-                <Panel position="bottom-left">
-                  <div className="rounded-md bg-primary/90 px-2 py-1 text-xs text-tertiary ring-1 ring-secondary">
-                    <span className="mr-3">— explicit</span>
-                    <span className="font-mono">- - derived</span>
-                  </div>
-                </Panel>
-              </ReactFlow>
+              <GraphActionsProvider value={actions}>
+                <ReactFlow
+                  nodes={nodes}
+                  edges={edges}
+                  nodeTypes={NODE_TYPES}
+                  fitView
+                  nodesDraggable={false}
+                  nodesConnectable={false}
+                  elementsSelectable={false}
+                  proOptions={{ hideAttribution: true }}
+                  onNodeClick={(_, node) => select(node.id)}
+                >
+                  <Background />
+                  <Controls showInteractive={false} />
+                  <MiniMap pannable zoomable />
+                  <Panel position="top-left">
+                    <GraphFilterControls
+                      kinds={filters.kinds}
+                      teamIds={filters.teamIds}
+                      teams={teamsList.items ?? []}
+                      activeCount={activeCount}
+                      onKindsChange={setKinds}
+                      onTeamIdsChange={setTeamIds}
+                      onClear={clear}
+                    />
+                  </Panel>
+                  <Panel position="bottom-left">
+                    <div className="rounded-md bg-primary/90 px-2 py-1 text-xs text-tertiary ring-1 ring-secondary">
+                      <span className="mr-3">— explicit</span>
+                      <span className="font-mono">- - derived</span>
+                    </div>
+                  </Panel>
+                </ReactFlow>
+              </GraphActionsProvider>
             </div>
             {selectedRef && (
               <GraphExplorerSidebar

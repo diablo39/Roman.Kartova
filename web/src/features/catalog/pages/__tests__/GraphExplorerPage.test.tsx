@@ -10,19 +10,28 @@ vi.mock("react-router-dom", async (orig) => ({ ...(await orig<typeof import("rea
 const mockUseGraph = vi.fn();
 vi.mock("@/features/catalog/api/graph", () => ({ useGraph: (a: unknown) => mockUseGraph(a) }));
 
-// ReactFlow stub: render each node as a clickable button; capture nodes for assertions.
-type RFNode = { id: string; data: { displayName: string; dimmed?: boolean } };
+// ReactFlow stub: render each node via its nodeTypes component (so affordance chevrons/menu
+// actually render); wrap it in a clickable div; capture nodes for assertions.
+import type { GraphNodeData } from "@/features/catalog/relationships/graphModel";
+type RFNode = { id: string; data: GraphNodeData };
 let _capturedNodes: RFNode[] = [];
 function capturedReactFlowNodes() { return _capturedNodes; }
 
+type RFNodeType = React.ComponentType<{ id: string; data: RFNode["data"] }>;
+
 vi.mock("@xyflow/react", () => ({
-  ReactFlow: ({ nodes, onNodeClick, children }: { nodes: RFNode[]; onNodeClick: (e: unknown, n: { id: string }) => void; children?: React.ReactNode }) => {
+  ReactFlow: ({ nodes, nodeTypes, onNodeClick, children }: { nodes: RFNode[]; nodeTypes?: Record<string, RFNodeType>; onNodeClick: (e: unknown, n: { id: string }) => void; children?: React.ReactNode }) => {
     _capturedNodes = nodes;
     return (
       <div data-testid="rf">
-        {nodes.map((n) => (
-          <button key={n.id} data-testid={`node-${n.id}`} onClick={() => onNodeClick({}, n)}>{n.data.displayName}</button>
-        ))}
+        {nodes.map((n) => {
+          const NodeComp = nodeTypes?.entity;
+          return (
+            <div key={n.id} data-testid={`node-${n.id}`} onClick={() => onNodeClick({}, n)}>
+              {NodeComp ? <NodeComp id={n.id} data={n.data} /> : n.data.displayName}
+            </div>
+          );
+        })}
         {children}
       </div>
     );
@@ -31,6 +40,8 @@ vi.mock("@xyflow/react", () => ({
   Controls: () => null,
   MiniMap: () => null,
   Panel: ({ children }: { children?: React.ReactNode }) => <div data-testid="rf-panel">{children}</div>,
+  Handle: () => null,
+  Position: { Left: "left", Right: "right" },
 }));
 import React from "react";
 
@@ -173,5 +184,25 @@ describe("GraphExplorerPage", () => {
     const passed = capturedReactFlowNodes();
     expect(passed.find((n) => n.id === "service:s1")?.data.dimmed).toBe(true);
     expect(passed.find((n) => n.id === "application:focus")?.data.dimmed).toBe(false);
+  });
+
+  it("shows an expand-dependencies chevron on a node whose backend outDegree exceeds loaded out-edges", async () => {
+    mockUseGraph.mockReturnValue({
+      results: [
+        {
+          truncated: false,
+          nodes: [
+            { kind: "service", id: "f", displayName: "Focus", depth: 0, teamId: null, outDegree: 0, inDegree: 0 },
+            { kind: "service", id: "a", displayName: "A", depth: 1, teamId: null, outDegree: 1, inDegree: 0 },
+          ],
+          edges: [],
+        },
+      ],
+      isLoading: false, isError: false, expandError: false, refetch: vi.fn(),
+    });
+
+    renderAt("/graph?focus=service:f");
+
+    expect(await screen.findByRole("button", { name: /expand dependencies/i })).toBeInTheDocument();
   });
 });
