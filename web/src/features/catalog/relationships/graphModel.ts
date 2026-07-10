@@ -24,6 +24,13 @@ export type GraphNodeData = {
   unloadedIn?: number;
 };
 
+// The 6 node-level expand-affordance fields, kept as one source of truth so
+// computeAffordance's return type and layoutGraph's decorate param never drift apart.
+export type ExpandAffordance = Pick<
+  GraphNodeData,
+  "expandableOut" | "expandableIn" | "expandedOut" | "expandedIn" | "unloadedOut" | "unloadedIn"
+>;
+
 export type GraphNode = {
   id: string;
   type: "entity";

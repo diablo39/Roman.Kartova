@@ -1,7 +1,7 @@
 // web/src/features/catalog/relationships/graphLayout.ts
 import dagre from "@dagrejs/dagre";
 import type { Node, Edge } from "@xyflow/react";
-import type { GraphNodeData } from "@/features/catalog/relationships/graphModel";
+import type { GraphNodeData, ExpandAffordance } from "@/features/catalog/relationships/graphModel";
 import type { ExplorerGraph } from "@/features/catalog/relationships/graphMerge";
 const NODE_W = 180;
 const NODE_H = 56;
@@ -11,7 +11,7 @@ export function layoutGraph(
   focusId: string,
   selectedId: string | null,
   dimmed: { nodeIds: Set<string>; edgeIds: Set<string> } = { nodeIds: new Set(), edgeIds: new Set() },
-  decorate?: Map<string, Partial<GraphNodeData>>,
+  decorate?: Map<string, ExpandAffordance>,
 ): { nodes: Node<GraphNodeData>[]; edges: Edge[] } {
   const g = new dagre.graphlib.Graph();
   g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 120 });

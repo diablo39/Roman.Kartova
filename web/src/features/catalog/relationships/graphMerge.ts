@@ -4,7 +4,7 @@ import {
   type RelationshipKind,
   type CreatableRelationshipType,
 } from "@/features/catalog/relationships/relationshipTypeRules";
-import { derivedViaLabel, type GraphNodeData } from "@/features/catalog/relationships/graphModel";
+import { derivedViaLabel, type ExpandAffordance } from "@/features/catalog/relationships/graphModel";
 import type { ExpandDir } from "@/features/catalog/relationships/useExplorerState";
 
 export type ExplorerNode = {
@@ -124,9 +124,9 @@ export function loadedDegrees(graph: ExplorerGraph): Map<string, { out: number; 
 export function computeAffordance(
   graph: ExplorerGraph,
   isExpanded: (node: string, dir: ExpandDir) => boolean,
-): Map<string, Partial<GraphNodeData>> {
+): Map<string, ExpandAffordance> {
   const loaded = loadedDegrees(graph);
-  const m = new Map<string, Partial<GraphNodeData>>();
+  const m = new Map<string, ExpandAffordance>();
   for (const n of graph.nodes) {
     const ld = loaded.get(n.id) ?? { out: 0, in: 0 };
     const outDeg = n.outDegree ?? 0;
