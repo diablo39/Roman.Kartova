@@ -8,6 +8,7 @@ import { useDerivedDependencies, type DerivedDependencyItem } from "@/features/c
 import {
   toGraphModel,
   derivedViaLabel,
+  entityDetailPath,
   type FocusedEntity,
   type GraphNodeData,
 } from "@/features/catalog/relationships/graphModel";
@@ -79,7 +80,7 @@ export function DependencyMiniGraph({ entityKind, entityId, displayName }: Props
               onNodeClick={(_, node) => {
                 const data = node.data as GraphNodeData;
                 if (data.side === "focused") return;
-                navigate(`/catalog/${data.kind === "application" ? "applications" : "services"}/${data.entityId}`);
+                navigate(entityDetailPath(data.kind, data.entityId));
               }}
             >
               <Background />

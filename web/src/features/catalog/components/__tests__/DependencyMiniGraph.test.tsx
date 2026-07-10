@@ -165,3 +165,24 @@ it("navigates to a neighbour on node click but not for the focused node", () => 
   fireEvent.click(screen.getByRole("button", { name: "Me" })); // focused node
   expect(navigate).not.toHaveBeenCalled();
 });
+
+it("navigates an API-kind neighbour to the /catalog/apis route, not /catalog/services", () => {
+  // Regression: an api node (from a consumes-api-from edge) must route to /catalog/apis/{id};
+  // it previously fell through to /catalog/services/{id} → "Service not found".
+  vi.spyOn(api, "useRelationshipsList").mockReturnValue(
+    listResult([
+      {
+        id: "rApi",
+        type: "consumesApiFrom",
+        origin: "manual",
+        source: { kind: "service", id: "s1", displayName: "Me" },
+        target: { kind: "api", id: "api9", displayName: "Orders API" },
+        createdByUserId: "u1",
+        createdAt: "2026-06-25T00:00:00Z",
+      },
+    ]),
+  );
+  renderGraph();
+  fireEvent.click(screen.getByRole("button", { name: "Orders API" }));
+  expect(navigate).toHaveBeenCalledWith("/catalog/apis/api9");
+});
