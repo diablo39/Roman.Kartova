@@ -46,8 +46,12 @@ export default class OpenApiRender extends Component<Props, State> {
         <ApiReferenceReact
           configuration={{
             content: this.props.content,
-            // Read-only: no live request execution this slice (spec §1.1, §6).
+            // Read-only: no live request execution this slice (spec §1.1, §6). Both keys
+            // are required — hideClientButton hides the external-client/export button,
+            // hideTestRequestButton hides the inline per-operation live "Test Request"
+            // button (defaults to shown), which is the actual SSRF/live-request surface.
             hideClientButton: true,
+            hideTestRequestButton: true,
             theme: "default",
           }}
         />

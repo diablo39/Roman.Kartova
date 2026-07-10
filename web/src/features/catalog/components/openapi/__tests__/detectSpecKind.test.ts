@@ -23,6 +23,9 @@ describe("detectSpecKind", () => {
   it("classifies arbitrary JSON without the key as other", () => {
     expect(detectSpecKind('{"foo":"bar"}', "application/json")).toBe("other");
   });
+  it("does not false-positive on 'openapi' appearing in a JSON value, not a top-level key", () => {
+    expect(detectSpecKind('{"description":"openapi is great","swaggering":true}', "application/json")).toBe("other");
+  });
   it("classifies garbage / empty / null as other", () => {
     expect(detectSpecKind("not a spec at all", "text/plain")).toBe("other");
     expect(detectSpecKind("", "application/json")).toBe("other");
