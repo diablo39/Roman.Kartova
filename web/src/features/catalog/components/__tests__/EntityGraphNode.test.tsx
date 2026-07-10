@@ -45,6 +45,12 @@ it("clicking the out chevron toggles expand out", async () => {
   expect(a.toggleExpand).toHaveBeenCalledWith("service:s", "out");
 });
 
+it("clicking the in chevron toggles expand in", async () => {
+  const a = renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", expandableIn: true });
+  await userEvent.click(screen.getByRole("button", { name: /expand dependents/i }));
+  expect(a.toggleExpand).toHaveBeenCalledWith("service:s", "in");
+});
+
 it("disables expand chevron at cap when not expanded", () => {
   renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", expandableOut: true }, { atCap: true });
   expect(screen.getByRole("button", { name: /expand dependencies/i })).toBeDisabled();
