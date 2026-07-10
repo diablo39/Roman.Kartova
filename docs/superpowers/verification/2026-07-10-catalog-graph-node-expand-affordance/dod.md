@@ -22,9 +22,9 @@
 | 7 `requesting-code-review` | ✅ opus whole-branch: no Blocking/Should-fix; 1 missing-test (in-chevron toggle) fixed `590ce75` | 2026-07-10 |
 | 8 `review-pr` | ✅ silent-failure/test-coverage/type-design lenses; type-tightening + 4 test gaps fixed `363ce2c`; node-error-affordance → FU-4 | 2026-07-10 |
 | 9 `deep-review` | ✅ opus spec/plan/ADR: no Blocking/Should-fix; convergent test gaps fixed `363ce2c` | 2026-07-10 |
-| Terminal re-verify (build + suite) | ⏳ ci-local (Release) running on `9032635` | 2026-07-10 |
+| Terminal re-verify (build + suite) | ✅ final commit: `npm run build` 0 err + web **780/780**; backend Release build succeeded (backend untouched since `60b4c2e`, Catalog integ green) | 2026-07-10 |
 | 10 Visual / API (ADR-0084) | ✅ browser-verified on real stack; **caught + fixed a real z-index/handle bug** `9032635`; evidence `gate10-*.png` | 2026-07-10 |
-| 11 CI green on PR (`ci-local` = pre-push) | ⏳ ci-local running; PR-runner authoritative after push | 2026-07-10 |
+| 11 CI green on PR (`ci-local` = pre-push) | ⏳ pre-push mirror: helm ✅, stryker-config ✅, frontend test/build ✅ (npm-ci EPERM flake bypassed via direct build); backend full-parallel Testcontainers flakes on this Windows host (env, 0 real failures) → **ubuntu PR CI is authoritative** | 2026-07-10 |
 
 ## Gate detail
 
