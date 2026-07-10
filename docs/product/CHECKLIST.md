@@ -313,7 +313,7 @@
 - [ ] E-11.F-01.S-03 — Navigation sidebar for multi-page docs
 
 **E-11.F-02: Sync API Documentation (OpenAPI/gRPC/GraphQL)**
-- [ ] E-11.F-02.S-01 — Render OpenAPI specs as interactive docs
+- [x] E-11.F-02.S-01 — Render OpenAPI specs as interactive docs (openapi-spec-render, 2026-07-10; PR #69): read-only **Scalar** (`@scalar/api-reference-react`) render replacing the raw `<pre>` on the API detail page. Content-detected OpenAPI/Swagger (`detectSpecKind`, top-level-key-only) → rendered by default with a **Rendered⇄Raw toggle**; every non-OpenAPI/malformed spec (gRPC/GraphQL/AsyncAPI/garbage) keeps the raw view. `OpenApiRender` encapsulates Scalar behind a logging error-boundary (never blank-page, ADR-0084), lazy-loaded so the ~2.8 MB chunk stays out of the main bundle (Tailwind-v4 `@layer` order per ADR-0094). **Read-only enforced**: `hideClientButton` + `hideTestRequestButton` + scoped CSS hiding Scalar's interactive API client — gate-10 browser verification caught that `hideTestRequestButton` alone leaves the live "Send Request" client reachable (Scalar #7741) and fixed it. Frontend-only (no backend/contract/permission change); gate-5 real-seam + gate-6 mutation **N/A**. All blocking DoD gates green (build/suite 811, web image, /simplify, reviews 2/7/8/9, gate-10 browser: render/toggle/AsyncAPI-fallback/XSS-sanitized/0-console-errors, CI #69). AsyncAPI/GraphQL/gRPC rendering + try-it-out deferred (F-02.S-02/F-03). FU-1: Playwright E2E regression for the read-only lock. Verification: `docs/superpowers/verification/2026-07-10-openapi-spec-render/dod.md`
 - [ ] E-11.F-02.S-02 — Render gRPC proto files as browsable docs
 - [ ] E-11.F-02.S-03 — Versioned API docs aligned with deployments
 

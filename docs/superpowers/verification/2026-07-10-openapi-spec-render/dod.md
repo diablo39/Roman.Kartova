@@ -24,7 +24,7 @@
 | 9 `deep-review` | ✅ PASS | 2026-07-10 |
 | Terminal re-verify (build + suite) | ✅ PASS | 2026-07-10 |
 | 10 Visual / API verification (ADR-0084) | ✅ PASS | 2026-07-10 |
-| 11 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING | — |
+| 11 CI green on PR (`ci-local.sh` = pre-push mirror) | ✅ PASS | 2026-07-10 |
 
 ## Gate detail
 
@@ -93,4 +93,6 @@
 **At:** 8cc4bab / 2026-07-10
 
 ### 11 — CI green on the PR (terminal; `scripts/ci-local.sh` = required pre-push mirror)
-**Status:** ⏳ PENDING — pre-push mirror `scripts/ci-local.sh frontend` **PASS** (Release: npm ci → codegen → typecheck → test → build). PR [#69](https://github.com/diablo39/Roman.Kartova/pull/69) pushed; awaiting runner.
+**Status:** ✅ PASS
+**Evidence:** PR [#69](https://github.com/diablo39/Roman.Kartova/pull/69) CI run [29112582421](https://github.com/diablo39/Roman.Kartova/actions/runs/29112582421) — all 5 jobs green: Backend (arch+unit+integration) 2m48s, Container images 1m57s, Frontend (test+typecheck+build) 3m10s, Helm, Stryker config drift. Pre-push mirror `scripts/ci-local.sh frontend` also PASS.
+**At:** 8cc4bab / 2026-07-10
