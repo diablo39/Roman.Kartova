@@ -1,0 +1,66 @@
+# gate-findings.yaml — per-gate findings telemetry
+# Slice: 2026-07-10-catalog-graph-node-expand-affordance
+# verdict: real (genuine defect fixed) | delusion (false positive) | deferred (real, out of slice)
+
+slice: 2026-07-10-catalog-graph-node-expand-affordance
+findings:
+  - gate: per-task-review
+    task: 3
+    severity: minor
+    summary: "Required ExplorerNode degrees broke 3 sibling test literals; patched inline"
+    verdict: real
+    resolution: "inert `outDegree:0,inDegree:0` additions, folded into fc9f607; reviewer confirmed inert"
+
+  - gate: per-task-review
+    task: 5
+    severity: important
+    summary: "Test rewrite dropped pre-existing style/label coverage (kind label, focused, selected, dimmed)"
+    verdict: real
+    resolution: "restored + strengthened openPage assertion (174e9f3)"
+
+  - gate: requesting-code-review
+    severity: minor
+    summary: "In-direction (dependents) chevron toggle path untested; out path was"
+    verdict: real
+    resolution: "added in-chevron toggle test (590ce75)"
+
+  - gate: review-pr
+    lens: type-design
+    severity: important
+    summary: "computeAffordance returned Map<string, Partial<GraphNodeData>>; decorate spreads last in layout so a stray field could clobber dimmed/selected"
+    verdict: real
+    resolution: "tightened to Pick<GraphNodeData, the 6 affordance fields> (363ce2c)"
+
+  - gate: review-pr
+    lens: test-coverage
+    severity: important
+    summary: "stopPropagation/node-select contract + unloaded-count menu addon untested"
+    verdict: real
+    resolution: "added stopPropagation, addon, at-cap-collapse, computeAffordance unit tests (363ce2c); contract confirmed holding"
+
+  - gate: review-pr
+    lens: silent-failure
+    severity: minor
+    summary: "Node shows 'expanded' state even if the expand fetch fails; only a page-level banner signals it"
+    verdict: deferred
+    resolution: "FU-4 — per-node expand-failure affordance is a behavior change, out of slice"
+
+  - gate: simplify
+    angle: efficiency
+    severity: minor
+    summary: "Second DB degree query duplicates traversal fetch; suggested counting in frontier callback"
+    verdict: delusion
+    resolution: "skipped — boundary nodes' edges are never fetched during traversal, so the separate query is required for correctness (spec §4.1)"
+
+  - gate: simplify
+    angle: reuse-simplification-altitude
+    severity: minor
+    summary: "Per-direction duplication (chevron/menu), duplicated relationship predicate, affordance compute inline in page, focus-URL hand-written"
+    verdict: real
+    resolution: "dirInfo / RelationshipsTouching / computeAffordance / graphFocusPath (60b4c2e)"
+
+  - gate: visual-adr0084
+    severity: important
+    summary: "Edge chevrons overlap React Flow decorative Handles; Handle intercepts the click — chevron unclickable in a real browser (jsdom mocks Handle to null, so unit tests passed)"
+    verdict: real
+    resolution: "z-10 on chevron buttons so they win the hit test (9032635); re-verified click expands in-browser"
