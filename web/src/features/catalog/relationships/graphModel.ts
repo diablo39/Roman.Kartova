@@ -15,7 +15,21 @@ export type GraphNodeData = {
   side: GraphSide;
   selected?: boolean; // explorer: the currently-selected node (sidebar open on it)
   dimmed?: boolean; // explorer: faded because it doesn't match the active filters (focus never dims)
+  // explorer: node-level expand affordance (undefined on mini-graph / non-explorer models)
+  expandableOut?: boolean;
+  expandableIn?: boolean;
+  expandedOut?: boolean;
+  expandedIn?: boolean;
+  unloadedOut?: number;
+  unloadedIn?: number;
 };
+
+// The 6 node-level expand-affordance fields, kept as one source of truth so
+// computeAffordance's return type and layoutGraph's decorate param never drift apart.
+export type ExpandAffordance = Pick<
+  GraphNodeData,
+  "expandableOut" | "expandableIn" | "expandedOut" | "expandedIn" | "unloadedOut" | "unloadedIn"
+>;
 
 export type GraphNode = {
   id: string;
@@ -129,6 +143,10 @@ export function parseEntityRef(token: string | null | undefined): { kind: Relati
 
 export function entityDetailPath(kind: RelationshipKind, id: string): string {
   return `/catalog/${ENTITY_PATH_SEGMENT[kind]}/${id}`;
+}
+
+export function graphFocusPath(kind: RelationshipKind, id: string): string {
+  return `/graph?focus=${kind}:${id}`;
 }
 
 // Shared "via {api}" label for a derived edge: dedupes by distinct api name so a service reachable

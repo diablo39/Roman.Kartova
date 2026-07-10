@@ -5,8 +5,8 @@ import type { ExplorerGraph } from "@/features/catalog/relationships/graphMerge"
 
 const graph: ExplorerGraph = {
   nodes: [
-    { id: "service:f", kind: "service", entityId: "f", displayName: "Focus", depth: 0 },
-    { id: "service:a", kind: "service", entityId: "a", displayName: "A", depth: 1 },
+    { id: "service:f", kind: "service", entityId: "f", displayName: "Focus", depth: 0, outDegree: 0, inDegree: 0 },
+    { id: "service:a", kind: "service", entityId: "a", displayName: "A", depth: 1, outDegree: 0, inDegree: 0 },
   ],
   edges: [{ id: "e1", source: "service:f", target: "service:a", label: "Depends on" }],
   truncated: false,
@@ -52,8 +52,8 @@ describe("layoutGraph", () => {
 describe("layoutGraph — derived edge styling", () => {
   const derivedGraph: ExplorerGraph = {
     nodes: [
-      { id: "service:f", kind: "service", entityId: "f", displayName: "Focus", depth: 0 },
-      { id: "service:a", kind: "service", entityId: "a", displayName: "A", depth: 1 },
+      { id: "service:f", kind: "service", entityId: "f", displayName: "Focus", depth: 0, outDegree: 0, inDegree: 0 },
+      { id: "service:a", kind: "service", entityId: "a", displayName: "A", depth: 1, outDegree: 0, inDegree: 0 },
     ],
     edges: [
       { id: "service:f->service:a:derived", source: "service:f", target: "service:a", label: "depends on · via Orders API", derived: true },

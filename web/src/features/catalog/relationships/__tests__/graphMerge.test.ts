@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { mergeGraphs } from "@/features/catalog/relationships/graphMerge";
+import { loadedDegrees, computeAffordance } from "@/features/catalog/relationships/graphMerge";
 import type { GraphResponse } from "@/features/catalog/api/graph";
 
 const node = (id: string, displayName: string, depth: number) =>
@@ -60,10 +61,10 @@ import type { ExplorerGraph } from "@/features/catalog/relationships/graphMerge"
 describe("bfsDepth", () => {
   const g: ExplorerGraph = {
     nodes: [
-      { id: "service:f", kind: "service", entityId: "f", displayName: "F" },
-      { id: "service:a", kind: "service", entityId: "a", displayName: "A" },
-      { id: "service:b", kind: "service", entityId: "b", displayName: "B" },
-      { id: "service:x", kind: "service", entityId: "x", displayName: "X" },
+      { id: "service:f", kind: "service", entityId: "f", displayName: "F", outDegree: 0, inDegree: 0 },
+      { id: "service:a", kind: "service", entityId: "a", displayName: "A", outDegree: 0, inDegree: 0 },
+      { id: "service:b", kind: "service", entityId: "b", displayName: "B", outDegree: 0, inDegree: 0 },
+      { id: "service:x", kind: "service", entityId: "x", displayName: "X", outDegree: 0, inDegree: 0 },
     ],
     edges: [
       { id: "e1", source: "service:f", target: "service:a", label: "Depends on" },
@@ -163,5 +164,62 @@ describe("mergeGraphs — derived edges", () => {
     } as unknown as GraphResponse;
     const g = mergeGraphs([r, r]);
     expect(g.edges.filter((e) => e.derived).length).toBe(1);
+  });
+});
+
+describe("loadedDegrees", () => {
+  it("loadedDegrees counts explicit edges per direction and ignores derived edges", () => {
+    const graph = {
+      nodes: [],
+      edges: [
+        { id: "e1", source: "service:a", target: "service:b", label: "depends on" },
+        { id: "e2", source: "service:a", target: "service:c", label: "depends on" },
+        { id: "d1", source: "service:a", target: "service:d", label: "depends on · via X", derived: true },
+      ],
+      truncated: false,
+    };
+    const d = loadedDegrees(graph as never);
+    expect(d.get("service:a")).toEqual({ out: 2, in: 0 }); // derived edge to d excluded
+    expect(d.get("service:b")).toEqual({ out: 0, in: 1 });
+    expect(d.get("service:c")).toEqual({ out: 0, in: 1 });
+    expect(d.get("service:d")).toBeUndefined(); // only derived edge touched it
+  });
+});
+
+describe("computeAffordance", () => {
+  it("flags a node expandable when it has more out-edges than are loaded", () => {
+    const graph: ExplorerGraph = {
+      nodes: [
+        { id: "service:a", kind: "service", entityId: "a", displayName: "A", outDegree: 2, inDegree: 0 },
+      ],
+      edges: [{ id: "e1", source: "service:a", target: "service:b", label: "Depends on" }],
+      truncated: false,
+    };
+    const m = computeAffordance(graph, () => false);
+    expect(m.get("service:a")).toMatchObject({ expandableOut: true, unloadedOut: 1 });
+  });
+
+  it("is not expandable when outDegree equals the loaded count (< boundary, not <=)", () => {
+    const graph: ExplorerGraph = {
+      nodes: [
+        { id: "service:a", kind: "service", entityId: "a", displayName: "A", outDegree: 1, inDegree: 0 },
+      ],
+      edges: [{ id: "e1", source: "service:a", target: "service:b", label: "Depends on" }],
+      truncated: false,
+    };
+    const m = computeAffordance(graph, () => false);
+    expect(m.get("service:a")).toMatchObject({ expandableOut: false, unloadedOut: 0 });
+  });
+
+  it("reflects the isExpanded stub in expandedOut", () => {
+    const graph: ExplorerGraph = {
+      nodes: [
+        { id: "service:a", kind: "service", entityId: "a", displayName: "A", outDegree: 1, inDegree: 0 },
+      ],
+      edges: [{ id: "e1", source: "service:a", target: "service:b", label: "Depends on" }],
+      truncated: false,
+    };
+    const m = computeAffordance(graph, (node, dir) => node === "service:a" && dir === "out");
+    expect(m.get("service:a")).toMatchObject({ expandedOut: true });
   });
 });

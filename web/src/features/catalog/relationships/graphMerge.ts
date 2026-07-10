@@ -4,7 +4,8 @@ import {
   type RelationshipKind,
   type CreatableRelationshipType,
 } from "@/features/catalog/relationships/relationshipTypeRules";
-import { derivedViaLabel } from "@/features/catalog/relationships/graphModel";
+import { derivedViaLabel, type ExpandAffordance } from "@/features/catalog/relationships/graphModel";
+import type { ExpandDir } from "@/features/catalog/relationships/useExplorerState";
 
 export type ExplorerNode = {
   id: string;
@@ -13,6 +14,8 @@ export type ExplorerNode = {
   displayName: string;
   depth?: number;
   teamId?: string;
+  outDegree: number;
+  inDegree: number;
 };
 export type ExplorerEdge = {
   id: string;
@@ -43,6 +46,8 @@ export function mergeGraphs(results: GraphResponse[]): ExplorerGraph {
           displayName: n.displayName,
           depth: Number(n.depth),
           teamId: n.teamId ?? undefined,
+          outDegree: Number(n.outDegree ?? 0),
+          inDegree: Number(n.inDegree ?? 0),
         });
       }
     }
@@ -99,4 +104,41 @@ export function bfsDepth(graph: ExplorerGraph, fromId: string, toId: string): nu
     frontier = next;
   }
   return null;
+}
+
+export function loadedDegrees(graph: ExplorerGraph): Map<string, { out: number; in: number }> {
+  const m = new Map<string, { out: number; in: number }>();
+  const bump = (id: string, dir: "out" | "in") => {
+    const e = m.get(id) ?? { out: 0, in: 0 };
+    e[dir] += 1;
+    m.set(id, e);
+  };
+  for (const e of graph.edges) {
+    if (e.derived) continue; // degree from backend counts explicit edges only
+    bump(e.source, "out");
+    bump(e.target, "in");
+  }
+  return m;
+}
+
+export function computeAffordance(
+  graph: ExplorerGraph,
+  isExpanded: (node: string, dir: ExpandDir) => boolean,
+): Map<string, ExpandAffordance> {
+  const loaded = loadedDegrees(graph);
+  const m = new Map<string, ExpandAffordance>();
+  for (const n of graph.nodes) {
+    const ld = loaded.get(n.id) ?? { out: 0, in: 0 };
+    const outDeg = n.outDegree ?? 0;
+    const inDeg = n.inDegree ?? 0;
+    m.set(n.id, {
+      expandableOut: ld.out < outDeg,
+      expandableIn: ld.in < inDeg,
+      expandedOut: isExpanded(n.id, "out"),
+      expandedIn: isExpanded(n.id, "in"),
+      unloadedOut: Math.max(0, outDeg - ld.out),
+      unloadedIn: Math.max(0, inDeg - ld.in),
+    });
+  }
+  return m;
 }

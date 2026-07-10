@@ -12,7 +12,8 @@ public sealed record GraphResponse(
 
 [ExcludeFromCodeCoverage]
 public sealed record GraphNodeDto(
-    EntityKind Kind, Guid Id, string DisplayName, int Depth, Guid? TeamId);
+    EntityKind Kind, Guid Id, string DisplayName, int Depth, Guid? TeamId,
+    int OutDegree, int InDegree);
 
 [ExcludeFromCodeCoverage]
 public sealed record GraphEdgeDto(

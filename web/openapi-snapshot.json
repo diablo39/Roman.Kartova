@@ -3901,7 +3901,9 @@
           "id",
           "displayName",
           "depth",
-          "teamId"
+          "teamId",
+          "outDegree",
+          "inDegree"
         ],
         "type": "object",
         "properties": {
@@ -3929,6 +3931,22 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "outDegree": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "inDegree": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },

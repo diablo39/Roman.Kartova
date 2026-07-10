@@ -1,6 +1,6 @@
 import { it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-
+import userEvent from "@testing-library/user-event";
 
 vi.mock("@xyflow/react", () => ({
   Handle: () => null,
@@ -8,38 +8,140 @@ vi.mock("@xyflow/react", () => ({
 }));
 
 import { EntityGraphNode } from "@/features/catalog/components/EntityGraphNode";
+import { GraphActionsProvider, type GraphActions } from "@/features/catalog/relationships/GraphActionsContext";
 import type { GraphNodeData } from "@/features/catalog/relationships/graphModel";
 
-function renderNode(data: GraphNodeData) {
-  return render(
-    <EntityGraphNode {...({ data } as unknown as Parameters<typeof EntityGraphNode>[0])} />,
+function renderNode(data: GraphNodeData, actions?: Partial<GraphActions>) {
+  const value: GraphActions = {
+    toggleExpand: vi.fn(), setFocus: vi.fn(), openPage: vi.fn(), atCap: false, ...actions,
+  };
+  render(
+    <GraphActionsProvider value={value}>
+      <EntityGraphNode {...({ data } as unknown as Parameters<typeof EntityGraphNode>[0])} />
+    </GraphActionsProvider>,
   );
+  return value;
 }
 
-it("renders the displayName and a human kind label", () => {
-  renderNode({ kind: "service", entityId: "s2", displayName: "AuthService", side: "dependency" });
-  expect(screen.getByText("AuthService")).toBeInTheDocument();
-  expect(screen.getByText("Service")).toBeInTheDocument();
+it("shows an expand-dependencies chevron only when out is expandable", () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", expandableOut: true, unloadedOut: 3 });
+  expect(screen.getByRole("button", { name: /expand dependencies/i })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /expand dependents/i })).toBeNull();
+});
+
+it("hides both chevrons when nothing is expandable or expanded", () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency" });
+  expect(screen.queryByRole("button", { name: /dependencies|dependents/i })).toBeNull();
+});
+
+it("shows a collapse chevron when the direction is expanded", () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", expandedOut: true });
+  expect(screen.getByRole("button", { name: /collapse dependencies/i })).toBeInTheDocument();
+});
+
+it("clicking the out chevron toggles expand out", async () => {
+  const a = renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", expandableOut: true });
+  await userEvent.click(screen.getByRole("button", { name: /expand dependencies/i }));
+  expect(a.toggleExpand).toHaveBeenCalledWith("service:s", "out");
+});
+
+it("clicking the in chevron toggles expand in", async () => {
+  const a = renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", expandableIn: true });
+  await userEvent.click(screen.getByRole("button", { name: /expand dependents/i }));
+  expect(a.toggleExpand).toHaveBeenCalledWith("service:s", "in");
+});
+
+it("disables expand chevron at cap when not expanded", () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", expandableOut: true }, { atCap: true });
+  expect(screen.getByRole("button", { name: /expand dependencies/i })).toBeDisabled();
+});
+
+it("menu opens and fires set focus / open page", async () => {
+  const a = renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", expandableOut: true, unloadedOut: 2 });
+  await userEvent.click(screen.getByRole("button", { name: /open menu/i }));
+  await userEvent.click(screen.getByRole("menuitem", { name: /set as focus/i }));
+  expect(a.setFocus).toHaveBeenCalledWith("service", "s");
+  await userEvent.click(screen.getByRole("button", { name: /open menu/i }));
+  await userEvent.click(screen.getByRole("menuitem", { name: /open page/i }));
+  expect(a.openPage).toHaveBeenCalledWith("service", "s");
 });
 
 it("renders the application kind label", () => {
-  renderNode({ kind: "application", entityId: "a1", displayName: "Checkout", side: "dependent" });
+  renderNode({ kind: "application", entityId: "a", displayName: "A", side: "dependency" });
   expect(screen.getByText("Application")).toBeInTheDocument();
 });
 
-it("emphasises the focused node and still renders its displayName", () => {
-  renderNode({ kind: "service", entityId: "s1", displayName: "Me", side: "focused" });
-  expect(screen.getByText("Me")).toBeInTheDocument();
-  expect(screen.getByText("Me").closest("div[class*='font-semibold']")).toBeInTheDocument();
+it("renders the service kind label", () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency" });
+  expect(screen.getByText("Service")).toBeInTheDocument();
 });
 
-it("applies selected styling when data.selected is true", () => {
-  renderNode({ kind: "service", entityId: "a", displayName: "A", side: "dependency", selected: true });
-  expect(screen.getByText("A").closest("div[class*='border-brand-solid']")).not.toBeNull();
+it("emphasizes a focused node with font-semibold", () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "focused" });
+  expect(screen.getByText("S").closest("div[class*='font-semibold']")).toBeInTheDocument();
 });
 
-it("applies opacity-30 class when data.dimmed is true", () => {
-  renderNode({ kind: "service", entityId: "d1", displayName: "Dimmed", side: "dependency", dimmed: true });
-  expect(screen.getByText("Dimmed").closest("div[class*='opacity-30']")).not.toBeNull();
+it("applies selected styling with border-brand-solid", () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", selected: true });
+  expect(screen.getByText("S").closest("div[class*='border-brand-solid']")).toBeInTheDocument();
 });
 
+it("applies dimmed styling with opacity-30", () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", dimmed: true });
+  expect(screen.getByText("S").closest("div[class*='opacity-30']")).toBeInTheDocument();
+});
+
+it("clicking the expand chevron does not select the node (stopPropagation contract)", async () => {
+  const selectSpy = vi.fn();
+  const value: GraphActions = { toggleExpand: vi.fn(), setFocus: vi.fn(), openPage: vi.fn(), atCap: false };
+  render(
+    <div onClick={selectSpy}>
+      <GraphActionsProvider value={value}>
+        <EntityGraphNode
+          {...({
+            data: { kind: "service", entityId: "s", displayName: "S", side: "dependency", expandableOut: true },
+          } as unknown as Parameters<typeof EntityGraphNode>[0])}
+        />
+      </GraphActionsProvider>
+    </div>,
+  );
+  await userEvent.click(screen.getByRole("button", { name: /expand dependencies/i }));
+  expect(value.toggleExpand).toHaveBeenCalledWith("service:s", "out");
+  expect(selectSpy).not.toHaveBeenCalled();
+});
+
+it("opening the ⋯ menu does not select the node (stopPropagation contract)", async () => {
+  const selectSpy = vi.fn();
+  const value: GraphActions = { toggleExpand: vi.fn(), setFocus: vi.fn(), openPage: vi.fn(), atCap: false };
+  render(
+    <div onClick={selectSpy}>
+      <GraphActionsProvider value={value}>
+        <EntityGraphNode
+          {...({
+            data: { kind: "service", entityId: "s", displayName: "S", side: "dependency" },
+          } as unknown as Parameters<typeof EntityGraphNode>[0])}
+        />
+      </GraphActionsProvider>
+    </div>,
+  );
+  await userEvent.click(screen.getByRole("button", { name: /open menu/i }));
+  expect(selectSpy).not.toHaveBeenCalled();
+});
+
+it("shows the unloaded-out count as the menu item addon when not expanded", async () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", expandableOut: true, unloadedOut: 3 });
+  await userEvent.click(screen.getByRole("button", { name: /open menu/i }));
+  expect(screen.getByRole("menuitem", { name: /expand dependencies/i })).toHaveTextContent("3");
+});
+
+it("shows no count addon on the menu item when the direction is already expanded", async () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", expandedOut: true, unloadedOut: 3 });
+  await userEvent.click(screen.getByRole("button", { name: /open menu/i }));
+  const item = screen.getByRole("menuitem", { name: /collapse dependencies/i });
+  expect(item).not.toHaveTextContent("3");
+});
+
+it("keeps the collapse chevron enabled at cap when the direction is already expanded", () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", expandedOut: true }, { atCap: true });
+  expect(screen.getByRole("button", { name: /collapse dependencies/i })).not.toBeDisabled();
+});
