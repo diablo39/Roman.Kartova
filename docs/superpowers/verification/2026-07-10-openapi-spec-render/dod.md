@@ -1,4 +1,6 @@
-# DoD Ledger — OpenAPI Spec Render (E-11.F-02.S-01)
+# DoD Ledger — Spec Render (E-11.F-02.S-01 + E-11.F-03.S-01)
+
+> **2026-07-10: AsyncAPI (E-11.F-03.S-01) folded into this slice** — same `SpecRender` component, read-only spike confirmed no CSS change needed. Gate-10 re-verified for both OpenAPI and AsyncAPI on the final code. Rename: `OpenApiRender`→`SpecRender`, `openapi/`→`spec/`, kind `"openapi"`→`"rendered"`.
 
 **Slice:** `2026-07-10-openapi-spec-render` · **Branch:** `feat/catalog-openapi-spec-render` · **HEAD:** `8cc4bab`
 **PR:** [#69](https://github.com/diablo39/Roman.Kartova/pull/69) · **Last updated:** 2026-07-10
@@ -90,7 +92,8 @@
 - **No Scalar visual bleed** (gate-9 nit) — reference renders cleanly in its container; no global style leak observed.
 - **Read-only GAP FOUND + FIXED (real):** `hideTestRequestButton` did NOT remove the inline "Send Request" API client (Scalar #7741) — visible send controls + Cookies/Headers/Query were reachable = live-request surface (spec §6). Added scoped CSS (`.scalar-render .scalar-client, [data-addressbar-action=send]` → `display:none`). Re-verified with the committed CSS (probe removed): **0 visible send/test controls, client dialog hidden, reference + code samples intact**. Coupled to Scalar internals → re-verify on upgrade; **follow-up FU-1: Playwright E2E regression** asserting no visible Send control.
 - Seed hygiene: restored aaaapi's original spec (removed the XSS probe from the dev DB).
-**At:** 8cc4bab / 2026-07-10
+- **AsyncAPI (E-11.F-03.S-01 fold, re-verified on final code):** "Orders Events" AsyncAPI spec (channel + operation + message) renders via the same `SpecRender` → toggle present, AsyncAPI 3.0.0 badge, channel/operation shown, **0 visible send/connect/subscribe controls**, `.scalar-client` hidden, XSS `onerror` stripped, 0 console errors. OpenAPI (aaaapi) re-checked — no regression (renders, toggle, 0 send controls). Evidence: `gate10-asyncapi-rendered.png`. Read-only CSS needed **no** extension.
+**At:** 8cc4bab (OpenAPI) + AsyncAPI fold / 2026-07-10
 
 ### 11 — CI green on the PR (terminal; `scripts/ci-local.sh` = required pre-push mirror)
 **Status:** ✅ PASS

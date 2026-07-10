@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import OpenApiRender from "../OpenApiRender";
+import SpecRender from "../SpecRender";
 
 // Scalar is heavy/web-component-ish; mock it. Throws for content containing "boom"
 // (to exercise the boundary), renders a probe otherwise (to assert the config shape).
@@ -22,9 +22,9 @@ vi.mock("@scalar/api-reference-react", () => ({
   },
 }));
 
-describe("OpenApiRender", () => {
+describe("SpecRender", () => {
   it("renders Scalar read-only (hideClientButton) with the spec content on the happy path", () => {
-    render(<OpenApiRender content="openapi: 3.0.0" mediaType="application/yaml" rawFallback={<pre>RAW</pre>} />);
+    render(<SpecRender content="openapi: 3.0.0" mediaType="application/yaml" rawFallback={<pre>RAW</pre>} />);
     const el = screen.getByTestId("scalar-ok");
     // Locks the read-only intent: a future edit dropping either flag fails here.
     // hideTestRequestButton is the one that disables live request execution.
@@ -34,7 +34,7 @@ describe("OpenApiRender", () => {
   });
 
   it("falls back to raw source + notice when the renderer throws", () => {
-    render(<OpenApiRender content="boom" mediaType="application/yaml" rawFallback={<pre>RAW-SOURCE</pre>} />);
+    render(<SpecRender content="boom" mediaType="application/yaml" rawFallback={<pre>RAW-SOURCE</pre>} />);
     expect(screen.getByText("RAW-SOURCE")).toBeInTheDocument();
     expect(screen.getByText(/couldn't render/i)).toBeInTheDocument();
   });
@@ -43,11 +43,11 @@ describe("OpenApiRender", () => {
     // Mirrors ApiSpecSection's `key={content}`: after a spec fails, replacing it with
     // a good spec (new key) remounts a fresh boundary instead of leaving it stuck.
     const { rerender } = render(
-      <OpenApiRender key="boom" content="boom" mediaType="application/yaml" rawFallback={<pre>RAW-SOURCE</pre>} />,
+      <SpecRender key="boom" content="boom" mediaType="application/yaml" rawFallback={<pre>RAW-SOURCE</pre>} />,
     );
     expect(screen.getByText(/couldn't render/i)).toBeInTheDocument();
     rerender(
-      <OpenApiRender key="good" content="openapi: 3.0.0" mediaType="application/yaml" rawFallback={<pre>RAW-SOURCE</pre>} />,
+      <SpecRender key="good" content="openapi: 3.0.0" mediaType="application/yaml" rawFallback={<pre>RAW-SOURCE</pre>} />,
     );
     expect(screen.getByTestId("scalar-ok")).toBeInTheDocument();
     expect(screen.queryByText(/couldn't render/i)).not.toBeInTheDocument();

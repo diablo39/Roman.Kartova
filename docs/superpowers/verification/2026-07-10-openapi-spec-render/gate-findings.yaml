@@ -16,6 +16,11 @@ findings:
     verdict: real
     title: "seed hygiene: gate-10 XSS probe left in aaaapi dev spec"
     note: "restored original spec via UI Replace"
+  - gate: manual
+    severity: should-fix
+    verdict: real
+    title: "AsyncAPI fold — confirm read-only enforcement covers AsyncAPI interactive controls"
+    note: "spike + final-code gate-10: Scalar renders AsyncAPI read-only through the same pipeline; existing hideClientButton/hideTestRequestButton + CSS cover it, no extension needed. E-11.F-03.S-01 folded in."
   - gate: deep-review
     severity: blocking
     verdict: real

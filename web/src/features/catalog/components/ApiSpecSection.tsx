@@ -5,11 +5,11 @@ import { Button } from "@/components/base/buttons/button";
 import { useApiSpec } from "@/features/catalog/api/apis";
 import type { ApiResponse } from "@/features/catalog/api/apis";
 import { AttachApiSpecDialog } from "./AttachApiSpecDialog";
-import { detectSpecKind } from "./openapi/detectSpecKind";
+import { detectSpecKind } from "./spec/detectSpecKind";
 import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
 
-const OpenApiRender = lazy(() => import("./openapi/OpenApiRender"));
+const SpecRender = lazy(() => import("./spec/SpecRender"));
 
 export function ApiSpecSection({ api }: { api: ApiResponse }) {
   const hasSpec = api.hasSpec ?? false;
@@ -56,7 +56,7 @@ export function ApiSpecSection({ api }: { api: ApiResponse }) {
       {hasSpec ? (
         <div className="space-y-2">
           {spec.data &&
-            (kind === "openapi" ? (
+            (kind === "rendered" ? (
               <SpecViews content={spec.data.content} mediaType={spec.data.mediaType} rawView={rawView} />
             ) : (
               rawView
@@ -101,7 +101,7 @@ function SpecViews({ content, mediaType, rawView }: { content: string; mediaType
       ) : (
         <Suspense fallback={<p className="text-sm text-tertiary">Loading rendered spec…</p>}>
           {/* key on content: a replaced/corrected spec gets a fresh boundary, never a stuck fallback. */}
-          <OpenApiRender key={content} content={content} mediaType={mediaType} rawFallback={rawView} />
+          <SpecRender key={content} content={content} mediaType={mediaType} rawFallback={rawView} />
         </Suspense>
       )}
     </div>

@@ -14,6 +14,8 @@ The API detail page already fetches and shows a stored spec — as a **raw `<pre
 
 **Success criterion:** an API whose stored spec is an OpenAPI 3.x (or Swagger 2.0) document shows a rendered reference by default; a dev can flip to raw source and copy it; any non-OpenAPI or malformed doc keeps today's raw view with no regression and no blank page.
 
+> **Amendment (2026-07-10, folded into PR #69):** AsyncAPI rendering was pulled in from **E-11.F-03.S-01**. A read-only spike proved Scalar renders AsyncAPI (channels/operations/messages) through the *same* component with the *same* read-only enforcement (no CSS change needed). `detectSpecKind` now also matches the top-level `asyncapi` key; the `"openapi"` kind was renamed `"rendered"`, `OpenApiRender`→`SpecRender`, folder `openapi/`→`spec/`. The "Style scope" and "Out of scope" rows below now read **OpenAPI + AsyncAPI**; GraphQL/gRPC remain out of scope. Gate-10 re-verified for both formats.
+
 ### 1.1 Scope (locked in brainstorming 2026-07-10)
 
 | Decision | Choice |

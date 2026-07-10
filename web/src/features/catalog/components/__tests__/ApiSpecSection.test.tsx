@@ -14,7 +14,7 @@ let perms = new Set<string>(["catalog.apis.register"]);
 vi.mock("@/shared/auth/usePermissions", () => ({
   usePermissions: () => ({ hasPermission: (p: string) => perms.has(p) }),
 }));
-vi.mock("../openapi/OpenApiRender", () => ({
+vi.mock("../spec/SpecRender", () => ({
   default: () => <div data-testid="rendered-openapi" />,
 }));
 
@@ -76,10 +76,18 @@ describe("ApiSpecSection", () => {
     expect(await screen.findByTestId("rendered-openapi")).toBeInTheDocument();
   });
 
-  it("shows raw only (no toggle) for a non-OpenAPI spec", () => {
-    specData = { content: "asyncapi: 3.0.0\nchannels: {}", mediaType: "application/yaml" };
+  it("defaults to a rendered view with a toggle for AsyncAPI too (Scalar renders it)", async () => {
+    specData = { content: '{"asyncapi":"3.0.0","info":{}}', mediaType: "application/json" };
+    perms = new Set(["catalog.apis.register"]);
     render(<ApiSpecSection api={api(true)} />);
-    expect(screen.getByText(/asyncapi: 3.0.0/)).toBeInTheDocument();
+    expect(await screen.findByTestId("rendered-openapi")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /rendered/i })).toBeInTheDocument();
+  });
+
+  it("shows raw only (no toggle) for a non-renderable spec (e.g. GraphQL SDL)", () => {
+    specData = { content: "type Query { hello: String }", mediaType: "text/plain" };
+    render(<ApiSpecSection api={api(true)} />);
+    expect(screen.getByText(/type Query/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /rendered/i })).not.toBeInTheDocument();
   });
 });
