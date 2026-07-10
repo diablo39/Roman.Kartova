@@ -1,14 +1,17 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ReactFlow, Background, Controls, MiniMap, Panel, type Node, type Edge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
 import { useGraph } from "@/features/catalog/api/graph";
+import { useImpactAnalysis, type ImpactSubject } from "@/features/catalog/api/impact";
 import { mergeGraphs, bfsDepth, computeAffordance } from "@/features/catalog/relationships/graphMerge";
 import { layoutGraph } from "@/features/catalog/relationships/graphLayout";
 import { useExplorerState } from "@/features/catalog/relationships/useExplorerState";
+import { buildTierMap, impactDim, tierCounts, impactTotal } from "@/features/catalog/relationships/impactModel";
 import { EntityGraphNode } from "@/features/catalog/components/EntityGraphNode";
 import { GraphExplorerSidebar } from "@/features/catalog/components/GraphExplorerSidebar";
+import { ImpactBanner } from "@/features/catalog/components/ImpactBanner";
 import { GraphActionsProvider, type GraphActions } from "@/features/catalog/relationships/GraphActionsContext";
 import type { GraphNodeData } from "@/features/catalog/relationships/graphModel";
 import { parseEntityRef, entityDetailPath, graphFocusPath } from "@/features/catalog/relationships/graphModel";
@@ -34,22 +37,42 @@ export function GraphExplorerPage() {
   const safeFocus = focus ?? { kind: "application" as RelationshipKind, id: "" };
   const { results, isLoading, isError, expandError, refetch } = useGraph({ focus: safeFocus, expand });
 
+  const [impactSubject, setImpactSubject] = useState<ImpactSubject | null>(null);
+  // Clear a stale impact overlay when the focus changes (prev-key guard, matching useExplorerState).
+  const [prevFocusForImpact, setPrevFocusForImpact] = useState(focusId);
+  if (prevFocusForImpact !== focusId) {
+    setPrevFocusForImpact(focusId);
+    setImpactSubject(null);
+  }
+  const impact = useImpactAnalysis(impactSubject);
+  const impactResult = impact.data ?? null;
+  const impactActive = impactSubject != null && impactResult != null;
+
   const merged = useMemo(
-    () => (focusId ? mergeGraphs(results) : { nodes: [], edges: [], truncated: false }),
-    [results, focusId],
+    () => (focusId ? mergeGraphs(impactResult ? [...results, impactResult] : results) : { nodes: [], edges: [], truncated: false }),
+    [results, impactResult, focusId],
   );
+
+  const tierByNodeId = useMemo(() => (impactResult ? buildTierMap(impactResult) : null), [impactResult]);
+
   const atCap = merged.nodes.length >= SOFT_CAP;
-  const dimmed = useMemo(
-    () => applyGraphFilters(merged, filters, focusId),
-    [merged, filters, focusId],
-  );
+  const dimmed = useMemo(() => {
+    const f = applyGraphFilters(merged, filters, focusId);
+    if (!impactActive || !impactResult) return f;
+    const impactIds = new Set(impactResult.nodes.map((n) => `${n.kind}:${n.id}`));
+    const im = impactDim(merged, impactIds);
+    return {
+      dimmedNodeIds: new Set([...f.dimmedNodeIds, ...im.dimmedNodeIds]),
+      dimmedEdgeIds: new Set([...f.dimmedEdgeIds, ...im.dimmedEdgeIds]),
+    };
+  }, [merged, filters, focusId, impactActive, impactResult]);
   const decorate = useMemo(() => computeAffordance(merged, isExpanded), [merged, isExpanded]);
   const { nodes, edges } = useMemo(
     () =>
       focusId
-        ? layoutGraph(merged, focusId, selected, { nodeIds: dimmed.dimmedNodeIds, edgeIds: dimmed.dimmedEdgeIds }, decorate)
+        ? layoutGraph(merged, focusId, selected, { nodeIds: dimmed.dimmedNodeIds, edgeIds: dimmed.dimmedEdgeIds }, decorate, tierByNodeId ?? undefined)
         : { nodes: [] as Node<GraphNodeData>[], edges: [] as Edge[] },
-    [merged, focusId, selected, dimmed, decorate],
+    [merged, focusId, selected, dimmed, decorate, tierByNodeId],
   );
   const actions = useMemo<GraphActions>(() => ({
     toggleExpand,
@@ -127,6 +150,17 @@ export function GraphExplorerPage() {
                       <span className="font-mono">- - derived</span>
                     </div>
                   </Panel>
+                  {impactActive && impactResult && tierByNodeId && (
+                    <Panel position="top-right">
+                      <ImpactBanner
+                        total={impactTotal(tierByNodeId)}
+                        tiers={tierCounts(tierByNodeId)}
+                        truncated={impactResult.truncated}
+                        nodeCap={200}
+                        onClose={() => setImpactSubject(null)}
+                      />
+                    </Panel>
+                  )}
                 </ReactFlow>
               </GraphActionsProvider>
             </div>
@@ -139,6 +173,7 @@ export function GraphExplorerPage() {
                 onToggleExpand={toggleExpand}
                 onSetFocus={() => navigate(graphFocusPath(selectedRef.kind, selectedRef.id))}
                 onClose={() => select(null)}
+                onImpactAnalysis={() => setImpactSubject(selectedRef)}
               />
             )}
           </div>
