@@ -55,4 +55,32 @@ it("menu opens and fires set focus / open page", async () => {
   await userEvent.click(screen.getByRole("button", { name: /open menu/i }));
   await userEvent.click(screen.getByRole("menuitem", { name: /set as focus/i }));
   expect(a.setFocus).toHaveBeenCalledWith("service", "s");
+  await userEvent.click(screen.getByRole("button", { name: /open menu/i }));
+  await userEvent.click(screen.getByRole("menuitem", { name: /open page/i }));
+  expect(a.openPage).toHaveBeenCalledWith("service", "s");
+});
+
+it("renders the application kind label", () => {
+  renderNode({ kind: "application", entityId: "a", displayName: "A", side: "dependency" });
+  expect(screen.getByText("Application")).toBeInTheDocument();
+});
+
+it("renders the service kind label", () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency" });
+  expect(screen.getByText("Service")).toBeInTheDocument();
+});
+
+it("emphasizes a focused node with font-semibold", () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "focused" });
+  expect(screen.getByText("S").closest("div[class*='font-semibold']")).toBeInTheDocument();
+});
+
+it("applies selected styling with border-brand-solid", () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", selected: true });
+  expect(screen.getByText("S").closest("div[class*='border-brand-solid']")).toBeInTheDocument();
+});
+
+it("applies dimmed styling with opacity-30", () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", dimmed: true });
+  expect(screen.getByText("S").closest("div[class*='opacity-30']")).toBeInTheDocument();
 });
