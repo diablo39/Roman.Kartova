@@ -1,0 +1,97 @@
+# gate-findings.yaml — per-gate findings telemetry for the B2 slice.
+slice:  2026-07-09-catalog-derived-dependencies (b2)
+branch: feat/catalog-derived-dependencies-b2
+head:   2e3dd3d
+
+findings:
+  # --- Gate 5 /simplify ---
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "mini-graph derivedLabel counted paths not distinct APIs (via X +1 for same-API multi-path)"
+    note: "unified with B1 graphMerge onto shared derivedViaLabel (dedupe by API name); fixed 8939a6c"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "two identical .map blocks building derived neighbours in DependencyMiniGraph"
+    note: "factored toNeighbour; 8939a6c"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "DerivedTable header markup duplicated in section + skeleton"
+    note: "extracted DerivedTableHeader; 8939a6c"
+  - gate: simplify
+    severity: should-fix
+    verdict: delusion
+    title: "per-id ICatalogEntityLookup.Find loop / whole-tenant derivation load"
+    note: "documented accepted deferrals (no batch API; spec §11); commented, not changed"
+
+  # --- Gate 7 requesting-code-review (opus, whole-branch) ---
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "whole-tenant derived set computed then filtered to one service"
+    note: "accepted deferral (spec §11); honesty comment added 796cac1"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "mini-graph did not inspect derivedQuery.isError (silent degrade)"
+    note: "surfaced error line; fixed 2e3dd3d"
+  - gate: requesting-review
+    severity: nit
+    verdict: delusion
+    title: "DerivedDependencyItem.TeamId carried but unrendered"
+    note: "intentional parity with graph node enrichment; harmless"
+
+  # --- Gate 8 review-pr (pr-review-toolkit agents) ---
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "silent-failure: mini-graph swallows derivedQuery.isError"
+    note: "same as gate 7/9; fixed 2e3dd3d"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "handler ToItem blank-name fallback invariant undocumented"
+    note: "in-tenant-by-construction comment added 2e3dd3d"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "no integration test for known-but-non-service id -> 422"
+    note: "added wrong-kind (Application id) 422 test 2e3dd3d"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "no >1-item list test; TeamId never asserted; both directions never simultaneously populated"
+    note: "added multi-neighbour both-direction + TeamId test 2e3dd3d"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "DerivedDependenciesSection isLoading skeleton untested"
+    note: "added loading test 2e3dd3d"
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "PLAUSIBLE fallbacks in GraphTraversalHandler / DerivedProvenanceNames"
+    note: "pre-existing B1 code, out of B2 scope; future entity-delete slice (spec §11)"
+
+  # --- Gate 9 deep-review (opus) ---
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "mini-graph swallows derivedQuery.isError (degrades to persisted-only silently)"
+    note: "dup of gate 7/8; fixed 2e3dd3d"
+
+  # --- Gate 2 per-task reviews ---
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "T7 self-edge unit test weaker than siblings; no service-gating regression test"
+    note: "service-gating test added 796cac1; self-edge test left (non-vacuous post-impl)"
+
+  # --- Post-merge-ready manual/live finding (user exploration) ---
+  - gate: manual
+    severity: should-fix
+    verdict: real
+    title: "mini-graph API-kind node navigated to /catalog/services/{id} -> Service not found"
+    note: "pre-existing (mini-graph rendered API nodes before B2); handler routed application-or-services only. Fixed to use entityDetailPath (api->apis) + regression test; bd662dc. Verified live."

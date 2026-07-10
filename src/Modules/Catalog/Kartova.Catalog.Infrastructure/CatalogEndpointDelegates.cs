@@ -881,6 +881,42 @@ internal static class CatalogEndpointDelegates
     }
 
     /// <summary>
+    /// GET /derived-dependencies?entityId= — a Service's derived depends-on relationships (Dependencies +
+    /// Dependents), computed on read (ADR-0111 §Decision 5). Bounded flat result (ADR-0095 carve-out). Claim
+    /// gate: catalog.read. Service-only: an unknown, non-service, or cross-tenant focus id resolves as absent
+    /// under RLS → 422 invalid-entity.
+    /// </summary>
+    internal static async Task<IResult> GetDerivedDependenciesAsync(
+        [FromQuery] Guid entityId,
+        GetDerivedDependenciesHandler handler,
+        ICatalogEntityLookup lookup,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        if (entityId == Guid.Empty)
+        {
+            return Results.Problem(
+                type: ProblemTypes.ValidationFailed,
+                title: "Invalid entity reference",
+                detail: "entityId must be non-empty.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        // Focus must be a service in this tenant (RLS ⇒ cross-tenant / non-service / unknown id → absent → 422).
+        if (await lookup.Find(EntityKind.Service, entityId, ct) is null)
+        {
+            return Results.Problem(
+                type: ProblemTypes.InvalidEntity,
+                title: "Invalid entity",
+                detail: "The service does not exist in this tenant.",
+                statusCode: StatusCodes.Status422UnprocessableEntity);
+        }
+
+        var result = await handler.Handle(new GetDerivedDependenciesQuery(entityId), db, lookup, ct);
+        return Results.Ok(result);
+    }
+
+    /// <summary>
     /// GET /graph?entityKind=&amp;entityId=&amp;depth=&amp;direction= — BFS dependency neighbourhood
     /// around the focus entity. depth 1..4 (default 2); direction outgoing|incoming|all (default all).
     /// Bounded aggregate (node cap + truncated flag) — not a cursor list. Claim gate: catalog.read.

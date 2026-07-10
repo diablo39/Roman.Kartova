@@ -9,7 +9,11 @@ vi.mock("react-router-dom", async (importOriginal) => {
 });
 
 vi.mock("@xyflow/react", () => ({
-  ReactFlow: (props: { nodes: { id: string; data: unknown }[]; edges: unknown[]; onNodeClick?: (e: unknown, n: unknown) => void }) => (
+  ReactFlow: (props: {
+    nodes: { id: string; data: unknown }[];
+    edges: { id: string; label: string }[];
+    onNodeClick?: (e: unknown, n: unknown) => void;
+  }) => (
     <div data-testid="rf">
       <span data-testid="node-count">{props.nodes.length}</span>
       <span data-testid="edge-count">{props.edges.length}</span>
@@ -18,6 +22,11 @@ vi.mock("@xyflow/react", () => ({
           {(n.data as { displayName: string }).displayName}
         </button>
       ))}
+      {props.edges.map((e) => (
+        <span key={e.id} data-testid="edge-label">
+          {e.label}
+        </span>
+      ))}
     </div>
   ),
   Background: () => null,
@@ -25,6 +34,7 @@ vi.mock("@xyflow/react", () => ({
 
 import { DependencyMiniGraph } from "@/features/catalog/components/DependencyMiniGraph";
 import * as api from "@/features/catalog/api/relationships";
+import * as derivedApi from "@/features/catalog/api/derivedDependencies";
 
 function listResult(items: Partial<api.RelationshipResponse>[], extra: Record<string, unknown> = {}) {
   return { items, isLoading: false, isError: false, hasNext: false, hasPrev: false, goNext: vi.fn(), goPrev: vi.fn(), ...extra } as never;
@@ -45,6 +55,9 @@ function renderGraph() {
 beforeEach(() => {
   vi.restoreAllMocks();
   navigate.mockReset();
+  vi.spyOn(derivedApi, "useDerivedDependencies").mockReturnValue({
+    data: undefined, isLoading: false, isError: false,
+  } as never);
 });
 
 it("renders nodes and edges from the relationship list", () => {
@@ -73,6 +86,76 @@ it("shows an overflow note when more relationships exist", () => {
   expect(screen.getByText(/see the tables below/i)).toBeInTheDocument();
 });
 
+it("merges derived dependency as an extra dashed edge", () => {
+  vi.spyOn(api, "useRelationshipsList").mockReturnValue(listResult(outgoing)); // focused + 1 persisted neighbour
+  vi.spyOn(derivedApi, "useDerivedDependencies").mockReturnValue({
+    data: {
+      dependencies: [{
+        serviceId: "s3", displayName: "PaymentsService", teamId: null,
+        paths: [{ apiId: "a1", apiName: "Orders API", viaApplicationId: null, viaApplicationDisplayName: null }],
+      }],
+      dependents: [],
+    },
+    isLoading: false, isError: false,
+  } as never);
+  renderGraph();
+  expect(screen.getByTestId("node-count")).toHaveTextContent("3"); // focused + persisted + derived neighbour
+  expect(screen.getByTestId("edge-count")).toHaveTextContent("2"); // 1 persisted + 1 derived
+});
+
+it("collapses the derived label to one api name when two paths go through the same api", () => {
+  vi.spyOn(api, "useRelationshipsList").mockReturnValue(listResult([]));
+  vi.spyOn(derivedApi, "useDerivedDependencies").mockReturnValue({
+    data: {
+      dependencies: [{
+        serviceId: "s3", displayName: "PaymentsService", teamId: null,
+        paths: [
+          { apiId: "a1", apiName: "Orders API", viaApplicationId: null, viaApplicationDisplayName: null },
+          { apiId: "a1", apiName: "Orders API", viaApplicationId: "app1", viaApplicationDisplayName: "App 1" },
+        ],
+      }],
+      dependents: [],
+    },
+    isLoading: false, isError: false,
+  } as never);
+  renderGraph();
+  // Bug fix: two paths through the same API must render "via Orders API", not "via Orders API +1".
+  expect(screen.getByTestId("edge-label")).toHaveTextContent("via Orders API");
+});
+
+it("does not fetch derived dependencies for a non-service entity (ADR-0111 §5 service-only)", () => {
+  vi.spyOn(api, "useRelationshipsList").mockReturnValue(listResult([]));
+  render(
+    <MemoryRouter>
+      <DependencyMiniGraph entityKind="application" entityId="a1" displayName="App" />
+    </MemoryRouter>,
+  );
+  expect(derivedApi.useDerivedDependencies).toHaveBeenCalledWith("a1", { enabled: false });
+});
+
+it("shows a degradation notice when the derived-dependency fetch fails, without dropping the graph", () => {
+  vi.spyOn(api, "useRelationshipsList").mockReturnValue(listResult(outgoing));
+  vi.spyOn(derivedApi, "useDerivedDependencies").mockReturnValue({
+    data: undefined, isLoading: false, isError: true,
+  } as never);
+  renderGraph();
+  expect(screen.getByTestId("rf")).toBeInTheDocument(); // persisted edges still render
+  expect(screen.getByText(/derived dependencies couldn.t be loaded/i)).toBeInTheDocument();
+});
+
+it("does not show the derived-fetch notice for a non-service entity", () => {
+  vi.spyOn(api, "useRelationshipsList").mockReturnValue(listResult(outgoing));
+  vi.spyOn(derivedApi, "useDerivedDependencies").mockReturnValue({
+    data: undefined, isLoading: false, isError: true,
+  } as never);
+  render(
+    <MemoryRouter>
+      <DependencyMiniGraph entityKind="application" entityId="a1" displayName="App" />
+    </MemoryRouter>,
+  );
+  expect(screen.queryByText(/derived dependencies couldn.t be loaded/i)).not.toBeInTheDocument();
+});
+
 it("navigates to a neighbour on node click but not for the focused node", () => {
   vi.spyOn(api, "useRelationshipsList").mockReturnValue(listResult(outgoing));
   renderGraph();
@@ -81,4 +164,25 @@ it("navigates to a neighbour on node click but not for the focused node", () => 
   navigate.mockReset();
   fireEvent.click(screen.getByRole("button", { name: "Me" })); // focused node
   expect(navigate).not.toHaveBeenCalled();
+});
+
+it("navigates an API-kind neighbour to the /catalog/apis route, not /catalog/services", () => {
+  // Regression: an api node (from a consumes-api-from edge) must route to /catalog/apis/{id};
+  // it previously fell through to /catalog/services/{id} → "Service not found".
+  vi.spyOn(api, "useRelationshipsList").mockReturnValue(
+    listResult([
+      {
+        id: "rApi",
+        type: "consumesApiFrom",
+        origin: "manual",
+        source: { kind: "service", id: "s1", displayName: "Me" },
+        target: { kind: "api", id: "api9", displayName: "Orders API" },
+        createdByUserId: "u1",
+        createdAt: "2026-06-25T00:00:00Z",
+      },
+    ]),
+  );
+  renderGraph();
+  fireEvent.click(screen.getByRole("button", { name: "Orders API" }));
+  expect(navigate).toHaveBeenCalledWith("/catalog/apis/api9");
 });

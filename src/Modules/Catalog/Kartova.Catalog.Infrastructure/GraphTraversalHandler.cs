@@ -18,7 +18,7 @@ public sealed class GraphTraversalHandler
     {
         // Precompute tenant's full set of derived service->service depends-on edges ONCE (RLS-scoped).
         // Keyed by source AND target for O(1) frontier lookup; provenance carried on the synthetic edge.
-        var derivedAll = await ComputeDerivedEdges(db, ct);
+        var derivedAll = await DerivedEdgeLoader.LoadAsync(db, ct);
         var derivedBySource = derivedAll.ToLookup(e => e.SourceServiceId);
         var derivedByTarget = derivedAll.ToLookup(e => e.TargetServiceId);
 
@@ -106,74 +106,17 @@ public sealed class GraphTraversalHandler
         return new Guid(mixed);
     }
 
-    private static readonly RelationshipType[] DerivationRelevantTypes =
-    [
-        RelationshipType.ConsumesApiFrom,
-        RelationshipType.ProvidesApiFor,
-        RelationshipType.InstanceOf,
-        RelationshipType.DependsOn,
-    ];
-
-    private static async Task<IReadOnlyList<DerivedDependencies.Edge>> ComputeDerivedEdges(
-        CatalogDbContext db, CancellationToken ct)
-    {
-        var rels = await db.Relationships
-            .Where(r => DerivationRelevantTypes.Contains(r.Type))
-            .Select(r => new { SK = r.Source.Kind, SI = r.Source.Id, TK = r.Target.Kind, TI = r.Target.Id, r.Type })
-            .ToListAsync(ct);
-
-        var consumes = rels.Where(r => r.Type == RelationshipType.ConsumesApiFrom
-                && r.SK == EntityKind.Service && r.TK == EntityKind.Api)
-            .Select(r => (r.SI, r.TI)).ToList();
-        var serviceProvides = rels.Where(r => r.Type == RelationshipType.ProvidesApiFor
-                && r.SK == EntityKind.Service && r.TK == EntityKind.Api)
-            .Select(r => (r.SI, r.TI)).ToList();
-        var instanceOf = rels.Where(r => r.Type == RelationshipType.InstanceOf
-                && r.SK == EntityKind.Service && r.TK == EntityKind.Application)
-            .Select(r => (r.SI, r.TI)).ToList();
-        var appProvides = rels.Where(r => r.Type == RelationshipType.ProvidesApiFor
-                && r.SK == EntityKind.Application && r.TK == EntityKind.Api)
-            .Select(r => (r.SI, r.TI)).ToList();
-        var explicitDeps = rels.Where(r => r.Type == RelationshipType.DependsOn
-                && r.SK == EntityKind.Service && r.TK == EntityKind.Service)
-            .Select(r => (r.SI, r.TI)).ToHashSet();
-
-        return DerivedDependencies.Compute(consumes, serviceProvides, instanceOf, appProvides, explicitDeps);
-    }
-
     private static async Task<IReadOnlyList<DerivedEdgeDto>> MapDerivedEdges(
         IReadOnlyList<GraphTraversalEdge> derivedKept, CatalogDbContext db, CancellationToken ct)
     {
         if (derivedKept.Count == 0) return Array.Empty<DerivedEdgeDto>();
 
-        var apiIds = derivedKept.SelectMany(e => e.Provenance!).Select(p => p.ApiId).Distinct().ToList();
-        var appIds = derivedKept.SelectMany(e => e.Provenance!)
-            .Where(p => p.ViaAppId is not null).Select(p => p.ViaAppId!.Value).Distinct().ToList();
-
-        var apiNames = await db.Apis
-            .Where(a => apiIds.Contains(EF.Property<Guid>(a, EfApiConfiguration.IdFieldName)))
-            .Select(a => new { Id = EF.Property<Guid>(a, EfApiConfiguration.IdFieldName), a.DisplayName })
-            .ToDictionaryAsync(x => x.Id, x => x.DisplayName, ct);
-        var appNames = appIds.Count == 0
-            ? new Dictionary<Guid, string>()
-            : await db.Applications
-                .Where(a => appIds.Contains(EF.Property<Guid>(a, EfApplicationConfiguration.IdFieldName)))
-                .Select(a => new { Id = EF.Property<Guid>(a, EfApplicationConfiguration.IdFieldName), a.DisplayName })
-                .ToDictionaryAsync(x => x.Id, x => x.DisplayName, ct);
+        var names = await DerivedProvenanceNames.LoadAsync(derivedKept.SelectMany(e => e.Provenance!), db, ct);
 
         return derivedKept.Select(e => new DerivedEdgeDto(
             new GraphEndpointDto(e.Source.Kind, e.Source.Id),
             new GraphEndpointDto(e.Target.Kind, e.Target.Id),
-            // The empty/null fallbacks below are currently UNREACHABLE: apiIds/appIds above are re-derived
-            // from a fresh RLS-scoped query on every request, and there is no Api/Application/Service delete
-            // path today, so a provenance id can never fail to resolve to a name. A future entity-delete slice
-            // MUST revisit this — deleting a referenced Api/Application would otherwise silently render blank
-            // provenance instead of surfacing the dangling reference.
-            e.Provenance!.Select(p => new DerivationPathDto(
-                p.ApiId,
-                apiNames.TryGetValue(p.ApiId, out var apiName) ? apiName : string.Empty,
-                p.ViaAppId,
-                p.ViaAppId is { } via && appNames.TryGetValue(via, out var appName) ? appName : null)).ToList()))
+            e.Provenance!.Select(names.Map).ToList()))
             .ToList();
     }
 }
