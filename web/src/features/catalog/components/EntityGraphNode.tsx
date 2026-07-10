@@ -20,12 +20,17 @@ export function EntityGraphNode({ data }: NodeProps<Node<GraphNodeData>>) {
       : "border border-secondary shadow-xs";
   const dim = data.dimmed ? "opacity-30" : "";
 
-  const chevron = (dir: ExpandDir) => {
+  const dirInfo = (dir: ExpandDir) => {
     const expandable = dir === "out" ? data.expandableOut : data.expandableIn;
     const expanded = dir === "out" ? data.expandedOut : data.expandedIn;
-    if (!expandable && !expanded) return null;
+    const count = dir === "out" ? data.unloadedOut : data.unloadedIn;
     const noun = dir === "out" ? "dependencies" : "dependents";
-    const label = `${expanded ? "Collapse" : "Expand"} ${noun}`;
+    return { expandable, expanded, count, noun, label: `${expanded ? "Collapse" : "Expand"} ${noun}` };
+  };
+
+  const chevron = (dir: ExpandDir) => {
+    const { expandable, expanded, label } = dirInfo(dir);
+    if (!expandable && !expanded) return null;
     const disabled = atCap && !expanded;
     const Icon = expanded ? Minus : dir === "out" ? ChevronRight : ChevronLeft;
     const side = dir === "out" ? "-right-2.5" : "-left-2.5";
@@ -45,13 +50,10 @@ export function EntityGraphNode({ data }: NodeProps<Node<GraphNodeData>>) {
   };
 
   const expandItem = (dir: ExpandDir) => {
-    const expandable = dir === "out" ? data.expandableOut : data.expandableIn;
-    const expanded = dir === "out" ? data.expandedOut : data.expandedIn;
-    const count = dir === "out" ? data.unloadedOut : data.unloadedIn;
-    const noun = dir === "out" ? "dependencies" : "dependents";
+    const { expandable, expanded, count, label } = dirInfo(dir);
     return (
       <Dropdown.Item
-        label={`${expanded ? "Collapse" : "Expand"} ${noun}`}
+        label={label}
         addon={!expanded && count ? String(count) : undefined}
         isDisabled={!expanded && (!expandable || atCap)}
         onAction={() => toggleExpand(key, dir)}

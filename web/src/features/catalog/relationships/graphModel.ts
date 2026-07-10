@@ -138,6 +138,10 @@ export function entityDetailPath(kind: RelationshipKind, id: string): string {
   return `/catalog/${ENTITY_PATH_SEGMENT[kind]}/${id}`;
 }
 
+export function graphFocusPath(kind: RelationshipKind, id: string): string {
+  return `/graph?focus=${kind}:${id}`;
+}
+
 // Shared "via {api}" label for a derived edge: dedupes by distinct api name so a service reachable
 // through the same API twice (e.g. provided directly and via an app) still collapses to one name.
 export function derivedViaLabel(apiNames: string[]): string {

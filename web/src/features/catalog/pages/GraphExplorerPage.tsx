@@ -4,14 +4,14 @@ import { ReactFlow, Background, Controls, MiniMap, Panel, type Node, type Edge }
 import "@xyflow/react/dist/style.css";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
 import { useGraph } from "@/features/catalog/api/graph";
-import { mergeGraphs, bfsDepth, loadedDegrees } from "@/features/catalog/relationships/graphMerge";
+import { mergeGraphs, bfsDepth, computeAffordance } from "@/features/catalog/relationships/graphMerge";
 import { layoutGraph } from "@/features/catalog/relationships/graphLayout";
 import { useExplorerState } from "@/features/catalog/relationships/useExplorerState";
 import { EntityGraphNode } from "@/features/catalog/components/EntityGraphNode";
 import { GraphExplorerSidebar } from "@/features/catalog/components/GraphExplorerSidebar";
 import { GraphActionsProvider, type GraphActions } from "@/features/catalog/relationships/GraphActionsContext";
 import type { GraphNodeData } from "@/features/catalog/relationships/graphModel";
-import { parseEntityRef, entityDetailPath } from "@/features/catalog/relationships/graphModel";
+import { parseEntityRef, entityDetailPath, graphFocusPath } from "@/features/catalog/relationships/graphModel";
 import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
 import { useGraphFilters } from "@/features/catalog/relationships/useGraphFilters";
 import { applyGraphFilters } from "@/features/catalog/relationships/graphFilter";
@@ -43,24 +43,7 @@ export function GraphExplorerPage() {
     () => applyGraphFilters(merged, filters, focusId),
     [merged, filters, focusId],
   );
-  const loaded = useMemo(() => loadedDegrees(merged), [merged]);
-  const decorate = useMemo(() => {
-    const m = new Map<string, Partial<GraphNodeData>>();
-    for (const n of merged.nodes) {
-      const ld = loaded.get(n.id) ?? { out: 0, in: 0 };
-      const outDeg = n.outDegree ?? 0;
-      const inDeg = n.inDegree ?? 0;
-      m.set(n.id, {
-        expandableOut: ld.out < outDeg,
-        expandableIn: ld.in < inDeg,
-        expandedOut: isExpanded(n.id, "out"),
-        expandedIn: isExpanded(n.id, "in"),
-        unloadedOut: Math.max(0, outDeg - ld.out),
-        unloadedIn: Math.max(0, inDeg - ld.in),
-      });
-    }
-    return m;
-  }, [merged, loaded, isExpanded]);
+  const decorate = useMemo(() => computeAffordance(merged, isExpanded), [merged, isExpanded]);
   const { nodes, edges } = useMemo(
     () =>
       focusId
@@ -70,7 +53,7 @@ export function GraphExplorerPage() {
   );
   const actions = useMemo<GraphActions>(() => ({
     toggleExpand,
-    setFocus: (kind, id) => navigate(`/graph?focus=${kind}:${id}`),
+    setFocus: (kind, id) => navigate(graphFocusPath(kind, id)),
     openPage: (kind, id) => navigate(entityDetailPath(kind, id)),
     atCap,
   }), [toggleExpand, navigate, atCap]);
@@ -154,7 +137,7 @@ export function GraphExplorerPage() {
                 isExpanded={isExpanded}
                 atCap={atCap}
                 onToggleExpand={toggleExpand}
-                onSetFocus={() => navigate(`/graph?focus=${selectedRef.kind}:${selectedRef.id}`)}
+                onSetFocus={() => navigate(graphFocusPath(selectedRef.kind, selectedRef.id))}
                 onClose={() => select(null)}
               />
             )}

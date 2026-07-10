@@ -27,9 +27,7 @@ public sealed class GraphTraversalHandler
             async (frontier, token) =>
             {
                 var ids = frontier.Select(f => f.Id).ToList();
-                var rows = await db.Relationships
-                    .Where(r => ids.Contains(r.Source.Id) || ids.Contains(r.Target.Id))
-                    .ToListAsync(token);
+                var rows = await RelationshipsTouching(db, ids).ToListAsync(token);
 
                 var edges = rows
                     .Select(r => new GraphTraversalEdge(
@@ -81,8 +79,7 @@ public sealed class GraphTraversalHandler
         // neighbours, so degree cannot come from result.Edges — one batched count over the
         // returned node ids (≤ node cap). Ids are globally unique, so counting by Id is exact.
         var nodeIds = result.Nodes.Select(n => n.Ref.Id).Distinct().ToList();
-        var degreeRows = await db.Relationships
-            .Where(r => nodeIds.Contains(r.Source.Id) || nodeIds.Contains(r.Target.Id))
+        var degreeRows = await RelationshipsTouching(db, nodeIds)
             .Select(r => new { SourceId = r.Source.Id, TargetId = r.Target.Id })
             .ToListAsync(ct);
         var outDeg = degreeRows.GroupBy(x => x.SourceId).ToDictionary(g => g.Key, g => g.Count());
@@ -108,6 +105,9 @@ public sealed class GraphTraversalHandler
 
         return new GraphResponse(nodes, persisted, derivedEdges, result.Truncated);
     }
+
+    private static IQueryable<Relationship> RelationshipsTouching(CatalogDbContext db, IReadOnlyCollection<Guid> ids)
+        => db.Relationships.Where(r => ids.Contains(r.Source.Id) || ids.Contains(r.Target.Id));
 
     private static Guid SyntheticEdgeId(Guid source, Guid target)
     {

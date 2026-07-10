@@ -4,7 +4,8 @@ import {
   type RelationshipKind,
   type CreatableRelationshipType,
 } from "@/features/catalog/relationships/relationshipTypeRules";
-import { derivedViaLabel } from "@/features/catalog/relationships/graphModel";
+import { derivedViaLabel, type GraphNodeData } from "@/features/catalog/relationships/graphModel";
+import type { ExpandDir } from "@/features/catalog/relationships/useExplorerState";
 
 export type ExplorerNode = {
   id: string;
@@ -116,6 +117,28 @@ export function loadedDegrees(graph: ExplorerGraph): Map<string, { out: number; 
     if (e.derived) continue; // degree from backend counts explicit edges only
     bump(e.source, "out");
     bump(e.target, "in");
+  }
+  return m;
+}
+
+export function computeAffordance(
+  graph: ExplorerGraph,
+  isExpanded: (node: string, dir: ExpandDir) => boolean,
+): Map<string, Partial<GraphNodeData>> {
+  const loaded = loadedDegrees(graph);
+  const m = new Map<string, Partial<GraphNodeData>>();
+  for (const n of graph.nodes) {
+    const ld = loaded.get(n.id) ?? { out: 0, in: 0 };
+    const outDeg = n.outDegree ?? 0;
+    const inDeg = n.inDegree ?? 0;
+    m.set(n.id, {
+      expandableOut: ld.out < outDeg,
+      expandableIn: ld.in < inDeg,
+      expandedOut: isExpanded(n.id, "out"),
+      expandedIn: isExpanded(n.id, "in"),
+      unloadedOut: Math.max(0, outDeg - ld.out),
+      unloadedIn: Math.max(0, inDeg - ld.in),
+    });
   }
   return m;
 }
