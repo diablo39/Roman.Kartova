@@ -97,5 +97,5 @@
 
 ### 11 — CI green on the PR (terminal; `scripts/ci-local.sh` = required pre-push mirror)
 **Status:** ✅ PASS
-**Evidence:** PR [#69](https://github.com/diablo39/Roman.Kartova/pull/69) CI run [29112582421](https://github.com/diablo39/Roman.Kartova/actions/runs/29112582421) — all 5 jobs green: Backend (arch+unit+integration) 2m48s, Container images 1m57s, Frontend (test+typecheck+build) 3m10s, Helm, Stryker config drift. Pre-push mirror `scripts/ci-local.sh frontend` also PASS.
-**At:** 8cc4bab / 2026-07-10
+**Evidence:** PR [#69](https://github.com/diablo39/Roman.Kartova/pull/69) CI green on both the OpenAPI commit (run 29112582421) and the **AsyncAPI-fold commit `96868af`** (run [29118378532](https://github.com/diablo39/Roman.Kartova/actions/runs/29118378532)) — all 5 jobs pass: Backend (arch+unit+integration), Container images, Frontend (test+typecheck+build), Helm, Stryker config drift. Pre-push mirror `scripts/ci-local.sh frontend` PASS.
+**At:** 96868af / 2026-07-10
