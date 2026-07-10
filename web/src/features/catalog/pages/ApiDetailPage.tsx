@@ -93,10 +93,6 @@ export function ApiDetailPage() {
 
         <hr className="border-secondary" />
 
-        <ApiSpecSection api={api} />
-
-        <hr className="border-secondary" />
-
         <RelationshipsSection
           entityKind="api"
           entityId={api.id}
@@ -104,6 +100,13 @@ export function ApiDetailPage() {
           entityDisplayName={api.displayName}
           variant="incoming-only"
         />
+
+        <hr className="border-secondary" />
+
+        {/* Spec render lives last: an OpenAPI doc can be long, so it sits below
+            metadata + relationships rather than pushing them off-screen. A dedicated
+            "Definition" tab is the planned end-state (E-11.F-02.S-04). */}
+        <ApiSpecSection api={api} />
       </CardContent>
     </Card>
   );

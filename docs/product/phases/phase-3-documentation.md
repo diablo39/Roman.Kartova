@@ -24,6 +24,7 @@
 | E-11.F-02.S-01 | As a developer, I want OpenAPI/Swagger specs to be rendered as interactive API documentation so that I can explore endpoints and try requests | Spec rendered with endpoint list, request/response schemas, parameters; "Try it" functionality |
 | E-11.F-02.S-02 | As a developer, I want gRPC proto files rendered as browsable API documentation so that I can understand available RPC methods | Service/method list; message type definitions; field descriptions |
 | E-11.F-02.S-03 | As a developer, I want API documentation to be versioned and aligned with deployments so that I see the right docs for each environment | Version selector; docs match deployed version per environment; diff between versions available |
+| E-11.F-02.S-04 | As a developer, I want the rendered API definition on its own tab (not inline on the overview) so that the detail page stays scannable when a spec is long | Dedicated `Overview \| Definition \| Relationships` tabs; spec render mounts on tab-open (defers the heavy chunk); mirrors Backstage's Definition tab. **Cross-cutting: the tabbed layout should generalize to Service/Application detail pages (E-03) — ADR + brainstorm before build.** Interim: spec moved to page end (PR #69) |
 
 #### Feature E-11.F-03: Async API Documentation (AsyncAPI/CloudEvents/Schema Registry)
 
