@@ -13,6 +13,8 @@ export type ExplorerNode = {
   displayName: string;
   depth?: number;
   teamId?: string;
+  outDegree: number;
+  inDegree: number;
 };
 export type ExplorerEdge = {
   id: string;
@@ -43,6 +45,8 @@ export function mergeGraphs(results: GraphResponse[]): ExplorerGraph {
           displayName: n.displayName,
           depth: Number(n.depth),
           teamId: n.teamId ?? undefined,
+          outDegree: Number(n.outDegree ?? 0),
+          inDegree: Number(n.inDegree ?? 0),
         });
       }
     }
@@ -99,4 +103,19 @@ export function bfsDepth(graph: ExplorerGraph, fromId: string, toId: string): nu
     frontier = next;
   }
   return null;
+}
+
+export function loadedDegrees(graph: ExplorerGraph): Map<string, { out: number; in: number }> {
+  const m = new Map<string, { out: number; in: number }>();
+  const bump = (id: string, dir: "out" | "in") => {
+    const e = m.get(id) ?? { out: 0, in: 0 };
+    e[dir] += 1;
+    m.set(id, e);
+  };
+  for (const e of graph.edges) {
+    if (e.derived) continue; // degree from backend counts explicit edges only
+    bump(e.source, "out");
+    bump(e.target, "in");
+  }
+  return m;
 }

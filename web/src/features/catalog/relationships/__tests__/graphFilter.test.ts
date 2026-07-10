@@ -5,10 +5,10 @@ import type { ExplorerGraph } from "@/features/catalog/relationships/graphMerge"
 const graph: ExplorerGraph = {
   truncated: false,
   nodes: [
-    { id: "application:focus", kind: "application", entityId: "focus", displayName: "Focus", teamId: "t1" },
-    { id: "application:a1", kind: "application", entityId: "a1", displayName: "App 1", teamId: "t1" },
-    { id: "service:s1", kind: "service", entityId: "s1", displayName: "Svc 1", teamId: "t2" },
-    { id: "service:s2", kind: "service", entityId: "s2", displayName: "Svc 2", teamId: undefined },
+    { id: "application:focus", kind: "application", entityId: "focus", displayName: "Focus", teamId: "t1", outDegree: 0, inDegree: 0 },
+    { id: "application:a1", kind: "application", entityId: "a1", displayName: "App 1", teamId: "t1", outDegree: 0, inDegree: 0 },
+    { id: "service:s1", kind: "service", entityId: "s1", displayName: "Svc 1", teamId: "t2", outDegree: 0, inDegree: 0 },
+    { id: "service:s2", kind: "service", entityId: "s2", displayName: "Svc 2", teamId: undefined, outDegree: 0, inDegree: 0 },
   ],
   edges: [
     { id: "e-focus-a1", source: "application:focus", target: "application:a1", label: "depends on" },
@@ -60,7 +60,7 @@ describe("applyGraphFilters", () => {
       ...graph,
       nodes: [
         ...graph.nodes,
-        { id: "api:api1", kind: "api", entityId: "api1", displayName: "Orders API", teamId: "t1" },
+        { id: "api:api1", kind: "api", entityId: "api1", displayName: "Orders API", teamId: "t1", outDegree: 0, inDegree: 0 },
       ],
     };
     const { dimmedNodeIds } = applyGraphFilters(graphWithApi, { kinds: ["api"], teamIds: [] }, focusId);
