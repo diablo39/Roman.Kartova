@@ -1,0 +1,99 @@
+# gate-findings.yaml — per-gate findings telemetry for one slice.
+# dod.md records each gate's PASS/FAIL/PENDING/N-A status; this file records what it FOUND.
+
+slice:  2026-07-10-openapi-spec-render
+branch: feat/catalog-openapi-spec-render
+head:   8cc4bab
+
+findings:
+  - gate: manual
+    severity: blocking
+    verdict: real
+    title: "hideTestRequestButton does not remove the inline Send Request client (Scalar #7741) — live-request surface reachable"
+    note: "config-only read-only insufficient; added scoped CSS hiding .scalar-client + [data-addressbar-action=send]; browser-verified 0 visible send controls; fixed 8cc4bab. FU-1: E2E regression spec"
+  - gate: manual
+    severity: nit
+    verdict: real
+    title: "seed hygiene: gate-10 XSS probe left in aaaapi dev spec"
+    note: "restored original spec via UI Replace"
+  - gate: manual
+    severity: should-fix
+    verdict: real
+    title: "AsyncAPI fold — confirm read-only enforcement covers AsyncAPI interactive controls"
+    note: "spike + final-code gate-10: Scalar renders AsyncAPI read-only through the same pipeline; existing hideClientButton/hideTestRequestButton + CSS cover it, no extension needed. E-11.F-03.S-01 folded in."
+  - gate: deep-review
+    severity: blocking
+    verdict: real
+    title: "hideClientButton alone does not disable try-it-out; live Test Request button still shown"
+    note: "hideTestRequestButton (defaults false/shown) is the real live-request/SSRF surface; added hideTestRequestButton:true + test lock; fixed ec5cc3d"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "no regression test pinning top-level-key-only detection (value containing 'openapi')"
+    note: "added false-positive test case; fixed ec5cc3d"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "Scalar 'properties' layer may merge across two Tailwind builds — verify no visual bleed"
+    note: "carried to gate-10 visual check"
+  - gate: review-pr
+    severity: blocking
+    verdict: real
+    title: "error boundary never logs render failures (silent degrade to raw)"
+    note: "added componentDidCatch with metadata-only logging; fixed 82d1744"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "stale failed:true survives spec content change → corrected spec stuck on fallback"
+    note: "key={content} at call site remounts fresh boundary; test added; fixed 82d1744"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "detectSpecKind catch also swallowed non-object-JSON TypeError"
+    note: "added explicit object guard; fixed 82d1744"
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "no test locks the read-only hideClientButton config (could be silently dropped)"
+    note: "added happy-path test asserting hideClientButton:true + content reach Scalar; fixed 82d1744"
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "hideClientButton may not hide try-it-out on every operation panel (Scalar #7741)"
+    note: "carried to gate-10 browser check; CSS-hide fallback ready if it reproduces"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "rawView rebuilt every render (inconsistent with kind memoization)"
+    note: "wrapped in useMemo; fixed 82d1744"
+  - gate: reviews
+    severity: nit
+    verdict: delusion
+    title: "toggle uses hand-rolled buttons vs Untitled UI primitive"
+    note: "no ButtonGroup/SegmentedControl/Tabs wrapper exists in web/src/components; aria-pressed toggle-button + role=group is valid a11y; matches plan"
+
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "IIFE-in-JSX for spec-kind detection + rawView build"
+    note: "hoisted to derived consts; applied in fa3ff7f"
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "detectSpecKind re-parses spec on every ApiSpecSection render (unmemoized)"
+    note: "wrapped in useMemo keyed on [content, mediaType]; applied in fa3ff7f"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "Rendered/Raw toggle group lacked group semantics"
+    note: "added role=group + aria-label; applied fa3ff7f. Full react-aria Tabs conversion deferred to review gate (adds code; aria-pressed toggle-button pattern is valid a11y)"
+  - gate: simplify
+    severity: nit
+    verdict: delusion
+    title: "drop unused _mediaType param from detectSpecKind"
+    note: "kept — intentional forward-looking optional param documented in design §4; removing churns tests + loses documented extension point"
+  - gate: build
+    severity: nit
+    verdict: real
+    title: "lazy OpenApiRender chunk is 2.79MB (859KB gzip) — Scalar cost"
+    note: "non-blocking: isolated to the lazy chunk, only loads when a user opens the rendered spec view; never in main bundle (verified @scalar imported only in OpenApiRender, loaded via lazy())"

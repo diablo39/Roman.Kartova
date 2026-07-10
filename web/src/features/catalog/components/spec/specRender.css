@@ -1,0 +1,15 @@
+/*
+ * Read-only enforcement (spec §6). Scalar exposes no config flag that fully
+ * disables its interactive API client: `hideClientButton` + `hideTestRequestButton`
+ * (both set in SpecRender) still leave the inline "Send Request" client mounted
+ * and reachable (Scalar issue #7741). This slice renders specs read-only — no live
+ * request execution — so suppress the API-client dialog and the send action within
+ * our render scope. Verified at gate-10 for both OpenAPI and AsyncAPI (no visible
+ * Send/Test-Request control; the reference, schemas, and code samples remain).
+ * Coupled to Scalar internals
+ * (`.scalar-client`, `data-addressbar-action="send"`) — re-verify on Scalar upgrade.
+ */
+.scalar-render .scalar-client,
+.scalar-render [data-addressbar-action="send"] {
+  display: none !important;
+}
