@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { ApiSpecSection } from "../ApiSpecSection";
 import type { ApiResponse } from "@/features/catalog/api/apis";
 
@@ -12,6 +13,9 @@ vi.mock("@/features/catalog/api/apis", () => ({
 let perms = new Set<string>(["catalog.apis.register"]);
 vi.mock("@/shared/auth/usePermissions", () => ({
   usePermissions: () => ({ hasPermission: (p: string) => perms.has(p) }),
+}));
+vi.mock("../openapi/OpenApiRender", () => ({
+  default: () => <div data-testid="rendered-openapi" />,
 }));
 
 const api = (hasSpec: boolean): ApiResponse =>
@@ -51,5 +55,31 @@ describe("ApiSpecSection", () => {
     render(<ApiSpecSection api={api(true)} />);
     expect(screen.getByText(/spec unavailable/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /replace/i })).toBeInTheDocument();
+  });
+
+  it("defaults to a rendered view with a toggle when the spec is OpenAPI", async () => {
+    specData = { content: '{"openapi":"3.0.0","info":{}}', mediaType: "application/json" };
+    perms = new Set(["catalog.apis.register"]);
+    render(<ApiSpecSection api={api(true)} />);
+    expect(await screen.findByTestId("rendered-openapi")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /raw/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /rendered/i })).toBeInTheDocument();
+  });
+
+  it("flips to raw source and back via the toggle", async () => {
+    const user = userEvent.setup();
+    specData = { content: '{"openapi":"3.0.0","info":{}}', mediaType: "application/json" };
+    render(<ApiSpecSection api={api(true)} />);
+    await user.click(screen.getByRole("button", { name: /raw/i }));
+    expect(screen.getByText(/"openapi":"3.0.0"/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /rendered/i }));
+    expect(await screen.findByTestId("rendered-openapi")).toBeInTheDocument();
+  });
+
+  it("shows raw only (no toggle) for a non-OpenAPI spec", () => {
+    specData = { content: "asyncapi: 3.0.0\nchannels: {}", mediaType: "application/yaml" };
+    render(<ApiSpecSection api={api(true)} />);
+    expect(screen.getByText(/asyncapi: 3.0.0/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /rendered/i })).not.toBeInTheDocument();
   });
 });
