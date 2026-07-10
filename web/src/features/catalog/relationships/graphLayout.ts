@@ -12,6 +12,7 @@ export function layoutGraph(
   selectedId: string | null,
   dimmed: { nodeIds: Set<string>; edgeIds: Set<string> } = { nodeIds: new Set(), edgeIds: new Set() },
   decorate?: Map<string, ExpandAffordance>,
+  tierByNodeId?: Map<string, number>,
 ): { nodes: Node<GraphNodeData>[]; edges: Edge[] } {
   const g = new dagre.graphlib.Graph();
   g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 120 });
@@ -33,6 +34,7 @@ export function layoutGraph(
         side: n.id === focusId ? "focused" : "dependency",
         selected: n.id === selectedId,
         dimmed: dimmed.nodeIds.has(n.id),
+        impactTier: tierByNodeId?.get(n.id),
         ...(decorate?.get(n.id) ?? {}),
       },
     };

@@ -145,3 +145,25 @@ it("keeps the collapse chevron enabled at cap when the direction is already expa
   renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", expandedOut: true }, { atCap: true });
   expect(screen.getByRole("button", { name: /collapse dependencies/i })).not.toBeDisabled();
 });
+
+it("renders a tier-1 glow ring when impactTier is 1", () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", impactTier: 1 });
+  expect(
+    screen.getByText("S").closest("div[class*='ring-[color:var(--color-bg-error-solid)]']"),
+  ).toBeInTheDocument();
+});
+
+it("renders a tier-2 glow ring when impactTier is 2", () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", impactTier: 2 });
+  expect(
+    screen.getByText("S").closest("div[class*='ring-[color:var(--color-bg-warning-solid)]']"),
+  ).toBeInTheDocument();
+});
+
+it("renders no glow ring for the focus node (impactTier 0) or when impactTier is undefined", () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "focused", impactTier: 0 });
+  expect(screen.getByText("S").closest("div[class*='ring-2']")).toBeNull();
+
+  renderNode({ kind: "service", entityId: "s2", displayName: "S2", side: "dependency" });
+  expect(screen.getByText("S2").closest("div[class*='ring-2']")).toBeNull();
+});

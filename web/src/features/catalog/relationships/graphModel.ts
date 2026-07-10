@@ -22,6 +22,9 @@ export type GraphNodeData = {
   expandedIn?: boolean;
   unloadedOut?: number;
   unloadedIn?: number;
+  // explorer: impact-analysis tier (hop distance from the analyzed node); undefined outside impact mode,
+  // 0 for the analyzed node itself (no glow). Drives the tier glow ring in EntityGraphNode.
+  impactTier?: number;
 };
 
 // The 6 node-level expand-affordance fields, kept as one source of truth so
