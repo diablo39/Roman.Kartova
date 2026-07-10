@@ -40,7 +40,7 @@ export function EntityGraphNode({ data }: NodeProps<Node<GraphNodeData>>) {
         aria-label={label}
         title={label}
         disabled={disabled}
-        className={`nodrag nopan absolute top-1/2 ${side} flex size-5 -translate-y-1/2 items-center justify-center rounded-full bg-brand-solid text-white shadow-sm disabled:opacity-40`}
+        className={`nodrag nopan absolute top-1/2 z-10 ${side} flex size-5 -translate-y-1/2 items-center justify-center rounded-full bg-brand-solid text-white shadow-sm disabled:opacity-40`}
         onPointerDown={stop}
         onClick={(e) => { stop(e); toggleExpand(key, dir); }}
       >
