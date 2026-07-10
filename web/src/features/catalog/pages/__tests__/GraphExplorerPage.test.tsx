@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { GraphExplorerPage } from "@/features/catalog/pages/GraphExplorerPage";
 
@@ -212,6 +212,80 @@ describe("GraphExplorerPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /close analysis/i }));
     expect(screen.queryByText(/downstream/)).toBeNull();
+  });
+
+  it("impact overlay wins over filters: impacted nodes never dim, non-impacted always dim", () => {
+    // Arrange: focus + one impacted node (a) + one non-impacted node (b), with an active
+    // kind filter that would otherwise dim everything except "application".
+    mockUseGraph.mockReturnValue({
+      results: [
+        {
+          truncated: false,
+          nodes: [
+            { kind: "service", id: "f", displayName: "Focus", depth: 0, teamId: null },
+            { kind: "service", id: "a", displayName: "A", depth: 1, teamId: null },
+            { kind: "service", id: "b", displayName: "B", depth: 1, teamId: null },
+          ],
+          edges: [
+            { id: "e1", source: { kind: "service", id: "f" }, target: { kind: "service", id: "a" }, type: "dependsOn", origin: "manual" },
+            { id: "e2", source: { kind: "service", id: "f" }, target: { kind: "service", id: "b" }, type: "dependsOn", origin: "manual" },
+          ],
+        },
+      ],
+      isLoading: false, isError: false, expandError: false, refetch: vi.fn(),
+    });
+    mockUseImpactAnalysis.mockReturnValue({
+      data: {
+        truncated: false,
+        nodes: [
+          { kind: "service", id: "f", displayName: "Focus", depth: 0, teamId: null },
+          { kind: "service", id: "a", displayName: "A", depth: 1, teamId: null },
+        ],
+        edges: [],
+      },
+      isError: false, isLoading: false,
+    });
+    // Active filter that does not include "b" — would dim it under the filter-only path too,
+    // but must NOT be the reason "a" (impacted) stays lit: impact must win regardless.
+    mockUseGraphFilters.mockReturnValue({
+      filters: { kinds: ["application"], teamIds: [] as string[] },
+      setKinds: vi.fn(), setTeamIds: vi.fn(), clear: vi.fn(), isActive: true, activeCount: 1,
+    });
+
+    renderAt("/graph?focus=service:f");
+    fireEvent.click(screen.getByTestId("node-service:a"));
+    fireEvent.click(screen.getByRole("button", { name: /impact analysis/i }));
+
+    const passed = capturedReactFlowNodes();
+    expect(passed.find((n) => n.id === "service:a")?.data.dimmed).toBe(false);
+    expect(passed.find((n) => n.id === "service:b")?.data.dimmed).toBe(true);
+    expect(passed.find((n) => n.id === "service:f")?.data.dimmed).toBe(false);
+  });
+
+  it("shows an error strip with Try again / Close when impact analysis fetch fails", () => {
+    const refetch = vi.fn();
+    mockUseImpactAnalysis.mockReturnValue({ data: undefined, isError: true, isLoading: false, refetch });
+
+    renderAt("/graph?focus=service:f");
+    fireEvent.click(screen.getByTestId("node-service:a"));
+    fireEvent.click(screen.getByRole("button", { name: /impact analysis/i }));
+
+    const errorStrip = screen.getByText(/couldn't run impact analysis/i).closest("div") as HTMLElement;
+    fireEvent.click(within(errorStrip).getByRole("button", { name: /try again/i }));
+    expect(refetch).toHaveBeenCalledOnce();
+
+    fireEvent.click(within(errorStrip).getByRole("button", { name: /^close$/i }));
+    expect(screen.queryByText(/couldn't run impact analysis/i)).toBeNull();
+  });
+
+  it("shows a pending indicator while impact analysis is loading", () => {
+    mockUseImpactAnalysis.mockReturnValue({ data: undefined, isError: false, isLoading: true, refetch: vi.fn() });
+
+    renderAt("/graph?focus=service:f");
+    fireEvent.click(screen.getByTestId("node-service:a"));
+    fireEvent.click(screen.getByRole("button", { name: /impact analysis/i }));
+
+    expect(screen.getByText(/analysing impact/i)).toBeInTheDocument();
   });
 
   it("shows an expand-dependencies chevron on a node whose backend outDegree exceeds loaded out-edges", async () => {

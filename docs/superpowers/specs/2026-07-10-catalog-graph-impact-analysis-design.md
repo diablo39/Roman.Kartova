@@ -69,18 +69,15 @@ In the handler, build `IReadOnlyCollection<(EntityRef Source, EntityRef Target)>
 
 ### 5.3 Handler — `GetImpactAnalysisHandler`
 `Kartova.Catalog.Infrastructure/GetImpactAnalysisHandler.cs` (mirrors `GetDerivedDependenciesHandler`):
-1. Validate focus: `q.FocusKind ∈ {Service, Application}` and the entity exists in-tenant via `lookup.Find` → else **422** (unknown / `api` / cross-tenant). Same 422 shape as derived-deps.
+1. Validate the request shape at the endpoint delegate (mirrors `GetApiSurfaceAsync`): `entityKind` must parse to `Service` or `Application` (an `Api` kind or unparseable/empty value is a structural error) and `entityId` must be non-empty → else **400**. Then resolve focus via `lookup.Find` (RLS-scoped) → unknown or cross-tenant service/application → else **422**.
 2. Build edge set (§5.2).
 3. `ImpactAnalysis.Compute(focus, edges, nodeCap: 200)`.
 4. Enrich each impacted `Ref` → displayName/teamId via `lookup.Find` (per-id, bounded by cap).
-5. Return `ImpactAnalysisResponse`.
+5. Return the reused `GraphResponse` contract (tier rides in `GraphNodeDto.Depth`).
 
 ### 5.4 Query / Contract
 - `Kartova.Catalog.Application/GetImpactAnalysisQuery.cs`: `public sealed record GetImpactAnalysisQuery(EntityKind FocusKind, Guid FocusId);`
-- `Kartova.Catalog.Contracts` (`[ExcludeFromCodeCoverage]` per Contracts rule):
-  - `ImpactNode(EntityKind Kind, Guid Id, string DisplayName, Guid? TeamId, int Tier)`
-  - `ImpactAnalysisResponse(IReadOnlyList<ImpactNode> Nodes, bool Truncated)`
-  - `Nodes.Count` = total downstream; per-tier counts derived client-side.
+- No bespoke response contract — the handler returns the existing `GraphResponse` (`Kartova.Catalog.Contracts`), reusing `GraphNodeDto` for impacted nodes. Tier travels in `GraphNodeDto.Depth`; `OutDegree`/`InDegree` are hardcoded to 0 (node-expand affordance is unused in the impact overlay). The FE derives per-tier counts client-side from `Depth`.
 
 ### 5.5 Endpoint
 `CatalogEndpointDelegates` + `CatalogModule`: `GET /catalog/impact?entityKind={service|application}&entityId={guid}` (param names consistent with `/catalog/relationships` and `/catalog/graph`). Tenant scope + catalog-read auth (existing). Additive — no signature change to existing delegates.
@@ -91,17 +88,17 @@ In the handler, build `IReadOnlyCollection<(EntityRef Source, EntityRef Target)>
 |------|--------|
 | `api/impact.ts` (new) | `useImpactAnalysis(subject: {kind: RelationshipKind; id: string} \| null)` — React-Query, `enabled: subject != null`; `GET /catalog/impact?entityKind&entityId`; returns `{ nodes, truncated }`. |
 | `relationships/impactModel.ts` (new, **pure**) | `computeImpactOverlay(response, graph, focusId)` → `{ nodesToMerge: GraphNodeData[]; dimmedNodeIds: Set<string>; dimmedEdgeIds: Set<string>; tierByNodeId: Map<string, number> }`. Impacted-set ∪ focus stays lit; everything else dims (reuses the `graphFilter` dim shape: edge dims iff either endpoint dims). `nodesToMerge` = impacted nodes absent from `graph`. |
-| `pages/GraphExplorerPage.tsx` | `impactSubject` state (`{kind,id} \| null`); on set → `useImpactAnalysis` fetch → merge `nodesToMerge` via existing `graphMerge` + re-run dagre → apply overlay (dim + tier). Compose with kind/team filters by **union** of dimmed sets. Clearing (`Close Analysis`) → `impactSubject = null` (merged nodes remain on canvas, consistent with post-expand behavior). |
+| `pages/GraphExplorerPage.tsx` | `impactSubject` state (`{kind,id} \| null`); on set → `useImpactAnalysis` fetch → merge impacted nodes via existing `graphMerge` + re-run dagre → apply overlay (dim + tier). While impact is active, the overlay **supersedes** kind/team filters for dim/lit (see below). Surfaces `impact.isError` (error strip + "Try again"/"Close") and `impact.isLoading` (pending indicator) in the same `<Panel position="top-right">` slot as the success banner — mutually exclusive. Clearing (`Close Analysis`) → `impactSubject = null`; `merged` is then recomputed from the base graph results alone, so impact-only nodes are removed from the canvas (consistent with "Close returns to normal"). |
 | `components/EntityGraphNode.tsx` | Accept `tier?: number`; render a tier-keyed glow ring (token-based ramp, tiers 1–3 distinct, ≥4 shares the deepest ring); dim reuses the existing dimmed styling. |
 | `components/ImpactBanner.tsx` (new) | Canvas `<Panel>` (mirrors `GraphFilterControls`): "N downstream (a× tier-1, b× tier-2, …)"; `truncated` → "showing first 200"; **Close Analysis** button. Per-tier counts grouped from `tierByNodeId`. |
 | `components/GraphExplorerSidebar.tsx` | "Impact analysis" button in the `mt-auto` action group, rendered only when `selected.kind ∈ {"service","application"}`; `onClick` sets `impactSubject`. |
 | `api/impact.ts` types / codegen | Endpoint returns a non-list DTO; if the generated client covers it, use it; otherwise a raw-fetch data layer (as used by the API-spec UI slice). Confirm at plan time after regenerating the client. |
 
-**Overlay/filter composition:** while impact is active, dimmed set = `impactDimmed ∪ filterDimmed`; focus and impacted nodes never dim from the impact pass (a filter may still dim an impacted node — acceptable and predictable).
+**Overlay/filter composition:** while impact is active, dimmed set = `impactDimmed` **alone** — the impact overlay supersedes kind/team filters for the impacted set. Focus and impacted nodes never dim while impact is active, regardless of active filters; this keeps the invariant "banner count == number of glowing nodes" honest. Filters resume dimming once impact is cleared.
 
 ## 7. List surface (ADR-0095 / ADR-0107)
 
-**N/A** — `/catalog/impact` is a graph/traversal query, not a paginated list endpoint; it returns a bounded closure (`ImpactAnalysisResponse`), not `CursorPage<T>`. No list screen, no sort/filter surface, no `list-filter-registry.md` change. (Same shape as `/catalog/graph` and `/catalog/derived-dependencies`, which are also non-list.)
+**N/A** — `/catalog/impact` is a graph/traversal query, not a paginated list endpoint; it returns a bounded closure (the reused `GraphResponse` contract), not `CursorPage<T>`. No list screen, no sort/filter surface, no `list-filter-registry.md` change. (Same shape as `/catalog/graph` and `/catalog/derived-dependencies`, which are also non-list.)
 
 ## 8. Impact Analysis (codelens)
 
@@ -118,7 +115,7 @@ Both consumed symbols are methods (not `const`), so `roslyn-codelens` is reliabl
 
 **Real-seam integration** (`GetImpactAnalysisTests`, `KartovaApiFixtureBase`, real Postgres/RLS + real JWT):
 - Happy: multi-tier downstream including at least one **derived** service↔service edge; assert node set, per-node tier, count.
-- Negative: unknown `entityId` → 422; `entityKind=api` → 422; cross-tenant `entityId` → 422 (RLS + validation).
+- Negative: `entityKind=api` or malformed/empty `entityId` → 400 (structural, mirrors `GetApiSurfaceAsync`); unknown `entityId` → 422; cross-tenant `entityId` → 422 (RLS + validation).
 
 **Mutation gate (6): BLOCKING** — diff adds Application-layer logic. Run Stryker on `ImpactAnalysis.Compute` (+ handler), target ≥80%; document survivors.
 

@@ -57,14 +57,13 @@ export function GraphExplorerPage() {
 
   const atCap = merged.nodes.length >= SOFT_CAP;
   const dimmed = useMemo(() => {
-    const f = applyGraphFilters(merged, filters, focusId);
-    if (!impactActive || !impactResult) return f;
-    const impactIds = new Set(impactResult.nodes.map((n) => `${n.kind}:${n.id}`));
-    const im = impactDim(merged, impactIds);
-    return {
-      dimmedNodeIds: new Set([...f.dimmedNodeIds, ...im.dimmedNodeIds]),
-      dimmedEdgeIds: new Set([...f.dimmedEdgeIds, ...im.dimmedEdgeIds]),
-    };
+    if (impactActive && impactResult) {
+      // Impact overlay supersedes filters for the impacted set: the banner's count must
+      // always equal the number of glowing (non-dimmed) nodes, regardless of active filters.
+      const impactIds = new Set(impactResult.nodes.map((n) => `${n.kind}:${n.id}`));
+      return impactDim(merged, impactIds);
+    }
+    return applyGraphFilters(merged, filters, focusId);
   }, [merged, filters, focusId, impactActive, impactResult]);
   const decorate = useMemo(() => computeAffordance(merged, isExpanded), [merged, isExpanded]);
   const { nodes, edges } = useMemo(
@@ -150,6 +149,28 @@ export function GraphExplorerPage() {
                       <span className="font-mono">- - derived</span>
                     </div>
                   </Panel>
+                  {impactSubject != null && impact.isError && (
+                    <Panel position="top-right">
+                      <div className="flex items-center gap-3 rounded-md bg-primary/90 px-3 py-2 text-sm ring-1 ring-secondary">
+                        <p className="text-sm text-error-primary">Couldn&apos;t run impact analysis.</p>
+                        <button type="button" className="text-sm text-brand-primary underline" onClick={() => impact.refetch()}>Try again</button>
+                        <button
+                          type="button"
+                          onClick={() => setImpactSubject(null)}
+                          className="ml-2 rounded-md border border-secondary px-2 py-1 text-xs text-primary"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </Panel>
+                  )}
+                  {impactSubject != null && !impact.isError && impact.isLoading && (
+                    <Panel position="top-right">
+                      <div className="flex items-center gap-3 rounded-md bg-primary/90 px-3 py-2 text-sm ring-1 ring-secondary">
+                        <p className="text-sm text-tertiary">Analysing impact…</p>
+                      </div>
+                    </Panel>
+                  )}
                   {impactActive && impactResult && tierByNodeId && (
                     <Panel position="top-right">
                       <ImpactBanner

@@ -21,12 +21,14 @@ export function EntityGraphNode({ data }: NodeProps<Node<GraphNodeData>>) {
   const dim = data.dimmed ? "opacity-30" : "";
 
   // Impact-analysis glow: tier-1 strongest → deeper tiers cooler. Focus (tier 0) gets no ring.
-  // ring-*-solid utilities aren't generated for error/warning (theme.css only defines
-  // --ring-color-brand-solid), so all three use arbitrary values against the underlying
-  // --color-bg-*-solid vars for consistency.
+  // ring-*-solid utilities aren't generated for error/warning/success (theme.css only defines
+  // --ring-color-brand-solid), so all use arbitrary values against the underlying
+  // --color-bg-*-solid vars for consistency. Tiers 1-3 are each visually distinct; tier ≥4
+  // shares the brand fallback (design §6).
   const IMPACT_RING: Record<number, string> = {
     1: "ring-2 ring-[color:var(--color-bg-error-solid)]",
     2: "ring-2 ring-[color:var(--color-bg-warning-solid)]",
+    3: "ring-2 ring-[color:var(--color-bg-success-solid)]",
   };
   const impact = data.impactTier
     ? IMPACT_RING[data.impactTier] ?? "ring-2 ring-[color:var(--color-bg-brand-solid)]"

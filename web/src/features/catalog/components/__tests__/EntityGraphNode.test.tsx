@@ -160,6 +160,15 @@ it("renders a tier-2 glow ring when impactTier is 2", () => {
   ).toBeInTheDocument();
 });
 
+it("renders a tier-3 glow ring distinct from tier-2 and the ≥4 brand fallback", () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", impactTier: 3 });
+  const el = screen.getByText("S").closest("div[class*='ring-2']");
+  expect(el).toBeInTheDocument();
+  expect(el).toHaveClass("ring-[color:var(--color-bg-success-solid)]");
+  expect(el).not.toHaveClass("ring-[color:var(--color-bg-warning-solid)]");
+  expect(el).not.toHaveClass("ring-[color:var(--color-bg-brand-solid)]");
+});
+
 it("renders no glow ring for the focus node (impactTier 0) or when impactTier is undefined", () => {
   renderNode({ kind: "service", entityId: "s", displayName: "S", side: "focused", impactTier: 0 });
   expect(screen.getByText("S").closest("div[class*='ring-2']")).toBeNull();
