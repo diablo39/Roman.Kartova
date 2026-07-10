@@ -47,7 +47,7 @@ export function ApiSpecSection({ api }: { api: ApiResponse }) {
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-medium text-tertiary">Spec document</h3>
         {canWrite && (
-          <Button type="button" color="secondary" size="sm" onClick={() => setDialogOpen(true)}>
+          <Button type="button" color="primary" size="sm" onClick={() => setDialogOpen(true)}>
             {hasSpec ? "Replace" : "Attach spec"}
           </Button>
         )}
