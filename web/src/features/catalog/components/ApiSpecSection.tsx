@@ -25,17 +25,22 @@ export function ApiSpecSection({ api }: { api: ApiResponse }) {
   // only when the spec text changes — not on every unrelated re-render.
   const kind = useMemo(() => (content ? detectSpecKind(content, mediaType) : "other"), [content, mediaType]);
 
-  const rawView = spec.data ? (
-    <>
-      <div className="flex items-center gap-2">
-        <Badge type="pill-color" color="gray" size="sm">{formatLabel(spec.data.mediaType)}</Badge>
-        <CopyButton text={spec.data.content} />
-      </div>
-      <pre className="max-h-[480px] overflow-auto rounded-md border border-secondary bg-secondary/30 p-3 font-mono text-xs text-primary whitespace-pre-wrap break-words">
-        {spec.data.content}
-      </pre>
-    </>
-  ) : null;
+  // Rebuilt only when the spec changes — consistent with `kind`'s memoization.
+  const rawView = useMemo(
+    () =>
+      content !== undefined && mediaType !== undefined ? (
+        <>
+          <div className="flex items-center gap-2">
+            <Badge type="pill-color" color="gray" size="sm">{formatLabel(mediaType)}</Badge>
+            <CopyButton text={content} />
+          </div>
+          <pre className="max-h-[480px] overflow-auto rounded-md border border-secondary bg-secondary/30 p-3 font-mono text-xs text-primary whitespace-pre-wrap break-words">
+            {content}
+          </pre>
+        </>
+      ) : null,
+    [content, mediaType],
+  );
 
   return (
     <section className="space-y-3">
@@ -95,7 +100,8 @@ function SpecViews({ content, mediaType, rawView }: { content: string; mediaType
         rawView
       ) : (
         <Suspense fallback={<p className="text-sm text-tertiary">Loading rendered spec…</p>}>
-          <OpenApiRender content={content} mediaType={mediaType} rawFallback={rawView} />
+          {/* key on content: a replaced/corrected spec gets a fresh boundary, never a stuck fallback. */}
+          <OpenApiRender key={content} content={content} mediaType={mediaType} rawFallback={rawView} />
         </Suspense>
       )}
     </div>

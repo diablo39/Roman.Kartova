@@ -10,8 +10,11 @@ export function detectSpecKind(content: string | null | undefined, _mediaType?: 
 
   // Primary: structured JSON with a top-level openapi/swagger string key.
   try {
-    const doc = JSON.parse(content) as Record<string, unknown>;
-    if (typeof doc.openapi === "string" || typeof doc.swagger === "string") return "openapi";
+    const doc = JSON.parse(content) as unknown;
+    if (doc !== null && typeof doc === "object") {
+      const rec = doc as Record<string, unknown>;
+      if (typeof rec.openapi === "string" || typeof rec.swagger === "string") return "openapi";
+    }
     return "other";
   } catch {
     // Not JSON (likely YAML) — cheap head scan of the first ~4 KB.
