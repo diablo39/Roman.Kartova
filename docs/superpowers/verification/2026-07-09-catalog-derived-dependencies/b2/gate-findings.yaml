@@ -88,3 +88,10 @@ findings:
     verdict: real
     title: "T7 self-edge unit test weaker than siblings; no service-gating regression test"
     note: "service-gating test added 796cac1; self-edge test left (non-vacuous post-impl)"
+
+  # --- Post-merge-ready manual/live finding (user exploration) ---
+  - gate: manual
+    severity: should-fix
+    verdict: real
+    title: "mini-graph API-kind node navigated to /catalog/services/{id} -> Service not found"
+    note: "pre-existing (mini-graph rendered API nodes before B2); handler routed application-or-services only. Fixed to use entityDetailPath (api->apis) + regression test; bd662dc. Verified live."
