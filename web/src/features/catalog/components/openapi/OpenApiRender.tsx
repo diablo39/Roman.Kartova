@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { ApiReferenceReact } from "@scalar/api-reference-react";
 import "@scalar/api-reference-react/style.css";
+import "./openApiRender.css";
 
 type Props = { content: string; mediaType: string; rawFallback: ReactNode };
 type State = { failed: boolean };
