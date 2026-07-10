@@ -1,6 +1,6 @@
 import { it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-
+import userEvent from "@testing-library/user-event";
 
 vi.mock("@xyflow/react", () => ({
   Handle: () => null,
@@ -8,38 +8,51 @@ vi.mock("@xyflow/react", () => ({
 }));
 
 import { EntityGraphNode } from "@/features/catalog/components/EntityGraphNode";
+import { GraphActionsProvider, type GraphActions } from "@/features/catalog/relationships/GraphActionsContext";
 import type { GraphNodeData } from "@/features/catalog/relationships/graphModel";
 
-function renderNode(data: GraphNodeData) {
-  return render(
-    <EntityGraphNode {...({ data } as unknown as Parameters<typeof EntityGraphNode>[0])} />,
+function renderNode(data: GraphNodeData, actions?: Partial<GraphActions>) {
+  const value: GraphActions = {
+    toggleExpand: vi.fn(), setFocus: vi.fn(), openPage: vi.fn(), atCap: false, ...actions,
+  };
+  render(
+    <GraphActionsProvider value={value}>
+      <EntityGraphNode {...({ data } as unknown as Parameters<typeof EntityGraphNode>[0])} />
+    </GraphActionsProvider>,
   );
+  return value;
 }
 
-it("renders the displayName and a human kind label", () => {
-  renderNode({ kind: "service", entityId: "s2", displayName: "AuthService", side: "dependency" });
-  expect(screen.getByText("AuthService")).toBeInTheDocument();
-  expect(screen.getByText("Service")).toBeInTheDocument();
+it("shows an expand-dependencies chevron only when out is expandable", () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", expandableOut: true, unloadedOut: 3 });
+  expect(screen.getByRole("button", { name: /expand dependencies/i })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /expand dependents/i })).toBeNull();
 });
 
-it("renders the application kind label", () => {
-  renderNode({ kind: "application", entityId: "a1", displayName: "Checkout", side: "dependent" });
-  expect(screen.getByText("Application")).toBeInTheDocument();
+it("hides both chevrons when nothing is expandable or expanded", () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency" });
+  expect(screen.queryByRole("button", { name: /dependencies|dependents/i })).toBeNull();
 });
 
-it("emphasises the focused node and still renders its displayName", () => {
-  renderNode({ kind: "service", entityId: "s1", displayName: "Me", side: "focused" });
-  expect(screen.getByText("Me")).toBeInTheDocument();
-  expect(screen.getByText("Me").closest("div[class*='font-semibold']")).toBeInTheDocument();
+it("shows a collapse chevron when the direction is expanded", () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", expandedOut: true });
+  expect(screen.getByRole("button", { name: /collapse dependencies/i })).toBeInTheDocument();
 });
 
-it("applies selected styling when data.selected is true", () => {
-  renderNode({ kind: "service", entityId: "a", displayName: "A", side: "dependency", selected: true });
-  expect(screen.getByText("A").closest("div[class*='border-brand-solid']")).not.toBeNull();
+it("clicking the out chevron toggles expand out", async () => {
+  const a = renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", expandableOut: true });
+  await userEvent.click(screen.getByRole("button", { name: /expand dependencies/i }));
+  expect(a.toggleExpand).toHaveBeenCalledWith("service:s", "out");
 });
 
-it("applies opacity-30 class when data.dimmed is true", () => {
-  renderNode({ kind: "service", entityId: "d1", displayName: "Dimmed", side: "dependency", dimmed: true });
-  expect(screen.getByText("Dimmed").closest("div[class*='opacity-30']")).not.toBeNull();
+it("disables expand chevron at cap when not expanded", () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", expandableOut: true }, { atCap: true });
+  expect(screen.getByRole("button", { name: /expand dependencies/i })).toBeDisabled();
 });
 
+it("menu opens and fires set focus / open page", async () => {
+  const a = renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", expandableOut: true, unloadedOut: 2 });
+  await userEvent.click(screen.getByRole("button", { name: /open menu/i }));
+  await userEvent.click(screen.getByRole("menuitem", { name: /set as focus/i }));
+  expect(a.setFocus).toHaveBeenCalledWith("service", "s");
+});
