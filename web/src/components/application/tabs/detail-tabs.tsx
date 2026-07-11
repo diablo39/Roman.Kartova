@@ -1,4 +1,4 @@
-import { Children, isValidElement, useEffect, useMemo } from "react";
+import { Children, isValidElement, useCallback, useEffect } from "react";
 import type { ReactElement, ReactNode } from "react";
 import { Tab as AriaTab, TabList, TabPanel, Tabs } from "react-aria-components";
 import { useSearchParams } from "react-router-dom";
@@ -20,51 +20,45 @@ function DetailTab(_props: DetailTabProps): null {
 interface DetailTabsProps {
   "aria-label": string;
   children: ReactNode;
-  /** URL query param backing the active tab. Default "tab". */
-  paramName?: string;
 }
 
-function DetailTabsRoot({ "aria-label": ariaLabel, children, paramName }: DetailTabsProps) {
+function DetailTabsRoot({ "aria-label": ariaLabel, children }: DetailTabsProps) {
   const [params, setParams] = useSearchParams();
   const tabs = Children.toArray(children).filter(isValidElement) as ReactElement<DetailTabProps>[];
+  const ids = tabs.map((t) => t.props.id);
+  const defaultId = ids[0];
 
-  if (tabs.length === 0) return null;
+  const raw = params.get("tab");
+  const isKnown = raw !== null && ids.includes(raw);
+  const selected = isKnown ? raw : defaultId;
 
-  const ids = useMemo(() => tabs.map((t) => t.props.id), [tabs]);
-  const param: string = paramName || "tab";
-
-  const raw = params.get(param);
-  const selected = raw && ids.includes(raw) ? raw : ids[0];
+  const setTab = useCallback(
+    (value: string) =>
+      setParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("tab", value);
+          return next;
+        },
+        { replace: true },
+      ),
+    [setParams],
+  );
 
   // Normalize a present-but-invalid ?tab to the resolved default (replace, no history spam).
   // Absent ?tab is left clean — selection defaults to the first tab without touching the URL.
   useEffect(() => {
-    if (raw !== null && !ids.includes(raw)) {
-      setParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          next.set(param, ids[0]!);
-          return next;
-        },
-        { replace: true },
-      );
+    if (raw !== null && !isKnown && defaultId !== undefined) {
+      setTab(defaultId);
     }
-  }, [raw, ids, param, setParams]);
+  }, [raw, isKnown, defaultId, setTab]);
+
+  // After all hooks: call sites always pass ≥1 tab, but guard so an empty set can't
+  // render an empty Tabs shell or push `undefined` into the URL.
+  if (tabs.length === 0) return null;
 
   return (
-    <Tabs
-      selectedKey={selected}
-      onSelectionChange={(key) =>
-        setParams(
-          (prev) => {
-            const next = new URLSearchParams(prev);
-            next.set(param, String(key));
-            return next;
-          },
-          { replace: true },
-        )
-      }
-    >
+    <Tabs selectedKey={selected} onSelectionChange={(key) => setTab(String(key))}>
       <TabList aria-label={ariaLabel} className="flex gap-8 border-b border-secondary">
         {tabs.map((t) => (
           <AriaTab
