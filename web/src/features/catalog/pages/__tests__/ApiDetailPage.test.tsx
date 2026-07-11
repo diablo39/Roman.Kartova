@@ -25,16 +25,16 @@ vi.mock("@/shared/auth/usePermissions", () => ({
 
 import { ApiDetailPage } from "../ApiDetailPage";
 
-function renderPage() {
+function renderPage(search = "") {
   return render(
-    <MemoryRouter initialEntries={["/catalog/apis/a1"]}>
+    <MemoryRouter initialEntries={[`/catalog/apis/a1${search}`]}>
       <Routes><Route path="/catalog/apis/:id" element={<ApiDetailPage />} /></Routes>
     </MemoryRouter>,
   );
 }
 
 describe("ApiDetailPage", () => {
-  it("renders name, style label, version and a spec-url external link", () => {
+  it("shows Overview by default with name, style label, version and spec-url link", () => {
     renderPage();
     expect(screen.getByRole("heading", { name: "Orders API" })).toBeInTheDocument();
     expect(screen.getByText("GraphQL")).toBeInTheDocument();
@@ -44,8 +44,15 @@ describe("ApiDetailPage", () => {
     expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
   });
 
-  it("mounts a read-only incoming relationships section", () => {
+  it("exposes Overview, Dependencies and Definition tabs", () => {
     renderPage();
+    expect(screen.getByRole("tab", { name: "Overview" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Dependencies" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Definition" })).toBeInTheDocument();
+  });
+
+  it("mounts a read-only incoming relationships section on the Dependencies tab", () => {
+    renderPage("?tab=dependencies");
     expect(screen.getByText("Incoming")).toBeInTheDocument();
     expect(screen.queryByText("Outgoing")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /add/i })).not.toBeInTheDocument();
