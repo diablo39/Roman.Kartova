@@ -24,7 +24,9 @@ interface DetailTabsProps {
 
 function DetailTabsRoot({ "aria-label": ariaLabel, children }: DetailTabsProps) {
   const [params, setParams] = useSearchParams();
-  const tabs = Children.toArray(children).filter(isValidElement) as ReactElement<DetailTabProps>[];
+  const tabs = Children.toArray(children).filter(
+    (c): c is ReactElement<DetailTabProps> => isValidElement(c) && c.type === DetailTab,
+  );
   const ids = tabs.map((t) => t.props.id);
   const defaultId = ids[0];
 

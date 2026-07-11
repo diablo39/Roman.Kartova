@@ -1,0 +1,55 @@
+slice:  2026-07-11-tabbed-entity-detail
+branch: feat/catalog-tabbed-entity-detail
+head:   c905bcd
+
+findings:
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "DetailTabs: ids array recomputed each render + used as effect dep"
+    note: "fixed b3ec794 (useMemo), then superseded by c905bcd (dropped no-op memo)"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "DetailTabs: no zero-children guard (could write literal 'undefined' to URL)"
+    note: "guard added b3ec794; relocated after hooks in c905bcd"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "ApplicationDetailPage test name overpromised (asserted only tab roles)"
+    note: "renamed b3ec794"
+  - gate: requesting-review
+    severity: nit
+    verdict: delusion
+    title: "README ADR counters unbumped"
+    note: "pre-existing drift (ADR-0113 landed same way), not introduced by this slice"
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "DetailTabs: tabs.length===0 early-return placed BEFORE useMemo/useEffect (conditional hooks)"
+    note: "rules-of-hooks violation; not caught by npm run build (tsc+vite, no eslint). Fixed c905bcd — hooks now unconditional, guard after."
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "DetailTabs: useMemo on ids was a no-op (tabs rebuilt fresh each render)"
+    note: "dropped in c905bcd; effect now depends on stable isKnown/defaultId"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "DetailTabs: speculative unused paramName prop (YAGNI)"
+    note: "removed c905bcd; hardcoded 'tab'"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "DetailTabs: duplicated URLSearchParams-mutation across effect + onSelectionChange"
+    note: "deduped into setTab useCallback in c905bcd"
+  - gate: simplify
+    severity: nit
+    verdict: delusion
+    title: "extract cross-page Field/meta-grid/deps-wrapper into shared components"
+    note: "pre-existing duplication, beyond-diff refactor; skipped (own cleanup slice)"
+  - gate: deep-review
+    severity: blocking
+    verdict: real
+    title: "DoD ledger cited by CHECKLIST but absent; gate-10 evidence was a single screenshot"
+    note: "evidence/process gap, not code. Resolved: dod.md + gate-findings.yaml written; Application + Service gate-10 screenshots added alongside API Definition."

@@ -58,4 +58,10 @@ describe("ApiDetailPage", () => {
     expect(screen.queryByRole("button", { name: /add/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
   });
+
+  it("renders the spec document on the Definition tab", () => {
+    renderPage("?tab=definition");
+    expect(screen.getByRole("tab", { name: "Definition" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("No spec attached.")).toBeInTheDocument();
+  });
 });
