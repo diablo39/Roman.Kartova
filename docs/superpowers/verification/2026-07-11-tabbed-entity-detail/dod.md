@@ -1,7 +1,7 @@
 # DoD Ledger — Tabbed Entity-Detail Layout (E-11.F-02.S-04)
 
 **Slice:** `2026-07-11-tabbed-entity-detail` · **Branch:** `feat/catalog-tabbed-entity-detail` · **HEAD:** `89ce200`
-**PR:** <pending> · **Last updated:** 2026-07-11
+**PR:** [#70](https://github.com/diablo39/Roman.Kartova/pull/70) · **Last updated:** 2026-07-11
 **Spec:** `docs/superpowers/specs/2026-07-11-catalog-tabbed-entity-detail-design.md`
 **Plan:** `docs/superpowers/plans/2026-07-11-catalog-tabbed-entity-detail.md`
 **Findings telemetry:** `./gate-findings.yaml`
