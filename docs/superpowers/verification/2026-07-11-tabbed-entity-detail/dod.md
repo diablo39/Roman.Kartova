@@ -16,7 +16,7 @@
 | 1 Build (`TreatWarningsAsErrors`) | ✅ PASS | 2026-07-11 |
 | 2 Per-task subagent reviews | ✅ PASS | 2026-07-11 |
 | 3 Full suite (real-seam N/A — frontend-only) | ✅ PASS | 2026-07-11 |
-| 4 Container build (images CI) | ⏳ PENDING (on PR CI) | — |
+| 4 Container build (images CI) | ✅ PASS | 2026-07-11 |
 | 5 `/simplify` | ✅ PASS | 2026-07-11 |
 | 6 Mutation (conditional) | N/A — no Domain/Application (C#) in diff | 2026-07-11 |
 | 7 `requesting-code-review` (whole-branch, opus) | ✅ PASS | 2026-07-11 |
@@ -24,7 +24,7 @@
 | 9 `deep-review` | ✅ PASS | 2026-07-11 |
 | Terminal re-verify (build + suite) | ✅ PASS | 2026-07-11 |
 | 10 Visual / API verification (ADR-0084) | ✅ PASS | 2026-07-11 |
-| 11 CI green on PR | ⏳ PENDING (on PR CI) | — |
+| 11 CI green on PR | ✅ PASS | 2026-07-11 |
 
 ## Gate detail
 
@@ -41,7 +41,8 @@
 **At:** c905bcd / 2026-07-11
 
 ### 4 — Container build (images CI job)
-**Status:** ⏳ PENDING — web image builds on the PR CI run (gate 11). No Dockerfile/COPY change in this diff.
+**Status:** ✅ PASS — "Container images (build — Dockerfile/restore gate)" green on run 29145643851 (1m54s). No Dockerfile/COPY change in this diff.
+**At:** PR #70 / 2026-07-11
 
 ### 5 — `/simplify` against branch diff
 **Status:** ✅ PASS — 4 cleanup agents (reuse/simplification/efficiency/altitude). Applied to `detail-tabs.tsx` in `c905bcd`: hooks moved before the empty-tabs early-return (rules-of-hooks fix), dropped no-op `useMemo`, dropped speculative `paramName`, deduped `setTab`. Skipped (noted): cross-page `Field`/meta-grid extraction (pre-existing, beyond-diff) + marker→array API change (idiomatic, approved by gate 7). Tests 5/5 + build green post-fix.
@@ -77,4 +78,5 @@
 **Follow-up:** FU-1 — convert the happy-path tab switch into a Playwright E2E spec (nightly, per ADR-0113).
 
 ### 11 — CI green on the PR (terminal)
-**Status:** ⏳ PENDING — PR CI run is the source of truth (build+test Release, web image, arch tests). To be confirmed on the PR.
+**Status:** ✅ PASS — PR #70 CI run **29145643851 all green** (3m29s): Backend (arch+unit+integration), Container images, Frontend (test+typecheck+build), Helm, Stryker config drift. The runner is the source of truth.
+**At:** PR #70 / 2026-07-11
