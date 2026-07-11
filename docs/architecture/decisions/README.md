@@ -517,6 +517,7 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Stripe-style provider** → 0062
 - **Structured JSON logs** → 0058
 - **Swagger UI (dev/staging only)** → 0034
+- **Tabs (detail page) / DetailTabs / `?tab=`** → 0114, 0094, 0084
 - **Tags (taxonomy)** → 0065, 0072
 - **TanStack Query** → 0039
 - **Teams (Microsoft)** → 0048
@@ -528,7 +529,6 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **TLS 1.2+ / 1.3** → 0077
 - **Token-bucket rate limit** → 0031
 - **Tokens (service account)** → 0009, 0063
-- **Tabs (detail page) / DetailTabs / `?tab=`** → 0114, 0094, 0084
 - **Transactional outbox** → 0033, 0047, 0080
 - **Wolverine (mediator + outbound + outbox)** → 0080
 - **TypeScript (strict)** → 0039
@@ -583,5 +583,5 @@ _No ADRs have been deprecated or superseded yet. When an ADR is superseded by a 
 | 2026-06-11 | ADR-0104 (Payload-free operation outcomes are enums) accepted — results with no success payload (`ChangeMemberRoleOutcome`, `OffboardMemberOutcome`) are C# enums, not boolean-flag records; payload-carrying results (`AssignApplicationTeamResult`) stay records; endpoints map via an exhaustive `switch` + `_ => throw`. Removes representable illegal states + the two tautological result-shape test files. Landed with slice 10 (member-lifecycle review follow-up). |
 | 2026-06-16 | ADR-0105 (Audit-chain checkpoints and external anchoring) accepted — Tier 1: insert-only, RLS-scoped `audit_checkpoint` table snapshots a verified chain head so routine verification re-walks only the tail (`AuditChainVerifier.VerifyFromCheckpointAsync`), written by a daily `LeaderElectedPeriodicService` sweep (ADR-0099) that enumerates tenants via a BYPASSRLS context and checkpoints each through the tenant-scoped path. Tier 2 (deferred): export checkpoint hashes to a WORM/signed store outside the DB trust boundary for rollback/truncation detection. Builds on ADR-0018. |
 | 2026-07-07 | ADR-0112 (API spec artifacts stored as `text` in Postgres, not MinIO) accepted — dedicated RLS-scoped `catalog_api_specs` table, 1:1 with the owning API, transactional; narrows ADR-0004 for this data class. ADR-0111 amended alongside it: API is one unified entity keyed by `Style` (`Rest`/`Grpc`/`GraphQL`/`AsyncApi`) — async protocol/channel detail carried by the stored spec document, not structured columns. Landed with E-02.F-03.S-02. |
-| 2026-07-11 | ADR-0114 (Tabbed entity-detail layout) accepted — shared `DetailTabs` primitive (react-aria `Tabs`, ADR-0094) splits Application/Service detail into Overview · Dependencies and API detail into Overview · Dependencies · Definition (spec render, ADR-0112); active tab in `?tab=`, invalid values normalize to `overview`; only the active panel mounts so the Definition Scalar chunk lazy-loads. Landed with E-11.F-02.S-04. |
 | 2026-07-09 | ADR-0113 (E2E test suite — compose-orchestrated, rootless web container, nightly cadence) proposed — first checked-in Playwright suite (`e2e/`) realizing ADR-0097 tier-5; drives the real shipped `web` container (rootless `nginx-unprivileged`, compose 4173→8080) not `vite preview`; real-UI-login-per-test; per-test `pg` drift fixture; EF global query filter hardens `Relationship` reads against unmappable `type`; nightly + `workflow_dispatch` in a separate `e2e.yml`, not per-PR; retargets DoD gate 10 to exploratory/data-shape. Landed with E-01.F-02.S-03. |
+| 2026-07-11 | ADR-0114 (Tabbed entity-detail layout) accepted — shared `DetailTabs` primitive (react-aria `Tabs`, ADR-0094) splits Application/Service detail into Overview · Dependencies and API detail into Overview · Dependencies · Definition (spec render, ADR-0112); active tab in `?tab=`, invalid values normalize to `overview`; only the active panel mounts so the Definition Scalar chunk lazy-loads. Landed with E-11.F-02.S-04. |
