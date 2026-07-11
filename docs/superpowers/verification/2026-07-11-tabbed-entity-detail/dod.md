@@ -1,6 +1,6 @@
 # DoD Ledger — Tabbed Entity-Detail Layout (E-11.F-02.S-04)
 
-**Slice:** `2026-07-11-tabbed-entity-detail` · **Branch:** `feat/catalog-tabbed-entity-detail` · **HEAD:** `c905bcd`
+**Slice:** `2026-07-11-tabbed-entity-detail` · **Branch:** `feat/catalog-tabbed-entity-detail` · **HEAD:** `89ce200`
 **PR:** <pending> · **Last updated:** 2026-07-11
 **Spec:** `docs/superpowers/specs/2026-07-11-catalog-tabbed-entity-detail-design.md`
 **Plan:** `docs/superpowers/plans/2026-07-11-catalog-tabbed-entity-detail.md`
@@ -55,16 +55,16 @@
 **At:** 47d3fde→b3ec794 / 2026-07-11
 
 ### 8 — `review-pr` (pr-review-toolkit)
-**Status:** ✅ PASS — see `./review-pr.md`.
-**At:** c905bcd / 2026-07-11
+**Status:** ✅ PASS — `./review-pr.md`. 3 parallel lenses (code/tests/type-design). Found 2 real should-fix items the whole-branch + deep-review passes missed: (a) no page-level Definition-tab assertion, (b) unchecked `as` cast on DetailTabs children. Both fixed in `89ce200`; targeted tests 9/9 + full suite 824/824 green. Cosmetic suggestions triaged out.
+**At:** 89ce200 / 2026-07-11
 
 ### 9 — `deep-review`
 **Status:** ✅ PASS — `./deep-review.md`. One blocking finding B1 was **evidence/process** (ledger + gate-10 screenshots absent at review time), resolved by this ledger + the three gate-10 screenshots. Code confirmed correct (isRowHeader intact, header above tabs, lazy Definition, /simplify fixes landed).
 **At:** c905bcd / 2026-07-11
 
 ### Terminal re-verify (build + full suite after gates 5–9)
-**Status:** ✅ PASS — build + `vitest run` green on final commit `c905bcd` (see gate 1/3).
-**At:** c905bcd / 2026-07-11
+**Status:** ✅ PASS — `cd web && npx vitest run` → **824/824** (115 files) + `npm run build` 0 errors/warnings on final commit `89ce200` (after gate-8 fixes).
+**At:** 89ce200 / 2026-07-11
 
 ### 10 — Visual / API verification (ADR-0084)
 **Status:** ✅ PASS — cold-started vite (5173), authenticated (`admin@orga.kartova.local`), driven in-SPA against the running stack (api/keycloak/postgres). **0 console errors** on every page/tab.
@@ -73,7 +73,7 @@
 - **API** (`802fc7fb…`): Overview + Dependencies + Definition. Definition empty-state → attached an OpenAPI spec → Scalar rendered read-only (Rendered/Raw toggle) — `gate10-api-definition-rendered.png`.
 - **Deep-link / normalize:** `?tab=dependencies` selects the tab; invalid `?tab=bogus` normalized to `?tab=overview` (verified via `window.location`).
 **Evidence:** 3 screenshots in this folder + snapshot/console captures in-session.
-**At:** c905bcd / 2026-07-11
+**At:** c905bcd / 2026-07-11 (browser pass). Post-verify commit `89ce200` only tightened the DetailTabs child type-guard + added a page test — behavior-preserving for valid `DetailTabs.Tab` children (all real call sites), so the browser evidence holds.
 **Follow-up:** FU-1 — convert the happy-path tab switch into a Playwright E2E spec (nightly, per ADR-0113).
 
 ### 11 — CI green on the PR (terminal)

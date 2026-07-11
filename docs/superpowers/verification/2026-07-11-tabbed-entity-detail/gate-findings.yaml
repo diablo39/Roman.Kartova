@@ -1,6 +1,6 @@
 slice:  2026-07-11-tabbed-entity-detail
 branch: feat/catalog-tabbed-entity-detail
-head:   c905bcd
+head:   89ce200
 
 findings:
   - gate: requesting-review
@@ -53,3 +53,18 @@ findings:
     verdict: real
     title: "DoD ledger cited by CHECKLIST but absent; gate-10 evidence was a single screenshot"
     note: "evidence/process gap, not code. Resolved: dod.md + gate-findings.yaml written; Application + Service gate-10 screenshots added alongside API Definition."
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "ApiDetailPage never asserted the Definition tab at page level (S-04 wiring unguarded)"
+    note: "test-analyzer rating 8. Added 'renders the spec document on the Definition tab' test; fixed 89ce200"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "DetailTabs children filtered via unchecked `as` cast — non-Tab child renders blank tab"
+    note: "type-analyzer. Tightened to type-guard (c.type === DetailTab); fixed 89ce200"
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "a11y TabList accessible name; replace-vs-push test; dup-id dev-throw"
+    note: "cosmetic/nice-to-have; triaged out with reasons in review-pr.md"
