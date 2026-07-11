@@ -4,12 +4,18 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import * as clientModule from "@/features/catalog/api/client";
+import { applicationKeys } from "@/features/catalog/api/applications";
 import { ApplicationDetailPage } from "../ApplicationDetailPage";
 
 // Stub relationships so RelationshipsSection renders without real API calls.
 vi.mock("@/features/catalog/api/relationships", () => ({
   useRelationshipsList: () => ({ items: [], isLoading: false, isError: false, hasNext: false, hasPrev: false, goNext: vi.fn(), goPrev: vi.fn() }),
   useDeleteRelationship: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+
+// Stub API surface (Dependencies tab) so ApiSurfaceSection renders without real API calls.
+vi.mock("@/features/catalog/api/apiSurface", () => ({
+  useApiSurface: () => ({ data: { provides: [], consumes: [] }, isLoading: false, isError: false }),
 }));
 
 // Default: fully permissive — existing tests are unaffected.
@@ -46,11 +52,51 @@ function harness(qc: QueryClient, initialPath: string) {
   );
 }
 
+const tabsApp = {
+  id: "00000000-0000-0000-0000-000000000099",
+  tenantId: "t",
+  displayName: "Checkout App",
+  description: "Checkout flow",
+  createdByUserId: "u-1",
+  createdBy: { id: "u-1", displayName: "Alice", email: "alice@example.com" },
+  createdAt: "2026-01-01T12:34:56Z",
+  lifecycle: "active",
+  sunsetDate: null,
+  teamId: null,
+  version: "v1",
+};
+
+/**
+ * Renders the page with the Dependencies-tab fixture (`tabsApp`) already sitting in the
+ * QueryClient cache — synchronous, no `waitFor` needed. `search` is appended to the route
+ * (e.g. `"?tab=dependencies"`), mirroring the ServiceDetailPage test harness.
+ */
+function renderPage(search = "") {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+  qc.setQueryData(applicationKeys.detail(tabsApp.id), tabsApp);
+  return render(harness(qc, `/catalog/applications/${tabsApp.id}${search}`));
+}
+
 describe("ApplicationDetailPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     // Fully permissive default so existing tests are unaffected.
     mockPermissions(Object.values(KartovaPermissions));
+  });
+
+  it("shows Overview and Dependencies tabs; successor stays on Overview", () => {
+    renderPage(); // default overview
+    expect(screen.getByRole("tab", { name: "Overview" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Dependencies" })).toBeInTheDocument();
+    // no Definition tab for applications
+    expect(screen.queryByRole("tab", { name: "Definition" })).not.toBeInTheDocument();
+  });
+
+  it("renders relationships on the Dependencies tab", () => {
+    renderPage("?tab=dependencies");
+    // RelationshipsSection renders a visible "Incoming" group heading — the word
+    // "relationship" only appears in an aria-label, not visible text (Task 3 precedent).
+    expect(screen.getByText("Incoming")).toBeInTheDocument();
   });
 
   it("renders application metadata when query resolves", async () => {
