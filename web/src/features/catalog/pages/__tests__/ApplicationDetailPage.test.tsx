@@ -84,7 +84,7 @@ describe("ApplicationDetailPage", () => {
     mockPermissions(Object.values(KartovaPermissions));
   });
 
-  it("shows Overview and Dependencies tabs; successor stays on Overview", () => {
+  it("shows Overview and Dependencies tabs (no Definition)", () => {
     renderPage(); // default overview
     expect(screen.getByRole("tab", { name: "Overview" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Dependencies" })).toBeInTheDocument();

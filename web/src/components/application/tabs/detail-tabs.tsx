@@ -1,4 +1,4 @@
-import { Children, isValidElement, useEffect } from "react";
+import { Children, isValidElement, useEffect, useMemo } from "react";
 import type { ReactElement, ReactNode } from "react";
 import { Tab as AriaTab, TabList, TabPanel, Tabs } from "react-aria-components";
 import { useSearchParams } from "react-router-dom";
@@ -27,7 +27,10 @@ interface DetailTabsProps {
 function DetailTabsRoot({ "aria-label": ariaLabel, children, paramName }: DetailTabsProps) {
   const [params, setParams] = useSearchParams();
   const tabs = Children.toArray(children).filter(isValidElement) as ReactElement<DetailTabProps>[];
-  const ids = tabs.map((t) => t.props.id);
+
+  if (tabs.length === 0) return null;
+
+  const ids = useMemo(() => tabs.map((t) => t.props.id), [tabs]);
   const param: string = paramName || "tab";
 
   const raw = params.get(param);
