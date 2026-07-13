@@ -43,14 +43,12 @@ export function ApiDetailPage() {
   const api = query.data;
 
   return (
-    <Card>
-      <CardHeader className="space-y-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-2xl font-semibold text-primary">{api.displayName}</h2>
-          <Badge type="pill-color" color="gray" size="md">{API_STYLE_LABEL[api.style]}</Badge>
-        </div>
-      </CardHeader>
-      <CardContent>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-2xl font-semibold text-primary">{api.displayName}</h2>
+        <Badge type="pill-color" color="gray" size="md">{API_STYLE_LABEL[api.style]}</Badge>
+      </div>
+      <Card>
         <DetailTabs aria-label={api.displayName}>
           <DetailTabs.Tab id="overview" label="Overview">
             <div className="space-y-6">
@@ -107,8 +105,8 @@ export function ApiDetailPage() {
             <ApiSpecSection api={api} />
           </DetailTabs.Tab>
         </DetailTabs>
-      </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 }
 

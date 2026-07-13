@@ -57,14 +57,12 @@ export function ServiceDetailPage() {
   const svc = query.data;
 
   return (
-    <Card>
-      <CardHeader className="space-y-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-2xl font-semibold text-primary">{svc.displayName}</h2>
-          <HealthBadge health={svc.health} size="md" />
-        </div>
-      </CardHeader>
-      <CardContent>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-2xl font-semibold text-primary">{svc.displayName}</h2>
+        <HealthBadge health={svc.health} size="md" />
+      </div>
+      <Card>
         <DetailTabs aria-label={svc.displayName}>
           <DetailTabs.Tab id="overview" label="Overview">
             <div className="space-y-6">
@@ -138,8 +136,8 @@ export function ServiceDetailPage() {
             </div>
           </DetailTabs.Tab>
         </DetailTabs>
-      </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 }
 

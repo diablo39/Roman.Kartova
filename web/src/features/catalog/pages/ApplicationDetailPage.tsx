@@ -72,29 +72,27 @@ export function ApplicationDetailPage() {
 
   return (
     <>
-      <Card>
-        <CardHeader className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-baseline gap-3">
-              <h2 className="text-2xl font-semibold text-primary">{app.displayName}</h2>
-              {!permissionsLoading && (canForwardLifecycle || canReverseLifecycle) && (
-                <LifecycleMenu
-                  application={app}
-                  canForward={canForwardLifecycle}
-                  canReverse={canReverseLifecycle}
-                  canOverride={canOverrideSunset}
-                />
-              )}
-              <AssignTeamPicker applicationId={app.id} currentTeamId={app.teamId} />
-            </div>
-            {canEdit && (
-              <Button color="secondary" size="sm" onClick={() => setEditOpen(true)}>
-                Edit
-              </Button>
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-baseline gap-3">
+            <h2 className="text-2xl font-semibold text-primary">{app.displayName}</h2>
+            {!permissionsLoading && (canForwardLifecycle || canReverseLifecycle) && (
+              <LifecycleMenu
+                application={app}
+                canForward={canForwardLifecycle}
+                canReverse={canReverseLifecycle}
+                canOverride={canOverrideSunset}
+              />
             )}
+            <AssignTeamPicker applicationId={app.id} currentTeamId={app.teamId} />
           </div>
-        </CardHeader>
-        <CardContent>
+          {canEdit && (
+            <Button color="secondary" size="sm" onClick={() => setEditOpen(true)}>
+              Edit
+            </Button>
+          )}
+        </div>
+        <Card>
           <DetailTabs aria-label={app.displayName}>
             <DetailTabs.Tab id="overview" label="Overview">
               <div className="space-y-6">
@@ -157,8 +155,8 @@ export function ApplicationDetailPage() {
               </div>
             </DetailTabs.Tab>
           </DetailTabs>
-        </CardContent>
-      </Card>
+        </Card>
+      </div>
 
       {editOpen && (
         <EditApplicationDialog application={app} open onOpenChange={setEditOpen} />
