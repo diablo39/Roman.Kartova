@@ -31,6 +31,11 @@ public sealed class ListRelationshipsForEntityHandler
                     (r.Target.Kind == q.Entity.Kind && r.Target.Id == q.Entity.Id)),
         };
 
+        if (q.ExcludeApiEdges)
+            source = source.Where(r =>
+                r.Type != RelationshipType.ProvidesApiFor &&
+                r.Type != RelationshipType.ConsumesApiFrom);
+
         var page = await source
             .ToCursorPagedAsync(
                 spec, q.SortOrder, q.Cursor, q.Limit,
