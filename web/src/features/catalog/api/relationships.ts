@@ -52,6 +52,15 @@ export function useRelationshipsList(
   });
 }
 
+// A relationship change also feeds every derived read model keyed under
+// ["catalog", ...] — the API surface (provides/consumes), the dependency graph,
+// derived dependencies, and impact analysis. Invalidate both families so those
+// sections refresh without a manual page reload.
+function invalidateAfterRelationshipChange(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: relationshipKeys.all });
+  qc.invalidateQueries({ queryKey: ["catalog"] });
+}
+
 export function useCreateRelationship() {
   const qc = useQueryClient();
   return useMutation({
@@ -60,7 +69,7 @@ export function useCreateRelationship() {
       if (error) throw error;
       return unwrapData(data);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: relationshipKeys.all }),
+    onSuccess: () => invalidateAfterRelationshipChange(qc),
   });
 }
 
@@ -73,7 +82,7 @@ export function useDeleteRelationship() {
       });
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: relationshipKeys.all }),
+    onSuccess: () => invalidateAfterRelationshipChange(qc),
   });
 }
 

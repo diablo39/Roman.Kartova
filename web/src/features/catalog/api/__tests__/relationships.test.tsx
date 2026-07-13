@@ -72,6 +72,8 @@ describe("relationships api", () => {
     await result.current.mutateAsync({ sourceKind: "service", sourceId: "s1", type: "dependsOn", targetKind: "service", targetId: "s2" });
     expect(POST).toHaveBeenCalledWith("/api/v1/catalog/relationships", { body: expect.objectContaining({ type: "dependsOn" }) });
     expect(spy).toHaveBeenCalledWith({ queryKey: ["relationships"] });
+    // Derived read models (api-surface, graph, derived-deps, impact) must refresh too.
+    expect(spy).toHaveBeenCalledWith({ queryKey: ["catalog"] });
   });
 
   it("useDeleteRelationship DELETEs by id and invalidates", async () => {
@@ -83,6 +85,7 @@ describe("relationships api", () => {
     await result.current.mutateAsync("r1");
     expect(DELETE).toHaveBeenCalledWith("/api/v1/catalog/relationships/{id}", { params: { path: { id: "r1" } } });
     expect(spy).toHaveBeenCalledWith({ queryKey: ["relationships"] });
+    expect(spy).toHaveBeenCalledWith({ queryKey: ["catalog"] });
   });
 
   it("useEntitySearch hits the services endpoint for Service kind", async () => {
