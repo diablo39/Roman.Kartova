@@ -241,7 +241,9 @@ it("incoming-only variant does not set excludeApiEdges", async () => {
 });
 ```
 
-If the existing test file spies differently (e.g. asserts on `apiClient.GET` args or MSW handlers), adapt these two assertions to that mechanism — the behavioral claim (full ⇒ `excludeApiEdges:"true"`, incoming-only ⇒ absent) is what must hold.
+If the existing test file spies differently (e.g. asserts on `apiClient.GET` args or MSW handlers), adapt these two assertions to that mechanism — the behavioral claim (full ⇒ `excludeApiEdges` present, incoming-only ⇒ absent) is what must hold.
+
+> **As-shipped note:** the generated OpenAPI type for `excludeApiEdges` is `boolean`, so the code sends the JS boolean `true` (not the string `"true"` shown in the snippets below); openapi-fetch serializes it to `?excludeApiEdges=true`. Also, the flag is sent **only on the outgoing hook** (dropped from incoming as a no-op) per review — see the design doc.
 
 - [ ] **Step 2: Run the test to verify it fails**
 

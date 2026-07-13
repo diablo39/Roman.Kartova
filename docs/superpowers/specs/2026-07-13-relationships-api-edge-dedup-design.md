@@ -46,7 +46,7 @@ Exclusion lives in the **backend query**, opt-in via a flag the full-variant cal
 
 ### Frontend — `web`
 
-- `RelationshipsListParams` gains `excludeApiEdges?: boolean`; `useRelationshipsList` forwards it into the query string (as `"true"` / omitted).
+- `RelationshipsListParams` gains `excludeApiEdges?: boolean`; `useRelationshipsList` forwards it as a boolean query param (the generated OpenAPI type is `boolean`; openapi-fetch serializes it to `?excludeApiEdges=true`), omitted when falsy. **Sent only on the outgoing hook** — the incoming hook never carries it (App/Service incoming edges never target an API, so it would be a no-op).
 - `RelationshipsSection`: derive `const excludeApiEdges = variant === "full"` and pass it to both list hooks.
   - `variant="full"` — Application/Service pages ⇒ exclude.
   - `variant="incoming-only"` — API detail page ⇒ `false` ⇒ providers/consumers still shown.
