@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "@/components/base/card/card";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
 import { Table } from "@/components/application/table/table";
+import { DetailTabs } from "@/components/application/tabs/detail-tabs";
 import { HealthBadge } from "@/features/catalog/components/HealthBadge";
 import { CreatedByLink } from "@/features/users/components/CreatedByLink";
 import { useService } from "@/features/catalog/api/services";
@@ -63,76 +64,80 @@ export function ServiceDetailPage() {
           <HealthBadge health={svc.health} size="md" />
         </div>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <section>
-          <h3 className="text-sm font-medium text-tertiary">Description</h3>
-          <p className="mt-1 text-sm text-secondary">
-            {svc.description ? svc.description : <span className="italic">No description</span>}
-          </p>
-        </section>
-
-        <hr className="border-secondary" />
-
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Field label="ID" value={svc.id} mono />
-          <div>
-            <div className="text-xs uppercase tracking-wide text-tertiary">Team</div>
-            <div className="mt-1 text-sm">
-              <Link to={`/teams/${svc.teamId}`} className="text-primary hover:underline">
-                {teamNameById.get(svc.teamId) ?? "View team"}
-              </Link>
+      <CardContent>
+        <DetailTabs aria-label={svc.displayName}>
+          <DetailTabs.Tab id="overview" label="Overview">
+            <div className="space-y-6">
+              <section>
+                <h3 className="text-sm font-medium text-tertiary">Description</h3>
+                <p className="mt-1 text-sm text-secondary">
+                  {svc.description ? svc.description : <span className="italic">No description</span>}
+                </p>
+              </section>
+              <hr className="border-secondary" />
+              <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <Field label="ID" value={svc.id} mono />
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-tertiary">Team</div>
+                  <div className="mt-1 text-sm">
+                    <Link to={`/teams/${svc.teamId}`} className="text-primary hover:underline">
+                      {teamNameById.get(svc.teamId) ?? "View team"}
+                    </Link>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-tertiary">Created by</div>
+                  <div className="mt-1 text-sm"><CreatedByLink user={svc.createdBy} /></div>
+                </div>
+                <Field label="Created" value={svc.createdAt ? new Date(svc.createdAt).toLocaleString() : "—"} />
+                <Field label="Version" value={svc.version} mono />
+              </section>
+              <hr className="border-secondary" />
+              <section>
+                <h3 className="text-sm font-medium text-tertiary">Endpoints</h3>
+                {svc.endpoints.length === 0 ? (
+                  <p className="mt-1 text-sm text-tertiary italic">No endpoints registered</p>
+                ) : (
+                  <div className="mt-2 overflow-hidden rounded-lg ring-1 ring-secondary">
+                    <Table aria-label="Service endpoints">
+                      <Table.Header>
+                        <Table.Head id="url" isRowHeader>URL</Table.Head>
+                        <Table.Head id="protocol">Protocol</Table.Head>
+                      </Table.Header>
+                      <Table.Body>
+                        {svc.endpoints.map((e, i) => (
+                          <Table.Row key={`${e.url}-${i}`} id={`${e.url}-${i}`}>
+                            <Table.Cell className="font-mono text-sm text-primary">{e.url}</Table.Cell>
+                            <Table.Cell className="text-sm">{PROTOCOL_LABEL[e.protocol]}</Table.Cell>
+                          </Table.Row>
+                        ))}
+                      </Table.Body>
+                    </Table>
+                  </div>
+                )}
+              </section>
             </div>
-          </div>
-          <div>
-            <div className="text-xs uppercase tracking-wide text-tertiary">Created by</div>
-            <div className="mt-1 text-sm">
-              <CreatedByLink user={svc.createdBy} />
-            </div>
-          </div>
-          <Field label="Created" value={svc.createdAt ? new Date(svc.createdAt).toLocaleString() : "—"} />
-          <Field label="Version" value={svc.version} mono />
-        </section>
+          </DetailTabs.Tab>
 
-        <hr className="border-secondary" />
-
-        <section>
-          <h3 className="text-sm font-medium text-tertiary">Endpoints</h3>
-          {svc.endpoints.length === 0 ? (
-            <p className="mt-1 text-sm text-tertiary italic">No endpoints registered</p>
-          ) : (
-            <div className="mt-2 overflow-hidden rounded-lg ring-1 ring-secondary">
-              <Table aria-label="Service endpoints">
-                <Table.Header>
-                  <Table.Head id="url" isRowHeader>URL</Table.Head>
-                  <Table.Head id="protocol">Protocol</Table.Head>
-                </Table.Header>
-                <Table.Body>
-                  {svc.endpoints.map((e, i) => (
-                    <Table.Row key={`${e.url}-${i}`} id={`${e.url}-${i}`}>
-                      <Table.Cell className="font-mono text-sm text-primary">{e.url}</Table.Cell>
-                      <Table.Cell className="text-sm">{PROTOCOL_LABEL[e.protocol]}</Table.Cell>
-                    </Table.Row>
-                  ))}
-                </Table.Body>
-              </Table>
+          <DetailTabs.Tab id="dependencies" label="Dependencies">
+            <div className="space-y-6">
+              <ApiSurfaceSection entityKind="service" entityId={svc.id} />
+              <hr className="border-secondary" />
+              <Suspense fallback={<Skeleton className="h-80 w-full" />}>
+                <DependencyMiniGraph entityKind="service" entityId={svc.id} displayName={svc.displayName} />
+              </Suspense>
+              <hr className="border-secondary" />
+              <DerivedDependenciesSection entityId={svc.id} />
+              <hr className="border-secondary" />
+              <RelationshipsSection
+                entityKind="service"
+                entityId={svc.id}
+                entityTeamId={svc.teamId}
+                entityDisplayName={svc.displayName}
+              />
             </div>
-          )}
-        </section>
-          <hr className="border-secondary" />
-          <Suspense fallback={<Skeleton className="h-80 w-full" />}>
-            <DependencyMiniGraph entityKind="service" entityId={svc.id} displayName={svc.displayName} />
-          </Suspense>
-          <hr className="border-secondary" />
-          <ApiSurfaceSection entityKind="service" entityId={svc.id} />
-          <hr className="border-secondary" />
-          <DerivedDependenciesSection entityId={svc.id} />
-          <hr className="border-secondary" />
-          <RelationshipsSection
-            entityKind="service"
-            entityId={svc.id}
-            entityTeamId={svc.teamId}
-            entityDisplayName={svc.displayName}
-          />
+          </DetailTabs.Tab>
+        </DetailTabs>
       </CardContent>
     </Card>
   );

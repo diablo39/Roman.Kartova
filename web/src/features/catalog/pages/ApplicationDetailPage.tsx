@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "@/components/base/card/card";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
 import { Button } from "@/components/base/buttons/button";
+import { DetailTabs } from "@/components/application/tabs/detail-tabs";
 import { useApplication } from "@/features/catalog/api/applications";
 import { LifecycleMenu } from "@/features/catalog/components/LifecycleMenu";
 import { EditApplicationDialog } from "@/features/catalog/components/EditApplicationDialog";
@@ -93,64 +94,69 @@ export function ApplicationDetailPage() {
             )}
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <section>
-            <h3 className="text-sm font-medium text-tertiary">Description</h3>
-            <p className="mt-1 text-sm text-secondary">
-              {app.description ? app.description : <span className="italic">No description</span>}
-            </p>
-          </section>
-          <hr className="border-secondary" />
-          <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Field label="ID" value={app.id} mono />
-            <div>
-              <div className="text-xs uppercase tracking-wide text-tertiary">Created by</div>
-              <div className="mt-1 text-sm">
-                <CreatedByLink user={app.createdBy} />
-              </div>
-            </div>
-            <Field label="Created" value={app.createdAt ?? "—"} />
-          </section>
-          {(app.successorApplicationId || showSuccessorAction) && (
-            <>
-              <hr className="border-secondary" />
-              <section className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <div className="text-xs uppercase tracking-wide text-tertiary">Successor</div>
-                  <div className="mt-1 text-sm">
-                    {app.successorApplicationId ? (
-                      <Link
-                        to={`/catalog/applications/${app.successorApplicationId}`}
-                        className="text-brand-secondary hover:underline"
-                      >
-                        {app.successorDisplayName ?? "—"} →
-                      </Link>
-                    ) : (
-                      <span className="italic text-tertiary">None set</span>
-                    )}
+        <CardContent>
+          <DetailTabs aria-label={app.displayName}>
+            <DetailTabs.Tab id="overview" label="Overview">
+              <div className="space-y-6">
+                <section>
+                  <h3 className="text-sm font-medium text-tertiary">Description</h3>
+                  <p className="mt-1 text-sm text-secondary">
+                    {app.description ? app.description : <span className="italic">No description</span>}
+                  </p>
+                </section>
+                <hr className="border-secondary" />
+                <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <Field label="ID" value={app.id} mono />
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-tertiary">Created by</div>
+                    <div className="mt-1 text-sm"><CreatedByLink user={app.createdBy} /></div>
                   </div>
-                </div>
-                {showSuccessorAction && (
-                  <Button color="secondary" size="sm" onClick={() => setSuccessorDialogOpen(true)}>
-                    {app.successorApplicationId ? "Change successor" : "Set successor"}
-                  </Button>
+                  <Field label="Created" value={app.createdAt ?? "—"} />
+                </section>
+                {(app.successorApplicationId || showSuccessorAction) && (
+                  <>
+                    <hr className="border-secondary" />
+                    <section className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <div className="text-xs uppercase tracking-wide text-tertiary">Successor</div>
+                        <div className="mt-1 text-sm">
+                          {app.successorApplicationId ? (
+                            <Link to={`/catalog/applications/${app.successorApplicationId}`} className="text-brand-secondary hover:underline">
+                              {app.successorDisplayName ?? "—"} →
+                            </Link>
+                          ) : (
+                            <span className="italic text-tertiary">None set</span>
+                          )}
+                        </div>
+                      </div>
+                      {showSuccessorAction && (
+                        <Button color="secondary" size="sm" onClick={() => setSuccessorDialogOpen(true)}>
+                          {app.successorApplicationId ? "Change successor" : "Set successor"}
+                        </Button>
+                      )}
+                    </section>
+                  </>
                 )}
-              </section>
-            </>
-          )}
-          <hr className="border-secondary" />
-          <Suspense fallback={<Skeleton className="h-80 w-full" />}>
-            <DependencyMiniGraph entityKind="application" entityId={app.id} displayName={app.displayName} />
-          </Suspense>
-          <hr className="border-secondary" />
-          <ApiSurfaceSection entityKind="application" entityId={app.id} />
-          <hr className="border-secondary" />
-          <RelationshipsSection
-            entityKind="application"
-            entityId={app.id}
-            entityTeamId={app.teamId}
-            entityDisplayName={app.displayName}
-          />
+              </div>
+            </DetailTabs.Tab>
+
+            <DetailTabs.Tab id="dependencies" label="Dependencies">
+              <div className="space-y-6">
+                <ApiSurfaceSection entityKind="application" entityId={app.id} />
+                <hr className="border-secondary" />
+                <Suspense fallback={<Skeleton className="h-80 w-full" />}>
+                  <DependencyMiniGraph entityKind="application" entityId={app.id} displayName={app.displayName} />
+                </Suspense>
+                <hr className="border-secondary" />
+                <RelationshipsSection
+                  entityKind="application"
+                  entityId={app.id}
+                  entityTeamId={app.teamId}
+                  entityDisplayName={app.displayName}
+                />
+              </div>
+            </DetailTabs.Tab>
+          </DetailTabs>
         </CardContent>
       </Card>
 

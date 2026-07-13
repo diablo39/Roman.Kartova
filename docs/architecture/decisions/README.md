@@ -240,6 +240,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0111](ADR-0111-api-first-class-entity-provider-instance-fields.md) | API Is a First-Class Entity — Provider/Instance as FK Fields, Consumers as Edges, Exposure Derived | Domain Model | Accepted (Revised 2026-07-04; **Amended 2026-07-07**) | 0068 (amends), 0110, 0064, 0103, 0040, 0067, 0112 | API is a first-class team-owned entity, **one unified aggregate** keyed by `Style` (`Rest`/`Grpc`/`GraphQL`/`AsyncApi`) — async carries protocol/channel detail in the stored spec document (ADR-0112), not columns. Provider/instance/consumer links are all relationship edges (2026-07-04 revision); service↔service `depends-on` derives. **Amends ADR-0068**: `provides-api-for`/`consumes-api-from` target the API entity. `ServiceEndpoint` drops `Protocol`, gains optional `Description` (relaxed URL). |
 | [0112](ADR-0112-api-spec-artifacts-stored-in-postgres.md) | API Spec Artifacts Stored as `text` in Postgres, Not MinIO | Data Platform / Domain Model | Accepted | 0004 (narrows), 0034, 0111 (amended alongside), 0001, 0012 | Spec documents (OpenAPI for `Rest`/`Grpc`/`GraphQL`, AsyncAPI for `AsyncApi`) are stored as `text` in a dedicated RLS-scoped `catalog_api_specs` table, 1:1 with the owning API, written transactionally; `media_type` tags serialization, semantic format derives from `Api.Style`. Not MinIO/S3 for this data class — free tenant isolation + transactional integrity + TOAST handles the ~1 MB tail. Revisit to MinIO if E-21 version history causes table bloat. |
 | [0113](ADR-0113-e2e-suite-compose-nightly.md) | E2E Test Suite — Compose-Orchestrated, Rootless Web Container, Nightly Cadence | Testing / CI | Proposed | 0084, 0097 (realizes tier-5), 0085, 0090, 0094, 0111 | First checked-in Playwright E2E suite (`e2e/`) realizing ADR-0097's tier-5. Drives the **real shipped web container** (compose `web` service, rootless `nginx-unprivileged`, 4173→8080) not `vite preview`; real-UI-login-per-test; per-test `pg` drift fixture. Adds an EF global query filter on `Relationship` so unmappable `type` rows can't 500 any read path. Runs **nightly + `workflow_dispatch` in a separate `e2e.yml`, not per-PR**. Retargets DoD gate 10 to exploratory/data-shape (deterministic flows → E2E); boundary vs ADR-0084 (Playwright MCP dev-time). Known limits: realm user-id pinning, real-k8s URL injection deferred. |
+| [0114](ADR-0114-tabbed-entity-detail-layout.md) | Tabbed Entity-Detail Layout | Frontend Architecture | Accepted | 0094, 0084, 0040, 0112 | Shared `DetailTabs` primitive (react-aria `Tabs`) splits Application/Service detail into Overview · Dependencies and API detail into Overview · Dependencies · Definition (spec render); active tab in `?tab=` (default `overview`, invalid normalizes to default); only the active panel mounts, so the Definition Scalar chunk lazy-loads on open. |
 
 ## By category (quick navigation)
 
@@ -250,7 +251,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Platform Infrastructure**: 0022, 0023, 0024, 0025, 0026, 0099
 - **API & Integration Architecture**: 0027, 0028, 0029, 0030, 0031, 0032, 0033, 0034, 0035, 0036, 0037, 0038, 0091, 0092, 0095, 0096, 0098, 0109
 - **Backend Architecture**: 0080, 0081, 0082, 0089, 0093
-- **Frontend Architecture**: 0039, 0040, 0088, 0107
+- **Frontend Architecture**: 0039, 0040, 0088, 0107, 0114
 - **Agent Architecture**: 0041, 0042, 0043, 0044, 0045
 - **CLI & Distribution**: 0046
 - **Notification Architecture**: 0047, 0048, 0049, 0050
@@ -288,7 +289,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Availability & SLA**: 0005, 0023, 0053, 0076
 - **Billing & pricing**: 0061, 0062, 0063
 - **Observability**: 0036, 0058, 0059, 0060
-- **Frontend**: 0039, 0040, 0088, 0107
+- **Frontend**: 0039, 0040, 0088, 0107, 0114
 - **Component library / UI primitives**: 0088
 - **List filtering / filters (UI + mandate)**: 0107 (mandate + `<FilterBar>`), 0095 (`f`-map wire format), 0002/0013 (faceted search via Elasticsearch)
 - **Git integration**: 0035, 0054, 0055, 0057
@@ -348,6 +349,7 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Dead Letter Queue (DLQ)** → 0033
 - **Deep scan** → 0054, 0055
 - **Dependency graph** → 0040, 0067, 0068, 0111
+- **Detail page / entity-detail layout (tabbed)** → 0114
 - **DNS challenge / ACME** → 0052
 - **Docker Compose (local dev)** → 0024
 - **Docker image / Helm chart (agent)** → 0043
@@ -515,6 +517,7 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Stripe-style provider** → 0062
 - **Structured JSON logs** → 0058
 - **Swagger UI (dev/staging only)** → 0034
+- **Tabs (detail page) / DetailTabs / `?tab=`** → 0114, 0094, 0084
 - **Tags (taxonomy)** → 0065, 0072
 - **TanStack Query** → 0039
 - **Teams (Microsoft)** → 0048
@@ -581,3 +584,4 @@ _No ADRs have been deprecated or superseded yet. When an ADR is superseded by a 
 | 2026-06-16 | ADR-0105 (Audit-chain checkpoints and external anchoring) accepted — Tier 1: insert-only, RLS-scoped `audit_checkpoint` table snapshots a verified chain head so routine verification re-walks only the tail (`AuditChainVerifier.VerifyFromCheckpointAsync`), written by a daily `LeaderElectedPeriodicService` sweep (ADR-0099) that enumerates tenants via a BYPASSRLS context and checkpoints each through the tenant-scoped path. Tier 2 (deferred): export checkpoint hashes to a WORM/signed store outside the DB trust boundary for rollback/truncation detection. Builds on ADR-0018. |
 | 2026-07-07 | ADR-0112 (API spec artifacts stored as `text` in Postgres, not MinIO) accepted — dedicated RLS-scoped `catalog_api_specs` table, 1:1 with the owning API, transactional; narrows ADR-0004 for this data class. ADR-0111 amended alongside it: API is one unified entity keyed by `Style` (`Rest`/`Grpc`/`GraphQL`/`AsyncApi`) — async protocol/channel detail carried by the stored spec document, not structured columns. Landed with E-02.F-03.S-02. |
 | 2026-07-09 | ADR-0113 (E2E test suite — compose-orchestrated, rootless web container, nightly cadence) proposed — first checked-in Playwright suite (`e2e/`) realizing ADR-0097 tier-5; drives the real shipped `web` container (rootless `nginx-unprivileged`, compose 4173→8080) not `vite preview`; real-UI-login-per-test; per-test `pg` drift fixture; EF global query filter hardens `Relationship` reads against unmappable `type`; nightly + `workflow_dispatch` in a separate `e2e.yml`, not per-PR; retargets DoD gate 10 to exploratory/data-shape. Landed with E-01.F-02.S-03. |
+| 2026-07-11 | ADR-0114 (Tabbed entity-detail layout) accepted — shared `DetailTabs` primitive (react-aria `Tabs`, ADR-0094) splits Application/Service detail into Overview · Dependencies and API detail into Overview · Dependencies · Definition (spec render, ADR-0112); active tab in `?tab=`, invalid values normalize to `overview`; only the active panel mounts so the Definition Scalar chunk lazy-loads. Landed with E-11.F-02.S-04. |
