@@ -29,6 +29,41 @@ public class ListRelationshipsTests : CatalogIntegrationTestBase
         new { sourceKind = sk, sourceId = sid, type = t, targetKind = tk, targetId = tid };
 
     [TestMethod]
+    public async Task GET_enriches_CreatedBy_from_caller_when_user_row_exists()
+    {
+        // Seed the caller's own users-projection row (id == JWT sub) so IUserDirectory
+        // can resolve the relationship's creator into CreatedBy (the "Added by" column).
+        var tenantId = Fx.TenantIdForEmail(OrgAUser);
+        var sub = await Fx.GetSubClaimAsync(OrgAUser);
+        var email = $"rel-creator-{Guid.NewGuid():N}@orga.kartova.local";
+        await Fx.SeedUserWithIdInOrganizationAsync(tenantId, sub, "Rel Creator OrgA", email);
+        try
+        {
+            var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+            var teamId = await Fx.SeedTeamInOrganizationAsync(tenantId, "Rel CreatedBy Team");
+            var a = await SeedServiceAsync(client, teamId, "cb-svc-a");
+            var b = await SeedServiceAsync(client, teamId, "cb-svc-b");
+            await client.PostAsJsonAsync("/api/v1/catalog/relationships",
+                Rel(EntityKind.Service, a, RelationshipType.DependsOn, EntityKind.Service, b));
+
+            var page = await (await client.GetAsync(
+                $"/api/v1/catalog/relationships?entityKind=Service&entityId={a}&direction=outgoing"))
+                .Content.ReadFromJsonAsync<CursorPage<RelationshipResponse>>(KartovaApiFixtureBase.WireJson);
+
+            Assert.AreEqual(1, page!.Items.Count);
+            var rel = page.Items[0];
+            Assert.AreEqual(sub, rel.CreatedByUserId);
+            Assert.IsNotNull(rel.CreatedBy, "CreatedBy must be enriched when the creator's users row exists");
+            Assert.AreEqual(sub, rel.CreatedBy!.Id);
+            Assert.AreEqual("Rel Creator OrgA", rel.CreatedBy.DisplayName);
+        }
+        finally
+        {
+            await Fx.DeleteUserInOrganizationAsync(sub);
+        }
+    }
+
+    [TestMethod]
     public async Task GET_incoming_returns_consumers_of_an_entity()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);

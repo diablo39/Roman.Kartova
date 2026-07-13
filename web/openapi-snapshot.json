@@ -4458,6 +4458,16 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "createdBy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UserDisplayInfo"
+              }
+            ]
           }
         }
       },

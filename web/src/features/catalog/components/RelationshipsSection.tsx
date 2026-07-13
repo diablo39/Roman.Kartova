@@ -140,7 +140,7 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
                         </Badge>
                       </Table.Cell>
                       <Table.Cell>
-                        <CreatedByLink user={null} />
+                        <CreatedByLink user={r.createdBy} />
                       </Table.Cell>
                       {canManage && (
                         <Table.Cell>

@@ -817,6 +817,7 @@ internal static class CatalogEndpointDelegates
         [FromQuery] bool? excludeApiEdges,
         ListRelationshipsForEntityHandler handler,
         ICatalogEntityLookup lookup,
+        IUserDirectory directory,
         CatalogDbContext db,
         CancellationToken ct)
     {
@@ -840,7 +841,7 @@ internal static class CatalogEndpointDelegates
             Cursor: cursor, Limit: effectiveLimit,
             ExcludeApiEdges: excludeApiEdges ?? false);
 
-        var page = await handler.Handle(query, db, lookup, ct);
+        var page = await handler.Handle(query, db, lookup, directory, ct);
         return Results.Ok(page);
     }
 

@@ -1,6 +1,7 @@
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
+using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Pagination;
 using Kartova.SharedKernel.Postgres.Pagination;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +16,7 @@ public sealed class ListRelationshipsForEntityHandler
         ListRelationshipsForEntityQuery q,
         CatalogDbContext db,
         ICatalogEntityLookup lookup,
+        IUserDirectory directory,
         CancellationToken ct)
     {
         var spec = RelationshipSortSpecs.Resolve(q.SortBy);
@@ -60,12 +62,18 @@ public sealed class ListRelationshipsForEntityHandler
         string GetDisplayName(EntityKind kind, Guid id) =>
             displayNames.TryGetValue((kind, id), out var name) ? name : string.Empty;
 
+        // Batch-resolve creators for the "Added by" column (avoid N+1); unresolved
+        // ids (system actor / offboarded creator) are simply absent → CreatedBy null.
+        var creatorIds = page.Items.Select(r => r.CreatedByUserId).Distinct().ToList();
+        var creators = await directory.GetManyAsync(creatorIds, ct);
+
         var items = page.Items
             .Select(r =>
             {
                 var src = new EntityRefDto(r.Source.Kind, r.Source.Id, GetDisplayName(r.Source.Kind, r.Source.Id));
                 var tgt = new EntityRefDto(r.Target.Kind, r.Target.Id, GetDisplayName(r.Target.Kind, r.Target.Id));
-                return r.ToResponse(src, tgt);
+                var createdBy = creators.TryGetValue(r.CreatedByUserId, out var info) ? info : null;
+                return r.ToResponse(src, tgt) with { CreatedBy = createdBy };
             })
             .ToList();
 
