@@ -42,13 +42,11 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
     hasPermission(KartovaPermissions.CatalogRelationshipsWrite) &&
     (role === "OrgAdmin" || teamIds.includes(entityTeamId));
 
-  const excludeApiEdges = variant === "full";
-
   const outgoing = useRelationshipsList(
-    { entityKind, entityId, direction: "outgoing", excludeApiEdges },
+    { entityKind, entityId, direction: "outgoing", excludeApiEdges: variant === "full" },
     { enabled: variant === "full" },
   );
-  const incoming = useRelationshipsList({ entityKind, entityId, direction: "incoming", excludeApiEdges });
+  const incoming = useRelationshipsList({ entityKind, entityId, direction: "incoming" });
   const del = useDeleteRelationship();
   const [dialog, setDialog] = useState<null | FixedRole>(null);
 

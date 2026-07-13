@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Net;
 using System.Net.Http.Json;
 using Kartova.Catalog.Contracts;
@@ -214,11 +215,14 @@ public class ListRelationshipsTests : CatalogIntegrationTestBase
         var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Excl Team");
         var svc = await SeedServiceAsync(client, teamId, "excl-svc");
         var dep = await SeedServiceAsync(client, teamId, "excl-dep");
-        var api = await SeedApiAsync(client, teamId, "excl-api");
+        var providedApi = await SeedApiAsync(client, teamId, "excl-api-provided");
+        var consumedApi = await SeedApiAsync(client, teamId, "excl-api-consumed");
         await client.PostAsJsonAsync("/api/v1/catalog/relationships",
             Rel(EntityKind.Service, svc, RelationshipType.DependsOn, EntityKind.Service, dep));
         await client.PostAsJsonAsync("/api/v1/catalog/relationships",
-            Rel(EntityKind.Service, svc, RelationshipType.ProvidesApiFor, EntityKind.Api, api));
+            Rel(EntityKind.Service, svc, RelationshipType.ProvidesApiFor, EntityKind.Api, providedApi));
+        await client.PostAsJsonAsync("/api/v1/catalog/relationships",
+            Rel(EntityKind.Service, svc, RelationshipType.ConsumesApiFrom, EntityKind.Api, consumedApi));
 
         var page = await (await client.GetAsync(
             $"/api/v1/catalog/relationships?entityKind=Service&entityId={svc}&direction=outgoing&excludeApiEdges=true"))
@@ -235,16 +239,58 @@ public class ListRelationshipsTests : CatalogIntegrationTestBase
         var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Incl Team");
         var svc = await SeedServiceAsync(client, teamId, "incl-svc");
         var dep = await SeedServiceAsync(client, teamId, "incl-dep");
-        var api = await SeedApiAsync(client, teamId, "incl-api");
+        var providedApi = await SeedApiAsync(client, teamId, "incl-api-provided");
+        var consumedApi = await SeedApiAsync(client, teamId, "incl-api-consumed");
         await client.PostAsJsonAsync("/api/v1/catalog/relationships",
             Rel(EntityKind.Service, svc, RelationshipType.DependsOn, EntityKind.Service, dep));
         await client.PostAsJsonAsync("/api/v1/catalog/relationships",
-            Rel(EntityKind.Service, svc, RelationshipType.ProvidesApiFor, EntityKind.Api, api));
+            Rel(EntityKind.Service, svc, RelationshipType.ProvidesApiFor, EntityKind.Api, providedApi));
+        await client.PostAsJsonAsync("/api/v1/catalog/relationships",
+            Rel(EntityKind.Service, svc, RelationshipType.ConsumesApiFrom, EntityKind.Api, consumedApi));
 
         var page = await (await client.GetAsync(
             $"/api/v1/catalog/relationships?entityKind=Service&entityId={svc}&direction=outgoing"))
             .Content.ReadFromJsonAsync<CursorPage<RelationshipResponse>>(KartovaApiFixtureBase.WireJson);
 
-        Assert.AreEqual(2, page!.Items.Count);
+        Assert.AreEqual(3, page!.Items.Count);
+    }
+
+    [TestMethod]
+    public async Task GET_outgoing_excludeApiEdges_paginates_without_short_count()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Excl Pag Team");
+        var svc = await SeedServiceAsync(client, teamId, "excl-pag-svc");
+        var dep1 = await SeedServiceAsync(client, teamId, "excl-pag-dep1");
+        var dep2 = await SeedServiceAsync(client, teamId, "excl-pag-dep2");
+        var dep3 = await SeedServiceAsync(client, teamId, "excl-pag-dep3");
+        var api1 = await SeedApiAsync(client, teamId, "excl-pag-api1");
+        var api2 = await SeedApiAsync(client, teamId, "excl-pag-api2");
+        await client.PostAsJsonAsync("/api/v1/catalog/relationships",
+            Rel(EntityKind.Service, svc, RelationshipType.DependsOn, EntityKind.Service, dep1));
+        await client.PostAsJsonAsync("/api/v1/catalog/relationships",
+            Rel(EntityKind.Service, svc, RelationshipType.DependsOn, EntityKind.Service, dep2));
+        await client.PostAsJsonAsync("/api/v1/catalog/relationships",
+            Rel(EntityKind.Service, svc, RelationshipType.DependsOn, EntityKind.Service, dep3));
+        await client.PostAsJsonAsync("/api/v1/catalog/relationships",
+            Rel(EntityKind.Service, svc, RelationshipType.ProvidesApiFor, EntityKind.Api, api1));
+        await client.PostAsJsonAsync("/api/v1/catalog/relationships",
+            Rel(EntityKind.Service, svc, RelationshipType.ConsumesApiFrom, EntityKind.Api, api2));
+
+        var firstResp = await client.GetAsync(
+            $"/api/v1/catalog/relationships?entityKind=Service&entityId={svc}&direction=outgoing&excludeApiEdges=true&sortBy=type&sortOrder=asc&limit=2");
+        Assert.AreEqual(HttpStatusCode.OK, firstResp.StatusCode);
+        var first = await firstResp.Content.ReadFromJsonAsync<CursorPage<RelationshipResponse>>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(2, first!.Items.Count);
+        Assert.IsTrue(first.Items.All(i => i.Type == RelationshipType.DependsOn));
+        Assert.IsNotNull(first.NextCursor);
+
+        var nextResp = await client.GetAsync(
+            $"/api/v1/catalog/relationships?entityKind=Service&entityId={svc}&direction=outgoing&excludeApiEdges=true&sortBy=type&sortOrder=asc&limit=2&cursor={Uri.EscapeDataString(first.NextCursor!)}");
+        Assert.AreEqual(HttpStatusCode.OK, nextResp.StatusCode);
+        var next = await nextResp.Content.ReadFromJsonAsync<CursorPage<RelationshipResponse>>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(1, next!.Items.Count);
+        Assert.AreEqual(RelationshipType.DependsOn, next.Items[0].Type);
+        Assert.IsNull(next.NextCursor);
     }
 }

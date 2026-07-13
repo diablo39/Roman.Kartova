@@ -92,7 +92,7 @@ it("incoming-only variant hides Outgoing group and disables add/delete", () => {
   expect(screen.getByText("Consumes API from")).toBeInTheDocument();
 });
 
-it("full variant requests relationships with excludeApiEdges (slice #71)", () => {
+it("full variant requests excludeApiEdges on outgoing only, not incoming (slice #71)", () => {
   const calls: api.RelationshipsListParams[] = [];
   vi.spyOn(api, "useRelationshipsList").mockImplementation((p: api.RelationshipsListParams) => {
     calls.push(p);
@@ -104,7 +104,7 @@ it("full variant requests relationships with excludeApiEdges (slice #71)", () =>
   const outgoingCall = calls.find((c) => c.direction === "outgoing");
   const incomingCall = calls.find((c) => c.direction === "incoming");
   expect(outgoingCall?.excludeApiEdges).toBe(true);
-  expect(incomingCall?.excludeApiEdges).toBe(true);
+  expect(incomingCall?.excludeApiEdges).toBeUndefined();
 });
 
 it("incoming-only variant does not set excludeApiEdges (slice #71)", () => {
@@ -121,5 +121,5 @@ it("incoming-only variant does not set excludeApiEdges (slice #71)", () => {
     </MemoryRouter>,
   );
   const incomingCall = calls.find((c) => c.direction === "incoming");
-  expect(incomingCall?.excludeApiEdges).toBe(false);
+  expect(incomingCall?.excludeApiEdges).toBeUndefined();
 });
