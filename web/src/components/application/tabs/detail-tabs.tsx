@@ -62,29 +62,29 @@ function DetailTabsRoot({ "aria-label": ariaLabel, children }: DetailTabsProps) 
   return (
     <Tabs selectedKey={selected} onSelectionChange={(key) => setTab(String(key))}>
       {/* Full-width tab strip across the top of the card, with a divider; the
-          entity header lives on the page above the card (placement per design B). */}
-      <div className="border-b border-secondary px-6">
-        <TabList aria-label={ariaLabel} className="flex gap-8">
-          {tabs.map((t) => (
-            <AriaTab
-              key={t.props.id}
-              id={t.props.id}
-              className={({ isSelected }) =>
-                cx(
-                  // Constant font-weight across states so selecting a tab doesn't
-                  // resize the label / shift the row — active is shown by color + underline.
-                  "-mb-px cursor-pointer border-b-2 py-4 text-sm font-medium outline-hidden transition-colors",
-                  isSelected
-                    ? "border-brand text-brand-secondary"
-                    : "border-transparent text-tertiary hover:text-secondary",
-                )
-              }
-            >
-              {t.props.label}
-            </AriaTab>
-          ))}
-        </TabList>
-      </div>
+          entity header lives on the page above the card (placement per design B).
+          Padding contract: this primitive owns the card's content padding (px-6),
+          so place it as the sole direct child of a bare <Card> (no CardContent). */}
+      <TabList aria-label={ariaLabel} className="flex gap-8 border-b border-secondary px-6">
+        {tabs.map((t) => (
+          <AriaTab
+            key={t.props.id}
+            id={t.props.id}
+            className={({ isSelected }) =>
+              cx(
+                // Constant font-weight across states so selecting a tab doesn't
+                // resize the label / shift the row — active is shown by color + underline.
+                "-mb-px cursor-pointer border-b-2 py-4 text-sm font-medium outline-hidden transition-colors",
+                isSelected
+                  ? "border-brand text-brand-secondary"
+                  : "border-transparent text-tertiary hover:text-secondary",
+              )
+            }
+          >
+            {t.props.label}
+          </AriaTab>
+        ))}
+      </TabList>
       {tabs.map((t) => (
         <TabPanel key={t.props.id} id={t.props.id} className="px-6 py-6 outline-hidden">
           {t.props.children}
