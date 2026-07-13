@@ -32,6 +32,37 @@ describe("relationships api", () => {
     }));
   });
 
+  it("useRelationshipsList sends excludeApiEdges=true when requested (slice #71)", async () => {
+    const page = { items: [], nextCursor: null, prevCursor: null };
+    const GET = vi.fn().mockResolvedValue({ data: page, error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET } as never);
+
+    const qc = newQc();
+    renderHook(
+      () => useRelationshipsList({ entityKind: "service", entityId: "s1", direction: "outgoing", excludeApiEdges: true }),
+      { wrapper: wrapper(qc) },
+    );
+    await waitFor(() => expect(GET).toHaveBeenCalled());
+    expect(GET).toHaveBeenCalledWith("/api/v1/catalog/relationships", expect.objectContaining({
+      params: { query: expect.objectContaining({ excludeApiEdges: true }) },
+    }));
+  });
+
+  it("useRelationshipsList omits excludeApiEdges from the query when not requested (slice #71)", async () => {
+    const page = { items: [], nextCursor: null, prevCursor: null };
+    const GET = vi.fn().mockResolvedValue({ data: page, error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET } as never);
+
+    const qc = newQc();
+    renderHook(
+      () => useRelationshipsList({ entityKind: "service", entityId: "s1", direction: "incoming" }),
+      { wrapper: wrapper(qc) },
+    );
+    await waitFor(() => expect(GET).toHaveBeenCalled());
+    const call = GET.mock.calls[0]!;
+    expect(call[1].params.query).not.toHaveProperty("excludeApiEdges");
+  });
+
   it("useCreateRelationship POSTs and invalidates", async () => {
     const POST = vi.fn().mockResolvedValue({ data: { id: "r1" }, error: undefined });
     vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ POST } as never);

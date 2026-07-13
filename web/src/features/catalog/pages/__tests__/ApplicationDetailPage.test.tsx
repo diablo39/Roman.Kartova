@@ -6,6 +6,8 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import * as clientModule from "@/features/catalog/api/client";
 import { applicationKeys } from "@/features/catalog/api/applications";
 import { ApplicationDetailPage } from "../ApplicationDetailPage";
+import * as relationshipsApi from "@/features/catalog/api/relationships";
+import * as apiSurfaceApi from "@/features/catalog/api/apiSurface";
 
 // Stub relationships so RelationshipsSection renders without real API calls.
 vi.mock("@/features/catalog/api/relationships", () => ({
@@ -519,5 +521,68 @@ describe("ApplicationDetailPage — successor link + manage button gating", () =
 
     await waitFor(() => expect(screen.getByText("Payment Gateway")).toBeInTheDocument());
     expect(screen.queryByRole("button", { name: /(change|set) successor/i })).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Relationships/API-surface dedup (slice #71 — excludeApiEdges)
+// ---------------------------------------------------------------------------
+
+describe("ApplicationDetailPage — Relationships/API-surface dedup (slice #71)", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockPermissions(Object.values(KartovaPermissions));
+  });
+
+  it("does not show a provided API as both an API-surface entry and an Outgoing relationship row", () => {
+    // Mirrors real backend behaviour: outgoing relationships omit providesApiFor/consumesApiFrom
+    // edges once excludeApiEdges=true is sent (variant="full" on this page).
+    vi.spyOn(relationshipsApi, "useRelationshipsList").mockImplementation(
+      ((p: { direction: string; excludeApiEdges?: boolean }) => ({
+        items:
+          p.direction === "outgoing" && !p.excludeApiEdges
+            ? [
+                {
+                  id: "r-api",
+                  type: "providesApiFor",
+                  origin: "manual",
+                  source: { kind: "application", id: tabsApp.id, displayName: tabsApp.displayName },
+                  target: { kind: "api", id: "api-1", displayName: "Orders API" },
+                  createdByUserId: "u1",
+                  createdAt: "2026-01-01T00:00:00Z",
+                },
+              ]
+            : [],
+        isLoading: false,
+        isError: false,
+        hasNext: false,
+        hasPrev: false,
+        goNext: vi.fn(),
+        goPrev: vi.fn(),
+      })) as never,
+    );
+    vi.spyOn(apiSurfaceApi, "useApiSurface").mockReturnValue({
+      data: {
+        provides: [
+          {
+            apiId: "api-1",
+            displayName: "Orders API",
+            style: "rest",
+            version: "v1",
+            hasSpec: true,
+            origin: "direct",
+            viaApplicationId: null,
+            viaApplicationDisplayName: null,
+          },
+        ],
+        consumes: [],
+      },
+      isLoading: false,
+      isError: false,
+    } as never);
+
+    renderPage("?tab=dependencies");
+
+    expect(screen.getAllByText("Orders API")).toHaveLength(1);
   });
 });

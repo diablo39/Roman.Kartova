@@ -15,6 +15,7 @@ export type RelationshipsListParams = {
   entityId: string;
   direction: RelationshipDirection;
   limit?: number;
+  excludeApiEdges?: boolean;
 };
 
 export const relationshipKeys = {
@@ -41,6 +42,7 @@ export function useRelationshipsList(
             direction: params.direction,
             limit: String(params.limit ?? 20),
             cursor,
+            ...(params.excludeApiEdges ? { excludeApiEdges: true } : {}),
           },
         },
       });
