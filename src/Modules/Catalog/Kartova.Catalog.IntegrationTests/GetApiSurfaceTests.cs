@@ -109,10 +109,14 @@ public sealed class GetApiSurfaceTests : CatalogIntegrationTestBase
         Assert.AreEqual(3, body!.Provides.Count);
         var direct = body.Provides.Single(i => i.ApiId == ctx.ApiSvcId);
         Assert.AreEqual(ApiSurfaceOrigin.Direct, direct.Origin);
+        // Direct rows carry the underlying edge id so the UI can remove them.
+        Assert.IsNotNull(direct.RelationshipId, "direct provide must expose its RelationshipId for removal");
         var derived = body.Provides.Single(i => i.ApiId == ctx.ApiApp1Id);
         Assert.AreEqual(ApiSurfaceOrigin.Derived, derived.Origin);
         Assert.AreEqual(ctx.AppId, derived.ViaApplicationId);
         Assert.AreEqual(ctx.AppDisplayName, derived.ViaApplicationDisplayName);
+        // Derived rows have no single owning edge on this component → not directly removable.
+        Assert.IsNull(derived.RelationshipId, "derived provide must not expose a RelationshipId");
 
         // metadata joined
         Assert.AreEqual("v1", direct.Version);
@@ -122,6 +126,7 @@ public sealed class GetApiSurfaceTests : CatalogIntegrationTestBase
         Assert.AreEqual(1, body.Consumes.Count);
         Assert.AreEqual(ctx.ApiConsId, body.Consumes.Single().ApiId);
         Assert.AreEqual(ApiSurfaceOrigin.Direct, body.Consumes.Single().Origin);
+        Assert.IsNotNull(body.Consumes.Single().RelationshipId, "direct consume must expose its RelationshipId for removal");
     }
 
     [TestMethod]

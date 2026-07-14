@@ -3302,7 +3302,8 @@
           "hasSpec",
           "origin",
           "viaApplicationId",
-          "viaApplicationDisplayName"
+          "viaApplicationDisplayName",
+          "relationshipId"
         ],
         "type": "object",
         "properties": {
@@ -3337,6 +3338,13 @@
               "null",
               "string"
             ]
+          },
+          "relationshipId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },

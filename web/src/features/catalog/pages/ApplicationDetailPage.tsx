@@ -144,7 +144,7 @@ export function ApplicationDetailPage() {
                   <DependencyMiniGraph entityKind="application" entityId={app.id} displayName={app.displayName} />
                 </Suspense>
                 <hr className="border-secondary" />
-                <ApiSurfaceSection entityKind="application" entityId={app.id} />
+                <ApiSurfaceSection entityKind="application" entityId={app.id} entityTeamId={app.teamId} />
                 <hr className="border-secondary" />
                 <RelationshipsSection
                   entityKind="application"

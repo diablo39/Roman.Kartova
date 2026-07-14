@@ -1,8 +1,13 @@
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import { Badge } from "@/components/base/badges/badges";
+import { Button } from "@/components/base/buttons/button";
 import { Table } from "@/components/application/table/table";
 import { TableSkeleton } from "@/components/application/data-table/data-table";
 import { useApiSurface, type ApiSurfaceItem } from "@/features/catalog/api/apiSurface";
+import { useDeleteRelationship } from "@/features/catalog/api/relationships";
+import { usePermissions } from "@/shared/auth/usePermissions";
+import { KartovaPermissions } from "@/shared/auth/permissions";
 import { API_STYLE_LABEL, API_STYLES } from "@/features/catalog/schemas/registerApi";
 
 function styleOrder(style: string): number {
@@ -16,7 +21,7 @@ function sortItems(items: ApiSurfaceItem[]): ApiSurfaceItem[] {
   );
 }
 
-function ApiSurfaceLoadingSkeleton() {
+function ApiSurfaceLoadingSkeleton({ canManage }: { canManage: boolean }) {
   return (
     <section className="space-y-6" aria-label="APIs">
       {[
@@ -34,8 +39,9 @@ function ApiSurfaceLoadingSkeleton() {
               <Table.Head id="version">Version</Table.Head>
               <Table.Head id="spec">Spec</Table.Head>
               {cells === 5 && <Table.Head id="origin">Origin</Table.Head>}
+              {canManage && <Table.Head id="actions"> </Table.Head>}
             </Table.Header>
-            <TableSkeleton rows={2} cells={cells} />
+            <TableSkeleton rows={2} cells={cells + (canManage ? 1 : 0)} />
           </Table>
         </div>
       ))}
@@ -46,12 +52,28 @@ function ApiSurfaceLoadingSkeleton() {
 interface Props {
   entityKind: "service" | "application";
   entityId: string;
+  entityTeamId: string;
 }
 
-export function ApiSurfaceSection({ entityKind, entityId }: Props) {
+export function ApiSurfaceSection({ entityKind, entityId, entityTeamId }: Props) {
   const query = useApiSurface(entityKind, entityId);
+  const { hasPermission, role, teamIds } = usePermissions();
+  const canManage =
+    hasPermission(KartovaPermissions.CatalogRelationshipsWrite) &&
+    (role === "OrgAdmin" || teamIds.includes(entityTeamId));
+  const del = useDeleteRelationship();
 
-  if (query.isLoading) return <ApiSurfaceLoadingSkeleton />;
+  const onRemove = async (relationshipId: string) => {
+    if (!window.confirm("Remove this API relationship?")) return;
+    try {
+      await del.mutateAsync(relationshipId);
+      toast.success("API relationship removed");
+    } catch {
+      toast.error("Failed to remove API relationship");
+    }
+  };
+
+  if (query.isLoading) return <ApiSurfaceLoadingSkeleton canManage={canManage} />;
   if (query.isError || !query.data)
     return <p className="text-sm text-error-primary">Couldn&apos;t load APIs.</p>;
 
@@ -64,12 +86,18 @@ export function ApiSurfaceSection({ entityKind, entityId }: Props) {
         emptyCopy="No APIs provided."
         items={sortItems(provides)}
         showOrigin
+        canManage={canManage}
+        onRemove={onRemove}
+        isRemoving={del.isPending}
       />
       <ApiTable
         title="Consumes"
         emptyCopy="No APIs consumed."
         items={sortItems(consumes)}
         showOrigin={false}
+        canManage={canManage}
+        onRemove={onRemove}
+        isRemoving={del.isPending}
       />
     </section>
   );
@@ -80,11 +108,17 @@ function ApiTable({
   emptyCopy,
   items,
   showOrigin,
+  canManage,
+  onRemove,
+  isRemoving,
 }: {
   title: string;
   emptyCopy: string;
   items: ApiSurfaceItem[];
   showOrigin: boolean;
+  canManage: boolean;
+  onRemove: (relationshipId: string) => void;
+  isRemoving: boolean;
 }) {
   return (
     <div className="space-y-2">
@@ -102,6 +136,7 @@ function ApiTable({
               <Table.Head id="version">Version</Table.Head>
               <Table.Head id="spec">Spec</Table.Head>
               {showOrigin && <Table.Head id="origin">Origin</Table.Head>}
+              {canManage && <Table.Head id="actions"> </Table.Head>}
             </Table.Header>
             <Table.Body>
               {items.map((i) => (
@@ -141,6 +176,20 @@ function ApiTable({
                       ) : (
                         <span className="text-tertiary">Direct</span>
                       )}
+                    </Table.Cell>
+                  )}
+                  {canManage && (
+                    <Table.Cell>
+                      {i.relationshipId ? (
+                        <Button
+                          color="tertiary"
+                          size="sm"
+                          onClick={() => onRemove(i.relationshipId!)}
+                          isDisabled={isRemoving}
+                        >
+                          Remove
+                        </Button>
+                      ) : null}
                     </Table.Cell>
                   )}
                 </Table.Row>

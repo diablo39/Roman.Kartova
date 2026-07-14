@@ -10,30 +10,33 @@ public sealed class ApiSurfaceMapperTests
     private static readonly Guid Api1 = Guid.NewGuid();
     private static readonly Guid Api2 = Guid.NewGuid();
     private static readonly Guid App1 = Guid.NewGuid();
+    private static readonly Guid Rel1 = Guid.NewGuid();
+    private static readonly Guid Rel2 = Guid.NewGuid();
 
     private static Dictionary<Guid, ApiSurfaceMapper.ApiMeta> Meta(params Guid[] ids) =>
         ids.ToDictionary(id => id, id => new ApiSurfaceMapper.ApiMeta($"api-{id:N}", ApiStyle.Rest, "v1", false));
 
     [TestMethod]
-    public void Direct_provides_maps_to_direct_origin()
+    public void Direct_provides_maps_to_direct_origin_and_carries_relationship_id()
     {
         var result = ApiSurfaceMapper.Build(
-            provides: [new ApiSurfaceMapper.ProvidesEdge(Api1, ApiSurfaceOrigin.Direct, null)],
-            consumesApiIds: [],
+            provides: [new ApiSurfaceMapper.ProvidesEdge(Api1, ApiSurfaceOrigin.Direct, null, Rel1)],
+            consumes: [],
             apis: Meta(Api1),
             appNames: new Dictionary<Guid, string>());
 
         Assert.AreEqual(1, result.Provides.Count);
         Assert.AreEqual(ApiSurfaceOrigin.Direct, result.Provides[0].Origin);
         Assert.IsNull(result.Provides[0].ViaApplicationId);
+        Assert.AreEqual(Rel1, result.Provides[0].RelationshipId);
     }
 
     [TestMethod]
-    public void Derived_provides_carries_via_application()
+    public void Derived_provides_carries_via_application_and_no_relationship_id()
     {
         var result = ApiSurfaceMapper.Build(
-            provides: [new ApiSurfaceMapper.ProvidesEdge(Api1, ApiSurfaceOrigin.Derived, App1)],
-            consumesApiIds: [],
+            provides: [new ApiSurfaceMapper.ProvidesEdge(Api1, ApiSurfaceOrigin.Derived, App1, null)],
+            consumes: [],
             apis: Meta(Api1),
             appNames: new Dictionary<Guid, string> { [App1] = "Billing" });
 
@@ -41,6 +44,7 @@ public sealed class ApiSurfaceMapperTests
         Assert.AreEqual(ApiSurfaceOrigin.Derived, item.Origin);
         Assert.AreEqual(App1, item.ViaApplicationId);
         Assert.AreEqual("Billing", item.ViaApplicationDisplayName);
+        Assert.IsNull(item.RelationshipId);
     }
 
     [TestMethod]
@@ -49,16 +53,17 @@ public sealed class ApiSurfaceMapperTests
         var result = ApiSurfaceMapper.Build(
             provides:
             [
-                new ApiSurfaceMapper.ProvidesEdge(Api1, ApiSurfaceOrigin.Derived, App1),
-                new ApiSurfaceMapper.ProvidesEdge(Api1, ApiSurfaceOrigin.Direct, null),
+                new ApiSurfaceMapper.ProvidesEdge(Api1, ApiSurfaceOrigin.Derived, App1, null),
+                new ApiSurfaceMapper.ProvidesEdge(Api1, ApiSurfaceOrigin.Direct, null, Rel1),
             ],
-            consumesApiIds: [],
+            consumes: [],
             apis: Meta(Api1),
             appNames: new Dictionary<Guid, string> { [App1] = "Billing" });
 
         var item = result.Provides.Single();   // deduped to one row
         Assert.AreEqual(ApiSurfaceOrigin.Direct, item.Origin);
         Assert.IsNull(item.ViaApplicationId);
+        Assert.AreEqual(Rel1, item.RelationshipId);
     }
 
     [TestMethod]
@@ -70,10 +75,10 @@ public sealed class ApiSurfaceMapperTests
         var result = ApiSurfaceMapper.Build(
             provides:
             [
-                new ApiSurfaceMapper.ProvidesEdge(Api1, ApiSurfaceOrigin.Derived, appHigh),
-                new ApiSurfaceMapper.ProvidesEdge(Api1, ApiSurfaceOrigin.Derived, appLow),
+                new ApiSurfaceMapper.ProvidesEdge(Api1, ApiSurfaceOrigin.Derived, appHigh, null),
+                new ApiSurfaceMapper.ProvidesEdge(Api1, ApiSurfaceOrigin.Derived, appLow, null),
             ],
-            consumesApiIds: [],
+            consumes: [],
             apis: Meta(Api1),
             appNames: new Dictionary<Guid, string> { [appLow] = "Low", [appHigh] = "High" });
 
@@ -81,14 +86,15 @@ public sealed class ApiSurfaceMapperTests
         Assert.AreEqual(ApiSurfaceOrigin.Derived, item.Origin);
         Assert.AreEqual(appLow, item.ViaApplicationId);
         Assert.AreEqual("Low", item.ViaApplicationDisplayName);
+        Assert.IsNull(item.RelationshipId);
     }
 
     [TestMethod]
     public void Derived_via_app_name_is_null_when_application_not_in_app_names()
     {
         var result = ApiSurfaceMapper.Build(
-            provides: [new ApiSurfaceMapper.ProvidesEdge(Api1, ApiSurfaceOrigin.Derived, App1)],
-            consumesApiIds: [],
+            provides: [new ApiSurfaceMapper.ProvidesEdge(Api1, ApiSurfaceOrigin.Derived, App1, null)],
+            consumes: [],
             apis: Meta(Api1),
             appNames: new Dictionary<Guid, string>()); // App1 intentionally not present
 
@@ -99,11 +105,11 @@ public sealed class ApiSurfaceMapperTests
     }
 
     [TestMethod]
-    public void Consumes_ids_map_to_direct_items()
+    public void Consumes_map_to_direct_items_and_carry_relationship_id()
     {
         var result = ApiSurfaceMapper.Build(
             provides: [],
-            consumesApiIds: [Api2],
+            consumes: [new ApiSurfaceMapper.ConsumesEdge(Api2, Rel2)],
             apis: Meta(Api2),
             appNames: new Dictionary<Guid, string>());
 
@@ -111,6 +117,7 @@ public sealed class ApiSurfaceMapperTests
         Assert.AreEqual(Api2, item.ApiId);
         Assert.AreEqual(ApiSurfaceOrigin.Direct, item.Origin);
         Assert.IsNull(item.ViaApplicationId);
+        Assert.AreEqual(Rel2, item.RelationshipId);
     }
 
     [TestMethod]
@@ -129,7 +136,7 @@ public sealed class ApiSurfaceMapperTests
             [Api1] = new("Orders API", ApiStyle.AsyncApi, "2.0.0", true),
         };
         var result = ApiSurfaceMapper.Build(
-            [new ApiSurfaceMapper.ProvidesEdge(Api1, ApiSurfaceOrigin.Direct, null)], [], apis,
+            [new ApiSurfaceMapper.ProvidesEdge(Api1, ApiSurfaceOrigin.Direct, null, Rel1)], [], apis,
             new Dictionary<Guid, string>());
 
         var item = result.Provides.Single();
