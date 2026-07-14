@@ -196,6 +196,29 @@ describe("AddRelationshipDialog", () => {
     expect(Array.from(typeSelect.options).map((o) => o.value)).toEqual(["dependsOn", "instanceOf", "providesApiFor", "consumesApiFrom"]);
   });
 
+  it("restrictTypes limits the offered types and locks the select to a single API type", () => {
+    vi.spyOn(api, "useCreateRelationship").mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
+    harness(
+      <AddRelationshipDialog open onOpenChange={vi.fn()} fixedRole="source"
+        fixedEntity={{ kind: "application", id: "a1", displayName: "Checkout" }}
+        restrictTypes={["providesApiFor"]} heading="Add provided API" />,
+    );
+    const typeSelect = screen.getByTestId("relationship-type-select") as HTMLSelectElement;
+    expect(Array.from(typeSelect.options).map((o) => o.value)).toEqual(["providesApiFor"]);
+    expect(typeSelect.disabled).toBe(true);
+    expect(screen.getByText("Add provided API")).toBeInTheDocument();
+  });
+
+  it("restrictTypes excludes API types for the Relationships dialog", () => {
+    vi.spyOn(api, "useCreateRelationship").mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
+    harness(
+      <AddRelationshipDialog open onOpenChange={vi.fn()} fixedRole="source" fixedEntity={svc}
+        restrictTypes={["dependsOn", "instanceOf"]} />,
+    );
+    const typeSelect = screen.getByTestId("relationship-type-select") as HTMLSelectElement;
+    expect(Array.from(typeSelect.options).map((o) => o.value)).toEqual(["dependsOn", "instanceOf"]);
+  });
+
   it("uses generic outgoing/incoming titles (not dependency-specific)", () => {
     vi.spyOn(api, "useCreateRelationship").mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
     const { rerender } = harness(

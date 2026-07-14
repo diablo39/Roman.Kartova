@@ -25,14 +25,23 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   fixedRole: FixedRole;
   fixedEntity: { kind: RelationshipKind; id: string; displayName: string };
+  /** Restrict the offered relationship types to this allowlist (intersected with what's
+   *  structurally offerable). Used to scope the dialog per section — e.g. the API-surface
+   *  Add buttons lock it to a single API type, and the Relationships dialog excludes API types. */
+  restrictTypes?: CreatableRelationshipType[];
+  /** Overrides the dialog heading (defaults to the generic outgoing/incoming wording). */
+  heading?: string;
 }
 
-export function AddRelationshipDialog({ open, onOpenChange, fixedRole, fixedEntity }: Props) {
+export function AddRelationshipDialog({ open, onOpenChange, fixedRole, fixedEntity, restrictTypes, heading }: Props) {
   const mutation = useCreateRelationship();
 
   const types = useMemo(
-    () => offerableTypes(fixedRole, fixedEntity.kind),
-    [fixedRole, fixedEntity.kind],
+    () => {
+      const offerable = offerableTypes(fixedRole, fixedEntity.kind);
+      return restrictTypes ? offerable.filter((t) => restrictTypes.includes(t)) : offerable;
+    },
+    [fixedRole, fixedEntity.kind, restrictTypes],
   );
 
   const [type, setType] = useState<CreatableRelationshipType>(types[0]!);
@@ -105,7 +114,7 @@ export function AddRelationshipDialog({ open, onOpenChange, fixedRole, fixedEnti
           className="bg-primary rounded-xl shadow-xl p-6 outline-none space-y-4"
         >
           <h2 className="text-lg font-semibold text-primary">
-            {fixedRole === "source" ? "Add outgoing relationship" : "Add incoming relationship"}
+            {heading ?? (fixedRole === "source" ? "Add outgoing relationship" : "Add incoming relationship")}
           </h2>
           <p className="text-sm text-tertiary">
             {fixedRole === "source"
@@ -117,8 +126,9 @@ export function AddRelationshipDialog({ open, onOpenChange, fixedRole, fixedEnti
             <span className="text-secondary">Type</span>
             <select
               data-testid="relationship-type-select"
-              className="mt-1 w-full rounded-md border border-secondary bg-primary px-3 py-2 text-sm text-primary"
+              className="mt-1 w-full rounded-md border border-secondary bg-primary px-3 py-2 text-sm text-primary disabled:opacity-60"
               value={type}
+              disabled={types.length <= 1}
               onChange={(e) => setType(e.target.value as CreatableRelationshipType)}
             >
               {types.map((t) => (

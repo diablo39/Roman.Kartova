@@ -34,7 +34,12 @@ function mockDelete() {
 function renderSection(entityKind: "service" | "application", entityId: string, entityTeamId = "team1") {
   return render(
     <MemoryRouter>
-      <ApiSurfaceSection entityKind={entityKind} entityId={entityId} entityTeamId={entityTeamId} />
+      <ApiSurfaceSection
+        entityKind={entityKind}
+        entityId={entityId}
+        entityTeamId={entityTeamId}
+        entityDisplayName="Fixture Entity"
+      />
     </MemoryRouter>,
   );
 }
@@ -98,11 +103,21 @@ it("shows empty copy when list is empty", () => {
   expect(screen.getByText(/no apis consumed/i)).toBeInTheDocument();
 });
 
-it("hides Remove when the caller cannot manage", () => {
+it("hides Remove and Add when the caller cannot manage", () => {
   mockPermissions(false);
   mockSurface({ provides: [], consumes: [directConsume] });
   renderSection("service", "svc1");
   expect(screen.queryByRole("button", { name: /remove/i })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /add provided api/i })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /add consumed api/i })).not.toBeInTheDocument();
+});
+
+it("shows per-section Add buttons when the caller can manage", () => {
+  mockPermissions(true);
+  mockSurface({ provides: [], consumes: [] });
+  renderSection("service", "svc1");
+  expect(screen.getByRole("button", { name: /add provided api/i })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /add consumed api/i })).toBeInTheDocument();
 });
 
 it("shows Remove on direct rows (not derived) when the caller can manage and deletes by relationship id", async () => {

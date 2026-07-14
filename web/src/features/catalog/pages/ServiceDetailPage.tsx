@@ -123,7 +123,7 @@ export function ServiceDetailPage() {
                 <DependencyMiniGraph entityKind="service" entityId={svc.id} displayName={svc.displayName} />
               </Suspense>
               <hr className="border-secondary" />
-              <ApiSurfaceSection entityKind="service" entityId={svc.id} entityTeamId={svc.teamId} />
+              <ApiSurfaceSection entityKind="service" entityId={svc.id} entityTeamId={svc.teamId} entityDisplayName={svc.displayName} />
               <hr className="border-secondary" />
               <RelationshipsSection
                 entityKind="service"

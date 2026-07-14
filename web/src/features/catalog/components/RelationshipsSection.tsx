@@ -34,6 +34,10 @@ function entityLink(kind: string, id: string) {
 
 const relationshipOriginLabel: Record<string, string> = { manual: "Manual", scan: "Scan", agent: "Agent" };
 
+// Provides/consumes API edges are managed from the API-surface section (add + remove there),
+// so the Relationships dialog offers only the non-API dependency types.
+const RELATIONSHIP_DIALOG_TYPES: CreatableRelationshipType[] = ["dependsOn", "instanceOf"];
+
 export function RelationshipsSection({ entityKind, entityId, entityTeamId, entityDisplayName, variant = "full" }: Props) {
   const { hasPermission, role, teamIds } = usePermissions();
   const readOnly = variant === "incoming-only";
@@ -71,7 +75,9 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
     addRole: FixedRole,
     addLabel: string,
   ) => {
-    const canAdd = canManage && offerableTypes(addRole, entityKind).length > 0;
+    const canAdd =
+      canManage &&
+      offerableTypes(addRole, entityKind).some((t) => RELATIONSHIP_DIALOG_TYPES.includes(t));
     return (
       <div className="space-y-2">
         <div className="flex items-center justify-between">
@@ -207,6 +213,7 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
           }}
           fixedRole={dialog}
           fixedEntity={fixedEntity}
+          restrictTypes={RELATIONSHIP_DIALOG_TYPES}
         />
       )}
     </section>

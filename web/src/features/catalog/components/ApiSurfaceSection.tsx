@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Badge } from "@/components/base/badges/badges";
@@ -6,6 +7,7 @@ import { Table } from "@/components/application/table/table";
 import { TableSkeleton } from "@/components/application/data-table/data-table";
 import { useApiSurface, type ApiSurfaceItem } from "@/features/catalog/api/apiSurface";
 import { useDeleteRelationship } from "@/features/catalog/api/relationships";
+import { AddRelationshipDialog } from "@/features/catalog/components/AddRelationshipDialog";
 import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
 import { API_STYLE_LABEL, API_STYLES } from "@/features/catalog/schemas/registerApi";
@@ -53,15 +55,17 @@ interface Props {
   entityKind: "service" | "application";
   entityId: string;
   entityTeamId: string;
+  entityDisplayName: string;
 }
 
-export function ApiSurfaceSection({ entityKind, entityId, entityTeamId }: Props) {
+export function ApiSurfaceSection({ entityKind, entityId, entityTeamId, entityDisplayName }: Props) {
   const query = useApiSurface(entityKind, entityId);
   const { hasPermission, role, teamIds } = usePermissions();
   const canManage =
     hasPermission(KartovaPermissions.CatalogRelationshipsWrite) &&
     (role === "OrgAdmin" || teamIds.includes(entityTeamId));
   const del = useDeleteRelationship();
+  const [addType, setAddType] = useState<null | "providesApiFor" | "consumesApiFrom">(null);
 
   const onRemove = async (relationshipId: string) => {
     if (!window.confirm("Remove this API relationship?")) return;
@@ -89,6 +93,7 @@ export function ApiSurfaceSection({ entityKind, entityId, entityTeamId }: Props)
         canManage={canManage}
         onRemove={onRemove}
         isRemoving={del.isPending}
+        onAdd={canManage ? () => setAddType("providesApiFor") : undefined}
       />
       <ApiTable
         title="Consumes"
@@ -98,7 +103,20 @@ export function ApiSurfaceSection({ entityKind, entityId, entityTeamId }: Props)
         canManage={canManage}
         onRemove={onRemove}
         isRemoving={del.isPending}
+        onAdd={canManage ? () => setAddType("consumesApiFrom") : undefined}
       />
+      {addType && (
+        <AddRelationshipDialog
+          open
+          onOpenChange={(o) => {
+            if (!o) setAddType(null);
+          }}
+          fixedRole="source"
+          fixedEntity={{ kind: entityKind, id: entityId, displayName: entityDisplayName }}
+          restrictTypes={[addType]}
+          heading={addType === "providesApiFor" ? "Add provided API" : "Add consumed API"}
+        />
+      )}
     </section>
   );
 }
@@ -111,6 +129,7 @@ function ApiTable({
   canManage,
   onRemove,
   isRemoving,
+  onAdd,
 }: {
   title: string;
   emptyCopy: string;
@@ -119,10 +138,18 @@ function ApiTable({
   canManage: boolean;
   onRemove: (relationshipId: string) => void;
   isRemoving: boolean;
+  onAdd?: () => void;
 }) {
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-semibold text-primary">{title}</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-primary">{title}</h3>
+        {onAdd && (
+          <Button color="secondary" size="sm" onClick={onAdd}>
+            {title === "Provides" ? "Add provided API" : "Add consumed API"}
+          </Button>
+        )}
+      </div>
       {items.length === 0 ? (
         <p className="text-sm italic text-tertiary">{emptyCopy}</p>
       ) : (
