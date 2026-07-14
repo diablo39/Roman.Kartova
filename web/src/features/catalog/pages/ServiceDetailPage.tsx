@@ -119,13 +119,11 @@ export function ServiceDetailPage() {
 
           <DetailTabs.Tab id="dependencies" label="Dependencies">
             <div className="space-y-6">
-              <ApiSurfaceSection entityKind="service" entityId={svc.id} />
-              <hr className="border-secondary" />
               <Suspense fallback={<Skeleton className="h-80 w-full" />}>
                 <DependencyMiniGraph entityKind="service" entityId={svc.id} displayName={svc.displayName} />
               </Suspense>
               <hr className="border-secondary" />
-              <DerivedDependenciesSection entityId={svc.id} />
+              <ApiSurfaceSection entityKind="service" entityId={svc.id} />
               <hr className="border-secondary" />
               <RelationshipsSection
                 entityKind="service"
@@ -133,6 +131,8 @@ export function ServiceDetailPage() {
                 entityTeamId={svc.teamId}
                 entityDisplayName={svc.displayName}
               />
+              <hr className="border-secondary" />
+              <DerivedDependenciesSection entityId={svc.id} />
             </div>
           </DetailTabs.Tab>
         </DetailTabs>
