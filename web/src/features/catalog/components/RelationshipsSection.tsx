@@ -34,16 +34,20 @@ function entityLink(kind: string, id: string) {
 
 const relationshipOriginLabel: Record<string, string> = { manual: "Manual", scan: "Scan", agent: "Agent" };
 
-// Provides/consumes API edges are managed from the API-surface section (add + remove there),
-// so the Relationships dialog offers only the non-API dependency types.
-const RELATIONSHIP_DIALOG_TYPES: CreatableRelationshipType[] = ["dependsOn", "instanceOf"];
+// Which relationship types the Relationships dialog offers, by page variant:
+//  - full (App/Service): non-API deps only — provides/consumes are managed from the API-surface section.
+//  - incoming-only (API detail): the API has no API-surface section, so provides/consumes ARE managed
+//    here. Target-side creation is allowed per ADR-0108 ("X depends on us", audit-attributed).
+const DIALOG_TYPES_FULL: CreatableRelationshipType[] = ["dependsOn", "instanceOf"];
+const DIALOG_TYPES_API_INCOMING: CreatableRelationshipType[] = ["providesApiFor", "consumesApiFrom"];
 
 export function RelationshipsSection({ entityKind, entityId, entityTeamId, entityDisplayName, variant = "full" }: Props) {
   const { hasPermission, role, teamIds } = usePermissions();
-  // `readOnly` (the API detail page's incoming-only view) suppresses the Outgoing group and the
-  // Add affordance — but NOT delete: an edge can be removed from EITHER endpoint's team per
-  // ADR-0108 (symmetric delete), so the target-side page can delete its incoming edges too.
+  // `readOnly` (the API detail page's incoming-only view) suppresses the Outgoing group — but NOT
+  // add/delete: edges can be created and removed from EITHER endpoint's team per ADR-0108, so the
+  // target-side (API) page can add and remove its incoming provides/consumes edges.
   const readOnly = variant === "incoming-only";
+  const dialogTypes = readOnly ? DIALOG_TYPES_API_INCOMING : DIALOG_TYPES_FULL;
   const canManage =
     hasPermission(KartovaPermissions.CatalogRelationshipsWrite) &&
     (role === "OrgAdmin" || teamIds.includes(entityTeamId));
@@ -79,7 +83,7 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
   ) => {
     const canAdd =
       canManage &&
-      offerableTypes(addRole, entityKind).some((t) => RELATIONSHIP_DIALOG_TYPES.includes(t));
+      offerableTypes(addRole, entityKind).some((t) => dialogTypes.includes(t));
     return (
       <div className="space-y-2">
         <div className="flex items-center justify-between">
@@ -216,7 +220,7 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
           }}
           fixedRole={dialog}
           fixedEntity={fixedEntity}
-          restrictTypes={RELATIONSHIP_DIALOG_TYPES}
+          restrictTypes={dialogTypes}
         />
       )}
     </section>

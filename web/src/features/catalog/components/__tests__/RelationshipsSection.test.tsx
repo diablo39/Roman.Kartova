@@ -70,7 +70,7 @@ it("renders api-target rows with a link to the API detail page", () => {
   expect(screen.getByText("Provides API for")).toBeInTheDocument();
 });
 
-it("incoming-only variant hides Outgoing group and Add, but allows Delete (ADR-0108 symmetric delete)", async () => {
+it("incoming-only variant hides Outgoing group but allows Add + Delete (ADR-0108 either-endpoint authority)", async () => {
   const mutateAsync = vi.fn().mockResolvedValue(undefined);
   vi.spyOn(api, "useRelationshipsList").mockImplementation((p: api.RelationshipsListParams) =>
     listResult(p.direction === "incoming"
@@ -88,8 +88,8 @@ it("incoming-only variant hides Outgoing group and Add, but allows Delete (ADR-0
   );
   expect(screen.queryByText("Outgoing")).not.toBeInTheDocument();
   expect(screen.getByText("Incoming")).toBeInTheDocument();
-  // No Add on the API page (incoming provides/consumes aren't created from here)...
-  expect(screen.queryByRole("button", { name: /add/i })).not.toBeInTheDocument();
+  // Add IS offered on the API page — target-side creation of a provider/consumer (ADR-0108).
+  expect(screen.getByRole("button", { name: /add incoming/i })).toBeInTheDocument();
   expect(screen.getByText("Billing").closest("a")).toHaveAttribute("href", "/catalog/services/s2");
   expect(screen.getByText("Consumes API from")).toBeInTheDocument();
   // ...but Delete IS allowed (either-endpoint authority) and removes the edge by id.
