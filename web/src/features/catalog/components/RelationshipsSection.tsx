@@ -14,7 +14,7 @@ import {
   type RelationshipResponse,
 } from "@/features/catalog/api/relationships";
 import { relationshipTypeLabel, offerableTypes, type RelationshipKind, type CreatableRelationshipType } from "@/features/catalog/relationships/relationshipTypeRules";
-import { entityDetailPath } from "@/features/catalog/relationships/graphModel";
+import { entityDetailPath, ENTITY_KIND_LABEL } from "@/features/catalog/relationships/graphModel";
 import { AddRelationshipDialog } from "@/features/catalog/components/AddRelationshipDialog";
 import type { FixedRole } from "@/features/catalog/relationships/relationshipTypeRules";
 import { Tooltip, TooltipTrigger } from "@/components/base/tooltip/tooltip";
@@ -142,9 +142,14 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
                         </Badge>
                       </Table.Cell>
                       <Table.Cell>
-                        <Link to={entityLink(e.kind, e.id)} className="text-primary hover:underline">
-                          {e.displayName}
-                        </Link>
+                        <span className="inline-flex items-center gap-2">
+                          <Link to={entityLink(e.kind, e.id)} className="text-primary hover:underline">
+                            {e.displayName}
+                          </Link>
+                          <Badge type="pill-color" size="sm" color="gray">
+                            {ENTITY_KIND_LABEL[e.kind] ?? e.kind}
+                          </Badge>
+                        </span>
                       </Table.Cell>
                       <Table.Cell>
                         <Badge type="pill-color" size="sm" color="gray">
