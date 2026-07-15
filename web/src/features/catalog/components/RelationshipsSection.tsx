@@ -18,7 +18,7 @@ import { entityDetailPath } from "@/features/catalog/relationships/graphModel";
 import { AddRelationshipDialog } from "@/features/catalog/components/AddRelationshipDialog";
 import type { FixedRole } from "@/features/catalog/relationships/relationshipTypeRules";
 import { Tooltip, TooltipTrigger } from "@/components/base/tooltip/tooltip";
-import { HelpCircle } from "@untitledui/icons";
+import { HelpCircle, Trash01 } from "@untitledui/icons";
 
 interface Props {
   entityKind: RelationshipKind;
@@ -151,13 +151,13 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
                       {canManage && (
                         <Table.Cell>
                           <Button
-                            color="tertiary"
+                            color="primary-destructive"
                             size="sm"
+                            iconLeading={Trash01}
+                            aria-label="Delete"
                             onClick={() => onDelete(r.id)}
                             isDisabled={del.isPending}
-                          >
-                            Delete
-                          </Button>
+                          />
                         </Table.Cell>
                       )}
                     </Table.Row>

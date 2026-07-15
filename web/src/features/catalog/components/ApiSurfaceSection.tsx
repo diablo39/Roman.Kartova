@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
+import { Trash01 } from "@untitledui/icons";
 import { Table } from "@/components/application/table/table";
 import { TableSkeleton } from "@/components/application/data-table/data-table";
 import { useApiSurface, type ApiSurfaceItem } from "@/features/catalog/api/apiSurface";
@@ -209,13 +210,13 @@ function ApiTable({
                     <Table.Cell>
                       {i.relationshipId ? (
                         <Button
-                          color="tertiary"
+                          color="primary-destructive"
                           size="sm"
+                          iconLeading={Trash01}
+                          aria-label="Delete"
                           onClick={() => onRemove(i.relationshipId!)}
                           isDisabled={isRemoving}
-                        >
-                          Delete
-                        </Button>
+                        />
                       ) : null}
                     </Table.Cell>
                   )}
