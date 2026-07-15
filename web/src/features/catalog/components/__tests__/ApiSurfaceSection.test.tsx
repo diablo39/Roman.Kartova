@@ -103,11 +103,11 @@ it("shows empty copy when list is empty", () => {
   expect(screen.getByText(/no apis consumed/i)).toBeInTheDocument();
 });
 
-it("hides Remove and Add when the caller cannot manage", () => {
+it("hides Delete and Add when the caller cannot manage", () => {
   mockPermissions(false);
   mockSurface({ provides: [], consumes: [directConsume] });
   renderSection("service", "svc1");
-  expect(screen.queryByRole("button", { name: /remove/i })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^delete$/i })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /add provided api/i })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /add consumed api/i })).not.toBeInTheDocument();
 });
@@ -120,7 +120,7 @@ it("shows per-section Add buttons when the caller can manage", () => {
   expect(screen.getByRole("button", { name: /add consumed api/i })).toBeInTheDocument();
 });
 
-it("shows Remove on direct rows (not derived) when the caller can manage and deletes by relationship id", async () => {
+it("shows Delete on direct rows (not derived) when the caller can manage and deletes by relationship id", async () => {
   mockPermissions(true);
   const directProvide: api.ApiSurfaceItem = { ...derivedProvide, apiId: "a3", displayName: "Payments API", origin: "direct", viaApplicationId: null, viaApplicationDisplayName: null, relationshipId: "rel-provide-1" };
   mockSurface({ provides: [directProvide, derivedProvide], consumes: [directConsume] });
@@ -128,10 +128,10 @@ it("shows Remove on direct rows (not derived) when the caller can manage and del
 
   renderSection("service", "svc1");
 
-  const removeButtons = screen.getAllByRole("button", { name: /remove/i });
-  // one direct provide + one direct consume = 2 (the derived provide row has no Remove)
-  expect(removeButtons).toHaveLength(2);
+  const deleteButtons = screen.getAllByRole("button", { name: /^delete$/i });
+  // one direct provide + one direct consume = 2 (the derived provide row has no Delete)
+  expect(deleteButtons).toHaveLength(2);
 
-  await userEvent.click(removeButtons[0]!);
+  await userEvent.click(deleteButtons[0]!);
   expect(deleteMutate).toHaveBeenCalledWith("rel-provide-1");
 });

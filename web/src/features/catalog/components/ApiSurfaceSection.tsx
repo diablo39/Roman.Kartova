@@ -68,12 +68,12 @@ export function ApiSurfaceSection({ entityKind, entityId, entityTeamId, entityDi
   const [addType, setAddType] = useState<null | "providesApiFor" | "consumesApiFrom">(null);
 
   const onRemove = async (relationshipId: string) => {
-    if (!window.confirm("Remove this API relationship?")) return;
+    if (!window.confirm("Delete this relationship?")) return;
     try {
       await del.mutateAsync(relationshipId);
-      toast.success("API relationship removed");
+      toast.success("Relationship removed");
     } catch {
-      toast.error("Failed to remove API relationship");
+      toast.error("Failed to remove relationship");
     }
   };
 
@@ -214,7 +214,7 @@ function ApiTable({
                           onClick={() => onRemove(i.relationshipId!)}
                           isDisabled={isRemoving}
                         >
-                          Remove
+                          Delete
                         </Button>
                       ) : null}
                     </Table.Cell>
