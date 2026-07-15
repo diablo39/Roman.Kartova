@@ -40,9 +40,11 @@ const RELATIONSHIP_DIALOG_TYPES: CreatableRelationshipType[] = ["dependsOn", "in
 
 export function RelationshipsSection({ entityKind, entityId, entityTeamId, entityDisplayName, variant = "full" }: Props) {
   const { hasPermission, role, teamIds } = usePermissions();
+  // `readOnly` (the API detail page's incoming-only view) suppresses the Outgoing group and the
+  // Add affordance — but NOT delete: an edge can be removed from EITHER endpoint's team per
+  // ADR-0108 (symmetric delete), so the target-side page can delete its incoming edges too.
   const readOnly = variant === "incoming-only";
   const canManage =
-    !readOnly &&
     hasPermission(KartovaPermissions.CatalogRelationshipsWrite) &&
     (role === "OrgAdmin" || teamIds.includes(entityTeamId));
 

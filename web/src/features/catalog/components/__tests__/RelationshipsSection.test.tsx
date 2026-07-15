@@ -70,14 +70,16 @@ it("renders api-target rows with a link to the API detail page", () => {
   expect(screen.getByText("Provides API for")).toBeInTheDocument();
 });
 
-it("incoming-only variant hides Outgoing group and disables add/delete", () => {
+it("incoming-only variant hides Outgoing group and Add, but allows Delete (ADR-0108 symmetric delete)", async () => {
+  const mutateAsync = vi.fn().mockResolvedValue(undefined);
   vi.spyOn(api, "useRelationshipsList").mockImplementation((p: api.RelationshipsListParams) =>
     listResult(p.direction === "incoming"
       ? [{ id: "r4", type: "consumesApiFrom", origin: "manual",
           source: { kind: "service", id: "s2", displayName: "Billing" },
           target: { kind: "api", id: "api-1", displayName: "Orders API" }, createdByUserId: "u1", createdAt: "2026-06-25T00:00:00Z" }]
       : []));
-  vi.spyOn(api, "useDeleteRelationship").mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
+  vi.spyOn(api, "useDeleteRelationship").mockReturnValue({ mutateAsync, isPending: false } as never);
+  vi.spyOn(window, "confirm").mockReturnValue(true);
   mockPerms(true);
   render(
     <MemoryRouter>
@@ -86,10 +88,14 @@ it("incoming-only variant hides Outgoing group and disables add/delete", () => {
   );
   expect(screen.queryByText("Outgoing")).not.toBeInTheDocument();
   expect(screen.getByText("Incoming")).toBeInTheDocument();
+  // No Add on the API page (incoming provides/consumes aren't created from here)...
   expect(screen.queryByRole("button", { name: /add/i })).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
   expect(screen.getByText("Billing").closest("a")).toHaveAttribute("href", "/catalog/services/s2");
   expect(screen.getByText("Consumes API from")).toBeInTheDocument();
+  // ...but Delete IS allowed (either-endpoint authority) and removes the edge by id.
+  const del = screen.getByRole("button", { name: /delete/i });
+  fireEvent.click(del);
+  await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith("r4"));
 });
 
 it("full variant requests excludeApiEdges on outgoing only, not incoming (slice #71)", () => {
