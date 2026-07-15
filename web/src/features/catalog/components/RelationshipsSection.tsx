@@ -155,6 +155,7 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
                             size="sm"
                             iconLeading={Trash01}
                             aria-label="Delete"
+                            className="*:data-icon:text-white hover:*:data-icon:text-white"
                             onClick={() => onDelete(r.id)}
                             isDisabled={del.isPending}
                           />

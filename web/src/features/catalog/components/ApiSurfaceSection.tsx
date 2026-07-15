@@ -214,6 +214,7 @@ function ApiTable({
                           size="sm"
                           iconLeading={Trash01}
                           aria-label="Delete"
+                          className="*:data-icon:text-white hover:*:data-icon:text-white"
                           onClick={() => onRemove(i.relationshipId!)}
                           isDisabled={isRemoving}
                         />
