@@ -8,13 +8,16 @@ namespace Kartova.SharedKernel.Tests;
 [TestClass]
 public sealed class LeaderElectedPeriodicServiceTests
 {
+    private static readonly TimeSpan Interval = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan SignalTimeout = TimeSpan.FromSeconds(10);
+
     private sealed class TestService(
         IServiceScopeFactory scopes, IDistributedLock locks, TimeProvider clock,
         Action<IServiceProvider> work)
         : LeaderElectedPeriodicService(scopes, locks, clock, NullLogger.Instance)
     {
         protected override string LockName => "test";
-        protected override TimeSpan Interval => TimeSpan.FromMinutes(1);
+        protected override TimeSpan Interval => LeaderElectedPeriodicServiceTests.Interval;
         protected override Task ExecuteLeaderWorkAsync(IServiceProvider services, CancellationToken ct)
         {
             work(services);
@@ -22,24 +25,38 @@ public sealed class LeaderElectedPeriodicServiceTests
         }
     }
 
-    // Deterministic replacement for fixed `await Task.Delay(100)` waits. The service runs a
-    // background loop that awaits `Task.Delay(Interval, clock)` against the FakeTimeProvider,
-    // so a single up-front `clock.Advance` is racy on a contended CI runner in two ways:
-    //   (1) the advance can fire before the loop has registered its first timer (advance lost);
-    //   (2) the post-advance work continuation may not be scheduled within a fixed 100 ms.
-    // Repeatedly advancing (each advance releases at most one loop iteration, since the loop
-    // re-registers its next delay only after running) and yielding real time until the observed
-    // effect holds — bounded by a deadline — removes both races without changing semantics:
-    // the loop still runs exactly once per released interval.
-    private static async Task PumpUntilAsync(Func<bool> condition, FakeTimeProvider clock, TimeSpan step)
+    // The service's loop awaits a `PeriodicTimer(Interval, clock)`. Two facts drive these tests:
+    //
+    //  1. The loop starts on a background task, so at the moment StartAsync returns it has NOT yet
+    //     reached its first await — the PeriodicTimer may not exist, so an immediate `clock.Advance`
+    //     is a no-op that is silently lost (this is what made a single up-front advance flaky).
+    //  2. Once the PeriodicTimer is constructed it arms a *single auto-repeating* timer; from then on
+    //     each `clock.Advance(Interval)` releases exactly one tick.
+    //
+    // PeriodicTimer arms by calling `TimeProvider.CreateTimer` in its constructor, so wrapping the
+    // clock in `ArmSignallingTimeProvider` gives a deterministic barrier: `WaitForArmed` returns only
+    // once the loop has constructed its timer. After that, one advance per intended tick is exact —
+    // no arming race, and (because we advance the next interval only after the previous tick's work
+    // signal, which fires from inside the delegate after WaitForNextTickAsync already returned) no
+    // coalescing loss and no double-fire. This replaces the earlier poll-advance-on-a-fixed-delay
+    // helper, whose extra advances under load queued a second tick and over-counted.
+    private sealed class ArmSignallingTimeProvider(TimeProvider inner, SemaphoreSlim armed) : TimeProvider
     {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        while (!condition() && DateTime.UtcNow < deadline)
+        public override DateTimeOffset GetUtcNow() => inner.GetUtcNow();
+        public override long GetTimestamp() => inner.GetTimestamp();
+        public override long TimestampFrequency => inner.TimestampFrequency;
+        public override TimeZoneInfo LocalTimeZone => inner.LocalTimeZone;
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
         {
-            clock.Advance(step);
-            await Task.Delay(25);
+            var timer = inner.CreateTimer(callback, state, dueTime, period);
+            armed.Release();
+            return timer;
         }
     }
+
+    private static async Task AwaitSignal(SemaphoreSlim signal, string because) =>
+        Assert.IsTrue(await signal.WaitAsync(SignalTimeout), because);
 
     [TestMethod]
     public async Task Runs_leader_work_when_lock_acquired()
@@ -48,18 +65,23 @@ public sealed class LeaderElectedPeriodicServiceTests
         var handle = Substitute.For<IAsyncDisposable>();
         locks.TryAcquireAsync("test", Arg.Any<CancellationToken>()).Returns(handle);
         var clock = new FakeTimeProvider();
+        using var armed = new SemaphoreSlim(0);
         await using var sp = new ServiceCollection().BuildServiceProvider();
         var ran = 0;
-        var sut = new TestService(sp.GetRequiredService<IServiceScopeFactory>(), locks, clock,
-            _ => Interlocked.Increment(ref ran));
+        using var worked = new SemaphoreSlim(0);
+        var sut = new TestService(sp.GetRequiredService<IServiceScopeFactory>(), locks,
+            new ArmSignallingTimeProvider(clock, armed), _ => { Interlocked.Increment(ref ran); worked.Release(); });
 
         using var cts = new CancellationTokenSource();
         await sut.StartAsync(cts.Token);
-        await PumpUntilAsync(() => Volatile.Read(ref ran) >= 1, clock, TimeSpan.FromMinutes(1));
+        await AwaitSignal(armed, "loop did not arm its timer");
+        // Release exactly one interval and wait for the work to run. We never advance again, so the
+        // next tick (due one interval later) can never fire — work is guaranteed to run precisely once.
+        clock.Advance(Interval);
+        await AwaitSignal(worked, "leader work did not run within the deadline");
         cts.Cancel();
         try { await sut.StopAsync(CancellationToken.None); } catch (OperationCanceledException) { }
 
-        // Exactly one interval was released before the condition was observed, so work ran once.
         Assert.AreEqual(1, Volatile.Read(ref ran));
     }
 
@@ -67,22 +89,25 @@ public sealed class LeaderElectedPeriodicServiceTests
     public async Task Skips_when_lock_unavailable()
     {
         var locks = Substitute.For<IDistributedLock>();
-        locks.TryAcquireAsync("test", Arg.Any<CancellationToken>()).Returns((IAsyncDisposable?)null);
+        using var attempted = new SemaphoreSlim(0);
+        locks.TryAcquireAsync("test", Arg.Any<CancellationToken>())
+            .Returns(_ => { attempted.Release(); return Task.FromResult<IAsyncDisposable?>(null); });
         var clock = new FakeTimeProvider();
+        using var armed = new SemaphoreSlim(0);
         await using var sp = new ServiceCollection().BuildServiceProvider();
         var ran = 0;
-        var sut = new TestService(sp.GetRequiredService<IServiceScopeFactory>(), locks, clock,
-            _ => Interlocked.Increment(ref ran));
+        var sut = new TestService(sp.GetRequiredService<IServiceScopeFactory>(), locks,
+            new ArmSignallingTimeProvider(clock, armed), _ => Interlocked.Increment(ref ran));
 
         using var cts = new CancellationTokenSource();
         await sut.StartAsync(cts.Token);
-        // Release several intervals; the loop acquires the (unavailable) lock each time and must
-        // never invoke the work. Advancing repeatedly gives it ample opportunity to run — if the
-        // skip logic regressed, `ran` would climb above 0.
-        for (var i = 0; i < 4; i++)
+        await AwaitSignal(armed, "loop did not arm its timer");
+        // Release two ticks, waiting on each lock attempt, so we know the loop actually reached the
+        // lock and took the skip branch both times — yet the (unavailable) lock kept work from running.
+        for (var i = 0; i < 2; i++)
         {
-            clock.Advance(TimeSpan.FromMinutes(1));
-            await Task.Delay(25);
+            clock.Advance(Interval);
+            await AwaitSignal(attempted, "lock was not attempted");
         }
         cts.Cancel();
         try { await sut.StopAsync(CancellationToken.None); } catch (OperationCanceledException) { }
@@ -97,15 +122,28 @@ public sealed class LeaderElectedPeriodicServiceTests
         var handle = Substitute.For<IAsyncDisposable>();
         locks.TryAcquireAsync("test", Arg.Any<CancellationToken>()).Returns(handle);
         var clock = new FakeTimeProvider();
+        using var armed = new SemaphoreSlim(0);
         await using var sp = new ServiceCollection().BuildServiceProvider();
         var calls = 0;
-        var sut = new TestService(sp.GetRequiredService<IServiceScopeFactory>(), locks, clock,
-            _ => { if (Interlocked.Increment(ref calls) == 1) throw new InvalidOperationException("boom"); });
+        using var invoked = new SemaphoreSlim(0);
+        var sut = new TestService(sp.GetRequiredService<IServiceScopeFactory>(), locks,
+            new ArmSignallingTimeProvider(clock, armed),
+            _ =>
+            {
+                var n = Interlocked.Increment(ref calls);
+                invoked.Release();                                   // signal every invocation, before any throw
+                if (n == 1) throw new InvalidOperationException("boom");
+            });
 
         using var cts = new CancellationTokenSource();
         await sut.StartAsync(cts.Token);
-        // The first invocation throws; the loop must recover and run again on the next interval.
-        await PumpUntilAsync(() => Volatile.Read(ref calls) >= 2, clock, TimeSpan.FromMinutes(1));
+        await AwaitSignal(armed, "loop did not arm its timer");
+        // First tick throws; wait until it is observed before releasing the next interval so the second
+        // advance lands as a fresh tick. The loop must catch the exception and run again on that tick.
+        clock.Advance(Interval);
+        await AwaitSignal(invoked, "first tick did not run");
+        clock.Advance(Interval);
+        await AwaitSignal(invoked, "loop did not recover after the exception");
         cts.Cancel();
         try { await sut.StopAsync(CancellationToken.None); } catch (OperationCanceledException) { }
 
