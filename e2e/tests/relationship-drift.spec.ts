@@ -8,19 +8,23 @@ test("drift: an unmappable relationship.type does not 500 the relationships surf
   try {
     await login(page);
 
-    // In-SPA navigate toward the fixture app (see nav.ts). The link is returned
-    // unclicked so we can register the relationships-response wait before the
-    // navigation fires.
+    // In-SPA navigate toward the fixture app (see nav.ts), landing on the default
+    // Overview tab.
     const link = await findFixtureAppLink(page);
+    await link.click();
+    await expect(page).toHaveURL(APP_DETAIL_URL);
 
-    // The relationships list request is what the Task-1 query filter guards.
-    // Assert it comes back 200 (not 500) — the most direct proof the drifted
-    // 'PartOf' row is excluded rather than blowing up the mapper.
+    // Tabbed detail layout (ADR-0114): only the active tab's panel mounts, and the
+    // relationships surface lives on the Dependencies tab — so open it. Register the
+    // response wait *before* clicking the tab (that click is what fires the request).
+    //
+    // The relationships list request is what the Task-1 query filter guards. Assert it
+    // comes back 200 (not 500) — the most direct proof the drifted 'PartOf' row is
+    // excluded rather than blowing up the mapper.
     const relationshipsResponse = page.waitForResponse(
       (res) => res.url().includes("/api/v1/catalog/relationships") && res.request().method() === "GET",
     );
-    await link.click();
-    await expect(page).toHaveURL(APP_DETAIL_URL);
+    await page.getByRole("tab", { name: "Dependencies" }).click();
     expect((await relationshipsResponse).status()).toBe(200);
 
     // RelationshipsSection renders as <section aria-label="Relationships"> with
