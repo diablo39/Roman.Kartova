@@ -66,6 +66,25 @@ it("menu opens and fires set focus / open page", async () => {
   expect(a.openPage).toHaveBeenCalledWith("service", "s");
 });
 
+it("drops the expand items from the ⋯ menu when supportsExpand is false (mini-graph preview)", async () => {
+  renderNode(
+    { kind: "service", entityId: "s", displayName: "S", side: "dependency", expandableOut: true, unloadedOut: 3 },
+    { supportsExpand: false },
+  );
+  await userEvent.click(screen.getByRole("button", { name: /open menu/i }));
+  expect(screen.queryByRole("menuitem", { name: /expand|collapse/i })).toBeNull();
+  expect(screen.getByRole("menuitem", { name: /set as focus/i })).toBeInTheDocument();
+  expect(screen.getByRole("menuitem", { name: /open page/i })).toBeInTheDocument();
+});
+
+it("hides the expand chevrons when supportsExpand is false", () => {
+  renderNode(
+    { kind: "service", entityId: "s", displayName: "S", side: "dependency", expandableOut: true, expandableIn: true },
+    { supportsExpand: false },
+  );
+  expect(screen.queryByRole("button", { name: /expand dependencies|expand dependents/i })).toBeNull();
+});
+
 it("renders the application kind label", () => {
   renderNode({ kind: "application", entityId: "a", displayName: "A", side: "dependency" });
   expect(screen.getByText("Application")).toBeInTheDocument();

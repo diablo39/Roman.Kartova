@@ -43,10 +43,12 @@ export function DependencyMiniGraph({ entityKind, entityId, displayName }: Props
   // rather than navigating; navigation is an explicit "Open page ↗" in the node's ⋯ menu.
   const actions = useMemo(
     () => ({
-      toggleExpand: () => {}, // mini-graph is a fixed 1-hop preview — not expandable
+      // Fixed 1-hop preview: not expandable, so the ⋯ menu drops its Expand items (supportsExpand).
+      toggleExpand: () => {},
       setFocus: (kind: RelationshipKind, id: string) => navigate(`/graph?focus=${kind}:${id}`),
       openPage: (kind: RelationshipKind, id: string) => navigate(entityDetailPath(kind, id)),
       atCap: false,
+      supportsExpand: false,
     }),
     [navigate],
   );

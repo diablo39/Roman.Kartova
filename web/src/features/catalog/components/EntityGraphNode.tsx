@@ -9,7 +9,9 @@ import type { ExpandDir } from "@/features/catalog/relationships/useExplorerStat
 const stop = (e: { stopPropagation: () => void }) => e.stopPropagation();
 
 export function EntityGraphNode({ data }: NodeProps<Node<GraphNodeData>>) {
-  const { toggleExpand, setFocus, openPage, atCap } = useGraphActions();
+  const { toggleExpand, setFocus, openPage, atCap, supportsExpand } = useGraphActions();
+  // A fixed-hop preview (mini-graph) passes supportsExpand=false; the full explorer omits it.
+  const canExpand = supportsExpand !== false;
   const key = `${data.kind}:${data.entityId}`;
 
   const base = "rounded-lg bg-primary px-3 py-2";
@@ -78,8 +80,8 @@ export function EntityGraphNode({ data }: NodeProps<Node<GraphNodeData>>) {
   return (
     <div className={`${base} ${variant} ${dim} ${impact} relative`}>
       <Handle type="target" position={Position.Left} className="!border-0 !bg-transparent" />
-      {chevron("in")}
-      {chevron("out")}
+      {canExpand && chevron("in")}
+      {canExpand && chevron("out")}
       <div className="flex items-start gap-2">
         <div className="min-w-0">
           <div className="text-sm text-primary">{data.displayName}</div>
@@ -90,9 +92,9 @@ export function EntityGraphNode({ data }: NodeProps<Node<GraphNodeData>>) {
             <Dropdown.DotsButton className="size-5" />
             <Dropdown.Popover>
               <Dropdown.Menu>
-                {expandItem("out")}
-                {expandItem("in")}
-                <Dropdown.Separator />
+                {canExpand && expandItem("out")}
+                {canExpand && expandItem("in")}
+                {canExpand && <Dropdown.Separator />}
                 <Dropdown.Item label="Set as focus" onAction={() => setFocus(data.kind, data.entityId)} />
                 <Dropdown.Item label="Open page ↗" onAction={() => openPage(data.kind, data.entityId)} />
               </Dropdown.Menu>
