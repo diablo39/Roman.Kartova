@@ -18,7 +18,11 @@ vi.mock("@xyflow/react", () => ({
       <span data-testid="node-count">{props.nodes.length}</span>
       <span data-testid="edge-count">{props.edges.length}</span>
       {props.nodes.map((n) => (
-        <button key={n.id} onClick={() => props.onNodeClick?.({}, n)}>
+        <button
+          key={n.id}
+          data-selected={(n.data as { selected?: boolean }).selected ? "true" : "false"}
+          onClick={() => props.onNodeClick?.({}, n)}
+        >
           {(n.data as { displayName: string }).displayName}
         </button>
       ))}
@@ -156,19 +160,24 @@ it("does not show the derived-fetch notice for a non-service entity", () => {
   expect(screen.queryByText(/derived dependencies couldn.t be loaded/i)).not.toBeInTheDocument();
 });
 
-it("navigates to a neighbour on node click but not for the focused node", () => {
+it("selects a neighbour on node click (does not navigate); focused node is not selectable", () => {
+  // Matches the /graph explorer: a bare click SELECTS/highlights the node rather than
+  // navigating. Navigation moved to the node's ⋯ "Open page ↗" menu (openPage →
+  // entityDetailPath, whose kind→route mapping is unit-tested in graphModel.test.ts).
   vi.spyOn(api, "useRelationshipsList").mockReturnValue(listResult(outgoing));
   renderGraph();
-  fireEvent.click(screen.getByRole("button", { name: "AuthService" }));
-  expect(navigate).toHaveBeenCalledWith("/catalog/services/s2");
-  navigate.mockReset();
-  fireEvent.click(screen.getByRole("button", { name: "Me" })); // focused node
+  const neighbour = screen.getByRole("button", { name: "AuthService" });
+  fireEvent.click(neighbour);
   expect(navigate).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "AuthService" })).toHaveAttribute("data-selected", "true");
+
+  // The focused node (current page's entity) stays non-selectable.
+  fireEvent.click(screen.getByRole("button", { name: "Me" }));
+  expect(navigate).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "Me" })).toHaveAttribute("data-selected", "false");
 });
 
-it("navigates an API-kind neighbour to the /catalog/apis route, not /catalog/services", () => {
-  // Regression: an api node (from a consumes-api-from edge) must route to /catalog/apis/{id};
-  // it previously fell through to /catalog/services/{id} → "Service not found".
+it("renders an API-kind neighbour as a selectable node (routing to /catalog/apis lives in openPage → entityDetailPath)", () => {
   vi.spyOn(api, "useRelationshipsList").mockReturnValue(
     listResult([
       {
@@ -184,5 +193,6 @@ it("navigates an API-kind neighbour to the /catalog/apis route, not /catalog/ser
   );
   renderGraph();
   fireEvent.click(screen.getByRole("button", { name: "Orders API" }));
-  expect(navigate).toHaveBeenCalledWith("/catalog/apis/api9");
+  expect(navigate).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "Orders API" })).toHaveAttribute("data-selected", "true");
 });
