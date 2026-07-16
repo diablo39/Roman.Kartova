@@ -15,6 +15,7 @@ export type RelationshipsListParams = {
   entityId: string;
   direction: RelationshipDirection;
   limit?: number;
+  excludeApiEdges?: boolean;
 };
 
 export const relationshipKeys = {
@@ -41,6 +42,7 @@ export function useRelationshipsList(
             direction: params.direction,
             limit: String(params.limit ?? 20),
             cursor,
+            ...(params.excludeApiEdges ? { excludeApiEdges: true } : {}),
           },
         },
       });
@@ -48,6 +50,15 @@ export function useRelationshipsList(
       return unwrapData(data);
     },
   });
+}
+
+// A relationship change also feeds every derived read model keyed under
+// ["catalog", ...] — the API surface (provides/consumes), the dependency graph,
+// derived dependencies, and impact analysis. Invalidate both families so those
+// sections refresh without a manual page reload.
+function invalidateAfterRelationshipChange(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: relationshipKeys.all });
+  qc.invalidateQueries({ queryKey: ["catalog"] });
 }
 
 export function useCreateRelationship() {
@@ -58,7 +69,7 @@ export function useCreateRelationship() {
       if (error) throw error;
       return unwrapData(data);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: relationshipKeys.all }),
+    onSuccess: () => invalidateAfterRelationshipChange(qc),
   });
 }
 
@@ -71,7 +82,7 @@ export function useDeleteRelationship() {
       });
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: relationshipKeys.all }),
+    onSuccess: () => invalidateAfterRelationshipChange(qc),
   });
 }
 

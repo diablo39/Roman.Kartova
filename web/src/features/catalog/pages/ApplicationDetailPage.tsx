@@ -140,11 +140,11 @@ export function ApplicationDetailPage() {
 
             <DetailTabs.Tab id="dependencies" label="Dependencies">
               <div className="space-y-6">
-                <ApiSurfaceSection entityKind="application" entityId={app.id} />
-                <hr className="border-secondary" />
                 <Suspense fallback={<Skeleton className="h-80 w-full" />}>
                   <DependencyMiniGraph entityKind="application" entityId={app.id} displayName={app.displayName} />
                 </Suspense>
+                <hr className="border-secondary" />
+                <ApiSurfaceSection entityKind="application" entityId={app.id} entityTeamId={app.teamId} entityDisplayName={app.displayName} />
                 <hr className="border-secondary" />
                 <RelationshipsSection
                   entityKind="application"

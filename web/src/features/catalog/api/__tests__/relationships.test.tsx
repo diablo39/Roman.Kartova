@@ -32,6 +32,37 @@ describe("relationships api", () => {
     }));
   });
 
+  it("useRelationshipsList sends excludeApiEdges=true when requested (slice #71)", async () => {
+    const page = { items: [], nextCursor: null, prevCursor: null };
+    const GET = vi.fn().mockResolvedValue({ data: page, error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET } as never);
+
+    const qc = newQc();
+    renderHook(
+      () => useRelationshipsList({ entityKind: "service", entityId: "s1", direction: "outgoing", excludeApiEdges: true }),
+      { wrapper: wrapper(qc) },
+    );
+    await waitFor(() => expect(GET).toHaveBeenCalled());
+    expect(GET).toHaveBeenCalledWith("/api/v1/catalog/relationships", expect.objectContaining({
+      params: { query: expect.objectContaining({ excludeApiEdges: true }) },
+    }));
+  });
+
+  it("useRelationshipsList omits excludeApiEdges from the query when not requested (slice #71)", async () => {
+    const page = { items: [], nextCursor: null, prevCursor: null };
+    const GET = vi.fn().mockResolvedValue({ data: page, error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET } as never);
+
+    const qc = newQc();
+    renderHook(
+      () => useRelationshipsList({ entityKind: "service", entityId: "s1", direction: "incoming" }),
+      { wrapper: wrapper(qc) },
+    );
+    await waitFor(() => expect(GET).toHaveBeenCalled());
+    const call = GET.mock.calls[0]!;
+    expect(call[1].params.query).not.toHaveProperty("excludeApiEdges");
+  });
+
   it("useCreateRelationship POSTs and invalidates", async () => {
     const POST = vi.fn().mockResolvedValue({ data: { id: "r1" }, error: undefined });
     vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ POST } as never);
@@ -41,6 +72,8 @@ describe("relationships api", () => {
     await result.current.mutateAsync({ sourceKind: "service", sourceId: "s1", type: "dependsOn", targetKind: "service", targetId: "s2" });
     expect(POST).toHaveBeenCalledWith("/api/v1/catalog/relationships", { body: expect.objectContaining({ type: "dependsOn" }) });
     expect(spy).toHaveBeenCalledWith({ queryKey: ["relationships"] });
+    // Derived read models (api-surface, graph, derived-deps, impact) must refresh too.
+    expect(spy).toHaveBeenCalledWith({ queryKey: ["catalog"] });
   });
 
   it("useDeleteRelationship DELETEs by id and invalidates", async () => {
@@ -52,6 +85,7 @@ describe("relationships api", () => {
     await result.current.mutateAsync("r1");
     expect(DELETE).toHaveBeenCalledWith("/api/v1/catalog/relationships/{id}", { params: { path: { id: "r1" } } });
     expect(spy).toHaveBeenCalledWith({ queryKey: ["relationships"] });
+    expect(spy).toHaveBeenCalledWith({ queryKey: ["catalog"] });
   });
 
   it("useEntitySearch hits the services endpoint for Service kind", async () => {

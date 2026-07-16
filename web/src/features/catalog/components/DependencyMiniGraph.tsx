@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ReactFlow, Background, type Node, type Edge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -13,6 +13,7 @@ import {
   type GraphNodeData,
 } from "@/features/catalog/relationships/graphModel";
 import { EntityGraphNode } from "@/features/catalog/components/EntityGraphNode";
+import { GraphActionsProvider } from "@/features/catalog/relationships/GraphActionsContext";
 import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
 
 const NODE_TYPES = { entity: EntityGraphNode };
@@ -34,8 +35,21 @@ interface Props {
 
 export function DependencyMiniGraph({ entityKind, entityId, displayName }: Props) {
   const navigate = useNavigate();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const list = useRelationshipsList({ entityKind, entityId, direction: "all", limit: GRAPH_LIMIT });
   const derivedQuery = useDerivedDependencies(entityId, { enabled: entityKind === "service" });
+
+  // Match the standalone /graph explorer's interaction: a node click SELECTS (highlights)
+  // rather than navigating; navigation is an explicit "Open page ↗" in the node's ⋯ menu.
+  const actions = useMemo(
+    () => ({
+      toggleExpand: () => {}, // mini-graph is a fixed 1-hop preview — not expandable
+      setFocus: (kind: RelationshipKind, id: string) => navigate(`/graph?focus=${kind}:${id}`),
+      openPage: (kind: RelationshipKind, id: string) => navigate(entityDetailPath(kind, id)),
+      atCap: false,
+    }),
+    [navigate],
+  );
 
   const model = useMemo(() => {
     const focused: FocusedEntity = { kind: entityKind, id: entityId, displayName };
@@ -47,6 +61,11 @@ export function DependencyMiniGraph({ entityKind, entityId, displayName }: Props
       : undefined;
     return toGraphModel(focused, list.items ?? [], derived);
   }, [list.items, entityKind, entityId, displayName, derivedQuery.data]);
+
+  const nodes = useMemo(
+    () => model.nodes.map((n) => ({ ...n, data: { ...n.data, selected: n.id === selectedId } })) as Node[],
+    [model.nodes, selectedId],
+  );
 
   return (
     <section className="space-y-2" aria-label="Dependency graph">
@@ -65,26 +84,28 @@ export function DependencyMiniGraph({ entityKind, entityId, displayName }: Props
       ) : (
         <>
           <div className="h-80 w-full overflow-hidden rounded-lg ring-1 ring-secondary">
-            <ReactFlow
-              nodes={model.nodes as Node[]}
-              edges={model.edges.map((e) => ({
-                ...e,
-                ...(e.derived ? { style: { strokeDasharray: "6 4", stroke: "var(--color-fg-quaternary, #98A2B3)" } } : {}),
-              })) as Edge[]}
-              nodeTypes={NODE_TYPES}
-              fitView
-              nodesDraggable={false}
-              nodesConnectable={false}
-              elementsSelectable={false}
-              proOptions={{ hideAttribution: true }}
-              onNodeClick={(_, node) => {
-                const data = node.data as GraphNodeData;
-                if (data.side === "focused") return;
-                navigate(entityDetailPath(data.kind, data.entityId));
-              }}
-            >
-              <Background />
-            </ReactFlow>
+            <GraphActionsProvider value={actions}>
+              <ReactFlow
+                nodes={nodes}
+                edges={model.edges.map((e) => ({
+                  ...e,
+                  ...(e.derived ? { style: { strokeDasharray: "6 4", stroke: "var(--color-fg-quaternary, #98A2B3)" } } : {}),
+                })) as Edge[]}
+                nodeTypes={NODE_TYPES}
+                fitView
+                nodesDraggable={false}
+                nodesConnectable={false}
+                elementsSelectable={false}
+                proOptions={{ hideAttribution: true }}
+                onNodeClick={(_, node) => {
+                  const data = node.data as GraphNodeData;
+                  if (data.side === "focused") return;
+                  setSelectedId(node.id);
+                }}
+              >
+                <Background />
+              </ReactFlow>
+            </GraphActionsProvider>
           </div>
           <p className="text-xs text-tertiary">
             <span className="mr-3">— explicit</span>

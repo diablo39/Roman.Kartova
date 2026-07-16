@@ -14,11 +14,11 @@ import {
   type RelationshipResponse,
 } from "@/features/catalog/api/relationships";
 import { relationshipTypeLabel, offerableTypes, type RelationshipKind, type CreatableRelationshipType } from "@/features/catalog/relationships/relationshipTypeRules";
-import { entityDetailPath } from "@/features/catalog/relationships/graphModel";
+import { entityDetailPath, ENTITY_KIND_LABEL } from "@/features/catalog/relationships/graphModel";
 import { AddRelationshipDialog } from "@/features/catalog/components/AddRelationshipDialog";
 import type { FixedRole } from "@/features/catalog/relationships/relationshipTypeRules";
 import { Tooltip, TooltipTrigger } from "@/components/base/tooltip/tooltip";
-import { HelpCircle } from "@untitledui/icons";
+import { HelpCircle, Trash01 } from "@untitledui/icons";
 
 interface Props {
   entityKind: RelationshipKind;
@@ -34,16 +34,26 @@ function entityLink(kind: string, id: string) {
 
 const relationshipOriginLabel: Record<string, string> = { manual: "Manual", scan: "Scan", agent: "Agent" };
 
+// Which relationship types the Relationships dialog offers, by page variant:
+//  - full (App/Service): non-API deps only — provides/consumes are managed from the API-surface section.
+//  - incoming-only (API detail): the API has no API-surface section, so provides/consumes ARE managed
+//    here. Target-side creation is allowed per ADR-0108 ("X depends on us", audit-attributed).
+const DIALOG_TYPES_FULL: CreatableRelationshipType[] = ["dependsOn", "instanceOf"];
+const DIALOG_TYPES_API_INCOMING: CreatableRelationshipType[] = ["providesApiFor", "consumesApiFrom"];
+
 export function RelationshipsSection({ entityKind, entityId, entityTeamId, entityDisplayName, variant = "full" }: Props) {
   const { hasPermission, role, teamIds } = usePermissions();
+  // `readOnly` (the API detail page's incoming-only view) suppresses the Outgoing group — but NOT
+  // add/delete: edges can be created and removed from EITHER endpoint's team per ADR-0108, so the
+  // target-side (API) page can add and remove its incoming provides/consumes edges.
   const readOnly = variant === "incoming-only";
+  const dialogTypes = readOnly ? DIALOG_TYPES_API_INCOMING : DIALOG_TYPES_FULL;
   const canManage =
-    !readOnly &&
     hasPermission(KartovaPermissions.CatalogRelationshipsWrite) &&
     (role === "OrgAdmin" || teamIds.includes(entityTeamId));
 
   const outgoing = useRelationshipsList(
-    { entityKind, entityId, direction: "outgoing" },
+    { entityKind, entityId, direction: "outgoing", excludeApiEdges: variant === "full" },
     { enabled: variant === "full" },
   );
   const incoming = useRelationshipsList({ entityKind, entityId, direction: "incoming" });
@@ -71,7 +81,9 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
     addRole: FixedRole,
     addLabel: string,
   ) => {
-    const canAdd = canManage && offerableTypes(addRole, entityKind).length > 0;
+    const canAdd =
+      canManage &&
+      offerableTypes(addRole, entityKind).some((t) => dialogTypes.includes(t));
     return (
       <div className="space-y-2">
         <div className="flex items-center justify-between">
@@ -130,9 +142,14 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
                         </Badge>
                       </Table.Cell>
                       <Table.Cell>
-                        <Link to={entityLink(e.kind, e.id)} className="text-primary hover:underline">
-                          {e.displayName}
-                        </Link>
+                        <span className="inline-flex items-center gap-2">
+                          <Link to={entityLink(e.kind, e.id)} className="text-primary hover:underline">
+                            {e.displayName}
+                          </Link>
+                          <Badge type="pill-color" size="sm" color="gray">
+                            {ENTITY_KIND_LABEL[e.kind] ?? e.kind}
+                          </Badge>
+                        </span>
                       </Table.Cell>
                       <Table.Cell>
                         <Badge type="pill-color" size="sm" color="gray">
@@ -140,18 +157,19 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
                         </Badge>
                       </Table.Cell>
                       <Table.Cell>
-                        <CreatedByLink user={null} />
+                        <CreatedByLink user={r.createdBy} />
                       </Table.Cell>
                       {canManage && (
                         <Table.Cell>
                           <Button
-                            color="tertiary"
+                            color="primary-destructive"
                             size="sm"
+                            iconLeading={Trash01}
+                            aria-label="Delete"
+                            className="*:data-icon:text-white hover:*:data-icon:text-white"
                             onClick={() => onDelete(r.id)}
                             isDisabled={del.isPending}
-                          >
-                            Delete
-                          </Button>
+                          />
                         </Table.Cell>
                       )}
                     </Table.Row>
@@ -207,6 +225,7 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
           }}
           fixedRole={dialog}
           fixedEntity={fixedEntity}
+          restrictTypes={dialogTypes}
         />
       )}
     </section>

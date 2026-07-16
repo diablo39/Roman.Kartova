@@ -261,6 +261,18 @@ public class KartovaApiFixture : KartovaApiFixtureBase
         TenantId tenantId, string displayName, string email)
     {
         var userId = Guid.NewGuid();
+        await SeedUserWithIdInOrganizationAsync(tenantId, userId, displayName, email);
+        return userId;
+    }
+
+    /// <summary>
+    /// Seeds a <c>users</c> row with an explicit <paramref name="userId"/> — used when the
+    /// row must line up with a known JWT <c>sub</c> (e.g. to verify a handler enriches a
+    /// creator resolved from the caller's token via <c>IUserDirectory</c>).
+    /// </summary>
+    public async Task SeedUserWithIdInOrganizationAsync(
+        TenantId tenantId, Guid userId, string displayName, string email)
+    {
         await using var conn = new Npgsql.NpgsqlConnection(BypassConnectionString);
         await conn.OpenAsync();
         await using var cmd = conn.CreateCommand();
@@ -273,7 +285,6 @@ public class KartovaApiFixture : KartovaApiFixtureBase
         cmd.Parameters.AddWithValue(email);
         cmd.Parameters.AddWithValue(displayName);
         await cmd.ExecuteNonQueryAsync();
-        return userId;
     }
 
     /// <summary>

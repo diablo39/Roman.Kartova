@@ -1,8 +1,16 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import { Badge } from "@/components/base/badges/badges";
+import { Button } from "@/components/base/buttons/button";
+import { Trash01 } from "@untitledui/icons";
 import { Table } from "@/components/application/table/table";
 import { TableSkeleton } from "@/components/application/data-table/data-table";
 import { useApiSurface, type ApiSurfaceItem } from "@/features/catalog/api/apiSurface";
+import { useDeleteRelationship } from "@/features/catalog/api/relationships";
+import { AddRelationshipDialog } from "@/features/catalog/components/AddRelationshipDialog";
+import { usePermissions } from "@/shared/auth/usePermissions";
+import { KartovaPermissions } from "@/shared/auth/permissions";
 import { API_STYLE_LABEL, API_STYLES } from "@/features/catalog/schemas/registerApi";
 
 function styleOrder(style: string): number {
@@ -16,7 +24,7 @@ function sortItems(items: ApiSurfaceItem[]): ApiSurfaceItem[] {
   );
 }
 
-function ApiSurfaceLoadingSkeleton() {
+function ApiSurfaceLoadingSkeleton({ canManage }: { canManage: boolean }) {
   return (
     <section className="space-y-6" aria-label="APIs">
       {[
@@ -34,8 +42,9 @@ function ApiSurfaceLoadingSkeleton() {
               <Table.Head id="version">Version</Table.Head>
               <Table.Head id="spec">Spec</Table.Head>
               {cells === 5 && <Table.Head id="origin">Origin</Table.Head>}
+              {canManage && <Table.Head id="actions"> </Table.Head>}
             </Table.Header>
-            <TableSkeleton rows={2} cells={cells} />
+            <TableSkeleton rows={2} cells={cells + (canManage ? 1 : 0)} />
           </Table>
         </div>
       ))}
@@ -46,12 +55,30 @@ function ApiSurfaceLoadingSkeleton() {
 interface Props {
   entityKind: "service" | "application";
   entityId: string;
+  entityTeamId: string;
+  entityDisplayName: string;
 }
 
-export function ApiSurfaceSection({ entityKind, entityId }: Props) {
+export function ApiSurfaceSection({ entityKind, entityId, entityTeamId, entityDisplayName }: Props) {
   const query = useApiSurface(entityKind, entityId);
+  const { hasPermission, role, teamIds } = usePermissions();
+  const canManage =
+    hasPermission(KartovaPermissions.CatalogRelationshipsWrite) &&
+    (role === "OrgAdmin" || teamIds.includes(entityTeamId));
+  const del = useDeleteRelationship();
+  const [addType, setAddType] = useState<null | "providesApiFor" | "consumesApiFrom">(null);
 
-  if (query.isLoading) return <ApiSurfaceLoadingSkeleton />;
+  const onRemove = async (relationshipId: string) => {
+    if (!window.confirm("Delete this relationship?")) return;
+    try {
+      await del.mutateAsync(relationshipId);
+      toast.success("Relationship removed");
+    } catch {
+      toast.error("Failed to remove relationship");
+    }
+  };
+
+  if (query.isLoading) return <ApiSurfaceLoadingSkeleton canManage={canManage} />;
   if (query.isError || !query.data)
     return <p className="text-sm text-error-primary">Couldn&apos;t load APIs.</p>;
 
@@ -64,13 +91,33 @@ export function ApiSurfaceSection({ entityKind, entityId }: Props) {
         emptyCopy="No APIs provided."
         items={sortItems(provides)}
         showOrigin
+        canManage={canManage}
+        onRemove={onRemove}
+        isRemoving={del.isPending}
+        onAdd={canManage ? () => setAddType("providesApiFor") : undefined}
       />
       <ApiTable
         title="Consumes"
         emptyCopy="No APIs consumed."
         items={sortItems(consumes)}
         showOrigin={false}
+        canManage={canManage}
+        onRemove={onRemove}
+        isRemoving={del.isPending}
+        onAdd={canManage ? () => setAddType("consumesApiFrom") : undefined}
       />
+      {addType && (
+        <AddRelationshipDialog
+          open
+          onOpenChange={(o) => {
+            if (!o) setAddType(null);
+          }}
+          fixedRole="source"
+          fixedEntity={{ kind: entityKind, id: entityId, displayName: entityDisplayName }}
+          restrictTypes={[addType]}
+          heading={addType === "providesApiFor" ? "Add provided API" : "Add consumed API"}
+        />
+      )}
     </section>
   );
 }
@@ -80,15 +127,30 @@ function ApiTable({
   emptyCopy,
   items,
   showOrigin,
+  canManage,
+  onRemove,
+  isRemoving,
+  onAdd,
 }: {
   title: string;
   emptyCopy: string;
   items: ApiSurfaceItem[];
   showOrigin: boolean;
+  canManage: boolean;
+  onRemove: (relationshipId: string) => void;
+  isRemoving: boolean;
+  onAdd?: () => void;
 }) {
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-semibold text-primary">{title}</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-primary">{title}</h3>
+        {onAdd && (
+          <Button color="secondary" size="sm" onClick={onAdd}>
+            {title === "Provides" ? "Add provided API" : "Add consumed API"}
+          </Button>
+        )}
+      </div>
       {items.length === 0 ? (
         <p className="text-sm italic text-tertiary">{emptyCopy}</p>
       ) : (
@@ -102,6 +164,7 @@ function ApiTable({
               <Table.Head id="version">Version</Table.Head>
               <Table.Head id="spec">Spec</Table.Head>
               {showOrigin && <Table.Head id="origin">Origin</Table.Head>}
+              {canManage && <Table.Head id="actions"> </Table.Head>}
             </Table.Header>
             <Table.Body>
               {items.map((i) => (
@@ -141,6 +204,21 @@ function ApiTable({
                       ) : (
                         <span className="text-tertiary">Direct</span>
                       )}
+                    </Table.Cell>
+                  )}
+                  {canManage && (
+                    <Table.Cell>
+                      {i.relationshipId ? (
+                        <Button
+                          color="primary-destructive"
+                          size="sm"
+                          iconLeading={Trash01}
+                          aria-label="Delete"
+                          className="*:data-icon:text-white hover:*:data-icon:text-white"
+                          onClick={() => onRemove(i.relationshipId!)}
+                          isDisabled={isRemoving}
+                        />
+                      ) : null}
                     </Table.Cell>
                   )}
                 </Table.Row>

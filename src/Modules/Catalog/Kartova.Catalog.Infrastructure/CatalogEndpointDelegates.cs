@@ -802,7 +802,9 @@ internal static class CatalogEndpointDelegates
     /// GET /relationships?entityKind=&amp;entityId=&amp;direction= — list relationships for an entity.
     /// Returns a cursor-paged list of relationships where the given entity is the source, target, or either.
     /// Default sort: createdAt desc (newest first) — relationships have no displayName of their own,
-    /// so the project-wide displayName-asc list default deliberately does not apply here. Claim gate: catalog.read.
+    /// so the project-wide displayName-asc list default deliberately does not apply here.
+    /// `excludeApiEdges` (default false) drops <c>ProvidesApiFor</c>/<c>ConsumesApiFrom</c> edges — the
+    /// API-surface view already renders them, so list callers can opt out of the duplication. Claim gate: catalog.read.
     /// </summary>
     internal static async Task<IResult> ListRelationshipsAsync(
         [FromQuery] string entityKind,
@@ -812,8 +814,10 @@ internal static class CatalogEndpointDelegates
         [FromQuery] string? sortOrder,
         [FromQuery] string? cursor,
         [FromQuery] string? limit,
+        [FromQuery] bool? excludeApiEdges,
         ListRelationshipsForEntityHandler handler,
         ICatalogEntityLookup lookup,
+        IUserDirectory directory,
         CatalogDbContext db,
         CancellationToken ct)
     {
@@ -834,9 +838,10 @@ internal static class CatalogEndpointDelegates
             new EntityRef(kind, entityId), dir,
             SortBy: parsedSortBy ?? RelationshipSortField.CreatedAt,
             SortOrder: parsedSortOrder ?? SortOrder.Desc,
-            Cursor: cursor, Limit: effectiveLimit);
+            Cursor: cursor, Limit: effectiveLimit,
+            ExcludeApiEdges: excludeApiEdges ?? false);
 
-        var page = await handler.Handle(query, db, lookup, ct);
+        var page = await handler.Handle(query, db, lookup, directory, ct);
         return Results.Ok(page);
     }
 

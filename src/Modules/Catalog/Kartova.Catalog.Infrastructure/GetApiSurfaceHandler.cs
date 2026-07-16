@@ -21,12 +21,12 @@ public sealed class GetApiSurfaceHandler
                 && (r.Type == RelationshipType.ProvidesApiFor
                     || r.Type == RelationshipType.InstanceOf
                     || r.Type == RelationshipType.ConsumesApiFrom))
-            .Select(r => new { r.Type, TargetKind = r.Target.Kind, TargetId = r.Target.Id })
+            .Select(r => new { r.Id, r.Type, TargetKind = r.Target.Kind, TargetId = r.Target.Id })
             .ToListAsync(ct);
 
         var provides = sourceEdges
             .Where(e => e.Type == RelationshipType.ProvidesApiFor && e.TargetKind == EntityKind.Api)
-            .Select(e => new ApiSurfaceMapper.ProvidesEdge(e.TargetId, ApiSurfaceOrigin.Direct, null))
+            .Select(e => new ApiSurfaceMapper.ProvidesEdge(e.TargetId, ApiSurfaceOrigin.Direct, null, e.Id.Value))
             .ToList();
 
         if (q.Kind == EntityKind.Service)
@@ -47,17 +47,17 @@ public sealed class GetApiSurfaceHandler
                     .ToListAsync(ct);
 
                 provides.AddRange(derived.Select(d =>
-                    new ApiSurfaceMapper.ProvidesEdge(d.ApiId, ApiSurfaceOrigin.Derived, d.ViaAppId)));
+                    new ApiSurfaceMapper.ProvidesEdge(d.ApiId, ApiSurfaceOrigin.Derived, d.ViaAppId, null)));
             }
         }
 
-        var consumesApiIds = sourceEdges
+        var consumes = sourceEdges
             .Where(e => e.Type == RelationshipType.ConsumesApiFrom && e.TargetKind == EntityKind.Api)
-            .Select(e => e.TargetId)
+            .Select(e => new ApiSurfaceMapper.ConsumesEdge(e.TargetId, e.Id.Value))
             .ToList();
 
         // 4. Batch-load API metadata for every referenced id.
-        var apiGuids = provides.Select(p => p.ApiId).Concat(consumesApiIds).Distinct().ToList();
+        var apiGuids = provides.Select(p => p.ApiId).Concat(consumes.Select(c => c.ApiId)).Distinct().ToList();
 
         var apiRows = await db.Apis
             .Where(a => apiGuids.Contains(EF.Property<Guid>(a, EfApiConfiguration.IdFieldName)))
@@ -95,6 +95,6 @@ public sealed class GetApiSurfaceHandler
                 .Select(a => new { Id = EF.Property<Guid>(a, EfApplicationConfiguration.IdFieldName), a.DisplayName })
                 .ToDictionaryAsync(x => x.Id, x => x.DisplayName, ct);
 
-        return ApiSurfaceMapper.Build(provides, consumesApiIds, apis, appNames);
+        return ApiSurfaceMapper.Build(provides, consumes, apis, appNames);
     }
 }

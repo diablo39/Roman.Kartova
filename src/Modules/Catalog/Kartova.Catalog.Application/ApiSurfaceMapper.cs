@@ -8,15 +8,19 @@ namespace Kartova.Catalog.Application;
 public static class ApiSurfaceMapper
 {
     /// <summary>A provides/exposes edge target before metadata join. <paramref name="ViaApplicationId"/>
-    /// is set only for derived edges (the application the API is exposed through).</summary>
-    public sealed record ProvidesEdge(Guid ApiId, ApiSurfaceOrigin Origin, Guid? ViaApplicationId);
+    /// is set only for derived edges (the application the API is exposed through). <paramref name="RelationshipId"/>
+    /// is the underlying direct edge id (null for derived — a derived row has no single owning edge here).</summary>
+    public sealed record ProvidesEdge(Guid ApiId, ApiSurfaceOrigin Origin, Guid? ViaApplicationId, Guid? RelationshipId);
+
+    /// <summary>A direct consumes edge: the consumed API plus the owning relationship id (for removal).</summary>
+    public sealed record ConsumesEdge(Guid ApiId, Guid RelationshipId);
 
     /// <summary>Metadata for one API, batch-loaded from <c>catalog_apis</c> + <c>catalog_api_specs</c>.</summary>
     public sealed record ApiMeta(string DisplayName, ApiStyle Style, string Version, bool HasSpec);
 
     public static ApiSurfaceResponse Build(
         IReadOnlyList<ProvidesEdge> provides,
-        IReadOnlyList<Guid> consumesApiIds,
+        IReadOnlyList<ConsumesEdge> consumes,
         IReadOnlyDictionary<Guid, ApiMeta> apis,
         IReadOnlyDictionary<Guid, string> appNames)
     {
@@ -46,21 +50,23 @@ public static class ApiSurfaceMapper
                 return new ApiSurfaceItem(
                     p.ApiId, meta.DisplayName, meta.Style, meta.Version, meta.HasSpec, p.Origin,
                     derived ? p.ViaApplicationId : null,
-                    derived && p.ViaApplicationId is { } via && appNames.TryGetValue(via, out var n) ? n : null);
+                    derived && p.ViaApplicationId is { } via && appNames.TryGetValue(via, out var n) ? n : null,
+                    derived ? null : p.RelationshipId);
             })
             .ToList();
 
-        var consumesItems = consumesApiIds
-            .Distinct()
+        var consumesItems = consumes
+            .GroupBy(c => c.ApiId)
+            .Select(g => g.First())
             // Currently unreachable: edges validate target existence at creation and there is no API-delete path,
             // so every referenced id is in `apis`. Guards a future delete/soft-delete path.
-            .Where(id => apis.ContainsKey(id))
-            .Select(id =>
+            .Where(c => apis.ContainsKey(c.ApiId))
+            .Select(c =>
             {
-                var meta = apis[id];
+                var meta = apis[c.ApiId];
                 return new ApiSurfaceItem(
-                    id, meta.DisplayName, meta.Style, meta.Version, meta.HasSpec,
-                    ApiSurfaceOrigin.Direct, null, null);
+                    c.ApiId, meta.DisplayName, meta.Style, meta.Version, meta.HasSpec,
+                    ApiSurfaceOrigin.Direct, null, null, c.RelationshipId);
             })
             .ToList();
 

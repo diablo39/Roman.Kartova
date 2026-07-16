@@ -21,3 +21,7 @@ Conventions: active tab in `?tab=` (default `overview`, `replace` writes, invali
 - Switching a tab re-mounts its panel (re-runs cheap, React-Query-cached section queries). `shouldForceMount` deliberately not used.
 - Future per-entity surfaces (Documentation E-11.F-01, Deployments E-02.F-05, Settings) slot in as new tabs per feature.
 - Amends the detail-page UI convention; supersedes nothing.
+
+## Amendment (2026-07-13)
+
+**Tab-ordering convention.** Detail-page tab order follows: **Overview → Dependencies → entity-specific content tabs → cross-cutting tabs**. Dependencies is fixed at position 2 across every entity kind for predictability and muscle memory. Current tab sets already comply: Application/Service have `Overview · Dependencies`; API has `Overview · Dependencies · Definition`. This amendment is documentation only — no code changes in this slice. Future tabs (e.g., Service Docs, Deployments, Scorecard, Activity) will slot in after Dependencies per this rule. (Introduced alongside E-04.F-01.S-05 / PR #71.)

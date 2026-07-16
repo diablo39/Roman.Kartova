@@ -1,0 +1,56 @@
+# Per-gate findings telemetry — E-04.F-01.S-05 / #71
+# verdict: real | delusion  ·  disposition: fixed | deferred | waived | non-issue
+slice: 2026-07-13-relationships-api-edge-dedup
+head: c23f517
+
+findings:
+  - gate: 2-task-review
+    severity: minor
+    verdict: real
+    disposition: fixed
+    note: "Task 1 review — no dedicated ConsumesApiFrom exclusion test (AND-clause half-covered). Escalated by gate 7/8/9; fixed in 657f3ae."
+  - gate: 2-task-review
+    severity: minor
+    verdict: real
+    disposition: non-issue
+    note: "Task 3 review — RelationshipsSection test asserted false vs undefined at component boundary; backed by wire-level not.toHaveProperty test. Superseded by outgoing-only scoping (657f3ae)."
+  - gate: 5-simplify
+    severity: minor
+    verdict: real
+    disposition: fixed
+    note: "efficiency+simplification: excludeApiEdges forwarded to incoming hook = documented no-op. Scoped to outgoing hook only (657f3ae)."
+  - gate: 5-simplify
+    severity: minor
+    verdict: real
+    disposition: deferred
+    note: "altitude: ProvidesApiFor/ConsumesApiFrom pair hardcoded in handler (4th site). Deferred — RelationshipTypeRules.IsApiEdge helper + backfill of GetApiSurfaceHandler/DerivedEdgeLoader is outside this diff; inline Where matches ListApplicationsHandler convention."
+  - gate: 5-simplify
+    severity: minor
+    verdict: delusion
+    disposition: non-issue
+    note: "simplification: conditional-spread called unnecessary — reuse agent confirmed it matches applications.ts/apis.ts/services.ts idiom. Kept."
+  - gate: 7-requesting-code-review
+    severity: important
+    verdict: real
+    disposition: fixed
+    note: "ConsumesApiFrom clause untested (mutation survivor likely). Fixed 657f3ae — exclude/default tests seed both API edge types."
+  - gate: 7-requesting-code-review
+    severity: important
+    verdict: real
+    disposition: fixed
+    note: "J6 page-boundary test (named spec deliverable) missing. Fixed 657f3ae — GET_outgoing_excludeApiEdges_paginates_without_short_count."
+  - gate: 7-requesting-code-review
+    severity: minor
+    verdict: real
+    disposition: fixed
+    note: "snapshot servers URL :5021 regen artifact → :8080/ (c23f517)."
+  - gate: 8-review-pr
+    severity: important
+    verdict: real
+    disposition: fixed
+    note: "Duplicate of gate-7 J6 + ConsumesApiFrom (pr-test-analyzer). Same fix 657f3ae. code-reviewer + silent-failure-hunter: no correctness findings; malformed excludeApiEdges -> 400, not silent false."
+  - gate: 9-deep-review
+    severity: should-fix
+    verdict: real
+    disposition: fixed
+    note: "J6 pagination-boundary + ConsumesApiFrom (Missing tests). Same fix 657f3ae. Nit: bool vs string wire value — code correct, docs synced (c23f517)."

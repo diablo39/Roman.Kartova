@@ -984,6 +984,13 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "excludeApiEdges",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -3128,6 +3135,31 @@
   },
   "components": {
     "schemas": {
+      "AcceptedInvitationInfo": {
+        "required": [
+          "orgDisplayName",
+          "invitedBy",
+          "invitedAt",
+          "acceptedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "orgDisplayName": {
+            "type": "string"
+          },
+          "invitedBy": {
+            "$ref": "#/components/schemas/UserDisplayInfo"
+          },
+          "invitedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "acceptedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "AcceptInvitationRequest": {
         "required": [
           "token",
@@ -3155,31 +3187,6 @@
         "properties": {
           "email": {
             "type": "string"
-          }
-        }
-      },
-      "AcceptedInvitationInfo": {
-        "required": [
-          "orgDisplayName",
-          "invitedBy",
-          "invitedAt",
-          "acceptedAt"
-        ],
-        "type": "object",
-        "properties": {
-          "orgDisplayName": {
-            "type": "string"
-          },
-          "invitedBy": {
-            "$ref": "#/components/schemas/UserDisplayInfo"
-          },
-          "invitedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "acceptedAt": {
-            "type": "string",
-            "format": "date-time"
           }
         }
       },
@@ -3295,7 +3302,8 @@
           "hasSpec",
           "origin",
           "viaApplicationId",
-          "viaApplicationDisplayName"
+          "viaApplicationDisplayName",
+          "relationshipId"
         ],
         "type": "object",
         "properties": {
@@ -3330,6 +3338,13 @@
               "null",
               "string"
             ]
+          },
+          "relationshipId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -4143,50 +4158,6 @@
           "decommissioned"
         ]
       },
-      "MePermissionsResponse": {
-        "required": [
-          "role",
-          "permissions",
-          "teamMemberships"
-        ],
-        "type": "object",
-        "properties": {
-          "role": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "permissions": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "teamMemberships": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MeTeamMembership"
-            }
-          }
-        }
-      },
-      "MeTeamMembership": {
-        "required": [
-          "teamId",
-          "role"
-        ],
-        "type": "object",
-        "properties": {
-          "teamId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "role": {
-            "type": "string"
-          }
-        }
-      },
       "MemberSummaryResponse": {
         "required": [
           "id",
@@ -4230,6 +4201,50 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "MePermissionsResponse": {
+        "required": [
+          "role",
+          "permissions",
+          "teamMemberships"
+        ],
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "teamMemberships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeTeamMembership"
+            }
+          }
+        }
+      },
+      "MeTeamMembership": {
+        "required": [
+          "teamId",
+          "role"
+        ],
+        "type": "object",
+        "properties": {
+          "teamId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "type": "string"
           }
         }
       },
@@ -4451,6 +4466,16 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "createdBy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UserDisplayInfo"
+              }
+            ]
           }
         }
       },

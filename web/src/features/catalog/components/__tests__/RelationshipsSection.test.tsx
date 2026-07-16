@@ -70,14 +70,16 @@ it("renders api-target rows with a link to the API detail page", () => {
   expect(screen.getByText("Provides API for")).toBeInTheDocument();
 });
 
-it("incoming-only variant hides Outgoing group and disables add/delete", () => {
+it("incoming-only variant hides Outgoing group but allows Add + Delete (ADR-0108 either-endpoint authority)", async () => {
+  const mutateAsync = vi.fn().mockResolvedValue(undefined);
   vi.spyOn(api, "useRelationshipsList").mockImplementation((p: api.RelationshipsListParams) =>
     listResult(p.direction === "incoming"
       ? [{ id: "r4", type: "consumesApiFrom", origin: "manual",
           source: { kind: "service", id: "s2", displayName: "Billing" },
           target: { kind: "api", id: "api-1", displayName: "Orders API" }, createdByUserId: "u1", createdAt: "2026-06-25T00:00:00Z" }]
       : []));
-  vi.spyOn(api, "useDeleteRelationship").mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
+  vi.spyOn(api, "useDeleteRelationship").mockReturnValue({ mutateAsync, isPending: false } as never);
+  vi.spyOn(window, "confirm").mockReturnValue(true);
   mockPerms(true);
   render(
     <MemoryRouter>
@@ -86,8 +88,44 @@ it("incoming-only variant hides Outgoing group and disables add/delete", () => {
   );
   expect(screen.queryByText("Outgoing")).not.toBeInTheDocument();
   expect(screen.getByText("Incoming")).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /add/i })).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
+  // Add IS offered on the API page — target-side creation of a provider/consumer (ADR-0108).
+  expect(screen.getByRole("button", { name: /add incoming/i })).toBeInTheDocument();
   expect(screen.getByText("Billing").closest("a")).toHaveAttribute("href", "/catalog/services/s2");
   expect(screen.getByText("Consumes API from")).toBeInTheDocument();
+  // ...but Delete IS allowed (either-endpoint authority) and removes the edge by id.
+  const del = screen.getByRole("button", { name: /delete/i });
+  fireEvent.click(del);
+  await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith("r4"));
+});
+
+it("full variant requests excludeApiEdges on outgoing only, not incoming (slice #71)", () => {
+  const calls: api.RelationshipsListParams[] = [];
+  vi.spyOn(api, "useRelationshipsList").mockImplementation((p: api.RelationshipsListParams) => {
+    calls.push(p);
+    return listResult(p.direction === "outgoing" ? out : inc);
+  });
+  vi.spyOn(api, "useDeleteRelationship").mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
+  mockPerms(true);
+  renderSection();
+  const outgoingCall = calls.find((c) => c.direction === "outgoing");
+  const incomingCall = calls.find((c) => c.direction === "incoming");
+  expect(outgoingCall?.excludeApiEdges).toBe(true);
+  expect(incomingCall?.excludeApiEdges).toBeUndefined();
+});
+
+it("incoming-only variant does not set excludeApiEdges (slice #71)", () => {
+  const calls: api.RelationshipsListParams[] = [];
+  vi.spyOn(api, "useRelationshipsList").mockImplementation((p: api.RelationshipsListParams) => {
+    calls.push(p);
+    return listResult(p.direction === "incoming" ? inc : []);
+  });
+  vi.spyOn(api, "useDeleteRelationship").mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
+  mockPerms(true);
+  render(
+    <MemoryRouter>
+      <RelationshipsSection entityKind="api" entityId="api-1" entityTeamId="t1" entityDisplayName="Orders API" variant="incoming-only" />
+    </MemoryRouter>,
+  );
+  const incomingCall = calls.find((c) => c.direction === "incoming");
+  expect(incomingCall?.excludeApiEdges).toBeUndefined();
 });
