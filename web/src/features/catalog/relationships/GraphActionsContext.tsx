@@ -7,6 +7,12 @@ export type GraphActions = {
   setFocus: (kind: RelationshipKind, id: string) => void;
   openPage: (kind: RelationshipKind, id: string) => void;
   atCap: boolean;
+  /**
+   * Whether nodes support expand/collapse. Omitted (or `true`) in the full graph explorer.
+   * The mini-graph is a fixed 1-hop preview, so it passes `false` to drop the (otherwise
+   * permanently disabled) "Expand" items from each node's ⋯ menu.
+   */
+  supportsExpand?: boolean;
 };
 
 const noop = () => {};
