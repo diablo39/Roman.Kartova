@@ -90,4 +90,42 @@ public sealed class LogoValidationTests
         Assert.IsFalse(materiallyChanged);
         Assert.IsTrue(sanitized.Contains("circle"));
     }
+
+    [TestMethod]
+    public void SanitizeSvg_strips_mathml_annotation_xml_integration_point()
+    {
+        // CVE-2026-54570 mutation-XSS vector: a MathML <annotation-xml encoding="text/html">
+        // integration point is what lets a payload survive HTML parsing. The allow-list has no
+        // such element, so it — and any script it smuggles — must be gone, and the upload rejected.
+        var input = "<svg><annotation-xml encoding=\"text/html\"><img src=x onerror=alert(1)></annotation-xml><circle r=\"5\"/></svg>";
+        var (sanitized, materiallyChanged) = LogoValidation.SanitizeSvg(input);
+        Assert.IsFalse(sanitized.Contains("annotation-xml", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(sanitized.Contains("onerror", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(sanitized.Contains("<img", StringComparison.OrdinalIgnoreCase));
+        Assert.IsTrue(materiallyChanged);
+    }
+
+    [TestMethod]
+    public void SanitizeSvg_strips_foreign_object_html_integration_point()
+    {
+        // <foreignObject> is the SVG→HTML integration point; it is deliberately not allow-listed.
+        var input = "<svg><foreignObject><body><script>alert(1)</script></body></foreignObject><rect/></svg>";
+        var (sanitized, materiallyChanged) = LogoValidation.SanitizeSvg(input);
+        Assert.IsFalse(sanitized.Contains("foreignObject", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(sanitized.Contains("<script", StringComparison.OrdinalIgnoreCase));
+        Assert.IsTrue(materiallyChanged);
+    }
+
+    [TestMethod]
+    public void SanitizeSvg_output_is_a_fixpoint_reparsing_it_is_stable()
+    {
+        // Defence-in-depth (the mutation-XSS class): whatever SanitizeSvg returns must itself be
+        // inert — re-sanitizing the output yields the same string, with no residual markup that
+        // only materializes on a second parse. This is the property the fixpoint loop guarantees.
+        var input = "<svg><annotation-xml encoding=\"text/html\"><style><img src=x onerror=alert(1)></style></annotation-xml></svg>";
+        var (sanitized, _) = LogoValidation.SanitizeSvg(input);
+        var (twice, materiallyChanged) = LogoValidation.SanitizeSvg(sanitized);
+        Assert.AreEqual(sanitized, twice, "sanitizing an already-sanitized SVG must be idempotent (fixpoint).");
+        Assert.IsFalse(materiallyChanged, "a sanitized SVG must not be re-flagged as hostile on a second pass.");
+    }
 }
