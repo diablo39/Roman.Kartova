@@ -89,23 +89,61 @@ public static class LogoValidation
     }
 
     /// <summary>
-    /// Runs the SVG through the allow-list sanitizer and reports whether the
-    /// sanitized output is "materially" different from the input. The current
+    /// Maximum sanitization passes before a payload that will not stabilize is
+    /// declared hostile. See <see cref="SanitizeSvg"/> for the fixpoint rationale;
+    /// a clean SVG stabilizes on the second pass (the sanitizer is idempotent on
+    /// already-clean markup), so the bound is only ever hit by mutating input.
+    /// </summary>
+    private const int MaxSanitizePasses = 4;
+
+    /// <summary>
+    /// Runs the SVG through the allow-list sanitizer <em>to a fixpoint</em> and
+    /// reports whether the result is "materially" different from the input. The
     /// heuristic flags a material change when more than 20% of the input length
-    /// was removed — useful as a soft signal that hostile content was stripped
-    /// without rejecting cosmetically-normalized clean SVGs.
+    /// was removed — a soft signal that hostile content was stripped without
+    /// rejecting cosmetically-normalized clean SVGs.
+    /// <para>
+    /// Defence-in-depth against mutation-XSS (the CVE-2026-54570 class): the
+    /// underlying HTML parser can serialize a DOM that a browser re-parses into
+    /// <em>different</em> markup, letting a payload survive a single pass. Re-running
+    /// the sanitizer until its output stops changing collapses that gap — any markup
+    /// that only materializes on re-parse is stripped by the next pass. Input that
+    /// will not stabilize within <see cref="MaxSanitizePasses"/> is treated as
+    /// hostile (<c>MateriallyChanged = true</c>), so the caller rejects it. This
+    /// guards the whole mutation class independently of the parser fix, on top of
+    /// the tight element/attribute allow-list — which already removes the concrete
+    /// CVE vectors (MathML <c>&lt;annotation-xml encoding=…&gt;</c>, SVG
+    /// <c>&lt;foreignObject&gt;</c>).
+    /// </para>
     /// </summary>
     public static (string Sanitized, bool MateriallyChanged) SanitizeSvg(string input)
     {
-        var output = _svgSanitizer.Sanitize(input);
-        var changeRatio = input.Length == 0 ? 0.0 : 1.0 - (double)output.Length / input.Length;
-        return (output, changeRatio > MaterialChangeThreshold);
+        var current = _svgSanitizer.Sanitize(input);
+        var stabilized = false;
+        for (var pass = 1; pass < MaxSanitizePasses; pass++)
+        {
+            var next = _svgSanitizer.Sanitize(current);
+            if (string.Equals(next, current, StringComparison.Ordinal))
+            {
+                stabilized = true;
+                break;
+            }
+            current = next;
+        }
+
+        var changeRatio = input.Length == 0 ? 0.0 : 1.0 - (double)current.Length / input.Length;
+        return (current, !stabilized || changeRatio > MaterialChangeThreshold);
     }
 
     private static HtmlSanitizer BuildSanitizer()
     {
         var s = new HtmlSanitizer();
         s.AllowedTags.Clear();
+        // Pure SVG shape/gradient primitives only. The HTML/MathML integration-point elements
+        // that enable mutation-XSS parser confusion — SVG <foreignObject>, MathML <math> and
+        // <annotation-xml> (with encoding="text/html"|"application/xhtml+xml") — are deliberately
+        // absent, so they are stripped. This is the primary defence for the CVE-2026-54570 class;
+        // SanitizeSvg's fixpoint loop backs it up parser-independently.
         foreach (var t in new[]
         {
             "svg", "g", "path", "rect", "circle", "ellipse", "polygon", "polyline", "line",

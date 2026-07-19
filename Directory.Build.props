@@ -15,5 +15,18 @@
       reaches it. Remove this suppression once SQLitePCLRaw ships a build on SQLite >= 3.50.2.
     -->
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-2m69-gcr7-jv3q" />
+    <!--
+      CVE-2026-54570 / GHSA-pgww-w46g-26qg — mutation-XSS in AngleSharp < 1.5.0, pulled in
+      transitively by HtmlSanitizer 9.0.892 (its latest STABLE release), which hard-pins
+      AngleSharp [0.17.1]. The fix (AngleSharp 1.5.0+) is only consumed by HtmlSanitizer's
+      9.1.x-beta line, so no stable upgrade path exists yet; a direct AngleSharp override is
+      blocked by the exact [0.17.1] pin.
+      Exposure (SVG org-logo sanitization in LogoValidation) is mitigated independently of the
+      parser: the sanitizer's allow-list excludes the <foreignObject>/<annotation-xml> integration
+      points the exploit needs, and SanitizeSvg sanitizes to a fixpoint (mutation-XSS defence that
+      does not rely on AngleSharp being correct). Remove this suppression once HtmlSanitizer ships a
+      stable release on AngleSharp >= 1.5.0. Tracking: revisit on next HtmlSanitizer stable.
+    -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-pgww-w46g-26qg" />
   </ItemGroup>
 </Project>
