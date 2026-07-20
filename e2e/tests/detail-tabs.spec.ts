@@ -1,13 +1,13 @@
 import { test, expect } from "@playwright/test";
 import { login } from "../fixtures/auth";
-import { apiDetailPath } from "../fixtures/nav";
+import { apiDetailPath, FIXTURE_API_NAME } from "../fixtures/nav";
 
 test("detail-tabs: API detail switches tabs, syncs ?tab, mounts only the active panel", async ({ page }) => {
   await login(page);
 
   // No ?tab → default Overview (URL stays clean; selection defaults to the first tab).
   await page.goto(apiDetailPath());
-  await expect(page.getByRole("heading", { name: "E2E Spec Render Fixture" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: FIXTURE_API_NAME })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("heading", { name: "Description" })).toBeVisible();
   // Only the active panel mounts: the spec-view toggle (Definition) is absent on Overview.
