@@ -1,0 +1,33 @@
+# gate-findings.yaml — per-gate findings telemetry for one slice.
+# Sibling of dod.md. dod.md records each gate's status; this records what it FOUND.
+
+slice:  2026-07-20-e2e-spec-render-tabs
+branch: feat/e2e-spec-render-tabs
+head:   b9e7587
+
+findings:
+  - gate: reviews
+    severity: blocking
+    verdict: real
+    title: "read-only assertions used toHaveCount(0) on display:none-but-DOM-present Scalar elements → non-discriminating + false-red on the working app"
+    note: "Task 3 reviewer caught it; fixed to :visible count-0 in 80848c4. Was a defect in the plan's assertion mechanism, not the transcription."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "detail-tabs default-load 'URL stays clean' comment not asserted; asymmetric absence check"
+    note: "added not.toHaveURL(/[?&]tab=/) + Relationships-absent assertion in b9e7587"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "detail-tabs 'replace (no history spam)' comment overclaimed untested behavior"
+    note: "comment softened in b9e7587"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "spec-render console check asserted global toEqual([]) — brittle against third-party Scalar/CSP noise (nightly false-red risk)"
+    note: "narrowed to [SpecRender] boundary signal in b9e7587"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "spec-render title getByText(...).first()+toBeVisible lacks visibility filter — could false-red if Scalar responsive DOM puts a hidden copy first"
+    note: "DEFERRED to gate-10 live run (Docker down): needs real Scalar DOM + version-sensitive Playwright visible-filter API"
