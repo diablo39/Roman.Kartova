@@ -1,6 +1,6 @@
 # DoD Ledger — E2E spec-render read-only + tab-switch specs (FU-1s)
 
-**Slice:** `2026-07-20-e2e-spec-render-tabs` · **Branch:** `feat/e2e-spec-render-tabs` · **HEAD:** `b9e7587`
+**Slice:** `2026-07-20-e2e-spec-render-tabs` · **Branch:** `feat/e2e-spec-render-tabs` · **HEAD:** `0a77ac0`
 **PR:** _(not yet opened)_ · **Last updated:** 2026-07-20
 **Spec:** `docs/superpowers/specs/2026-07-20-e2e-spec-render-tabs-design.md`
 **Plan:** `docs/superpowers/plans/2026-07-20-e2e-spec-render-tabs.md`
@@ -13,18 +13,18 @@
 
 | Gate | Status | Updated |
 |------|--------|---------|
-| 1 Build (`TreatWarningsAsErrors`) | ✅ solution build 0W/0E | 2026-07-20 |
+| 1 Build (`TreatWarningsAsErrors`) | ✅ solution build 0W/0E (Debug) | 2026-07-20 |
 | 2 Per-task subagent reviews | ✅ Tasks 1–4 each spec+quality reviewed (Task 3 had 1 fix loop → clean) | 2026-07-20 |
-| 3 Full suite (unit+arch local; integration = CI) | ⏳ integration tier needs Docker → CI (gate 11); no C# logic touched | — |
-| 4 Container build (images CI) | ⏳ migrator image builds the fixture — runs on PR CI | — |
-| 5 `/simplify` | ⏳ not yet run | — |
+| 3 Full suite (unit+arch+integration) | ✅ Release: unit+arch all `Test Run Successful`; integration re-run isolated on idle Docker — Audit 35/35, Organization 142/142, Catalog 297/297. (First ci-local pass hit a Docker-saturation flake at container-init — no code cause, see detail.) | 2026-07-20 |
+| 4 Container build (images CI) | ✅ `e2e/run.sh --build` built migrator/api/web green (twice); PR CI `images` job re-runs definitively | 2026-07-20 |
+| 5 `/simplify` | ✅ `97c7fba` — DRY'd heading asserts to `FIXTURE_API_NAME`, dropped unused `API_DETAIL_URL`, collapsed dup comment | 2026-07-20 |
 | 6 Mutation (conditional) | N/A — no Domain/Application logic changed (DevSeed = fixture wiring) | 2026-07-20 |
 | 7 `requesting-code-review` (final whole-branch) | ✅ opus reviewer: no Critical/Important; verified DevSeed SQL + selectors + rendered-vs-raw vs source | 2026-07-20 |
-| 8 `review-pr` | ⏳ not yet run | — |
-| 9 `deep-review` | ⏳ not yet run | — |
-| Terminal re-verify (build) | ✅ `dotnet build Kartova.slnx -warnaserror` 0W/0E on `b9e7587` | 2026-07-20 |
-| 10 Visual / API + E2E run (ADR-0084) | ⏳ **pending — Docker required**; E2E is nightly (not PR-CI), so first real exec is the user's `e2e/run.sh` or the nightly | — |
-| 11 CI green on PR (`ci-local.sh` pre-push mirror) | ⏳ pending push/PR; ci-local also needs Docker | — |
+| 8 `review-pr` | ✅ 4 reviewers (code/tests/errors/comments); 2 fixes applied (`0a77ac0`), 2 follow-ups filed | 2026-07-20 |
+| 9 `deep-review` | ✅ `./deep-review.md` — no code-correctness defects; 1 nit (in-place unmount) fixed | 2026-07-20 |
+| Terminal re-verify (build) | ✅ `dotnet build Kartova.slnx -warnaserror` 0W/0E on the final DevSeed change | 2026-07-20 |
+| 10 Visual / API + E2E run (ADR-0084) | ✅ `e2e/run.sh` **2 passed** on the real stack — twice (initial + final code); migrator seeded fixture, Scalar read-only lock + tab-switch verified live | 2026-07-20 |
+| 11 CI green on PR (`ci-local.sh` pre-push mirror) | ⏳ ci-local backend+images running; then push + PR CI | — |
 
 ## Gate detail
 
@@ -41,16 +41,16 @@
 **At:** commits `1b9b798`, `ce808f5`, `e08ccca..80848c4`, `a4505ab`.
 
 ### 3 — Full test suite
-**Status:** ⏳ No C# logic changed (DevSeed fixture is not exercised by unit/arch tests). The integration tier (Testcontainers) and full suite run on PR CI (gate 11), which needs Docker unavailable here. Real-seam: the two E2E specs ARE the real-seam test for this slice (real Keycloak+Postgres+API/web images) — executed at gate 10.
-**At:** —
+**Status:** ✅ `ci-local.sh backend` (Release mirror): build 0 errors; all unit + architecture assemblies `Test Run Successful`. The 3 Testcontainers integration assemblies first failed **at assembly-init** (`IntegrationTestAssemblySetup.InitAsync … System.TimeoutException`, `DockerContainer.StartAsync`) — Docker-startup saturation after back-to-back compose builds, no test logic ran, DevSeed untouched by these tests. Re-run **sequentially on idle Docker** → all green: Audit 35/35, Organization 142/142, Catalog 297/297. Per CLAUDE.md "fix determinism / re-run before calling red" — confirmed flake, not a regression. PR CI (gate 11) is the authoritative full-suite run on a clean runner.
+**At:** 2026-07-20 (integration re-run pid 1657)
 
 ### 4 — Container build (images CI job)
-**Status:** ⏳ The migrator image seeds the Task-1 fixture; the `images` CI job builds it on the PR. No Dockerfile/COPY change in this slice.
-**At:** —
+**Status:** ✅ `e2e/run.sh --build` (gate 10) ran `docker compose up -d --build migrator api web` green on both E2E runs — that IS the images build. The migrator image carries the Task-1 fixture. PR CI `images` job re-builds definitively at gate 11.
+**At:** 2026-07-20
 
 ### 5 — `/simplify`
-**Status:** ⏳ Not yet run.
-**At:** —
+**Status:** ✅ 4 cleanup agents (reuse/simplification/efficiency/altitude). Applied: DRY the heading assertions to the exported `FIXTURE_API_NAME`, drop the unused `API_DETAIL_URL` export, collapse a duplicated read-only-lock comment. Skipped: a "shared C#↔TS fixture manifest" suggestion (over-engineering; contradicts the established hardcoded-id + doc-comment sync pattern).
+**At:** `97c7fba` / 2026-07-20
 
 ### 6 — Mutation loop
 **Status:** N/A — diff touches no Domain/Application logic (DevSeed dev-fixture + Playwright test files only).
@@ -61,17 +61,17 @@
 **At:** `a4505ab`; fixes `b9e7587`.
 
 ### 8 — `review-pr`
-**Status:** ⏳ Not yet run.
-**At:** —
+**Status:** ✅ 4 specialized reviewers (code-reviewer / pr-test-analyzer / silent-failure-hunter / comment-analyzer). code + comments clean. Applied 2 (`0a77ac0`): DevSeed `ON CONFLICT DO UPDATE` (re-sync fixture content on reseed vs stale persistent volume); in-place Definition→Overview unmount assertions. Filed 2 follow-ups (AsyncAPI E2E; selector-drift tripwire — see Honest status).
+**At:** `0a77ac0` / 2026-07-20
 
 ### 9 — `deep-review`
-**Status:** ⏳ Not yet run.
-**At:** —
+**Status:** ✅ report `./deep-review.md` (1 blocking / 1 should-fix / 1 nit / 1 missing-test / 5 good). No code-correctness defects — DevSeed SQL matches EF schema column-for-column, selectors verified, `:visible` fix confirmed. The "blocking" was a stale-ledger process observation (gate 5 already committed when it ran); the nit/missing-test (in-place unmount) fixed in `0a77ac0`.
+**At:** `0a77ac0` / 2026-07-20
 
 ### 10 — Visual / API + E2E run (ADR-0084)
-**Status:** ⏳ **Pending — Docker required.** The two specs verify only transpile+discovery locally (`npx playwright test --list` → 2 tests, no errors). The live run — `e2e/run.sh spec-render-readonly.spec.ts detail-tabs.spec.ts` — and the `curl` `hasSpec:true` check need the compose stack. Since E2E is the nightly net (not PR-CI), these specs first execute for real on the user's local Docker run or the nightly.
-**Deferred item to resolve here:** `spec-render-readonly.spec.ts` title assertion `getByText("E2E Fixture API").first()` needs a visibility filter iff Scalar's live responsive DOM emits a hidden copy first — confirm/adjust against the real DOM during this run.
-**At:** —
+**Status:** ✅ `e2e/run.sh spec-render-readonly.spec.ts detail-tabs.spec.ts` → **2 passed** against the real compose stack (real Keycloak login, Postgres/RLS, migrator-seeded fixture, api+web images). Ran twice: once on the initial specs, once on the final code (after the `DO UPDATE` + in-place-unmount fixes) — green both times. This is the real-seam test for the slice.
+**Deferred item — resolved:** the `getByText("E2E Fixture API").first()` title assertion passed against the live Scalar DOM; the hypothesized hidden-responsive-copy did not materialize, so no visibility filter was needed.
+**At:** `0a77ac0` / 2026-07-20
 
 ### 11 — CI green on PR
 **Status:** ⏳ Pending push + PR. `ci-local.sh` (pre-push mirror) also needs Docker (web image + Testcontainers), so it too is CI-pending on this host.
@@ -79,4 +79,8 @@
 
 ## Honest status
 
-**Implementation staged + reviewed; verification pending on Docker/CI.** Gates 1, 2, 7 green; 6 N/A. Gates 5, 8, 9 not yet run. Gates 3 (integration), 4, 10, 11 are blocked on Docker locally and covered by PR CI / the user's local E2E run / the nightly. **Not "complete"** until those land green.
+**All ten blocking gates green locally; only gate 11 (PR CI) remains — it follows the push.** Full battery ran: gates 1, 2, 3, 4, 5, 7, 8, 9, 10 ✅; 6 N/A. Gate 10 (E2E) passed **twice** on the real stack. Gate 3's first ci-local run hit a Docker-saturation flake (documented + re-run green in isolation). Push + PR CI is the terminal gate.
+
+### Follow-ups filed (not blocking this OpenAPI-focused FU-1 slice)
+- **AsyncAPI read-only-lock E2E**: the CSS lock (`specRender.css`) claims OpenAPI+AsyncAPI coverage but only OpenAPI is E2E-tested; Scalar may render AsyncAPI with different DOM markers. Needs its own AsyncAPI fixture + spec.
+- **`.scalar-client` selector-drift tripwire**: a bare-selector existence assert would catch Scalar renaming the client classes (which would make the `:visible` checks pass vacuously). Deferred — needs live-DOM confirmation of the bare count to avoid introducing a blind false-red.
