@@ -1,0 +1,63 @@
+# gate-findings.yaml — per-gate findings telemetry for one slice.
+# Sibling of dod.md. dod.md records each gate's status; this records what it FOUND.
+
+slice:  2026-07-20-e2e-spec-render-tabs
+branch: feat/e2e-spec-render-tabs
+head:   b9e7587
+
+findings:
+  - gate: reviews
+    severity: blocking
+    verdict: real
+    title: "read-only assertions used toHaveCount(0) on display:none-but-DOM-present Scalar elements → non-discriminating + false-red on the working app"
+    note: "Task 3 reviewer caught it; fixed to :visible count-0 in 80848c4. Was a defect in the plan's assertion mechanism, not the transcription."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "detail-tabs default-load 'URL stays clean' comment not asserted; asymmetric absence check"
+    note: "added not.toHaveURL(/[?&]tab=/) + Relationships-absent assertion in b9e7587"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "detail-tabs 'replace (no history spam)' comment overclaimed untested behavior"
+    note: "comment softened in b9e7587"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "spec-render console check asserted global toEqual([]) — brittle against third-party Scalar/CSP noise (nightly false-red risk)"
+    note: "narrowed to [SpecRender] boundary signal in b9e7587"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "spec-render title getByText(...).first()+toBeVisible lacks visibility filter — could false-red if Scalar responsive DOM puts a hidden copy first"
+    note: "RESOLVED by gate 10: E2E ran green against real Scalar DOM (2 passed), concern did not materialize"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "specs hardcoded the fixture display name literal instead of the exported FIXTURE_API_NAME constant; unused API_DETAIL_URL export; duplicated read-only comment"
+    note: "DRY'd to FIXTURE_API_NAME, dropped unused export, collapsed comment in 97c7fba"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "DevSeed fixture used ON CONFLICT DO NOTHING — persistent E2E pg volume would silently drop future edits to the OpenAPI doc the spec asserts"
+    note: "changed both fixture inserts to ON CONFLICT DO UPDATE (re-sync content on reseed), mirroring the users block"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "detail-tabs proved unmount only via full reload; no in-place Definition->Overview unmount + ?tab=overview write-path coverage"
+    note: "added in-place tab-back assertions (Spec view + .scalar-render gone, Description back, URL ?tab=overview)"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "AsyncAPI read-only lock has no E2E coverage though it shares SpecRender/CSS; Scalar may use different DOM markers for AsyncAPI"
+    note: "FOLLOW-UP (out of scope for this OpenAPI-focused FU-1): needs its own AsyncAPI fixture + spec; filed as FU"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "read-only :visible checks could pass vacuously if Scalar renames .scalar-client/data-addressbar-action classes (selector drift); bare-selector existence tripwire not added"
+    note: "FOLLOW-UP: needs live-DOM confirmation of the bare .scalar-client count before adding a tripwire (blind guess risks a false-red); CSS comment already flags re-verify-on-Scalar-upgrade"
+  - gate: deep-review
+    severity: nit
+    verdict: delusion
+    title: "blocking: gates 5/8 not run → fails DoD"
+    note: "process observation, not a code defect; gate 5 was already committed (97c7fba) when deep-review ran (stale ledger row), gate 8 run immediately after"

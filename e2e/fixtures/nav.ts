@@ -30,3 +30,16 @@ export async function findFixtureAppLink(page: Page, name: string = FIXTURE_APP_
   await expect(link).toBeVisible();
   return link;
 }
+
+/**
+ * Deterministic DevSeed fixture API (fixed id + OpenAPI spec doc) that the
+ * spec-render and tab-switch specs drive. Keep in sync with the seed rows in
+ * `src/Kartova.Migrator/DevSeed.cs` (same id + display name).
+ */
+export const FIXTURE_API_ID = "e2e00000-0000-0000-0000-000000000010";
+export const FIXTURE_API_NAME = "E2E Spec Render Fixture";
+
+/** Deep-link path to the fixture API detail page (baseURL-relative). */
+export function apiDetailPath(id: string = FIXTURE_API_ID): string {
+  return `/catalog/apis/${id}`;
+}
