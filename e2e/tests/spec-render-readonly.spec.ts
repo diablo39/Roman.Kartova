@@ -4,13 +4,16 @@ import { apiDetailPath } from "../fixtures/nav";
 
 test("spec-render: API Definition tab renders the spec read-only (no live client)", async ({ page }) => {
   const consoleErrors: string[] = [];
+
+  await login(page);
+
+  // Registered after login() so Keycloak-login/app-shell console noise doesn't trip the
+  // strict toEqual([]) assertion below.
   page.on("console", (msg) => {
     // The SpecRender error-boundary logs "[SpecRender] spec render failed…" on a Scalar
     // regression — treat that (and any other error) as a hard failure signal.
     if (msg.type() === "error") consoleErrors.push(msg.text());
   });
-
-  await login(page);
 
   // Deep-link straight to the Definition tab (the #47 returnTo round-trip supports cold
   // deep-loads; login already established the session, so this loads authenticated).
@@ -23,7 +26,7 @@ test("spec-render: API Definition tab renders the spec read-only (no live client
 
   // Proves it is the *rendered* spec, not the raw <pre> fallback (which would also hide the
   // client and pass the read-only checks for the wrong reason). The fixture's info.title.
-  await expect(render.getByText("E2E Fixture API")).toBeVisible();
+  await expect(render.getByText("E2E Fixture API").first()).toBeVisible();
 
   // The error-boundary degrade banner must NOT be shown.
   await expect(page.getByText("Couldn't render this spec — showing source.")).toHaveCount(0);
@@ -31,8 +34,12 @@ test("spec-render: API Definition tab renders the spec read-only (no live client
   // READ-ONLY LOCK (the regression core): the live API client and its send action are
   // suppressed by specRender.css even though Scalar mounts them (Scalar #7741). Assert both
   // Scalar-internal hooks are not visible, and no "Send/Test Request" control is reachable.
-  await expect(render.locator(".scalar-client")).toHaveCount(0);
-  await expect(render.locator('[data-addressbar-action="send"]')).toHaveCount(0);
+  // Suppressed by specRender.css (display:none) even though Scalar mounts them (#7741):
+  // present-but-hidden, so assert on VISIBILITY. `:visible` count is 0 while hidden and
+  // >0 if the CSS lock regresses — toHaveCount(0) on the bare selector would false-red
+  // (elements exist) and wouldn't change when the lock is removed.
+  await expect(render.locator(".scalar-client:visible")).toHaveCount(0);
+  await expect(render.locator('[data-addressbar-action="send"]:visible')).toHaveCount(0);
   await expect(
     render.getByRole("button", { name: /send request|test request|^send$/i }),
   ).toHaveCount(0);
