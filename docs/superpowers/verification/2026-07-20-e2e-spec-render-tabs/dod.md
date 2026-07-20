@@ -1,7 +1,7 @@
 # DoD Ledger — E2E spec-render read-only + tab-switch specs (FU-1s)
 
 **Slice:** `2026-07-20-e2e-spec-render-tabs` · **Branch:** `feat/e2e-spec-render-tabs` · **HEAD:** `0a77ac0`
-**PR:** _(not yet opened)_ · **Last updated:** 2026-07-20
+**PR:** [#77](https://github.com/diablo39/Roman.Kartova/pull/77) · **Last updated:** 2026-07-20
 **Spec:** `docs/superpowers/specs/2026-07-20-e2e-spec-render-tabs-design.md`
 **Plan:** `docs/superpowers/plans/2026-07-20-e2e-spec-render-tabs.md`
 **Findings telemetry:** `./gate-findings.yaml`
@@ -24,7 +24,7 @@
 | 9 `deep-review` | ✅ `./deep-review.md` — no code-correctness defects; 1 nit (in-place unmount) fixed | 2026-07-20 |
 | Terminal re-verify (build) | ✅ `dotnet build Kartova.slnx -warnaserror` 0W/0E on the final DevSeed change | 2026-07-20 |
 | 10 Visual / API + E2E run (ADR-0084) | ✅ `e2e/run.sh` **2 passed** on the real stack — twice (initial + final code); migrator seeded fixture, Scalar read-only lock + tab-switch verified live | 2026-07-20 |
-| 11 CI green on PR (`ci-local.sh` pre-push mirror) | ⏳ ci-local backend+images running; then push + PR CI | — |
+| 11 CI green on PR (`ci-local.sh` pre-push mirror) | ✅ PR #77 — all 5 checks pass (Backend 3m51s, Images 2m18s, Frontend 2m49s, Helm 9s, Stryker 5s); mergeState CLEAN. Pre-push mirror ran locally (gate 3/4). | 2026-07-20 |
 
 ## Gate detail
 
@@ -79,7 +79,7 @@
 
 ## Honest status
 
-**All ten blocking gates green locally; only gate 11 (PR CI) remains — it follows the push.** Full battery ran: gates 1, 2, 3, 4, 5, 7, 8, 9, 10 ✅; 6 N/A. Gate 10 (E2E) passed **twice** on the real stack. Gate 3's first ci-local run hit a Docker-saturation flake (documented + re-run green in isolation). Push + PR CI is the terminal gate.
+**COMPLETE — all ten blocking gates green.** Gates 1, 2, 3, 4, 5, 7, 8, 9, 10, 11 ✅; 6 N/A. Gate 10 (E2E) passed twice on the real stack; gate 11 (PR #77) all 5 CI checks pass, mergeState CLEAN. Gate 3's first ci-local run hit a Docker-saturation flake (documented + re-run green in isolation) — no code cause. Ready to merge.
 
 ### Follow-ups filed (not blocking this OpenAPI-focused FU-1 slice)
 - **AsyncAPI read-only-lock E2E**: the CSS lock (`specRender.css`) claims OpenAPI+AsyncAPI coverage but only OpenAPI is E2E-tested; Scalar may render AsyncAPI with different DOM markers. Needs its own AsyncAPI fixture + spec.
