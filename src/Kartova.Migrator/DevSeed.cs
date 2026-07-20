@@ -200,6 +200,78 @@ internal static class DevSeed
         {
             await ExecAsync(conn, "ALTER TABLE catalog_applications FORCE ROW LEVEL SECURITY;");
         }
+
+        // E2E fixture: a fixed-id REST API with a minimal OpenAPI 3.0 spec doc, seeded so the
+        // spec-render read-only-lock and tab-switch E2E specs have a Definition tab to drive.
+        // Mirrors the sunset-app fixture pattern (fixed id, idempotent, runs every invocation,
+        // owned by the demo team). The API id + name are mirrored in e2e/fixtures/nav.ts.
+        // catalog_apis + catalog_api_specs are owned by the migrator role (no BYPASSRLS) →
+        // toggle FORCE off around the inserts, same as every block above.
+        try
+        {
+            await ExecAsync(conn, "ALTER TABLE catalog_apis NO FORCE ROW LEVEL SECURITY;");
+            await ExecAsync(conn, "ALTER TABLE catalog_api_specs NO FORCE ROW LEVEL SECURITY;");
+
+            var apiId = Guid.Parse("e2e00000-0000-0000-0000-000000000010");
+
+            await using var apiCmd = conn.CreateCommand();
+            apiCmd.CommandText = """
+                INSERT INTO catalog_apis
+                    (id, tenant_id, display_name, description, style, version, spec_url, team_id, created_by_user_id, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, NULL, $7, $8, now())
+                ON CONFLICT (id) DO NOTHING;
+                """;
+            apiCmd.Parameters.AddWithValue(apiId);
+            apiCmd.Parameters.AddWithValue(OrgATenantId);
+            apiCmd.Parameters.AddWithValue("E2E Spec Render Fixture");
+            apiCmd.Parameters.AddWithValue("Fixed-id REST API seeded for the E2E spec-render + tab-switch journeys.");
+            apiCmd.Parameters.AddWithValue((short)Kartova.Catalog.Domain.ApiStyle.Rest);
+            apiCmd.Parameters.AddWithValue("1.0.0");
+            apiCmd.Parameters.AddWithValue(DemoTeamId);
+            apiCmd.Parameters.AddWithValue(TeamAdminUserId);
+            var apiRows = await apiCmd.ExecuteNonQueryAsync();
+            logger.LogInformation("Dev seed: E2E spec-render fixture API {Result}.", apiRows == 1 ? "inserted" : "already present");
+
+            // Minimal valid OpenAPI 3.0 doc: top-level `openapi` key → detectSpecKind = "rendered"
+            // (Scalar renders by default, not the raw fallback); one operation so the per-operation
+            // "Test Request" surface actually exists to prove it is suppressed.
+            const string openApiDoc = """
+                {
+                  "openapi": "3.0.3",
+                  "info": { "title": "E2E Fixture API", "version": "1.0.0" },
+                  "paths": {
+                    "/ping": {
+                      "get": {
+                        "operationId": "ping",
+                        "summary": "Ping the fixture",
+                        "responses": { "200": { "description": "OK" } }
+                      }
+                    }
+                  }
+                }
+                """;
+
+            await using var specCmd = conn.CreateCommand();
+            specCmd.CommandText = """
+                INSERT INTO catalog_api_specs
+                    (id, api_id, tenant_id, content, media_type, created_by_user_id, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, now())
+                ON CONFLICT (id) DO NOTHING;
+                """;
+            specCmd.Parameters.AddWithValue(Guid.Parse("e2e00000-0000-0000-0000-000000000011"));
+            specCmd.Parameters.AddWithValue(apiId);
+            specCmd.Parameters.AddWithValue(OrgATenantId);
+            specCmd.Parameters.AddWithValue(openApiDoc);
+            specCmd.Parameters.AddWithValue("application/json");
+            specCmd.Parameters.AddWithValue(TeamAdminUserId);
+            var specRows = await specCmd.ExecuteNonQueryAsync();
+            logger.LogInformation("Dev seed: E2E spec-render fixture spec {Result}.", specRows == 1 ? "inserted" : "already present");
+        }
+        finally
+        {
+            await ExecAsync(conn, "ALTER TABLE catalog_apis FORCE ROW LEVEL SECURITY;");
+            await ExecAsync(conn, "ALTER TABLE catalog_api_specs FORCE ROW LEVEL SECURITY;");
+        }
     }
 
     private static async Task ExecAsync(NpgsqlConnection conn, string sql)
