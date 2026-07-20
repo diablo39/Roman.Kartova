@@ -30,6 +30,16 @@ test("detail-tabs: API detail switches tabs, syncs ?tab, mounts only the active 
   await expect(page.getByRole("group", { name: "Spec view" })).toBeVisible();
   await expect(page.locator(".scalar-render")).toBeVisible();
 
+  // Switch back to Overview in-place (via the tab, not a reload) → proves the unmount is
+  // symmetric client-side: the Definition spec view unmounts and Overview remounts. This also
+  // exercises the ?tab=overview write path (DetailTabs writes the key on click even for the
+  // default tab — distinct from the clean-URL default-load case above).
+  await page.getByRole("tab", { name: "Overview" }).click();
+  await expect(page).toHaveURL(/[?&]tab=overview/);
+  await expect(page.getByRole("group", { name: "Spec view" })).toHaveCount(0);
+  await expect(page.locator(".scalar-render")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Description" })).toBeVisible();
+
   // Invalid ?tab normalizes to the default (Overview). DetailTabs uses { replace: true }; we
   // assert the resulting URL + content here, not browser-history behavior.
   await page.goto(`${apiDetailPath()}?tab=bogus`);

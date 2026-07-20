@@ -219,7 +219,11 @@ internal static class DevSeed
                 INSERT INTO catalog_apis
                     (id, tenant_id, display_name, description, style, version, spec_url, team_id, created_by_user_id, created_at)
                 VALUES ($1, $2, $3, $4, $5, $6, NULL, $7, $8, now())
-                ON CONFLICT (id) DO NOTHING;
+                ON CONFLICT (id) DO UPDATE SET
+                    display_name = EXCLUDED.display_name,
+                    description  = EXCLUDED.description,
+                    style        = EXCLUDED.style,
+                    version      = EXCLUDED.version;
                 """;
             apiCmd.Parameters.AddWithValue(apiId);
             apiCmd.Parameters.AddWithValue(OrgATenantId);
@@ -229,12 +233,15 @@ internal static class DevSeed
             apiCmd.Parameters.AddWithValue("1.0.0");
             apiCmd.Parameters.AddWithValue(DemoTeamId);
             apiCmd.Parameters.AddWithValue(TeamAdminUserId);
-            var apiRows = await apiCmd.ExecuteNonQueryAsync();
-            logger.LogInformation("Dev seed: E2E spec-render fixture API {Result}.", apiRows == 1 ? "inserted" : "already present");
+            await apiCmd.ExecuteNonQueryAsync();
+            logger.LogInformation("Dev seed: E2E spec-render fixture API seeded (insert-or-update).");
 
             // Minimal valid OpenAPI 3.0 doc: top-level `openapi` key → detectSpecKind = "rendered"
             // (Scalar renders by default, not the raw fallback); one operation so the per-operation
             // "Test Request" surface actually exists to prove it is suppressed.
+            // NB: the spec text below is asserted by spec-render-readonly.spec.ts (info.title); the
+            // DO UPDATE on conflict re-syncs it on every reseed so an edit here can't be silently
+            // dropped by the persistent E2E postgres volume (mirrors the users block above).
             const string openApiDoc = """
                 {
                   "openapi": "3.0.3",
@@ -256,7 +263,9 @@ internal static class DevSeed
                 INSERT INTO catalog_api_specs
                     (id, api_id, tenant_id, content, media_type, created_by_user_id, created_at)
                 VALUES ($1, $2, $3, $4, $5, $6, now())
-                ON CONFLICT (id) DO NOTHING;
+                ON CONFLICT (id) DO UPDATE SET
+                    content    = EXCLUDED.content,
+                    media_type = EXCLUDED.media_type;
                 """;
             specCmd.Parameters.AddWithValue(Guid.Parse("e2e00000-0000-0000-0000-000000000011"));
             specCmd.Parameters.AddWithValue(apiId);
@@ -264,8 +273,8 @@ internal static class DevSeed
             specCmd.Parameters.AddWithValue(openApiDoc);
             specCmd.Parameters.AddWithValue("application/json");
             specCmd.Parameters.AddWithValue(TeamAdminUserId);
-            var specRows = await specCmd.ExecuteNonQueryAsync();
-            logger.LogInformation("Dev seed: E2E spec-render fixture spec {Result}.", specRows == 1 ? "inserted" : "already present");
+            await specCmd.ExecuteNonQueryAsync();
+            logger.LogInformation("Dev seed: E2E spec-render fixture spec seeded (insert-or-update).");
         }
         finally
         {
