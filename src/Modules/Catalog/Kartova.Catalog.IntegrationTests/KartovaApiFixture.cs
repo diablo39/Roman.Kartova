@@ -9,6 +9,7 @@ using Kartova.Testing.Auth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Time.Testing;
 using DomainApplication = Kartova.Catalog.Domain.Application;
+using DomainSystem = Kartova.Catalog.Domain.CatalogSystem;
 
 namespace Kartova.Catalog.IntegrationTests;
 
@@ -350,6 +351,35 @@ public class KartovaApiFixture : KartovaApiFixtureBase
         await db.Database.ExecuteSqlRawAsync(
             "DELETE FROM teams WHERE tenant_id = {0}",
             tenantId);
+    }
+
+    /// <summary>
+    /// Seeds a single <c>CatalogSystem</c> grouping node directly via BYPASSRLS, bypassing
+    /// the HTTP register endpoint's team-existence + authorization checks. Task 12/13
+    /// (E-03.F-03.S-01) — used by Get/List/PartOf integration tests that need a System row
+    /// without a full register round-trip each time. <paramref name="createdAt"/> defaults
+    /// to now; pass an explicit spread-apart value for createdAt-sort pagination tests
+    /// (mirrors <see cref="SeedApplicationsAsync"/>).
+    /// </summary>
+    public async Task<Guid> SeedSystemAsync(
+        TenantId tenantId, Guid teamId, string displayName, Guid? createdByUserId = null, DateTimeOffset? createdAt = null)
+    {
+        var opts = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseNpgsql(BypassConnectionString)
+            .Options;
+        await using var db = new CatalogDbContext(opts);
+
+        var system = DomainSystem.Create(
+            displayName: displayName,
+            description: "seeded for integration tests",
+            createdByUserId: createdByUserId ?? Guid.NewGuid(),
+            teamId: teamId,
+            tenantId: tenantId,
+            createdAt: createdAt ?? DateTimeOffset.UtcNow);
+
+        db.Systems.Add(system);
+        await db.SaveChangesAsync();
+        return system.Id.Value;
     }
 
     /// <summary>Reads audit_log rows for a tenant via the BYPASSRLS pool, ordered by seq.</summary>

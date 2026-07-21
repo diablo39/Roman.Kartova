@@ -27,6 +27,59 @@ Spec documents (OpenAPI for `Rest`/`Grpc`/`GraphQL`, AsyncAPI for `AsyncApi`) ar
 
 Implemented by `docs/superpowers/specs/2026-07-07-catalog-async-api-spec-storage-design.md`.
 
+> **⚠️ DRAFT — PENDING HUMAN PREVIEW.** The amendment note immediately below (dated
+> 2026-07-21) was authored by an implementation agent alongside the E-03.F-03.S-01
+> System-grouping slice. Per this repo's ADR process ("When proposing new ADRs: preview
+> decision before saving — user reviews first", CLAUDE.md), it is **not yet accepted** —
+> it must not be treated as binding, cited as settled, or used to justify further work
+> until Roman Głogowski reviews and confirms it. The `Status:` line above intentionally
+> still reads only through the 2026-07-07 amendment; it will be updated once this draft
+> is confirmed.
+
+### Amendment 2026-07-21 (DRAFT — PENDING HUMAN PREVIEW) — `PartOf` reintroduced for System grouping (E-03.F-03.S-01)
+
+Implements the reintroduction flagged in the 2026-07-04 revision's vocabulary consequence
+(§"will be reintroduced for System `part-of`/`contains` in E-03.F-03") and in Decision 7
+above. Implementing plan: `docs/superpowers/plans/2026-07-21-catalog-system-grouping.md`
+(spec: `docs/superpowers/specs/2026-07-21-catalog-system-grouping-design.md`).
+
+- **`EntityKind` gains `System`.** A new first-class, tenant-owned, **team-stewarded**
+  aggregate (`CatalogSystem` in code — named to avoid shadowing the BCL `System`
+  namespace; the wire/UI vocabulary stays "System"). Fields: `DisplayName`,
+  `Description?`, `TeamId` (steward team — curates the grouping; this is **not** an
+  ownership transfer of member components, which keep their own independent `TeamId`).
+  No nested systems, no nested-membership hierarchy this slice.
+- **`RelationshipType.PartOf` is reintroduced** (it was removed by the 2026-07-04
+  revision alongside the old `Service→Application` overlap with `InstanceOf`). New
+  shape: `{Application, Service} → System`, i.e. "this component is part of this
+  System." `Api → System` and `System → System` remain disallowed pairs (400, same
+  `RelationshipTypeRules.IsAllowedPair` mechanism as every other edge type) —
+  a System groups components, not APIs or other Systems, this slice.
+- **Visibility is "option A": no special-casing.** `PartOf` is a normal, queryable
+  relationship type. Because `EfRelationshipConfiguration`'s tenant-scoped query filter
+  enumerates `Enum.GetValues<RelationshipType>()` dynamically, re-adding `PartOf` makes
+  it appear automatically — with no code change — on the generic relationship-list
+  endpoint (`GET /relationships`) and the graph explorer (`GET /catalog/graph`), exactly
+  like `DependsOn`/`InstanceOf`/`ProvidesApiFor`. There is no System-specific read path
+  this slice; a System's "member list" is just `GET /relationships?entityKind=System&entityId=...&direction=incoming`
+  filtered to `type=PartOf` (or, until a dedicated filter is added, filtered client-side).
+  A System's derived API surface (Decision 7's "union of its members' exposed APIs") is
+  **not** computed this slice — deferred alongside the browse-by-hierarchy story
+  (E-03.F-03.S-02).
+- **No schema migration for the enum values** — both `EntityKind.System` and
+  `RelationshipType.PartOf` persist as strings, appended last for smallint/text
+  stability. A dedicated `catalog_systems` table (RLS, `ENABLE`+`FORCE ROW LEVEL
+  SECURITY`+tenant policy, ADR-0090/ADR-0012 pattern) is added for the aggregate itself.
+- **Permission:** `catalog.systems.register` (Member + OrgAdmin), 5-synced per the usual
+  C#↔TS pattern; register/list/get follow the existing team-scoped
+  `IOrganizationTeamExistenceChecker` (422 unknown/cross-tenant team) +
+  `AuthorizeTargetTeamAsync`/either-team-authority (403) conventions already used by
+  Api/Application/Service.
+
+**What this does not change:** Decisions 1–6 above (API-as-entity, provider/instance
+edges, derived exposure, consumers, `ServiceEndpoint`) are untouched. This amendment is
+scoped entirely to Decision 7's System-grouping follow-up.
+
 ## Revision — 2026-07-04 (provider/instance modeled as edges)
 
 This ADR originally made the API **provider** link and the Service→App **instance** link dedicated **FK fields** (Decision 2). That is **reversed**: both are now **relationship edges**, making the model all-edge for connectivity. Consumers were already edges (Decision 4), so the catalog now has a single, uniform edge mechanism.
