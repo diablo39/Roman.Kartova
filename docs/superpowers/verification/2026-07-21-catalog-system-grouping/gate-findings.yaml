@@ -36,3 +36,76 @@ findings:
     found_by: dev-hm
     title: "Domain type named `System` shadows the BCL System namespace inside Kartova.Catalog.Domain — permanent alias tax across all consuming files"
     note: "Resolved by renaming aggregate to CatalogSystem/CatalogSystemId (concept stays 'System' user-facing). Spec+plan amended 2026-07-21. Neither the plan nor its codelens/grep Impact Analysis anticipated this."
+  - gate: reviews          # implementer self-review pass (Arm A, chunk 4 / integration)
+    severity: should-fix
+    verdict: real
+    produced_by: A
+    found_by: dev-hm
+    title: "Plan specified 422 for disallowed-but-resolvable relationship pairs (Api->System, System->System); codebase convention is 400 (422 reserved for unresolvable entities)"
+    note: "Implemented as 400 to match RelationshipTypeRules/DomainValidationExceptionHandler + existing disallowed-pair tests. Plan draft wording was wrong; Arm A corrected it."
+
+  # ---- Reviewer 2×2 (blind-adjudicated on merits, then tagged) ----
+  # found_by: gates = pr-review-toolkit:code-reviewer ; dev-hm = csharp-code-reviewer (oracle-gated)
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    produced_by: A
+    found_by: gates
+    title: "ADR-0111 amendment is DRAFT/pending-preview yet slice shipped + CHECKLIST marked [x]"
+    note: "Process/traceability. dev-hm reviewer on diff A did NOT flag this (noted the ADR draft-marking as a positive instead)."
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    produced_by: A
+    found_by: gates
+    title: "teamId dedup lives in delegate while cursor-ordering lives in handler"
+    note: "Reviewer itself said 'no bug'. Non-actionable; split-responsibility is the existing Api/Application pattern."
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    produced_by: B
+    found_by: gates
+    title: "Spec §7 error table says 422 for disallowed pairs; code correctly returns 400 (spec doc inaccurate)"
+    note: "Same finding independently reached by dev-hm reviewer on diff A. Fix = correct spec doc."
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    produced_by: B
+    found_by: gates
+    title: "List_honors_sortBy_createdAt asserts exact order; createdAt from live clock + Guid tie-break could flake"
+    note: "Low risk, mirrors ListApisPaginationTests. Legit CI-determinism note."
+  - gate: requesting-review     # dev-hm csharp-code-reviewer
+    severity: nit
+    verdict: real
+    produced_by: A
+    found_by: dev-hm
+    title: "Spec §7 states 422 for disallowed pairs; as-built is 400 (spec doc stale)"
+    note: "Matches gates finding on diff B. dev-hm also independently RE-RAN build+unit+arch+integration (257+9+48) — extra verification rigor."
+  - gate: requesting-review
+    severity: nit
+    verdict: delusion
+    produced_by: A
+    found_by: dev-hm
+    title: "PartOf cases added as standalone tests instead of extending the IsAllowedPair DataRow matrix"
+    note: "Coverage complete; pure organization. Non-actionable."
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    produced_by: B
+    found_by: dev-hm
+    title: "QUA-004: createdByUserId == Guid.Empty validation branch has NO unit test in Arm B's SystemTests"
+    note: "UNIQUE dev-hm catch — default reviewer on the same diff B missed it. Real untested new-domain branch (Arm A's SystemTests DID include this test; Arm B's did not). Systematic branch-coverage oracle surfaced it."
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    produced_by: B
+    found_by: dev-hm
+    title: "CHECKLIST marks E-03.F-03.S-01 [x] while its own annotation says verification pending (should be [~])"
+    note: "Same process issue gates found on diff A (as ADR variant). dev-hm framed it should-fix vs nit."
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    produced_by: B
+    found_by: dev-hm
+    title: "PartOf happy-path lacks a positive cross-team-steward test (member of System team, not component team)"
+    note: "Coverage nit — the steward scenario the design motivates isn't positively asserted (either-team logic proven elsewhere)."
