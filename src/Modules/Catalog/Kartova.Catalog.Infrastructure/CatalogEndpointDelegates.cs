@@ -632,6 +632,80 @@ internal static class CatalogEndpointDelegates
         return Results.Ok(page);
     }
 
+    internal static async Task<IResult> RegisterSystemAsync(
+        [FromBody] RegisterSystemRequest request,
+        RegisterSystemHandler handler,
+        CatalogDbContext db,
+        ITenantContext tenant,
+        ClaimsPrincipal caller,
+        ICurrentUser currentUser,
+        IAuthorizationService auth,
+        IOrganizationTeamExistenceChecker teamChecker,
+        IAuditWriter audit,
+        CancellationToken ct)
+    {
+        // ADR-0103: a new System requires an existing steward team in the tenant.
+        // RLS-scoped checker → a cross-tenant id resolves as "not found" (same 422 branch).
+        if (!await teamChecker.ExistsAsync(request.TeamId, ct))
+        {
+            return Results.Problem(
+                type: ProblemTypes.InvalidTeam,
+                title: "Invalid team",
+                detail: "The supplied teamId does not resolve to a team in the current tenant.",
+                statusCode: StatusCodes.Status422UnprocessableEntity);
+        }
+
+        // Target-team membership gate (reuses the shared ApplicationTeamScoped policy).
+        if (await AuthorizeTargetTeamAsync(auth, caller, request.TeamId) is { } forbidden)
+            return forbidden;
+
+        var response = await handler.Handle(
+            new RegisterSystemCommand(request.DisplayName, request.Description, request.TeamId),
+            db, tenant, currentUser, audit, ct);
+
+        return Results.Created($"/api/v1/catalog/systems/{response.Id}", response);
+    }
+
+    internal static async Task<IResult> GetSystemByIdAsync(
+        Guid id,
+        GetSystemByIdHandler handler,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        var resp = await handler.Handle(new GetSystemByIdQuery(id), db, ct);
+        if (resp is null) return EndpointResultExtensions.SystemNotFound();
+        return Results.Ok(resp);
+    }
+
+    internal static async Task<IResult> ListSystemsAsync(
+        [FromQuery] string? sortBy,
+        [FromQuery] string? sortOrder,
+        [FromQuery] string? cursor,
+        [FromQuery] string? limit,
+        [FromQuery] string? displayNameContains,
+        [FromQuery] Guid[]? teamId,
+        ListSystemsHandler handler,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        var (parsedSortBy, parsedSortOrder, effectiveLimit) =
+            CursorListBinding.Bind<SystemSortField>(sortBy, sortOrder, limit, SystemSortSpecs.AllowedFieldNames);
+
+        var name = string.IsNullOrWhiteSpace(displayNameContains) ? null : displayNameContains.Trim();
+
+        var query = new ListSystemsQuery(
+            SortBy: parsedSortBy ?? SystemSortField.DisplayName,
+            SortOrder: parsedSortOrder ?? SortOrder.Asc,
+            Cursor: cursor,
+            Limit: effectiveLimit,
+            // ToHashSet de-dups repeated ?teamId= values so the cursor f-map stays canonical.
+            TeamId: (teamId ?? Array.Empty<Guid>()).ToHashSet().ToArray(),
+            DisplayNameContains: name);
+
+        var page = await handler.Handle(query, db, ct);
+        return Results.Ok(page);
+    }
+
     /// <summary>
     /// Create-or-replace the stored spec document for an API (ADR-0112). Raw-body
     /// binding (not <c>[FromBody]</c>) so this delegate — not the JSON model binder —

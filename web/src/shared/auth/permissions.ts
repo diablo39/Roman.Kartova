@@ -9,6 +9,7 @@ export const KartovaPermissions = {
   CatalogApplicationsLifecycleOverride: "catalog.applications.lifecycle.override",
   CatalogServicesRegister: "catalog.services.register",
   CatalogApisRegister: "catalog.apis.register",
+  CatalogSystemsRegister: "catalog.systems.register",
   CatalogRelationshipsWrite: "catalog.relationships.write",
   TeamRead: "team.read",
   TeamCreate: "team.create",
