@@ -24,7 +24,7 @@ A `System` is a **grouping node stewarded by one team**. "Steward" ≠ owner of 
 
 ## 3. Non-goals / out of scope
 
-Derived API-surface (union of members' exposed APIs — ADR-0111 §7 follow-up) · hierarchy browse (E-03.F-03.S-02) · all UI (list screen + detail, follow-up like Api FU-9) · `memberCount` column (derived aggregate, deferred — flagged, not silent) · lifecycle/status · nested Systems (`System → System`) · teamless/org-owned Systems (additive later: widen column + fallback authz).
+Derived API-surface (union of members' exposed APIs — ADR-0111 §7 follow-up) · hierarchy browse (E-03.F-03.S-02) · all UI (list screen + detail, follow-up like Api FU-9) · `memberCount` column (derived aggregate, deferred — flagged, not silent) · lifecycle/status · nested Systems (`System → System`) · teamless/org-owned Systems (additive later: widen column + fallback authz). `Contains` (inverse of `PartOf`) deliberately not reintroduced — redundant with `PartOf` queried by target.
 
 ## 4. Components / changes
 
@@ -88,7 +88,7 @@ Replicates the `Api` template across every layer (Api is the cleanest ADR-0111-e
 | Actor not on steward team (register) | 403 |
 | Bad sort field / filter token | 400 |
 | Edge endpoint missing | 422 |
-| Edge pair not allowed (`Api→System`, `System→System`) | 422 |
+| Edge pair not allowed (`Api→System`, `System→System`) | 400 |
 | Edge neither team | 403 |
 | Edge duplicate | 409 |
 | Get by id not found | 404 |
@@ -106,7 +106,7 @@ Wiring slice (HTTP/auth/DB/edge) → gate-5 real-seam artifacts named as deliver
 - `RegisterSystemTests` — 201 + `Location` + audit row; 400 validation; 403 non-steward; 422 missing/cross-tenant team.
 - `ListSystemsPaginationTests` — keyset paging, default `displayName asc`, `teamId`/`displayNameContains` filters, bad sort/filter → 400, RLS tenant isolation.
 - `GetSystemSurfaceTests` — 200 / 404.
-- `CreatePartOfRelationshipTests` — `{App,Service}→System` 201; `Api→System` 422; `System→System` 422; missing endpoint 422; neither-team 403; duplicate 409.
+- `CreatePartOfRelationshipTests` — `{App,Service}→System` 201; `Api→System` 400; `System→System` 400; missing endpoint 422; neither-team 403; duplicate 409.
 - `CatalogPermissionMatrixTests` — extend: `catalog.systems.register` Member/OrgAdmin allow, Viewer deny.
 - `AuditWiringTests` — `system.registered` row shape.
 - **Fixture:** add `SeedSystemAsync` (bypass-RLS) for list/get/edge seeding.

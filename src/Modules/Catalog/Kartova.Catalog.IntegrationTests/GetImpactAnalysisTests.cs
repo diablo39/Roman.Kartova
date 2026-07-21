@@ -114,6 +114,16 @@ public sealed class GetImpactAnalysisTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
+    public async Task System_focus_returns_400()
+    {
+        // A System has no impact analysis this slice (grouping-only entity) — same structural
+        // 400 branch as entityKind=api, rather than falling through to a meaningless empty 200.
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var resp = await GetImpactAsync(client, "system", Guid.NewGuid());
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [TestMethod]
     public async Task Unknown_entity_returns_422()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);

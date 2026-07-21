@@ -922,8 +922,9 @@ internal static class CatalogEndpointDelegates
     /// <summary>
     /// GET /api-surface?entityKind=&amp;entityId= — a Service's or Application's unified API surface
     /// (provides direct+derived, consumes direct). Bounded flat result (ADR-0095 carve-out), not a
-    /// cursor list. Claim gate: catalog.read. `entityKind=api` is rejected 400 (an API has no surface);
-    /// an unknown/cross-tenant focus entity is 422 invalid-entity.
+    /// cursor list. Claim gate: catalog.read. `entityKind=api`/`system` is rejected 400 (an API has
+    /// no surface of its own; a System is a grouping entity with no surface this slice); an
+    /// unknown/cross-tenant focus entity is 422 invalid-entity.
     /// </summary>
     internal static async Task<IResult> GetApiSurfaceAsync(
         [FromQuery] string entityKind,
@@ -935,7 +936,7 @@ internal static class CatalogEndpointDelegates
     {
         if (!Enum.TryParse<EntityKind>(entityKind, ignoreCase: true, out var kind)
             || !Enum.IsDefined(kind)
-            || kind == EntityKind.Api
+            || kind is EntityKind.Api or EntityKind.System
             || entityId == Guid.Empty)
         {
             return Results.Problem(
@@ -999,8 +1000,9 @@ internal static class CatalogEndpointDelegates
     /// GET /impact?entityKind=&amp;entityId= — a Service's or Application's blast radius: the transitive set
     /// of entities that depend on it over explicit ∪ derived depends-on (E-04.F-02.S-06), tiered by hop
     /// distance. Reuses the <see cref="GraphResponse"/> contract (tier in Depth). Claim gate: catalog.read.
-    /// `entityKind=api`/malformed/empty id → 400 (structural, per GetApiSurfaceAsync); unknown or cross-tenant
-    /// service/application → 422 (RLS-scoped lookup returns null).
+    /// `entityKind=api`/`system`/malformed/empty id → 400 (structural, per GetApiSurfaceAsync — a System
+    /// is a grouping entity with no impact analysis this slice); unknown or cross-tenant service/application
+    /// → 422 (RLS-scoped lookup returns null).
     /// </summary>
     internal static async Task<IResult> GetImpactAnalysisAsync(
         [FromQuery] string entityKind,
@@ -1012,7 +1014,7 @@ internal static class CatalogEndpointDelegates
     {
         if (!Enum.TryParse<EntityKind>(entityKind, ignoreCase: true, out var kind)
             || !Enum.IsDefined(kind)
-            || kind == EntityKind.Api
+            || kind is EntityKind.Api or EntityKind.System
             || entityId == Guid.Empty)
         {
             return Results.Problem(

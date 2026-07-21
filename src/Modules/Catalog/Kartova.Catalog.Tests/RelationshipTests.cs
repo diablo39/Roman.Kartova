@@ -39,9 +39,12 @@ public class RelationshipTests
     }
 
     [TestMethod]
-    // depends-on: any → any (incl. Api endpoints)
+    // depends-on: any non-System pair (incl. Api endpoints); System participates only via PartOf
     [DataRow(RelationshipType.DependsOn, EntityKind.Service, EntityKind.Service, true)]
     [DataRow(RelationshipType.DependsOn, EntityKind.Application, EntityKind.Api, true)]
+    [DataRow(RelationshipType.DependsOn, EntityKind.System, EntityKind.Service, false)]
+    [DataRow(RelationshipType.DependsOn, EntityKind.Service, EntityKind.System, false)]
+    [DataRow(RelationshipType.DependsOn, EntityKind.System, EntityKind.System, false)]
     // instance-of: Service → Application ONLY
     [DataRow(RelationshipType.InstanceOf, EntityKind.Service, EntityKind.Application, true)]
     [DataRow(RelationshipType.InstanceOf, EntityKind.Application, EntityKind.Service, false)]

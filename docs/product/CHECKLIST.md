@@ -164,7 +164,7 @@
 - [~] E-03.F-02.S-03 — Team page with components and scorecard (slice 8 — PR #TBD, 2026-05-26; team detail page with members + assigned application IDs; scorecard deferred to E-10)
 
 **E-03.F-03: System Grouping**
-- [x] E-03.F-03.S-01 — Create System and assign components (2026-07-21; `CatalogSystem` aggregate + `catalog_systems` table (RLS) + `POST/GET/GET-list /systems`; `RelationshipType.PartOf` reintroduced `{Application,Service}→System`, visible on the generic relationships/graph read paths (option A, ADR-0111 amendment DRAFT); backend-only, no UI this slice)
+- [~] E-03.F-03.S-01 — Create System and assign components (2026-07-21; `CatalogSystem` aggregate + `catalog_systems` table (RLS) + `POST/GET/GET-list /systems`; `RelationshipType.PartOf` reintroduced `{Application,Service}→System`, visible on the generic relationships/graph read paths (option A, ADR-0111 amendment DRAFT); backend-only, no UI this slice; verification still pending)
 - [ ] E-03.F-03.S-02 — Browse catalog by Org/Team/System hierarchy
 
 **E-03.F-04: Tag System**

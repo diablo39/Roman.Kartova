@@ -213,6 +213,17 @@ public sealed class GetApiSurfaceTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
+    public async Task EntityKind_system_returns_400()
+    {
+        // A System has no API surface this slice (grouping-only entity) — reject structurally,
+        // same 400 branch as entityKind=api, rather than falling through to a meaningless empty 200.
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var resp = await client.GetAsync(
+            $"/api/v1/catalog/api-surface?entityKind=system&entityId={Guid.NewGuid()}");
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [TestMethod]
     public async Task Missing_entityId_returns_400()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
