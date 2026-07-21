@@ -221,6 +221,23 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .WithName("ListApis")
               .Produces<CursorPage<ApiResponse>>(StatusCodes.Status200OK)
               .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+        tenant.MapPost("/systems", CatalogEndpointDelegates.RegisterSystemAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogSystemsRegister)
+              .WithName("RegisterSystem")
+              .Produces<SystemResponse>(StatusCodes.Status201Created)
+              .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
+              .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+        tenant.MapGet("/systems/{id:guid}", CatalogEndpointDelegates.GetSystemByIdAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRead)
+              .WithName("GetSystemById")
+              .Produces<SystemResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status404NotFound);
+        tenant.MapGet("/systems", CatalogEndpointDelegates.ListSystemsAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRead)
+              .WithName("ListSystems")
+              .Produces<CursorPage<SystemResponse>>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         // PUT/GET spec sub-resource (ADR-0112). Raw-body PUT (not [FromBody]) so the
         // handler controls content-type gating (415) and a hard size cap (400) ahead
         // of JSON model binding. Create-or-replace: 201 first write, 204 on replace.
@@ -289,6 +306,9 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<ListApisHandler>();
         services.AddScoped<UpsertApiSpecHandler>();
         services.AddScoped<GetApiSpecHandler>();
+        services.AddScoped<RegisterSystemHandler>();
+        services.AddScoped<GetSystemByIdHandler>();
+        services.AddScoped<ListSystemsHandler>();
         services.AddScoped<CreateRelationshipHandler>();
         services.AddScoped<DeleteRelationshipHandler>();
         services.AddScoped<ListRelationshipsForEntityHandler>();

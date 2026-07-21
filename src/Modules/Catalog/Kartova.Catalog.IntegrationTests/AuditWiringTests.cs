@@ -74,6 +74,33 @@ public class AuditWiringTests : CatalogIntegrationTestBase
         Assert.AreEqual(teamId.ToString(), data.RootElement.GetProperty("teamId").GetString());
     }
 
+    // --- Happy: register System writes a correct system.registered audit row ---
+    [TestMethod]
+    public async Task RegisterSystem_WritesSystemRegisteredAuditRow()
+    {
+        var (tenantId, teamId, client) = await ArrangeAsync("Audit System Team", nameClaim: "Ada Catalog");
+
+        var resp = await client.PostAsJsonAsync("/api/v1/catalog/systems", new
+        {
+            displayName = "Audit Reg System", description = "Desc.", teamId,
+        });
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode,
+            $"Expected 201. Body: {await resp.Content.ReadAsStringAsync()}");
+        var body = await resp.Content.ReadFromJsonAsync<SystemResponse>(KartovaApiFixtureBase.WireJson);
+
+        var rows = await Fx.ReadAuditLogAsync(tenantId);
+        var row = rows.Single(r =>
+            r.Action == CatalogAuditActions.SystemRegistered &&
+            r.TargetId == body!.Id.ToString());
+        Assert.AreEqual(await Fx.GetSubClaimAsync(OrgAUser), row.ActorId);
+        Assert.AreEqual("Ada Catalog", row.ActorDisplay);
+        Assert.AreEqual("User", row.ActorType);
+        Assert.AreEqual(CatalogAuditTargetTypes.System, row.TargetType);
+        using var data = JsonDocument.Parse(row.DataJson!);
+        Assert.AreEqual("Audit Reg System", data.RootElement.GetProperty("displayName").GetString());
+        Assert.AreEqual(teamId.ToString(), data.RootElement.GetProperty("teamId").GetString());
+    }
+
     // --- Happy: PUT spec writes a correct api.spec.updated audit row ---
     [TestMethod]
     public async Task PutSpec_WritesApiSpecUpdatedAuditRow()

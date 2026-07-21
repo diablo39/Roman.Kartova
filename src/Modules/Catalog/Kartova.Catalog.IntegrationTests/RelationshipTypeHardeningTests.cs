@@ -17,8 +17,10 @@ public class RelationshipTypeHardeningTests : CatalogIntegrationTestBase
         new { sourceKind = sk, sourceId = sid, type = t, targetKind = tk, targetId = tid };
 
     // Insert a relationship row whose `type` is not in the RelationshipType enum,
-    // simulating drifted/legacy data (the removed 'PartOf' value). Uses the
-    // RLS-bypass connection so we can write the row for OrgA's tenant directly.
+    // simulating drifted/legacy data (a value not in the RelationshipType enum).
+    // 'PartOf' was reintroduced as a valid type (E-03.F-03, System grouping) so it
+    // no longer represents drift — use a still-unknown placeholder string instead.
+    // Uses the RLS-bypass connection so we can write the row for OrgA's tenant directly.
     private async Task InsertDriftRowAsync(Guid tenantId, Guid sourceId, Guid targetId)
     {
         await using var conn = new NpgsqlConnection(Fx.BypassConnectionString);
@@ -27,7 +29,7 @@ public class RelationshipTypeHardeningTests : CatalogIntegrationTestBase
         cmd.CommandText = """
             INSERT INTO relationships
               (id, tenant_id, source_kind, source_id, target_kind, target_id, type, origin, created_by_user_id, created_at)
-            VALUES (gen_random_uuid(), $1, 'Service', $2, 'Service', $3, 'PartOf', 'Manual', gen_random_uuid(), now());
+            VALUES (gen_random_uuid(), $1, 'Service', $2, 'Service', $3, 'LegacyBogusType', 'Manual', gen_random_uuid(), now());
             """;
         cmd.Parameters.AddWithValue(tenantId);
         cmd.Parameters.AddWithValue(sourceId);

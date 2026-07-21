@@ -39,9 +39,12 @@ public class RelationshipTests
     }
 
     [TestMethod]
-    // depends-on: any → any (incl. Api endpoints)
+    // depends-on: any non-System pair (incl. Api endpoints); System participates only via PartOf
     [DataRow(RelationshipType.DependsOn, EntityKind.Service, EntityKind.Service, true)]
     [DataRow(RelationshipType.DependsOn, EntityKind.Application, EntityKind.Api, true)]
+    [DataRow(RelationshipType.DependsOn, EntityKind.System, EntityKind.Service, false)]
+    [DataRow(RelationshipType.DependsOn, EntityKind.Service, EntityKind.System, false)]
+    [DataRow(RelationshipType.DependsOn, EntityKind.System, EntityKind.System, false)]
     // instance-of: Service → Application ONLY
     [DataRow(RelationshipType.InstanceOf, EntityKind.Service, EntityKind.Application, true)]
     [DataRow(RelationshipType.InstanceOf, EntityKind.Application, EntityKind.Service, false)]
@@ -118,4 +121,21 @@ public class RelationshipTests
         Assert.ThrowsExactly<ArgumentException>(() => Relationship.CreateManual(
             Svc(Guid.NewGuid()), Svc(Guid.NewGuid()), RelationshipType.DependsOn, Guid.Empty, T(), TimeProvider.System));
     }
+
+    [TestMethod]
+    public void PartOf_is_creatable() =>
+        Assert.IsTrue(RelationshipTypeRules.IsCreatable(RelationshipType.PartOf));
+
+    [TestMethod]
+    [DataRow(EntityKind.Application)]
+    [DataRow(EntityKind.Service)]
+    public void PartOf_allows_component_to_system(EntityKind source) =>
+        Assert.IsTrue(RelationshipTypeRules.IsAllowedPair(RelationshipType.PartOf, source, EntityKind.System));
+
+    [TestMethod]
+    [DataRow(EntityKind.Api, EntityKind.System)]      // Api not a component
+    [DataRow(EntityKind.System, EntityKind.System)]   // no nested systems
+    [DataRow(EntityKind.Service, EntityKind.Application)] // wrong target
+    public void PartOf_rejects_disallowed_pairs(EntityKind source, EntityKind target) =>
+        Assert.IsFalse(RelationshipTypeRules.IsAllowedPair(RelationshipType.PartOf, source, target));
 }

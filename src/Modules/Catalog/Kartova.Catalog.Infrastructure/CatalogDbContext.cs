@@ -27,6 +27,8 @@ public sealed class CatalogDbContext : DbContext
 
     public DbSet<Kartova.Catalog.Domain.Relationship> Relationships => Set<Kartova.Catalog.Domain.Relationship>();
 
+    public DbSet<Kartova.Catalog.Domain.CatalogSystem> Systems => Set<Kartova.Catalog.Domain.CatalogSystem>();
+
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -54,5 +56,6 @@ public sealed class CatalogDbContext : DbContext
         modelBuilder.ApplyConfiguration(new EfApiConfiguration());
         modelBuilder.ApplyConfiguration(new EfApiSpecConfiguration());
         modelBuilder.ApplyConfiguration(new EfRelationshipConfiguration());
+        modelBuilder.ApplyConfiguration(new EfSystemConfiguration());
     }
 }

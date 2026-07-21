@@ -56,6 +56,15 @@ public class CreateRelationshipTests : CatalogIntegrationTestBase
         return body!.Id;
     }
 
+    private static async Task<Guid> SeedSystemAsync(HttpClient client, Guid teamId, string name)
+    {
+        var resp = await client.PostAsJsonAsync("/api/v1/catalog/systems", new
+        { displayName = name, description = "x", teamId });
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode, $"SeedSystem '{name}' failed: {resp.StatusCode}");
+        var body = await resp.Content.ReadFromJsonAsync<SystemResponse>(KartovaApiFixtureBase.WireJson);
+        return body!.Id;
+    }
+
     [TestMethod]
     public async Task POST_dependsOn_between_two_services_returns_201_and_manual_origin()
     {
@@ -305,6 +314,21 @@ public class CreateRelationshipTests : CatalogIntegrationTestBase
 
         // Api→Application is a disallowed pair for ProvidesApiFor
         var resp = await PostRelAsync(client, EntityKind.Api, apiId, RelationshipType.ProvidesApiFor, EntityKind.Application, appId);
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task POST_dependsOn_with_system_endpoint_returns_400()
+    {
+        // RelationshipTypeRules excludes System from DependsOn — a System groups components
+        // via PartOf only, so it must never appear on either side of a depends-on edge.
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Team DependsOn System");
+        var svcId = await SeedServiceAsync(client, teamId, "svc-dependson-system");
+        var sysId = await SeedSystemAsync(client, teamId, "system-dependson-badpair");
+
+        var resp = await PostRelAsync(client, EntityKind.Service, svcId, RelationshipType.DependsOn, EntityKind.System, sysId);
 
         Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
     }

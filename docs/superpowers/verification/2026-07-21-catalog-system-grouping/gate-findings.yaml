@@ -1,0 +1,38 @@
+# gate-findings.yaml — per-gate findings telemetry, extended for the dev-hm 2×2 experiment.
+#
+# Each finding additionally tagged:
+#   produced_by — which arm's code the finding is against: A (dev-hm) | B (control)
+#   found_by    — which review stack raised it: dev-hm | gates
+# so the 2×2 (implementer × reviewer) is queryable. Blind-adjudicate `verdict` (real|delusion)
+# WITHOUT knowing produced_by/found_by, then fill the tags.
+#
+# gate     — build | reviews | suite | container | simplify | mutation |
+#            requesting-review | review-pr | deep-review | manual | terminal-reverify | ci-mirror
+# severity — blocking | should-fix | nit
+# verdict  — real | delusion
+# produced_by — A | B
+# found_by    — dev-hm | gates
+# title    — one-line
+# note     — resolution (fix sha) or why delusion
+
+slice:  2026-07-21-catalog-system-grouping
+baseline: 44fcb02
+arms:
+  A: armA/catalog-system-grouping   # dev-hm implementers + dev-hm reviewers
+  B: armB/catalog-system-grouping   # default flow + default gates
+
+findings:
+  - gate: reviews          # implementer self-review pass (Arm A, chunk 1)
+    severity: blocking
+    verdict: real
+    produced_by: A          # dev-hm arm surfaced it (against the shared plan)
+    found_by: dev-hm
+    title: "Plan's System.Create snippet inconsistent — string createdByUserId, no TenantId param, contradicts Interfaces block + peer aggregates"
+    note: "Corrected to Create(displayName, description, Guid createdByUserId, Guid teamId, TenantId, TimeProvider). Plan amended 2026-07-21."
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    produced_by: A
+    found_by: dev-hm
+    title: "Domain type named `System` shadows the BCL System namespace inside Kartova.Catalog.Domain — permanent alias tax across all consuming files"
+    note: "Resolved by renaming aggregate to CatalogSystem/CatalogSystemId (concept stays 'System' user-facing). Spec+plan amended 2026-07-21. Neither the plan nor its codelens/grep Impact Analysis anticipated this."

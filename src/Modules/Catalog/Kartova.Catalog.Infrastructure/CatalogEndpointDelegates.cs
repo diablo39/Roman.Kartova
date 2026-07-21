@@ -632,6 +632,80 @@ internal static class CatalogEndpointDelegates
         return Results.Ok(page);
     }
 
+    internal static async Task<IResult> RegisterSystemAsync(
+        [FromBody] RegisterSystemRequest request,
+        RegisterSystemHandler handler,
+        CatalogDbContext db,
+        ITenantContext tenant,
+        ClaimsPrincipal caller,
+        ICurrentUser currentUser,
+        IAuthorizationService auth,
+        IOrganizationTeamExistenceChecker teamChecker,
+        IAuditWriter audit,
+        CancellationToken ct)
+    {
+        // ADR-0103: a new System requires an existing steward team in the tenant.
+        // RLS-scoped checker → a cross-tenant id resolves as "not found" (same 422 branch).
+        if (!await teamChecker.ExistsAsync(request.TeamId, ct))
+        {
+            return Results.Problem(
+                type: ProblemTypes.InvalidTeam,
+                title: "Invalid team",
+                detail: "The supplied teamId does not resolve to a team in the current tenant.",
+                statusCode: StatusCodes.Status422UnprocessableEntity);
+        }
+
+        // Target-team membership gate (reuses the shared ApplicationTeamScoped policy).
+        if (await AuthorizeTargetTeamAsync(auth, caller, request.TeamId) is { } forbidden)
+            return forbidden;
+
+        var response = await handler.Handle(
+            new RegisterSystemCommand(request.DisplayName, request.Description, request.TeamId),
+            db, tenant, currentUser, audit, ct);
+
+        return Results.Created($"/api/v1/catalog/systems/{response.Id}", response);
+    }
+
+    internal static async Task<IResult> GetSystemByIdAsync(
+        Guid id,
+        GetSystemByIdHandler handler,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        var resp = await handler.Handle(new GetSystemByIdQuery(id), db, ct);
+        if (resp is null) return EndpointResultExtensions.SystemNotFound();
+        return Results.Ok(resp);
+    }
+
+    internal static async Task<IResult> ListSystemsAsync(
+        [FromQuery] string? sortBy,
+        [FromQuery] string? sortOrder,
+        [FromQuery] string? cursor,
+        [FromQuery] string? limit,
+        [FromQuery] string? displayNameContains,
+        [FromQuery] Guid[]? teamId,
+        ListSystemsHandler handler,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        var (parsedSortBy, parsedSortOrder, effectiveLimit) =
+            CursorListBinding.Bind<SystemSortField>(sortBy, sortOrder, limit, SystemSortSpecs.AllowedFieldNames);
+
+        var name = string.IsNullOrWhiteSpace(displayNameContains) ? null : displayNameContains.Trim();
+
+        var query = new ListSystemsQuery(
+            SortBy: parsedSortBy ?? SystemSortField.DisplayName,
+            SortOrder: parsedSortOrder ?? SortOrder.Asc,
+            Cursor: cursor,
+            Limit: effectiveLimit,
+            // ToHashSet de-dups repeated ?teamId= values so the cursor f-map stays canonical.
+            TeamId: (teamId ?? Array.Empty<Guid>()).ToHashSet().ToArray(),
+            DisplayNameContains: name);
+
+        var page = await handler.Handle(query, db, ct);
+        return Results.Ok(page);
+    }
+
     /// <summary>
     /// Create-or-replace the stored spec document for an API (ADR-0112). Raw-body
     /// binding (not <c>[FromBody]</c>) so this delegate — not the JSON model binder —
@@ -848,8 +922,9 @@ internal static class CatalogEndpointDelegates
     /// <summary>
     /// GET /api-surface?entityKind=&amp;entityId= — a Service's or Application's unified API surface
     /// (provides direct+derived, consumes direct). Bounded flat result (ADR-0095 carve-out), not a
-    /// cursor list. Claim gate: catalog.read. `entityKind=api` is rejected 400 (an API has no surface);
-    /// an unknown/cross-tenant focus entity is 422 invalid-entity.
+    /// cursor list. Claim gate: catalog.read. `entityKind=api`/`system` is rejected 400 (an API has
+    /// no surface of its own; a System is a grouping entity with no surface this slice); an
+    /// unknown/cross-tenant focus entity is 422 invalid-entity.
     /// </summary>
     internal static async Task<IResult> GetApiSurfaceAsync(
         [FromQuery] string entityKind,
@@ -861,7 +936,7 @@ internal static class CatalogEndpointDelegates
     {
         if (!Enum.TryParse<EntityKind>(entityKind, ignoreCase: true, out var kind)
             || !Enum.IsDefined(kind)
-            || kind == EntityKind.Api
+            || kind is EntityKind.Api or EntityKind.System
             || entityId == Guid.Empty)
         {
             return Results.Problem(
@@ -925,8 +1000,9 @@ internal static class CatalogEndpointDelegates
     /// GET /impact?entityKind=&amp;entityId= — a Service's or Application's blast radius: the transitive set
     /// of entities that depend on it over explicit ∪ derived depends-on (E-04.F-02.S-06), tiered by hop
     /// distance. Reuses the <see cref="GraphResponse"/> contract (tier in Depth). Claim gate: catalog.read.
-    /// `entityKind=api`/malformed/empty id → 400 (structural, per GetApiSurfaceAsync); unknown or cross-tenant
-    /// service/application → 422 (RLS-scoped lookup returns null).
+    /// `entityKind=api`/`system`/malformed/empty id → 400 (structural, per GetApiSurfaceAsync — a System
+    /// is a grouping entity with no impact analysis this slice); unknown or cross-tenant service/application
+    /// → 422 (RLS-scoped lookup returns null).
     /// </summary>
     internal static async Task<IResult> GetImpactAnalysisAsync(
         [FromQuery] string entityKind,
@@ -938,7 +1014,7 @@ internal static class CatalogEndpointDelegates
     {
         if (!Enum.TryParse<EntityKind>(entityKind, ignoreCase: true, out var kind)
             || !Enum.IsDefined(kind)
-            || kind == EntityKind.Api
+            || kind is EntityKind.Api or EntityKind.System
             || entityId == Guid.Empty)
         {
             return Results.Problem(

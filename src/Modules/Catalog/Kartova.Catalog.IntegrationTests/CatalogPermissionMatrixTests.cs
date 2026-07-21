@@ -56,6 +56,9 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
         (HttpMethod.Get,  "/api/v1/catalog/apis/{apiId}",                  KartovaPermissions.CatalogRead),
         (HttpMethod.Put,  "/api/v1/catalog/apis/{apiId}/spec",             KartovaPermissions.CatalogApisRegister),
         (HttpMethod.Get,  "/api/v1/catalog/apis/{apiId}/spec",             KartovaPermissions.CatalogRead),
+        (HttpMethod.Post, "/api/v1/catalog/systems",                      KartovaPermissions.CatalogSystemsRegister),
+        (HttpMethod.Get,  "/api/v1/catalog/systems",                      KartovaPermissions.CatalogRead),
+        (HttpMethod.Get,  "/api/v1/catalog/systems/{sysId}",              KartovaPermissions.CatalogRead),
     };
 
     [TestMethod]
@@ -132,6 +135,15 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
         var seededApi = await registerApiResp.Content.ReadFromJsonAsync<ApiResponse>(KartovaApiFixtureBase.WireJson);
         var apiId = seededApi!.Id;
 
+        // Seed a fixture System as OrgAdmin so {sysId} substitution works on per-role calls.
+        var registerSysResp = await seederClient.PostAsJsonAsync(
+            "/api/v1/catalog/systems",
+            new { displayName = "Matrix System", description = "Seed system for permission matrix test.", teamId });
+        Assert.IsTrue(registerSysResp.IsSuccessStatusCode,
+            $"Seed system registration must succeed (was {registerSysResp.StatusCode}).");
+        var seededSystem = await registerSysResp.Content.ReadFromJsonAsync<SystemResponse>(KartovaApiFixtureBase.WireJson);
+        var sysId = seededSystem!.Id;
+
         var seedRelResp = await seederClient.PostAsJsonAsync(
             "/api/v1/catalog/relationships",
             new
@@ -163,7 +175,8 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
                         .Replace("{id}", appId.ToString())
                         .Replace("{svcId}", svcId.ToString())
                         .Replace("{relId}", relId.ToString())
-                        .Replace("{apiId}", apiId.ToString());
+                        .Replace("{apiId}", apiId.ToString())
+                        .Replace("{sysId}", sysId.ToString());
                     using var req = new HttpRequestMessage(method, url);
                     AttachShapeValidBody(req, method, pathTemplate, teamId);
 
@@ -315,6 +328,15 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
                 style = Kartova.Catalog.Domain.ApiStyle.Rest,
                 version = "v1",
                 specUrl = (string?)null,
+                teamId,
+            });
+        }
+        else if (method == HttpMethod.Post && pathTemplate == "/api/v1/catalog/systems")
+        {
+            req.Content = JsonContent.Create(new
+            {
+                displayName = "Matrix System",
+                description = "Matrix shape body.",
                 teamId,
             });
         }
