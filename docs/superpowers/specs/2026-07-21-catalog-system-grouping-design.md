@@ -74,7 +74,7 @@ Replicates the `Api` template across every layer (Api is the cleanest ADR-0111-e
 ## 6. Data flow
 
 - **Register** `POST /systems`: tenant scope opens → auth `catalog.systems.register` → team-exists 422 pre-check (`IOrganizationTeamExistenceChecker`, RLS-scoped) → `AuthorizeTargetTeamAsync` 403 → `System.Create` → `Systems.Add` → `SaveChangesAsync` → in-txn `IAuditWriter.AppendAsync(system.registered)` fail-closed → `201` + `Location /systems/{id}`.
-- **Assign** `POST /relationships` `{type: PartOf, sourceKind, sourceId, targetKind: System, targetId}`: `lookup.Find` both → 422 if missing → `IsAllowedPair` → 422 if not `{App,Service}→System` → `AuthorizeEitherTeamAsync` (source-component team **or** System steward team) → 403 → duplicate → 409 → `201`.
+- **Assign** `POST /relationships` `{type: PartOf, sourceKind, sourceId, targetKind: System, targetId}`: `lookup.Find` both → 422 if missing → `IsAllowedPair` → **400** if not `{App,Service}→System` (domain `ArgumentException`, not 422) → `AuthorizeEitherTeamAsync` (source-component team **or** System steward team) → 403 → duplicate → 409 → `201`.
 - **List** `GET /systems`: `CursorListBinding.Bind` → parse `teamId[]`/`displayNameContains` (repeated tokens, `HashSet` de-dup, unknown/numeric → 400) → filter → `ToCursorPagedAsync` keyset → enrich `createdBy` via `IUserDirectory.GetManyAsync` → `CursorPage<SystemResponse>`.
 - **Get** `GET /systems/{id}`: 200 / 404.
 
