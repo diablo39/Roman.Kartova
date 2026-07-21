@@ -10,6 +10,14 @@
 
 **Spec:** `docs/superpowers/specs/2026-07-21-catalog-system-grouping-design.md`
 
+## Amendment 2026-07-21 (post Arm-A chunk-1)
+
+Two corrections from the first implementation pass, now binding on BOTH arms:
+1. **Domain C# type is `CatalogSystem` (id `CatalogSystemId`)**, NOT `System` — naming the aggregate `System` shadows the BCL `System` namespace inside `Kartova.Catalog.Domain`. Everything user-facing keeps "System": `EntityKind.System`, `/systems` routes, `SystemResponse`/`RegisterSystemRequest`/`SystemSortField`, `catalog_systems` table, `catalog.systems.register`, `CatalogAuditActions.SystemRegistered`. Only the aggregate class + its id struct rename. `DbSet` property may stay `Systems`.
+2. **Factory signature:** `CatalogSystem.Create(string displayName, string? description, Guid createdByUserId, Guid teamId, TenantId tenantId, TimeProvider clock)` (+ explicit-`createdAt` overload) — `Guid` createdByUserId (matches `ICurrentUser.UserId`) and an explicit `TenantId` param, ordered like `Application.Create`. (The earlier inline snippet was inconsistent.)
+
+Apply these substitutions wherever the tasks below say `System`/`SystemId`/`System.Create`.
+
 ## Global Constraints
 
 - **Tenant scope:** register `CatalogDbContext` via `AddModuleDbContext<T>` only (ADR-0090); handlers never touch `ITenantScope`. Never raw `AddDbContext` for the app path.

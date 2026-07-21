@@ -31,8 +31,9 @@ Derived API-surface (union of members' exposed APIs — ADR-0111 §7 follow-up) 
 Replicates the `Api` template across every layer (Api is the cleanest ADR-0111-era template). No new cross-cutting infrastructure.
 
 ### 4.1 Domain (`Kartova.Catalog.Domain`)
-- **New** `System.cs` — `sealed class System : ITenantOwned, ITeamScopedResource`; shadow `_id` + `SystemId Id`; private EF ctor + private all-args ctor; `System.Create(...)` factory + explicit-`createdAt` overload (seeds/tests); `Xmin` (`xid`) concurrency token. Fields: `DisplayName` (≤128, required), `Description` (≤4096, optional), `TeamId` (required), `CreatedByUserId`, `CreatedAt`, `TenantId`. Invariants in private `Validate*` methods.
-- **New** `SystemId.cs` — `readonly record struct SystemId(Guid Value)` + `New()`.
+> **Naming amendment (2026-07-21, post Arm-A chunk-1):** the C# aggregate is **`CatalogSystem`** (id **`CatalogSystemId`**), not `System` — a bare `System` type shadows the BCL `System` namespace within this namespace. The *concept* stays "System" everywhere user-facing (`EntityKind.System`, `/systems`, `SystemResponse`, `catalog_systems`, `catalog.systems.register`).
+- **New** `CatalogSystem.cs` — `sealed class CatalogSystem : ITenantOwned, ITeamScopedResource`; shadow `_id` + `CatalogSystemId Id`; private EF ctor + private all-args ctor; `CatalogSystem.Create(string displayName, string? description, Guid createdByUserId, Guid teamId, TenantId tenantId, TimeProvider clock)` factory + explicit-`createdAt` overload (seeds/tests); `Xmin` (`xid`) concurrency token. Fields: `DisplayName` (≤128, required), `Description` (≤4096, optional), `TeamId` (required), `CreatedByUserId`, `CreatedAt`, `TenantId`. Invariants in private `Validate*` methods.
+- **New** `CatalogSystemId.cs` — `readonly record struct CatalogSystemId(Guid Value)` + `New()`.
 - **Edit** `EntityKind.cs` — append `System`.
 - **Edit** `RelationshipType.cs` — re-add `PartOf` (enum persists as string → no migration).
 - **Edit** `RelationshipTypeRules.cs` — `PartOf` in `IsCreatable`; new `IsAllowedPair` arm `PartOf ⇒ source ∈ {Application, Service} && target == System`.
