@@ -1,6 +1,6 @@
 # ADR-0111: API Is a First-Class Entity — Provider/Instance as FK Fields, Consumers as Edges, Exposure Derived
 
-**Status:** Accepted (Revised 2026-07-04 — provider/instance are edges, not FK fields; Amended 2026-07-07 — unified API entity, async is a `Style` value)
+**Status:** Accepted (Revised 2026-07-04 — provider/instance are edges, not FK fields; Amended 2026-07-07 — unified API entity, async is a `Style` value; Amended 2026-07-21 — `System` entity + `PartOf` reintroduced for grouping, E-03.F-03.S-01)
 **Date:** 2026-07-03
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** Domain Model
@@ -27,16 +27,9 @@ Spec documents (OpenAPI for `Rest`/`Grpc`/`GraphQL`, AsyncAPI for `AsyncApi`) ar
 
 Implemented by `docs/superpowers/specs/2026-07-07-catalog-async-api-spec-storage-design.md`.
 
-> **⚠️ DRAFT — PENDING HUMAN PREVIEW.** The amendment note immediately below (dated
-> 2026-07-21) was authored by an implementation agent alongside the E-03.F-03.S-01
-> System-grouping slice. Per this repo's ADR process ("When proposing new ADRs: preview
-> decision before saving — user reviews first", CLAUDE.md), it is **not yet accepted** —
-> it must not be treated as binding, cited as settled, or used to justify further work
-> until Roman Głogowski reviews and confirms it. The `Status:` line above intentionally
-> still reads only through the 2026-07-07 amendment; it will be updated once this draft
-> is confirmed.
+### Amendment 2026-07-21 — `PartOf` reintroduced for System grouping (E-03.F-03.S-01)
 
-### Amendment 2026-07-21 (DRAFT — PENDING HUMAN PREVIEW) — `PartOf` reintroduced for System grouping (E-03.F-03.S-01)
+*Confirmed by Roman Głogowski 2026-07-21.*
 
 Implements the reintroduction flagged in the 2026-07-04 revision's vocabulary consequence
 (§"will be reintroduced for System `part-of`/`contains` in E-03.F-03") and in Decision 7
@@ -55,6 +48,13 @@ above. Implementing plan: `docs/superpowers/plans/2026-07-21-catalog-system-grou
   System." `Api → System` and `System → System` remain disallowed pairs (400, same
   `RelationshipTypeRules.IsAllowedPair` mechanism as every other edge type) —
   a System groups components, not APIs or other Systems, this slice.
+- **`System` participates in edges *only* via `PartOf`.** The `DependsOn` wildcard is
+  explicitly constrained to exclude `System` on either endpoint
+  (`source != System && target != System`), so a System cannot be a dependency source
+  or target — grouping is its only edge role this slice.
+- **`Contains` (the inverse of `PartOf`) is deliberately not reintroduced** — it is
+  redundant with querying `PartOf` by target (a System's members = incoming `PartOf`
+  edges). Closes the `part-of`/`contains` pairing named in the 2026-07-04 vocabulary note.
 - **Visibility is "option A": no special-casing.** `PartOf` is a normal, queryable
   relationship type. Because `EfRelationshipConfiguration`'s tenant-scoped query filter
   enumerates `Enum.GetValues<RelationshipType>()` dynamically, re-adding `PartOf` makes
