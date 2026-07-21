@@ -46,4 +46,14 @@ public class SystemTests
 
     [TestMethod]
     public void Create_allows_null_description() => Assert.IsNull(Create(desc: null).Description);
+
+    // Boundary tests: kill the `> 128`→`>=` and `> 4096`→`>=` equality mutants —
+    // the exact max length must be VALID (only strictly-over should throw).
+    [TestMethod]
+    public void Create_allows_display_name_exactly_128() =>
+        Assert.AreEqual(128, Create(name: new string('x', 128)).DisplayName.Length);
+
+    [TestMethod]
+    public void Create_allows_description_exactly_4096() =>
+        Assert.AreEqual(4096, Create(desc: new string('x', 4096)).Description!.Length);
 }
