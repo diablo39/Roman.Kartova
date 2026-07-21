@@ -6,7 +6,8 @@ public static class RelationshipTypeRules
         => type is RelationshipType.DependsOn
             or RelationshipType.InstanceOf
             or RelationshipType.ProvidesApiFor
-            or RelationshipType.ConsumesApiFrom;
+            or RelationshipType.ConsumesApiFrom
+            or RelationshipType.PartOf;
 
     public static bool IsAllowedPair(RelationshipType type, EntityKind source, EntityKind target) => type switch
     {
@@ -14,6 +15,8 @@ public static class RelationshipTypeRules
         RelationshipType.InstanceOf => source == EntityKind.Service && target == EntityKind.Application,
         RelationshipType.ProvidesApiFor or RelationshipType.ConsumesApiFrom =>
             source is EntityKind.Application or EntityKind.Service && target == EntityKind.Api,
+        RelationshipType.PartOf =>
+            source is EntityKind.Application or EntityKind.Service && target == EntityKind.System,
         _ => false,
     };
 }

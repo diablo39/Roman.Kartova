@@ -10,11 +10,13 @@ public sealed class EfRelationshipConfiguration : IEntityTypeConfiguration<Relat
     internal const string IdFieldName = "_id";
 
     // Drift hardening: relationships.type is persisted as a string. A row whose value
-    // is not a current RelationshipType member (e.g. a legacy 'PartOf' left by data
-    // drift) would throw at EF materialization and 500 every read over the tenant's
-    // relationships. Excluding unmappable rows at the SQL layer (type IN (...)) makes
-    // all read paths (list / graph / api-surface) tolerant. Insert-time validation
+    // is not a current RelationshipType member (e.g. a genuinely-unknown legacy string
+    // left by data drift) would throw at EF materialization and 500 every read over the
+    // tenant's relationships. Excluding unmappable rows at the SQL layer (type IN (...))
+    // makes all read paths (list / graph / api-surface) tolerant. Insert-time validation
     // still prevents new unknown types; this guards against pre-existing drift.
+    // 'PartOf' is now a valid, visible relationship type (System grouping, E-03.F-03) —
+    // it is no longer excluded by this filter; only truly-unknown strings are.
     private static readonly RelationshipType[] KnownRelationshipTypes = Enum.GetValues<RelationshipType>();
 
     public void Configure(EntityTypeBuilder<Relationship> b)
