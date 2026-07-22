@@ -18,7 +18,7 @@ Frontend-only. No backend, contract, or permission change.
 |---|---|---|
 | Pattern source | Mirror the Service UI surface | Closest sibling; `SystemResponse` ≈ `ServiceResponse` minus health/endpoints/version |
 | Detail layout | `DetailTabs`: **Overview · Members** | ADR-0114 tabbed convention, consistent with Service/API; only-active-panel mounts |
-| Members section | **Read-only**, from `GET /relationships?entityKind=system&direction=incoming` mapped over `r.source` | Backend already resolves `System` in `CatalogEntityLookup`; all incoming edges to a System are `PartOf` |
+| Members section | **Read-only**, from `GET /relationships?entityKind=system&direction=incoming`, client-side filtered to `type==="partOf"`, mapped over `r.source` | Backend resolves `System` in `CatalogEntityLookup`; write rules restrict incoming-to-System edges to `PartOf` but the **read path applies no type filter**, so filter client-side for drift tolerance (backfill/direct-write), and guard the kind down-cast with `isRelationshipKind` (member kind is a 4-member enum incl. `system`; FE `RelationshipKind` is 3-member) |
 | Assignment (create/remove `PartOf`) | **Out of scope** | No FE path today; needs `relationshipTypeRules` + `AddRelationshipDialog` extended (touches ADR-0111) → future rel-UI slice / S-02 |
 | Permission | Reuse `catalog.systems.register` (write) + `catalog.read` (read) | Both already live from S-01's 5-sync; **no new permission** |
 | Default sort | `displayName asc` | Standard for name-bearing lists (CLAUDE.md list convention) |
@@ -41,7 +41,7 @@ Frontend-only. No backend, contract, or permission change.
 ### 4.2 Components
 - **New** `components/SystemsTable.tsx` — `<DataTable>` columns: `displayName` (row header, link to detail, sortable), `team` (name via `teamNameById`), `createdBy` (`CreatedByLink`), `createdAt` (sortable). Mirror `ServicesTable.tsx` minus health.
 - **New** `components/RegisterSystemDialog.tsx` — name + description + steward-team picker (raw HTML `<select>`, same as `RegisterServiceDialog` — not a shared `Select` component); submit → `useRegisterSystem`; toast + invalidate. Mirror `RegisterServiceDialog.tsx` minus endpoints editor.
-- **New** `components/SystemMembersSection.tsx` — read-only. `useRelationshipsList({ entityKind: "system", entityId, direction: "incoming" })`; table rows over `r.source`: name (link via `entityDetailPath`) + kind badge (`ENTITY_KIND_LABEL`). Loading skeleton / error line / empty "No components assigned yet." + `TablePager`. No add/delete.
+- **New** `components/SystemMembersSection.tsx` — read-only. `useRelationshipsList({ entityKind: "system", entityId, direction: "incoming" })`, then `.filter(r => r.type === "partOf")` (drift tolerance); table rows over `r.source`: name (link via `entityDetailPath`, guarded by `isRelationshipKind` — plain text otherwise) + kind badge (`ENTITY_KIND_LABEL`). Loading skeleton / error line / empty "No components assigned yet." + `TablePager`. No add/delete.
 
 ### 4.3 Pages
 - **New** `pages/SystemsListPage.tsx` — mirror `ServicesListPage.tsx`: `useListUrlState` (allowed sort `["createdAt","displayName"]`, text filter `displayNameContains`, multi filter `teamId`), `FilterBar`, `useSystemsList`, `SystemsTable`, gated `RegisterSystemDialog` (`CatalogSystemsRegister`). No health filter.
@@ -67,20 +67,20 @@ Frontend-only. No backend, contract, or permission change.
 | createdBy | ✓ | ✗ | ✗ |
 | createdAt | ✓ | ✓ | ✗ (defer) |
 
-Identical to the Services list minus `health`. Backend `ListSystems` already supports this exact sort allowlist + filter set. Mirror into `docs/design/list-filter-registry.md` (new Systems row).
+Identical to the Services list minus `health`. Backend `ListSystems` already supports this exact sort allowlist + filter set. **Update the existing Systems row** in `docs/design/list-filter-registry.md` (added at S-01 as `built (API-only…)`) — flip to `built` + `<FilterBar>`-wired; do not add a second row.
 
 ## 6. Testing strategy (per docs/TESTING-STRATEGY.md)
 
 Frontend-only slice; the backend seam is already covered by S-01's real-seam integration tests.
 
-**Gate 3 — unit (Vitest + RTL + MSW):**
-- `schemas/__tests__/registerSystem.test.ts` — valid input, name too long/empty, description too long, bad uuid.
-- `api/__tests__/systems.test.tsx` — list query param shaping (teamId/displayNameContains omitted when empty), detail fetch, register POST + invalidation.
-- `components/__tests__/SystemsTable.test.tsx` — renders rows, row-header link, sort callback wiring.
-- `components/__tests__/RegisterSystemDialog.test.tsx` — submit success path + validation error surface.
-- `components/__tests__/SystemMembersSection.test.tsx` — rows (name link + kind badge), empty state, error state, loading skeleton.
-- `pages/__tests__/SystemsListPage.test.tsx` — filter → query wiring, empty-with-filters state, register-button permission gating.
-- `pages/__tests__/SystemDetailPage.test.tsx` — Overview fields, tab switch to Members, not-found card. Assert `getAllByRole("rowheader").length > 0` on any table opened before a dialog/overlay (ADR-0084 react-aria row-header rule).
+**Gate 3 — unit (Vitest + RTL; NO MSW in this repo — stub `apiClient` via `vi.spyOn`, `vi.mock` collaborator hooks + `react-oidc-context`):**
+- `schemas/__tests__/registerSystem.test.ts` — valid input, name too long/empty, description too long/blank-optional, bad uuid.
+- `api/__tests__/systems.test.tsx` — list query param shaping (teamId/displayNameContains omitted when empty; array when set), detail fetch, register POST + cache invalidation, blank-description → omitted from body.
+- `components/__tests__/SystemsTable.test.tsx` — renders rows, row-header link, loading skeleton, empty state, sort callback wiring.
+- `components/__tests__/RegisterSystemDialog.test.tsx` — submit success path, no-team validation error, no-teams disabled.
+- `components/__tests__/SystemMembersSection.test.tsx` — query shape, rows (name link + kind badge, row-header present), non-`partOf` filtered out, empty state, loading skeleton, error line.
+- `pages/__tests__/SystemsListPage.test.tsx` — heading, register-button gating (shown + hidden), default sort, displayNameContains/teamId → query threading, empty-with-filters state.
+- `pages/__tests__/SystemDetailPage.test.tsx` — Overview fields, tab switch to Members, loading skeleton, not-found card. **ADR-0084 row-header rule** is asserted on the *populated* Members table in `SystemMembersSection.test.tsx` (the detail page's empty-members case renders no table); this suite confirms the tab mounts the section.
 
 **Gate 5 — real-seam integration:** **N/A — frontend-only slice; no new HTTP/auth/DB/middleware seam** (register/get/list `/systems` seams already covered by `RegisterSystemTests` / `GetSystemSurfaceTests` / `ListSystemsPaginationTests` from S-01). Same rationale as the `catalog-service-ui-surface` slice.
 
