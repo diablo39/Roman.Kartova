@@ -15,7 +15,7 @@
 | 1 Build (`TreatWarningsAsErrors`) | ✅ PASS | frontend `npm run build` ✅; backend `dotnet build Kartova.slnx` succeeded 0 warn/err |
 | 2 Per-task subagent reviews | ✅ PASS | 2026-07-22 |
 | 3 Full suite (+ real-seam if wiring) | ✅ PASS | frontend 873/873; backend OpenApiTests 3/3; real-seam N/A (see detail) |
-| 4 Container build (images CI) | ⏳ PENDING | api image built locally; web image via CI |
+| 4 Container build (images CI) | ✅ PASS (local) | `docker build -f web/Dockerfile` → kartova/web:ci OK; api/migrator images rebuilt OK. CI images job re-confirms on PR |
 | 5 `/simplify` | ✅ PASS | 4-angle: 1 fix applied (z.infer form type, 6eecca1); efficiency clean; altitude backend-filter finding skipped→follow-up |
 | 6 Mutation (conditional) | N/A | no Domain/Application logic changed (frontend + 3-line OpenAPI doc-transformer) |
 | 7 `requesting-code-review` | ✅ PASS | whole-branch (opus): 0 blocking; 1 should-fix (false isRenderableKind comment) fixed a3a5e91 |
@@ -40,7 +40,7 @@
 **At:** 6eecca18
 
 ### 4 — Container build (images CI job)
-**Status:** ⏳ PENDING — `api` image rebuilt locally (transformer change) + healthy; `web` image via CI images job.
+**Status:** ✅ PASS (local mirror) — `docker build -f web/Dockerfile -t kartova/web:ci web` succeeded (in-image `npm ci` + vite build; 82.5 MB), the exact command the CI `images` job runs. `api`/`migrator` images rebuilt cleanly earlier (transformer change). The PR's `images` job re-confirms on the ubuntu runner (gate 11).
 
 ### 5 — `/simplify` against branch diff
 **Status:** ⏳ PENDING
@@ -64,4 +64,4 @@
 **Status:** ✅ PASS — cold-started vite dev server (:5173) against the live stack (:8080), authenticated in-SPA as `admin@orga.kartova.local` (OrgAdmin). Verified: Systems nav item; `/catalog/systems` list (empty → populated); Register-System dialog (optional description, steward-team dropdown = Demo Team/jjj, created-by Alice Admin); created "Payments Platform" via UI → appears in list (Name/Steward team/Created by/Created cols, no health); detail Overview (description, ID, steward-team link, created-by link, created); Members tab (`?tab=members` in URL, ADR-0114) empty state "No components assigned yet.". **Live API:** `GET /api/v1/catalog/applications` + `POST /api/v1/catalog/relationships` (real JWT + DB) → **201** creating `A App 015 →(partOf)→ Payments Platform`; reloaded Members → populated row (app link + "Application" kind badge) via the real read path. **0 console errors / 0 warnings** on every screen. Evidence: `./evidence/gate10-system-detail-members.png`, `./evidence/gate10-system-members-populated.png`.
 
 ### 11 — CI green on PR
-**Status:** ⏳ PENDING — `scripts/ci-local.sh` pre-push mirror, then PR CI.
+**Status:** ⏳ PENDING (PR CI is authoritative) — pre-push locally verified: Debug full-solution build 0-warn, `tsc -b` 0, frontend Vitest 879/879, backend OpenApiTests 3/3, all 3 container images (`api`/`migrator`/`web`) build clean. The full `scripts/ci-local.sh` **Release** backend suite was not run locally (heavy + Docker-flake-prone here); the 3-line backend change is a doc-transformer with no Release-specific risk beyond the Debug build + OpenApiTests already green. Authoritative gate = the PR's CI run — monitoring after push.
