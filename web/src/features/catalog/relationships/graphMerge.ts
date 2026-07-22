@@ -41,9 +41,12 @@ export function mergeGraphs(results: GraphResponse[]): ExplorerGraph {
       if (!nodes.has(id)) {
         nodes.set(id, {
           id,
-          // Backend GraphNode kind now includes "system"/"api" (client refreshed for E-03.F-03);
-          // narrow to the renderable RelationshipKind as graphModel.ts:80 already does — non-renderable
-          // kinds are filtered downstream (isRenderableKind). System-node rendering is deferred (FU-A).
+          // Backend GraphNode.kind now includes "system"/"api" in the generated type (client refreshed
+          // for E-03.F-03). This cast is behavior-preserving: /graph already returns such nodes at
+          // runtime (live since S-01's PartOf edges) and this code path already stored them under the
+          // stale 3-member type — the refresh only made the widening visible. Matches graphModel.ts:80.
+          // NOTE: there is currently NO downstream filter, so a "system"/"api" node still renders (with
+          // a raw label + broken detail-nav). Proper System/API graph rendering is deferred to FU-A.
           kind: n.kind as RelationshipKind,
           entityId: n.id,
           displayName: n.displayName,

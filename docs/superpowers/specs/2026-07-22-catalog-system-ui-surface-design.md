@@ -26,7 +26,7 @@ Frontend, plus **one 3-line backend OpenAPI-doc fix** (discovered at execution):
 ## 3. Non-goals / out of scope (explicit)
 
 - Assign/remove components to a System (create/delete `PartOf`) → deferred to a rel-UI slice / S-02.
-- System node rendering in the graph explorer / mini-graph (`isRenderableKind` guard excludes `system`) → follow-up FU.
+- System node rendering in the graph explorer / mini-graph → follow-up **FU-A**. NB: there is **no** downstream kind-filter today, so a `system` (or `api`) node returned by `/graph` currently renders with a raw label + broken detail-nav (`/catalog/undefined/{id}`). This is **pre-existing** (live since S-01's `PartOf` edges; shared with `graphModel.ts:80`), not introduced here — this slice only made the generated kind union widen (forcing the `graphMerge.ts` cast). Proper filtering/rendering is FU-A's job.
 - Browse catalog by Org/Team/System hierarchy → **E-03.F-03.S-02**.
 - `memberCount` column on the list (derived aggregate; would need a backend count) → deferred, flagged not silent.
 - Description column on the list (too long for a row) → not needed.

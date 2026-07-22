@@ -53,6 +53,25 @@ describe("mergeGraphs", () => {
     expect(merged.nodes.find((n) => n.id === "api:api-1")?.kind).toBe("api");
     expect(merged.edges).toEqual([{ id: "e1", source: "service:s1", target: "api:api-1", label: "Provides API for" }]);
   });
+
+  it("passes a system node + PartOf edge through unchanged (widened kind after client refresh; render deferred FU-A)", () => {
+    // /graph can return system nodes (S-01 PartOf edges); the generated kind union now includes
+    // "system". mergeGraphs must not drop or throw on it — it flows through (rendering is FU-A).
+    const merged = mergeGraphs([
+      {
+        nodes: [
+          { kind: "service", id: "s1", displayName: "Ledger", depth: 0, teamId: "t1" },
+          { kind: "system", id: "sys-1", displayName: "Payments Platform", depth: 1, teamId: "t1" },
+        ],
+        edges: [
+          { id: "e1", source: { kind: "service", id: "s1" }, target: { kind: "system", id: "sys-1" }, type: "partOf", origin: "manual" },
+        ],
+        truncated: false,
+      } as never,
+    ]);
+    expect(merged.nodes.find((n) => n.id === "system:sys-1")?.kind).toBe("system");
+    expect(merged.edges).toEqual([{ id: "e1", source: "service:s1", target: "system:sys-1", label: "partOf" }]);
+  });
 });
 
 import { bfsDepth } from "@/features/catalog/relationships/graphMerge";
