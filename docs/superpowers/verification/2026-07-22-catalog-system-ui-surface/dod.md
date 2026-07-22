@@ -1,7 +1,7 @@
 # DoD Ledger — System UI surface (E-03.F-03)
 
 **Slice:** `2026-07-22-catalog-system-ui-surface` · **Branch:** `feat/catalog-system-ui-surface` · **HEAD:** `6eecca18` (+ gate-8 test commit pending)
-**PR:** <pending> · **Last updated:** 2026-07-22
+**PR:** [#80](https://github.com/diablo39/Roman.Kartova/pull/80) · **Last updated:** 2026-07-22
 **Spec:** `docs/superpowers/specs/2026-07-22-catalog-system-ui-surface-design.md`
 **Plan:** `docs/superpowers/plans/2026-07-22-catalog-system-ui-surface.md`
 **Findings telemetry:** `./gate-findings.yaml`
