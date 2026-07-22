@@ -451,3 +451,6 @@ quality-analysis.md
 # subagent-driven-development progress ledger (scratch)
 .superpowers/
 /.worktrees/
+
+# Per-slice implementation plans — local scratch, not tracked (specs + verification stay tracked)
+docs/superpowers/plans/
