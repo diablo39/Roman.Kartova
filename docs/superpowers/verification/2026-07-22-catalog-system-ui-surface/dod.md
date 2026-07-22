@@ -23,7 +23,7 @@
 | 9 `deep-review` | ✅ PASS | opus: 0 blocking; 1 should-fix (this ledger stale) reconciled; nits triaged |
 | Terminal re-verify (build + suite) | ✅ PASS | final commit cb7dd1df: tsc -b 0, frontend 879/879, backend build+OpenApiTests unchanged |
 | 10 Visual / API verification (ADR-0084) | ✅ PASS | live stack: register→list→detail→Members (empty+populated), live POST /relationships 201, 0 console errors |
-| 11 CI green on PR | ⏳ PENDING | — |
+| 11 CI green on PR | ✅ PASS | PR #80 run 29927927015 @ 4714dbdb: all 5 checks pass, mergeState CLEAN |
 
 ## Gate detail
 
@@ -64,4 +64,4 @@
 **Status:** ✅ PASS — cold-started vite dev server (:5173) against the live stack (:8080), authenticated in-SPA as `admin@orga.kartova.local` (OrgAdmin). Verified: Systems nav item; `/catalog/systems` list (empty → populated); Register-System dialog (optional description, steward-team dropdown = Demo Team/jjj, created-by Alice Admin); created "Payments Platform" via UI → appears in list (Name/Steward team/Created by/Created cols, no health); detail Overview (description, ID, steward-team link, created-by link, created); Members tab (`?tab=members` in URL, ADR-0114) empty state "No components assigned yet.". **Live API:** `GET /api/v1/catalog/applications` + `POST /api/v1/catalog/relationships` (real JWT + DB) → **201** creating `A App 015 →(partOf)→ Payments Platform`; reloaded Members → populated row (app link + "Application" kind badge) via the real read path. **0 console errors / 0 warnings** on every screen. Evidence: `./evidence/gate10-system-detail-members.png`, `./evidence/gate10-system-members-populated.png`.
 
 ### 11 — CI green on PR
-**Status:** ⏳ PENDING (PR CI is authoritative) — pre-push locally verified: Debug full-solution build 0-warn, `tsc -b` 0, frontend Vitest 879/879, backend OpenApiTests 3/3, all 3 container images (`api`/`migrator`/`web`) build clean. The full `scripts/ci-local.sh` **Release** backend suite was not run locally (heavy + Docker-flake-prone here); the 3-line backend change is a doc-transformer with no Release-specific risk beyond the Debug build + OpenApiTests already green. Authoritative gate = the PR's CI run — monitoring after push.
+**Status:** ✅ PASS — PR #80, run `29927927015` on final HEAD `4714dbdb`: **all 5 checks pass** — Backend (arch+unit+integration) 3m15s, Frontend (test+typecheck+build) 3m13s, Container images 2m2s, Helm 8s, Stryker config drift 11s. `mergeStateStatus: CLEAN`, `mergeable: MERGEABLE`. (The full Release backend suite ran green on the ubuntu runner — the authoritative gate — validating the parts not run in the local Debug pre-push.)
