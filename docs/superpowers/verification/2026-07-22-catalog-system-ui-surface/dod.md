@@ -21,8 +21,8 @@
 | 7 `requesting-code-review` | ✅ PASS | whole-branch (opus): 0 blocking; 1 should-fix (false isRenderableKind comment) fixed a3a5e91 |
 | 8 `review-pr` | ✅ PASS | 4 agents: silent-failure clean, type-design sound, code-review no-new; pr-test-analyzer found 4 error-path gaps → fixing |
 | 9 `deep-review` | ✅ PASS | opus: 0 blocking; 1 should-fix (this ledger stale) reconciled; nits triaged |
-| Terminal re-verify (build + suite) | ⏳ PENDING | after gate-8 test additions land |
-| 10 Visual / API verification (ADR-0084) | ⏳ PENDING | stack up on :8080 / dev server for :5173 |
+| Terminal re-verify (build + suite) | ✅ PASS | final commit cb7dd1df: tsc -b 0, frontend 879/879, backend build+OpenApiTests unchanged |
+| 10 Visual / API verification (ADR-0084) | ✅ PASS | live stack: register→list→detail→Members (empty+populated), live POST /relationships 201, 0 console errors |
 | 11 CI green on PR | ⏳ PENDING | — |
 
 ## Gate detail
@@ -58,10 +58,10 @@
 **Status:** ✅ PASS — opus, 0 blocking. Should-fix: this ledger was stale (HEAD/gate-1/gate-3 rows) → reconciled to 6eecca18. Nits (ENTITY_KIND_LABEL raw fallback; spec §2 "enum" wording; dead createdAt guard) triaged — spec wording fixed, others inherited/rolled-up. Report: `./deep-review.md`.
 
 ### Terminal re-verify
-**Status:** ⏳ PENDING — re-run build + full suite on the final commit after the gate-8 test additions land.
+**Status:** ✅ PASS — on final commit `cb7dd1df`: `npx tsc -b` 0 errors; full frontend Vitest **879/879** (122 files) incl. the 6 added tests (graphMerge system-node + 5 gate-8 error-path/reset cases); backend build + OpenApiTests unchanged (no backend edits since).
 
 ### 10 — Visual / API verification (ADR-0084)
-**Status:** ⏳ PENDING — cold-start dev server, authenticate, navigate `/catalog/systems`, register a System, open detail, switch Members tab; screenshot + 0 console errors. Live API `GET /api/v1/catalog/systems` exercise.
+**Status:** ✅ PASS — cold-started vite dev server (:5173) against the live stack (:8080), authenticated in-SPA as `admin@orga.kartova.local` (OrgAdmin). Verified: Systems nav item; `/catalog/systems` list (empty → populated); Register-System dialog (optional description, steward-team dropdown = Demo Team/jjj, created-by Alice Admin); created "Payments Platform" via UI → appears in list (Name/Steward team/Created by/Created cols, no health); detail Overview (description, ID, steward-team link, created-by link, created); Members tab (`?tab=members` in URL, ADR-0114) empty state "No components assigned yet.". **Live API:** `GET /api/v1/catalog/applications` + `POST /api/v1/catalog/relationships` (real JWT + DB) → **201** creating `A App 015 →(partOf)→ Payments Platform`; reloaded Members → populated row (app link + "Application" kind badge) via the real read path. **0 console errors / 0 warnings** on every screen. Evidence: `./evidence/gate10-system-detail-members.png`, `./evidence/gate10-system-members-populated.png`.
 
 ### 11 — CI green on PR
 **Status:** ⏳ PENDING — `scripts/ci-local.sh` pre-push mirror, then PR CI.
