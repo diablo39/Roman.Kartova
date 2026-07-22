@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { registerSystemSchema } from "../registerSystem";
 
 describe("registerSystemSchema", () => {
-  const base = { displayName: "Payments Platform", description: "Core", teamId: "11111111-1111-1111-1111-111111111111" };
+  const base = { displayName: "Payments Platform", description: "Core", teamId: "a0000000-0000-4000-8000-000000000001" };
 
   it("accepts a valid input", () => {
     expect(registerSystemSchema.safeParse(base).success).toBe(true);
@@ -28,5 +28,7 @@ describe("registerSystemSchema", () => {
 
   it("rejects a non-uuid teamId", () => {
     expect(registerSystemSchema.safeParse({ ...base, teamId: "nope" }).success).toBe(false);
+    // Zod v4's .uuid() enforces RFC-4122 version/variant bits — an all-1s value is malformed.
+    expect(registerSystemSchema.safeParse({ ...base, teamId: "11111111-1111-1111-1111-111111111111" }).success).toBe(false);
   });
 });
