@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { ModalOverlay, Modal, Dialog } from "@/components/application/modals/modal";
 import { HookForm, FormField } from "@/components/base/form/hook-form";
@@ -17,7 +18,8 @@ import { applyProblemDetailsToForm, type ProblemDetails } from "@/shared/forms/p
 import { useCurrentUser } from "@/shared/auth/useCurrentUser";
 import { initialsOf } from "@/shared/auth/initials";
 
-type TextFieldsInput = { displayName: string; description?: string };
+const textFieldsSchema = registerSystemSchema.pick({ displayName: true, description: true });
+type TextFieldsInput = z.infer<typeof textFieldsSchema>;
 
 interface Props {
   open: boolean;
@@ -32,7 +34,7 @@ export function RegisterSystemDialog({ open, onOpenChange }: Props) {
   const [teamError, setTeamError] = useState<string>("");
 
   const form = useForm<TextFieldsInput>({
-    resolver: zodResolver(registerSystemSchema.pick({ displayName: true, description: true })),
+    resolver: zodResolver(textFieldsSchema),
     defaultValues: { displayName: "", description: "" },
   });
 
