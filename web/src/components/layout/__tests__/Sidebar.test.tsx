@@ -101,6 +101,12 @@ describe("Sidebar", () => {
     expect(screen.getByRole("link", { name: "APIs" })).toHaveAttribute("href", "/catalog/apis");
   });
 
+  it("renders a Systems nav link under Catalog", () => {
+    setPermissions();
+    renderSidebar();
+    expect(screen.getByRole("link", { name: "Systems" })).toHaveAttribute("href", "/catalog/systems");
+  });
+
   it("renders disabled placeholders (Infrastructure / Docs) with data-disabled", () => {
     setPermissions();
     renderSidebar();

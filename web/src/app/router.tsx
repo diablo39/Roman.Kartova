@@ -8,6 +8,8 @@ import { ServicesListPage } from "@/features/catalog/pages/ServicesListPage";
 import { ServiceDetailPage } from "@/features/catalog/pages/ServiceDetailPage";
 import { ApisListPage } from "@/features/catalog/pages/ApisListPage";
 import { ApiDetailPage } from "@/features/catalog/pages/ApiDetailPage";
+import { SystemsListPage } from "@/features/catalog/pages/SystemsListPage";
+import { SystemDetailPage } from "@/features/catalog/pages/SystemDetailPage";
 import { TeamsListPage } from "@/features/teams/pages/TeamsListPage";
 import { TeamDetailPage } from "@/features/teams/pages/TeamDetailPage";
 import { WelcomePage } from "@/features/auth/pages/WelcomePage";
@@ -57,6 +59,8 @@ export function AppRoutes() {
         <Route path="/catalog/services/:id" element={<ServiceDetailPage />} />
         <Route path="/catalog/apis" element={<ApisListPage />} />
         <Route path="/catalog/apis/:id" element={<ApiDetailPage />} />
+        <Route path="/catalog/systems" element={<SystemsListPage />} />
+        <Route path="/catalog/systems/:id" element={<SystemDetailPage />} />
         <Route path="/teams" element={<TeamsListPage />} />
         <Route path="/teams/:id" element={<TeamDetailPage />} />
         <Route path="/settings/organization" element={<OrganizationSettingsPage />} />
