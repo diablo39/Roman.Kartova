@@ -51,12 +51,21 @@
 
 ---
 
-### Task 1: Regenerate the OpenAPI client for `/systems`
+### Task 1: Register `ListSystems` in the OpenAPI transformer + regenerate the client
 
 The S-01 `/systems` endpoints are not in the committed `web/openapi-snapshot.json`, so `components["schemas"]["SystemResponse"]` and `operations["ListSystems"]` don't exist yet. All later tasks depend on these types.
 
+**Latent S-01 defect fixed here (backend, 3 lines):** S-01 added `ListSystems` but never registered it in `src/Kartova.Api/OpenApi/CursorListQueryParameterTransformer.cs` (whose doc says "Add a row when a new list endpoint is introduced"). Without it, `ListSystems` publishes loose `sortBy: string` / `sortOrder: string` / `limit: string` instead of typed enums + bounded int — which breaks the Services-mirror (`limit: params.limit ?? 50` is a `number`, unassignable to `limit?: string`). This is a **doc-shape-only** change (runtime binding already parses via `CursorListBinding`; S-01 `ListSystemsPaginationTests` already cover behavior) → **gate 5 stays N/A**. `OpenApiTests` may need a refresh (name-keyed/live).
+
 **Files:**
+- Modify: `src/Kartova.Api/OpenApi/CursorListQueryParameterTransformer.cs` — add `("ListSystems","sortBy")=typeof(SystemSortField)`, `("ListSystems","sortOrder")=typeof(SortOrder)` to `EnumByOperationParameter`; add `"ListSystems"` to `OperationsWithLimitParameter`.
 - Modify: `web/openapi-snapshot.json`
+
+- [ ] **Step 0: Register ListSystems in the transformer, rebuild the API image**
+
+Apply the 3-line edit above, then rebuild so the live spec reflects it: `docker compose up -d --build api`.
+Verify: `curl -s http://localhost:8080/openapi/v1.json | python -c "import sys,json; p=json.load(sys.stdin)['paths']['/api/v1/catalog/systems']['get']['parameters']; print({x['name']:x['schema'] for x in p if x['name'] in ('sortBy','sortOrder','limit')})"`
+Expected: `sortBy`/`sortOrder` show `enum`, `limit` shows `type: integer` min 1 max 200.
 
 - [ ] **Step 1: Start the API so the live spec exposes `/systems`**
 

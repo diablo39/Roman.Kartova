@@ -10,7 +10,7 @@
 
 Ship the frontend for the `System` catalog entity. The backend (register/get/list `/systems`, RLS, `catalog.systems.register`, `PartOf` edges) landed in S-01 backend-only. This slice mirrors the existing **Service/API UI surfaces**: a Systems list page, a Register-System dialog, and a tabbed read-only detail page whose second tab lists the components already assigned to the System via incoming `PartOf` edges.
 
-Frontend-only. No backend, contract, or permission change.
+Frontend, plus **one 3-line backend OpenAPI-doc fix** (discovered at execution): S-01 never registered `ListSystems` in `CursorListQueryParameterTransformer`, so its `sortBy`/`sortOrder`/`limit` publish as loose `string` instead of typed enums + bounded int, breaking the typed client mirror. Registering it is a doc-shape-only change (runtime binding unchanged; behavior already covered by S-01 `ListSystemsPaginationTests`) — **gate 5 stays N/A**. No contract or permission change.
 
 ## 2. Locked decisions
 

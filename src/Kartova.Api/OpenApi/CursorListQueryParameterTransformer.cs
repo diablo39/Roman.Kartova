@@ -40,6 +40,8 @@ internal sealed class CursorListQueryParameterTransformer : IOpenApiOperationTra
         [("ListServices", "sortOrder")] = typeof(SortOrder),
         [("ListApis", "sortBy")] = typeof(ApiSortField),
         [("ListApis", "sortOrder")] = typeof(SortOrder),
+        [("ListSystems", "sortBy")] = typeof(SystemSortField),
+        [("ListSystems", "sortOrder")] = typeof(SortOrder),
         [("ListTeams", "sortBy")] = typeof(TeamSortField),
         [("ListTeams", "sortOrder")] = typeof(SortOrder),
     };
@@ -54,6 +56,7 @@ internal sealed class CursorListQueryParameterTransformer : IOpenApiOperationTra
         "ListApplications",
         "ListServices",
         "ListApis",
+        "ListSystems",
         "ListTeams",
     };
 
