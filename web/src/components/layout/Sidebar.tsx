@@ -40,9 +40,10 @@ const navItemClass = (active: boolean) =>
  * identical chrome.
  *
  * Plain `NavLink` descendant matching is correct for every item: Applications
- * (`/catalog/applications`) and Services (`/catalog/services`) no longer share
- * a path prefix beyond `/catalog`, so neither highlights on the other's routes,
- * while each still lights up on its own detail pages (`…/:id`).
+ * (`/catalog/applications`), Services (`/catalog/services`), APIs
+ * (`/catalog/apis`), and Systems (`/catalog/systems`) no longer share a path
+ * prefix beyond `/catalog`, so none highlights on another's routes, while each
+ * still lights up on its own detail pages (`…/:id`).
  */
 function NavItemLink({ to, label }: { to: string; label: string }) {
   return (
@@ -86,6 +87,9 @@ export function Sidebar() {
             </li>
             <li>
               <NavItemLink to="/catalog/apis" label="APIs" />
+            </li>
+            <li>
+              <NavItemLink to="/catalog/systems" label="Systems" />
             </li>
             <li>
               <DisabledItem label="Infrastructure" />
