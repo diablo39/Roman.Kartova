@@ -1,0 +1,55 @@
+slice:  2026-07-22-catalog-system-ui-surface
+branch: feat/catalog-system-ui-surface
+head:   ad991d31
+
+findings:
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "Task 2 implementer loosened z.uuid() to a hand-rolled regex to fit a bad all-1s test UUID"
+    note: "Controller-caught pre-review from implementer's own concern; restored z.uuid() + valid v4 fixture (9b3ad04a). Root cause = plan's invalid test UUID."
+  - gate: reviews
+    severity: blocking
+    verdict: real
+    title: "tsc -b failed (systems.ts description undefined vs string|null; graphMerge.ts kind widened by client refresh; test mock.calls[0] undefined) — masked by Vitest esbuild"
+    note: "Surfaced by Task 5 review. Fixed 0ca2f62: blank desc -> null; mock.calls[0]! guard; graphMerge n.kind as RelationshipKind (matches graphModel.ts:80). tsc -b now 0 errors."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Field-constraint duplication across register* schemas; detail-page skeleton/not-found/Field duplicated across 4 pages (QUA-021)"
+    note: "Brief-mandated mirror; extract-shared-primitives follow-up, not this slice. Rolled up for final review triage."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "SystemMembersSection TablePager pageSize reflects client partOf-filtered count; duplicate aria-label on section+table"
+    note: "Inherited from RelationshipsSection convention; rare under-report (backend restricts incoming-to-System to partOf). Non-blocking."
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "graphMerge.ts comment + spec §3 cited a non-existent isRenderableKind downstream filter"
+    note: "Whole-branch review (opus). Corrected comment/spec to truth (no filter; system/api graph nodes render unfiltered w/ broken nav — pre-existing since S-01, deferred FU-A). Added mergeGraphs system-node test. Fixed a3a5e91."
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "graphMerge widened-kind path had no test; description sent untrimmed when non-blank; spec displayName 'trim' wording drift"
+    note: "Added system-node mergeGraphs test. Untrimmed-desc + trim-wording match registerService convention — cosmetic, left as-is."
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "pr-test-analyzer: error-path coverage gaps — SystemsListPage list-error card + RegisterSystemDialog mutation-failure (ProblemDetails/toast) untested (2 Critical); no-description branch + dialog reset-on-close (2 Important)"
+    note: "gate-8 distinct lens caught what per-task/whole-branch/simplify missed. Added 4 test cases via gate-8 test commit."
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "type-design: SortField literal union hand-declared 3x (api/table/page), only api derives from generated type"
+    note: "Inherited convention across all 4 sibling tables (Apis/Applications/Services). Optional repo-wide follow-up (export derived type), not this slice."
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "DoD ledger stale/contradictory (HEAD ad991d31 vs 6eecca18; gate 1/3 summary PASS but detail PENDING)"
+    note: "Reconciled ledger to final commit + PASS detail sections."
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "spec §2 said member kind is a '4-member enum'; the relationship contract kind is not a strict enum — isRelationshipKind is what narrows"
+    note: "Spec wording corrected. ENTITY_KIND_LABEL raw fallback + dead createdAt guard left (inherited convention)."

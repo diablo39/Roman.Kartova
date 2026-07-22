@@ -42,6 +42,16 @@ describe("SystemDetailPage", () => {
     expect(screen.getByText("Platform Team")).toBeInTheDocument();
   });
 
+  it("renders 'No description' italic placeholder when description is null", () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    qc.setQueryData(systemKeys.detail(sys.id), { ...sys, description: null });
+    render(harness(qc, `/catalog/systems/${sys.id}`));
+    const placeholder = screen.getByText("No description");
+    expect(placeholder).toBeInTheDocument();
+    expect(placeholder.tagName.toLowerCase()).toBe("span");
+    expect(placeholder).toHaveClass("italic");
+  });
+
   it("switches to the Members tab and shows the empty state (with a row header once loaded)", async () => {
     renderCached();
     await userEvent.click(screen.getByRole("tab", { name: /Members/i }));

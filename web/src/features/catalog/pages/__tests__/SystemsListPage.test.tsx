@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 
 vi.mock("react-oidc-context", () => ({
@@ -79,5 +80,16 @@ describe("SystemsListPage", () => {
     setPerms([]);
     renderPage("/catalog/systems?displayNameContains=zzz");
     expect(await screen.findByText(/no systems match your filters/i)).toBeInTheDocument();
+  });
+
+  it("shows the error card with a wired Reset when the list fails to load", async () => {
+    setPerms([]);
+    const reset = vi.fn();
+    useSystemsListMock.mockReturnValue({ ...stubList(), isError: true, error: new Error("net"), reset });
+    renderPage();
+    expect(screen.getByText(/failed to load systems/i)).toBeInTheDocument();
+    const resetBtn = screen.getByRole("button", { name: /reset/i });
+    await userEvent.click(resetBtn);
+    expect(reset).toHaveBeenCalled();
   });
 });
