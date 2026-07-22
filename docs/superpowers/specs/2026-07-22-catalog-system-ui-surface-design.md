@@ -75,7 +75,7 @@ Frontend-only slice; the backend seam is already covered by S-01's real-seam int
 
 **Gate 3 — unit (Vitest + RTL; NO MSW in this repo — stub `apiClient` via `vi.spyOn`, `vi.mock` collaborator hooks + `react-oidc-context`):**
 - `schemas/__tests__/registerSystem.test.ts` — valid input, name too long/empty, description too long/blank-optional, bad uuid.
-- `api/__tests__/systems.test.tsx` — list query param shaping (teamId/displayNameContains omitted when empty; array when set), detail fetch, register POST + cache invalidation, blank-description → omitted from body.
+- `api/__tests__/systems.test.tsx` — list query param shaping (teamId/displayNameContains omitted when empty; array when set), detail fetch, register POST + cache invalidation, blank-description → sent as `null` (the generated `RegisterSystemRequest.description` is `string | null`).
 - `components/__tests__/SystemsTable.test.tsx` — renders rows, row-header link, loading skeleton, empty state, sort callback wiring.
 - `components/__tests__/RegisterSystemDialog.test.tsx` — submit success path, no-team validation error, no-teams disabled.
 - `components/__tests__/SystemMembersSection.test.tsx` — query shape, rows (name link + kind badge, row-header present), non-`partOf` filtered out, empty state, loading skeleton, error line.

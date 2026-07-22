@@ -265,12 +265,12 @@ describe("api/systems", () => {
     await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ["systems"] }));
   });
 
-  it("omits a blank description from the POST body (sends undefined)", async () => {
+  it("sends a blank description as null in the POST body", async () => {
     const post = vi.fn().mockResolvedValue({ data: sys, error: undefined, response: new Response() });
     vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: vi.fn(), POST: post } as never);
     const { result } = renderHook(() => useRegisterSystem(), { wrapper: wrapper() });
     await result.current.mutateAsync({ displayName: "Alpha", teamId: "team1", description: "   " });
-    expect(post.mock.calls[0][1].body.description).toBeUndefined();
+    expect(post.mock.calls[0]![1].body.description).toBeNull();
   });
 });
 ```
@@ -350,7 +350,7 @@ export function useRegisterSystem() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: RegisterSystemInput) => {
-      const body = { ...input, description: input.description?.trim() ? input.description : undefined };
+      const body = { ...input, description: input.description?.trim() ? input.description : null }; // string|null contract
       const { data, error, response } = await apiClient.POST("/api/v1/catalog/systems", { body });
       if (error) throwWithStatus(error, response);
       return unwrapData(data);
