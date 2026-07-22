@@ -41,7 +41,10 @@ export function mergeGraphs(results: GraphResponse[]): ExplorerGraph {
       if (!nodes.has(id)) {
         nodes.set(id, {
           id,
-          kind: n.kind,
+          // Backend GraphNode kind now includes "system"/"api" (client refreshed for E-03.F-03);
+          // narrow to the renderable RelationshipKind as graphModel.ts:80 already does — non-renderable
+          // kinds are filtered downstream (isRenderableKind). System-node rendering is deferred (FU-A).
+          kind: n.kind as RelationshipKind,
           entityId: n.id,
           displayName: n.displayName,
           depth: Number(n.depth),

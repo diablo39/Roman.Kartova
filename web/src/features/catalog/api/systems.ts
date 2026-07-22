@@ -64,7 +64,9 @@ export function useRegisterSystem() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: RegisterSystemInput) => {
-      const body = { ...input, description: input.description?.trim() ? input.description : undefined };
+      // RegisterSystemRequest.description is `string | null` in the generated contract (required-nullable),
+      // so a blank/absent description is sent as null (not undefined).
+      const body = { ...input, description: input.description?.trim() ? input.description : null };
       const { data, error, response } = await apiClient.POST("/api/v1/catalog/systems", { body });
       if (error) throwWithStatus(error, response);
       return unwrapData(data);

@@ -29,7 +29,7 @@ describe("api/systems", () => {
     const get = stubGet();
     const { result } = renderHook(() => useSystemsList({ sortBy: "displayName", sortOrder: "asc" }), { wrapper: wrapper() });
     await waitFor(() => expect(result.current.items.length).toBe(1));
-    const query = get.mock.calls[0][1].params.query;
+    const query = get.mock.calls[0]![1].params.query;
     expect(query.sortBy).toBe("displayName");
     expect(query).not.toHaveProperty("teamId");
     expect(query).not.toHaveProperty("displayNameContains");
@@ -42,7 +42,7 @@ describe("api/systems", () => {
       { wrapper: wrapper() },
     );
     await waitFor(() => expect(result.current.items.length).toBe(1));
-    const query = get.mock.calls[0][1].params.query;
+    const query = get.mock.calls[0]![1].params.query;
     expect(query.teamId).toEqual(["a", "b"]);
     expect(query.displayNameContains).toBe("pay");
   });
@@ -61,15 +61,15 @@ describe("api/systems", () => {
     const w = ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
     const { result } = renderHook(() => useRegisterSystem(), { wrapper: w });
     await result.current.mutateAsync({ displayName: "Alpha", teamId: "team1", description: "core" });
-    expect(post.mock.calls[0][1].body).toMatchObject({ displayName: "Alpha", teamId: "team1", description: "core" });
+    expect(post.mock.calls[0]![1].body).toMatchObject({ displayName: "Alpha", teamId: "team1", description: "core" });
     await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ["systems"] }));
   });
 
-  it("omits a blank description from the POST body (sends undefined)", async () => {
+  it("sends a blank description as null in the POST body", async () => {
     const post = vi.fn().mockResolvedValue({ data: sys, error: undefined, response: new Response() });
     vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: vi.fn(), POST: post } as never);
     const { result } = renderHook(() => useRegisterSystem(), { wrapper: wrapper() });
     await result.current.mutateAsync({ displayName: "Alpha", teamId: "team1", description: "   " });
-    expect(post.mock.calls[0][1].body.description).toBeUndefined();
+    expect(post.mock.calls[0]![1].body.description).toBeNull();
   });
 });
