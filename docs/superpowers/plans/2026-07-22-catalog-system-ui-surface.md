@@ -6,7 +6,7 @@
 
 **Architecture:** Pure frontend slice mirroring the existing Service/API UI surfaces (ADR-0094 Untitled UI + react-aria; ADR-0095 cursor lists; ADR-0107 filters; ADR-0114 tabbed detail). Backend `/systems` endpoints + `PartOf` edges already shipped in E-03.F-03.S-01. The Members list reuses the existing `GET /catalog/relationships` read layer (`entityKind=system`, `direction=incoming`, mapped over `r.source`).
 
-**Tech Stack:** React 19 + TypeScript, TanStack Query, react-hook-form + zod, react-aria-components, Vitest + React Testing Library + MSW, openapi-typescript codegen.
+**Tech Stack:** React 19 + TypeScript, TanStack Query, react-hook-form + zod, react-aria-components, Vitest + React Testing Library + `@testing-library/user-event`, openapi-typescript codegen. **No MSW in this repo** — data-layer tests stub `apiClient` via `vi.spyOn(clientModule,"apiClient","get")`; page/component tests `vi.mock` the feature hook and `react-oidc-context`.
 
 ## Global Constraints
 
@@ -183,52 +183,85 @@ git commit -m "feat(web): registerSystem zod schema"
 - Consumes: `RegisterSystemInput` (Task 2); generated `SystemResponse`, `operations["ListSystems"]` (Task 1); `useCursorList`, `unwrapData`, `throwWithStatus`, `apiClient`.
 - Produces: `useSystemsList(params)`, `useSystem(id)`, `useRegisterSystem()`, `systemKeys`, `type SystemResponse`. `SystemsListParams = { sortBy; sortOrder; limit?; teamId?: string[]; displayNameContains? }`.
 
-- [ ] **Step 1: Write the failing test** (mirrors `api/__tests__/services.test.tsx`)
+- [ ] **Step 1: Write the failing test** (mirrors `api/__tests__/services.test.tsx` — `vi.spyOn(apiClient)`, NO msw)
+
+> **Harness note (review B1):** this repo has **no MSW**. Data-layer tests stub the client with `vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET, POST })` and a local `wrapper()` (see `api/__tests__/services.test.tsx:1-33`). Query params are asserted by inspecting the GET mock's call args (`get.mock.calls[0][1].params.query`), not a captured URL.
 
 ```tsx
 // web/src/features/catalog/api/__tests__/systems.test.tsx
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
-import { http, HttpResponse } from "msw";
-import { server } from "@/test/msw/server";
-import { createWrapper } from "@/test/react-query";
-import { useSystemsList, useSystem, useRegisterSystem } from "../systems";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 
-const page = { items: [{ id: "s1", tenantId: "t1", displayName: "Alpha", description: null, teamId: "team1", createdByUserId: "u1", createdAt: "2026-07-22T00:00:00Z", createdBy: null }], nextCursor: null, prevCursor: null };
+import * as clientModule from "@/features/catalog/api/client";
+import { useSystem, useSystemsList, useRegisterSystem } from "../systems";
+
+function wrapper() {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+  );
+}
+
+const sys = { id: "s1", tenantId: "t1", displayName: "Alpha", description: null, teamId: "team1", createdByUserId: "u1", createdAt: "2026-07-22T00:00:00Z", createdBy: null };
+const page = { items: [sys], nextCursor: null, prevCursor: null };
 
 describe("api/systems", () => {
-  let captured: URL | null = null;
-  beforeEach(() => { captured = null; });
+  beforeEach(() => vi.restoreAllMocks());
 
-  it("omits teamId/displayNameContains when empty", async () => {
-    server.use(http.get("*/api/v1/catalog/systems", ({ request }) => { captured = new URL(request.url); return HttpResponse.json(page); }));
-    const { result } = renderHook(() => useSystemsList({ sortBy: "displayName", sortOrder: "asc" }), { wrapper: createWrapper() });
+  function stubGet(returnValue: unknown = page) {
+    const get = vi.fn().mockResolvedValue({ data: returnValue, error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: get, POST: vi.fn() } as never);
+    return get;
+  }
+
+  it("omits teamId/displayNameContains from the query when empty", async () => {
+    const get = stubGet();
+    const { result } = renderHook(() => useSystemsList({ sortBy: "displayName", sortOrder: "asc" }), { wrapper: wrapper() });
     await waitFor(() => expect(result.current.items.length).toBe(1));
-    expect(captured!.searchParams.get("teamId")).toBeNull();
-    expect(captured!.searchParams.get("displayNameContains")).toBeNull();
-    expect(captured!.searchParams.get("sortBy")).toBe("displayName");
+    const query = get.mock.calls[0][1].params.query;
+    expect(query.sortBy).toBe("displayName");
+    expect(query).not.toHaveProperty("teamId");
+    expect(query).not.toHaveProperty("displayNameContains");
   });
 
-  it("passes teamId (repeated) + displayNameContains when set", async () => {
-    server.use(http.get("*/api/v1/catalog/systems", ({ request }) => { captured = new URL(request.url); return HttpResponse.json(page); }));
-    const { result } = renderHook(() => useSystemsList({ sortBy: "displayName", sortOrder: "asc", teamId: ["a", "b"], displayNameContains: "pay" }), { wrapper: createWrapper() });
+  it("passes teamId (array) + displayNameContains when set", async () => {
+    const get = stubGet();
+    const { result } = renderHook(
+      () => useSystemsList({ sortBy: "displayName", sortOrder: "asc", teamId: ["a", "b"], displayNameContains: "pay" }),
+      { wrapper: wrapper() },
+    );
     await waitFor(() => expect(result.current.items.length).toBe(1));
-    expect(captured!.searchParams.getAll("teamId")).toEqual(["a", "b"]);
-    expect(captured!.searchParams.get("displayNameContains")).toBe("pay");
+    const query = get.mock.calls[0][1].params.query;
+    expect(query.teamId).toEqual(["a", "b"]);
+    expect(query.displayNameContains).toBe("pay");
   });
 
   it("fetches a single system by id", async () => {
-    server.use(http.get("*/api/v1/catalog/systems/s1", () => HttpResponse.json(page.items[0])));
-    const { result } = renderHook(() => useSystem("s1"), { wrapper: createWrapper() });
+    stubGet(sys);
+    const { result } = renderHook(() => useSystem("s1"), { wrapper: wrapper() });
     await waitFor(() => expect(result.current.data?.displayName).toBe("Alpha"));
   });
 
-  it("POSTs on register", async () => {
-    let body: unknown = null;
-    server.use(http.post("*/api/v1/catalog/systems", async ({ request }) => { body = await request.json(); return HttpResponse.json(page.items[0]); }));
-    const { result } = renderHook(() => useRegisterSystem(), { wrapper: createWrapper() });
-    await result.current.mutateAsync({ displayName: "Alpha", teamId: "team1" });
-    expect(body).toMatchObject({ displayName: "Alpha", teamId: "team1" });
+  it("POSTs the payload on register and invalidates the systems cache", async () => {
+    const post = vi.fn().mockResolvedValue({ data: sys, error: undefined, response: new Response() });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: vi.fn(), POST: post } as never);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidate = vi.spyOn(qc, "invalidateQueries");
+    const w = ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+    const { result } = renderHook(() => useRegisterSystem(), { wrapper: w });
+    await result.current.mutateAsync({ displayName: "Alpha", teamId: "team1", description: "core" });
+    expect(post.mock.calls[0][1].body).toMatchObject({ displayName: "Alpha", teamId: "team1", description: "core" });
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ["systems"] }));
+  });
+
+  it("omits a blank description from the POST body (sends undefined)", async () => {
+    const post = vi.fn().mockResolvedValue({ data: sys, error: undefined, response: new Response() });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: vi.fn(), POST: post } as never);
+    const { result } = renderHook(() => useRegisterSystem(), { wrapper: wrapper() });
+    await result.current.mutateAsync({ displayName: "Alpha", teamId: "team1", description: "   " });
+    expect(post.mock.calls[0][1].body.description).toBeUndefined();
   });
 });
 ```
@@ -325,7 +358,7 @@ export type { SystemResponse };
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `cd web && npx vitest run src/features/catalog/api/__tests__/systems.test.tsx`
-Expected: PASS (4 tests). If `createWrapper`/`server` import paths differ, align them with `api/__tests__/services.test.tsx`.
+Expected: PASS (5 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -351,14 +384,21 @@ git commit -m "feat(web): systems data layer (list/detail/register hooks)"
 ```tsx
 // web/src/features/catalog/components/__tests__/SystemsTable.test.tsx
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { SystemsTable } from "../SystemsTable";
 import type { CursorListResult } from "@/lib/list/types";
 import type { SystemResponse } from "@/features/catalog/api/systems";
 
-function makeList(items: SystemResponse[]): CursorListResult<SystemResponse> {
-  return { items, isLoading: false, isError: false, error: null, hasPrev: false, hasNext: false, goPrev: vi.fn(), goNext: vi.fn(), reset: vi.fn() } as unknown as CursorListResult<SystemResponse>;
+// Full CursorListResult default (matches ServicesTable.test.tsx) — no unsafe cast; includes
+// the isFetching/refetch fields the type requires so future drift is type-checked.
+function makeList(over: Partial<CursorListResult<SystemResponse>> = {}): CursorListResult<SystemResponse> {
+  return {
+    items: [], isLoading: false, isFetching: false, isError: false, error: null,
+    hasPrev: false, hasNext: false, goPrev: vi.fn(), goNext: vi.fn(), reset: vi.fn(), refetch: vi.fn(),
+    ...over,
+  };
 }
 const sys = (over: Partial<SystemResponse> = {}): SystemResponse => ({ id: "s1", tenantId: "t1", displayName: "Alpha", description: null, teamId: "team1", createdByUserId: "u1", createdAt: "2026-07-22T00:00:00Z", createdBy: null, ...over } as SystemResponse);
 
@@ -368,21 +408,26 @@ describe("SystemsTable", () => {
   const teamNames = new Map([["team1", "Platform Team"]]);
 
   it("renders a row with a name link and steward team", () => {
-    render1(<SystemsTable list={makeList([sys()])} sortBy="displayName" sortOrder="asc" onSortChange={vi.fn()} teamNameById={teamNames} />);
+    render1(<SystemsTable list={makeList({ items: [sys()] })} sortBy="displayName" sortOrder="asc" onSortChange={vi.fn()} teamNameById={teamNames} />);
     expect(screen.getByRole("link", { name: "Alpha" })).toHaveAttribute("href", "/catalog/systems/s1");
     expect(screen.getByText("Platform Team")).toBeInTheDocument();
     expect(screen.getAllByRole("rowheader").length).toBeGreaterThan(0); // ADR-0084
   });
 
+  it("renders a loading skeleton (still has a row header) when loading", () => {
+    render1(<SystemsTable list={makeList({ isLoading: true })} sortBy="displayName" sortOrder="asc" onSortChange={vi.fn()} teamNameById={teamNames} />);
+    expect(screen.getAllByRole("rowheader").length).toBeGreaterThan(0); // ADR-0084 (loading branch)
+  });
+
   it("shows an empty state when there are no systems", () => {
-    render1(<SystemsTable list={makeList([])} sortBy="displayName" sortOrder="asc" onSortChange={vi.fn()} teamNameById={teamNames} />);
+    render1(<SystemsTable list={makeList({ items: [] })} sortBy="displayName" sortOrder="asc" onSortChange={vi.fn()} teamNameById={teamNames} />);
     expect(screen.getByText("No systems yet")).toBeInTheDocument();
   });
 
-  it("invokes onSortChange when the Name header is activated", () => {
+  it("invokes onSortChange when the Name header is activated", async () => {
     const onSortChange = vi.fn();
-    render1(<SystemsTable list={makeList([sys()])} sortBy="displayName" sortOrder="asc" onSortChange={onSortChange} teamNameById={teamNames} />);
-    fireEvent.click(screen.getByRole("columnheader", { name: /name/i }));
+    render1(<SystemsTable list={makeList({ items: [sys()] })} sortBy="displayName" sortOrder="asc" onSortChange={onSortChange} teamNameById={teamNames} />);
+    await userEvent.click(screen.getByRole("columnheader", { name: /name/i }));
     expect(onSortChange).toHaveBeenCalledWith("displayName", "desc");
   });
 });
@@ -492,7 +537,7 @@ export function SystemsTable({ list, sortBy, sortOrder, onSortChange, teamNameBy
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `cd web && npx vitest run src/features/catalog/components/__tests__/SystemsTable.test.tsx`
-Expected: PASS (3 tests). If the sort-click assertion order differs, mirror the exact interaction used in `ServicesTable.test.tsx`.
+Expected: PASS (4 tests). If the sort-click assertion order differs, mirror the exact interaction used in `ServicesTable.test.tsx`.
 
 - [ ] **Step 5: Commit**
 
@@ -515,42 +560,62 @@ git commit -m "feat(web): SystemsTable list component"
 
 - [ ] **Step 1: Write the failing test**
 
+> **Harness note (review B1/B2/B3):** no MSW. Mock the collaborator hooks and `react-oidc-context` (the dialog reads `useCurrentUser` → `useAuth`, which throws if unmocked). `useTeamsList`/`useRegisterSystem` are mocked directly; the blank-description→undefined transform lives in the hook and is covered in Task 3, so here we only assert the dialog passes the raw payload through.
+
 ```tsx
 // web/src/features/catalog/components/__tests__/RegisterSystemDialog.test.tsx
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { http, HttpResponse } from "msw";
-import { server } from "@/test/msw/server";
-import { createWrapper } from "@/test/react-query";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+
+vi.mock("react-oidc-context", () => ({
+  useAuth: () => ({ isAuthenticated: true, user: { access_token: "t", profile: { sub: "u", name: "Alice", email: "a@x", tenant_id: "t" } } }),
+}));
+
+const mutateAsync = vi.fn().mockResolvedValue({ id: "s1" });
+vi.mock("@/features/catalog/api/systems", () => ({ useRegisterSystem: () => ({ mutateAsync, isPending: false }) }));
+
+const useTeamsListMock = vi.fn();
+vi.mock("@/features/teams/api/teams", () => ({ useTeamsList: () => useTeamsListMock() }));
+
 import { RegisterSystemDialog } from "../RegisterSystemDialog";
 
-const teams = { items: [{ id: "11111111-1111-1111-1111-111111111111", displayName: "Platform Team" }], nextCursor: null, prevCursor: null };
+const TEAM_ID = "11111111-1111-1111-1111-111111111111";
+function teamsResult(items: { id: string; displayName: string }[]) {
+  return { items, isLoading: false, isFetching: false, isError: false, error: null, hasNext: false, hasPrev: false, goNext: vi.fn(), goPrev: vi.fn(), reset: vi.fn(), refetch: vi.fn() };
+}
 
 describe("RegisterSystemDialog", () => {
   beforeEach(() => {
-    server.use(http.get("*/api/v1/teams", () => HttpResponse.json(teams)));
+    vi.clearAllMocks();
+    useTeamsListMock.mockReturnValue(teamsResult([{ id: TEAM_ID, displayName: "Platform Team" }]));
   });
 
-  it("submits and calls onOpenChange(false) on success", async () => {
-    let body: any = null;
-    server.use(http.post("*/api/v1/catalog/systems", async ({ request }) => { body = await request.json(); return HttpResponse.json({ id: "s1" }); }));
+  it("submits the payload and calls onOpenChange(false) on success", async () => {
     const onOpenChange = vi.fn();
-    render(<RegisterSystemDialog open onOpenChange={onOpenChange} />, { wrapper: createWrapper() });
+    render(<RegisterSystemDialog open onOpenChange={onOpenChange} />);
 
-    fireEvent.change(screen.getByLabelText(/Display Name/i), { target: { value: "Payments" } });
-    await waitFor(() => expect(screen.getByTestId("register-system-team-select")).not.toBeDisabled());
-    fireEvent.change(screen.getByTestId("register-system-team-select"), { target: { value: teams.items[0].id } });
-    fireEvent.click(screen.getByRole("button", { name: /Register System/i }));
+    await userEvent.type(screen.getByLabelText(/Display Name/i), "Payments");
+    await userEvent.selectOptions(screen.getByTestId("register-system-team-select"), TEAM_ID);
+    await userEvent.click(screen.getByRole("button", { name: /Register System/i }));
 
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
-    expect(body).toMatchObject({ displayName: "Payments", teamId: teams.items[0].id });
+    expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ displayName: "Payments", teamId: TEAM_ID }));
   });
 
   it("blocks submit and shows an error when no team is selected", async () => {
-    render(<RegisterSystemDialog open onOpenChange={vi.fn()} />, { wrapper: createWrapper() });
-    fireEvent.change(screen.getByLabelText(/Display Name/i), { target: { value: "Payments" } });
-    fireEvent.click(screen.getByRole("button", { name: /Register System/i }));
+    render(<RegisterSystemDialog open onOpenChange={vi.fn()} />);
+    await userEvent.type(screen.getByLabelText(/Display Name/i), "Payments");
+    await userEvent.click(screen.getByRole("button", { name: /Register System/i }));
     expect(await screen.findByText("Team is required")).toBeInTheDocument();
+    expect(mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("disables submit and hints when no teams exist", () => {
+    useTeamsListMock.mockReturnValue(teamsResult([]));
+    render(<RegisterSystemDialog open onOpenChange={vi.fn()} />);
+    expect(screen.getByRole("button", { name: /Register System/i })).toBeDisabled();
+    expect(screen.getByText(/create a team first/i)).toBeInTheDocument();
   });
 });
 ```
@@ -733,7 +798,7 @@ export function RegisterSystemDialog({ open, onOpenChange }: Props) {
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `cd web && npx vitest run src/features/catalog/components/__tests__/RegisterSystemDialog.test.tsx`
-Expected: PASS (2 tests). If `useTeamsList` hits a different URL/shape, align the MSW handler with `RegisterServiceDialog.test.tsx`.
+Expected: PASS (3 tests). If `useCurrentUser` reads more of the `useAuth` shape, align the `react-oidc-context` mock with `RegisterServiceDialog.test.tsx`.
 
 - [ ] **Step 5: Commit**
 
@@ -756,43 +821,73 @@ git commit -m "feat(web): RegisterSystemDialog"
 
 - [ ] **Step 1: Write the failing test**
 
+> **Harness note (review B1):** no MSW — mock `useRelationshipsList` directly (mirrors `ServiceDetailPage.test.tsx:23-26`), returning a controllable result object. `useDeleteRelationship` is not imported by this read-only component, so it need not be mocked.
+
 ```tsx
 // web/src/features/catalog/components/__tests__/SystemMembersSection.test.tsx
-import { describe, it, expect } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { http, HttpResponse } from "msw";
-import { server } from "@/test/msw/server";
-import { createWrapper } from "@/test/react-query";
+
+const useRelationshipsListMock = vi.fn();
+vi.mock("@/features/catalog/api/relationships", () => ({
+  useRelationshipsList: (...a: unknown[]) => useRelationshipsListMock(...a),
+}));
+
 import { SystemMembersSection } from "../SystemMembersSection";
 
-const edge = (kind: string, id: string, displayName: string) => ({
-  id: `rel-${id}`, type: "partOf", origin: "manual", createdByUserId: "u1", createdAt: "2026-07-22T00:00:00Z", createdBy: null,
+const edge = (kind: string, id: string, displayName: string, type = "partOf") => ({
+  id: `rel-${id}`, type, origin: "manual", createdByUserId: "u1", createdAt: "2026-07-22T00:00:00Z", createdBy: null,
   source: { kind, id, displayName },
   target: { kind: "system", id: "sys1", displayName: "Payments" },
 });
-
-const render1 = (ui: React.ReactElement) => render(<MemoryRouter>{ui}</MemoryRouter>, { wrapper: createWrapper() });
+function result(over: Record<string, unknown> = {}) {
+  return { items: [], isLoading: false, isError: false, hasNext: false, hasPrev: false, goNext: vi.fn(), goPrev: vi.fn(), ...over };
+}
+const render1 = (ui: React.ReactElement) => render(<MemoryRouter>{ui}</MemoryRouter>);
 
 describe("SystemMembersSection", () => {
-  it("lists member components with kind badge + link", async () => {
-    server.use(http.get("*/api/v1/catalog/relationships", () =>
-      HttpResponse.json({ items: [edge("application", "a1", "Billing App"), edge("service", "s1", "Ledger Svc")], nextCursor: null, prevCursor: null })));
+  beforeEach(() => vi.clearAllMocks());
+
+  it("queries the incoming System relationships", () => {
+    useRelationshipsListMock.mockReturnValue(result());
     render1(<SystemMembersSection systemId="sys1" />);
-    expect(await screen.findByRole("link", { name: "Billing App" })).toHaveAttribute("href", "/catalog/applications/a1");
+    expect(useRelationshipsListMock).toHaveBeenCalledWith(
+      expect.objectContaining({ entityKind: "system", entityId: "sys1", direction: "incoming" }),
+    );
+  });
+
+  it("lists member components with a kind badge + link (row header present)", () => {
+    useRelationshipsListMock.mockReturnValue(result({ items: [edge("application", "a1", "Billing App"), edge("service", "s1", "Ledger Svc")] }));
+    render1(<SystemMembersSection systemId="sys1" />);
+    expect(screen.getByRole("link", { name: "Billing App" })).toHaveAttribute("href", "/catalog/applications/a1");
     expect(screen.getByRole("link", { name: "Ledger Svc" })).toHaveAttribute("href", "/catalog/services/s1");
+    expect(screen.getAllByRole("rowheader").length).toBeGreaterThan(0); // ADR-0084
   });
 
-  it("shows an empty state when nothing is assigned", async () => {
-    server.use(http.get("*/api/v1/catalog/relationships", () => HttpResponse.json({ items: [], nextCursor: null, prevCursor: null })));
+  it("filters out non-PartOf edges (read-path drift tolerance)", () => {
+    useRelationshipsListMock.mockReturnValue(result({ items: [edge("application", "a1", "Billing App"), edge("service", "s2", "Rogue", "dependsOn")] }));
     render1(<SystemMembersSection systemId="sys1" />);
-    expect(await screen.findByText("No components assigned yet.")).toBeInTheDocument();
+    expect(screen.getByText("Billing App")).toBeInTheDocument();
+    expect(screen.queryByText("Rogue")).not.toBeInTheDocument();
   });
 
-  it("shows an error line on failure", async () => {
-    server.use(http.get("*/api/v1/catalog/relationships", () => new HttpResponse(null, { status: 500 })));
+  it("shows an empty state when nothing is assigned", () => {
+    useRelationshipsListMock.mockReturnValue(result({ items: [] }));
     render1(<SystemMembersSection systemId="sys1" />);
-    await waitFor(() => expect(screen.getByText(/Couldn.t load members/i)).toBeInTheDocument());
+    expect(screen.getByText("No components assigned yet.")).toBeInTheDocument();
+  });
+
+  it("shows a loading skeleton (with a row header)", () => {
+    useRelationshipsListMock.mockReturnValue(result({ isLoading: true }));
+    render1(<SystemMembersSection systemId="sys1" />);
+    expect(screen.getAllByRole("rowheader").length).toBeGreaterThan(0); // ADR-0084 loading branch
+  });
+
+  it("shows an error line on failure", () => {
+    useRelationshipsListMock.mockReturnValue(result({ isError: true }));
+    render1(<SystemMembersSection systemId="sys1" />);
+    expect(screen.getByText(/Couldn.t load members/i)).toBeInTheDocument();
   });
 });
 ```
@@ -812,17 +907,20 @@ import { Table } from "@/components/application/table/table";
 import { TableSkeleton, TablePager } from "@/components/application/data-table/data-table";
 import { useRelationshipsList } from "@/features/catalog/api/relationships";
 import { entityDetailPath, ENTITY_KIND_LABEL } from "@/features/catalog/relationships/graphModel";
-import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
+import { isRelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
 
 interface Props {
   systemId: string;
 }
 
-// Members are the components PARTOF this System — i.e. the SOURCE side of every
-// incoming edge (backend restricts incoming-to-System edges to PartOf, so no
-// client-side type filter is required).
+// Members are the components PARTOF this System — the SOURCE side of every incoming
+// edge. Write-time rules (RelationshipTypeRules.IsAllowedPair) restrict incoming-to-System
+// edges to PartOf, but the READ path (ListRelationshipsForEntityHandler) applies no type
+// filter — so we filter to `partOf` client-side to stay drift-tolerant against backfills /
+// direct DB writes (ADR-0111 amendment hedge; cf. e2e/tests/relationship-drift.spec.ts).
 export function SystemMembersSection({ systemId }: Props) {
   const members = useRelationshipsList({ entityKind: "system", entityId: systemId, direction: "incoming" });
+  const rows = members.items.filter((r) => r.type === "partOf");
 
   return (
     <section className="space-y-2" aria-label="Members">
@@ -837,7 +935,7 @@ export function SystemMembersSection({ systemId }: Props) {
         </Table>
       ) : members.isError ? (
         <p className="text-sm text-error-primary">Couldn&apos;t load members.</p>
-      ) : members.items.length === 0 ? (
+      ) : rows.length === 0 ? (
         <p className="text-sm italic text-tertiary">No components assigned yet.</p>
       ) : (
         <>
@@ -847,14 +945,18 @@ export function SystemMembersSection({ systemId }: Props) {
               <Table.Head id="kind">Kind</Table.Head>
             </Table.Header>
             <Table.Body>
-              {members.items.map((r) => {
+              {rows.map((r) => {
                 const m = r.source;
                 return (
                   <Table.Row key={r.id} id={r.id}>
                     <Table.Cell>
-                      <Link to={entityDetailPath(m.kind as RelationshipKind, m.id)} className="text-primary hover:underline">
-                        {m.displayName}
-                      </Link>
+                      {isRelationshipKind(m.kind) ? (
+                        <Link to={entityDetailPath(m.kind, m.id)} className="text-primary hover:underline">
+                          {m.displayName}
+                        </Link>
+                      ) : (
+                        <span className="text-primary">{m.displayName}</span>
+                      )}
                     </Table.Cell>
                     <Table.Cell>
                       <Badge type="pill-color" size="sm" color="gray">
@@ -866,7 +968,7 @@ export function SystemMembersSection({ systemId }: Props) {
               })}
             </Table.Body>
           </Table>
-          <TablePager hasPrev={members.hasPrev} hasNext={members.hasNext} onPrev={members.goPrev} onNext={members.goNext} pageSize={members.items.length} />
+          <TablePager hasPrev={members.hasPrev} hasNext={members.hasNext} onPrev={members.goPrev} onNext={members.goNext} pageSize={rows.length} />
         </>
       )}
     </section>
@@ -874,10 +976,12 @@ export function SystemMembersSection({ systemId }: Props) {
 }
 ```
 
+> **Defensive-filter note (review S1+S2):** `isRelationshipKind` guards the down-cast (member `kind` is a 4-member generated enum incl. `"system"`; `RelationshipKind` is 3-member) — no blind `as` cast, no broken `/catalog/undefined/{id}` link if drift ever surfaces a non-app/service source. The `r.type === "partOf"` filter tolerates read-path edges the write rules wouldn't have allowed.
+
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `cd web && npx vitest run src/features/catalog/components/__tests__/SystemMembersSection.test.tsx`
-Expected: PASS (3 tests). If `entityDetailPath` signature differs, confirm against `RelationshipsSection.tsx` usage.
+Expected: PASS (6 tests). If `entityDetailPath`/`isRelationshipKind` signatures differ, confirm against `RelationshipsSection.tsx` + `relationshipTypeRules.ts`.
 
 - [ ] **Step 5: Commit**
 
@@ -900,35 +1004,91 @@ git commit -m "feat(web): read-only SystemMembersSection"
 
 - [ ] **Step 1: Write the failing test**
 
+> **Harness note (review B1/B3):** no MSW, no ambient OrgAdmin. Mirror `ServicesListPage.test.tsx:1-58` exactly — `vi.mock` `react-oidc-context`, `usePermissions` (per-test `setPerms`), `useSystemsList`, and `useTeamsList`; assert URL→query threading by inspecting the `useSystemsList` mock's call args.
+
 ```tsx
 // web/src/features/catalog/pages/__tests__/SystemsListPage.test.tsx
-import { describe, it, expect } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { http, HttpResponse } from "msw";
-import { server } from "@/test/msw/server";
-import { createWrapper } from "@/test/react-query";
-import { SystemsListPage } from "../SystemsListPage";
 
-// usePermissions returns OrgAdmin by default in the shared test harness (see ServicesListPage.test.tsx).
+vi.mock("react-oidc-context", () => ({
+  useAuth: () => ({ isAuthenticated: true, user: { access_token: "t", profile: { sub: "u", name: "Alice", email: "a@x", tenant_id: "t" } } }),
+}));
+
+const usePermissionsMock = vi.fn();
+vi.mock("@/shared/auth/usePermissions", () => ({ usePermissions: () => usePermissionsMock() }));
+
+const useSystemsListMock = vi.fn();
+vi.mock("@/features/catalog/api/systems", () => ({
+  useSystemsList: (...a: unknown[]) => useSystemsListMock(...a),
+  useRegisterSystem: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+
+const useTeamsListMock = vi.fn();
+vi.mock("@/features/teams/api/teams", () => ({ useTeamsList: () => useTeamsListMock() }));
+
+import { SystemsListPage } from "../SystemsListPage";
+import { KartovaPermissions } from "@/shared/auth/permissions";
+
+const TEAM_ID = "00000000-0000-0000-0000-000000000099";
+function stubList(over: Record<string, unknown> = {}) {
+  return { items: [], isLoading: false, isFetching: false, isError: false, error: null, hasNext: false, hasPrev: false, goNext: vi.fn(), goPrev: vi.fn(), reset: vi.fn(), refetch: vi.fn(), ...over };
+}
+function setPerms(perms: string[]) {
+  usePermissionsMock.mockReturnValue({ role: "t", hasPermission: (p: string) => perms.includes(p), isLoading: false });
+}
+function renderPage(path = "/catalog/systems") {
+  return render(<MemoryRouter initialEntries={[path]}><SystemsListPage /></MemoryRouter>);
+}
+
 describe("SystemsListPage", () => {
-  it("renders the heading and a fetched system row", async () => {
-    server.use(
-      http.get("*/api/v1/teams", () => HttpResponse.json({ items: [{ id: "team1", displayName: "Platform Team" }], nextCursor: null, prevCursor: null })),
-      http.get("*/api/v1/catalog/systems", () => HttpResponse.json({ items: [{ id: "s1", tenantId: "t1", displayName: "Alpha", description: null, teamId: "team1", createdByUserId: "u1", createdAt: "2026-07-22T00:00:00Z", createdBy: null }], nextCursor: null, prevCursor: null })),
-    );
-    render(<MemoryRouter><SystemsListPage /></MemoryRouter>, { wrapper: createWrapper() });
-    expect(screen.getByRole("heading", { name: "Systems" })).toBeInTheDocument();
-    expect(await screen.findByRole("link", { name: "Alpha" })).toBeInTheDocument();
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useSystemsListMock.mockReturnValue(stubList());
+    useTeamsListMock.mockReturnValue(stubList({ items: [{ id: TEAM_ID, displayName: "Platform" }] }));
   });
 
-  it("shows the Register System button for a permitted user", async () => {
-    server.use(
-      http.get("*/api/v1/teams", () => HttpResponse.json({ items: [], nextCursor: null, prevCursor: null })),
-      http.get("*/api/v1/catalog/systems", () => HttpResponse.json({ items: [], nextCursor: null, prevCursor: null })),
-    );
-    render(<MemoryRouter><SystemsListPage /></MemoryRouter>, { wrapper: createWrapper() });
-    await waitFor(() => expect(screen.getByRole("button", { name: /Register System/i })).toBeInTheDocument());
+  it("renders the Systems heading", () => {
+    setPerms([]);
+    renderPage();
+    expect(screen.getByRole("heading", { name: /systems/i })).toBeInTheDocument();
+  });
+
+  it("shows Register System for a user with the register permission", () => {
+    setPerms([KartovaPermissions.CatalogSystemsRegister]);
+    renderPage();
+    expect(screen.getByRole("button", { name: /register system/i })).toBeInTheDocument();
+  });
+
+  it("hides Register System for a user without the permission", () => {
+    setPerms([]);
+    renderPage();
+    expect(screen.queryByRole("button", { name: /register system/i })).toBeNull();
+  });
+
+  it("defaults sort to displayName asc (sends it to useSystemsList)", () => {
+    setPerms([]);
+    renderPage();
+    expect(useSystemsListMock).toHaveBeenCalledWith(expect.objectContaining({ sortBy: "displayName", sortOrder: "asc" }));
+  });
+
+  it("threads displayNameContains from the URL to useSystemsList", () => {
+    setPerms([]);
+    renderPage("/catalog/systems?displayNameContains=pay");
+    expect(useSystemsListMock).toHaveBeenCalledWith(expect.objectContaining({ displayNameContains: "pay" }));
+  });
+
+  it("threads teamId from the URL to useSystemsList", () => {
+    setPerms([]);
+    renderPage(`/catalog/systems?teamId=${TEAM_ID}`);
+    expect(useSystemsListMock).toHaveBeenCalledWith(expect.objectContaining({ teamId: [TEAM_ID] }));
+  });
+
+  it("shows a filtered empty-state when a search yields no rows", async () => {
+    setPerms([]);
+    renderPage("/catalog/systems?displayNameContains=zzz");
+    expect(await screen.findByText(/no systems match your filters/i)).toBeInTheDocument();
   });
 });
 ```
@@ -1056,7 +1216,7 @@ export function SystemsListPage() {
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `cd web && npx vitest run src/features/catalog/pages/__tests__/SystemsListPage.test.tsx`
-Expected: PASS (2 tests). If the permissions mock isn't global, mirror the `usePermissions` mock from `ServicesListPage.test.tsx`.
+Expected: PASS (7 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1079,48 +1239,80 @@ git commit -m "feat(web): SystemsListPage"
 
 - [ ] **Step 1: Write the failing test**
 
+> **Harness note (review B1):** mirror `ServiceDetailPage.test.tsx` — `vi.mock` `useTeamsList` + `@/features/catalog/api/relationships` (the Members section's data source); use a real `QueryClient` with `setQueryData(systemKeys.detail(id), …)` for the synchronous tab tests, and `vi.spyOn(clientModule,"apiClient","get")` for the async header / not-found / loading tests.
+
 ```tsx
 // web/src/features/catalog/pages/__tests__/SystemDetailPage.test.tsx
-import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { MemoryRouter, Routes, Route } from "react-router-dom";
-import { http, HttpResponse } from "msw";
-import { server } from "@/test/msw/server";
-import { createWrapper } from "@/test/react-query";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+
+import * as clientModule from "@/features/catalog/api/client";
+import { systemKeys } from "@/features/catalog/api/systems";
 import { SystemDetailPage } from "../SystemDetailPage";
+
+vi.mock("@/features/teams/api/teams", () => ({
+  useTeamsList: () => ({ items: [{ id: "team1", displayName: "Platform Team" }], isLoading: false }),
+}));
+vi.mock("@/features/catalog/api/relationships", () => ({
+  useRelationshipsList: () => ({ items: [], isLoading: false, isError: false, hasNext: false, hasPrev: false, goNext: vi.fn(), goPrev: vi.fn() }),
+}));
 
 const sys = { id: "sys1", tenantId: "t1", displayName: "Payments Platform", description: "Money movement", teamId: "team1", createdByUserId: "u1", createdAt: "2026-07-22T00:00:00Z", createdBy: null };
 
-function renderAt(id: string) {
-  return render(
-    <MemoryRouter initialEntries={[`/catalog/systems/${id}`]}>
-      <Routes><Route path="/catalog/systems/:id" element={<SystemDetailPage />} /></Routes>
-    </MemoryRouter>,
-    { wrapper: createWrapper() },
+function harness(qc: QueryClient, path: string) {
+  return (
+    <QueryClientProvider client={qc}>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes><Route path="/catalog/systems/:id" element={<SystemDetailPage />} /></Routes>
+      </MemoryRouter>
+    </QueryClientProvider>
   );
+}
+function renderCached(search = "") {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+  qc.setQueryData(systemKeys.detail(sys.id), sys);
+  return render(harness(qc, `/catalog/systems/${sys.id}${search}`));
 }
 
 describe("SystemDetailPage", () => {
-  it("renders Overview fields and switches to the Members tab", async () => {
-    server.use(
-      http.get("*/api/v1/catalog/systems/sys1", () => HttpResponse.json(sys)),
-      http.get("*/api/v1/teams", () => HttpResponse.json({ items: [{ id: "team1", displayName: "Platform Team" }], nextCursor: null, prevCursor: null })),
-      http.get("*/api/v1/catalog/relationships", () => HttpResponse.json({ items: [], nextCursor: null, prevCursor: null })),
-    );
-    renderAt("sys1");
-    expect(await screen.findByRole("heading", { name: "Payments Platform" })).toBeInTheDocument();
+  beforeEach(() => vi.restoreAllMocks());
+
+  it("renders Overview fields (default tab) with the description", () => {
+    renderCached();
+    expect(screen.getByRole("heading", { name: "Payments Platform" })).toBeInTheDocument();
     expect(screen.getByText("Money movement")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: /Members/i }));
+    expect(screen.getByText("Platform Team")).toBeInTheDocument();
+  });
+
+  it("switches to the Members tab and shows the empty state (with a row header once loaded)", async () => {
+    renderCached();
+    await userEvent.click(screen.getByRole("tab", { name: /Members/i }));
+    expect(screen.getByRole("tab", { name: /Members/i })).toHaveAttribute("aria-selected", "true");
     expect(await screen.findByText("No components assigned yet.")).toBeInTheDocument();
   });
 
+  it("renders a skeleton while loading", () => {
+    const get = vi.fn().mockReturnValue(new Promise(() => {}));
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: get, POST: vi.fn() } as never);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { container } = render(harness(qc, "/catalog/systems/sys1"));
+    expect(container.querySelectorAll('[data-testid="system-detail-skeleton"]').length).toBeGreaterThan(0);
+  });
+
   it("shows a not-found card on 404", async () => {
-    server.use(http.get("*/api/v1/catalog/systems/missing", () => new HttpResponse(null, { status: 404 })));
-    renderAt("missing");
+    const get = vi.fn().mockResolvedValue({ data: undefined, error: { status: 404, title: "Not Found" } });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: get, POST: vi.fn() } as never);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(harness(qc, "/catalog/systems/missing"));
     await waitFor(() => expect(screen.getByText("System not found")).toBeInTheDocument());
   });
 });
 ```
+
+> The Members table's own `isRowHeader` (asserted directly in Task 6) covers the ADR-0084 rule for the tab-switched surface; this suite confirms the tab actually mounts it.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -1235,7 +1427,7 @@ function Field({ label, value, mono = false }: { label: string; value: string; m
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `cd web && npx vitest run src/features/catalog/pages/__tests__/SystemDetailPage.test.tsx`
-Expected: PASS (2 tests). Confirm the `DetailTabs.Tab` label→`role="tab"` mapping matches `ServiceDetailPage.test.tsx`.
+Expected: PASS (4 tests). Confirm the `DetailTabs.Tab` label→`role="tab"` mapping matches `ServiceDetailPage.test.tsx`.
 
 - [ ] **Step 5: Commit**
 
@@ -1312,9 +1504,13 @@ git commit -m "feat(web): wire Systems nav item + routes"
 - Modify: `docs/design/list-filter-registry.md`
 - Modify: `docs/product/CHECKLIST.md`
 
-- [ ] **Step 1: Add the Systems list row to the filter registry**
+- [ ] **Step 1: UPDATE the existing Systems row in the filter registry**
 
-In `docs/design/list-filter-registry.md`, add a Systems entry mirroring the Services row: default sort `displayName asc`; sortable `{displayName, createdAt}`; filters `displayNameContains` (text) + `teamId` (multi, steward team); note description/createdBy have no filter and `createdAt` filter is deferred; `memberCount` deferred (derived aggregate).
+`docs/design/list-filter-registry.md:34` **already has** a Systems row (added at the S-01 backend slice, status `built (API-only, no <FilterBar> yet)`, note ends "revisit this row when the Systems list screen is built"). Do **not** add a second row — edit the existing one:
+- Status: `built (API-only, no <FilterBar> yet)` → **`built`**.
+- Column 1 (surface): drop "backend only — **no UI this slice**"; set to `/catalog/systems` (list screen + `<FilterBar>`).
+- Note: replace the trailing "No `<FilterBar>`/`useListFilters` wiring this slice … revisit this row when the Systems list screen is built." with "List screen wires `useListUrlState`/`useListFilters`/`<FilterBar>` + `<DataTable>` (slice 2026-07-22). Renders `displayNameContains` text + `teamId` multi-select."
+- Keep the existing `createdAt`-range and `memberCount` deferral notes unchanged.
 
 - [ ] **Step 2: Update the checklist**
 
@@ -1331,7 +1527,9 @@ git commit -m "docs(catalog): Systems list-filter registry row + checklist updat
 
 ## DoD
 
-The eleven CLAUDE.md gates apply as written. Frontend-only ⇒ **gate 5 (real-seam) and gate 6 (mutation) are N/A** with the reasons in the design §6 (backend seams already covered by S-01; no Domain/Application logic changed). Gate 4 (`images`/web container build) still runs. After gate 9 fixes, re-run `npm run build` + full Vitest suite on the final commit, then gate 10 (browser, ADR-0084) and gate 11 (CI green). Maintain the DoD ledger + `gate-findings.yaml` under `docs/superpowers/verification/2026-07-22-catalog-system-ui-surface/`.
+The eleven CLAUDE.md gates apply as written. Frontend-only ⇒ **gate 5 (real-seam) and gate 6 (mutation) are N/A** with the reasons in the design §6 (backend seams already covered by S-01; no Domain/Application logic changed). Gate 4 (`images`/web container build) still runs. After gate 9 fixes, re-run `npm run build` + full Vitest suite on the final commit, then gate 10 (browser, ADR-0084 — cold-start, register a System, open detail, switch to Members; screenshot + 0 console errors + a manual keyboard/screen-reader pass over the new nav item, dialog, and tab switch) and gate 11 (CI green). Maintain the DoD ledger + `gate-findings.yaml` under `docs/superpowers/verification/2026-07-22-catalog-system-ui-surface/`.
+
+**E2E-impact trigger (CLAUDE.md) — N/A (stated, not silent):** the new `/catalog/systems` nav item + routes are purely additive; no existing `e2e/` spec asserts the Sidebar link set or traverses `/catalog/systems`, and `detail-tabs.spec.ts` / `relationship-drift.spec.ts` are App/Service/API-scoped (verified during review). No `e2e/` spec update required this slice.
 
 ## Self-Review
 

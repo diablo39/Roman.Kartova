@@ -40,7 +40,7 @@ Frontend-only. No backend, contract, or permission change.
 
 ### 4.2 Components
 - **New** `components/SystemsTable.tsx` — `<DataTable>` columns: `displayName` (row header, link to detail, sortable), `team` (name via `teamNameById`), `createdBy` (`CreatedByLink`), `createdAt` (sortable). Mirror `ServicesTable.tsx` minus health.
-- **New** `components/RegisterSystemDialog.tsx` — name + description + steward-team picker (reuse the team `Select` used by `RegisterServiceDialog`); submit → `useRegisterSystem`; toast + invalidate. Mirror `RegisterServiceDialog.tsx` minus endpoints editor.
+- **New** `components/RegisterSystemDialog.tsx` — name + description + steward-team picker (raw HTML `<select>`, same as `RegisterServiceDialog` — not a shared `Select` component); submit → `useRegisterSystem`; toast + invalidate. Mirror `RegisterServiceDialog.tsx` minus endpoints editor.
 - **New** `components/SystemMembersSection.tsx` — read-only. `useRelationshipsList({ entityKind: "system", entityId, direction: "incoming" })`; table rows over `r.source`: name (link via `entityDetailPath`) + kind badge (`ENTITY_KIND_LABEL`). Loading skeleton / error line / empty "No components assigned yet." + `TablePager`. No add/delete.
 
 ### 4.3 Pages
