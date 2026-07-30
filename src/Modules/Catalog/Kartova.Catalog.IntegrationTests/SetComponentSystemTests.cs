@@ -3,10 +3,13 @@ using System.Net.Http.Json;
 using Kartova.Catalog.Application;   // CatalogAuditActions
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
+using Kartova.SharedKernel.AspNetCore;   // ProblemTypes
 using Kartova.SharedKernel.Multitenancy;   // KartovaRoles
 using Kartova.SharedKernel.Pagination;
 using Kartova.Testing.Auth;
+using Microsoft.AspNetCore.Mvc;   // ProblemDetails
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Kartova.Catalog.IntegrationTests;
 
@@ -129,11 +132,16 @@ public sealed class SetComponentSystemTests : CatalogIntegrationTestBase
     public async Task PUT_the_same_system_twice_is_idempotent()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var tenantId = Fx.TenantIdForEmail(OrgAUser).Value;
         var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "SetSystem Team Idem");
         var appId = await SeedApplicationAsync(client, teamId, "app-setsystem-idem");
         var sysId = await SeedSystemAsync(client, teamId, "system-setsystem-idem");
 
         await PutSystemAsync(client, "applications", appId, sysId);
+        // Watermark AFTER the first (real) write, before the repeat — "kept" is otherwise
+        // indistinguishable from "deleted and re-inserted with the same target" from the
+        // response/edge-count alone. Mirrors PUT_null_on_an_already_unassigned_component_is_a_no_op.
+        var watermark = (await Fx.ReadAuditLogAsync(tenantId)).Select(r => r.Seq).DefaultIfEmpty(0L).Max();
         var second = await PutSystemAsync(client, "applications", appId, sysId);
 
         Assert.AreEqual(HttpStatusCode.OK, second.StatusCode);
@@ -145,6 +153,9 @@ public sealed class SetComponentSystemTests : CatalogIntegrationTestBase
         var edges = await PartOfEdgesAsync(client, EntityKind.Application, appId);
         Assert.AreEqual(1, edges.Count);
         Assert.AreEqual(sysId, edges[0].Target.Id, "the original edge is kept, not replaced");
+        var after = (await Fx.ReadAuditLogAsync(tenantId)).Where(r => r.Seq > watermark).ToList();
+        Assert.IsFalse(after.Any(r => r.DataJson is not null && r.DataJson.Contains(appId.ToString())),
+            "re-requesting the current membership must write no audit row — a delete+re-insert would");
     }
 
     [TestMethod]
@@ -157,6 +168,10 @@ public sealed class SetComponentSystemTests : CatalogIntegrationTestBase
         var resp = await PutSystemAsync(client, "applications", appId, Guid.NewGuid());
 
         Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
+        // Pin the specific URI, not just the status: swapping InvalidSourceEntity/InvalidTargetEntity
+        // between the component-lookup and System-lookup branches would ship silently otherwise.
+        var problem = await resp.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(ProblemTypes.InvalidTargetEntity, problem!.Type);
     }
 
     [TestMethod]
@@ -169,6 +184,8 @@ public sealed class SetComponentSystemTests : CatalogIntegrationTestBase
         var resp = await PutSystemAsync(client, "applications", Guid.NewGuid(), sysId);
 
         Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
+        var problem = await resp.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(ProblemTypes.InvalidSourceEntity, problem!.Type);
     }
 
     [TestMethod]
@@ -218,6 +235,56 @@ public sealed class SetComponentSystemTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
+    public async Task PUT_moving_a_component_INTO_a_foreign_system_by_a_steward_of_only_the_SOURCE_returns_403()
+    {
+        // Symmetric to the DESTINATION-only case above: a steward of only the SOURCE system
+        // authorizes the move's delete half (they own the edge being removed), but not its insert
+        // half into a System they have no claim on. Both touched edges must be authorized
+        // independently — this pins that the insert-side check isn't skipped when the delete-side
+        // one already passed.
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var admin = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var appTeam = await Fx.SeedTeamInOrganizationAsync(tenant, "SetSystem Move2 AppTeam");
+        var fromTeam = await Fx.SeedTeamInOrganizationAsync(tenant, "SetSystem Move2 FromTeam");
+        var toTeam = await Fx.SeedTeamInOrganizationAsync(tenant, "SetSystem Move2 ToTeam");
+        var appId = await SeedApplicationAsync(admin, appTeam, "app-setsystem-moveauthz2");
+        var from = await SeedSystemAsync(admin, fromTeam, "system-move-authz2-from");
+        var to = await SeedSystemAsync(admin, toTeam, "system-move-authz2-to");
+        await PutSystemAsync(admin, "applications", appId, from);
+        var fromSteward = await Fx.CreateAuthenticatedClientAsync(MemberEmail, new[] { KartovaRoles.Member });
+        var stewardId = await Fx.GetSubClaimAsync(MemberEmail);
+        await Fx.SeedTeamMembershipAsync(fromTeam, stewardId, roleByte: 1 /* Member */);
+
+        var resp = await PutSystemAsync(fromSteward, "applications", appId, to);
+
+        Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task PUT_a_steward_of_the_current_system_may_clear_the_membership()
+    {
+        // The clearing counterpart of the positive assign test below: clearing (systemId: null)
+        // only deletes the existing edge, so a steward of the System side — not the component's
+        // own team — must be able to authorize it, same as they authorize an insert.
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var admin = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var appTeam = await Fx.SeedTeamInOrganizationAsync(tenant, "SetSystem Clear AppTeam");
+        var sysTeam = await Fx.SeedTeamInOrganizationAsync(tenant, "SetSystem Clear SysTeam");
+        var appId = await SeedApplicationAsync(admin, appTeam, "app-setsystem-clearauthz");
+        var sysId = await SeedSystemAsync(admin, sysTeam, "system-setsystem-clearauthz");
+        await PutSystemAsync(admin, "applications", appId, sysId);
+        var steward = await Fx.CreateAuthenticatedClientAsync(MemberEmail, new[] { KartovaRoles.Member });
+        var stewardId = await Fx.GetSubClaimAsync(MemberEmail);
+        await Fx.SeedTeamMembershipAsync(sysTeam, stewardId, roleByte: 1 /* Member */);
+
+        var resp = await PutSystemAsync(steward, "applications", appId, null);
+
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode,
+            "a System steward may clear a membership pointing at their System — they are an endpoint of the deleted edge");
+        Assert.AreEqual(0, (await PartOfEdgesAsync(admin, EntityKind.Application, appId)).Count);
+    }
+
+    [TestMethod]
     public async Task PUT_by_a_steward_of_only_the_TARGET_system_assigns_an_unassigned_component()
     {
         // The POSITIVE half of ADR-0108's either-endpoint rule, and the only test that walks the
@@ -258,6 +325,8 @@ public sealed class SetComponentSystemTests : CatalogIntegrationTestBase
         var resp = await PutSystemAsync(clientA, "applications", appId, sysInB);
 
         Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
+        var problem = await resp.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(ProblemTypes.InvalidTargetEntity, problem!.Type);
     }
 
     [TestMethod]
@@ -374,11 +443,12 @@ public sealed class SetComponentSystemTests : CatalogIntegrationTestBase
         var appId = await SeedApplicationAsync(client, teamId, "app-setsystem-typefilter");
         var otherApp = await SeedApplicationAsync(client, teamId, "app-setsystem-typefilter-dep");
         var sysId = await SeedSystemAsync(client, teamId, "system-setsystem-typefilter");
-        await client.PostAsJsonAsync("/api/v1/catalog/relationships", new
+        var depResp = await client.PostAsJsonAsync("/api/v1/catalog/relationships", new
         {
             sourceKind = EntityKind.Application, sourceId = appId, type = RelationshipType.DependsOn,
             targetKind = EntityKind.Application, targetId = otherApp,
         }, KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(HttpStatusCode.Created, depResp.StatusCode, "seed DependsOn relationship must succeed");
 
         await PutSystemAsync(client, "applications", appId, sysId);
 
@@ -402,7 +472,16 @@ public sealed class SetComponentSystemTests : CatalogIntegrationTestBase
         var sysB = await SeedSystemAsync(client, teamId, "system-index-b");
         await Fx.InsertPartOfEdgeAsync(tenant, EntityKind.Application, appId, sysA);
 
-        await Assert.ThrowsExactlyAsync<DbUpdateException>(
+        var ex = await Assert.ThrowsExactlyAsync<DbUpdateException>(
             () => Fx.InsertPartOfEdgeAsync(tenant, EntityKind.Application, appId, sysB));
+
+        // ThrowsExactlyAsync<DbUpdateException> alone is satisfied by ANY unique violation —
+        // pin the specific constraint so this test can't pass for the wrong reason (e.g. a
+        // collision on ux_relationships_edge instead).
+        var pg = ex.InnerException as PostgresException;
+        Assert.IsNotNull(pg, $"expected a PostgresException inner exception, got {ex.InnerException?.GetType().Name}");
+        Assert.AreEqual("23505", pg!.SqlState);
+        Assert.IsTrue(pg.Message.Contains("ux_relationships_one_system"),
+            $"expected the violation to name ux_relationships_one_system, message was: {pg.Message}");
     }
 }

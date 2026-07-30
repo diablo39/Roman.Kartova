@@ -874,6 +874,7 @@ internal static class CatalogEndpointDelegates
                 statusCode: StatusCodes.Status422UnprocessableEntity);
 
         string? systemDisplayName = null;
+        Guid? requestedSystemTeamId = null;
         if (request.SystemId is { } requestedSystemId)
         {
             var systemInfo = await lookup.Find(EntityKind.System, requestedSystemId, ct);
@@ -884,6 +885,7 @@ internal static class CatalogEndpointDelegates
                     detail: "The system does not exist in this tenant.",
                     statusCode: StatusCodes.Status422UnprocessableEntity);
             systemDisplayName = systemInfo.DisplayName;
+            requestedSystemTeamId = systemInfo.TeamId;
         }
 
         // A move is TWO edge mutations (delete old + insert new) and ADR-0108 authorizes each
@@ -903,16 +905,18 @@ internal static class CatalogEndpointDelegates
         // The component is an endpoint of every edge here, so its team authorizes all of them.
         if (await AuthorizeTargetTeamAsync(auth, caller, componentInfo.TeamId) is not null)
         {
-            var touchedSystemIds = new List<Guid>();
-            if (request.SystemId is { } wanted && !currentSystemIds.Contains(wanted))
-                touchedSystemIds.Add(wanted);                                    // the insert
-            touchedSystemIds.AddRange(currentSystemIds.Where(s => s != request.SystemId));  // every delete
+            // The insert: the requested System's team is already known from the lookup above —
+            // no need to Find it again.
+            if (request.SystemId is { } wanted && !currentSystemIds.Contains(wanted)
+                && await AuthorizeTargetTeamAsync(auth, caller, requestedSystemTeamId!.Value) is { } forbiddenInsert)
+                return forbiddenInsert;
 
-            foreach (var systemId in touchedSystemIds.Distinct())
+            // Every delete: touched Systems other than the requested target need their own lookup.
+            foreach (var systemId in currentSystemIds.Where(s => s != request.SystemId).Distinct())
             {
                 var systemTeamId = (await lookup.Find(EntityKind.System, systemId, ct))?.TeamId ?? Guid.Empty;
-                if (await AuthorizeTargetTeamAsync(auth, caller, systemTeamId) is { } forbidden)
-                    return forbidden;
+                if (await AuthorizeTargetTeamAsync(auth, caller, systemTeamId) is { } forbiddenDelete)
+                    return forbiddenDelete;
             }
         }
 
