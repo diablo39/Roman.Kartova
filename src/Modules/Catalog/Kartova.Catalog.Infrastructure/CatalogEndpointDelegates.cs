@@ -1058,7 +1058,10 @@ internal static class CatalogEndpointDelegates
     /// Default sort: createdAt desc (newest first) — relationships have no displayName of their own,
     /// so the project-wide displayName-asc list default deliberately does not apply here.
     /// `excludeApiEdges` (default false) drops <c>ProvidesApiFor</c>/<c>ConsumesApiFrom</c> edges — the
-    /// API-surface view already renders them, so list callers can opt out of the duplication. Claim gate: catalog.read.
+    /// API-surface view already renders them, so list callers can opt out of the duplication.
+    /// `type` (optional, single-valued) narrows the page to exactly that <see cref="RelationshipType"/>
+    /// before pagination — task 4d, so a component/system with more than one page of edges can ask the
+    /// server for the one row it needs instead of client-side filtering a truncated page. Claim gate: catalog.read.
     /// </summary>
     internal static async Task<IResult> ListRelationshipsAsync(
         [FromQuery] string entityKind,
@@ -1069,6 +1072,7 @@ internal static class CatalogEndpointDelegates
         [FromQuery] string? cursor,
         [FromQuery] string? limit,
         [FromQuery] bool? excludeApiEdges,
+        [FromQuery] string? type,
         ListRelationshipsForEntityHandler handler,
         ICatalogEntityLookup lookup,
         IUserDirectory directory,
@@ -1085,6 +1089,18 @@ internal static class CatalogEndpointDelegates
             return Results.Problem(type: ProblemTypes.ValidationFailed, title: "Invalid direction",
                 detail: "direction must be outgoing, incoming, or all.", statusCode: StatusCodes.Status400BadRequest);
 
+        // Same precedent as entityKind/direction above: bind as string, Enum.TryParse +
+        // Enum.IsDefined (rejects numeric/undefined tokens), 400 ValidationFailed on bad
+        // input — not a new problem-details shape.
+        RelationshipType? filterType = null;
+        if (!string.IsNullOrWhiteSpace(type))
+        {
+            if (!Enum.TryParse<RelationshipType>(type, ignoreCase: true, out var parsedType) || !Enum.IsDefined(parsedType))
+                return Results.Problem(type: ProblemTypes.ValidationFailed, title: "Invalid type",
+                    detail: "type must be a valid relationship type.", statusCode: StatusCodes.Status400BadRequest);
+            filterType = parsedType;
+        }
+
         var (parsedSortBy, parsedSortOrder, effectiveLimit) =
             CursorListBinding.Bind<RelationshipSortField>(sortBy, sortOrder, limit, RelationshipSortSpecs.AllowedFieldNames);
 
@@ -1093,7 +1109,8 @@ internal static class CatalogEndpointDelegates
             SortBy: parsedSortBy ?? RelationshipSortField.CreatedAt,
             SortOrder: parsedSortOrder ?? SortOrder.Desc,
             Cursor: cursor, Limit: effectiveLimit,
-            ExcludeApiEdges: excludeApiEdges ?? false);
+            ExcludeApiEdges: excludeApiEdges ?? false,
+            Type: filterType);
 
         var page = await handler.Handle(query, db, lookup, directory, ct);
         return Results.Ok(page);

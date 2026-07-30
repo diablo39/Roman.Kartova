@@ -3,8 +3,10 @@ using System.Net;
 using System.Net.Http.Json;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
+using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Pagination;
 using Kartova.Testing.Auth;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Kartova.Catalog.IntegrationTests;
 
@@ -27,6 +29,28 @@ public class ListRelationshipsTests : CatalogIntegrationTestBase
 
     private static object Rel(EntityKind sk, Guid sid, RelationshipType t, EntityKind tk, Guid tid) =>
         new { sourceKind = sk, sourceId = sid, type = t, targetKind = tk, targetId = tid };
+
+    private static Task<HttpResponseMessage> PostRelAsync(
+        HttpClient client, EntityKind sk, Guid sid, RelationshipType t, EntityKind tk, Guid tid)
+        => client.PostAsJsonAsync("/api/v1/catalog/relationships", Rel(sk, sid, t, tk, tid), KartovaApiFixtureBase.WireJson);
+
+    private static async Task<Guid> SeedApplicationAsync(HttpClient client, Guid teamId, string name)
+    {
+        var resp = await client.PostAsJsonAsync("/api/v1/catalog/applications",
+            new { displayName = name, description = "x", teamId });
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode, $"SeedApplication '{name}' failed: {resp.StatusCode}");
+        var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
+        return body!.Id;
+    }
+
+    private static async Task<Guid> SeedSystemAsync(HttpClient client, Guid teamId, string name)
+    {
+        var resp = await client.PostAsJsonAsync("/api/v1/catalog/systems", new
+        { displayName = name, description = "x", teamId });
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode, $"SeedSystem '{name}' failed: {resp.StatusCode}");
+        var body = await resp.Content.ReadFromJsonAsync<SystemResponse>(KartovaApiFixtureBase.WireJson);
+        return body!.Id;
+    }
 
     [TestMethod]
     public async Task GET_enriches_CreatedBy_from_caller_when_user_row_exists()
@@ -327,5 +351,79 @@ public class ListRelationshipsTests : CatalogIntegrationTestBase
         Assert.AreEqual(1, next!.Items.Count);
         Assert.AreEqual(RelationshipType.DependsOn, next.Items[0].Type);
         Assert.IsNull(next.NextCursor);
+    }
+
+    // -----------------------------------------------------------------------
+    // `type` filter (task 4d / E-03 slice A1). Server-side filter so the frontend
+    // never has to client-side filter a truncated page (which would render "Not
+    // assigned" for entities with more than one page of outgoing edges).
+    // -----------------------------------------------------------------------
+
+    [TestMethod]
+    public async Task GET_relationships_filtered_by_type_returns_only_that_type()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Type Filter Team");
+        var appId = await SeedApplicationAsync(client, teamId, "app-type-filter");
+        var depId = await SeedApplicationAsync(client, teamId, "app-type-filter-dep");
+        var sysId = await SeedSystemAsync(client, teamId, "system-type-filter");
+        await PostRelAsync(client, EntityKind.Application, appId, RelationshipType.DependsOn, EntityKind.Application, depId);
+        await PostRelAsync(client, EntityKind.Application, appId, RelationshipType.PartOf, EntityKind.System, sysId);
+
+        var resp = await client.GetAsync(
+            $"/api/v1/catalog/relationships?entityKind={EntityKind.Application}&entityId={appId}&direction=outgoing&type={RelationshipType.PartOf}&limit=20");
+
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var page = await resp.Content.ReadFromJsonAsync<CursorPage<RelationshipResponse>>(KartovaApiFixtureBase.WireJson);
+        Assert.ContainsSingle(page!.Items);
+        Assert.AreEqual(RelationshipType.PartOf, page.Items[0].Type);
+        Assert.AreEqual(sysId, page.Items[0].Target.Id);
+    }
+
+    [TestMethod]
+    public async Task GET_with_invalid_type_returns_400()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var resp = await client.GetAsync(
+            $"/api/v1/catalog/relationships?entityKind=Service&entityId={Guid.NewGuid()}&direction=all&type=bogusType");
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task GET_type_cursor_then_changed_type_returns_400_cursor_filter_mismatch()
+    {
+        // Mirrors ListApplicationsPaginationTests.GET_teamId_cursor_then_changed_teamId_returns_400_cursor_filter_mismatch
+        // and ListServicesPaginationTests's teamId-mismatch test — no CursorFilterMismatch
+        // precedent exists in ListRelationshipsTests itself, so this test is modelled on the
+        // neighbouring list suites' pattern instead.
+        // Two applications PartOf the same System (a component can only be PartOf ONE
+        // System — ComponentAlreadyInSystemException — so the ≥2-rows-of-the-same-type
+        // fixture has to come from the System's INCOMING side, i.e. its members, not a
+        // single component's outgoing edges).
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Type Mismatch Team");
+        var sysId = await SeedSystemAsync(client, teamId, "system-type-mismatch");
+        var app1 = await SeedApplicationAsync(client, teamId, "app-type-mismatch-1");
+        var app2 = await SeedApplicationAsync(client, teamId, "app-type-mismatch-2");
+        await PostRelAsync(client, EntityKind.Application, app1, RelationshipType.PartOf, EntityKind.System, sysId);
+        await PostRelAsync(client, EntityKind.Application, app2, RelationshipType.PartOf, EntityKind.System, sysId);
+
+        // Page 1 filters to PartOf → f-map records type = PartOf.
+        var page1Resp = await client.GetAsync(
+            $"/api/v1/catalog/relationships?entityKind={EntityKind.System}&entityId={sysId}&direction=incoming&type={RelationshipType.PartOf}&limit=1");
+        Assert.AreEqual(HttpStatusCode.OK, page1Resp.StatusCode);
+        var p1 = await page1Resp.Content.ReadFromJsonAsync<CursorPage<RelationshipResponse>>(KartovaApiFixtureBase.WireJson);
+        Assert.IsNotNull(p1!.NextCursor, "need a NextCursor to test the mismatch");
+
+        // Page 2 switches to DependsOn → mismatch on the "type" filter key (400, not a
+        // silent continuation across a different relationship type).
+        var page2Resp = await client.GetAsync(
+            $"/api/v1/catalog/relationships?entityKind={EntityKind.System}&entityId={sysId}&direction=incoming&type={RelationshipType.DependsOn}&limit=1&cursor={Uri.EscapeDataString(p1.NextCursor!)}");
+        Assert.AreEqual(HttpStatusCode.BadRequest, page2Resp.StatusCode);
+        var problem = await page2Resp.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(ProblemTypes.CursorFilterMismatch, problem!.Type);
+        Assert.AreEqual("type", problem.Extensions["filterName"]!.ToString());
+        Assert.AreEqual(RelationshipType.PartOf.ToString(), problem.Extensions["expectedValue"]!.ToString());
+        Assert.AreEqual(RelationshipType.DependsOn.ToString(), problem.Extensions["actualValue"]!.ToString());
     }
 }
