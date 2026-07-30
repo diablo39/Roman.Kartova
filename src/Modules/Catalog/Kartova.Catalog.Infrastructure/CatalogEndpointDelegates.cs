@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Npgsql;
 // ApplicationId is aliased rather than imported via `using Kartova.Catalog.Domain`
 // because that would clash with `System.ApplicationId` in the BCL — same trick
 // ApplicationSortSpecs uses for `DomainApplication`.
@@ -833,12 +834,65 @@ internal static class CatalogEndpointDelegates
                 detail: "An identical relationship already exists.",
                 statusCode: StatusCodes.Status409Conflict);
 
+        // At-most-one System (ADR-0111 amended): a component may hold only one PartOf edge.
+        // Placed after the exact-duplicate check so an identical re-POST keeps its own conflict
+        // type. Scoped to Application/Service sources: the message is component-specific, and if
+        // nested Systems (System→System PartOf, disallowed today by RelationshipTypeRules.cs:21-22)
+        // are ever enabled for S-02 this guard must not silently impose at-most-one-parent on them.
+        // Nullable projection, not a Guid.Empty sentinel — Guid.Empty is a legal-if-absurd value
+        // and conflating it with "no membership" is a gate-6 mutation blind spot.
+        if (req.Type == RelationshipType.PartOf
+            && source.Kind is EntityKind.Application or EntityKind.Service)
+        {
+            var currentSystemId = await db.Relationships
+                .Where(r => r.Type == RelationshipType.PartOf
+                            && r.Source.Kind == source.Kind
+                            && r.Source.Id == source.Id)
+                .Select(r => (Guid?)r.Target.Id)
+                .FirstOrDefaultAsync(ct);
+            if (currentSystemId is { } occupied)
+                return await ComponentAlreadyInSystemProblemAsync(lookup, occupied, ct);
+        }
+
         var srcDto = new EntityRefDto(source.Kind, source.Id, sourceInfo.DisplayName);
         var tgtDto = new EntityRefDto(target.Kind, target.Id, targetInfo.DisplayName);
         var cmd = new CreateRelationshipCommand(source, target, req.Type);
 
-        var response = await handler.Handle(cmd, srcDto, tgtDto, db, tenant, currentUser, audit, ct);
-        return Results.Created($"/api/v1/catalog/relationships/{response.Id}", response);
+        try
+        {
+            var response = await handler.Handle(cmd, srcDto, tgtDto, db, tenant, currentUser, audit, ct);
+            return Results.Created($"/api/v1/catalog/relationships/{response.Id}", response);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException pg
+            && pg.SqlState == "23505" && pg.ConstraintName == "ux_relationships_one_system")
+        {
+            // Lost a concurrent membership race between the pre-check above and this SaveChanges —
+            // constraint-name-scoped so an exact-duplicate-edge race (ux_relationships_edge) keeps
+            // surfacing through its own, unmapped path rather than being misreported as this problem.
+            // EF Core savepoints the ambient tenant-scope transaction around SaveChanges, so this
+            // follow-up SELECT still runs inside a live transaction — re-query rather than assume
+            // req.TargetId won the race, since the winner may have been a third, unrelated writer.
+            var winningSystemId = await db.Relationships
+                .Where(r => r.Type == RelationshipType.PartOf
+                            && r.Source.Kind == source.Kind
+                            && r.Source.Id == source.Id)
+                .Select(r => (Guid?)r.Target.Id)
+                .FirstOrDefaultAsync(ct);
+            return await ComponentAlreadyInSystemProblemAsync(lookup, winningSystemId ?? req.TargetId, ct);
+        }
+    }
+
+    private static async Task<IResult> ComponentAlreadyInSystemProblemAsync(
+        ICatalogEntityLookup lookup, Guid occupyingSystemId, CancellationToken ct)
+    {
+        // Name the System, as spec §3.3 promises — a bare GUID is not an actionable detail.
+        var occupiedName = (await lookup.Find(EntityKind.System, occupyingSystemId, ct))?.DisplayName
+                           ?? occupyingSystemId.ToString();
+        return Results.Problem(
+            type: ProblemTypes.ComponentAlreadyInSystem,
+            title: "Component already belongs to a System",
+            detail: $"This component is already part of System '{occupiedName}'. Use PUT /api/v1/catalog/{{applications|services}}/{{id}}/system to move it.",
+            statusCode: StatusCodes.Status409Conflict);
     }
 
     /// <summary>
