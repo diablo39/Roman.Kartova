@@ -1079,23 +1079,26 @@ internal static class CatalogEndpointDelegates
         CatalogDbContext db,
         CancellationToken ct)
     {
-        if (!Enum.TryParse<EntityKind>(entityKind, ignoreCase: true, out var kind) || !Enum.IsDefined(kind) || entityId == Guid.Empty)
+        // Shared by entityKind/direction/type below: Enum.TryParse alone accepts numeric
+        // strings ("999", "-1") and binds them to an undefined enum value, so every
+        // enum-ish query parameter on this endpoint additionally guards with
+        // Enum.IsDefined before accepting the parse.
+        static bool TryParseDefinedEnum<TEnum>(string? raw, out TEnum value) where TEnum : struct, Enum
+            => Enum.TryParse(raw, ignoreCase: true, out value) && Enum.IsDefined(value);
+
+        if (!TryParseDefinedEnum<EntityKind>(entityKind, out var kind) || entityId == Guid.Empty)
             return Results.Problem(type: ProblemTypes.ValidationFailed, title: "Invalid entity reference",
                 detail: "entityKind and a non-empty entityId are required.", statusCode: StatusCodes.Status400BadRequest);
 
         var dir = RelationshipDirection.All;
-        if (!string.IsNullOrWhiteSpace(direction)
-            && (!Enum.TryParse(direction, ignoreCase: true, out dir) || !Enum.IsDefined(dir)))
+        if (!string.IsNullOrWhiteSpace(direction) && !TryParseDefinedEnum(direction, out dir))
             return Results.Problem(type: ProblemTypes.ValidationFailed, title: "Invalid direction",
                 detail: "direction must be outgoing, incoming, or all.", statusCode: StatusCodes.Status400BadRequest);
 
-        // Same precedent as entityKind/direction above: bind as string, Enum.TryParse +
-        // Enum.IsDefined (rejects numeric/undefined tokens), 400 ValidationFailed on bad
-        // input — not a new problem-details shape.
         RelationshipType? filterType = null;
         if (!string.IsNullOrWhiteSpace(type))
         {
-            if (!Enum.TryParse<RelationshipType>(type, ignoreCase: true, out var parsedType) || !Enum.IsDefined(parsedType))
+            if (!TryParseDefinedEnum<RelationshipType>(type, out var parsedType))
                 return Results.Problem(type: ProblemTypes.ValidationFailed, title: "Invalid type",
                     detail: "type must be a valid relationship type.", statusCode: StatusCodes.Status400BadRequest);
             filterType = parsedType;

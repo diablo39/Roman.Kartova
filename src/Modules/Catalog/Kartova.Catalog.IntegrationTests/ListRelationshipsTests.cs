@@ -381,6 +381,51 @@ public class ListRelationshipsTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
+    public async Task GET_type_filter_finds_row_beyond_first_unfiltered_page()
+    {
+        // This is the test that separates "filter before ToCursorPagedAsync" (correct)
+        // from "filter after paging / filter page.Items in memory" (the bug this task
+        // exists to prevent). Confirmed default sort for this endpoint is createdAt DESC
+        // (newest first) — ListRelationshipsAsync: `SortOrder: parsedSortOrder ?? SortOrder.Desc`.
+        // So the FIRST-created edge is the OLDEST and sorts LAST in the unfiltered order.
+        // Seeding the PartOf edge first, then 12 DependsOn edges (all newer), puts PartOf
+        // at unfiltered position 13 of 13 — strictly outside a limit=5 first page. A
+        // post-hoc implementation would take the 5 newest (all DependsOn), filter to an
+        // empty list, and still return a NextCursor implying more data exists — this test
+        // fails under that implementation and only passes when the row set is narrowed
+        // before pagination.
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Type Trunc Team");
+        var appId = await SeedApplicationAsync(client, teamId, "app-type-trunc");
+        var sysId = await SeedSystemAsync(client, teamId, "system-type-trunc");
+
+        // Created FIRST ⇒ oldest ⇒ sorts LAST under the default createdAt desc order.
+        await PostRelAsync(client, EntityKind.Application, appId, RelationshipType.PartOf, EntityKind.System, sysId);
+
+        // 12 distinct DependsOn targets created AFTER ⇒ all newer ⇒ all 12 outrank PartOf
+        // in the unfiltered createdAt-desc order, filling an entire limit=5 first page
+        // (and then some) with non-matching rows.
+        for (var i = 0; i < 12; i++)
+        {
+            var dep = await SeedApplicationAsync(client, teamId, $"app-type-trunc-dep-{i}");
+            await PostRelAsync(client, EntityKind.Application, appId, RelationshipType.DependsOn, EntityKind.Application, dep);
+        }
+
+        var resp = await client.GetAsync(
+            $"/api/v1/catalog/relationships?entityKind={EntityKind.Application}&entityId={appId}&direction=outgoing&type={RelationshipType.PartOf}&limit=5");
+
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var page = await resp.Content.ReadFromJsonAsync<CursorPage<RelationshipResponse>>(KartovaApiFixtureBase.WireJson);
+        Assert.ContainsSingle(page!.Items);
+        Assert.AreEqual(RelationshipType.PartOf, page.Items[0].Type);
+        Assert.AreEqual(sysId, page.Items[0].Target.Id);
+        // The filtered row set has exactly 1 match — a NextCursor here would promise a
+        // page that doesn't exist (the other half of the "hidden non-matching row
+        // consumed a keyset slot" failure mode).
+        Assert.IsNull(page.NextCursor, "filtered row set has only 1 match; no further page should be promised");
+    }
+
+    [TestMethod]
     public async Task GET_with_invalid_type_returns_400()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
