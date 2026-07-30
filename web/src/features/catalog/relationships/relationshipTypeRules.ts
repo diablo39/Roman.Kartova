@@ -29,6 +29,15 @@ export function isRelationshipKind(kind: string): kind is RelationshipKind {
   return kind === "application" || kind === "service" || kind === "api";
 }
 
+// Rendering/search superset of RelationshipKind. `system` is a real catalog entity that can
+// appear as a relationship ENDPOINT (PartOf, ADR-0111) and be searched, but it is not a
+// creatable-edge kind and not a graph URL token — those stay on RelationshipKind.
+export type EntityKind = RelationshipKind | "system";
+
+export function isEntityKind(kind: string): kind is EntityKind {
+  return isRelationshipKind(kind) || kind === "system";
+}
+
 // FE creatable subset of backend RelationshipTypeRules.IsAllowedPair (ADR-0068/ADR-0111).
 // Intentionally STRICTER than backend: `dependsOn` never targets `api` (backend allows any->any
 // incl. api; the UI steers API links through provides/consumes and never offers `api` as a

@@ -1,12 +1,12 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useEntitySearch, type EntityOption } from "@/features/catalog/api/relationships";
-import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
+import type { EntityKind } from "@/features/catalog/relationships/relationshipTypeRules";
 
 const MIN_QUERY_LENGTH = 2;
 const DEBOUNCE_MS = 250;
 
 interface Props {
-  kind: RelationshipKind;
+  kind: EntityKind;
   excludeId?: string;
   onSelect: (entity: EntityOption) => void;
   placeholder?: string;

@@ -4,6 +4,7 @@ import {
   isRelationshipKind,
   type RelationshipKind,
   type CreatableRelationshipType,
+  type EntityKind,
 } from "@/features/catalog/relationships/relationshipTypeRules";
 
 export type GraphSide = "focused" | "dependency" | "dependent";
@@ -129,12 +130,13 @@ export function toGraphModel(
   return { nodes, edges };
 }
 
-export const ENTITY_KIND_LABEL: Record<string, string> = { application: "Application", service: "Service", api: "API" };
+export const ENTITY_KIND_LABEL: Record<string, string> = { application: "Application", service: "Service", api: "API", system: "System" };
 
-const ENTITY_PATH_SEGMENT: Record<RelationshipKind, string> = {
+const ENTITY_PATH_SEGMENT: Record<EntityKind, string> = {
   application: "applications",
   service: "services",
   api: "apis",
+  system: "systems",
 };
 
 export function parseEntityRef(token: string | null | undefined): { kind: RelationshipKind; id: string } | null {
@@ -144,7 +146,7 @@ export function parseEntityRef(token: string | null | undefined): { kind: Relati
   return null;
 }
 
-export function entityDetailPath(kind: RelationshipKind, id: string): string {
+export function entityDetailPath(kind: EntityKind, id: string): string {
   return `/catalog/${ENTITY_PATH_SEGMENT[kind]}/${id}`;
 }
 
