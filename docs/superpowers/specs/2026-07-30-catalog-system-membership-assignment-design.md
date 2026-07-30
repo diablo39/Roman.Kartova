@@ -142,7 +142,7 @@ Field-addition trigger for the new System field, per CLAUDE.md, on both lists th
 6. unknown `systemId` → 422; unknown component → 422; **genuinely cross-tenant System** (seeded in tenant B, PUT from tenant A) → 422, so the test distinguishes "absent" from "RLS hid it" per TESTING-STRATEGY.md §5 *(negative)*;
 7. caller in neither team (Member of a third team) → 403 *(negative, ADR-0108)*; **plus** a member of only the *destination* System's team moving a component **out** of another System → 403 (per-edge authority, see the authorization row in §2);
 8. caller without `catalog.relationships.write` → 403 — implemented as two new rows in `CatalogPermissionMatrixTests`, this repo's canonical mechanism, not a bespoke test; **and** an unauthenticated request → 401;
-9. pre-seeded **two** `PartOf` edges → PUT collapses to one *(defensive path)*;
+9. the DB itself refuses a second `PartOf` edge for one component (seeded past every application guard) → `ux_relationships_one_system` violation. **Not** an endpoint test that pre-seeds two edges — the index makes that precondition unseedable; the collapse logic is covered by the pure `SystemMembership.Decide` tests instead. Plus: a membership write leaves an unrelated `dependsOn` edge intact (pins the `Type == PartOf` filter, which nothing else does);
 10. audit read-back: an assign followed by a move writes both `relationship.created` and `relationship.removed` rows (`Fx.ReadAuditLogAsync`) — no integration test otherwise touches `audit_log`;
 11. the idempotent re-PUT asserts the **response body** still carries the System id *and* display name, not just a 200.
 
