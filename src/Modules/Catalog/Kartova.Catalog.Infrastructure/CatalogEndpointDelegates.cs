@@ -22,6 +22,7 @@ using HealthStatus = Kartova.Catalog.Domain.HealthStatus;
 using ApiStyle = Kartova.Catalog.Domain.ApiStyle;
 using EntityRef = Kartova.Catalog.Domain.EntityRef;
 using EntityKind = Kartova.Catalog.Domain.EntityKind;
+using ComponentAlreadyInSystemException = Kartova.Catalog.Domain.ComponentAlreadyInSystemException;
 using RelationshipType = Kartova.Catalog.Domain.RelationshipType;
 using RelationshipDirection = Kartova.Catalog.Application.RelationshipDirection;
 using SortOrder = Kartova.SharedKernel.Pagination.SortOrder;
@@ -839,6 +840,127 @@ internal static class CatalogEndpointDelegates
         var response = await handler.Handle(cmd, srcDto, tgtDto, db, tenant, currentUser, audit, ct);
         return Results.Created($"/api/v1/catalog/relationships/{response.Id}", response);
     }
+
+    /// <summary>
+    /// PUT /{applications|services}/{id}/system — atomic at-most-one System membership write
+    /// over <c>PartOf</c> edges (ADR-0111 amended). <c>systemId: null</c> clears.
+    /// 422 = unknown/cross-tenant component or System. 403 = caller is neither OrgAdmin, nor a
+    /// member of the component's team, nor a member of the team of EVERY System whose edge this
+    /// write mutates — ADR-0108 applies per edge, and a move mutates two (see the block below).
+    /// 409 = a concurrent writer already assigned the component a System (ux_relationships_one_system).
+    /// </summary>
+    internal static async Task<IResult> SetComponentSystemAsync(
+        EntityKind componentKind,
+        Guid id,
+        SetSystemRequest request,
+        ICatalogEntityLookup lookup,
+        SetComponentSystemHandler handler,
+        CatalogDbContext db,
+        ITenantContext tenant,
+        ICurrentUser currentUser,
+        ClaimsPrincipal caller,
+        IAuthorizationService auth,
+        IAuditWriter audit,
+        CancellationToken ct)
+    {
+        var component = new EntityRef(componentKind, id);
+
+        var componentInfo = await lookup.Find(componentKind, id, ct);
+        if (componentInfo is null)
+            return Results.Problem(
+                type: ProblemTypes.InvalidSourceEntity,
+                title: "Invalid component",
+                detail: "The component does not exist in this tenant.",
+                statusCode: StatusCodes.Status422UnprocessableEntity);
+
+        string? systemDisplayName = null;
+        if (request.SystemId is { } requestedSystemId)
+        {
+            var systemInfo = await lookup.Find(EntityKind.System, requestedSystemId, ct);
+            if (systemInfo is null)
+                return Results.Problem(
+                    type: ProblemTypes.InvalidTargetEntity,
+                    title: "Invalid system",
+                    detail: "The system does not exist in this tenant.",
+                    statusCode: StatusCodes.Status422UnprocessableEntity);
+            systemDisplayName = systemInfo.DisplayName;
+        }
+
+        // A move is TWO edge mutations (delete old + insert new) and ADR-0108 authorizes each
+        // edge on its own endpoints — so gating only on the REQUESTED System's team would let a
+        // steward of the destination strip a component out of a System they have no claim on, a
+        // delete that DELETE /relationships/{id} would refuse. Authorize every edge this write
+        // touches. (This projection is deliberately separate from the handler's own tracked-entity
+        // query: authz needs ids only, the handler needs entities to remove and audit. Both run
+        // inside the same request transaction, so they see the same snapshot.)
+        var currentSystemIds = await db.Relationships
+            .Where(r => r.Type == RelationshipType.PartOf
+                        && r.Source.Kind == componentKind
+                        && r.Source.Id == id)
+            .Select(r => r.Target.Id)
+            .ToListAsync(ct);
+
+        // The component is an endpoint of every edge here, so its team authorizes all of them.
+        if (await AuthorizeTargetTeamAsync(auth, caller, componentInfo.TeamId) is not null)
+        {
+            var touchedSystemIds = new List<Guid>();
+            if (request.SystemId is { } wanted && !currentSystemIds.Contains(wanted))
+                touchedSystemIds.Add(wanted);                                    // the insert
+            touchedSystemIds.AddRange(currentSystemIds.Where(s => s != request.SystemId));  // every delete
+
+            foreach (var systemId in touchedSystemIds.Distinct())
+            {
+                var systemTeamId = (await lookup.Find(EntityKind.System, systemId, ct))?.TeamId ?? Guid.Empty;
+                if (await AuthorizeTargetTeamAsync(auth, caller, systemTeamId) is { } forbidden)
+                    return forbidden;
+            }
+        }
+
+        try
+        {
+            var response = await handler.Handle(
+                new SetComponentSystemCommand(component, request.SystemId),
+                systemDisplayName, db, tenant, currentUser, audit, ct);
+
+            return Results.Ok(response);
+        }
+        catch (ComponentAlreadyInSystemException)
+        {
+            return Results.Problem(
+                type: ProblemTypes.ComponentAlreadyInSystem,
+                title: "Component already in a System",
+                detail: "A concurrent write already assigned this component a System membership.",
+                statusCode: StatusCodes.Status409Conflict);
+        }
+    }
+
+    internal static Task<IResult> SetApplicationSystemAsync(
+        Guid id,
+        [FromBody] SetSystemRequest request,
+        ICatalogEntityLookup lookup,
+        SetComponentSystemHandler handler,
+        CatalogDbContext db,
+        ITenantContext tenant,
+        ICurrentUser currentUser,
+        ClaimsPrincipal caller,
+        IAuthorizationService auth,
+        IAuditWriter audit,
+        CancellationToken ct)
+        => SetComponentSystemAsync(EntityKind.Application, id, request, lookup, handler, db, tenant, currentUser, caller, auth, audit, ct);
+
+    internal static Task<IResult> SetServiceSystemAsync(
+        Guid id,
+        [FromBody] SetSystemRequest request,
+        ICatalogEntityLookup lookup,
+        SetComponentSystemHandler handler,
+        CatalogDbContext db,
+        ITenantContext tenant,
+        ICurrentUser currentUser,
+        ClaimsPrincipal caller,
+        IAuthorizationService auth,
+        IAuditWriter audit,
+        CancellationToken ct)
+        => SetComponentSystemAsync(EntityKind.Service, id, request, lookup, handler, db, tenant, currentUser, caller, auth, audit, ct);
 
     internal static async Task<IResult> DeleteRelationshipAsync(
         Guid id,
