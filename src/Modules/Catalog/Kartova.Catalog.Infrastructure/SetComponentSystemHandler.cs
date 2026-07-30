@@ -5,6 +5,7 @@ using Kartova.SharedKernel.AspNetCore;   // ICurrentUser — cf. CreateRelations
 using Kartova.SharedKernel.Audit;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Kartova.Catalog.Infrastructure;
 
@@ -47,8 +48,16 @@ public sealed class SetComponentSystemHandler(TimeProvider clock)
             db.Relationships.Add(added);
         }
 
-        if (removed.Count > 0 || added is not null)
-            await db.SaveChangesAsync(ct);
+        try
+        {
+            if (removed.Count > 0 || added is not null)
+                await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException pg && pg.SqlState == "23505")
+        {
+            // Lost a concurrent membership race — the other writer's edge stands.
+            throw new ComponentAlreadyInSystemException(cmd.Component);
+        }
 
         foreach (var rel in removed)
         {

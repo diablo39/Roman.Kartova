@@ -73,6 +73,9 @@ public static class ProblemTypes
     public const string InvalidTargetEntity      = Base + "invalid-target-entity";    // 422
     public const string RelationshipAlreadyExists = Base + "relationship-already-exists"; // 409
 
+    // System membership — at-most-one PartOf edge (ADR-0111 amended 2026-07-30).
+    public const string ComponentAlreadyInSystem = Base + "component-already-in-system"; // 409: lost a concurrent membership race.
+
     // Member lifecycle — slice 10.
     public const string LastOrgAdmin       = Base + "last-orgadmin";          // 409
     public const string CannotOffboardSelf = Base + "cannot-offboard-self";   // 409
