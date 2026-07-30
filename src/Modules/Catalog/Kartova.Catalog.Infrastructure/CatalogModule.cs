@@ -310,6 +310,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<GetSystemByIdHandler>();
         services.AddScoped<ListSystemsHandler>();
         services.AddScoped<CreateRelationshipHandler>();
+        services.AddScoped<SetComponentSystemHandler>();
         services.AddScoped<DeleteRelationshipHandler>();
         services.AddScoped<ListRelationshipsForEntityHandler>();
         services.AddScoped<GraphTraversalHandler>();
