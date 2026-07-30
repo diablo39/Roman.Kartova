@@ -36,8 +36,7 @@ public sealed class SetComponentSystemHandler(TimeProvider clock)
             cmd.SystemId);
 
         var removed = current.Where(r => decision.RelationshipIdsToDelete.Contains(r.Id.Value)).ToList();
-        if (removed.Count > 0)
-            db.Relationships.RemoveRange(removed);
+        db.Relationships.RemoveRange(removed);
 
         Relationship? added = null;
         if (decision.InsertRequested && cmd.SystemId is { } systemId)
