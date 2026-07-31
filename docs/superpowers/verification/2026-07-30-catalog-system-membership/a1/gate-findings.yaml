@@ -11,7 +11,7 @@
 
 slice:  2026-07-30-catalog-system-membership/a1
 branch: feat/catalog-system-membership-a1
-head:   283eac2f
+head:   02f74bdb  # final tip at gate close; earlier entries cite their own fix commits
 
 # One entry per issue a gate raised. Source: .superpowers/sdd/2026-07-30-catalog-system-membership-a1/progress.md
 # (per-task review outcomes) unless noted otherwise. Every finding below was real and acted
@@ -39,7 +39,7 @@ findings:
     severity: important
     verdict: real
     title: "Task 2: six handler unit tests unrunnable — EF in-memory cannot translate any predicate over Relationship.Source ComplexProperty"
-    note: "Controller ruling: delete SetComponentSystemHandlerTests.cs rather than ship 6 [Ignore]d shells; the 6 scenarios relocated to Task 3's integration suite (+ no-op clear, sibling isolation, edge-shape assertions). Gate 6 unaffected — stryker-config.json runs the integration project too."
+    note: "Controller ruling: delete SetComponentSystemHandlerTests.cs rather than ship 6 [Ignore]d shells; the 6 scenarios relocated to Task 3's integration suite (+ no-op clear, sibling isolation, edge-shape assertions). Gate 6 was believed unaffected because stryker-config.json runs the integration project too — TRUE of src/Modules/Catalog/stryker-config.json, but NOT of the repo-root one, which lists only Kartova.Catalog.Tests and Kartova.Organization.Tests. Both gate-9 reviewers flagged this independently: if a mutation run ever uses the root config, this handler and the changed delegate have no covering test project and every mutant surfaces as no-coverage, invalidating the premise of this ruling. Gate 6 is owner-waived for this slice, so the question is open rather than answered — resolve the config path before reading any future score."
 
   - gate: reviews
     severity: important
@@ -88,3 +88,126 @@ findings:
     verdict: delusion
     title: "Hypothesis: relationship-drift.spec.ts's query-key/staleTime collision (the #70 retro class) recurred in this slice"
     note: "Did not recur. useComponentSystem's type=partOf&limit=1 query key is provably distinct from RelationshipsSection's unfiltered key; the Dependencies-tab waitForResponse resolved 200 with no timeout on every run."
+
+  # ---- gate 5 (/simplify, four angles over the branch diff) ----
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "The current-PartOf-membership predicate was written three times (POST pre-check, POST 23505 re-query, PUT handler fetch) - flagged independently by 3 of 4 angles"
+    note: "Fixed 3fc52f0c as CurrentMembershipQueries. A fourth call site (the authorization projection) was missed by gate 5 and folded in at gate 7 (c18af289). Gate 9 confirmed the hub now names all four consumers in its docblock."
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "useSetComponentSystem hand-rolled the invalidation pair invalidateAfterRelationshipChange already owned (it was module-private, hence not reused)"
+    note: "Fixed 3fc52f0c - exported and called, plus systemKeys.all. A future addition to the canonical invalidation set now reaches membership writes automatically."
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "Both new dialogs re-implemented the ProblemDetails toast ladder that the existing toastProblem helper was extracted to kill; the two copies had already drifted on fallback wording"
+    note: "Fixed 3fc52f0c. This later proved load-bearing - gate 8 found the byStatus dispatch, reachable only via toastProblem, was needed for the 403 case."
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "Promoting the duplicated integration-test seed helpers to CatalogIntegrationTestBase shadowed identical members in SEVEN untouched test classes - 76 CS0108 warnings"
+    note: "APPLIED THEN REVERTED. Only a forced --no-incremental build revealed them; the incremental build reported zero, which is how this would have reached CI. Fixing it properly means editing seven files outside the diff, which is /simplify's own out-of-scope rule. Duplication left in place as a follow-up. The clearest case in this slice of a clean-looking win that was a net loss."
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "Five further candidates skipped with recorded reasons (handler round-trip collapse, authorization-block union, shared canManage hook, mutationFn path-literal branch, ENTITY_KIND_LABEL tightening)"
+    note: "Each skipped for a stated reason rather than silently - moves data access into the delegate for a sub-millisecond gain at 21 rows; touches load-bearing 403 logic two reviewers traced by hand; cross-file beyond the diff; openapi-fetch keys type narrowing off the literal path; breaks call sites indexing with an API-supplied string."
+
+  # ---- gate 7 (requesting-code-review, whole branch) ----
+  - gate: requesting-code-review
+    severity: important
+    verdict: real
+    title: "useComponentSystem never asserted its request shape - deleting type=partOf passed the ENTIRE frontend suite, and with limit 1 that silently renders Not assigned for any component whose newest edge is a dependsOn"
+    note: "Fixed c18af289. Proven by making the mutation, watching the new test fail, then restoring. The .find guard cannot compensate at limit 1."
+  - gate: requesting-code-review
+    severity: important
+    verdict: real
+    title: "The teamIds.includes half of canManage was untested on both surfaces, so reducing the predicate to role == OrgAdmin would ship green - and gate 6 could never catch it, since Stryker scope is C# only"
+    note: "Fixed c18af289 with one test per surface (a Member with a matching team). Same fail-then-restore proof."
+  - gate: requesting-code-review
+    severity: important
+    verdict: real
+    title: "The PUT handler 23505 catch was not constraint-scoped while Task 4 had deliberately scoped the POST one - the branch disagreed with itself"
+    note: "Fixed c18af289. Gate 8/9 work then CORRECTED that fix - the same-System race actually reports ux_relationships_edge, so the PUT catch had to accept both names (53e8df42). Recorded because the first fix was right in principle and wrong in the specific constraint."
+  - gate: requesting-code-review
+    severity: should-fix
+    verdict: real
+    title: "excludeApiEdges was absent from the ADR-0095 cursor filter fingerprint - I had deferred it as pre-existing; the reviewer argued the contract is stated as a MUST and the diff already built the dictionary two lines above the violating call"
+    note: "Accepted and fixed c18af289. A gate-8 lens then repeated the ledger stale still-deferred line - a reviewer misled by my own bookkeeping, which is why the ledger-integrity pass happened."
+  - gate: requesting-code-review
+    severity: nit
+    verdict: real
+    title: "Nine further minors - no-op PUT authorized by nothing (deferred), partOf rendered as a raw token, hasSystem derived from display name vs id, stale RelationshipKind cast, missing domain breadcrumb, TOCTOU documentation, registry/ADR-index/ledger gaps"
+    note: "All fixed in c18af289 or the doc commits EXCEPT the no-op-PUT authorization gap, which is deferred - harmless today (no state change, no audit row) but it means authorization is a function of what changed rather than what was asked. Changing authorization shape at gate time was judged the wrong moment."
+
+  # ---- gate 8 (review-pr, four specialist lenses) ----
+  - gate: review-pr
+    severity: important
+    verdict: real
+    title: "The 403 byStatus mapping added at gate 7 was DEAD CODE - Results.Forbid() writes no body, so openapi-fetch returns error undefined, throwWithStatus is skipped, __status is never attached, and toastProblem falls to its generic fallback for exactly the permission case the message existed to explain"
+    note: "Fixed 02f74bdb in the shared helper - unwrapData now synthesizes __status from a not-ok bodyless response, benefiting 21 call sites rather than two dialogs. It shipped untested because the dialog tests reject mutateAsync with hand-built objects already carrying __status, bypassing the real wire shape. The test pattern hid the bug."
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "SystemMembersSection Remove used a bare catch, collapsing 409/403/422/network into one undifferentiated string while the sibling dialogs discriminated"
+    note: "Fixed 02f74bdb - routed through toastProblem."
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "The PUT path own 23505 race had neither a test nor a recorded waiver, unlike the POST path which is explicitly accepted; and DELETE /relationships/{id} role in the invariant was only ever exercised indirectly"
+    note: "Both fixed 53e8df42 with deterministic interceptor-based race tests (no Task.WhenAll) and a full DELETE-frees-the-slot test."
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "Type design - InsertRequested bool separates should-insert from insert-what; SystemMembershipResponse permits id-without-name; ExistingMembership takes two bare Guids where strong-typed wrappers exist"
+    note: "All three DEFERRED, not disputed. The first two sit in mutation scope or on a shipped wire contract (regenerating the OpenAPI client at gate time); today the fields cannot disagree because Decide only sets the flag in the non-null branch. Recorded as follow-ups."
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "Hypothesis - CLAUDE.md rule violations (coverage exclusions, list-endpoint discipline, permission 5-sync, react-aria isRowHeader)"
+    note: "None found. The compliance lens verified the no-new-permission claim by grepping all five 5-sync touchpoints rather than assuming, and confirmed exactly one isRowHeader in BOTH the loading and loaded table branches."
+
+  # ---- gate 9 (deep-review, two-reviewer ensemble) ----
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "A lost DELETE race reached the global ConcurrencyConflictExceptionHandler and returned 412 Precondition Failed from a route that declares no preconditions and uses no If-Match"
+    note: "Fixed 53e8df42 - reconciles to 200, since the edge the caller wanted gone is gone. The insert race had been hardened at gate 7; the symmetric delete race was missed."
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "Two concurrent PUTs naming the SAME System gave the loser a 409, breaking ADR-0096 idempotent replacement - the state it asked for now holds"
+    note: "Fixed 53e8df42 by re-querying the winner; only a genuinely different winner is a conflict. Fixing this EXPOSED an error in the finding itself - the same-System race reports ux_relationships_edge (the older full-tuple index, checked first), so without broadening the catch the race would have escaped as an unhandled 500 rather than the wrong 409 the finding predicted. Verified against live Postgres."
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "A move relied on EF delete-before-insert batch ordering; both edges share the same partial-unique key, so a provider change would make EVERY move return a believable 409 while assign and clear kept working"
+    note: "The reviewer explicitly disputed my deferral (re-run the move test after an EF bump) as inadequate for so quiet a failure shape. Accepted - fixed 53e8df42 with two explicit saves in one transaction, pinning the order in code."
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "The POST PartOf pre-check was scoped by source kind but not target kind, so a malformed Application-to-Application PartOf returned 400 or 409 depending on whether the source already had a System"
+    note: "Fixed 53e8df42. Also inverts an earlier Task 4 note that called the missing kind-scoping provably dead because IsAllowedPair throws first - on the pre-check path it does not, because the pre-check runs first."
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "SystemMembersSection still read the UNFILTERED incoming list and filtered client-side - the very bug the spec named for this component - and its empty-state branch hid the pager"
+    note: "Flagged by both reviewers independently. Fixed 02f74bdb."
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "Docs and ledger integrity - the ADR index never recorded the amendment; the registry claimed no backend support for a type filter this slice built; the ledger cited a nonexistent spec path, claimed PASS in summary rows whose detail sections still read PENDING, and omitted two changed files from the gate-6 scope"
+    note: "All fixed 02f74bdb. Worth keeping as telemetry - a stale ledger actively misled a gate-8 reviewer into repeating a finding the diff had already fixed."
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "Down() lacked the lock_timeout Up() sets; the ProblemTypes comment described only the race producer; ComponentAlreadyInSystemException bypasses the repo global-conflict-handler seam with no ADR governing the choice"
+    note: "First two fixed 53e8df42. The global-handler question is recorded as an open design point rather than changed at gate time - the local catch is reachable only from the one delegate today."
+  - gate: deep-review
+    severity: nit
+    verdict: delusion
+    title: "Hypothesis - a legal call sequence exists that leaves a component in two Systems or strands one"
+    note: "Both reviewers independently enumerated every PartOf creator across all three write paths plus the DB constraint and could not construct one. Recorded because it was the primary question the gate was asked to answer."

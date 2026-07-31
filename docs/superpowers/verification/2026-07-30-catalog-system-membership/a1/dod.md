@@ -19,15 +19,15 @@
 |------|--------|---------|
 | 1 Build (`TreatWarningsAsErrors`) | ✅ PASS | 2026-07-30 |
 | 2 Per-task subagent reviews | ✅ PASS | 2026-07-30 |
-| 3 Full suite (+ real-seam if wiring) | ✅ PASS (1 unrelated pre-existing flake) | 2026-07-30 |
+| 3 Full suite (+ real-seam if wiring) | ✅ PASS | re-run on final `02f74bdb` — see terminal re-verify |
 | 4 Container build (images CI) | ✅ PASS | 2026-07-30 |
 | 5 `/simplify` | ✅ PASS | `3fc52f0c` — 3 applied, 5 skipped w/ reasons, 1 applied-then-reverted (76 CS0108 warnings) |
 | 6 Mutation (blocking — Domain/Application changes) | ⚠️ **WAIVED BY OWNER** (not green) | Roman, 2026-07-31 — see gate 6 detail |
 | 7 `requesting-code-review` | ✅ PASS | no Critical/Important; 9 minors + 2 accepted disagreements fixed in `c18af289` |
 | 8 `review-pr` | ✅ PASS | 4 lenses, 0 blocking; 1 HIGH (dead 403 mapping) + 1 MEDIUM fixed; 3 type-design items deferred |
 | 9 `deep-review` | ✅ PASS | 2-reviewer ensemble, 0 blocking from either; backend findings in `53e8df42`, docs + FE after |
-| Terminal re-verify (build + suite) | ⏳ PENDING | — |
-| 10 Visual / API verification (ADR-0084) | ⏳ PENDING | — |
+| Terminal re-verify (build + suite) | ✅ PASS | `02f74bdb` — build 0 warnings; 1201 backend tests / 12 assemblies + 924 frontend, 0 failures |
+| 10 Visual / API verification (ADR-0084) | ✅ PASS (owner-verified, no screenshot artifacts) | 2026-07-31 — see gate 10 detail |
 | 11 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING | — |
 
 **E2E impact audit (Task 12, part of the "touched a flow an E2E covers" trigger, not a numbered DoD gate):** ✅ done — see "E2E impact audit" section below. 5/5 specs green, one fixture bug this slice introduced was found and fixed.
@@ -118,15 +118,27 @@ Convergent should-fix items, both now actioned: `SystemMembersSection` still rea
 Reviewer B additionally challenged two recorded deferrals and won both: a lost **delete** race surfaced as **412** from a route with no preconditions, and two concurrent PUTs naming the **same** System gave the loser a 409 in breach of ADR-0096 idempotence. It also argued the EF delete-before-insert batch ordering was too quiet a failure to leave to a remembered post-upgrade check — if it ever flipped, *every* move would return a believable 409 while assign and clear kept working. All three are fixed in `53e8df42`, the ordering now pinned by two explicit saves in one transaction.
 **At:** review over `bc55263a..c18af289`; fixes in `53e8df42` + following commits. Reviewer reports are summarised here rather than committed verbatim.
 
-### Terminal re-verify (build + full suite after gates 5–9)
-**Status:** ⏳ PENDING
-**Evidence:** Gates 5–9 may apply fixes; re-run build + full suite on the final commit once they've landed.
-**At:** —
+### Terminal re-verify (build + full suite on the FINAL commit)
+**Status:** ✅ PASS
+**Why it was mandatory here:** gates 5, 7, 8 and 9 all changed production code after gate 1/3's original evidence was recorded, and a gate-9 reviewer flagged exactly this — the ledger's suite evidence predated `3fc52f0c`, `c18af289`, `53e8df42` and `02f74bdb`.
+**Evidence, all re-run by the controller on `02f74bdb`, not taken from a subagent report:**
+- `dotnet build Kartova.slnx --no-incremental` → **Build succeeded, 0 Warning(s)** (`TreatWarningsAsErrors` in force).
+- `dotnet test Kartova.slnx` → **0 failures across 12 assemblies, 1201 tests**: Catalog unit 270, Catalog integration 365, Organization integration 142, Organization infra 104, SharedKernel.AspNetCore 100, Organization unit 83, Architecture 69, Audit infra integration 35, Catalog infra 11, SharedKernel.Postgres integration 8, SharedKernel.Identity integration 8, Api integration 6.
+- Frontend: `npm test` → **924/924 across 127 files**; `npm run build` (`tsc -b` + vite) clean; eslint clean on touched files.
+- The `RegisterServiceDialog` load-dependent flake noted at gate 3 did **not** fire in this run.
+**At:** commit `02f74bdb`
 
-### 10 — Visual / API verification (observe the running system)
-**Status:** ⏳ PENDING
-**Evidence:** Per ADR-0084: cold-start dev server, authenticate, in-SPA navigate, assign → change → remove a System membership, screenshot the changed surface, confirm 0 console errors. Not yet run.
-**At:** —
+### 10 — Visual / API verification, observe the running system (ADR-0084)
+**Status:** ✅ PASS — **owner-verified manually. No screenshot artifacts were captured**, so this row is weaker evidence than a full MCP pass would be; recorded honestly rather than dressed up.
+**Method:** the controller rebuilt the API image (the running container was ~15 commits stale), restarted it, confirmed `/openapi/v1.json` 200, and started the vite dev server on :5173 against the live stack (Postgres + Keycloak + migrated dev DB). Roman then exercised the slice in the browser and reported the result as OK on 2026-07-31.
+**Supporting machine-checked evidence gathered on the same running stack (not a substitute for the visual pass, but citable):**
+- The migration applied to the **real dev database**, not just Testcontainers: `ux_relationships_one_system` present with the correct partial predicate `WHERE ((type)::text = 'PartOf'::text)`, and `relationships` still `relrowsecurity = t AND relforcerowsecurity = t` — proving the RLS disable/re-enable dance restores state on a live table.
+- Duplicate audit on the dev DB: 1 `PartOf` row, 0 groups with >1 — nothing needed collapsing there.
+- The live OpenAPI document exposes `PUT /api/v1/catalog/applications/{id}/system`, `PUT /api/v1/catalog/services/{id}/system`, and the `type` parameter on `GET /api/v1/catalog/relationships` (this is what the committed snapshot was regenerated from).
+- A gotcha found by doing this rather than assuming: `docker compose build api` does **not** rebuild the `migrator` image, so the migrator reported "already up to date" against a database that had never received the migration. Rebuilding `migrator` explicitly applied it.
+**Known-and-accepted at this gate:** DevSeed creates no Systems, so a System must be created first; System nodes in `/graph` are labelled and linked correctly (a side effect of Task 5 widening the shared label/path maps) but are not filterable or focusable — that remains FU-A.
+**Follow-up per CLAUDE.md:** any deterministic user-flow regression found here belongs in the nightly `e2e/` suite. None was found; the E2E audit under Task 12 already fixed the one spec this slice's area touched.
+**At:** running stack at commit `02f74bdb`; owner confirmation 2026-07-31.
 
 ### 11 — CI green on the PR (terminal; `scripts/ci-local.sh` = required pre-push mirror)
 **Status:** ⏳ PENDING
