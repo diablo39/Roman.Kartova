@@ -80,7 +80,7 @@ findings:
   - gate: manual
     severity: should-fix
     verdict: real
-    title: "e2e/fixtures/db.ts's insertDriftEdge used type='PartOf' as the drift value, but this slice re-added PartOf as a real RelationshipType, so the row stopped being drift and rendered as a normal relationship"
+    title: "e2e/fixtures/db.ts's insertDriftEdge used type='PartOf' as the drift value, but PR #78 (3ebe95ba, 2026-07-21) re-added PartOf as a real RelationshipType, so the row stopped being drift and renders as a normal relationship. PRE-EXISTING on master, not an A1 regression - verified: PartOf is present at A1's branch base bc55263a and this branch never touches RelationshipType.cs. A1 found and fixed it; the nightly has likely been red since 2026-07-21."
     note: "Found 2026-07-31 in Task 12 by actually running relationship-drift.spec.ts (not predicted by the plan's Step-1 collision hypothesis, which concerned a different failure mode — a waitForResponse timeout — that did NOT occur). Fixed: fixture's type literal changed to 'LegacyUnmappedType'; spec comments updated to stop naming PartOf as the drift value. Re-ran green (both the single spec and the full 5-spec suite)."
 
   - gate: manual
