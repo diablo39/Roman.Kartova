@@ -28,7 +28,7 @@
 | 9 `deep-review` | ✅ PASS | 2-reviewer ensemble, 0 blocking from either; backend findings in `53e8df42`, docs + FE after |
 | Terminal re-verify (build + suite) | ✅ PASS | `02f74bdb` — build 0 warnings; 1201 backend tests / 12 assemblies + 924 frontend, 0 failures |
 | 10 Visual / API verification (ADR-0084) | ✅ PASS (owner-verified, no screenshot artifacts) | 2026-07-31 — see gate 10 detail |
-| 11 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING | — |
+| 11 CI green on PR (`ci-local.sh` = pre-push mirror) | 🔄 pre-push mirror done (1 known env flake, isolated re-run green); PR-runner pending | 2026-07-31 |
 
 **E2E impact audit (Task 12, part of the "touched a flow an E2E covers" trigger, not a numbered DoD gate):** ✅ done — see "E2E impact audit" section below. 5/5 specs green, one fixture bug this slice introduced was found and fixed.
 
