@@ -14,6 +14,7 @@ import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
 import { RelationshipsSection } from "@/features/catalog/components/RelationshipsSection";
 import { ApiSurfaceSection } from "@/features/catalog/components/ApiSurfaceSection";
+import { SystemMembershipRow } from "@/features/catalog/components/SystemMembershipRow";
 
 const DependencyMiniGraph = lazy(() =>
   import("@/features/catalog/components/DependencyMiniGraph").then((m) => ({ default: m.DependencyMiniGraph })),
@@ -111,6 +112,12 @@ export function ApplicationDetailPage() {
                   </div>
                   <Field label="Created" value={app.createdAt ?? "—"} />
                 </section>
+                <SystemMembershipRow
+                  componentKind="application"
+                  componentId={app.id}
+                  componentDisplayName={app.displayName}
+                  componentTeamId={app.teamId}
+                />
                 {(app.successorApplicationId || showSuccessorAction) && (
                   <>
                     <hr className="border-secondary" />

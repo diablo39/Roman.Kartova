@@ -12,6 +12,7 @@ import { PROTOCOL_LABEL } from "@/features/catalog/schemas/registerService";
 import { RelationshipsSection } from "@/features/catalog/components/RelationshipsSection";
 import { ApiSurfaceSection } from "@/features/catalog/components/ApiSurfaceSection";
 import { DerivedDependenciesSection } from "@/features/catalog/components/DerivedDependenciesSection";
+import { SystemMembershipRow } from "@/features/catalog/components/SystemMembershipRow";
 
 const DependencyMiniGraph = lazy(() =>
   import("@/features/catalog/components/DependencyMiniGraph").then((m) => ({ default: m.DependencyMiniGraph })),
@@ -90,6 +91,12 @@ export function ServiceDetailPage() {
                 <Field label="Created" value={svc.createdAt ? new Date(svc.createdAt).toLocaleString() : "—"} />
                 <Field label="Version" value={svc.version} mono />
               </section>
+              <SystemMembershipRow
+                componentKind="service"
+                componentId={svc.id}
+                componentDisplayName={svc.displayName}
+                componentTeamId={svc.teamId}
+              />
               <hr className="border-secondary" />
               <section>
                 <h3 className="text-sm font-medium text-tertiary">Endpoints</h3>
