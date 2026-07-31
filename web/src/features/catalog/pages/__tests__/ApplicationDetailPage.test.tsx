@@ -252,6 +252,16 @@ describe("ApplicationDetailPage", () => {
     await waitFor(() => expect(screen.getByText(/application not found/i)).toBeInTheDocument());
   });
 
+  it("mounts the System membership row on Overview, wired to the page's real componentTeamId", async () => {
+    // OrgAdmin bypasses the team check regardless of app.teamId — proves the row is live and
+    // wired (not e.g. rendering with a stale/undefined componentTeamId that always fails gating).
+    mockPermissions([KartovaPermissions.CatalogRelationshipsWrite], { role: "OrgAdmin", teamIds: [] });
+    renderPage();
+
+    expect(await screen.findByText(/not assigned/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /assign/i })).toBeInTheDocument();
+  });
+
   it("falls back to italic 'No description' when description is empty", async () => {
     const get = vi.fn().mockResolvedValue({
       data: {

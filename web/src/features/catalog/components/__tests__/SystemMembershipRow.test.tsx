@@ -5,8 +5,17 @@ import { SystemMembershipRow } from "@/features/catalog/components/SystemMembers
 import * as systems from "@/features/catalog/api/systems";
 import * as perms from "@/shared/auth/usePermissions";
 
-function mockMembership(systemId: string | null, systemDisplayName: string | null) {
-  vi.spyOn(systems, "useComponentSystem").mockReturnValue({ systemId, systemDisplayName, isLoading: false, isError: false });
+function mockMembership(
+  systemId: string | null,
+  systemDisplayName: string | null,
+  overrides?: { isLoading?: boolean; isError?: boolean },
+) {
+  vi.spyOn(systems, "useComponentSystem").mockReturnValue({
+    systemId,
+    systemDisplayName,
+    isLoading: overrides?.isLoading ?? false,
+    isError: overrides?.isError ?? false,
+  });
   vi.spyOn(systems, "useSetComponentSystem").mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
 }
 function mockPerms(can: boolean) {
@@ -48,5 +57,33 @@ it("hides the action for a user who cannot manage relationships", () => {
   renderRow();
 
   expect(screen.getByText("Payments")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /change|assign/i })).toBeNull();
+});
+
+it("hides the action for a user who cannot manage relationships when unassigned (pairwise)", () => {
+  mockMembership(null, null);
+  mockPerms(false);
+  renderRow();
+
+  expect(screen.getByText(/not assigned/i)).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /change|assign/i })).toBeNull();
+});
+
+it("shows a loading placeholder and no action while the membership is in flight — never 'Not assigned'", () => {
+  mockMembership(null, null, { isLoading: true });
+  mockPerms(true);
+  renderRow();
+
+  expect(screen.queryByText(/not assigned/i)).toBeNull();
+  expect(screen.queryByRole("button", { name: /change|assign/i })).toBeNull();
+});
+
+it("shows an error state and no action when the membership fails to load — never 'Not assigned'", () => {
+  mockMembership(null, null, { isError: true });
+  mockPerms(true);
+  renderRow();
+
+  expect(screen.getByText(/couldn.t load system membership/i)).toBeInTheDocument();
+  expect(screen.queryByText(/not assigned/i)).toBeNull();
   expect(screen.queryByRole("button", { name: /change|assign/i })).toBeNull();
 });
