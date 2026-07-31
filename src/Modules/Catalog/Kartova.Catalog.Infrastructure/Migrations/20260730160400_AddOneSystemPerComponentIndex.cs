@@ -92,7 +92,16 @@ namespace Kartova.Catalog.Infrastructure.Migrations
         {
             // Irreversible: reverting restores the index-free state but cannot restore the
             // redundant membership rows the collapse in Up() deleted.
-            migrationBuilder.Sql("DROP INDEX IF EXISTS ux_relationships_one_system;");
+            //
+            // DROP INDEX takes the same AccessExclusiveLock as the CREATE UNIQUE INDEX in Up() —
+            // same contended-deploy hazard, same fix: SET LOCAL lock_timeout so a contended
+            // rollback fails fast instead of stampeding the lock queue and stalling every reader
+            // behind it. SET LOCAL is correct here for the same reason as Up(): this migration
+            // runs inside EF's per-migration transaction, so the setting reverts at transaction end.
+            migrationBuilder.Sql(@"
+                SET LOCAL lock_timeout = '5s';
+
+                DROP INDEX IF EXISTS ux_relationships_one_system;");
         }
     }
 }

@@ -3,12 +3,16 @@ using System.Net.Http.Json;
 using Kartova.Catalog.Application;   // CatalogAuditActions
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
-using Kartova.SharedKernel.AspNetCore;   // ProblemTypes
-using Kartova.SharedKernel.Multitenancy;   // KartovaRoles
+using Kartova.Catalog.Infrastructure;   // CatalogDbContext, SetComponentSystemHandler
+using Kartova.SharedKernel.AspNetCore;   // ProblemTypes, ICurrentUser
+using Kartova.SharedKernel.Audit;   // IAuditWriter, AuditEntry
+using Kartova.SharedKernel.Multitenancy;   // KartovaRoles, ITenantContext
 using Kartova.SharedKernel.Pagination;
 using Kartova.Testing.Auth;
 using Microsoft.AspNetCore.Mvc;   // ProblemDetails
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;   // ChangeTracker
+using Microsoft.EntityFrameworkCore.Diagnostics;   // SaveChangesInterceptor
 using Npgsql;
 
 namespace Kartova.Catalog.IntegrationTests;
@@ -483,5 +487,182 @@ public sealed class SetComponentSystemTests : CatalogIntegrationTestBase
         Assert.AreEqual("23505", pg!.SqlState);
         Assert.IsTrue(pg.Message.Contains("ux_relationships_one_system"),
             $"expected the violation to name ux_relationships_one_system, message was: {pg.Message}");
+    }
+
+    // --- Gate 8/9 findings 1 and 2 (deep-review B): the delete-race and insert-race that only
+    // the DATABASE, not the application pre-check, can catch. Both are constructed
+    // deterministically (no threads, no Task.WhenAll) via a SaveChangesInterceptor that performs
+    // an out-of-band mutation through a second bypass connection during the handler's own
+    // SaveChangesAsync — after its initial read already tracked the row(s), but before its own
+    // write reaches Postgres. This calls SetComponentSystemHandler.Handle directly (not through
+    // HTTP) with fakes for ITenantContext/ICurrentUser/IAuditWriter — the audit trail and HTTP
+    // status mapping aren't what these races exercise; the handler's own exception handling is.
+
+    [TestMethod]
+    public async Task PUT_null_when_a_concurrent_delete_wins_the_race_reconciles_instead_of_412()
+    {
+        // SetComponentSystemHandler removes tracked entities read a few lines earlier. If a
+        // concurrent DELETE /relationships/{id} (or a second clear) commits in between, the
+        // DELETE affects 0 rows, EF throws DbUpdateConcurrencyException, and — uncaught — the
+        // global ConcurrencyConflictExceptionHandler maps that to 412 Precondition Failed, a
+        // status this route never declares. The requested end state (no membership) already
+        // holds, so the fix reconciles to 200 instead of inventing a new status.
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenant, "SetSystem Race Delete Team");
+        var appId = await SeedApplicationAsync(client, teamId, "app-setsystem-racedelete");
+        var sysId = await SeedSystemAsync(client, teamId, "system-racedelete");
+        await Fx.InsertPartOfEdgeAsync(tenant, EntityKind.Application, appId, sysId);
+
+        var raced = false;
+        var interceptor = new RaceOnSaveInterceptor(
+            tracker => tracker.Entries<Relationship>().Any(e => e.State == EntityState.Deleted),
+            async () =>
+            {
+                raced = true;
+                await using var conn = new NpgsqlConnection(Fx.BypassConnectionString);
+                await conn.OpenAsync();
+                await using var cmd = conn.CreateCommand();
+                cmd.CommandText =
+                    "DELETE FROM relationships WHERE source_kind = $1 AND source_id = $2 AND type = 'PartOf'";
+                cmd.Parameters.AddWithValue(EntityKind.Application.ToString());
+                cmd.Parameters.AddWithValue(appId);
+                await cmd.ExecuteNonQueryAsync();
+            });
+        var options = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseNpgsql(Fx.BypassConnectionString)
+            .AddInterceptors(interceptor)
+            .Options;
+        await using var db = new CatalogDbContext(options);
+        var handler = new SetComponentSystemHandler(TimeProvider.System);
+
+        var response = await handler.Handle(
+            new SetComponentSystemCommand(new EntityRef(EntityKind.Application, appId), null),
+            null, db, new FakeTenantContext(tenant), new FakeCurrentUser(), new NoOpAuditWriter(), default);
+
+        Assert.IsTrue(raced, "the interceptor must actually have raced the delete for this test to be meaningful");
+        Assert.IsNull(response.SystemId, "the requested end state — no membership — already held after the lost race");
+        Assert.AreEqual(0, (await PartOfEdgesAsync(client, EntityKind.Application, appId)).Count);
+    }
+
+    [TestMethod]
+    public async Task PUT_when_a_concurrent_writer_wins_for_the_SAME_system_reconciles_to_200()
+    {
+        // Two concurrent PUTs naming the SAME System: both see no current membership, both
+        // insert, and — before this fix — the loser's 23505 unconditionally became
+        // ComponentAlreadyInSystemException -> 409, even though the state it asked for now
+        // holds. ADR-0096 idempotence requires treating this as success.
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenant, "SetSystem Race Insert Same Team");
+        var appId = await SeedApplicationAsync(client, teamId, "app-setsystem-raceinsert-same");
+        var sysId = await SeedSystemAsync(client, teamId, "system-raceinsert-same");
+
+        var raced = false;
+        var interceptor = new RaceOnSaveInterceptor(
+            tracker => tracker.Entries<Relationship>().Any(e => e.State == EntityState.Added),
+            async () =>
+            {
+                raced = true;
+                // The winning concurrent writer names the SAME System this request will ask for.
+                await Fx.InsertPartOfEdgeAsync(tenant, EntityKind.Application, appId, sysId);
+            });
+        var options = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseNpgsql(Fx.BypassConnectionString)
+            .AddInterceptors(interceptor)
+            .Options;
+        await using var db = new CatalogDbContext(options);
+        var handler = new SetComponentSystemHandler(TimeProvider.System);
+
+        var response = await handler.Handle(
+            new SetComponentSystemCommand(new EntityRef(EntityKind.Application, appId), sysId),
+            "system-raceinsert-same", db, new FakeTenantContext(tenant), new FakeCurrentUser(), new NoOpAuditWriter(), default);
+
+        Assert.IsTrue(raced, "the interceptor must actually have raced the insert for this test to be meaningful");
+        Assert.AreEqual(sysId, response.SystemId, "the other writer already achieved exactly the state this request asked for");
+        Assert.ContainsSingle(await PartOfEdgesAsync(client, EntityKind.Application, appId),
+            "the loser must not also create a second row for the same membership");
+    }
+
+    [TestMethod]
+    public async Task PUT_when_a_concurrent_writer_wins_for_a_DIFFERENT_system_still_returns_409()
+    {
+        // Companion to the same-System case above: a genuinely different winner must still
+        // surface the conflict, proving the fix only forgives the idempotent case.
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenant, "SetSystem Race Insert Diff Team");
+        var appId = await SeedApplicationAsync(client, teamId, "app-setsystem-raceinsert-diff");
+        var requested = await SeedSystemAsync(client, teamId, "system-raceinsert-diff-requested");
+        var winner = await SeedSystemAsync(client, teamId, "system-raceinsert-diff-winner");
+
+        var raced = false;
+        var interceptor = new RaceOnSaveInterceptor(
+            tracker => tracker.Entries<Relationship>().Any(e => e.State == EntityState.Added),
+            async () =>
+            {
+                raced = true;
+                await Fx.InsertPartOfEdgeAsync(tenant, EntityKind.Application, appId, winner);
+            });
+        var options = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseNpgsql(Fx.BypassConnectionString)
+            .AddInterceptors(interceptor)
+            .Options;
+        await using var db = new CatalogDbContext(options);
+        var handler = new SetComponentSystemHandler(TimeProvider.System);
+
+        var ex = await Assert.ThrowsExactlyAsync<ComponentAlreadyInSystemException>(() => handler.Handle(
+            new SetComponentSystemCommand(new EntityRef(EntityKind.Application, appId), requested),
+            "system-raceinsert-diff-requested", db, new FakeTenantContext(tenant), new FakeCurrentUser(), new NoOpAuditWriter(), default));
+
+        Assert.IsTrue(raced, "the interceptor must actually have raced the insert for this test to be meaningful");
+        Assert.AreEqual(new EntityRef(EntityKind.Application, appId), ex.Component);
+    }
+
+    /// <summary>Fires <paramref name="raceAction"/> exactly once, the first time <paramref
+    /// name="shouldFire"/> matches the pending change set — a deterministic (no threads, no
+    /// Task.WhenAll) reproduction of a concurrent writer landing between this handler's initial
+    /// read and its own SaveChangesAsync reaching Postgres.</summary>
+    private sealed class RaceOnSaveInterceptor(Func<ChangeTracker, bool> shouldFire, Func<Task> raceAction)
+        : SaveChangesInterceptor
+    {
+        private bool _fired;
+
+        public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            if (!_fired && eventData.Context is { } ctx && shouldFire(ctx.ChangeTracker))
+            {
+                _fired = true;
+                await raceAction();
+            }
+            return await base.SavingChangesAsync(eventData, result, cancellationToken);
+        }
+    }
+
+    private sealed class FakeTenantContext(TenantId id) : ITenantContext
+    {
+        public TenantId Id { get; } = id;
+        public bool IsTenantScoped => true;
+        public IReadOnlyCollection<string> Roles => [];
+        public IReadOnlyList<TeamMembershipInfo> TeamMemberships => [];
+        public IReadOnlySet<Guid> TeamIds { get; } = new HashSet<Guid>();
+        public void Populate(TenantId id, IReadOnlyCollection<string> roles) { }
+        public void PopulateTeamMemberships(IReadOnlyList<TeamMembershipInfo> memberships) { }
+        public void Clear() { }
+    }
+
+    private sealed class FakeCurrentUser : ICurrentUser
+    {
+        public Guid UserId => Guid.NewGuid();
+        public string DisplayName => "race-test-actor";
+        public IReadOnlyList<TeamMembershipInfo> TeamMemberships => [];
+        public IReadOnlySet<Guid> TeamIds { get; } = new HashSet<Guid>();
+    }
+
+    private sealed class NoOpAuditWriter : IAuditWriter
+    {
+        public Task AppendAsync(AuditEntry entry, CancellationToken ct) => Task.CompletedTask;
+        public Task AppendSystemAsync(TenantId tenant, AuditEntry entry, CancellationToken ct) => Task.CompletedTask;
     }
 }

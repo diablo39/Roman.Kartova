@@ -74,7 +74,10 @@ public static class ProblemTypes
     public const string RelationshipAlreadyExists = Base + "relationship-already-exists"; // 409
 
     // System membership — at-most-one PartOf edge (ADR-0111 amended 2026-07-30).
-    public const string ComponentAlreadyInSystem = Base + "component-already-in-system"; // 409: lost a concurrent membership race.
+    // 409: either the deterministic POST/PUT pre-check found an existing membership (its
+    // dominant producer), or a request lost a concurrent membership race the pre-check couldn't
+    // see (the database's ux_relationships_one_system partial unique index backstops both).
+    public const string ComponentAlreadyInSystem = Base + "component-already-in-system";
 
     // Member lifecycle — slice 10.
     public const string LastOrgAdmin       = Base + "last-orgadmin";          // 409

@@ -120,6 +120,34 @@ public sealed class CreatePartOfRelationshipTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
+    public async Task POST_partOf_to_a_non_System_target_returns_400_even_when_the_source_has_a_membership()
+    {
+        // Regression for the at-most-one-System pre-check's missing target-kind scoping
+        // (gate 8/9 finding): the guard used to trigger on source.Kind alone, so this exact
+        // malformed request (PartOf to a non-System target) returned 400 when X had no System
+        // but 409 ComponentAlreadyInSystem once X did — two error classes for one malformed
+        // request, with a 409 detail pointing at an edge (PUT .../system) that can never exist
+        // for an Application target. Scoping the pre-check to target.Kind == System (in addition
+        // to source.Kind) makes this always 400, regardless of X's own membership state.
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "PartOf Team NonSystem Target");
+        var appX = await SeedApplicationAsync(client, teamId, "app-partof-nonsystem-x");
+        var appY = await SeedApplicationAsync(client, teamId, "app-partof-nonsystem-y");
+        var sysId = await SeedSystemAsync(client, teamId, "system-partof-nonsystem-target");
+        Assert.AreEqual(HttpStatusCode.OK,
+            (await client.PutAsJsonAsync($"/api/v1/catalog/applications/{appX}/system",
+                new { systemId = sysId }, KartovaApiFixtureBase.WireJson)).StatusCode,
+            "X must already have a membership for this regression to be meaningful");
+
+        var resp = await PostRelAsync(client, EntityKind.Application, appX, RelationshipType.PartOf, EntityKind.Application, appY);
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+        var problem = await resp.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
+        Assert.AreNotEqual(ProblemTypes.ComponentAlreadyInSystem, problem?.Type,
+            "a malformed PartOf to a non-System target must never surface as the System-membership conflict");
+    }
+
+    [TestMethod]
     public async Task POST_system_partOf_system_returns_400()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
