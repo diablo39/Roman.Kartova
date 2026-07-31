@@ -1,0 +1,90 @@
+# gate-findings.yaml — per-gate findings telemetry for one slice.
+#
+# Purpose: record every issue each DoD gate raised, with a real/delusion verdict,
+# so gate effectiveness is queryable across slices.
+#   Aggregate:  find docs/superpowers/verification -name gate-findings.yaml
+#   Rank gates by precision (real ÷ found) and by real issues caught.
+#
+# Sibling of dod.md in docs/superpowers/verification/<date>-<topic>/.
+# dod.md records each gate's PASS/FAIL/PENDING/N-A status; this file records what it FOUND.
+# A gate with status PASS and no entries here => it ran and found nothing.
+
+slice:  2026-07-30-catalog-system-membership/a1
+branch: feat/catalog-system-membership-a1
+head:   283eac2f
+
+# One entry per issue a gate raised. Source: .superpowers/sdd/2026-07-30-catalog-system-membership-a1/progress.md
+# (per-task review outcomes) unless noted otherwise. Every finding below was real and acted
+# on except where explicitly marked delusion / equivalent-mutant (not a coverage gap).
+findings:
+  - gate: reviews
+    severity: blocking
+    verdict: real
+    title: "Task 3 forwarded finding: new unique index made unguarded POST /catalog/relationships PartOf path return 500 instead of 201 for a second System"
+    note: "Existing CreatePartOfRelationshipTests only re-posted the identical edge (caught by the exact-duplicate pre-check), so the 56/56 regression stayed green without exercising this. THE BRANCH MUST NOT MERGE WITHOUT TASK 4 (per progress.md). Fixed in Task 4, commit b2f36ec6 — implementer proved the regression by reverting the fix and watching both Application- and Service-source tests fail InternalServerError, then restored it -> Conflict."
+
+  - gate: reviews
+    severity: important
+    verdict: real
+    title: "Task 8: SystemMembershipRow ignored useComponentSystem's isLoading/isError, showing 'Not assigned' + Assign for a component that may already have a System"
+    note: "Best FE finding of the slice — during load, or permanently after a fetch error, the atomic PUT in AssignSystemDialog would silently REPLACE a real membership with no warning (currentSystemName read from the same un-loaded source). Fixed fix round 1/5, commits 87ca4195..9d7c7a53: row now branches isLoading -> Skeleton, isError -> error copy, action withheld in both."
+
+  - gate: reviews
+    severity: important
+    verdict: real
+    title: "Task 3: no DB-level backstop for at-most-one-System-per-component under concurrency"
+    note: "Resolved by Task 3 Steps 4b/4c themselves (partial unique index ux_relationships_one_system + 23505 -> 409 mapping + a DB-level test) — flagged during review as a controller-resolved forward reference, not a gap left open."
+
+  - gate: reviews
+    severity: important
+    verdict: real
+    title: "Task 2: six handler unit tests unrunnable — EF in-memory cannot translate any predicate over Relationship.Source ComplexProperty"
+    note: "Controller ruling: delete SetComponentSystemHandlerTests.cs rather than ship 6 [Ignore]d shells; the 6 scenarios relocated to Task 3's integration suite (+ no-op clear, sibling isolation, edge-shape assertions). Gate 6 unaffected — stryker-config.json runs the integration project too."
+
+  - gate: reviews
+    severity: important
+    verdict: real
+    title: "Task 9: four business-logic branches had zero test coverage (confirm-cancel early return, both mutation-failure catch blocks, api-kind drift row rejection)"
+    note: "Fixed fix round 1/5, commits b36a8365..bf7f5d81 — 4 new tests, each confirmed by re-review to discriminate a real mutilation (e.g. the drift-row test fails with 2 Remove buttons if asComponentKind narrowing is removed)."
+
+  - gate: reviews
+    severity: important
+    verdict: real
+    title: "Task 6: useSetComponentSystem had no dedicated test while every sibling mutation in the same file did"
+    note: "Untested: application-vs-service branch (wrong branch = silent wrong-resource PUT, types can't catch it), the 3-key invalidation set, throwWithStatus on the PUT error path. Fixed fix round 1/5, commits a8a0a8ea..2cc13d89 — 4 new tests asserting exact URLs, invalidation set, and status propagation."
+
+  - gate: reviews
+    severity: important
+    verdict: real
+    title: "Task 7: brief's own 3-test snippet never exercised the dialog's actual error/success contract"
+    note: "Dropping the catch or closing the dialog on failure would have passed all 3 original tests. Fixed fix round 1/5, commits 9ab0a138..7cac0e90 — 4 new tests (assign reject/resolve, remove reject/resolve), each confirmed to catch a named mutilation."
+
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "PostgreSQL-expert review: SET LOCAL lock_timeout missing — the RLS DISABLE/ENABLE dance's AccessExclusiveLock spans the entire migration Up() body, and Helm pre-upgrade hooks run while the previous release serves traffic"
+    note: "Fixed 9e14813e — SET LOCAL lock_timeout = '5s' added as the first statement. CONCURRENTLY split deliberately deferred with in-file reasoning (21 rows; cannot share the collapse transaction)."
+
+  - gate: reviews
+    severity: minor
+    verdict: real
+    title: "Task 2: redundant `if (removed.Count > 0)` guard before RemoveRange"
+    note: "Equivalent mutant, no behavior change. Fixed fix round 1/5, commits 9f80ec8e..a0704060."
+
+  - gate: reviews
+    severity: minor
+    verdict: delusion
+    title: "Task 2 review candidate: empty-changeset SaveChangesAsync guard flagged as a possible coverage gap"
+    note: "NOT sent as a fix — recorded instead as a predicted gate-6 survivor. An empty EF changeset issues no SQL, so no assertion at any tier (return value, row counts, audit calls) can distinguish 'skip when empty' from 'always call'. ADR-0090 still wants the explicit skip written. A DbContext spy for one conditional was judged not worth building."
+
+  - gate: manual
+    severity: should-fix
+    verdict: real
+    title: "e2e/fixtures/db.ts's insertDriftEdge used type='PartOf' as the drift value, but this slice re-added PartOf as a real RelationshipType, so the row stopped being drift and rendered as a normal relationship"
+    note: "Found 2026-07-31 in Task 12 by actually running relationship-drift.spec.ts (not predicted by the plan's Step-1 collision hypothesis, which concerned a different failure mode — a waitForResponse timeout — that did NOT occur). Fixed: fixture's type literal changed to 'LegacyUnmappedType'; spec comments updated to stop naming PartOf as the drift value. Re-ran green (both the single spec and the full 5-spec suite)."
+
+  - gate: manual
+    severity: nit
+    verdict: delusion
+    title: "Hypothesis: relationship-drift.spec.ts's query-key/staleTime collision (the #70 retro class) recurred in this slice"
+    note: "Did not recur. useComponentSystem's type=partOf&limit=1 query key is provably distinct from RelationshipsSection's unfiltered key; the Dependencies-tab waitForResponse resolved 200 with no timeout on every run."

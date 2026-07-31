@@ -19,7 +19,7 @@ test("drift: an unmappable relationship.type does not 500 the relationships surf
     // response wait *before* clicking the tab (that click is what fires the request).
     //
     // The relationships list request is what the Task-1 query filter guards. Assert it
-    // comes back 200 (not 500) — the most direct proof the drifted 'PartOf' row is
+    // comes back 200 (not 500) — the most direct proof the drifted unmappable-type row is
     // excluded rather than blowing up the mapper.
     const relationshipsResponse = page.waitForResponse(
       (res) => res.url().includes("/api/v1/catalog/relationships") && res.request().method() === "GET",
@@ -35,8 +35,12 @@ test("drift: an unmappable relationship.type does not 500 the relationships surf
     await expect(page.getByText(/couldn.?t load relationships|something went wrong|failed to load/i)).toHaveCount(0);
 
     // Exclusion, not just no-500: the fixture app has no real relationships, and
-    // the injected drift edge is a self-referential PartOf row — so it MUST NOT
-    // appear as an outgoing row. Assert the empty-state copy is shown. This guards
+    // the injected drift edge is a self-referential row of a type unknown to the
+    // current RelationshipType enum — so it MUST NOT appear as an outgoing row.
+    // (Do not use 'PartOf' as the drift value: E-03.F-03.S-01 made it a real,
+    // visible relationship type, so a 'PartOf' row would render instead of being
+    // excluded — see fixtures/db.ts's insertDriftEdge doc.)
+    // Assert the empty-state copy is shown. This guards
     // the class where a broken filter maps unknown types to a default (no 500) but
     // still leaks the row into the UI — which the status-200 check alone would miss.
     await expect(page.getByText("No outgoing relationships.")).toBeVisible();
