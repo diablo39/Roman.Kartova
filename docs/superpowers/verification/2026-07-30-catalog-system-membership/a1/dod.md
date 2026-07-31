@@ -1,9 +1,9 @@
 # DoD Ledger — Catalog System Membership A1
 
-**Slice:** `2026-07-30-catalog-system-membership-a1` · **Branch:** `feat/catalog-system-membership-a1` · **HEAD:** `283eac2f` (Task 11 docs commit; Task 12 docs+E2E fix commit follows this ledger's own commit)
+**Slice:** `2026-07-30-catalog-system-membership-a1` · **Branch:** `feat/catalog-system-membership-a1` · **HEAD:** `53e8df42` (+ gate-8/9 doc and frontend fixes committed after this line was written; see the gate rows for per-gate commits)
 **PR:** not yet opened
 **Last updated:** 2026-07-31
-**Spec:** `docs/superpowers/specs/2026-07-30-catalog-system-membership-a1-design.md`
+**Spec:** `docs/superpowers/specs/2026-07-30-catalog-system-membership-assignment-design.md`
 **Plan:** `docs/superpowers/plans/2026-07-30-catalog-system-membership-a1.md` (local scratch, gitignored)
 **Controller ledger (full task-by-task history):** `.superpowers/sdd/2026-07-30-catalog-system-membership-a1/progress.md`
 **Migration collapse evidence:** `./migration-collapse-verification.md` (+ `.sql`)
@@ -21,11 +21,11 @@
 | 2 Per-task subagent reviews | ✅ PASS | 2026-07-30 |
 | 3 Full suite (+ real-seam if wiring) | ✅ PASS (1 unrelated pre-existing flake) | 2026-07-30 |
 | 4 Container build (images CI) | ✅ PASS | 2026-07-30 |
-| 5 `/simplify` | ⏳ PENDING | — |
-| 6 Mutation (blocking — Domain/Application changes) | ⏳ PENDING | — |
-| 7 `requesting-code-review` | ⏳ PENDING | — |
-| 8 `review-pr` | ⏳ PENDING | — |
-| 9 `deep-review` | ⏳ PENDING | — |
+| 5 `/simplify` | ✅ PASS | `3fc52f0c` — 3 applied, 5 skipped w/ reasons, 1 applied-then-reverted (76 CS0108 warnings) |
+| 6 Mutation (blocking — Domain/Application changes) | ⚠️ **WAIVED BY OWNER** (not green) | Roman, 2026-07-31 — see gate 6 detail |
+| 7 `requesting-code-review` | ✅ PASS | no Critical/Important; 9 minors + 2 accepted disagreements fixed in `c18af289` |
+| 8 `review-pr` | ✅ PASS | 4 lenses, 0 blocking; 1 HIGH (dead 403 mapping) + 1 MEDIUM fixed; 3 type-design items deferred |
+| 9 `deep-review` | ✅ PASS | 2-reviewer ensemble, 0 blocking from either; backend findings in `53e8df42`, docs + FE after |
 | Terminal re-verify (build + suite) | ⏳ PENDING | — |
 | 10 Visual / API verification (ADR-0084) | ⏳ PENDING | — |
 | 11 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING | — |
@@ -71,13 +71,24 @@ No review was skipped as "trivial."
 **At:** Task 6 (api build/migrate) + Task 10 (migrator/web build), commits a1052293..2777adc5
 
 ### 5 — `/simplify` against branch diff
-**Status:** ⏳ PENDING
-**Evidence:** Not yet run. Candidates already flagged for it rather than churned early: possible modal/mutate-toast duplication between `AddSystemMemberDialog` and `AssignSystemDialog` (Task 9 minor); the 5-line "find current PartOf target" query duplicated between the endpoint pre-check and the 409 catch filter (Task 4 minor); `ENTITY_KIND_LABEL` still `Record<string,string>` rather than `Record<EntityKind,string>` (Task 5 minor).
-**At:** —
+**Status:** ✅ PASS
+**Evidence:** Ran four independent angles (reuse · simplification · efficiency · altitude) over the 3,552-line branch diff. **Three of four independently flagged the same top finding** — the "current PartOf membership" predicate written three times — which is now `CurrentMembershipQueries` (a fourth call site, the authorization projection, was folded in at gate 7).
+
+Applied (commit `3fc52f0c`): the shared membership query; `useSetComponentSystem` now calls the exported `invalidateAfterRelationshipChange` instead of hand-rolling it; both new dialogs use the existing `toastProblem` helper rather than a third and fourth inline copy of the ladder it was extracted to kill (the copies had already drifted on fallback wording).
+
+**Applied then REVERTED — promoting the duplicated integration-test seed helpers to `CatalogIntegrationTestBase`.** It collapsed three byte-identical copies, but seven *other, untouched* test classes already had their own, so promotion shadowed them: **76 `CS0108` warnings** (`DeleteRelationshipTests`, `GetApiSurfaceTests`, `CreateRelationshipTests`, …). Only a forced `--no-incremental` build revealed them — the incremental build reported zero, which is exactly how this would have reached CI. Fixing it properly means editing seven files outside this diff, which is `/simplify`'s own out-of-scope rule. Duplication left in place; recorded as a follow-up.
+
+Skipped with reasons: collapsing the handler's remaining round-trip (would move data access into the delegate for a sub-millisecond gain at 21 rows); unioning the per-edge authorization block (load-bearing 403 logic two reviewers traced by hand); a shared `canManage` hook (cross-file, beyond the diff); collapsing the `mutationFn` path-literal branch (`openapi-fetch` keys type narrowing off the literal path); tightening `ENTITY_KIND_LABEL` to `Record<EntityKind,string>` (breaks call sites that index it with an API-supplied string).
+**At:** commit `3fc52f0c`
 
 ### 6 — Mutation loop (blocking for this slice — diff touches Domain/Application logic)
-**Status:** ⏳ PENDING
-**Evidence:** Not yet run. Per the plan's Task 12 Step 4, scope is `SystemMembership.cs`, `SetComponentSystemHandler.cs`, and the changed `CatalogEndpointDelegates.cs` region; target ≥80%. **Predicted survivors — accept, do not re-litigate** (from the plan's pre-implementation gap analysis):
+**Status:** ⚠️ **WAIVED BY OWNER — recorded as a waiver, not green** (CLAUDE.md: "an owner-waived conditional gate is recorded as a waiver, not green")
+**Waived by:** Roman Głogowski, 2026-07-31, after manual verification of the running stack.
+**Why it is a waiver and not N/A:** the diff *does* touch Domain/Application logic (`SystemMembership.cs` in `Kartova.Catalog.Application`), so CLAUDE.md makes this gate blocking for this slice. It is being skipped by owner decision, not because it does not apply. Precedent: E-02.F-03.S-01 carries the same owner waiver.
+**What was actually attempted (three runs, zero reports):** the repo helper walks all 11 projects in `mutation-targets.json`; even with `--since:master` each pays a full baseline test run before concluding it has nothing to mutate, so ~9 minutes went to `Kartova.SharedKernel`'s 1413-test baseline for a project this slice never touches. Run 1 and 2 were killed there. Run 3 was retargeted to the two projects that actually changed (`Catalog.Application`, `Catalog.Infrastructure` — `Catalog.Domain`'s only change is a comment) and reached "131 mutants created / capture coverage" for `Catalog.Application` before being killed deliberately, because gate 8/9 findings then changed `Catalog.Infrastructure` and mutation must run on final code. **No score was ever produced; nothing here is a partial result.**
+**Unresolved question the next run must answer first** (raised independently by both gate-9 reviewers): `CLAUDE.md` cites a bare `stryker-config.json`. The repo-root one lists only `Kartova.Catalog.Tests` and `Kartova.Organization.Tests`; `src/Modules/Catalog/stryker-config.json` also lists `Kartova.Catalog.IntegrationTests`. That distinction is load-bearing here: the Task 2 ruling deleted `SetComponentSystemHandler`'s unit tests *because* Stryker was believed to run the integration project. If a future run uses the root config, that handler and the changed delegate have **no covering test project at all** and every mutant in them surfaces as no-coverage. Resolve the config path before reading any score.
+**Predicted survivors stand** (from the plan's pre-implementation gap analysis, plus two added later) — a future run should expect these and not re-litigate them; see the table below.
+**Evidence:** Not yet run. Per the plan's Task 12 Step 4, scope is `SystemMembership.cs`, `SetComponentSystemHandler.cs`, the changed `CatalogEndpointDelegates.cs` region, **`CurrentMembershipQueries.cs`** (new at gate 5) and **`ListRelationshipsForEntityHandler.cs`** (Task 4d's `type` filter + the gate-7 cursor-fingerprint branch); target ≥80%. **Predicted survivors — accept, do not re-litigate** (from the plan's pre-implementation gap analysis):
 | Predicted survivor | Why acceptable |
 |---|---|
 | Handler's `r.Source.Kind == cmd.Component.Kind` filter | Only killable by two entities of different kinds sharing one Guid — not constructible through any endpoint |
@@ -99,9 +110,13 @@ If a survivor outside this table appears, it is a real gap and needs a test.
 **At:** —
 
 ### 9 — `deep-review`
-**Status:** ⏳ PENDING
-**Evidence:** Not yet run (against spec/plan/ADRs/tests).
-**At:** —
+**Status:** ✅ PASS
+**Evidence:** Two-reviewer ensemble on the most capable model against the canonical template, one working from the diff and one reading the surrounding code. **Neither found a blocking issue.** Both independently traced every `PartOf` creator and could not construct a legal call sequence leaving a component in two Systems or stranding one; both confirmed the 409-after-`23505` path leaves the ambient transaction committable (EF automatic savepoints, no `EnableRetryOnFailure` anywhere), and one verified the audit write shares the transaction and so fails closed.
+
+Convergent should-fix items, both now actioned: `SystemMembersSection` still read the **unfiltered** incoming list (the spec's own named bug — this slice built the server-side `type` filter and did not apply it to the surface the spec called out); the POST pre-check lacked `target.Kind == System`, so a malformed `Application→Application` `PartOf` returned 400 or 409 *depending on state*; the ADR index never recorded the amendment; the registry's `type` row still claimed no backend support; and this ledger's own integrity problems.
+
+Reviewer B additionally challenged two recorded deferrals and won both: a lost **delete** race surfaced as **412** from a route with no preconditions, and two concurrent PUTs naming the **same** System gave the loser a 409 in breach of ADR-0096 idempotence. It also argued the EF delete-before-insert batch ordering was too quiet a failure to leave to a remembered post-upgrade check — if it ever flipped, *every* move would return a believable 409 while assign and clear kept working. All three are fixed in `53e8df42`, the ordering now pinned by two explicit saves in one transaction.
+**At:** review over `bc55263a..c18af289`; fixes in `53e8df42` + following commits. Reviewer reports are summarised here rather than committed verbatim.
 
 ### Terminal re-verify (build + full suite after gates 5–9)
 **Status:** ⏳ PENDING

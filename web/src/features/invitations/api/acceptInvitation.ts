@@ -18,7 +18,7 @@ export async function getInvitationAcceptContext(
     },
   );
   if (error) throwWithStatus(error, response);
-  return unwrapData(data);
+  return unwrapData(data, response);
 }
 
 export async function acceptInvitation(input: {
@@ -31,5 +31,5 @@ export async function acceptInvitation(input: {
     { body: input },
   );
   if (error) throwWithStatus(error, response);
-  return unwrapData(data);
+  return unwrapData(data, response);
 }

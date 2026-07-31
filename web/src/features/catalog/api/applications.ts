@@ -117,7 +117,7 @@ export function useEditApplication(id: string) {
         }
       );
       if (error) throwWithStatus(error, response);
-      return unwrapData(data);
+      return unwrapData(data, response);
     },
     onSuccess: (data) => {
       qc.setQueryData(applicationKeys.detail(id), data);
@@ -154,7 +154,7 @@ export function useDeprecateApplication(id: string) {
         { params: { path: { id } }, body: input }
       );
       if (error) throwWithStatus(error, response);
-      return unwrapData(data);
+      return unwrapData(data, response);
     },
     onSuccess: (data) => {
       qc.setQueryData(applicationKeys.detail(id), data);
@@ -186,7 +186,7 @@ export function useDecommissionApplication(id: string) {
         }
       );
       if (error) throwWithStatus(error, response);
-      return unwrapData(data);
+      return unwrapData(data, response);
     },
     onSuccess: (data) => {
       qc.setQueryData(applicationKeys.detail(id), data);
@@ -208,7 +208,7 @@ export function useReactivateApplication(id: string) {
         { params: { path: { id } } }
       );
       if (error) throwWithStatus(error, response);
-      return unwrapData(data);
+      return unwrapData(data, response);
     },
     onSuccess: (data) => {
       qc.setQueryData(applicationKeys.detail(id), data);
@@ -230,7 +230,7 @@ export function useUnDecommissionApplication(id: string) {
         { params: { path: { id } }, body: input }
       );
       if (error) throwWithStatus(error, response);
-      return unwrapData(data);
+      return unwrapData(data, response);
     },
     onSuccess: (data) => {
       qc.setQueryData(applicationKeys.detail(id), data);
@@ -254,7 +254,7 @@ export function useAssignApplicationTeam(id: string) {
         { params: { path: { id } }, body: { teamId } }
       );
       if (error) throwWithStatus(error, response);
-      return unwrapData(data);
+      return unwrapData(data, response);
     },
     onSuccess: (data) => {
       qc.setQueryData(applicationKeys.detail(id), data);
@@ -279,7 +279,7 @@ export function useSetApplicationSuccessor(id: string) {
         { params: { path: { id } }, body: { successorApplicationId } }
       );
       if (error) throwWithStatus(error, response);
-      return unwrapData(data);
+      return unwrapData(data, response);
     },
     onSuccess: (data) => {
       qc.setQueryData(applicationKeys.detail(id), data);

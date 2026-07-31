@@ -25,7 +25,7 @@ export function useStartSession() {
         {},
       );
       if (error) throwWithStatus(error, response);
-      return unwrapData(data);
+      return unwrapData(data, response);
     },
   });
 }

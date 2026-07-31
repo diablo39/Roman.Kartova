@@ -12,6 +12,7 @@ import { useSetComponentSystem, type ComponentKind } from "@/features/catalog/ap
 import { entityDetailPath, ENTITY_KIND_LABEL } from "@/features/catalog/relationships/graphModel";
 import { isRelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
 import { AddSystemMemberDialog } from "@/features/catalog/components/AddSystemMemberDialog";
+import { toastProblem } from "@/shared/forms/toastProblem";
 
 interface Props {
   systemId: string;
@@ -53,8 +54,21 @@ export function SystemMembersSection({ systemId, systemTeamId, systemDisplayName
     try {
       await setMembership.mutateAsync({ componentKind, componentId, systemId: null });
       toast.success(`${componentDisplayName} removed from ${systemDisplayName}.`);
-    } catch {
-      toast.error("Failed to remove the component.");
+    } catch (err) {
+      // Same dispatch table as AddSystemMemberDialog/AssignSystemDialog: this Remove action
+      // drives the identical useSetComponentSystem mutation, so a concurrent-move race or a
+      // permission failure deserves the same specific message rather than one undifferentiated
+      // string that discards every failure mode (409/403/422/network alike).
+      toastProblem(err, {
+        byProblemType: {
+          "component-already-in-system":
+            "Someone else just assigned this component to a System. Refresh and try again.",
+        },
+        byStatus: {
+          403: "You can only move a component out of a System your team stewards.",
+        },
+        fallback: "Failed to remove the component.",
+      });
     }
   };
 

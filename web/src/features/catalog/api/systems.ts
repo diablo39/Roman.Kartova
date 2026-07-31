@@ -71,7 +71,7 @@ export function useRegisterSystem() {
       const body = { ...input, description: input.description?.trim() ? input.description : null };
       const { data, error, response } = await apiClient.POST("/api/v1/catalog/systems", { body });
       if (error) throwWithStatus(error, response);
-      return unwrapData(data);
+      return unwrapData(data, response);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: systemKeys.all });
@@ -130,14 +130,14 @@ export function useSetComponentSystem() {
           body,
         });
         if (error) throwWithStatus(error, response);
-        return unwrapData(data);
+        return unwrapData(data, response);
       }
       const { data, error, response } = await apiClient.PUT("/api/v1/catalog/services/{id}/system", {
         params: { path: { id: input.componentId } },
         body,
       });
       if (error) throwWithStatus(error, response);
-      return unwrapData(data);
+      return unwrapData(data, response);
     },
     onSuccess: () => {
       invalidateAfterRelationshipChange(qc);

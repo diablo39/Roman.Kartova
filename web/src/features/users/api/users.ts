@@ -41,7 +41,7 @@ export function useUser(id: string | undefined | null) {
         { params: { path: { id: id! } }, signal },
       );
       if (error) throwWithStatus(error, response);
-      return unwrapData(data);
+      return unwrapData(data, response);
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -76,7 +76,7 @@ export function useUserSearch(
         { params: { query: { q, limit } }, signal },
       );
       if (error) throwWithStatus(error, response);
-      return unwrapData(data);
+      return unwrapData(data, response);
     },
     staleTime: 30 * 1000,
   });

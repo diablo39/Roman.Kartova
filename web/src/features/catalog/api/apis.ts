@@ -71,7 +71,7 @@ export function useRegisterApi() {
         body: { ...input, specUrl: input.specUrl || null },
       });
       if (error) throwWithStatus(error, response);
-      return unwrapData(data);
+      return unwrapData(data, response);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: apiKeys.all });

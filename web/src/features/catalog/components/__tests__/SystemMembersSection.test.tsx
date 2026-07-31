@@ -152,7 +152,10 @@ describe("SystemMembersSection", () => {
     expect(mutateAsync).not.toHaveBeenCalled();
   });
 
-  it("toasts an error and does not toast success when Remove fails", async () => {
+  it("toasts the ProblemDetails message (via toastProblem) and does not toast success when Remove fails", async () => {
+    // Now routed through toastProblem (finding: SystemMembersSection's bare catch discarded
+    // every failure mode of the same useSetComponentSystem mutation the dialogs discriminate).
+    // A rejection carrying `detail` surfaces that text, not the generic fallback string.
     const mutateAsync = vi.fn().mockRejectedValue({ title: "Conflict", detail: "Could not remove the member." });
     vi.spyOn(systems, "useSetComponentSystem").mockReturnValue({ mutateAsync, isPending: false } as never);
     vi.spyOn(window, "confirm").mockReturnValue(true);
@@ -162,7 +165,61 @@ describe("SystemMembersSection", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /remove/i }));
 
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Could not remove the member."));
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it("toasts the fallback wording when Remove fails with no type/detail/title", async () => {
+    const mutateAsync = vi.fn().mockRejectedValue({});
+    vi.spyOn(systems, "useSetComponentSystem").mockReturnValue({ mutateAsync, isPending: false } as never);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    useRelationshipsListMock.mockReturnValue(result({ items: [edge("application", "a1", "Billing App")] }));
+
+    render1(<SystemMembersSection systemId="sys1" systemTeamId="t1" systemDisplayName="Payments" />);
+
+    fireEvent.click(screen.getByRole("button", { name: /remove/i }));
+
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Failed to remove the component."));
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it("toasts the specific concurrent-move message when Remove hits component-already-in-system", async () => {
+    const mutateAsync = vi.fn().mockRejectedValue({
+      type: "component-already-in-system",
+      title: "Conflict",
+      detail: "generic server detail that should be shadowed by the specific message",
+    });
+    vi.spyOn(systems, "useSetComponentSystem").mockReturnValue({ mutateAsync, isPending: false } as never);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    useRelationshipsListMock.mockReturnValue(result({ items: [edge("application", "a1", "Billing App")] }));
+
+    render1(<SystemMembersSection systemId="sys1" systemTeamId="t1" systemDisplayName="Payments" />);
+
+    fireEvent.click(screen.getByRole("button", { name: /remove/i }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        "Someone else just assigned this component to a System. Refresh and try again.",
+      ),
+    );
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it("toasts the 403 permission message when Remove fails with status 403", async () => {
+    const mutateAsync = vi.fn().mockRejectedValue({ __status: 403 });
+    vi.spyOn(systems, "useSetComponentSystem").mockReturnValue({ mutateAsync, isPending: false } as never);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    useRelationshipsListMock.mockReturnValue(result({ items: [edge("application", "a1", "Billing App")] }));
+
+    render1(<SystemMembersSection systemId="sys1" systemTeamId="t1" systemDisplayName="Payments" />);
+
+    fireEvent.click(screen.getByRole("button", { name: /remove/i }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        "You can only move a component out of a System your team stewards.",
+      ),
+    );
     expect(toast.success).not.toHaveBeenCalled();
   });
 
