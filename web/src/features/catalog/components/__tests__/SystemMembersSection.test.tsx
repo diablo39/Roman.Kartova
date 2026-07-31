@@ -6,10 +6,12 @@ const useRelationshipsListMock = vi.fn();
 vi.mock("@/features/catalog/api/relationships", () => ({
   useRelationshipsList: (...a: unknown[]) => useRelationshipsListMock(...a),
 }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { SystemMembersSection } from "../SystemMembersSection";
 import * as perms from "@/shared/auth/usePermissions";
 import * as systems from "@/features/catalog/api/systems";
+import { toast } from "sonner";
 
 const edge = (kind: string, id: string, displayName: string, type = "partOf") => ({
   id: `rel-${id}`,
@@ -135,5 +137,49 @@ describe("SystemMembersSection", () => {
 
     expect(screen.queryByRole("button", { name: /assign component/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /remove/i })).toBeNull();
+  });
+
+  it("does not remove when the confirm dialog is cancelled", () => {
+    const mutateAsync = vi.fn();
+    vi.spyOn(systems, "useSetComponentSystem").mockReturnValue({ mutateAsync, isPending: false } as never);
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    useRelationshipsListMock.mockReturnValue(result({ items: [edge("application", "a1", "Billing App")] }));
+
+    render1(<SystemMembersSection systemId="sys1" systemTeamId="t1" systemDisplayName="Payments" />);
+
+    fireEvent.click(screen.getByRole("button", { name: /remove/i }));
+
+    expect(mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("toasts an error and does not toast success when Remove fails", async () => {
+    const mutateAsync = vi.fn().mockRejectedValue({ title: "Conflict", detail: "Could not remove the member." });
+    vi.spyOn(systems, "useSetComponentSystem").mockReturnValue({ mutateAsync, isPending: false } as never);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    useRelationshipsListMock.mockReturnValue(result({ items: [edge("application", "a1", "Billing App")] }));
+
+    render1(<SystemMembersSection systemId="sys1" systemTeamId="t1" systemDisplayName="Payments" />);
+
+    fireEvent.click(screen.getByRole("button", { name: /remove/i }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Failed to remove the component."));
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it("does not offer Remove on a drift row whose kind is not Application/Service", () => {
+    useRelationshipsListMock.mockReturnValue(
+      result({
+        items: [edge("application", "a1", "Billing App"), edge("api", "api1", "Orders API")],
+      }),
+    );
+
+    render1(<SystemMembersSection systemId="sys1" systemTeamId="t1" systemDisplayName="Payments" />);
+
+    // Both rows render (read-path drift tolerance — see the module docblock), but only the
+    // Application/Service row gets a Remove control; `asComponentKind` exists precisely to
+    // reject the `api` row rather than drive the setter with a kind it does not accept.
+    expect(screen.getByText("Billing App")).toBeInTheDocument();
+    expect(screen.getByText("Orders API")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /remove/i })).toHaveLength(1);
   });
 });
