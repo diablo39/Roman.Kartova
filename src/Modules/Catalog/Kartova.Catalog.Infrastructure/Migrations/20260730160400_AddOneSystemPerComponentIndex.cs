@@ -28,7 +28,34 @@ namespace Kartova.Catalog.Infrastructure.Migrations
             // this owner-run cross-tenant collapse, then restore the exact prior state (ENABLE +
             // FORCE) — same dance as PurgePartOfRelationships.cs:22-27. The tenant_isolation
             // policy persists across the toggle.
+            //
+            // Lock exposure (measured live via pg_locks): the whole Up() body below is one
+            // multi-statement Sql() string inside EF's per-migration transaction, so the
+            // AccessExclusiveLock that `ALTER TABLE ... DISABLE ROW LEVEL SECURITY` itself takes
+            // is held continuously from that first ALTER TABLE through the CREATE UNIQUE INDEX —
+            // there is no intermediate commit to release it early. Migrations run as a Helm
+            // pre-upgrade Job (ADR-0085) while the *previous* release's API pods are still
+            // serving traffic, so live queries touching `relationships` would otherwise queue
+            // behind this lock for the whole migration. `SET LOCAL lock_timeout` makes a
+            // contended deploy fail fast and retry instead of stampeding the lock queue and
+            // stalling every reader behind us. `SET LOCAL` (not `SET`) is correct precisely
+            // because this migration is transactional — the setting reverts at transaction end
+            // either way — but if anyone later sets SuppressTransaction = true on this migration,
+            // SET LOCAL silently stops applying (there is no longer a transaction to scope it to)
+            // and must become a plain SET.
+            //
+            // Deferred alternative, so the next person does not have to rediscover it: once
+            // `relationships` holds real volume, build the index with `CREATE UNIQUE INDEX
+            // CONCURRENTLY` in a separate SuppressTransaction migration, followed by a
+            // pg_index.indisvalid check — a concurrent build that meets a leftover duplicate
+            // leaves an INVALID index behind instead of aborting, so the check is required, not
+            // optional. Not done now: the table is 21 rows / 88 kB, CONCURRENTLY cannot share the
+            // collapse step's transaction, and a failed concurrent build would leave the collapse
+            // committed alongside an invalid index — a worse deploy failure than the one it
+            // prevents.
             migrationBuilder.Sql(@"
+                SET LOCAL lock_timeout = '5s';
+
                 ALTER TABLE relationships DISABLE ROW LEVEL SECURITY;
 
                 DELETE FROM relationships r
@@ -47,6 +74,14 @@ namespace Kartova.Catalog.Infrastructure.Migrations
                 ALTER TABLE relationships ENABLE ROW LEVEL SECURITY;
                 ALTER TABLE relationships FORCE ROW LEVEL SECURITY;
 
+                -- tenant_id is the leading index key column, not merely an included column. A
+                -- unique index in Postgres is checked against the full physical index regardless
+                -- of the session's RLS visibility, so a 23505 can in principle leak ""a row with
+                -- this key exists in another tenant"". That does NOT happen here only because
+                -- tenant_id leads: two rows can collide only if they already share a tenant.
+                -- Dropping or reordering tenant_id out of the leading position — e.g.
+                -- ""simplifying"" the index to rely on RLS alone — would turn constraint
+                -- violations into a genuine cross-tenant existence leak.
                 CREATE UNIQUE INDEX ux_relationships_one_system
                 ON relationships (tenant_id, source_kind, source_id)
                 WHERE type = 'PartOf';");
@@ -55,6 +90,8 @@ namespace Kartova.Catalog.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            // Irreversible: reverting restores the index-free state but cannot restore the
+            // redundant membership rows the collapse in Up() deleted.
             migrationBuilder.Sql("DROP INDEX IF EXISTS ux_relationships_one_system;");
         }
     }

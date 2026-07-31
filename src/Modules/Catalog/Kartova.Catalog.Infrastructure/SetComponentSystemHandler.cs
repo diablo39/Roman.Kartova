@@ -56,6 +56,15 @@ public sealed class SetComponentSystemHandler(TimeProvider clock)
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException pg && pg.SqlState == "23505")
         {
             // Lost a concurrent membership race — the other writer's edge stands.
+            //
+            // Safe to return a 409 and let the commit filter run afterwards: AddModuleDbContextExtensions
+            // / EnlistInTenantScopeInterceptor call ctx.Database.UseTransaction(scope.Transaction), and
+            // because nothing in this codebase uses EnableRetryOnFailure, EF Core's automatic savepoints
+            // are active — SaveChangesAsync wraps itself in a SAVEPOINT and rolls back to that savepoint
+            // on failure. So by the time this catch runs, the ambient ITenantScope transaction is already
+            // clean; it is not being silently rescued by a COMMIT against an aborted transaction. Adding
+            // EnableRetryOnFailure anywhere in this context's configuration would disable automatic
+            // savepoints and break this path.
             throw new ComponentAlreadyInSystemException(cmd.Component);
         }
 
