@@ -56,3 +56,26 @@ DETAIL:  Key (tenant_id, source_kind, source_id)=(aaaaaaaa-…-000a, Application
 ## Caveat
 
 This exercises the migration's **SQL** against a faithful reproduction of the table and its RLS posture — not the EF migration pipeline end-to-end against a database with production data. The remaining untested inch is EF's own invocation of that SQL, which the integration suite does cover (every Testcontainers run applies this migration).
+
+---
+
+## Addendum 2026-07-31 — independent PostgreSQL review
+
+A PostgreSQL specialist reviewed this migration and the surrounding write/read paths against the live dev database (`pg_locks`, `EXPLAIN`, catalog queries, and a real `23505` reproduction). Findings, and what changed as a result:
+
+**Confirmed correct, with sharper reasoning than we had:**
+- The partial unique index is doing genuinely new work — `ux_relationships_edge` constrains the *full edge*, so a component could hold N `PartOf` edges to different Systems and still satisfy it. It cannot express at-most-one.
+- The membership pre-check both handlers run gets a **full 3-column index match** on `ux_relationships_one_system` (verified by `EXPLAIN` as the app role with RLS live).
+- No cross-tenant existence leak — but only because `tenant_id` is the **leading** key column. A unique index is checked against the full physical index regardless of the session's RLS visibility, so rows can only collide within a tenant. Now documented in the migration as an invariant.
+- `PostgresException.ConstraintName` **is** reliably populated for a partial-unique-index violation (verified by a real duplicate insert), so the 409 mapping does not silently degrade to a 500.
+- The 409-then-`COMMIT` path is safe for a better reason than "Postgres turns COMMIT-in-aborted-block into rollback": `UseTransaction` enlistment plus EF Core **automatic savepoints** mean `SaveChangesAsync` already rolled back to its savepoint, so the transaction is clean when the exception surfaces. This depends on nothing using `EnableRetryOnFailure` — now documented at the catch.
+- The RLS toggle leaks nothing: `ALTER TABLE ... DISABLE ROW LEVEL SECURITY` takes `AccessExclusiveLock`, so no concurrent session can even `SELECT` the table during the window.
+
+**Changed (`9e14813e`):** the same `AccessExclusiveLock` finding turned the lock question into a real one — the lock spans the entire `Up()` body from the first `ALTER TABLE`, not merely the index build, and Helm `pre-upgrade` hooks run while the previous release still serves traffic. Added `SET LOCAL lock_timeout = '5s'` as the first statement so a contended deploy fails fast instead of queueing every reader behind us.
+
+**Deliberately deferred, reasoning recorded in-file:** splitting the index build into a separate `SuppressTransaction` migration using `CREATE UNIQUE INDEX CONCURRENTLY` (plus a `pg_index.indisvalid` check, since a concurrent build that meets a leftover duplicate leaves an INVALID index). Right once `relationships` holds real volume; wrong now at 21 rows / 88 kB, because `CONCURRENTLY` cannot share the collapse step's transaction and a failed build would leave the collapse committed beside an invalid index.
+
+**Follow-ups outside this slice:**
+- `ix_relationships_tenant_source` is a strict column-prefix of `ux_relationships_edge` and the planner never chooses it — maintained on every write for nothing. Safe to drop.
+- `direction=all&type=X` list reads do not get a covering index (filter + explicit sort). Not worth an index today; re-measure if that screen becomes hot.
+- Re-run `SetComponentSystemTests.PUT_system_replaces_the_previous_membership` after any EF Core/Npgsql bump: the move works because EF currently orders the DELETE before the INSERT, and both share the same partial-unique key — that ordering is a batch-order default, not a guarantee pinned by model metadata (EF cannot see these indexes).
