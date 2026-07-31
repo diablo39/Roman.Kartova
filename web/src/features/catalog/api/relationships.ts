@@ -16,6 +16,8 @@ export type RelationshipsListParams = {
   direction: RelationshipDirection;
   limit?: number;
   excludeApiEdges?: boolean;
+  /** Server-side relationship-type filter (Task 4d), applied before pagination. */
+  type?: NonNullable<ListQuery["type"]>;
 };
 
 export const relationshipKeys = {
@@ -43,6 +45,7 @@ export function useRelationshipsList(
             limit: String(params.limit ?? 20),
             cursor,
             ...(params.excludeApiEdges ? { excludeApiEdges: true } : {}),
+            ...(params.type ? { type: params.type } : {}),
           },
         },
       });
