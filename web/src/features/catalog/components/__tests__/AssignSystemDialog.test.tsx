@@ -20,13 +20,19 @@ function mockDeps(results: { id: string; displayName: string }[]) {
 
 function renderDialog({
   currentSystemName = null as string | null,
+  currentSystemId = currentSystemName !== null ? "sys1" : null,
   onOpenChange = vi.fn(),
-}: { currentSystemName?: string | null; onOpenChange?: (open: boolean) => void } = {}) {
+}: {
+  currentSystemName?: string | null;
+  currentSystemId?: string | null;
+  onOpenChange?: (open: boolean) => void;
+} = {}) {
   render(
     <AssignSystemDialog
       open
       onOpenChange={onOpenChange}
       component={{ kind: "application", id: "a1", displayName: "Checkout" }}
+      currentSystemId={currentSystemId}
       currentSystemName={currentSystemName}
     />,
   );

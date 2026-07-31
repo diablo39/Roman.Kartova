@@ -74,6 +74,7 @@ export function SystemMembershipRow({ componentKind, componentId, componentDispl
           open
           onOpenChange={setDialogOpen}
           component={{ kind: componentKind, id: componentId, displayName: componentDisplayName }}
+          currentSystemId={membership.systemId}
           currentSystemName={membership.systemDisplayName}
         />
       )}

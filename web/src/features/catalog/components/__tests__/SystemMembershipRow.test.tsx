@@ -69,6 +69,20 @@ it("hides the action for a user who cannot manage relationships when unassigned 
   expect(screen.queryByRole("button", { name: /change|assign/i })).toBeNull();
 });
 
+it("shows the action for a team member (not OrgAdmin) whose team matches componentTeamId", () => {
+  // Pins the `teamIds.includes(...)` half of `canManage` — every other positive test here uses
+  // mockPerms(true) (role: "OrgAdmin", teamIds: []), so `role === "OrgAdmin" || teamIds.includes(...)`
+  // mutated down to `role === "OrgAdmin"` would still pass them. renderRow() hardcodes
+  // componentTeamId="t1"; role here is "Member", so only the team-id match can allow the action.
+  mockMembership("sys1", "Payments");
+  vi.spyOn(perms, "usePermissions").mockReturnValue({
+    hasPermission: () => true, role: "Member", teamIds: ["t1"], teamAdminTeamIds: [], isLoading: false, isError: false,
+  } as never);
+  renderRow();
+
+  expect(screen.getByRole("button", { name: /change/i })).toBeInTheDocument();
+});
+
 it("shows a loading placeholder and no action while the membership is in flight — never 'Not assigned'", () => {
   mockMembership(null, null, { isLoading: true });
   mockPerms(true);

@@ -9,7 +9,9 @@ namespace Kartova.Catalog.Infrastructure;
 /// <c>ux_relationships_one_system</c>). Centralizes the predicate
 /// <c>r.Type == RelationshipType.PartOf &amp;&amp; r.Source.Kind == sourceKind &amp;&amp; r.Source.Id == sourceId</c>
 /// so <see cref="CatalogEndpointDelegates.CreateRelationshipAsync"/>'s pre-check, its
-/// 23505-conflict re-query, and <see cref="SetComponentSystemHandler"/>'s tracked-entity fetch
+/// 23505-conflict re-query, <see cref="SetComponentSystemHandler"/>'s tracked-entity fetch, and
+/// <see cref="CatalogEndpointDelegates.SetComponentSystemAsync"/>'s per-edge authorization
+/// projection (ids only, via <c>.Select(r => r.Target.Id)</c> over <see cref="CurrentMembershipOf"/>)
 /// cannot drift from one another.
 /// </summary>
 internal static class CurrentMembershipQueries

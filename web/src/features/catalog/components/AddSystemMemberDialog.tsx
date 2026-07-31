@@ -41,6 +41,9 @@ export function AddSystemMemberDialog({ open, onOpenChange, system }: Props) {
           "component-already-in-system":
             "Someone else just assigned this component to a System. Refresh and try again.",
         },
+        byStatus: {
+          403: "You can only move a component out of a System your team stewards.",
+        },
         fallback: "Could not add the component.",
       });
     }

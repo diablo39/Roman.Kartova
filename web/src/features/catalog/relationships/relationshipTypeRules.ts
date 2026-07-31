@@ -6,11 +6,19 @@ export type CreatableRelationshipType =
   | "consumesApiFrom";
 export type FixedRole = "source" | "target";
 
-export const relationshipTypeLabel: Record<CreatableRelationshipType, string> = {
+// `partOf` (System membership, ADR-0111 amended) is a real relationship type a read path can
+// surface — e.g. a component's Dependencies tab lists all its edges including the membership
+// one — but it is NOT creatable/deletable through the generic Add/Delete Relationship flow (see
+// SystemMembersSection/AssignSystemDialog for its dedicated UI). So it gets a label here without
+// joining CreatableRelationshipType or CREATABLE_TYPES below.
+export type RelationshipTypeLabelKey = CreatableRelationshipType | "partOf";
+
+export const relationshipTypeLabel: Record<RelationshipTypeLabelKey, string> = {
   dependsOn: "Depends on",
   instanceOf: "Instance of",
   providesApiFor: "Provides API for",
   consumesApiFrom: "Consumes API from",
+  partOf: "Part of",
 };
 
 // `dependsOn` MUST stay first — it's the Add Relationship dialog's default type;

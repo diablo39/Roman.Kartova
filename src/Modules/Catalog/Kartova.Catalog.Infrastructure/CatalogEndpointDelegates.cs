@@ -939,10 +939,16 @@ internal static class CatalogEndpointDelegates
         // touches. (This projection is deliberately separate from the handler's own tracked-entity
         // query: authz needs ids only, the handler needs entities to remove and audit. Both run
         // inside the same request transaction, so they see the same snapshot.)
-        var currentSystemIds = await db.Relationships
-            .Where(r => r.Type == RelationshipType.PartOf
-                        && r.Source.Kind == componentKind
-                        && r.Source.Id == id)
+        //
+        // Known race, accepted: under READ COMMITTED (ITenantScope's default isolation, ADR-0090)
+        // this read and the handler's own re-read (SetComponentSystemHandler.Handle) each see the
+        // latest committed snapshot as of their own statement, not a single snapshot for the whole
+        // request. A concurrent write that commits a NEW membership between this authorization
+        // check and the handler's read could add an edge here that this caller was never
+        // authorized to delete, and the handler would delete it anyway. No FOR UPDATE / isolation
+        // change in response — recorded as a known gap, not fixed at this gate.
+        var currentSystemIds = await CurrentMembershipQueries
+            .CurrentMembershipOf(db, componentKind, id)
             .Select(r => r.Target.Id)
             .ToListAsync(ct);
 

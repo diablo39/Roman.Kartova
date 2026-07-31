@@ -20,7 +20,7 @@ const newQc = () => new QueryClient({ defaultOptions: { queries: { retry: false 
 beforeEach(() => vi.restoreAllMocks());
 
 it("derives the current System from the outgoing partOf edge", () => {
-  vi.spyOn(rel, "useRelationshipsList").mockReturnValue(listResult([
+  const spy = vi.spyOn(rel, "useRelationshipsList").mockReturnValue(listResult([
     { id: "r1", type: "dependsOn", origin: "manual", source: { kind: "application", id: "a1", displayName: "Me" }, target: { kind: "service", id: "s9", displayName: "Other" } },
     { id: "r2", type: "partOf", origin: "manual", source: { kind: "application", id: "a1", displayName: "Me" }, target: { kind: "system", id: "sys1", displayName: "Payments" } },
   ]));
@@ -29,10 +29,16 @@ it("derives the current System from the outgoing partOf edge", () => {
 
   expect(result.current.systemId).toBe("sys1");
   expect(result.current.systemDisplayName).toBe("Payments");
+  // Assert the REQUEST shape, not just the derived output: deleting `type: "partOf"` (or
+  // widening `limit`) from systems.ts would still pass the assertions above against this test
+  // double, since the double ignores its arguments — only pinning the call args catches it.
+  expect(spy).toHaveBeenCalledWith(
+    expect.objectContaining({ entityKind: "application", entityId: "a1", direction: "outgoing", type: "partOf", limit: 1 }),
+  );
 });
 
 it("reports no membership when there is no partOf edge", () => {
-  vi.spyOn(rel, "useRelationshipsList").mockReturnValue(listResult([
+  const spy = vi.spyOn(rel, "useRelationshipsList").mockReturnValue(listResult([
     { id: "r1", type: "dependsOn", origin: "manual", source: { kind: "service", id: "s1", displayName: "Me" }, target: { kind: "service", id: "s2", displayName: "Other" } },
   ]));
 
@@ -40,6 +46,9 @@ it("reports no membership when there is no partOf edge", () => {
 
   expect(result.current.systemId).toBeNull();
   expect(result.current.systemDisplayName).toBeNull();
+  expect(spy).toHaveBeenCalledWith(
+    expect.objectContaining({ entityKind: "service", entityId: "s1", direction: "outgoing", type: "partOf", limit: 1 }),
+  );
 });
 
 it("useSetComponentSystem PUTs the application-system path for componentKind application", async () => {

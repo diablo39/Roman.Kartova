@@ -51,9 +51,15 @@ public sealed class SetComponentSystemHandler(TimeProvider clock)
             if (removed.Count > 0 || added is not null)
                 await db.SaveChangesAsync(ct);
         }
-        catch (DbUpdateException ex) when (ex.InnerException is PostgresException pg && pg.SqlState == "23505")
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException pg
+            && pg.SqlState == "23505" && pg.ConstraintName == "ux_relationships_one_system")
         {
             // Lost a concurrent membership race — the other writer's edge stands.
+            // Constraint-name-scoped to match the POST /relationships path
+            // (CatalogEndpointDelegates.SetComponentSystemAsync's sibling catch,
+            // ~CatalogEndpointDelegates.cs:862): an unscoped catch would also swallow an
+            // ux_relationships_edge race (an exact-duplicate insert) and misreport it as
+            // "already in a System", so anything else propagates.
             //
             // Safe to return a 409 and let the commit filter run afterwards: AddModuleDbContextExtensions
             // / EnlistInTenantScopeInterceptor call ctx.Database.UseTransaction(scope.Transaction), and

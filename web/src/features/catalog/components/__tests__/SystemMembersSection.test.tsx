@@ -166,6 +166,22 @@ describe("SystemMembersSection", () => {
     expect(toast.success).not.toHaveBeenCalled();
   });
 
+  it("shows Assign/Remove for a team member (not OrgAdmin) whose team matches systemTeamId", () => {
+    // Pins the `teamIds.includes(...)` half of `canManage` — every other positive test in this
+    // file uses role: "OrgAdmin", teamIds: [], so `role === "OrgAdmin" || teamIds.includes(...)`
+    // mutated down to `role === "OrgAdmin"` would still pass them, silently shipping "team members
+    // lose the button". This test's role is "Member" and only the team-id membership can allow it.
+    vi.spyOn(perms, "usePermissions").mockReturnValue({
+      hasPermission: () => true, role: "Member", teamIds: ["t1"], teamAdminTeamIds: [], isLoading: false, isError: false,
+    } as never);
+    useRelationshipsListMock.mockReturnValue(result({ items: [edge("application", "a1", "Billing App")] }));
+
+    render1(<SystemMembersSection systemId="sys1" systemTeamId="t1" systemDisplayName="Payments" />);
+
+    expect(screen.getByRole("button", { name: /assign component/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /remove/i })).toBeInTheDocument();
+  });
+
   it("does not offer Remove on a drift row whose kind is not Application/Service", () => {
     useRelationshipsListMock.mockReturnValue(
       result({
