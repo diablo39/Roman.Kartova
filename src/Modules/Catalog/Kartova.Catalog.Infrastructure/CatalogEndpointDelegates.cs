@@ -844,12 +844,7 @@ internal static class CatalogEndpointDelegates
         if (req.Type == RelationshipType.PartOf
             && source.Kind is EntityKind.Application or EntityKind.Service)
         {
-            var currentSystemId = await db.Relationships
-                .Where(r => r.Type == RelationshipType.PartOf
-                            && r.Source.Kind == source.Kind
-                            && r.Source.Id == source.Id)
-                .Select(r => (Guid?)r.Target.Id)
-                .FirstOrDefaultAsync(ct);
+            var currentSystemId = await CurrentMembershipQueries.FindCurrentSystemIdAsync(db, source.Kind, source.Id, ct);
             if (currentSystemId is { } occupied)
                 return await ComponentAlreadyInSystemProblemAsync(lookup, occupied, ct);
         }
@@ -872,12 +867,7 @@ internal static class CatalogEndpointDelegates
             // EF Core savepoints the ambient tenant-scope transaction around SaveChanges, so this
             // follow-up SELECT still runs inside a live transaction — re-query rather than assume
             // req.TargetId won the race, since the winner may have been a third, unrelated writer.
-            var winningSystemId = await db.Relationships
-                .Where(r => r.Type == RelationshipType.PartOf
-                            && r.Source.Kind == source.Kind
-                            && r.Source.Id == source.Id)
-                .Select(r => (Guid?)r.Target.Id)
-                .FirstOrDefaultAsync(ct);
+            var winningSystemId = await CurrentMembershipQueries.FindCurrentSystemIdAsync(db, source.Kind, source.Id, ct);
             return await ComponentAlreadyInSystemProblemAsync(lookup, winningSystemId ?? req.TargetId, ct);
         }
     }

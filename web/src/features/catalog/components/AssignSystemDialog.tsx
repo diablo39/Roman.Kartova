@@ -5,7 +5,7 @@ import { Button } from "@/components/base/buttons/button";
 import { EntitySearchCombobox } from "@/features/catalog/components/EntitySearchCombobox";
 import { useSetComponentSystem, type ComponentKind } from "@/features/catalog/api/systems";
 import type { EntityOption } from "@/features/catalog/api/relationships";
-import type { ProblemDetails } from "@/shared/forms/problemDetails";
+import { toastProblem } from "@/shared/forms/toastProblem";
 
 interface Props {
   open: boolean;
@@ -26,13 +26,16 @@ interface Props {
 export function AssignSystemDialog({ open, onOpenChange, component, currentSystemName }: Props) {
   const mutation = useSetComponentSystem();
 
-  const fail = (err: unknown) => {
-    // `err` is whatever the mutation rejects with — ultimately the parsed ProblemDetails body
-    // from the wire (`throwWithStatus`), but still `unknown` at this boundary. Narrow with a
-    // runtime guard before reading fields rather than trusting an unchecked `as` assertion.
-    const problem = typeof err === "object" && err !== null ? (err as Partial<ProblemDetails>) : undefined;
-    toast.error(problem?.detail ?? problem?.title ?? "Could not update the System.");
-  };
+  const fail = (err: unknown) =>
+    toastProblem(err, {
+      // 409 component-already-in-system: a clearer message than the server's generic
+      // "A concurrent write already assigned this component a System membership." detail.
+      byProblemType: {
+        "component-already-in-system":
+          "Someone else just assigned this component to a System. Refresh and try again.",
+      },
+      fallback: "Could not update the System.",
+    });
 
   const assign = async (system: EntityOption) => {
     try {

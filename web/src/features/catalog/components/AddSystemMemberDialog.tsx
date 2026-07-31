@@ -6,7 +6,7 @@ import { Button } from "@/components/base/buttons/button";
 import { EntitySearchCombobox } from "@/features/catalog/components/EntitySearchCombobox";
 import { useSetComponentSystem, type ComponentKind } from "@/features/catalog/api/systems";
 import type { EntityOption } from "@/features/catalog/api/relationships";
-import type { ProblemDetails } from "@/shared/forms/problemDetails";
+import { toastProblem } from "@/shared/forms/toastProblem";
 
 interface Props {
   open: boolean;
@@ -34,8 +34,15 @@ export function AddSystemMemberDialog({ open, onOpenChange, system }: Props) {
       toast.success(`${component.displayName} is now part of ${system.displayName}.`);
       onOpenChange(false);
     } catch (err) {
-      const problem = typeof err === "object" && err !== null ? (err as Partial<ProblemDetails>) : undefined;
-      toast.error(problem?.detail ?? problem?.title ?? "Could not add the component.");
+      // 409 component-already-in-system: a clearer message than the server's generic
+      // "A concurrent write already assigned this component a System membership." detail.
+      toastProblem(err, {
+        byProblemType: {
+          "component-already-in-system":
+            "Someone else just assigned this component to a System. Refresh and try again.",
+        },
+        fallback: "Could not add the component.",
+      });
     }
   };
 

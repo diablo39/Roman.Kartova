@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "./client";
 import { useCursorList } from "@/lib/list/useCursorList";
 import { throwWithStatus, unwrapData } from "@/shared/api/openapi-fetch-helpers";
-import { relationshipKeys, useRelationshipsList } from "./relationships";
+import { invalidateAfterRelationshipChange, useRelationshipsList } from "./relationships";
 import type { RegisterSystemInput } from "../schemas/registerSystem";
 import type { components, operations } from "@/generated/openapi";
 
@@ -140,8 +140,7 @@ export function useSetComponentSystem() {
       return unwrapData(data);
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: relationshipKeys.all });
-      qc.invalidateQueries({ queryKey: ["catalog"] });
+      invalidateAfterRelationshipChange(qc);
       qc.invalidateQueries({ queryKey: systemKeys.all });
     },
   });

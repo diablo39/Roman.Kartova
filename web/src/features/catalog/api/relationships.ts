@@ -59,7 +59,7 @@ export function useRelationshipsList(
 // ["catalog", ...] — the API surface (provides/consumes), the dependency graph,
 // derived dependencies, and impact analysis. Invalidate both families so those
 // sections refresh without a manual page reload.
-function invalidateAfterRelationshipChange(qc: ReturnType<typeof useQueryClient>) {
+export function invalidateAfterRelationshipChange(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: relationshipKeys.all });
   qc.invalidateQueries({ queryKey: ["catalog"] });
 }

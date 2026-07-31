@@ -26,10 +26,8 @@ public sealed class SetComponentSystemHandler(TimeProvider clock)
         IAuditWriter audit,
         CancellationToken ct)
     {
-        var current = await db.Relationships
-            .Where(r => r.Type == RelationshipType.PartOf
-                        && r.Source.Kind == cmd.Component.Kind
-                        && r.Source.Id == cmd.Component.Id)
+        var current = await CurrentMembershipQueries
+            .CurrentMembershipOf(db, cmd.Component.Kind, cmd.Component.Id)
             .ToListAsync(ct);
 
         var decision = SystemMembership.Decide(
