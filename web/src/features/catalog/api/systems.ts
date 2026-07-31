@@ -97,6 +97,10 @@ export function useComponentSystem(componentKind: ComponentKind, componentId: st
     type: "partOf",
     limit: 1,
   });
+  // `.find` rather than `items[0]`: in production the array is already server-filtered to
+  // `type=partOf, limit:1`, so the two are equivalent there. `.find` only matters against a
+  // test double that ignores those params and returns other edge types too — it is a defensive
+  // narrowing for that case, not a workaround for a real server-side gap.
   const edge = list.items.find((item) => item.type === "partOf");
   return {
     systemId: edge?.target.id ?? null,
