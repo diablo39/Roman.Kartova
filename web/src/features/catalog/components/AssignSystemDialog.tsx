@@ -1,0 +1,96 @@
+import { toast } from "sonner";
+
+import { ModalOverlay, Modal, Dialog } from "@/components/application/modals/modal";
+import { Button } from "@/components/base/buttons/button";
+import { EntitySearchCombobox } from "@/features/catalog/components/EntitySearchCombobox";
+import { useSetComponentSystem, type ComponentKind } from "@/features/catalog/api/systems";
+import type { EntityOption } from "@/features/catalog/api/relationships";
+import type { ProblemDetails } from "@/shared/forms/problemDetails";
+
+interface Props {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  component: { kind: ComponentKind; id: string; displayName: string };
+  /** Name of the System the component is in today, or null when unassigned. */
+  currentSystemName: string | null;
+}
+
+/**
+ * Put a component into a System, move it, or take it out. A component belongs to at most one
+ * System (ADR-0111 amended), so selecting a System REPLACES the current membership in one
+ * atomic PUT — there is no separate "unassign first" step.
+ *
+ * Permission gating is the caller's responsibility (Task 8's row decides whether to render the
+ * trigger); this dialog does not duplicate that check.
+ */
+export function AssignSystemDialog({ open, onOpenChange, component, currentSystemName }: Props) {
+  const mutation = useSetComponentSystem();
+
+  const fail = (err: unknown) => {
+    // `err` is whatever the mutation rejects with — ultimately the parsed ProblemDetails body
+    // from the wire (`throwWithStatus`), but still `unknown` at this boundary. Narrow with a
+    // runtime guard before reading fields rather than trusting an unchecked `as` assertion.
+    const problem = typeof err === "object" && err !== null ? (err as Partial<ProblemDetails>) : undefined;
+    toast.error(problem?.detail ?? problem?.title ?? "Could not update the System.");
+  };
+
+  const assign = async (system: EntityOption) => {
+    try {
+      await mutation.mutateAsync({ componentKind: component.kind, componentId: component.id, systemId: system.id });
+      toast.success(`${component.displayName} is now part of ${system.displayName}.`);
+      onOpenChange(false);
+    } catch (err) {
+      fail(err);
+    }
+  };
+
+  const clear = async () => {
+    try {
+      await mutation.mutateAsync({ componentKind: component.kind, componentId: component.id, systemId: null });
+      toast.success(`${component.displayName} removed from its System.`);
+      onOpenChange(false);
+    } catch (err) {
+      fail(err);
+    }
+  };
+
+  return (
+    <ModalOverlay isOpen={open} onOpenChange={onOpenChange} isDismissable={!mutation.isPending}>
+      <Modal className="max-w-[480px]">
+        <Dialog aria-label="Assign System" className="bg-primary rounded-xl shadow-xl p-6 outline-none">
+          <div className="space-y-1 mb-4">
+            <h2 className="text-lg font-semibold text-primary">System for {component.displayName}</h2>
+            <p className="text-sm text-tertiary">
+              {currentSystemName
+                ? `Currently part of ${currentSystemName}. Selecting another System moves it.`
+                : "A component belongs to at most one System."}
+            </p>
+          </div>
+
+          <div className="space-y-5">
+            <EntitySearchCombobox kind="system" onSelect={assign} placeholder="Search systems…" />
+
+            <div className="flex justify-between gap-2 pt-2">
+              {currentSystemName ? (
+                <Button
+                  type="button"
+                  color="secondary-destructive"
+                  size="sm"
+                  isDisabled={mutation.isPending}
+                  onClick={clear}
+                >
+                  Remove from System
+                </Button>
+              ) : (
+                <span />
+              )}
+              <Button type="button" color="secondary" size="sm" onClick={() => onOpenChange(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      </Modal>
+    </ModalOverlay>
+  );
+}
