@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Npgsql;
 // ApplicationId is aliased rather than imported via `using Kartova.Catalog.Domain`
 // because that would clash with `System.ApplicationId` in the BCL — same trick
 // ApplicationSortSpecs uses for `DomainApplication`.
@@ -22,6 +23,7 @@ using HealthStatus = Kartova.Catalog.Domain.HealthStatus;
 using ApiStyle = Kartova.Catalog.Domain.ApiStyle;
 using EntityRef = Kartova.Catalog.Domain.EntityRef;
 using EntityKind = Kartova.Catalog.Domain.EntityKind;
+using ComponentAlreadyInSystemException = Kartova.Catalog.Domain.ComponentAlreadyInSystemException;
 using RelationshipType = Kartova.Catalog.Domain.RelationshipType;
 using RelationshipDirection = Kartova.Catalog.Application.RelationshipDirection;
 using SortOrder = Kartova.SharedKernel.Pagination.SortOrder;
@@ -832,13 +834,203 @@ internal static class CatalogEndpointDelegates
                 detail: "An identical relationship already exists.",
                 statusCode: StatusCodes.Status409Conflict);
 
+        // At-most-one System (ADR-0111 amended): a component may hold only one PartOf edge.
+        // Placed after the exact-duplicate check so an identical re-POST keeps its own conflict
+        // type. Scoped to Application/Service sources AND a System target: the message is
+        // component-specific, and if nested Systems (System→System PartOf, disallowed today by
+        // RelationshipTypeRules.cs:21-22) are ever enabled for S-02 this guard must not silently
+        // impose at-most-one-parent on them. The target.Kind == EntityKind.System scoping matters
+        // independently of the source scoping: without it, a malformed PartOf from an
+        // already-assigned Application/Service to a NON-System target (disallowed by
+        // RelationshipTypeRules.IsAllowedPair, which only runs further down inside
+        // Relationship.CreateManual) would be misreported as 409 ComponentAlreadyInSystem instead
+        // of the 400 every other disallowed-pair case gets — two different error classes for the
+        // same malformed request, and a 409 detail that dangles an edge ("move it") that can never
+        // exist for that target kind.
+        // Nullable projection, not a Guid.Empty sentinel — Guid.Empty is a legal-if-absurd value
+        // and conflating it with "no membership" is a gate-6 mutation blind spot.
+        if (req.Type == RelationshipType.PartOf
+            && source.Kind is EntityKind.Application or EntityKind.Service
+            && target.Kind == EntityKind.System)
+        {
+            var currentSystemId = await CurrentMembershipQueries.FindCurrentSystemIdAsync(db, source.Kind, source.Id, ct);
+            if (currentSystemId is { } occupied)
+                return await ComponentAlreadyInSystemProblemAsync(lookup, occupied, ct);
+        }
+
         var srcDto = new EntityRefDto(source.Kind, source.Id, sourceInfo.DisplayName);
         var tgtDto = new EntityRefDto(target.Kind, target.Id, targetInfo.DisplayName);
         var cmd = new CreateRelationshipCommand(source, target, req.Type);
 
-        var response = await handler.Handle(cmd, srcDto, tgtDto, db, tenant, currentUser, audit, ct);
-        return Results.Created($"/api/v1/catalog/relationships/{response.Id}", response);
+        try
+        {
+            var response = await handler.Handle(cmd, srcDto, tgtDto, db, tenant, currentUser, audit, ct);
+            return Results.Created($"/api/v1/catalog/relationships/{response.Id}", response);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException pg
+            && pg.SqlState == "23505" && pg.ConstraintName == "ux_relationships_one_system"
+            && source.Kind is EntityKind.Application or EntityKind.Service
+            && target.Kind == EntityKind.System)
+        {
+            // Lost a concurrent membership race between the pre-check above and this SaveChanges —
+            // constraint-name-scoped so an exact-duplicate-edge race (ux_relationships_edge) keeps
+            // surfacing through its own, unmapped path rather than being misreported as this problem.
+            // Source/target-kind-scoped for symmetry with the pre-check above: today
+            // ux_relationships_one_system's own partial WHERE (type = 'PartOf') plus
+            // RelationshipTypeRules.IsAllowedPair already prevent this constraint from firing for
+            // any other kind pair, so this is defense-in-depth against the index's WHERE clause
+            // ever changing, not a currently-reachable branch.
+            // EF Core savepoints the ambient tenant-scope transaction around SaveChanges, so this
+            // follow-up SELECT still runs inside a live transaction — re-query rather than assume
+            // req.TargetId won the race, since the winner may have been a third, unrelated writer.
+            var winningSystemId = await CurrentMembershipQueries.FindCurrentSystemIdAsync(db, source.Kind, source.Id, ct);
+            return await ComponentAlreadyInSystemProblemAsync(lookup, winningSystemId ?? req.TargetId, ct);
+        }
     }
+
+    private static async Task<IResult> ComponentAlreadyInSystemProblemAsync(
+        ICatalogEntityLookup lookup, Guid occupyingSystemId, CancellationToken ct)
+    {
+        // Name the System, as spec §3.3 promises — a bare GUID is not an actionable detail.
+        var occupiedName = (await lookup.Find(EntityKind.System, occupyingSystemId, ct))?.DisplayName
+                           ?? occupyingSystemId.ToString();
+        return Results.Problem(
+            type: ProblemTypes.ComponentAlreadyInSystem,
+            title: "Component already belongs to a System",
+            detail: $"This component is already part of System '{occupiedName}'. Use PUT /api/v1/catalog/{{applications|services}}/{{id}}/system to move it.",
+            statusCode: StatusCodes.Status409Conflict);
+    }
+
+    /// <summary>
+    /// PUT /{applications|services}/{id}/system — atomic at-most-one System membership write
+    /// over <c>PartOf</c> edges (ADR-0111 amended). <c>systemId: null</c> clears.
+    /// 422 = unknown/cross-tenant component or System. 403 = caller is neither OrgAdmin, nor a
+    /// member of the component's team, nor a member of the team of EVERY System whose edge this
+    /// write mutates — ADR-0108 applies per edge, and a move mutates two (see the block below).
+    /// 409 = a concurrent writer already assigned the component a System (ux_relationships_one_system).
+    /// </summary>
+    internal static async Task<IResult> SetComponentSystemAsync(
+        EntityKind componentKind,
+        Guid id,
+        SetSystemRequest request,
+        ICatalogEntityLookup lookup,
+        SetComponentSystemHandler handler,
+        CatalogDbContext db,
+        ITenantContext tenant,
+        ICurrentUser currentUser,
+        ClaimsPrincipal caller,
+        IAuthorizationService auth,
+        IAuditWriter audit,
+        CancellationToken ct)
+    {
+        var component = new EntityRef(componentKind, id);
+
+        var componentInfo = await lookup.Find(componentKind, id, ct);
+        if (componentInfo is null)
+            return Results.Problem(
+                type: ProblemTypes.InvalidSourceEntity,
+                title: "Invalid component",
+                detail: "The component does not exist in this tenant.",
+                statusCode: StatusCodes.Status422UnprocessableEntity);
+
+        string? systemDisplayName = null;
+        Guid? requestedSystemTeamId = null;
+        if (request.SystemId is { } requestedSystemId)
+        {
+            var systemInfo = await lookup.Find(EntityKind.System, requestedSystemId, ct);
+            if (systemInfo is null)
+                return Results.Problem(
+                    type: ProblemTypes.InvalidTargetEntity,
+                    title: "Invalid system",
+                    detail: "The system does not exist in this tenant.",
+                    statusCode: StatusCodes.Status422UnprocessableEntity);
+            systemDisplayName = systemInfo.DisplayName;
+            requestedSystemTeamId = systemInfo.TeamId;
+        }
+
+        // A move is TWO edge mutations (delete old + insert new) and ADR-0108 authorizes each
+        // edge on its own endpoints — so gating only on the REQUESTED System's team would let a
+        // steward of the destination strip a component out of a System they have no claim on, a
+        // delete that DELETE /relationships/{id} would refuse. Authorize every edge this write
+        // touches. (This projection is deliberately separate from the handler's own tracked-entity
+        // query: authz needs ids only, the handler needs entities to remove and audit. Both run
+        // inside the same request transaction, so they see the same snapshot.)
+        //
+        // Known race, accepted: under READ COMMITTED (ITenantScope's default isolation, ADR-0090)
+        // this read and the handler's own re-read (SetComponentSystemHandler.Handle) each see the
+        // latest committed snapshot as of their own statement, not a single snapshot for the whole
+        // request. A concurrent write that commits a NEW membership between this authorization
+        // check and the handler's read could add an edge here that this caller was never
+        // authorized to delete, and the handler would delete it anyway. No FOR UPDATE / isolation
+        // change in response — recorded as a known gap, not fixed at this gate.
+        var currentSystemIds = await CurrentMembershipQueries
+            .CurrentMembershipOf(db, componentKind, id)
+            .Select(r => r.Target.Id)
+            .ToListAsync(ct);
+
+        // The component is an endpoint of every edge here, so its team authorizes all of them.
+        if (await AuthorizeTargetTeamAsync(auth, caller, componentInfo.TeamId) is not null)
+        {
+            // The insert: the requested System's team is already known from the lookup above —
+            // no need to Find it again.
+            if (request.SystemId is { } wanted && !currentSystemIds.Contains(wanted)
+                && await AuthorizeTargetTeamAsync(auth, caller, requestedSystemTeamId!.Value) is { } forbiddenInsert)
+                return forbiddenInsert;
+
+            // Every delete: touched Systems other than the requested target need their own lookup.
+            foreach (var systemId in currentSystemIds.Where(s => s != request.SystemId).Distinct())
+            {
+                var systemTeamId = (await lookup.Find(EntityKind.System, systemId, ct))?.TeamId ?? Guid.Empty;
+                if (await AuthorizeTargetTeamAsync(auth, caller, systemTeamId) is { } forbiddenDelete)
+                    return forbiddenDelete;
+            }
+        }
+
+        try
+        {
+            var response = await handler.Handle(
+                new SetComponentSystemCommand(component, request.SystemId),
+                systemDisplayName, db, tenant, currentUser, audit, ct);
+
+            return Results.Ok(response);
+        }
+        catch (ComponentAlreadyInSystemException)
+        {
+            return Results.Problem(
+                type: ProblemTypes.ComponentAlreadyInSystem,
+                title: "Component already in a System",
+                detail: "A concurrent write already assigned this component a System membership.",
+                statusCode: StatusCodes.Status409Conflict);
+        }
+    }
+
+    internal static Task<IResult> SetApplicationSystemAsync(
+        Guid id,
+        [FromBody] SetSystemRequest request,
+        ICatalogEntityLookup lookup,
+        SetComponentSystemHandler handler,
+        CatalogDbContext db,
+        ITenantContext tenant,
+        ICurrentUser currentUser,
+        ClaimsPrincipal caller,
+        IAuthorizationService auth,
+        IAuditWriter audit,
+        CancellationToken ct)
+        => SetComponentSystemAsync(EntityKind.Application, id, request, lookup, handler, db, tenant, currentUser, caller, auth, audit, ct);
+
+    internal static Task<IResult> SetServiceSystemAsync(
+        Guid id,
+        [FromBody] SetSystemRequest request,
+        ICatalogEntityLookup lookup,
+        SetComponentSystemHandler handler,
+        CatalogDbContext db,
+        ITenantContext tenant,
+        ICurrentUser currentUser,
+        ClaimsPrincipal caller,
+        IAuthorizationService auth,
+        IAuditWriter audit,
+        CancellationToken ct)
+        => SetComponentSystemAsync(EntityKind.Service, id, request, lookup, handler, db, tenant, currentUser, caller, auth, audit, ct);
 
     internal static async Task<IResult> DeleteRelationshipAsync(
         Guid id,
@@ -878,7 +1070,10 @@ internal static class CatalogEndpointDelegates
     /// Default sort: createdAt desc (newest first) — relationships have no displayName of their own,
     /// so the project-wide displayName-asc list default deliberately does not apply here.
     /// `excludeApiEdges` (default false) drops <c>ProvidesApiFor</c>/<c>ConsumesApiFrom</c> edges — the
-    /// API-surface view already renders them, so list callers can opt out of the duplication. Claim gate: catalog.read.
+    /// API-surface view already renders them, so list callers can opt out of the duplication.
+    /// `type` (optional, single-valued) narrows the page to exactly that <see cref="RelationshipType"/>
+    /// before pagination — task 4d, so a component/system with more than one page of edges can ask the
+    /// server for the one row it needs instead of client-side filtering a truncated page. Claim gate: catalog.read.
     /// </summary>
     internal static async Task<IResult> ListRelationshipsAsync(
         [FromQuery] string entityKind,
@@ -889,21 +1084,37 @@ internal static class CatalogEndpointDelegates
         [FromQuery] string? cursor,
         [FromQuery] string? limit,
         [FromQuery] bool? excludeApiEdges,
+        [FromQuery] string? type,
         ListRelationshipsForEntityHandler handler,
         ICatalogEntityLookup lookup,
         IUserDirectory directory,
         CatalogDbContext db,
         CancellationToken ct)
     {
-        if (!Enum.TryParse<EntityKind>(entityKind, ignoreCase: true, out var kind) || !Enum.IsDefined(kind) || entityId == Guid.Empty)
+        // Shared by entityKind/direction/type below: Enum.TryParse alone accepts numeric
+        // strings ("999", "-1") and binds them to an undefined enum value, so every
+        // enum-ish query parameter on this endpoint additionally guards with
+        // Enum.IsDefined before accepting the parse.
+        static bool TryParseDefinedEnum<TEnum>(string? raw, out TEnum value) where TEnum : struct, Enum
+            => Enum.TryParse(raw, ignoreCase: true, out value) && Enum.IsDefined(value);
+
+        if (!TryParseDefinedEnum<EntityKind>(entityKind, out var kind) || entityId == Guid.Empty)
             return Results.Problem(type: ProblemTypes.ValidationFailed, title: "Invalid entity reference",
                 detail: "entityKind and a non-empty entityId are required.", statusCode: StatusCodes.Status400BadRequest);
 
         var dir = RelationshipDirection.All;
-        if (!string.IsNullOrWhiteSpace(direction)
-            && (!Enum.TryParse(direction, ignoreCase: true, out dir) || !Enum.IsDefined(dir)))
+        if (!string.IsNullOrWhiteSpace(direction) && !TryParseDefinedEnum(direction, out dir))
             return Results.Problem(type: ProblemTypes.ValidationFailed, title: "Invalid direction",
                 detail: "direction must be outgoing, incoming, or all.", statusCode: StatusCodes.Status400BadRequest);
+
+        RelationshipType? filterType = null;
+        if (!string.IsNullOrWhiteSpace(type))
+        {
+            if (!TryParseDefinedEnum<RelationshipType>(type, out var parsedType))
+                return Results.Problem(type: ProblemTypes.ValidationFailed, title: "Invalid type",
+                    detail: "type must be a valid relationship type.", statusCode: StatusCodes.Status400BadRequest);
+            filterType = parsedType;
+        }
 
         var (parsedSortBy, parsedSortOrder, effectiveLimit) =
             CursorListBinding.Bind<RelationshipSortField>(sortBy, sortOrder, limit, RelationshipSortSpecs.AllowedFieldNames);
@@ -913,7 +1124,8 @@ internal static class CatalogEndpointDelegates
             SortBy: parsedSortBy ?? RelationshipSortField.CreatedAt,
             SortOrder: parsedSortOrder ?? SortOrder.Desc,
             Cursor: cursor, Limit: effectiveLimit,
-            ExcludeApiEdges: excludeApiEdges ?? false);
+            ExcludeApiEdges: excludeApiEdges ?? false,
+            Type: filterType);
 
         var page = await handler.Handle(query, db, lookup, directory, ct);
         return Results.Ok(page);

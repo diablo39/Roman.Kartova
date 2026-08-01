@@ -14,6 +14,14 @@ vi.mock("@/features/teams/api/teams", () => ({
 vi.mock("@/features/catalog/api/relationships", () => ({
   useRelationshipsList: () => ({ items: [], isLoading: false, isError: false, hasNext: false, hasPrev: false, goNext: vi.fn(), goPrev: vi.fn() }),
 }));
+// SystemMembersSection (Task 9) gates Assign/Remove on usePermissions — outside an
+// AuthProvider, `useAuth()` returns undefined and `auth.isAuthenticated` throws, so every
+// test on this page (not just the Members-tab one) needs this mocked.
+vi.mock("@/shared/auth/usePermissions", () => ({
+  usePermissions: () => ({
+    hasPermission: () => true, role: "OrgAdmin", teamIds: [], teamAdminTeamIds: [], isLoading: false, isError: false,
+  }),
+}));
 
 const sys = { id: "sys1", tenantId: "t1", displayName: "Payments Platform", description: "Money movement", teamId: "team1", createdByUserId: "u1", createdAt: "2026-07-22T00:00:00Z", createdBy: null };
 

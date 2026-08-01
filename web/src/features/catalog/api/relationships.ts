@@ -3,7 +3,7 @@ import { apiClient } from "./client";
 import { useCursorList } from "@/lib/list/useCursorList";
 import { unwrapData } from "@/shared/api/openapi-fetch-helpers";
 import type { components, operations } from "@/generated/openapi";
-import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
+import type { EntityKind } from "@/features/catalog/relationships/relationshipTypeRules";
 
 export type RelationshipResponse = components["schemas"]["RelationshipResponse"];
 export type CreateRelationshipPayload = components["schemas"]["CreateRelationshipRequest"];
@@ -16,6 +16,8 @@ export type RelationshipsListParams = {
   direction: RelationshipDirection;
   limit?: number;
   excludeApiEdges?: boolean;
+  /** Server-side relationship-type filter (Task 4d), applied before pagination. */
+  type?: NonNullable<ListQuery["type"]>;
 };
 
 export const relationshipKeys = {
@@ -43,6 +45,7 @@ export function useRelationshipsList(
             limit: String(params.limit ?? 20),
             cursor,
             ...(params.excludeApiEdges ? { excludeApiEdges: true } : {}),
+            ...(params.type ? { type: params.type } : {}),
           },
         },
       });
@@ -56,7 +59,7 @@ export function useRelationshipsList(
 // ["catalog", ...] — the API surface (provides/consumes), the dependency graph,
 // derived dependencies, and impact analysis. Invalidate both families so those
 // sections refresh without a manual page reload.
-function invalidateAfterRelationshipChange(qc: ReturnType<typeof useQueryClient>) {
+export function invalidateAfterRelationshipChange(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: relationshipKeys.all });
   qc.invalidateQueries({ queryKey: ["catalog"] });
 }
@@ -86,10 +89,10 @@ export function useDeleteRelationship() {
   });
 }
 
-export type EntityOption = { kind: RelationshipKind; id: string; displayName: string };
+export type EntityOption = { kind: EntityKind; id: string; displayName: string };
 
 export function useEntitySearch(
-  kind: RelationshipKind,
+  kind: EntityKind,
   query: string,
   opts: { enabled: boolean },
 ) {
@@ -105,6 +108,11 @@ export function useEntitySearch(
       }
       if (kind === "api") {
         const { data, error } = await apiClient.GET("/api/v1/catalog/apis", { params: { query: q } });
+        if (error) throw error;
+        return unwrapData(data).items.map((e) => ({ kind, id: e.id, displayName: e.displayName }));
+      }
+      if (kind === "system") {
+        const { data, error } = await apiClient.GET("/api/v1/catalog/systems", { params: { query: q } });
         if (error) throw error;
         return unwrapData(data).items.map((e) => ({ kind, id: e.id, displayName: e.displayName }));
       }

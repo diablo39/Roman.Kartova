@@ -72,7 +72,7 @@ export function useRegisterService() {
     mutationFn: async (input: RegisterServiceInput) => {
       const { data, error, response } = await apiClient.POST("/api/v1/catalog/services", { body: input });
       if (error) throwWithStatus(error, response);
-      return unwrapData(data);
+      return unwrapData(data, response);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: serviceKeys.all });

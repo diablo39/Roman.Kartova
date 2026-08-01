@@ -81,7 +81,7 @@ export function SystemDetailPage() {
           </DetailTabs.Tab>
 
           <DetailTabs.Tab id="members" label="Members">
-            <SystemMembersSection systemId={sys.id} />
+            <SystemMembersSection systemId={sys.id} systemTeamId={sys.teamId} systemDisplayName={sys.displayName} />
           </DetailTabs.Tab>
         </DetailTabs>
       </Card>

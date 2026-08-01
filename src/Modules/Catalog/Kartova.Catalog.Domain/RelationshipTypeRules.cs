@@ -18,6 +18,13 @@ public static class RelationshipTypeRules
         RelationshipType.InstanceOf => source == EntityKind.Service && target == EntityKind.Application,
         RelationshipType.ProvidesApiFor or RelationshipType.ConsumesApiFrom =>
             source is EntityKind.Application or EntityKind.Service && target == EntityKind.Api,
+        // Structural source/target pair only — this does NOT encode at-most-one-System-per-
+        // component. That invariant is enforced by the ux_relationships_one_system unique index
+        // and decided application-side by Kartova.Catalog.Application.SystemMembership.Decide
+        // before a write ever reaches here (see SetComponentSystemHandler and
+        // CatalogEndpointDelegates.CreateRelationshipAsync, the two paths that call it). A fourth
+        // PartOf write path that skips SystemMembership.Decide would only discover the at-most-one
+        // rule from a runtime 23505.
         RelationshipType.PartOf =>
             source is EntityKind.Application or EntityKind.Service && target == EntityKind.System,
         _ => false,

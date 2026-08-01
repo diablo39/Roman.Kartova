@@ -97,6 +97,11 @@ describe("toGraphModel", () => {
     expect(parseEntityRef("api")).toBeNull();
     expect(parseEntityRef("api:")).toBeNull();
   });
+
+  it("renders and links System refs (A1 — fixes the raw badge + /catalog/undefined link)", () => {
+    expect(ENTITY_KIND_LABEL.system).toBe("System");
+    expect(entityDetailPath("system", "sys1")).toBe("/catalog/systems/sys1");
+  });
 });
 
 describe("derivedViaLabel", () => {

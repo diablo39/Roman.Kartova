@@ -21,21 +21,34 @@ Each is its own plan and its own PR. A2 depends on A1 (nothing to filter by unti
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| **Cardinality** | A component is in **at most one** System. **ADR-0111 amendment.** | Backstage's model; makes the hierarchy browse (S-02) a tree rather than a DAG, and makes "which System owns this?" answerable. Enforced at both write paths (§3.3) |
+| **Cardinality** | A component is in **at most one** System. **ADR-0111 amendment.** | Backstage's model; makes the hierarchy browse (S-02) a tree rather than a DAG, and makes "which System owns this?" answerable. Enforced by a **partial unique index** plus clean 409s on both write paths (§3.3) — decided 2026-07-30 after review showed write-time checks alone leave a real concurrent-double-assign race |
+| **Authority on a move** | Every edge the write touches must be authorized on its own endpoints | A move deletes one edge and inserts another; gating only on the destination System's team would let its steward strip a component out of a System they have no claim on — weaker than the `DELETE`+`POST` pair this endpoint replaces (ADR-0108 extension, see the amendment) |
 | Model | Stays an **edge** (`PartOf`), not a `SystemId` FK on the component | ADR-0111's all-edge decision holds; S-01 already ships graph/relationship visibility over the edge. At-most-one is a *cardinality* constraint on the edge, not a modelling change |
 | Write path | Dedicated setter `PUT /catalog/{applications\|services}/{id}/system` | Atomic set/replace/clear in one call; mirrors the existing `PUT .../team` (E-03.F-02.S-02) and `PUT .../successor` (ADR-0110) setters. Both UI sides call the same endpoint |
 | Generic path | `POST /catalog/relationships` with `PartOf` from a source that already has one → **409** | Keeps the invariant true regardless of which door the write comes through (API clients, CLI later) |
 | Permission | Reuse `KartovaPermissions.CatalogRelationshipsWrite` | The operation *is* a relationship write. No new permission ⇒ **no 5-touchpoint sync** |
 | Authorization | ADR-0108 either-endpoint: OrgAdmin, or member of the **component's** team **or** the **System's** team | Identical to `POST /relationships`; reuses `AuthorizeEitherTeamAsync` |
-| Audit | Reuse `CatalogAuditActions.RelationshipCreated` / `RelationshipDeleted` with `RelationshipAuditData` | A membership change *is* edge create/delete; the payload already carries `type=partOf` + both endpoints, so the trail stays queryable without new action constants |
+| Audit | Reuse `CatalogAuditActions.RelationshipCreated` / **`RelationshipRemoved`** with `RelationshipAuditData` | A membership change *is* edge create/delete; the payload already carries `type=partOf` + both endpoints, so the trail stays queryable without new action constants. (Corrected 2026-07-30: an earlier draft named `RelationshipDeleted`, which does not exist — `CatalogAuditActions.cs:21`.) |
 | Component-side read | Reuse `GET /relationships?entityKind=…&entityId=…&direction=outgoing`, filtered to `partOf` client-side | No new GET. Same drift-tolerant filter `SystemMembersSection` already applies on the incoming side |
 | FE kind model | New narrow `EntityKind = RelationshipKind \| "system"` for **rendering + search only** | Lets `system` render with a label and a working link, and lets the combobox search Systems, **without** widening `RelationshipKind` (graph URL tokens, creatable-edge matrix, graph filters stay untouched) |
 | Graph rendering of System nodes | Still **FU-A** | Out of scope here; A1 only fixes the *relationships-list* rendering of `system` refs |
 | Sort by System | **No** | Derived over an edge join; not worth an indexable sort key. Recorded in the registry |
 
-### ADR-0111 amendment text (preview — save during A1, subject to review)
+### ADR-0111 amendment text (reviewed 2026-07-30 — save during A1)
 
-> **Amended 2026-07-30 — `PartOf` cardinality.** A component (`Application` or `Service`) may be `PartOf` **at most one** `System`. `PartOf` remains an edge (no FK), but the edge set is constrained: writing a membership replaces any existing one. Enforced by `PUT /catalog/{applications|services}/{id}/system` (atomic replace) and by a 409 conflict on `POST /catalog/relationships` when the source already has a `PartOf` edge. Other relationship types keep their unconstrained many-to-many cardinality. Rationale: makes System a grouping *hierarchy* (E-03.F-03.S-02) instead of an overlapping tag set — tag semantics are E-03.F-04's job.
+> **Amended 2026-07-30 — `PartOf` cardinality, write path, and authority.**
+>
+> **Overrides** the 2026-07-04 revision's "cardinality is intentionally not capped (max-flexibility)" statement, **for `PartOf` only**. Every other relationship type keeps its unconstrained many-to-many cardinality.
+>
+> **Cardinality.** A component (`Application` or `Service`) may be `PartOf` **at most one** `System`. `PartOf` remains an edge, not an FK — this is a constraint on the edge set, not a change to the all-edge model. Rationale: makes System a grouping *hierarchy* (E-03.F-03.S-02) rather than an overlapping set; overlapping-set semantics belong to tags (E-03.F-04).
+>
+> **Enforcement is at the database, not only at write time.** Partial unique index `ux_relationships_one_system` on `relationships (tenant_id, source_kind, source_id) WHERE type = 'PartOf'`. The application's pre-checks return a clean 409; a lost concurrent race surfaces as `23505` and is mapped to the same 409. Without the index the invariant would be advisory only — two concurrent writers naming different Systems would both pass their pre-check and both commit, because the pre-existing `ux_relationships_edge` includes the target columns and therefore blocks exact duplicates only. This amendment adds one schema migration (`AddOneSystemPerComponentIndex`); it is the first ADR-0111 amendment to do so.
+>
+> **Canonical write path.** `PUT /catalog/{applications|services}/{id}/system` is the canonical door: idempotent replacement (ADR-0096), `null` clears, and it atomically replaces an existing membership. `POST /catalog/relationships` with `type=PartOf` remains supported for **first assignment only** and returns `409 component-already-in-system` when the component already belongs to a System — it never moves a component. `DELETE /relationships/{id}` remains a valid way to remove a membership. New clients (CLI, auto-import) should use the PUT.
+>
+> **Authority (extends ADR-0108 to composite operations).** ADR-0108 authorizes each edge on its own endpoints; a *move* mutates two edges (delete old, insert new). A caller is authorized when they are OrgAdmin, or a member of the component's team (an endpoint of every edge involved), or a member of the steward team of **every** System whose edge the write touches. Being a steward of only the destination System does not permit removing a component from another System.
+>
+> **Hierarchy placement (input to E-03.F-03.S-02).** In the Org → Team → System → Component browse tree, a System nests under **its own steward team** (`System.TeamId`), and its members appear beneath it regardless of which team owns them. Consequence to document on that screen: per-team component counts in the tree will not match the Teams page, because a component owned by team A can sit under a System stewarded by team B.
 
 ## 3. A1 — components / changes
 
@@ -48,9 +61,9 @@ Each is its own plan and its own PR. A2 depends on A1 (nothing to filter by unti
 ### 3.2 Application / Infrastructure
 
 - `SetComponentSystemCommand(EntityRef Component, Guid? SystemId)` (Application).
-- `SetComponentSystemHandler` (Infrastructure), inside the ambient `ITenantScope` transaction:
-  1. delete **every** existing `PartOf` edge whose source is the component (defensive: S-01's permissive window and direct DB writes could have left more than one);
-  2. if `SystemId` is non-null, insert `Relationship.CreateManual(component, system, PartOf, …)`;
+- `SetComponentSystemHandler` (Infrastructure), inside the ambient `ITenantScope` transaction, executing `SystemMembership.Decide`:
+  1. delete every existing `PartOf` edge whose source is the component **except one already pointing at the requested System** (which is kept, making the write a true no-op — see the idempotence bullet). Deleting *all* would churn the edge id and audit trail on every repeat PUT. Multiple stray edges from S-01's permissive window collapse here;
+  2. if no kept edge, insert `Relationship.CreateManual(component, system, PartOf, …)`;
   3. append the audit entries for what actually changed (delete and/or create);
   4. return `SystemMembershipResponse`.
 - **No-op short-circuit:** if the single existing edge already targets the requested System, write nothing (no audit noise) and return the current state — PUT stays idempotent (ADR-0096).
@@ -64,10 +77,14 @@ Each is its own plan and its own PR. A2 depends on A1 (nothing to filter by unti
 | Assigned / changed / cleared / no-op | `200 SystemMembershipResponse` |
 | Component unknown or cross-tenant | `422` (`ProblemTypes.InvalidSourceEntity`, via `ICatalogEntityLookup`) |
 | `systemId` unknown or cross-tenant | `422` (`ProblemTypes.InvalidTargetEntity`) |
-| Caller in neither team, not OrgAdmin | `403` (`AuthorizeEitherTeamAsync`) |
+| Caller not OrgAdmin, not in the component's team, and not in the steward team of every System whose edge is touched | `403` (per-edge `AuthorizeTargetTeamAsync`) |
 | Missing `catalog.relationships.write` | `403` (policy) |
+| Unauthenticated | `401` |
+| Lost a concurrent membership race (`23505` on `ux_relationships_one_system`) | `409` (`ProblemTypes.ComponentAlreadyInSystem`) |
 
-Plus, in `CreateRelationshipAsync`: after the existing duplicate pre-check, when `req.Type == PartOf`, a source-scoped `AnyAsync` → `409` (new `ProblemTypes.ComponentAlreadyInSystem`, detail names the current System). The existing exact-duplicate 409 stays first so an identical re-POST keeps its current problem type.
+Plus, in `CreateRelationshipAsync`: after the existing duplicate pre-check, when `req.Type == PartOf` **and the source is an Application or Service**, a source-scoped nullable projection → `409` (new `ProblemTypes.ComponentAlreadyInSystem`, detail names the current System by display name). The existing exact-duplicate 409 stays first so an identical re-POST keeps its current problem type. The kind scoping keeps the guard from silently imposing at-most-one-parent on `System → System` edges if S-02 ever enables nesting.
+
+**Schema (decided 2026-07-30):** one migration, `AddOneSystemPerComponentIndex` — partial unique index `ux_relationships_one_system` on `relationships (tenant_id, source_kind, source_id) WHERE type = 'PartOf'`, written as raw SQL in the migration because EF 10 cannot express `HasIndex` over `ComplexProperty` columns (`EfRelationshipConfiguration.cs:55-56`). Pre-flight check for existing duplicate memberships before applying.
 
 Both routes carry full `Produces`/`ProducesProblem` metadata matching the `/successor` registration. Neither takes list parameters, so `CursorListQueryParameterTransformer` is not involved.
 
@@ -80,12 +97,15 @@ Both routes carry full `Produces`/`ProducesProblem` metadata matching the `/succ
 | `api/relationships.ts` | `useEntitySearch` accepts `system` → `GET /systems?displayNameContains&sortBy=displayName&limit=10` |
 | `api/systems.ts` | `useSetComponentSystem()` mutation (PUT), invalidating the component's relationships query, the target/previous System's members query, and the systems list |
 | `components/EntitySearchCombobox.tsx` | `kind: EntityKind` |
-| `components/AssignSystemDialog.tsx` *(new)* | Single-select. Two modes: `mode="component"` (fixed component, search Systems) and `mode="system"` (fixed System, search components with an Application/Service kind toggle). Submits the PUT; surfaces `ProblemDetails` inline; toast on success |
+| `components/AssignSystemDialog.tsx` *(new)* | Component-side: fixed component, searches Systems, single-select; also carries the "Remove from System" action. Submits the PUT; surfaces `ProblemDetails`; toast on success |
+| `components/AddSystemMemberDialog.tsx` *(new)* | System-side: fixed System, Application/Service kind toggle, searches components, calls the same PUT. **Revised 2026-07-30:** originally specced as one dialog with a `mode` prop; split into two because the two sides differ in which endpoint is fixed and only the system-side needs a kind toggle — a `mode` prop would branch nearly every line. Same behavior, clearer types, independently testable |
 | `components/SystemMembershipRow.tsx` *(new)* | On App/Service Overview: `System <link>` + `Change` / `Remove`, or `Not assigned` + `Assign`. Derives state from the existing outgoing-relationships query filtered to `partOf` |
 | `components/SystemMembersSection.tsx` | `Assign component` header button + per-row `Remove` (PUT `null`) with a confirm; empty state gains a CTA |
 | `pages/ApplicationDetailPage.tsx`, `pages/ServiceDetailPage.tsx` | mount `SystemMembershipRow` in the Overview metadata block |
 
-All mutating affordances gated on `catalog.relationships.write` via `usePermissions`. Generated client regenerated (new endpoints); `openapi-snapshot.json` refreshed.
+All mutating affordances gated on `catalog.relationships.write` via `usePermissions`, **plus** OrgAdmin-or-member-of-the-page's-own-entity-team — the same gate `RelationshipsSection` already applies. Known and accepted asymmetry: the server also authorizes the *other* endpoint's team (ADR-0108), so a System steward viewing a component's page (or vice versa) is authorized by the API but sees no button. Recorded here so it is not refiled as a bug; a cross-endpoint-aware gate would need the other entity's team id client-side.
+
+**Membership read uses an explicit `type=partOf` filter, not client-side filtering of a paged list.** `GET /relationships` gains an optional `type` parameter (ADR-0107-aligned). Reading the first 20 outgoing edges and filtering in the browser silently reports "Not assigned" for any component with more than 20 edges — and the same bug exists today in `SystemMembersSection` for large Systems. Side effect: the membership query no longer shares a cache key with the Dependencies tab's list, which removes the `relationship-drift.spec.ts` collision described under the E2E trigger. Generated client regenerated (new endpoints); `openapi-snapshot.json` refreshed.
 
 ### 3.5 What A1 does **not** do
 
@@ -121,14 +141,16 @@ Field-addition trigger for the new System field, per CLAUDE.md, on both lists th
 3. re-assign to a different System → 200, **old edge gone**, exactly one `PartOf` remains;
 4. `systemId: null` clears → 200 with nulls, no `PartOf` rows;
 5. same-System PUT → 200, no new audit entry *(idempotence)*;
-6. unknown / cross-tenant `systemId` → 422; unknown component → 422 *(negative)*;
-7. caller in neither team (Member of a third team) → 403 *(negative, ADR-0108)*;
-8. caller without `catalog.relationships.write` → 403;
-9. pre-seeded **two** `PartOf` edges → PUT collapses to one *(defensive path)*.
+6. unknown `systemId` → 422; unknown component → 422; **genuinely cross-tenant System** (seeded in tenant B, PUT from tenant A) → 422, so the test distinguishes "absent" from "RLS hid it" per TESTING-STRATEGY.md §5 *(negative)*;
+7. caller in neither team (Member of a third team) → 403 *(negative, ADR-0108)*; **plus** a member of only the *destination* System's team moving a component **out** of another System → 403 (per-edge authority, see the authorization row in §2);
+8. caller without `catalog.relationships.write` → 403 — implemented as two new rows in `CatalogPermissionMatrixTests`, this repo's canonical mechanism, not a bespoke test; **and** an unauthenticated request → 401;
+9. the DB itself refuses a second `PartOf` edge for one component (seeded past every application guard) → `ux_relationships_one_system` violation. **Not** an endpoint test that pre-seeds two edges — the index makes that precondition unseedable; the collapse logic is covered by the pure `SystemMembership.Decide` tests instead. Plus: a membership write leaves an unrelated `dependsOn` edge intact (pins the `Type == PartOf` filter, which nothing else does);
+10. audit read-back: an assign followed by a move writes both `relationship.created` and `relationship.removed` rows (`Fx.ReadAuditLogAsync`) — no integration test otherwise touches `audit_log`;
+11. the idempotent re-PUT asserts the **response body** still carries the System id *and* display name, not just a 200.
 
 Extended `CreatePartOfRelationshipTests`: second `PartOf` POST for the same source → 409 `ComponentAlreadyInSystem`, and the identical-edge re-POST still returns the existing duplicate 409.
 
-**A1 — unit:** `SetComponentSystemHandler` (replace vs no-op vs clear; audit calls asserted with NSubstitute). **A1 — frontend:** `AssignSystemDialog` (both modes, validation, ProblemDetails surfacing), `SystemMembershipRow` (assigned/unassigned/permission-gated), `SystemMembersSection` (assign button, row remove, `getAllByRole("rowheader").length > 0`).
+**A1 — unit:** `SystemMembership.Decide` (8 cases incl. both multi-edge collapses). `SetComponentSystemHandler` (assign · clear · same-System no-op · **move, asserting BOTH the removal and the creation audit call** · clear-when-unassigned writes nothing · a write for one component leaves another's membership intact — that last one kills the "drop the `Source.Id` filter" mutation, which would otherwise wipe every membership in the tenant). **A1 — frontend:** `AssignSystemDialog` (both modes, validation, ProblemDetails surfacing), `SystemMembershipRow` (assigned/unassigned/permission-gated), `SystemMembersSection` (assign button, row remove, `getAllByRole("rowheader").length > 0`).
 
 **A2:** handler filter tests (`ListApplicationsHandlerFilterTests` sibling) + real-seam pagination-with-filter test (cursor mismatch when the filter changes mid-pagination) + FE column/filter tests.
 
@@ -136,7 +158,7 @@ Extended `CreatePartOfRelationshipTests`: second `PartOf` POST for the same sour
 
 **Gate 10 (ADR-0084):** cold-start dev server, authenticate, in-SPA navigation. A1: assign from a System's Members tab → verify the row and the component page's System row → Change → Remove; screenshots + 0 console errors. A2: filter the Applications list by System, confirm the column and a paged filter round-trip.
 
-**E2E-impact trigger:** A1 adds a row to the App/Service Overview tab and mutating controls to the System Members tab. Before merge, audit `e2e/tests/relationship-drift.spec.ts` and any system/detail-tab spec for assumptions about those surfaces, update what's affected, and run the affected specs locally (`e2e/run.sh <spec>`); record the outcome in the DoD ledger. A candidate new spec (assign → reassign → clear) is the expected follow-up if gate 10 finds anything.
+**E2E-impact trigger.** A collision was diagnosed and then designed out: while the membership read used the unfiltered outgoing list, it shared a query key with `RelationshipsSection`'s Dependencies-tab call, and with `staleTime: 30_000` the Overview mount would have suppressed the tab click's request — timing out `relationship-drift.spec.ts`'s `page.waitForResponse` (the #70 retro class). The `type=partOf&limit=1` read gives it a distinct key, so the spec should pass untouched — **verify, don't assume**. Also: the Members-tab Remove goes through `window.confirm`, which Playwright auto-dismisses — any spec clicking it must register `page.on("dialog", …)`. `detail-tabs.spec.ts` covers only the API detail page and is unaffected. Run every touched spec locally (`e2e/run.sh <spec>`) and record it in the DoD ledger. A candidate new spec (assign → reassign → clear) is the expected follow-up if gate 10 finds anything.
 
 ## 6. Definition of Done
 
@@ -155,7 +177,7 @@ A1 changes **existing** C# behavior, so each plan's `## Impact Analysis (codelen
 
 | Sub-slice | Production LOC (excl. tests / DTOs / generated) |
 |---|---|
-| A1 | ~420 (≈180 backend: command + handler + 2 routes + 409 branch; ≈240 FE: 2 new components + dialog + 4 touched files) |
+| A1 | **~510–570** (≈180 backend: command + handler + 2 routes + per-edge authz + 409 branch; ≈330–390 FE: 3 new components ≈250 plus the `SystemMembersSection` rework and 5 touched files) |
 | A2 | ~250 (≈140 backend filter + enrichment; ≈110 FE column + filter) |
 
-Both inside the ~800 ceiling; A1 near the ~400 target. Split because the combined ~670 would ship two independently reviewable concerns in one PR.
+**Revised 2026-07-30 after review:** A1 was first estimated at ~420, which undercounted the frontend by omitting the `SystemMembersSection` rework. A1 now sits over the ~400 target and under the ~800 ceiling. The A1/A2 split stands — combined they would land at ~760–820, at or past the ceiling, and would mix two independently reviewable concerns in one PR.

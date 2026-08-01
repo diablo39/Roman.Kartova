@@ -50,6 +50,8 @@ public sealed class CatalogPermissionMatrixTests : CatalogIntegrationTestBase
         (HttpMethod.Get,  "/api/v1/catalog/services/{svcId}",               KartovaPermissions.CatalogRead),
         (HttpMethod.Post,   "/api/v1/catalog/relationships",                  KartovaPermissions.CatalogRelationshipsWrite),
         (HttpMethod.Delete, "/api/v1/catalog/relationships/{relId}",         KartovaPermissions.CatalogRelationshipsWrite),
+        (HttpMethod.Put,  "/api/v1/catalog/applications/{id}/system",       KartovaPermissions.CatalogRelationshipsWrite),
+        (HttpMethod.Put,  "/api/v1/catalog/services/{svcId}/system",        KartovaPermissions.CatalogRelationshipsWrite),
         (HttpMethod.Get,  "/api/v1/catalog/relationships",                  KartovaPermissions.CatalogRead),
         (HttpMethod.Post, "/api/v1/catalog/apis",                          KartovaPermissions.CatalogApisRegister),
         (HttpMethod.Get,  "/api/v1/catalog/apis",                          KartovaPermissions.CatalogRead),

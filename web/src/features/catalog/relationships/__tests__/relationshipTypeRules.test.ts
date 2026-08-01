@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   isAllowedPair, offerableTypes, allowedOtherKinds, relationshipTypeLabel,
-  isRelationshipKind,
+  isRelationshipKind, isEntityKind,
 } from "@/features/catalog/relationships/relationshipTypeRules";
 
 describe("relationshipTypeRules", () => {
@@ -54,5 +54,19 @@ describe("relationshipTypeRules", () => {
     expect(isRelationshipKind("api")).toBe(true);
     expect(isRelationshipKind("application")).toBe(true);
     expect(isRelationshipKind("broker")).toBe(false);
+  });
+
+  it("treats system as an entity kind but NOT a relationship kind", () => {
+    expect(isEntityKind("system")).toBe(true);
+    expect(isEntityKind("application")).toBe(true);
+    expect(isEntityKind("nope")).toBe(false);
+    // Graph URL tokens and the creatable-edge matrix stay on RelationshipKind (graph node
+    // rendering is FU-A) — widening this would change /graph?focus= parsing.
+    expect(isRelationshipKind("system")).toBe(false);
+  });
+
+  it("never offers partOf as a creatable type (membership is written by PUT .../system)", () => {
+    expect(offerableTypes("source", "application")).not.toContain("partOf");
+    expect(offerableTypes("source", "service")).not.toContain("partOf");
   });
 });

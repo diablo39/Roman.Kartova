@@ -2,9 +2,11 @@ using System.Net;
 using System.Net.Http.Json;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
+using Kartova.SharedKernel.AspNetCore;   // ProblemTypes
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Pagination;
 using Kartova.Testing.Auth;
+using Microsoft.AspNetCore.Mvc;   // ProblemDetails
 
 namespace Kartova.Catalog.IntegrationTests;
 
@@ -118,6 +120,34 @@ public sealed class CreatePartOfRelationshipTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
+    public async Task POST_partOf_to_a_non_System_target_returns_400_even_when_the_source_has_a_membership()
+    {
+        // Regression for the at-most-one-System pre-check's missing target-kind scoping
+        // (gate 8/9 finding): the guard used to trigger on source.Kind alone, so this exact
+        // malformed request (PartOf to a non-System target) returned 400 when X had no System
+        // but 409 ComponentAlreadyInSystem once X did — two error classes for one malformed
+        // request, with a 409 detail pointing at an edge (PUT .../system) that can never exist
+        // for an Application target. Scoping the pre-check to target.Kind == System (in addition
+        // to source.Kind) makes this always 400, regardless of X's own membership state.
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "PartOf Team NonSystem Target");
+        var appX = await SeedApplicationAsync(client, teamId, "app-partof-nonsystem-x");
+        var appY = await SeedApplicationAsync(client, teamId, "app-partof-nonsystem-y");
+        var sysId = await SeedSystemAsync(client, teamId, "system-partof-nonsystem-target");
+        Assert.AreEqual(HttpStatusCode.OK,
+            (await client.PutAsJsonAsync($"/api/v1/catalog/applications/{appX}/system",
+                new { systemId = sysId }, KartovaApiFixtureBase.WireJson)).StatusCode,
+            "X must already have a membership for this regression to be meaningful");
+
+        var resp = await PostRelAsync(client, EntityKind.Application, appX, RelationshipType.PartOf, EntityKind.Application, appY);
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+        var problem = await resp.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
+        Assert.AreNotEqual(ProblemTypes.ComponentAlreadyInSystem, problem?.Type,
+            "a malformed PartOf to a non-System target must never surface as the System-membership conflict");
+    }
+
+    [TestMethod]
     public async Task POST_system_partOf_system_returns_400()
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
@@ -184,6 +214,69 @@ public sealed class CreatePartOfRelationshipTests : CatalogIntegrationTestBase
             (await PostRelAsync(client, EntityKind.Application, appId, RelationshipType.PartOf, EntityKind.System, sysId)).StatusCode);
         Assert.AreEqual(HttpStatusCode.Conflict,
             (await PostRelAsync(client, EntityKind.Application, appId, RelationshipType.PartOf, EntityKind.System, sysId)).StatusCode);
+    }
+
+    [TestMethod]
+    public async Task POST_second_partOf_for_the_same_component_returns_409()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "PartOf Team Second System");
+        var appId = await SeedApplicationAsync(client, teamId, "app-partof-second");
+        var sysA = await SeedSystemAsync(client, teamId, "system-partof-second-a");
+        var sysB = await SeedSystemAsync(client, teamId, "system-partof-second-b");
+
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(client, EntityKind.Application, appId, RelationshipType.PartOf, EntityKind.System, sysA)).StatusCode);
+
+        var second = await PostRelAsync(client, EntityKind.Application, appId, RelationshipType.PartOf, EntityKind.System, sysB);
+
+        Assert.AreEqual(HttpStatusCode.Conflict, second.StatusCode);
+        // Deserialize and assert the typed field — a substring match on raw JSON also passes
+        // when the slug merely appears in `detail`, or breaks on unrelated payload changes.
+        var problem = await second.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(ProblemTypes.ComponentAlreadyInSystem, problem!.Type);
+        StringAssert.Contains(problem.Detail!, "system-partof-second-a",
+            "the detail names the System the component is already in, per spec §3.3");
+    }
+
+    [TestMethod]
+    public async Task POST_second_partOf_for_the_same_service_returns_409()
+    {
+        // Same regression, Service source — the guard's kind scoping (Application or Service)
+        // must be exercised on both component kinds, not just Application.
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "PartOf Team Second System Service");
+        var svcId = await SeedServiceAsync(client, teamId, "svc-partof-second");
+        var sysA = await SeedSystemAsync(client, teamId, "system-svc-second-a");
+        var sysB = await SeedSystemAsync(client, teamId, "system-svc-second-b");
+
+        Assert.AreEqual(HttpStatusCode.Created,
+            (await PostRelAsync(client, EntityKind.Service, svcId, RelationshipType.PartOf, EntityKind.System, sysA)).StatusCode);
+
+        var second = await PostRelAsync(client, EntityKind.Service, svcId, RelationshipType.PartOf, EntityKind.System, sysB);
+
+        Assert.AreEqual(HttpStatusCode.Conflict, second.StatusCode);
+        var problem = await second.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(ProblemTypes.ComponentAlreadyInSystem, problem!.Type);
+        StringAssert.Contains(problem.Detail!, "system-svc-second-a",
+            "the detail names the System the service is already in, per spec §3.3");
+    }
+
+    [TestMethod]
+    public async Task POST_an_identical_partOf_edge_still_returns_the_duplicate_conflict()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "PartOf Team Duplicate");
+        var appId = await SeedApplicationAsync(client, teamId, "app-partof-duplicate");
+        var sysId = await SeedSystemAsync(client, teamId, "system-partof-duplicate");
+
+        await PostRelAsync(client, EntityKind.Application, appId, RelationshipType.PartOf, EntityKind.System, sysId);
+        var again = await PostRelAsync(client, EntityKind.Application, appId, RelationshipType.PartOf, EntityKind.System, sysId);
+
+        Assert.AreEqual(HttpStatusCode.Conflict, again.StatusCode);
+        var problem = await again.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(ProblemTypes.RelationshipAlreadyExists, problem!.Type,
+            "the exact-duplicate check must still win over the new membership conflict");
     }
 
     // --- Option-A visibility: the PartOf edge must surface, unfiltered, on the generic

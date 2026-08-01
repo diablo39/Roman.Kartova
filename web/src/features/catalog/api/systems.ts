@@ -2,10 +2,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "./client";
 import { useCursorList } from "@/lib/list/useCursorList";
 import { throwWithStatus, unwrapData } from "@/shared/api/openapi-fetch-helpers";
+import { invalidateAfterRelationshipChange, useRelationshipsList } from "./relationships";
 import type { RegisterSystemInput } from "../schemas/registerSystem";
 import type { components, operations } from "@/generated/openapi";
 
 type SystemResponse = components["schemas"]["SystemResponse"];
+type SystemMembership = components["schemas"]["SystemMembershipResponse"];
 type ListSystemsQuery = NonNullable<operations["ListSystems"]["parameters"]["query"]>;
 
 type SystemsListParams = {
@@ -69,7 +71,7 @@ export function useRegisterSystem() {
       const body = { ...input, description: input.description?.trim() ? input.description : null };
       const { data, error, response } = await apiClient.POST("/api/v1/catalog/systems", { body });
       if (error) throwWithStatus(error, response);
-      return unwrapData(data);
+      return unwrapData(data, response);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: systemKeys.all });
@@ -77,4 +79,69 @@ export function useRegisterSystem() {
   });
 }
 
-export type { SystemResponse };
+export type { SystemResponse, SystemMembership };
+
+export type ComponentKind = "application" | "service";
+
+/**
+ * The System a component currently belongs to, read with a SERVER-side `type=partOf` filter
+ * (Task 4d). Do not read page 1 of the unfiltered list and filter here: a component with more
+ * than `limit` outgoing edges would render "Not assigned" while its membership exists.
+ * `limit: 1` is honest — at-most-one is a DB invariant (ADR-0111 amended).
+ */
+export function useComponentSystem(componentKind: ComponentKind, componentId: string) {
+  const list = useRelationshipsList({
+    entityKind: componentKind,
+    entityId: componentId,
+    direction: "outgoing",
+    type: "partOf",
+    limit: 1,
+  });
+  // `.find` rather than `items[0]`: in production the array is already server-filtered to
+  // `type=partOf, limit:1`, so the two are equivalent there. `.find` only matters against a
+  // test double that ignores those params and returns other edge types too — it is a defensive
+  // narrowing for that case, not a workaround for a real server-side gap.
+  const edge = list.items.find((item) => item.type === "partOf");
+  return {
+    systemId: edge?.target.id ?? null,
+    systemDisplayName: edge?.target.displayName ?? null,
+    isLoading: list.isLoading,
+    isError: list.isError,
+  };
+}
+
+/**
+ * PUT /catalog/{applications|services}/{id}/system — atomic set / move / clear of the
+ * component's System (`systemId: null` clears). Invalidates the relationship family and
+ * every derived `["catalog", …]` read model (members list, mini-graph, graph, impact).
+ */
+export function useSetComponentSystem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      componentKind: ComponentKind;
+      componentId: string;
+      systemId: string | null;
+    }): Promise<SystemMembership> => {
+      const body = { systemId: input.systemId };
+      if (input.componentKind === "application") {
+        const { data, error, response } = await apiClient.PUT("/api/v1/catalog/applications/{id}/system", {
+          params: { path: { id: input.componentId } },
+          body,
+        });
+        if (error) throwWithStatus(error, response);
+        return unwrapData(data, response);
+      }
+      const { data, error, response } = await apiClient.PUT("/api/v1/catalog/services/{id}/system", {
+        params: { path: { id: input.componentId } },
+        body,
+      });
+      if (error) throwWithStatus(error, response);
+      return unwrapData(data, response);
+    },
+    onSuccess: () => {
+      invalidateAfterRelationshipChange(qc);
+      qc.invalidateQueries({ queryKey: systemKeys.all });
+    },
+  });
+}

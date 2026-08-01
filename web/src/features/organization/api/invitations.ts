@@ -116,7 +116,7 @@ export function useCreateInvitation() {
         { body: input },
       );
       if (error) throwWithStatus(error, response);
-      return unwrapData(data);
+      return unwrapData(data, response);
     },
     onSuccess: () => {
       // Invalidate the list prefix — covers every parameterized status/sort

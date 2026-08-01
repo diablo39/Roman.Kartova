@@ -13,7 +13,7 @@ import {
   useDeleteRelationship,
   type RelationshipResponse,
 } from "@/features/catalog/api/relationships";
-import { relationshipTypeLabel, offerableTypes, type RelationshipKind, type CreatableRelationshipType } from "@/features/catalog/relationships/relationshipTypeRules";
+import { relationshipTypeLabel, offerableTypes, type RelationshipKind, type CreatableRelationshipType, type RelationshipTypeLabelKey, type EntityKind } from "@/features/catalog/relationships/relationshipTypeRules";
 import { entityDetailPath, ENTITY_KIND_LABEL } from "@/features/catalog/relationships/graphModel";
 import { AddRelationshipDialog } from "@/features/catalog/components/AddRelationshipDialog";
 import type { FixedRole } from "@/features/catalog/relationships/relationshipTypeRules";
@@ -28,8 +28,8 @@ interface Props {
   variant?: "full" | "incoming-only";
 }
 
-function entityLink(kind: string, id: string) {
-  return entityDetailPath(kind as RelationshipKind, id);
+function entityLink(kind: EntityKind, id: string) {
+  return entityDetailPath(kind, id);
 }
 
 const relationshipOriginLabel: Record<string, string> = { manual: "Manual", scan: "Scan", agent: "Agent" };
@@ -133,7 +133,7 @@ export function RelationshipsSection({ entityKind, entityId, entityTeamId, entit
                 {list.items.map((r) => {
                   const e = related(r);
                   const label =
-                    relationshipTypeLabel[r.type as CreatableRelationshipType] ?? r.type;
+                    relationshipTypeLabel[r.type as RelationshipTypeLabelKey] ?? r.type;
                   return (
                     <Table.Row key={r.id} id={r.id}>
                       <Table.Cell>

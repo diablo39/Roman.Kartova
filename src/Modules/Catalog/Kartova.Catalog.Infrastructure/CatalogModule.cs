@@ -112,6 +112,26 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .ProducesProblem(StatusCodes.Status404NotFound)
               .ProducesProblem(StatusCodes.Status409Conflict)
               .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+        // PUT component→System membership — atomic at-most-one PartOf write (ADR-0111 amended,
+        // ADR-0096 idempotent replacement; null clears). Same permission as any relationship
+        // write; either-endpoint authority per ADR-0108.
+        tenant.MapPut("/applications/{id:guid}/system", CatalogEndpointDelegates.SetApplicationSystemAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRelationshipsWrite)
+              .WithName("SetApplicationSystem")
+              .Produces<SystemMembershipResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
+              .ProducesProblem(StatusCodes.Status409Conflict)
+              .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+        // PUT service→System membership — mirrors the application route immediately above.
+        tenant.MapPut("/services/{id:guid}/system", CatalogEndpointDelegates.SetServiceSystemAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRelationshipsWrite)
+              .WithName("SetServiceSystem")
+              .Produces<SystemMembershipResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
+              .ProducesProblem(StatusCodes.Status409Conflict)
+              .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         // POST reactivate — reverse lifecycle transition (Deprecated/Decommissioned → Active).
         // OrgAdmin only (CatalogApplicationsLifecycleReverse). Empty body, no If-Match —
         // same rationale as deprecate/decommission. The domain invariant inside
@@ -310,6 +330,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<GetSystemByIdHandler>();
         services.AddScoped<ListSystemsHandler>();
         services.AddScoped<CreateRelationshipHandler>();
+        services.AddScoped<SetComponentSystemHandler>();
         services.AddScoped<DeleteRelationshipHandler>();
         services.AddScoped<ListRelationshipsForEntityHandler>();
         services.AddScoped<GraphTraversalHandler>();

@@ -8,6 +8,7 @@ import { serviceKeys } from "@/features/catalog/api/services";
 import { ServiceDetailPage } from "../ServiceDetailPage";
 import * as relationshipsApi from "@/features/catalog/api/relationships";
 import * as apiSurfaceApi from "@/features/catalog/api/apiSurface";
+import * as permsModule from "@/shared/auth/usePermissions";
 
 // useTeamsList is only used to resolve the team name link — stub it out.
 vi.mock("@/features/teams/api/teams", () => ({
@@ -128,6 +129,24 @@ describe("ServiceDetailPage", () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(harness(qc, `/catalog/services/missing`));
     await waitFor(() => expect(screen.getByText(/service not found/i)).toBeInTheDocument());
+  });
+
+  it("mounts the System membership row on Overview, wired to the page's real componentTeamId", () => {
+    // The file-level usePermissions mock is `hasPermission: () => false` throughout, which never
+    // exercises the button. Override it here (OrgAdmin bypasses the team check) to prove the row
+    // is live and wired to svc.teamId, not just present with its action permanently hidden.
+    vi.spyOn(permsModule, "usePermissions").mockReturnValue({
+      hasPermission: () => true,
+      role: "OrgAdmin",
+      teamIds: [],
+      teamAdminTeamIds: [],
+      isLoading: false,
+      isError: false,
+    } as never);
+    renderPage();
+
+    expect(screen.getByText(/not assigned/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /assign/i })).toBeInTheDocument();
   });
 });
 

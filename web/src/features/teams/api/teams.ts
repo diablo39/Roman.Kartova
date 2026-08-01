@@ -82,7 +82,7 @@ export function useCreateTeam() {
         { body: input },
       );
       if (error) throwWithStatus(error, response);
-      return unwrapData(data);
+      return unwrapData(data, response);
     },
     onSuccess: () => {
       // Invalidate the list prefix — covers all parameterized queryKeys.
@@ -100,7 +100,7 @@ export function useUpdateTeam(id: string) {
         { params: { path: { id } }, body: input },
       );
       if (error) throwWithStatus(error, response);
-      return unwrapData(data);
+      return unwrapData(data, response);
     },
     onSuccess: (data) => {
       // Update the cached detail with the fresh response and refetch lists.
@@ -135,7 +135,7 @@ export function useAddTeamMember(teamId: string) {
         { params: { path: { id: teamId } }, body: input },
       );
       if (error) throwWithStatus(error, response);
-      return unwrapData(data);
+      return unwrapData(data, response);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: teamKeys.detail(teamId) });

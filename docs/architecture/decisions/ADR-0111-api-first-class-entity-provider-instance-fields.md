@@ -1,6 +1,6 @@
 # ADR-0111: API Is a First-Class Entity — Provider/Instance as FK Fields, Consumers as Edges, Exposure Derived
 
-**Status:** Accepted (Revised 2026-07-04 — provider/instance are edges, not FK fields; Amended 2026-07-07 — unified API entity, async is a `Style` value; Amended 2026-07-21 — `System` entity + `PartOf` reintroduced for grouping, E-03.F-03.S-01)
+**Status:** Accepted (Revised 2026-07-04 — provider/instance are edges, not FK fields; Amended 2026-07-07 — unified API entity, async is a `Style` value; Amended 2026-07-21 — `System` entity + `PartOf` reintroduced for grouping, E-03.F-03.S-01; Amended 2026-07-30 — `PartOf` cardinality, write path, and authority, E-03.F-03.S-01 closeout sub-slice A1)
 **Date:** 2026-07-03
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** Domain Model
@@ -79,6 +79,32 @@ above. Implementing plan: `docs/superpowers/plans/2026-07-21-catalog-system-grou
 **What this does not change:** Decisions 1–6 above (API-as-entity, provider/instance
 edges, derived exposure, consumers, `ServiceEndpoint`) are untouched. This amendment is
 scoped entirely to Decision 7's System-grouping follow-up.
+
+### Amendment 2026-07-30 — `PartOf` cardinality, write path, and authority (E-03.F-03.S-01 closeout, sub-slice A1)
+
+*Confirmed by Roman Głogowski 2026-07-30.*
+
+Implemented by `docs/superpowers/specs/2026-07-30-catalog-system-membership-assignment-design.md`
+(sub-slice A1 — write path + both-side UI; A2 — list surface — is a separate
+follow-up slice).
+
+> **Amended 2026-07-30 — `PartOf` cardinality, write path, and authority.**
+>
+> **Overrides** the 2026-07-04 revision's "cardinality is intentionally not capped (max-flexibility)" statement, **for `PartOf` only**. Every other relationship type keeps its unconstrained many-to-many cardinality.
+>
+> **Cardinality.** A component (`Application` or `Service`) may be `PartOf` **at most one** `System`. `PartOf` remains an edge, not an FK — this is a constraint on the edge set, not a change to the all-edge model. Rationale: makes System a grouping *hierarchy* (E-03.F-03.S-02) rather than an overlapping set; overlapping-set semantics belong to tags (E-03.F-04).
+>
+> **Enforcement is at the database, not only at write time.** Partial unique index `ux_relationships_one_system` on `relationships (tenant_id, source_kind, source_id) WHERE type = 'PartOf'`. The application's pre-checks return a clean 409; a lost concurrent race surfaces as `23505` and is mapped to the same 409. Without the index the invariant would be advisory only — two concurrent writers naming different Systems would both pass their pre-check and both commit, because the pre-existing `ux_relationships_edge` includes the target columns and therefore blocks exact duplicates only. This amendment adds one schema migration (`AddOneSystemPerComponentIndex`); it is the first ADR-0111 amendment to do so.
+>
+> **Canonical write path.** `PUT /catalog/{applications|services}/{id}/system` is the canonical door: idempotent replacement (ADR-0096), `null` clears, and it atomically replaces an existing membership. `POST /catalog/relationships` with `type=PartOf` remains supported for **first assignment only** and returns `409 component-already-in-system` when the component already belongs to a System — it never moves a component. `DELETE /relationships/{id}` remains a valid way to remove a membership. New clients (CLI, auto-import) should use the PUT.
+>
+> **Authority (extends ADR-0108 to composite operations).** ADR-0108 authorizes each edge on its own endpoints; a *move* mutates two edges (delete old, insert new). A caller is authorized when they are OrgAdmin, or a member of the component's team (an endpoint of every edge involved), or a member of the steward team of **every** System whose edge the write touches. Being a steward of only the destination System does not permit removing a component from another System.
+>
+> **Hierarchy placement (input to E-03.F-03.S-02).** In the Org → Team → System → Component browse tree, a System nests under **its own steward team** (`System.TeamId`), and its members appear beneath it regardless of which team owns them. Consequence to document on that screen: per-team component counts in the tree will not match the Teams page, because a component owned by team A can sit under a System stewarded by team B.
+
+**What this does not change:** the 2026-07-21 amendment's System aggregate, `PartOf`
+shape, visibility, and permission model are untouched. This amendment adds cardinality,
+a canonical write endpoint, and per-edge move authority on top of them.
 
 ## Revision — 2026-07-04 (provider/instance modeled as edges)
 

@@ -147,6 +147,53 @@ public class DeleteRelationshipTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
+    public async Task DELETE_a_partOf_edge_clears_the_membership_and_reopens_first_assignment()
+    {
+        // ADR-0111's amendment states normatively that DELETE /relationships/{id} remains a
+        // valid way to remove a System membership — the third of three write paths (POST
+        // /relationships, PUT .../system, and this one) — previously with zero coverage.
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var tenantId = Fx.TenantIdForEmail(OrgAUser).Value;
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Del PartOf Team");
+        var appId = await SeedApplicationAsync(client, teamId, "app-del-partof");
+        var sysA = await (await client.PostAsJsonAsync("/api/v1/catalog/systems",
+            new { displayName = "system-del-partof-a", description = "x", teamId }))
+            .Content.ReadFromJsonAsync<SystemResponse>(KartovaApiFixtureBase.WireJson);
+        var sysB = await (await client.PostAsJsonAsync("/api/v1/catalog/systems",
+            new { displayName = "system-del-partof-b", description = "x", teamId }))
+            .Content.ReadFromJsonAsync<SystemResponse>(KartovaApiFixtureBase.WireJson);
+
+        var put = await client.PutAsJsonAsync($"/api/v1/catalog/applications/{appId}/system",
+            new { systemId = sysA!.Id }, KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(HttpStatusCode.OK, put.StatusCode);
+
+        var listBefore = await (await client.GetAsync(
+            $"/api/v1/catalog/relationships?entityKind=Application&entityId={appId}&direction=outgoing"))
+            .Content.ReadFromJsonAsync<CursorPage<RelationshipResponse>>(KartovaApiFixtureBase.WireJson);
+        var edge = listBefore!.Items.Single(r => r.Type == RelationshipType.PartOf);
+
+        var del = await client.DeleteAsync($"/api/v1/catalog/relationships/{edge.Id}");
+        Assert.AreEqual(HttpStatusCode.NoContent, del.StatusCode);
+
+        var listAfter = await (await client.GetAsync(
+            $"/api/v1/catalog/relationships?entityKind=Application&entityId={appId}&direction=outgoing"))
+            .Content.ReadFromJsonAsync<CursorPage<RelationshipResponse>>(KartovaApiFixtureBase.WireJson);
+        Assert.IsFalse(listAfter!.Items.Any(r => r.Type == RelationshipType.PartOf),
+            "the outgoing partOf list must be empty after DELETE");
+
+        var rows = await Fx.ReadAuditLogAsync(tenantId);
+        Assert.ContainsSingle(rows.Where(r =>
+            r.Action == CatalogAuditActions.RelationshipRemoved && r.TargetId == edge.Id.ToString()),
+            "DELETE must write a relationship.removed audit row for the cleared membership");
+
+        // The unique index slot is genuinely free again: a fresh PartOf POST for a DIFFERENT
+        // System succeeds — proving the at-most-one pre-check no longer sees a membership.
+        var repost = await client.PostAsJsonAsync("/api/v1/catalog/relationships",
+            Rel(EntityKind.Application, appId, RelationshipType.PartOf, EntityKind.System, sysB!.Id));
+        Assert.AreEqual(HttpStatusCode.Created, repost.StatusCode);
+    }
+
+    [TestMethod]
     public async Task DELETE_by_target_team_member_after_source_deleted_returns_204()
     {
         var admin = await Fx.CreateAuthenticatedClientAsync(OrgAUser);

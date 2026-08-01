@@ -11,9 +11,19 @@ const CONN =
   "postgresql://kartova_bypass_rls:dev_only@localhost:5432/kartova";
 
 /**
- * Insert a drifted relationship row (type='PartOf' — not a current RelationshipType)
- * for OrgA, bypassing RLS. Returns a cleanup fn that deletes exactly this row.
- * Isolated so it cannot 500 other tests.
+ * Insert a drifted relationship row for OrgA, bypassing RLS. Returns a cleanup fn that
+ * deletes exactly this row. Isolated so it cannot 500 other tests.
+ *
+ * type='LegacyUnmappedType' — a string that is NOT a current Kartova.Catalog.Domain
+ * RelationshipType member (src/Modules/Catalog/Kartova.Catalog.Domain/RelationshipType.cs).
+ * relationships.type is EF-persisted as a plain string (EfRelationshipConfiguration.cs:50),
+ * so any string round-trips at the DB layer; genuine drift is any value the current enum
+ * doesn't recognize. Do NOT use 'PartOf' here: E-03.F-03.S-01 (commit 3ebe95ba) re-added
+ * PartOf as a real, visible RelationshipType for System membership, so it is no longer
+ * excluded by the read-side KnownRelationshipTypes query filter (see that file's comment)
+ * — a 'PartOf' row now renders as a normal relationship instead of being excluded, which
+ * silently invalidated this fixture's "drift" premise (found 2026-07-31 by running
+ * relationship-drift.spec.ts, not by inspection).
  */
 export async function insertDriftEdge(sourceId: string, targetId: string): Promise<() => Promise<void>> {
   const client = new Client({ connectionString: CONN });
@@ -23,7 +33,7 @@ export async function insertDriftEdge(sourceId: string, targetId: string): Promi
     await client.query(
       `INSERT INTO relationships
          (id, tenant_id, source_kind, source_id, target_kind, target_id, type, origin, created_by_user_id, created_at)
-       VALUES ($1, $2, 'Application', $3, 'Application', $4, 'PartOf', 'Manual', gen_random_uuid(), now())`,
+       VALUES ($1, $2, 'Application', $3, 'Application', $4, 'LegacyUnmappedType', 'Manual', gen_random_uuid(), now())`,
       [id, ORG_A_TENANT, sourceId, targetId],
     );
   } finally {

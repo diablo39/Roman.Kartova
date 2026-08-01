@@ -6,11 +6,19 @@ export type CreatableRelationshipType =
   | "consumesApiFrom";
 export type FixedRole = "source" | "target";
 
-export const relationshipTypeLabel: Record<CreatableRelationshipType, string> = {
+// `partOf` (System membership, ADR-0111 amended) is a real relationship type a read path can
+// surface — e.g. a component's Dependencies tab lists all its edges including the membership
+// one — but it is NOT creatable/deletable through the generic Add/Delete Relationship flow (see
+// SystemMembersSection/AssignSystemDialog for its dedicated UI). So it gets a label here without
+// joining CreatableRelationshipType or CREATABLE_TYPES below.
+export type RelationshipTypeLabelKey = CreatableRelationshipType | "partOf";
+
+export const relationshipTypeLabel: Record<RelationshipTypeLabelKey, string> = {
   dependsOn: "Depends on",
   instanceOf: "Instance of",
   providesApiFor: "Provides API for",
   consumesApiFrom: "Consumes API from",
+  partOf: "Part of",
 };
 
 // `dependsOn` MUST stay first — it's the Add Relationship dialog's default type;
@@ -27,6 +35,15 @@ const ALL_KINDS: RelationshipKind[] = ["application", "service", "api"];
 // Used to validate untrusted tokens — URL graph focus and persisted filter kinds.
 export function isRelationshipKind(kind: string): kind is RelationshipKind {
   return kind === "application" || kind === "service" || kind === "api";
+}
+
+// Rendering/search superset of RelationshipKind. `system` is a real catalog entity that can
+// appear as a relationship ENDPOINT (PartOf, ADR-0111) and be searched, but it is not a
+// creatable-edge kind and not a graph URL token — those stay on RelationshipKind.
+export type EntityKind = RelationshipKind | "system";
+
+export function isEntityKind(kind: string): kind is EntityKind {
+  return isRelationshipKind(kind) || kind === "system";
 }
 
 // FE creatable subset of backend RelationshipTypeRules.IsAllowedPair (ADR-0068/ADR-0111).

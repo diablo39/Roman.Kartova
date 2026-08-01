@@ -70,7 +70,10 @@ describe("mergeGraphs", () => {
       } as never,
     ]);
     expect(merged.nodes.find((n) => n.id === "system:sys-1")?.kind).toBe("system");
-    expect(merged.edges).toEqual([{ id: "e1", source: "service:s1", target: "system:sys-1", label: "partOf" }]);
+    // A1 (2026-07-30) added `partOf: "Part of"` to relationshipTypeLabel, so the edge label is
+    // now the human string rather than the raw token. Membership edges render on the Dependencies
+    // tab for every assigned component, so leaving them as camelCase was a visible wart.
+    expect(merged.edges).toEqual([{ id: "e1", source: "service:s1", target: "system:sys-1", label: "Part of" }]);
   });
 });
 

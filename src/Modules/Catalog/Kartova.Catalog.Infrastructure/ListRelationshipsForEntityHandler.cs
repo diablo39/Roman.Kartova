@@ -33,15 +33,39 @@ public sealed class ListRelationshipsForEntityHandler
                     (r.Target.Kind == q.Entity.Kind && r.Target.Id == q.Entity.Id)),
         };
 
+        // Filter state the cursor is issued under (ADR-0095). Every row-set-narrowing filter
+        // applied above/below MUST be recorded here per QueryablePagingExtensions' caller
+        // contract (QueryablePagingExtensions.cs:48-54) — an omitted filter silently breaks
+        // keyset consistency, since the cursor can't detect the filter changing mid-pagination.
+        // Null/absent ⇒ the cursor's f-map stays empty, byte-identical to a filterless cursor.
+        Dictionary<string, string>? filters = null;
+
         if (q.ExcludeApiEdges)
+        {
             source = source.Where(r =>
                 r.Type != RelationshipType.ProvidesApiFor &&
                 r.Type != RelationshipType.ConsumesApiFrom);
+            filters ??= new Dictionary<string, string>(StringComparer.Ordinal);
+            filters["excludeApiEdges"] = "true";
+        }
+
+        // Type filter (task 4d). Applied before paging so a hidden row never becomes
+        // a cursor boundary — same discipline as the other list handlers' filters
+        // (e.g. ListApplicationsHandler's lifecycle/teamId filters).
+        if (q.Type is { } filterType)
+            source = source.Where(r => r.Type == filterType);
+
+        if (q.Type is { } t)
+        {
+            filters ??= new Dictionary<string, string>(StringComparer.Ordinal);
+            filters["type"] = t.ToString();
+        }
 
         var page = await source
             .ToCursorPagedAsync(
                 spec, q.SortOrder, q.Cursor, q.Limit,
-                RelationshipSortSpecs.IdSelector, IdExtractor, ct);
+                RelationshipSortSpecs.IdSelector, IdExtractor, ct,
+                expectedFilters: filters);
 
         // Batch distinct entity refs for display-name enrichment (avoid N+1).
         var refSet = new HashSet<(EntityKind Kind, Guid Id)>();

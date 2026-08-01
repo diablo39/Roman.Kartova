@@ -382,6 +382,18 @@ public class KartovaApiFixture : KartovaApiFixtureBase
         return system.Id.Value;
     }
 
+    /// <summary>Seeds one PartOf edge directly, bypassing the endpoint's at-most-one guard —
+    /// used to reproduce the pre-existing multi-membership state S-01 allowed.</summary>
+    public async Task InsertPartOfEdgeAsync(TenantId tenantId, EntityKind sourceKind, Guid sourceId, Guid systemId)
+    {
+        var options = new DbContextOptionsBuilder<CatalogDbContext>().UseNpgsql(BypassConnectionString).Options;
+        await using var db = new CatalogDbContext(options);
+        db.Relationships.Add(Relationship.CreateManual(
+            new EntityRef(sourceKind, sourceId), new EntityRef(EntityKind.System, systemId),
+            RelationshipType.PartOf, Guid.NewGuid(), tenantId, TimeProvider.System));
+        await db.SaveChangesAsync();
+    }
+
     /// <summary>Reads audit_log rows for a tenant via the BYPASSRLS pool, ordered by seq.</summary>
     public async Task<IReadOnlyList<AuditRowRecord>> ReadAuditLogAsync(Guid tenantId)
     {
