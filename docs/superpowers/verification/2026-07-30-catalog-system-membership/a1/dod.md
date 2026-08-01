@@ -1,7 +1,7 @@
 # DoD Ledger — Catalog System Membership A1
 
 **Slice:** `2026-07-30-catalog-system-membership-a1` · **Branch:** `feat/catalog-system-membership-a1` · **HEAD:** `53e8df42` (+ gate-8/9 doc and frontend fixes committed after this line was written; see the gate rows for per-gate commits)
-**PR:** not yet opened
+**PR:** [#82](https://github.com/diablo39/Roman.Kartova/pull/82) — **MERGED** 2026-08-01 as `423bb147`
 **Last updated:** 2026-07-31
 **Spec:** `docs/superpowers/specs/2026-07-30-catalog-system-membership-assignment-design.md`
 **Plan:** `docs/superpowers/plans/2026-07-30-catalog-system-membership-a1.md` (local scratch, gitignored)
@@ -28,7 +28,7 @@
 | 9 `deep-review` | ✅ PASS | 2-reviewer ensemble, 0 blocking from either; backend findings in `53e8df42`, docs + FE after |
 | Terminal re-verify (build + suite) | ✅ PASS | `02f74bdb` — build 0 warnings; 1201 backend tests / 12 assemblies + 924 frontend, 0 failures |
 | 10 Visual / API verification (ADR-0084) | ✅ PASS (owner-verified, no screenshot artifacts) | 2026-07-31 — see gate 10 detail |
-| 11 CI green on PR (`ci-local.sh` = pre-push mirror) | 🔄 pre-push mirror done (1 known env flake, isolated re-run green); PR-runner pending | 2026-07-31 |
+| 11 CI green on PR (`ci-local.sh` = pre-push mirror) | ✅ PASS | PR #82 — all 5 jobs green; merged `423bb147` 2026-08-01 |
 
 **E2E impact audit (Task 12, part of the "touched a flow an E2E covers" trigger, not a numbered DoD gate):** ✅ done — see "E2E impact audit" section below. 5/5 specs green, one fixture bug this slice introduced was found and fixed.
 
