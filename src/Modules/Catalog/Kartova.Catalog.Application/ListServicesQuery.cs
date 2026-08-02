@@ -25,6 +25,16 @@ namespace Kartova.Catalog.Application;
 /// via Npgsql). Empty ⇒ no predicate (show all health statuses). Encoded into the cursor
 /// f-map (sorted enum names) only when non-empty.
 /// </para>
+/// <para>
+/// <paramref name="SystemId"/> — ADR-0107 multi-select System filter (A2). Non-empty ⇒
+/// rows having a <c>PartOf</c> edge to one of the supplied Systems (<c>EXISTS</c> sub-query
+/// over <c>catalog_relationships</c>; there is no <c>system_id</c> column). <c>null</c> or
+/// empty ⇒ no predicate. Encoded into the cursor f-map (sorted comma-joined Guid "D"
+/// strings) only when non-empty. Declared as a trailing optional so the record's existing
+/// named-argument call sites keep compiling; a record cannot default an array to
+/// <c>Array.Empty&lt;Guid&gt;()</c>, so <c>null</c> and empty both mean "absent" and the
+/// handler normalizes them in one place.
+/// </para>
 /// </summary>
 public sealed record ListServicesQuery(
     ServiceSortField SortBy,
@@ -33,4 +43,5 @@ public sealed record ListServicesQuery(
     int Limit,
     Guid[] TeamId,
     HealthStatus[] Health,
-    string? DisplayNameContains = null);
+    string? DisplayNameContains = null,
+    Guid[]? SystemId = null);

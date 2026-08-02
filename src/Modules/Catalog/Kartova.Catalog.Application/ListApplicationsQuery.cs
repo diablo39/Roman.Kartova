@@ -34,6 +34,16 @@ namespace Kartova.Catalog.Application;
 /// 422 <c>invalid-created-by</c>); the handler only applies the predicate to the
 /// EF query.
 /// </para>
+/// <para>
+/// <paramref name="SystemId"/> — ADR-0107 multi-select System filter (A2). Non-empty ⇒
+/// rows having a <c>PartOf</c> edge to one of the supplied Systems (<c>EXISTS</c> sub-query
+/// over <c>catalog_relationships</c>; there is no <c>system_id</c> column). <c>null</c> or
+/// empty ⇒ no predicate. Encoded into the cursor f-map (sorted comma-joined Guid "D"
+/// strings) only when non-empty. Declared as a trailing optional so the record's existing
+/// named-argument call sites keep compiling; a record cannot default an array to
+/// <c>Array.Empty&lt;Guid&gt;()</c>, so <c>null</c> and empty both mean "absent" and the
+/// handler normalizes them in one place.
+/// </para>
 /// </summary>
 public sealed record ListApplicationsQuery(
     ApplicationSortField SortBy,
@@ -43,4 +53,5 @@ public sealed record ListApplicationsQuery(
     Lifecycle[] Lifecycle,
     Guid[] TeamId,
     string? DisplayNameContains = null,
-    Guid? CreatedByUserId = null);
+    Guid? CreatedByUserId = null,
+    Guid[]? SystemId = null);

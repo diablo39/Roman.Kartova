@@ -49,4 +49,11 @@ public sealed record ApplicationResponse(
     // detail-read handler.
     public Guid? SuccessorApplicationId { get; init; }
     public string? SuccessorDisplayName { get; init; }
+
+    // A2 (E-03.F-03.S-01): the System this component is PartOf, resolved from the
+    // relationship edge by the LIST handler's batched per-page enrichment — there is no
+    // system_id column. Both null ⇒ unassigned. Write-path handlers leave both null for
+    // the same reason they leave CreatedBy null: no extra lookup on the write path.
+    public Guid? SystemId { get; init; }
+    public string? SystemDisplayName { get; init; }
 }
