@@ -22,13 +22,12 @@ head:   <short-sha>
 #              suite              (3  full test suite incl. real-seam)
 #              container          (4  container build / images CI)
 #              simplify           (5  /simplify)
-#              mutation           (6  mutation loop)
-#              requesting-review  (7  requesting-code-review)
-#              review-pr          (8  review-pr)
-#              deep-review        (9  deep-review)
-#              manual             (Manual / Playwright, ADR-0084)
+#              requesting-review  (6  requesting-code-review)
+#              review-pr          (7  review-pr)
+#              deep-review        (8  deep-review)
+#              manual             (9  visual / API verification, ADR-0084)
 #              terminal-reverify  (terminal re-verify: build + suite)
-#              ci-mirror          (pre-push CI mirror, ci-local.sh)
+#              ci-mirror          (10 CI green on PR / pre-push mirror, ci-local.sh)
 # severity — blocking | should-fix | nit
 # verdict  — real     : a genuine issue that warranted a change
 #            delusion : a false positive the gate raised that was not a real issue

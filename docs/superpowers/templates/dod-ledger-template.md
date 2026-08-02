@@ -19,13 +19,12 @@
 | 3 Full suite (+ real-seam if wiring) | ⏳ PENDING | — |
 | 4 Container build (images CI) | ⏳ PENDING | — |
 | 5 `/simplify` | ⏳ PENDING | — |
-| 6 Mutation (conditional) | ⏳ PENDING | — |
-| 7 `requesting-code-review` | ⏳ PENDING | — |
-| 8 `review-pr` | ⏳ PENDING | — |
-| 9 `deep-review` | ⏳ PENDING | — |
+| 6 `requesting-code-review` | ⏳ PENDING | — |
+| 7 `review-pr` | ⏳ PENDING | — |
+| 8 `deep-review` | ⏳ PENDING | — |
 | Terminal re-verify (build + suite) | ⏳ PENDING | — |
-| 10 Visual / API verification (ADR-0084) | ⏳ PENDING | — |
-| 11 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING | — |
+| 9 Visual / API verification (ADR-0084) | ⏳ PENDING | — |
+| 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING | — |
 
 ## Gate detail
 
@@ -54,37 +53,32 @@
 **Evidence:** <link to simplify.md / findings summary>
 **At:** <commit / date>
 
-### 6 — Mutation loop (conditional: Domain/Application changes only)
-**Status:** ⏳ PENDING
-**Evidence:** <score + survivors, or N/A reason (no Domain/Application change)>
-**At:** <commit / date>
-
-### 7 — `requesting-code-review` at slice boundary
+### 6 — `requesting-code-review` at slice boundary
 **Status:** ⏳ PENDING
 **Evidence:** <link to requesting-code-review.md / findings>
 **At:** <commit / date>
 
-### 8 — `review-pr` (pr-review-toolkit)
+### 7 — `review-pr` (pr-review-toolkit)
 **Status:** ⏳ PENDING
 **Evidence:** <link to review-pr.md / PR review>
 **At:** <commit / date>
 
-### 9 — `deep-review`
+### 8 — `deep-review`
 **Status:** ⏳ PENDING
 **Evidence:** <link to deep-review.md>
 **At:** <commit / date>
 
-### Terminal re-verify (build + full suite after gates 5–9)
+### Terminal re-verify (build + full suite after gates 5–8)
 **Status:** ⏳ PENDING
 **Evidence:** <command + output / CI run URL>
 **At:** <commit / date>
 
-### 10 — Visual / API verification (observe the running system)
+### 9 — Visual / API verification (observe the running system)
 **Status:** ⏳ PENDING
 **Evidence:** <UI: screenshot(s) of the changed surface under verification/<slice>/ + console-clean note; API: live request/response captured against the running stack. Or N/A reason (no runtime surface — docs/pure refactor). Distinct from gate 3 (automated tests).>
 **At:** <commit / date>
 
-### 11 — CI green on the PR (terminal; `scripts/ci-local.sh` = required pre-push mirror)
+### 10 — CI green on the PR (terminal; `scripts/ci-local.sh` = required pre-push mirror)
 **Status:** ⏳ PENDING
 **Evidence:** <PR CI run URL (all jobs green — the runner is the source of truth) + pre-push `ci-local.sh` result. A CI-only failure → fix determinism, don't re-push blindly.>
 **At:** <commit / date>

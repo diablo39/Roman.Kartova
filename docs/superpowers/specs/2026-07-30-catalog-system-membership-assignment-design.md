@@ -154,15 +154,15 @@ Extended `CreatePartOfRelationshipTests`: second `PartOf` POST for the same sour
 
 **A2:** handler filter tests (`ListApplicationsHandlerFilterTests` sibling) + real-seam pagination-with-filter test (cursor mismatch when the filter changes mid-pagination) + FE column/filter tests.
 
-**Gate 6 (mutation):** **blocking** — both sub-slices touch Application/Infrastructure logic (`SetComponentSystemHandler`, list filter predicates). Target ≥80% on changed files.
+**Mutation:** **no longer a DoD gate** (removed 2026-08-02); the unit tests above still target the same mutants (filter-predicate and `Source.Id`-filter drops) by design.
 
-**Gate 10 (ADR-0084):** cold-start dev server, authenticate, in-SPA navigation. A1: assign from a System's Members tab → verify the row and the component page's System row → Change → Remove; screenshots + 0 console errors. A2: filter the Applications list by System, confirm the column and a paged filter round-trip.
+**Gate 9 (ADR-0084):** cold-start dev server, authenticate, in-SPA navigation. A1: assign from a System's Members tab → verify the row and the component page's System row → Change → Remove; screenshots + 0 console errors. A2: filter the Applications list by System, confirm the column and a paged filter round-trip.
 
-**E2E-impact trigger.** A collision was diagnosed and then designed out: while the membership read used the unfiltered outgoing list, it shared a query key with `RelationshipsSection`'s Dependencies-tab call, and with `staleTime: 30_000` the Overview mount would have suppressed the tab click's request — timing out `relationship-drift.spec.ts`'s `page.waitForResponse` (the #70 retro class). The `type=partOf&limit=1` read gives it a distinct key, so the spec should pass untouched — **verify, don't assume**. Also: the Members-tab Remove goes through `window.confirm`, which Playwright auto-dismisses — any spec clicking it must register `page.on("dialog", …)`. `detail-tabs.spec.ts` covers only the API detail page and is unaffected. Run every touched spec locally (`e2e/run.sh <spec>`) and record it in the DoD ledger. A candidate new spec (assign → reassign → clear) is the expected follow-up if gate 10 finds anything.
+**E2E-impact trigger.** A collision was diagnosed and then designed out: while the membership read used the unfiltered outgoing list, it shared a query key with `RelationshipsSection`'s Dependencies-tab call, and with `staleTime: 30_000` the Overview mount would have suppressed the tab click's request — timing out `relationship-drift.spec.ts`'s `page.waitForResponse` (the #70 retro class). The `type=partOf&limit=1` read gives it a distinct key, so the spec should pass untouched — **verify, don't assume**. Also: the Members-tab Remove goes through `window.confirm`, which Playwright auto-dismisses — any spec clicking it must register `page.on("dialog", …)`. `detail-tabs.spec.ts` covers only the API detail page and is unaffected. Run every touched spec locally (`e2e/run.sh <spec>`) and record it in the DoD ledger. A candidate new spec (assign → reassign → clear) is the expected follow-up if gate 9 finds anything.
 
 ## 6. Definition of Done
 
-The eleven CLAUDE.md gates apply as written (not restated). Gate 6 is **blocking** for both sub-slices (Domain/Application logic). Per-sub-slice DoD ledger + `gate-findings.yaml` under `docs/superpowers/verification/2026-07-30-catalog-system-membership/a1/` and `…/a2/`.
+The ten CLAUDE.md gates apply as written (not restated). Per-sub-slice DoD ledger + `gate-findings.yaml` under `docs/superpowers/verification/2026-07-30-catalog-system-membership/a1/` and `…/a2/`.
 
 ## 7. Impact analysis (codelens) — plan input
 
