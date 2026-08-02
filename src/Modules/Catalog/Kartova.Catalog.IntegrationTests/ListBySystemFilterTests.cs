@@ -33,11 +33,24 @@ public sealed class ListBySystemFilterTests : CatalogIntegrationTestBase
     private static Task<HttpResponseMessage> PutSystemAsync(HttpClient client, Guid appId, Guid? systemId)
         => client.PutAsJsonAsync($"/api/v1/catalog/applications/{appId}/system", new { systemId }, KartovaApiFixtureBase.WireJson);
 
+    private static Task<HttpResponseMessage> PutServiceSystemAsync(HttpClient client, Guid serviceId, Guid? systemId)
+        => client.PutAsJsonAsync($"/api/v1/catalog/services/{serviceId}/system", new { systemId }, KartovaApiFixtureBase.WireJson);
+
     private static async Task<CursorPage<ApplicationResponse>> GetPageAsync(HttpClient client, string url)
     {
         var resp = await client.GetAsync(url);
         Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode, $"GET {url} did not return 200");
         var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
+        Assert.IsNotNull(page);
+        return page!;
+    }
+
+    /// <summary>Services-side counterpart to <see cref="GetPageAsync"/> — Task 5b.</summary>
+    private static async Task<CursorPage<ServiceResponse>> GetServicePageAsync(HttpClient client, string url)
+    {
+        var resp = await client.GetAsync(url);
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode, $"GET {url} did not return 200");
+        var page = await resp.Content.ReadFromJsonAsync<CursorPage<ServiceResponse>>(KartovaApiFixtureBase.WireJson);
         Assert.IsNotNull(page);
         return page!;
     }
@@ -143,6 +156,73 @@ public sealed class ListBySystemFilterTests : CatalogIntegrationTestBase
         finally
         {
             await Fx.DeleteApplicationsByPrefixAsync(tenant, unique);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // 4-5 (Task 5b): the Services-side mirrors of cases 1 and 3. ListServicesHandler
+    // duplicates the filter/enrichment logic against a separate query source, so it needs
+    // its own pin, not just the Applications one.
+    // -----------------------------------------------------------------------
+
+    [TestMethod]
+    public async Task Services_filtered_by_system_returns_only_its_members()
+    {
+        var unique = $"a2-svc-one-{Guid.NewGuid():N}";
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var client = Fx.CreateClientForOrgA();
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenant, $"{unique}-team");
+        var systemId = await Fx.SeedSystemAsync(tenant, teamId, $"{unique}-system");
+
+        var inSystem1 = await Fx.SeedSingleServiceAsync(tenant, Guid.NewGuid(), teamId, $"{unique}-in1");
+        var inSystem2 = await Fx.SeedSingleServiceAsync(tenant, Guid.NewGuid(), teamId, $"{unique}-in2");
+        var unassigned = await Fx.SeedSingleServiceAsync(tenant, Guid.NewGuid(), teamId, $"{unique}-none");
+
+        try
+        {
+            Assert.AreEqual(HttpStatusCode.OK, (await PutServiceSystemAsync(client, inSystem1, systemId)).StatusCode);
+            Assert.AreEqual(HttpStatusCode.OK, (await PutServiceSystemAsync(client, inSystem2, systemId)).StatusCode);
+
+            var page = await GetServicePageAsync(client, $"/api/v1/catalog/services?systemId={systemId}&limit=200");
+            var ids = page.Items.Select(i => i.Id).ToHashSet();
+
+            Assert.IsTrue(ids.Contains(inSystem1), "service assigned to the System must be returned");
+            Assert.IsTrue(ids.Contains(inSystem2), "the other service assigned to the same System must be returned");
+            Assert.IsFalse(ids.Contains(unassigned), "an unassigned service must not be returned");
+        }
+        finally
+        {
+            await Fx.DeleteServicesByPrefixAsync(tenant, unique);
+        }
+    }
+
+    [TestMethod]
+    public async Task Service_rows_carry_the_System_projection()
+    {
+        var unique = $"a2-svc-column-{Guid.NewGuid():N}";
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var client = Fx.CreateClientForOrgA();
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenant, $"{unique}-team");
+        var systemId = await Fx.SeedSystemAsync(tenant, teamId, $"{unique}-system");
+        var assigned = await Fx.SeedSingleServiceAsync(tenant, Guid.NewGuid(), teamId, $"{unique}-assigned");
+        var unassigned = await Fx.SeedSingleServiceAsync(tenant, Guid.NewGuid(), teamId, $"{unique}-unassigned");
+
+        try
+        {
+            await Fx.InsertPartOfEdgeAsync(tenant, EntityKind.Service, assigned, systemId);
+
+            var page = await GetServicePageAsync(client, $"/api/v1/catalog/services?displayNameContains={unique}&limit=200");
+            var assignedRow = page.Items.Single(i => i.Id == assigned);
+            var unassignedRow = page.Items.Single(i => i.Id == unassigned);
+
+            Assert.AreEqual(systemId, assignedRow.SystemId);
+            Assert.AreEqual($"{unique}-system", assignedRow.SystemDisplayName);
+            Assert.IsNull(unassignedRow.SystemId, "an unassigned service must carry a null SystemId");
+            Assert.IsNull(unassignedRow.SystemDisplayName, "an unassigned service must carry a null SystemDisplayName");
+        }
+        finally
+        {
+            await Fx.DeleteServicesByPrefixAsync(tenant, unique);
         }
     }
 
@@ -398,6 +478,61 @@ public sealed class ListBySystemFilterTests : CatalogIntegrationTestBase
     }
 
     // -----------------------------------------------------------------------
+    // 8s (Task 5b): the Services mirror of case 8 — NOT optional and NOT covered by the
+    // Applications case above. ListServicesHandler allocates its cursor f-map dictionary
+    // lazily, guarded by `q.TeamId.Length > 0 || q.Health.Length > 0
+    // || q.DisplayNameContains is not null || q.SystemId is { Length: > 0 }`
+    // (ListServicesHandler.cs). A `?systemId=`-only request (no teamId/health/
+    // displayNameContains) is the one shape that depends on the last disjunct alone: drop it
+    // and the dictionary stays null, the cursor carries no f-map at all, and page 2 silently
+    // applies the new filter against the old keyset instead of 400ing.
+    // -----------------------------------------------------------------------
+
+    [TestMethod]
+    public async Task Services_changing_the_system_filter_mid_pagination_returns_400_cursor_filter_mismatch()
+    {
+        var unique = $"a2-svc-mism-{Guid.NewGuid():N}";
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var client = Fx.CreateClientForOrgA();
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenant, $"{unique}-team");
+        var systemA = await Fx.SeedSystemAsync(tenant, teamId, $"{unique}-system-a");
+        var systemB = await Fx.SeedSystemAsync(tenant, teamId, $"{unique}-system-b");
+
+        // 3 members of System A so limit=2 yields a NextCursor.
+        var s1 = await Fx.SeedSingleServiceAsync(tenant, Guid.NewGuid(), teamId, $"{unique}-s1");
+        var s2 = await Fx.SeedSingleServiceAsync(tenant, Guid.NewGuid(), teamId, $"{unique}-s2");
+        var s3 = await Fx.SeedSingleServiceAsync(tenant, Guid.NewGuid(), teamId, $"{unique}-s3");
+
+        try
+        {
+            await Fx.InsertPartOfEdgeAsync(tenant, EntityKind.Service, s1, systemA);
+            await Fx.InsertPartOfEdgeAsync(tenant, EntityKind.Service, s2, systemA);
+            await Fx.InsertPartOfEdgeAsync(tenant, EntityKind.Service, s3, systemA);
+
+            // ?systemId=-only — no other filter dimension present. This is the exact shape
+            // that would emit an f-map-less cursor if the allocation guard's systemId
+            // disjunct were ever dropped.
+            var page1 = await client.GetAsync($"/api/v1/catalog/services?limit=2&systemId={systemA}");
+            Assert.AreEqual(HttpStatusCode.OK, page1.StatusCode);
+            var p1 = await page1.Content.ReadFromJsonAsync<CursorPage<ServiceResponse>>(KartovaApiFixtureBase.WireJson);
+            Assert.IsNotNull(p1!.NextCursor);
+
+            var page2 = await client.GetAsync(
+                $"/api/v1/catalog/services?limit=2&systemId={systemB}&cursor={Uri.EscapeDataString(p1.NextCursor!)}");
+            Assert.AreEqual(HttpStatusCode.BadRequest, page2.StatusCode);
+            var problem = await page2.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
+            Assert.AreEqual(ProblemTypes.CursorFilterMismatch, problem!.Type, "the problem type must be cursor-filter-mismatch");
+            Assert.AreEqual("systemId", problem.Extensions["filterName"]!.ToString());
+            Assert.AreEqual(systemA.ToString("D"), problem.Extensions["expectedValue"]!.ToString());
+            Assert.AreEqual(systemB.ToString("D"), problem.Extensions["actualValue"]!.ToString());
+        }
+        finally
+        {
+            await Fx.DeleteServicesByPrefixAsync(tenant, unique);
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // 9-10d: pagination correctness, multi-System pages, dedup/order in the f-map.
     // -----------------------------------------------------------------------
 
@@ -590,6 +725,64 @@ public sealed class ListBySystemFilterTests : CatalogIntegrationTestBase
     }
 
     // -----------------------------------------------------------------------
+    // 11 (Task 5b): a same-Guid collision between an Application and a Service must not let
+    // one kind's PartOf edge leak into the other kind's System column/filter. The only case
+    // pinning Source.Kind — calibration: absent a Guid collision this mutant is
+    // near-equivalent (the system never produces a shared id across kinds on its own), so this
+    // is a defensive test, not a shipped-defect risk.
+    // -----------------------------------------------------------------------
+
+    [TestMethod]
+    public async Task An_application_and_a_service_with_the_same_id_do_not_cross_contaminate()
+    {
+        // Application.Create / Service.Create always mint their own id and their id-taking
+        // constructors are private, so Fx.SeedComponentWithIdAsync (raw SQL over BYPASSRLS,
+        // mirrors InsertRawRelationshipAsync) is the only way to construct this precondition.
+        var unique = $"a2-samekind-{Guid.NewGuid():N}";
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var client = Fx.CreateClientForOrgA();
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenant, $"{unique}-team");
+        var systemId = await Fx.SeedSystemAsync(tenant, teamId, $"{unique}-system");
+        var sharedId = Guid.NewGuid();
+
+        await Fx.SeedComponentWithIdAsync(tenant, EntityKind.Application, sharedId, teamId, $"{unique}-app");
+        await Fx.SeedComponentWithIdAsync(tenant, EntityKind.Service, sharedId, teamId, $"{unique}-svc");
+
+        try
+        {
+            // Assign only the Service side.
+            await Fx.InsertPartOfEdgeAsync(tenant, EntityKind.Service, sharedId, systemId);
+
+            // Filtering the applications list by this System must not surface the Application
+            // row, even though a row with the SAME id is a genuine PartOf member on the
+            // Service side — this is what pins the EXISTS predicate's Source.Kind clause.
+            var appPage = await GetPageAsync(client, $"/api/v1/catalog/applications?systemId={systemId}&limit=200");
+            Assert.IsFalse(appPage.Items.Select(i => i.Id).Contains(sharedId),
+                "the Application must not match the systemId filter even though a Service sharing its id is assigned");
+
+            var svcPage = await GetServicePageAsync(client, $"/api/v1/catalog/services?systemId={systemId}&limit=200");
+            Assert.IsTrue(svcPage.Items.Select(i => i.Id).Contains(sharedId),
+                "the assigned Service must still be returned by its own filter");
+
+            // Unfiltered column contract: same assertion via displayNameContains, so this also
+            // pins the enrichment lookup (not just the EXISTS filter) against Source.Kind.
+            var unfilteredApp = (await GetPageAsync(client, $"/api/v1/catalog/applications?displayNameContains={unique}-app&limit=200"))
+                .Items.Single(i => i.Id == sharedId);
+            Assert.IsNull(unfilteredApp.SystemId, "the Application row must carry no System despite the id collision");
+            Assert.IsNull(unfilteredApp.SystemDisplayName);
+
+            var unfilteredSvc = (await GetServicePageAsync(client, $"/api/v1/catalog/services?displayNameContains={unique}-svc&limit=200"))
+                .Items.Single(i => i.Id == sharedId);
+            Assert.AreEqual(systemId, unfilteredSvc.SystemId, "the Service row must carry its own assigned System");
+        }
+        finally
+        {
+            await Fx.DeleteApplicationsByPrefixAsync(tenant, unique);
+            await Fx.DeleteServicesByPrefixAsync(tenant, unique);
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // 12: a stranded PartOf edge whose target is not a System.
     // -----------------------------------------------------------------------
 
@@ -622,6 +815,44 @@ public sealed class ListBySystemFilterTests : CatalogIntegrationTestBase
                 .Items.Single(i => i.Id == appId);
             Assert.IsNull(unfilteredRow.SystemId, "the stray edge must not resolve to a System either");
             Assert.IsNull(unfilteredRow.SystemDisplayName);
+        }
+        finally
+        {
+            await Fx.DeleteApplicationsByPrefixAsync(tenant, unique);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // 14 (Task 5b): a page where no component has a System renders every row unenriched,
+    // never erroring. Must be scoped by a unique prefix, not asserted unfiltered — OrgA is
+    // shared across the assembly and other tests in this class (and SetComponentSystemTests)
+    // leave assigned components in it.
+    // -----------------------------------------------------------------------
+
+    [TestMethod]
+    public async Task A_page_where_no_component_has_a_System_returns_all_rows_unenriched()
+    {
+        var unique = $"a2-noenrich-{Guid.NewGuid():N}";
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var client = Fx.CreateClientForOrgA();
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenant, $"{unique}-team");
+
+        var a1 = await Fx.SeedSingleApplicationAsync(tenant, Guid.NewGuid(), teamId, $"{unique}-a1");
+        var a2 = await Fx.SeedSingleApplicationAsync(tenant, Guid.NewGuid(), teamId, $"{unique}-a2");
+        var a3 = await Fx.SeedSingleApplicationAsync(tenant, Guid.NewGuid(), teamId, $"{unique}-a3");
+
+        try
+        {
+            var page = await GetPageAsync(client, $"/api/v1/catalog/applications?displayNameContains={unique}&limit=50");
+
+            CollectionAssert.AreEquivalent(
+                new[] { a1, a2, a3 }, page.Items.Select(i => i.Id).ToList(),
+                "only the 3 seeded, unassigned apps under this unique prefix must be returned");
+            foreach (var item in page.Items)
+            {
+                Assert.IsNull(item.SystemId, $"{item.Id} has no PartOf edge, so SystemId must be null");
+                Assert.IsNull(item.SystemDisplayName, $"{item.Id} has no PartOf edge, so SystemDisplayName must be null");
+            }
         }
         finally
         {

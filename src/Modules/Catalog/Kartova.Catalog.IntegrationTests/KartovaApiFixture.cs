@@ -9,6 +9,7 @@ using Kartova.Testing.Auth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Time.Testing;
 using DomainApplication = Kartova.Catalog.Domain.Application;
+using DomainService = Kartova.Catalog.Domain.Service;
 using DomainSystem = Kartova.Catalog.Domain.CatalogSystem;
 
 namespace Kartova.Catalog.IntegrationTests;
@@ -235,6 +236,93 @@ public class KartovaApiFixture : KartovaApiFixtureBase
         db.Applications.Add(app);
         await db.SaveChangesAsync();
         return app.Id.Value;
+    }
+
+    /// <summary>
+    /// Deletes service rows for a tenant whose <c>DisplayName</c> starts with
+    /// <paramref name="namePrefix"/>. Mirrors <see cref="DeleteApplicationsByPrefixAsync"/> —
+    /// added for A2 task 5b, whose Services-side cases (unlike the pre-existing
+    /// <c>ListServicesPaginationTests</c>) scope themselves by a unique prefix and clean up.
+    /// </summary>
+    public async Task DeleteServicesByPrefixAsync(TenantId tenantId, string namePrefix)
+    {
+        var opts = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseNpgsql(BypassConnectionString)
+            .Options;
+
+        await using var db = new CatalogDbContext(opts);
+        await db.Database.ExecuteSqlRawAsync(
+            "DELETE FROM catalog_services WHERE tenant_id = {0} AND display_name LIKE {1} || '%'",
+            tenantId.Value, namePrefix);
+    }
+
+    /// <summary>
+    /// Seeds a single Catalog service for a tenant and returns its id. Mirrors
+    /// <see cref="SeedSingleApplicationAsync"/> for A2 task 5b's Services-side cases —
+    /// bypass-RLS so RLS does not block the insert.
+    /// </summary>
+    public async Task<Guid> SeedSingleServiceAsync(
+        TenantId tenantId, Guid createdByUserId, Guid? teamId, string? namePrefix = null)
+    {
+        var opts = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseNpgsql(BypassConnectionString)
+            .Options;
+        await using var db = new CatalogDbContext(opts);
+
+        var name = (namePrefix ?? "assign-svc") + "-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+        var svc = DomainService.Create(
+            displayName: name,
+            description: "seeded for A2 system-filter tests",
+            createdByUserId: createdByUserId,
+            teamId: teamId ?? Guid.NewGuid(),
+            endpoints: [],
+            tenantId: tenantId,
+            createdAt: DateTimeOffset.UtcNow);
+
+        db.Services.Add(svc);
+        await db.SaveChangesAsync();
+        return svc.Id.Value;
+    }
+
+    /// <summary>
+    /// Inserts a Catalog component (<see cref="EntityKind.Application"/> or
+    /// <see cref="EntityKind.Service"/>) row with a caller-specified id, via raw SQL over the
+    /// BYPASSRLS connection. <c>Application.Create</c>/<c>Service.Create</c> always generate
+    /// their own id and their id-taking constructors are private, so this is the only way to
+    /// reproduce a same-Guid collision across the two component tables — A2 task 5b case 11
+    /// (<c>An_application_and_a_service_with_the_same_id_do_not_cross_contaminate</c>). Optional
+    /// columns (lifecycle/sunset_date/successor for Applications; health/endpoints for Services)
+    /// are left at their DB defaults/NULL — irrelevant to the cross-kind isolation under test.
+    /// Mirrors <see cref="InsertRawRelationshipAsync"/>'s raw-SQL idiom; the table name is chosen
+    /// from a closed <see cref="EntityKind"/> switch (not caller-supplied text), so there is no
+    /// injection surface in the interpolated identifier.
+    /// </summary>
+    public async Task SeedComponentWithIdAsync(
+        TenantId tenantId, EntityKind kind, Guid id, Guid teamId, string displayName, Guid? createdByUserId = null)
+    {
+        var table = kind switch
+        {
+            EntityKind.Application => "catalog_applications",
+            EntityKind.Service => "catalog_services",
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(kind), kind, "only Application and Service components can be seeded with an explicit id"),
+        };
+
+        await using var conn = new Npgsql.NpgsqlConnection(BypassConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"""
+            INSERT INTO {table}
+                (id, tenant_id, display_name, description, created_by_user_id, team_id, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, NOW())
+            """;
+        cmd.Parameters.AddWithValue(id);
+        cmd.Parameters.AddWithValue(tenantId.Value);
+        cmd.Parameters.AddWithValue(displayName);
+        cmd.Parameters.AddWithValue("seeded for A2 cross-kind isolation test");
+        cmd.Parameters.AddWithValue(createdByUserId ?? Guid.NewGuid());
+        cmd.Parameters.AddWithValue(teamId);
+        await cmd.ExecuteNonQueryAsync();
     }
 
     /// <summary>
