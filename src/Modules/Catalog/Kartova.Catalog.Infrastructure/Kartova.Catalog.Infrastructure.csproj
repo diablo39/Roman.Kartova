@@ -37,6 +37,10 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Kartova.Catalog.Tests" />
+    <!-- A2 task 2b: SystemEnrichmentTranslationTests calls the internal
+         CurrentMembershipQueries.SystemsForComponentsAsync directly to pin its SQL translation
+         against real Postgres before Tasks 3/4 build the correlated EXISTS shape on top of it. -->
+    <InternalsVisibleTo Include="Kartova.Catalog.IntegrationTests" />
   </ItemGroup>
 
 </Project>

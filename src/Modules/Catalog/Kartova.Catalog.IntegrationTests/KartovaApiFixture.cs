@@ -76,6 +76,15 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     public TenantId TenantIdForEmail(string email) => TenantFor(email);
 
     /// <summary>
+    /// Opens a bypass-RLS <see cref="CatalogDbContext"/> for tests that call internal
+    /// query helpers (e.g. <c>CurrentMembershipQueries</c>) directly rather than through
+    /// HTTP. Every existing caller hand-rolled this options builder inline; A2 task 2b
+    /// centralizes it since it now has more than one caller.
+    /// </summary>
+    public CatalogDbContext CatalogDb() =>
+        new(new DbContextOptionsBuilder<CatalogDbContext>().UseNpgsql(BypassConnectionString).Options);
+
+    /// <summary>
     /// Seeds <paramref name="count"/> applications for the given tenant, with
     /// spread-apart <c>createdAt</c> timestamps so sort-by-createdAt tests are
     /// deterministic. Uses the bypass-RLS connection so rows can be inserted
