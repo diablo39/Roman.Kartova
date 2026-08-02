@@ -403,6 +403,49 @@ public class KartovaApiFixture : KartovaApiFixtureBase
         await db.SaveChangesAsync();
     }
 
+    /// <summary>Inserts a relationship row directly via raw SQL over the BYPASSRLS connection,
+    /// bypassing <see cref="Relationship.CreateManual"/>'s domain validation entirely — including
+    /// <c>RelationshipTypeRules.IsAllowedPair</c>, which rejects a <c>PartOf</c> edge whose target
+    /// is anything other than <see cref="EntityKind.System"/> (<c>Relationship.cs:33-34</c>).
+    /// <see cref="InsertPartOfEdgeAsync"/> cannot reach that state either, since it hard-codes
+    /// <c>EntityKind.System</c> as the target kind. This helper deliberately bypasses the domain
+    /// factory BECAUSE the domain forbids the state under test — reproducing the stranded
+    /// <c>PartOf</c>-to-non-System drift the <c>PurgePartOfRelationships</c> migration exists to
+    /// clean up. Mirrors the raw-SQL idiom the concurrency-race tests already use
+    /// (<c>SetComponentSystemTests.cs:523-530</c>) and the RLS-toggle technique the
+    /// <c>AddOneSystemPerComponentIndex</c> migration uses, applied here at the row level via the
+    /// BYPASSRLS connection role rather than a session-level RLS toggle.</summary>
+    public async Task InsertRawRelationshipAsync(
+        TenantId tenantId,
+        EntityKind sourceKind,
+        Guid sourceId,
+        RelationshipType type,
+        EntityKind targetKind,
+        Guid targetId,
+        Guid? createdByUserId = null,
+        RelationshipOrigin origin = RelationshipOrigin.Manual)
+    {
+        await using var conn = new Npgsql.NpgsqlConnection(BypassConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO relationships
+                (id, tenant_id, type, origin, created_by_user_id, created_at,
+                 source_id, source_kind, target_id, target_kind)
+            VALUES ($1, $2, $3, $4, $5, NOW(), $6, $7, $8, $9)
+            """;
+        cmd.Parameters.AddWithValue(Guid.NewGuid());
+        cmd.Parameters.AddWithValue(tenantId.Value);
+        cmd.Parameters.AddWithValue(type.ToString());
+        cmd.Parameters.AddWithValue(origin.ToString());
+        cmd.Parameters.AddWithValue(createdByUserId ?? Guid.NewGuid());
+        cmd.Parameters.AddWithValue(sourceId);
+        cmd.Parameters.AddWithValue(sourceKind.ToString());
+        cmd.Parameters.AddWithValue(targetId);
+        cmd.Parameters.AddWithValue(targetKind.ToString());
+        await cmd.ExecuteNonQueryAsync();
+    }
+
     /// <summary>Reads audit_log rows for a tenant via the BYPASSRLS pool, ordered by seq.</summary>
     public async Task<IReadOnlyList<AuditRowRecord>> ReadAuditLogAsync(Guid tenantId)
     {
