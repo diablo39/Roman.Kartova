@@ -310,6 +310,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         // comment on CatalogEndpointDelegates.RegisterApplicationAsync.
         services.AddScoped<RegisterApplicationHandler>();
         services.AddScoped<GetApplicationByIdHandler>();
+        services.AddScoped<ISystemMembershipEnricher, SystemMembershipEnricher>();
         services.AddScoped<ListApplicationsHandler>();
         services.AddScoped<EditApplicationHandler>();
         services.AddScoped<DeprecateApplicationHandler>();

@@ -32,6 +32,14 @@ namespace Kartova.Catalog.Infrastructure;
 
 internal static class CatalogEndpointDelegates
 {
+    /// <summary>Maximum distinct values accepted for a multi-select id filter. Each id costs 37
+    /// chars in the cursor's f-map, so 50 ids ≈ 1.8 KB — well inside Kestrel's 8 KB request-line
+    /// limit once base64-encoded with the rest of the cursor. Uncapped, ~150 ids produce a
+    /// nextCursor that is unusable when replayed as ?cursor=…: page 1 succeeds and page 2 is a
+    /// hard failure, a self-inflicted break reachable by an ordinary user with a big selection.
+    /// </summary>
+    private const int MaxFilterValues = 50;
+
     /// <summary>
     /// Synchronous in-process handler dispatch — invoked directly rather than
     /// via <c>IMessageBus.InvokeAsync</c>. Wolverine's bus opens its own DI
@@ -127,6 +135,15 @@ internal static class CatalogEndpointDelegates
     /// the slice-8 <c>invalid-team</c> envelope pattern in
     /// <see cref="AssignApplicationTeamAsync"/>.
     /// </para>
+    /// <para>
+    /// <c>systemId</c> — ADR-0107 multi-select System filter (A2). Repeated
+    /// <c>?systemId=</c> Guids narrow the result set to applications with a <c>PartOf</c>
+    /// edge to one of the selected Systems. De-duplicated (<c>ToHashSet</c>) before the
+    /// <see cref="MaxFilterValues"/> cap is checked, so the cap counts distinct values; over
+    /// the cap returns 400 <c>too-many-filter-values</c>. No existence validation — an
+    /// unknown/other-tenant System id simply matches nothing (RLS already scopes the join),
+    /// mirroring <c>teamId</c>. Encoded into the cursor <c>f</c>-map only when non-empty.
+    /// </para>
     /// </summary>
     internal static async Task<IResult> ListApplicationsAsync(
         [FromQuery] string? sortBy,
@@ -137,6 +154,7 @@ internal static class CatalogEndpointDelegates
         [FromQuery] string[]? lifecycle,
         [FromQuery] Guid[]? teamId,
         [FromQuery] Guid? createdByUserId,
+        [FromQuery] Guid[]? systemId,
         ListApplicationsHandler handler,
         CatalogDbContext db,
         IUserDirectory directory,
@@ -190,6 +208,17 @@ internal static class CatalogEndpointDelegates
 
         var name = string.IsNullOrWhiteSpace(displayNameContains) ? null : displayNameContains.Trim();
 
+        // De-dup first so the cap counts distinct values, not raw repeats.
+        var distinctSystemIds = systemId is { Length: > 0 } ? systemId.ToHashSet().ToArray() : null;
+        if (distinctSystemIds is { Length: > MaxFilterValues })
+        {
+            return Results.Problem(
+                type: ProblemTypes.TooManyFilterValues,
+                title: "Too many filter values",
+                detail: $"At most {MaxFilterValues} distinct systemId values may be supplied; got {distinctSystemIds.Length}.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
         var query = new ListApplicationsQuery(
             SortBy: parsedSortBy ?? ApplicationSortField.DisplayName,
             SortOrder: parsedSortOrder ?? SortOrder.Asc,
@@ -200,7 +229,12 @@ internal static class CatalogEndpointDelegates
             // cursor f-map stays canonical; ToArray() for the query record.
             TeamId: (teamId ?? Array.Empty<Guid>()).ToHashSet().ToArray(),
             DisplayNameContains: name,
-            CreatedByUserId: createdByUserId);
+            CreatedByUserId: createdByUserId,
+            // ToHashSet de-dups repeated ?systemId= values so the cursor f-map stays canonical.
+            // No existence validation: an unknown/other-tenant System id simply matches nothing
+            // (RLS already scopes the join) — this mirrors teamId, which is also unvalidated.
+            // Contrast createdByUserId, which IS validated because slice 9 chose a 422 envelope there.
+            SystemId: distinctSystemIds);
 
         var page = await handler.Handle(query, db, ct);
         return Results.Ok(page);

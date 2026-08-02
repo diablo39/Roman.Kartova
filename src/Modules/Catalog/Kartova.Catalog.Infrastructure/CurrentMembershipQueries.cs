@@ -3,8 +3,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Kartova.Catalog.Infrastructure;
 
-/// <summary>A component's System, flattened for list-row enrichment.</summary>
-internal readonly record struct SystemRef(Guid Id, string DisplayName);
+/// <summary>
+/// A component's System, flattened for list-row enrichment. <c>public</c>, not <c>internal</c>: it
+/// is the return-type payload of <see cref="ISystemMembershipEnricher"/>, which is itself public
+/// because it appears on <see cref="ListApplicationsHandler"/>'s public constructor (CS0051).
+/// </summary>
+public readonly record struct SystemRef(Guid Id, string DisplayName);
 
 /// <summary>
 /// Shared query over a component's current System membership — the <c>PartOf</c> edge(s), if

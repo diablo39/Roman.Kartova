@@ -74,6 +74,22 @@ public sealed class ListApplicationsHandlerOwnerFilterTests
         return directory;
     }
 
+    /// <summary>
+    /// Returns an <see cref="ISystemMembershipEnricher"/> stub whose lookup always resolves to an
+    /// empty dictionary. These created-by-filter tests don't exercise System enrichment; stubbing
+    /// this port keeps them off the EF Core InMemory provider's ComplexProperty translation gap
+    /// (see the interface's doc) — System-column rendering is proven against real Postgres by
+    /// <c>SystemEnrichmentTranslationTests</c>.
+    /// </summary>
+    private static ISystemMembershipEnricher NoOpSystemMembership()
+    {
+        var enricher = Substitute.For<ISystemMembershipEnricher>();
+        enricher.SystemsForComponentsAsync(
+                Arg.Any<CatalogDbContext>(), Arg.Any<EntityKind>(), Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<Guid, SystemRef>());
+        return enricher;
+    }
+
     private static ListApplicationsQuery DefaultQuery(Guid? createdByUserId = null) => new(
         ApplicationSortField.CreatedAt,
         SortOrder.Desc,
@@ -95,7 +111,7 @@ public sealed class ListApplicationsHandlerOwnerFilterTests
             (creatorA, "App A1"), (creatorA, "App A2"), (creatorA, "App A3"),
             (creatorB, "App B1"), (creatorB, "App B2"));
 
-        var handler = new ListApplicationsHandler(NoOpDirectory());
+        var handler = new ListApplicationsHandler(NoOpDirectory(), NoOpSystemMembership());
         var page = await handler.Handle(DefaultQuery(createdByUserId: null), db, CancellationToken.None);
 
         Assert.AreEqual(5, page.Items.Count, "null createdByUserId must return all rows visible under the tenant scope");
@@ -113,7 +129,7 @@ public sealed class ListApplicationsHandlerOwnerFilterTests
             (creatorA, "App A1"), (creatorA, "App A2"), (creatorA, "App A3"),
             (creatorB, "App B1"), (creatorB, "App B2"));
 
-        var handler = new ListApplicationsHandler(NoOpDirectory());
+        var handler = new ListApplicationsHandler(NoOpDirectory(), NoOpSystemMembership());
 
         var pageA = await handler.Handle(DefaultQuery(createdByUserId: creatorA), db, CancellationToken.None);
         Assert.AreEqual(3, pageA.Items.Count, "filter must return exactly the 3 apps created by creatorA");
@@ -140,7 +156,7 @@ public sealed class ListApplicationsHandlerOwnerFilterTests
         await using var db = await BuildDbWithAppsAsync(
             (creatorA, "App A1"), (creatorA, "App A2"));
 
-        var handler = new ListApplicationsHandler(NoOpDirectory());
+        var handler = new ListApplicationsHandler(NoOpDirectory(), NoOpSystemMembership());
         var page = await handler.Handle(DefaultQuery(createdByUserId: orphanCreator), db, CancellationToken.None);
 
         Assert.AreEqual(0, page.Items.Count,
@@ -189,7 +205,7 @@ public sealed class ListApplicationsHandlerOwnerFilterTests
         }
 
         await using var db = new CatalogDbContext(options);
-        var handler = new ListApplicationsHandler(NoOpDirectory());
+        var handler = new ListApplicationsHandler(NoOpDirectory(), NoOpSystemMembership());
         var page = await handler.Handle(DefaultQuery(createdByUserId: creatorId), db, CancellationToken.None);
 
         Assert.AreEqual(1, page.Items.Count,

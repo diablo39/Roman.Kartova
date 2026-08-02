@@ -44,6 +44,11 @@ public static class ProblemTypes
     // Catalog ?health= multi-select filter — services list (ADR-0107).
     public const string InvalidHealthFilter    = Base + "invalid-health-filter";
 
+    // Generic cap on distinct values for any multi-select id filter (ADR-0107, A2). Named
+    // generically rather than per-field so the pre-existing uncapped teamId/lifecycle/health
+    // filters can adopt it later without a contract rename.
+    public const string TooManyFilterValues    = Base + "too-many-filter-values";
+
     // Catalog ?style= multi-select filter — apis list (ADR-0107, FU-9).
     public const string InvalidStyleFilter     = Base + "invalid-style-filter";
 
