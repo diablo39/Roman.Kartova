@@ -947,6 +947,79 @@ public sealed class ListBySystemFilterTests : CatalogIntegrationTestBase
         Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
     }
 
+    // -----------------------------------------------------------------------
+    // Task 5c: detail reads (GET .../{id}) carry the System too — GetApplicationByIdHandler
+    // and GetServiceByIdHandler now enrich SystemId/SystemDisplayName via the same
+    // ISystemMembershipEnricher port the list handlers use, so a detail read agrees with the
+    // list row for the same component instead of always reporting systemId: null.
+    // -----------------------------------------------------------------------
+
+    [TestMethod]
+    public async Task GET_application_by_id_carries_the_System_when_assigned_and_null_when_not()
+    {
+        var unique = $"a2-detail-app-{Guid.NewGuid():N}";
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var client = Fx.CreateClientForOrgA();
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenant, $"{unique}-team");
+        var systemId = await Fx.SeedSystemAsync(tenant, teamId, $"{unique}-system");
+        var assigned = await Fx.SeedSingleApplicationAsync(tenant, Guid.NewGuid(), teamId, $"{unique}-assigned");
+        var unassigned = await Fx.SeedSingleApplicationAsync(tenant, Guid.NewGuid(), teamId, $"{unique}-unassigned");
+
+        try
+        {
+            await Fx.InsertPartOfEdgeAsync(tenant, EntityKind.Application, assigned, systemId);
+
+            var assignedResp = await client.GetAsync($"/api/v1/catalog/applications/{assigned}");
+            Assert.AreEqual(HttpStatusCode.OK, assignedResp.StatusCode);
+            var assignedBody = await assignedResp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
+            Assert.AreEqual(systemId, assignedBody!.SystemId, "the detail read must carry the assigned System's id");
+            Assert.AreEqual($"{unique}-system", assignedBody.SystemDisplayName);
+
+            var unassignedResp = await client.GetAsync($"/api/v1/catalog/applications/{unassigned}");
+            Assert.AreEqual(HttpStatusCode.OK, unassignedResp.StatusCode);
+            var unassignedBody = await unassignedResp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
+            Assert.IsNull(unassignedBody!.SystemId, "an unassigned application's detail read must carry a null SystemId");
+            Assert.IsNull(unassignedBody.SystemDisplayName);
+        }
+        finally
+        {
+            await Fx.DeleteApplicationsByPrefixAsync(tenant, unique);
+        }
+    }
+
+    [TestMethod]
+    public async Task GET_service_by_id_carries_the_System_when_assigned_and_null_when_not()
+    {
+        var unique = $"a2-detail-svc-{Guid.NewGuid():N}";
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var client = Fx.CreateClientForOrgA();
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenant, $"{unique}-team");
+        var systemId = await Fx.SeedSystemAsync(tenant, teamId, $"{unique}-system");
+        var assigned = await Fx.SeedSingleServiceAsync(tenant, Guid.NewGuid(), teamId, $"{unique}-assigned");
+        var unassigned = await Fx.SeedSingleServiceAsync(tenant, Guid.NewGuid(), teamId, $"{unique}-unassigned");
+
+        try
+        {
+            await Fx.InsertPartOfEdgeAsync(tenant, EntityKind.Service, assigned, systemId);
+
+            var assignedResp = await client.GetAsync($"/api/v1/catalog/services/{assigned}");
+            Assert.AreEqual(HttpStatusCode.OK, assignedResp.StatusCode);
+            var assignedBody = await assignedResp.Content.ReadFromJsonAsync<ServiceResponse>(KartovaApiFixtureBase.WireJson);
+            Assert.AreEqual(systemId, assignedBody!.SystemId, "the detail read must carry the assigned System's id");
+            Assert.AreEqual($"{unique}-system", assignedBody.SystemDisplayName);
+
+            var unassignedResp = await client.GetAsync($"/api/v1/catalog/services/{unassigned}");
+            Assert.AreEqual(HttpStatusCode.OK, unassignedResp.StatusCode);
+            var unassignedBody = await unassignedResp.Content.ReadFromJsonAsync<ServiceResponse>(KartovaApiFixtureBase.WireJson);
+            Assert.IsNull(unassignedBody!.SystemId, "an unassigned service's detail read must carry a null SystemId");
+            Assert.IsNull(unassignedBody.SystemDisplayName);
+        }
+        finally
+        {
+            await Fx.DeleteServicesByPrefixAsync(tenant, unique);
+        }
+    }
+
     /// <summary>
     /// Base64url-decodes a cursor issued by <c>CursorCodec</c>, overwrites its filter-map ("f")
     /// entry for <paramref name="filterKey"/>, and re-encodes — the f-map counterpart to
