@@ -188,6 +188,19 @@ internal static class CatalogEndpointDelegates
             lifecycles.Add(parsed);
         }
 
+        // De-dup first so the cap counts distinct values, not raw repeats. Checked before the
+        // createdByUserId resource gate below so a too-many-values 400 never pays for the
+        // IUserDirectory DB round trip.
+        var distinctSystemIds = systemId is { Length: > 0 } ? systemId.ToHashSet().ToArray() : null;
+        if (distinctSystemIds is { Length: > MaxFilterValues })
+        {
+            return Results.Problem(
+                type: ProblemTypes.TooManyFilterValues,
+                title: "Too many filter values",
+                detail: $"At most {MaxFilterValues} distinct systemId values may be supplied; got {distinctSystemIds.Length}.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
         // Resource gate: when ?createdByUserId= is supplied, validate it resolves to a
         // user in the current tenant BEFORE invoking the handler. IUserDirectory is
         // already RLS-scoped so an id from another tenant returns null; we surface
@@ -207,17 +220,6 @@ internal static class CatalogEndpointDelegates
         }
 
         var name = string.IsNullOrWhiteSpace(displayNameContains) ? null : displayNameContains.Trim();
-
-        // De-dup first so the cap counts distinct values, not raw repeats.
-        var distinctSystemIds = systemId is { Length: > 0 } ? systemId.ToHashSet().ToArray() : null;
-        if (distinctSystemIds is { Length: > MaxFilterValues })
-        {
-            return Results.Problem(
-                type: ProblemTypes.TooManyFilterValues,
-                title: "Too many filter values",
-                detail: $"At most {MaxFilterValues} distinct systemId values may be supplied; got {distinctSystemIds.Length}.",
-                statusCode: StatusCodes.Status400BadRequest);
-        }
 
         var query = new ListApplicationsQuery(
             SortBy: parsedSortBy ?? ApplicationSortField.DisplayName,

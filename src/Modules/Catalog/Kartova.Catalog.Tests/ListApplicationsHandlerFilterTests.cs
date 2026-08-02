@@ -206,8 +206,9 @@ public class ListApplicationsHandlerFilterTests
     public async Task Handle_with_empty_systemId_filter_applies_no_System_predicate()
     {
         // An empty array must behave exactly like null (filter absent): both leave the row set
-        // and the cursor f-map untouched. Pins the `is { Length: > 0 }` guard — a mutation to
-        // `>= 0` would drag every row through the EXISTS sub-query and return nothing here.
+        // and the cursor f-map untouched. What this test actually pins is the `is { Length: > 0 }`
+        // guard on the f-map write — an empty systemId that slipped past the guard would write
+        // filters["systemId"] = "" into the cursor, changing it and failing the AreEqual below.
         var handler = new ListApplicationsHandler(NoOpDirectory(), NoOpSystemMembership());
 
         // BuildDbWithTwoTeamsAsync, NOT BuildDbWithBothLifecyclesAsync: the latter seeds one
@@ -224,6 +225,7 @@ public class ListApplicationsHandlerFilterTests
 
         Assert.IsNotNull(withNull.NextCursor,
             "guard: if this is null the fixture no longer emits a cursor and the assertion below is vacuous");
+        Assert.AreEqual(1, withNull.Items.Count, "limit is honored");
         Assert.AreEqual(1, withEmpty.Items.Count, "limit is honored");
         Assert.AreEqual(withNull.NextCursor, withEmpty.NextCursor,
             "empty systemId must not add an f-map key — cursors must be byte-identical");

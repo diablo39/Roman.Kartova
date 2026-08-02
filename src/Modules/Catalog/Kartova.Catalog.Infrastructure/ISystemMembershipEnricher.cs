@@ -17,12 +17,13 @@ namespace Kartova.Catalog.Infrastructure;
 /// stub, so they never execute a Relationships query at all. Production DI wires the real
 /// implementation below, which simply forwards to the static query.
 /// </summary>
+/// <remarks>
 /// <c>public</c>, not <c>internal</c>: it appears as a parameter on <see cref="ListApplicationsHandler"/>'s
 /// public constructor, and CS0051 forbids a less-accessible parameter type there. <see cref="SystemRef"/>
 /// is likewise made <see langword="public"/> for the same reason (it appears in this interface's
 /// return type) — the DTO itself still only carries the two fields list rows need to render the
 /// column.
-/// </summary>
+/// </remarks>
 public interface ISystemMembershipEnricher
 {
     Task<Dictionary<Guid, SystemRef>> SystemsForComponentsAsync(

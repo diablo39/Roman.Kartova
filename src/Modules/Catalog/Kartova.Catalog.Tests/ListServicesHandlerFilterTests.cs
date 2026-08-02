@@ -172,6 +172,7 @@ public class ListServicesHandlerFilterTests
         var withEmpty = await handler.Handle(Query(limit: 1, systemId: []), db, CancellationToken.None);
 
         Assert.IsNotNull(withNull.NextCursor, "guard: otherwise the comparison below is vacuous");
+        Assert.AreEqual(1, withNull.Items.Count, "limit is honored");
         Assert.AreEqual(1, withEmpty.Items.Count, "limit is honored");
         Assert.AreEqual(withNull.NextCursor, withEmpty.NextCursor,
             "empty systemId must not allocate the f-map");
