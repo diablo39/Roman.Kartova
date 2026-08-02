@@ -519,6 +519,15 @@ internal static class CatalogEndpointDelegates
     /// strings are rejected with 400 <c>invalid-health-filter</c>. Empty ⇒ no predicate
     /// (show all health statuses — no ADR-0073 default-view rule applies to Services).
     /// </para>
+    /// <para>
+    /// <c>systemId</c> — ADR-0107 multi-select System filter (A2). Repeated
+    /// <c>?systemId=</c> Guids narrow the result set to services with a <c>PartOf</c>
+    /// edge to one of the selected Systems. De-duplicated (<c>ToHashSet</c>) before the
+    /// <see cref="MaxFilterValues"/> cap is checked, so the cap counts distinct values; over
+    /// the cap returns 400 <c>too-many-filter-values</c>. No existence validation — an
+    /// unknown/other-tenant System id simply matches nothing (RLS already scopes the join),
+    /// mirroring <c>teamId</c>. Encoded into the cursor <c>f</c>-map only when non-empty.
+    /// </para>
     /// </summary>
     internal static async Task<IResult> ListServicesAsync(
         [FromQuery] string? sortBy,
@@ -528,6 +537,7 @@ internal static class CatalogEndpointDelegates
         [FromQuery] string? displayNameContains,
         [FromQuery] Guid[]? teamId,
         [FromQuery] string[]? health,
+        [FromQuery] Guid[]? systemId,
         ListServicesHandler handler,
         CatalogDbContext db,
         CancellationToken ct)
@@ -559,6 +569,17 @@ internal static class CatalogEndpointDelegates
         // Blank/whitespace ⇒ no filter (filter-absent must equal today's unfiltered cursor).
         var name = string.IsNullOrWhiteSpace(displayNameContains) ? null : displayNameContains.Trim();
 
+        // De-dup first so the cap counts distinct values, not raw repeats.
+        var distinctSystemIds = systemId is { Length: > 0 } ? systemId.ToHashSet().ToArray() : null;
+        if (distinctSystemIds is { Length: > MaxFilterValues })
+        {
+            return Results.Problem(
+                type: ProblemTypes.TooManyFilterValues,
+                title: "Too many filter values",
+                detail: $"At most {MaxFilterValues} distinct systemId values may be supplied; got {distinctSystemIds.Length}.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
         var query = new ListServicesQuery(
             SortBy: parsedSortBy ?? ServiceSortField.DisplayName,   // default flips: was CreatedAt
             SortOrder: parsedSortOrder ?? SortOrder.Asc,            // default flips: was Desc
@@ -567,7 +588,11 @@ internal static class CatalogEndpointDelegates
             // ToHashSet de-dups repeated ?teamId= values so the cursor f-map stays canonical; ToArray() for the query record.
             TeamId: (teamId ?? Array.Empty<Guid>()).ToHashSet().ToArray(),
             Health: healthSet.ToArray(),
-            DisplayNameContains: name);
+            DisplayNameContains: name,
+            // ToHashSet de-dups repeated ?systemId= values so the cursor f-map stays canonical.
+            // No existence validation: an unknown/other-tenant System id simply matches nothing
+            // (RLS already scopes the join) — this mirrors teamId, which is also unvalidated.
+            SystemId: distinctSystemIds);
 
         var page = await handler.Handle(query, db, ct);
         return Results.Ok(page);

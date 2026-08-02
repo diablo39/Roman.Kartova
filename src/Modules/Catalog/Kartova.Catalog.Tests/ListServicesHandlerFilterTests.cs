@@ -86,16 +86,34 @@ public class ListServicesHandlerFilterTests
         return directory;
     }
 
-    private static ListServicesQuery Query(Guid[]? teamId = null, HealthStatus[]? health = null) =>
-        new(ServiceSortField.DisplayName, SortOrder.Asc, Cursor: null, Limit: 50,
+    /// <summary>
+    /// Returns an <see cref="ISystemMembershipEnricher"/> stub whose lookup always resolves to an
+    /// empty dictionary. These tests exercise the teamId/health/systemId predicate paths only —
+    /// stubbing this port keeps them off the EF Core InMemory provider's ComplexProperty
+    /// translation gap (see the interface's doc); System-column rendering is proven against real
+    /// Postgres by <c>SystemEnrichmentTranslationTests</c>.
+    /// </summary>
+    private static ISystemMembershipEnricher NoOpSystemMembership()
+    {
+        var enricher = Substitute.For<ISystemMembershipEnricher>();
+        enricher.SystemsForComponentsAsync(
+                Arg.Any<CatalogDbContext>(), Arg.Any<EntityKind>(), Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<Guid, SystemRef>());
+        return enricher;
+    }
+
+    private static ListServicesQuery Query(
+        Guid[]? teamId = null, HealthStatus[]? health = null, Guid[]? systemId = null, int limit = 50) =>
+        new(ServiceSortField.DisplayName, SortOrder.Asc, Cursor: null, Limit: limit,
             TeamId: teamId ?? Array.Empty<Guid>(),
-            Health: health ?? Array.Empty<HealthStatus>());
+            Health: health ?? Array.Empty<HealthStatus>(),
+            SystemId: systemId);
 
     [TestMethod]
     public async Task Handle_with_no_teamId_filter_returns_all_services()
     {
         await using var db = await BuildDbWithTwoTeamsAsync();
-        var page = await new ListServicesHandler(NoOpDirectory()).Handle(Query(), db, CancellationToken.None);
+        var page = await new ListServicesHandler(NoOpDirectory(), NoOpSystemMembership()).Handle(Query(), db, CancellationToken.None);
         Assert.AreEqual(2, page.Items.Count, "empty teamId filter must return all services (no default-hide rule)");
     }
 
@@ -103,7 +121,7 @@ public class ListServicesHandlerFilterTests
     public async Task Handle_with_teamId_filters_to_that_team()
     {
         await using var db = await BuildDbWithTwoTeamsAsync();
-        var page = await new ListServicesHandler(NoOpDirectory())
+        var page = await new ListServicesHandler(NoOpDirectory(), NoOpSystemMembership())
             .Handle(Query(teamId: new[] { TeamB }), db, CancellationToken.None);
         Assert.AreEqual(1, page.Items.Count);
         Assert.AreEqual("In Team B", page.Items.Single().DisplayName);
@@ -113,7 +131,7 @@ public class ListServicesHandlerFilterTests
     public async Task Handle_with_no_health_filter_returns_all_services()
     {
         await using var db = await BuildDbWithTwoServicesAsync();
-        var page = await new ListServicesHandler(NoOpDirectory()).Handle(Query(), db, CancellationToken.None);
+        var page = await new ListServicesHandler(NoOpDirectory(), NoOpSystemMembership()).Handle(Query(), db, CancellationToken.None);
         Assert.AreEqual(2, page.Items.Count, "empty health filter must return all services (no default-hide rule)");
     }
 
@@ -123,7 +141,7 @@ public class ListServicesHandlerFilterTests
         // All seeded services default to Unknown; filtering to [Unknown] must return them all.
         // This confirms the predicate is correctly applied (includes matching rows).
         await using var db = await BuildDbWithTwoServicesAsync();
-        var page = await new ListServicesHandler(NoOpDirectory())
+        var page = await new ListServicesHandler(NoOpDirectory(), NoOpSystemMembership())
             .Handle(Query(health: new[] { HealthStatus.Unknown }), db, CancellationToken.None);
         Assert.AreEqual(2, page.Items.Count, "Health:[Unknown] must return all seeded Unknown services");
     }
@@ -134,8 +152,28 @@ public class ListServicesHandlerFilterTests
         // No seeded service has Health = Healthy; the predicate must exclude all rows.
         // A missing Where would let all rows through, killing this assertion on the mutant.
         await using var db = await BuildDbWithTwoServicesAsync();
-        var page = await new ListServicesHandler(NoOpDirectory())
+        var page = await new ListServicesHandler(NoOpDirectory(), NoOpSystemMembership())
             .Handle(Query(health: new[] { HealthStatus.Healthy }), db, CancellationToken.None);
         Assert.AreEqual(0, page.Items.Count, "Health:[Healthy] must exclude all Unknown services");
+    }
+
+    [TestMethod]
+    public async Task Handle_with_empty_systemId_filter_applies_no_System_predicate()
+    {
+        // Services builds `filters` lazily (null until a filter applies). An empty systemId must
+        // NOT be enough to allocate the dictionary — otherwise the cursor stops being
+        // byte-identical to a filterless one.
+        await using var db = await BuildDbWithTwoTeamsAsync();
+        var handler = new ListServicesHandler(NoOpDirectory(), NoOpSystemMembership());
+
+        // Limit: 1 for the same reason as the Applications twin — at the default 50 both
+        // NextCursors are null and the assertion cannot fail.
+        var withNull = await handler.Handle(Query(limit: 1), db, CancellationToken.None);
+        var withEmpty = await handler.Handle(Query(limit: 1, systemId: []), db, CancellationToken.None);
+
+        Assert.IsNotNull(withNull.NextCursor, "guard: otherwise the comparison below is vacuous");
+        Assert.AreEqual(1, withEmpty.Items.Count, "limit is honored");
+        Assert.AreEqual(withNull.NextCursor, withEmpty.NextCursor,
+            "empty systemId must not allocate the f-map");
     }
 }
