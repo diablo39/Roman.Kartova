@@ -465,11 +465,19 @@ public sealed class ListBySystemFilterTests : CatalogIntegrationTestBase
                 "matches the tampered value, so no CursorFilterMismatchException fires");
             var page = await resp.Content.ReadFromJsonAsync<CursorPage<ApplicationResponse>>(KartovaApiFixtureBase.WireJson);
             Assert.IsNotNull(page);
-            foreach (var item in page!.Items)
-            {
-                Assert.AreEqual(systemB, item.SystemId,
-                    "the live request's ?systemId=, not the cursor's f-map claim, must govern what's returned");
-            }
+            // Deterministic, not just "every returned row (if any)": System B has exactly one
+            // member in this fixture (b1), so a regression collapsing this replay to zero rows —
+            // e.g. via the unspecified pagination continuity named above, where the keyset
+            // boundary inherited from System A's page is never re-validated against System B —
+            // must fail here instead of vacuously passing an empty loop.
+            Assert.AreEqual(1, page!.Items.Count, "System B has exactly one member in this fixture");
+            Assert.AreEqual(b1, page.Items.Single().Id);
+            Assert.AreEqual(systemB, page.Items.Single().SystemId,
+                "the live request's ?systemId=, not the cursor's f-map claim, must govern what's returned");
+            // This also relies on the `displayName asc` default sort plus the seeded names'
+            // alphabetical ordering ("-a1"/"-a2" < "-b1") so that b1 satisfies the keyset
+            // boundary inherited from a1's page — renaming the seed prefix or changing the
+            // default sort will break this test for that reason.
         }
         finally
         {
