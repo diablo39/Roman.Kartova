@@ -6,6 +6,7 @@ import {
   fromSort, toSort,
 } from "@/components/application/data-table/data-table";
 import { LifecycleBadge } from "./LifecycleBadge";
+import { SystemCell } from "./SystemCell";
 import { CreatedByLink, type UserDisplayInfo } from "@/features/users/components/CreatedByLink";
 import type { CursorListResult, SortDirection } from "@/lib/list/types";
 import type { Lifecycle } from "@/features/catalog/api/applications";
@@ -27,6 +28,9 @@ export interface ApplicationRow {
   lifecycle: Lifecycle;
   sunsetDate: string | null;
   teamId?: string | null;
+  /** Owning System (PartOf edge), enriched per page by the list handler. Null ⇒ unassigned. */
+  systemId?: string | null;
+  systemDisplayName?: string | null;
 }
 
 type SortField = "createdAt" | "displayName";
@@ -56,11 +60,12 @@ export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange, teamN
           <Table.Head id="displayName" isRowHeader>Name</Table.Head>
           <Table.Head id="lifecycle">Lifecycle</Table.Head>
           <Table.Head id="team">Team</Table.Head>
+          <Table.Head id="system">System</Table.Head>
           <Table.Head id="createdBy">Created by</Table.Head>
           <Table.Head id="description">Description</Table.Head>
           <Table.Head id="createdAt">Created</Table.Head>
         </Table.Header>
-        <TableSkeleton rows={5} cells={6} />
+        <TableSkeleton rows={5} cells={7} />
       </Table>
     );
   }
@@ -96,6 +101,7 @@ export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange, teamN
           <SortableHead id="displayName" isRowHeader>Name</SortableHead>
           <Table.Head id="lifecycle">Lifecycle</Table.Head>
           <Table.Head id="team">Team</Table.Head>
+          <Table.Head id="system">System</Table.Head>
           <Table.Head id="createdBy">Created by</Table.Head>
           <Table.Head id="description">Description</Table.Head>
           <SortableHead id="createdAt">Created</SortableHead>
@@ -125,6 +131,9 @@ export function ApplicationsTable({ list, sortBy, sortOrder, onSortChange, teamN
                     {teamNameById.get(app.teamId) ?? "Unknown team"}
                   </Link>
                 )}
+              </Table.Cell>
+              <Table.Cell className="text-sm">
+                <SystemCell systemId={app.systemId} systemDisplayName={app.systemDisplayName} />
               </Table.Cell>
               <Table.Cell className="text-sm">
                 <CreatedByLink user={app.createdBy} />

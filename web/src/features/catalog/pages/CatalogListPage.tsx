@@ -6,6 +6,7 @@ import { FilterBar } from "@/components/application/filter-bar/FilterBar";
 import { useListFilters } from "@/lib/list/filters/useListFilters";
 import type { FilterSpec } from "@/lib/list/filters/types";
 import { useApplicationsList } from "@/features/catalog/api/applications";
+import { useSystemsList } from "@/features/catalog/api/systems";
 import { useTeamsList } from "@/features/teams/api/teams";
 import { useListUrlState } from "@/lib/list/useListUrlState";
 import { ApplicationsTable } from "@/features/catalog/components/ApplicationsTable";
@@ -15,7 +16,7 @@ import { KartovaPermissions } from "@/shared/auth/permissions";
 
 const ALLOWED_SORT_FIELDS = ["createdAt", "displayName"] as const;
 const TEXT_FILTERS = ["displayNameContains"] as const;
-const MULTI_FILTERS = ["lifecycle", "teamId"] as const;
+const MULTI_FILTERS = ["lifecycle", "teamId", "systemId"] as const;
 const LIFECYCLE_OPTIONS = [
   { label: "Active", value: "active" },
   { label: "Deprecated", value: "deprecated" },
@@ -37,7 +38,11 @@ export function CatalogListPage() {
     [teamsList.items],
   );
 
-  // FILTER_SPECS is dynamic: team options come from the teams fetch. Lifecycle +
+  // Known limit: same 200-item cap as the team facet above — a tenant with more Systems gets a
+  // filter that cannot express the rest. Accepted precedent (useTeamsList does this in 13 places).
+  const systemsList = useSystemsList({ sortBy: "displayName", sortOrder: "asc", limit: 200 });
+
+  // FILTER_SPECS is dynamic: team + system options come from their respective fetches. Lifecycle +
   // search are static. (Known limit: the team dropdown shows only the first 200
   // teams — same cap as the existing teamNameById lookup; see spec §2.)
   const filterSpecs: FilterSpec[] = useMemo(
@@ -51,8 +56,15 @@ export function CatalogListPage() {
         placeholder: "All teams",
         options: (teamsList.items ?? []).map(t => ({ label: t.displayName, value: t.id })),
       },
+      {
+        key: "systemId",
+        type: "multi-select",
+        label: "System",
+        placeholder: "All systems",
+        options: (systemsList.items ?? []).map((s) => ({ label: s.displayName, value: s.id })),
+      },
     ],
-    [teamsList.items],
+    [teamsList.items, systemsList.items],
   );
   const filters = useListFilters(filterSpecs, urlState);
 
@@ -62,6 +74,7 @@ export function CatalogListPage() {
     displayNameContains: filters.textValues.displayNameContains,
     lifecycle: filters.multiValues.lifecycle,
     teamId: filters.multiValues.teamId,
+    systemId: filters.multiValues.systemId,
   });
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -79,6 +92,12 @@ export function CatalogListPage() {
   useEffect(() => {
     if (teamsList.isError) console.error("CatalogListPage teams error", teamsList.error);
   }, [teamsList.isError, teamsList.error]);
+
+  // Same rationale as the team filter's error effect above — a failed useSystemsList fetch
+  // otherwise renders an empty System dropdown with no signal.
+  useEffect(() => {
+    if (systemsList.isError) console.error("CatalogListPage systems error", systemsList.error);
+  }, [systemsList.isError, systemsList.error]);
 
   return (
     <div className="space-y-6">

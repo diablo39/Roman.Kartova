@@ -208,4 +208,67 @@ describe("ApplicationsTable", () => {
     ));
     expect(screen.getByRole("columnheader", { name: /created by/i })).toBeInTheDocument();
   });
+
+  it("renders a 'System' column header in the loaded state", () => {
+    render(withRouter(
+      <ApplicationsTable
+        list={makeList({ items: [a1] })}
+        sortBy="createdAt"
+        sortOrder="desc"
+        onSortChange={noop}
+        teamNameById={emptyTeamMap}
+      />
+    ));
+    expect(screen.getByRole("columnheader", { name: /^system$/i })).toBeInTheDocument();
+  });
+
+  it("renders a 'System' column header in the loading state, and the skeleton cell count equals the header count", () => {
+    render(withRouter(
+      <ApplicationsTable
+        list={makeList({ isLoading: true, items: [] })}
+        sortBy="createdAt"
+        sortOrder="desc"
+        onSortChange={noop}
+        teamNameById={emptyTeamMap}
+      />
+    ));
+    const headers = screen.getAllByRole("columnheader");
+    expect(screen.getByRole("columnheader", { name: /^system$/i })).toBeInTheDocument();
+    const [firstSkeletonRow] = screen.getAllByTestId("row-skeleton");
+    expect(firstSkeletonRow).toBeDefined();
+    const cellsInRow = firstSkeletonRow!.querySelectorAll('[role="gridcell"], [role="rowheader"]');
+    expect(cellsInRow.length).toBe(headers.length);
+  });
+
+  it("renders the System link when systemId/systemDisplayName are present", () => {
+    const withSystem: ApplicationRow = {
+      ...a1,
+      systemId: "00000000-0000-0000-0000-0000000000cc",
+      systemDisplayName: "Payments Platform",
+    };
+    render(withRouter(
+      <ApplicationsTable
+        list={makeList({ items: [withSystem] })}
+        sortBy="createdAt"
+        sortOrder="desc"
+        onSortChange={noop}
+        teamNameById={emptyTeamMap}
+      />
+    ));
+    const link = screen.getByRole("link", { name: "Payments Platform" });
+    expect(link).toHaveAttribute("href", "/catalog/systems/00000000-0000-0000-0000-0000000000cc");
+  });
+
+  it("renders '—' when the row has no System assigned", () => {
+    render(withRouter(
+      <ApplicationsTable
+        list={makeList({ items: [a1] })}
+        sortBy="createdAt"
+        sortOrder="desc"
+        onSortChange={noop}
+        teamNameById={emptyTeamMap}
+      />
+    ));
+    expect(screen.getByText("—")).toBeInTheDocument();
+  });
 });
