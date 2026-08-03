@@ -25,6 +25,10 @@ vi.mock("@/features/catalog/api/services", () => ({
 const useTeamsListMock = vi.fn();
 vi.mock("@/features/teams/api/teams", () => ({ useTeamsList: () => useTeamsListMock() }));
 
+// Mock useSystemsList — the System filter's facet source (A2), same shape as useTeamsList.
+const useSystemsListMock = vi.fn();
+vi.mock("@/features/catalog/api/systems", () => ({ useSystemsList: () => useSystemsListMock() }));
+
 import { ServicesListPage } from "../ServicesListPage";
 import { KartovaPermissions } from "@/shared/auth/permissions";
 
@@ -55,6 +59,7 @@ describe("ServicesListPage", () => {
     vi.clearAllMocks();
     useServicesListMock.mockReturnValue(stubList());
     useTeamsListMock.mockReturnValue(stubList());
+    useSystemsListMock.mockReturnValue(stubList());
   });
 
   it("renders the Services heading", () => {
@@ -126,6 +131,7 @@ describe("ServicesListPage — team + health multi-select threading", () => {
     vi.clearAllMocks();
     useServicesListMock.mockReturnValue(stubList());
     useTeamsListMock.mockReturnValue(oneTeam());
+    useSystemsListMock.mockReturnValue(stubList());
     setPerms(Object.values(KartovaPermissions));
   });
 

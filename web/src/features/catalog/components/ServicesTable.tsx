@@ -3,6 +3,7 @@ import { Table } from "@/components/application/table/table";
 import { Card, CardContent } from "@/components/base/card/card";
 import { SortableHead, TablePager, TableSkeleton, fromSort, toSort } from "@/components/application/data-table/data-table";
 import { HealthBadge } from "./HealthBadge";
+import { SystemCell } from "./SystemCell";
 import { CreatedByLink } from "@/features/users/components/CreatedByLink";
 import type { CursorListResult, SortDirection } from "@/lib/list/types";
 import type { ServiceResponse } from "@/features/catalog/api/services";
@@ -26,11 +27,12 @@ export function ServicesTable({ list, sortBy, sortOrder, onSortChange, teamNameB
           <Table.Head id="displayName" isRowHeader>Name</Table.Head>
           <Table.Head id="health">Health</Table.Head>
           <Table.Head id="team">Team</Table.Head>
+          <Table.Head id="system">System</Table.Head>
           <Table.Head id="createdBy">Created by</Table.Head>
           <Table.Head id="endpoints">Endpoints</Table.Head>
           <Table.Head id="createdAt">Created</Table.Head>
         </Table.Header>
-        <TableSkeleton rows={5} cells={6} />
+        <TableSkeleton rows={5} cells={7} />
       </Table>
     );
   }
@@ -62,6 +64,7 @@ export function ServicesTable({ list, sortBy, sortOrder, onSortChange, teamNameB
           <SortableHead id="displayName" isRowHeader>Name</SortableHead>
           <Table.Head id="health">Health</Table.Head>
           <Table.Head id="team">Team</Table.Head>
+          <Table.Head id="system">System</Table.Head>
           <Table.Head id="createdBy">Created by</Table.Head>
           <Table.Head id="endpoints">Endpoints</Table.Head>
           <SortableHead id="createdAt">Created</SortableHead>
@@ -81,6 +84,9 @@ export function ServicesTable({ list, sortBy, sortOrder, onSortChange, teamNameB
                 <Link to={`/teams/${svc.teamId}`} className="text-primary hover:underline">
                   {teamNameById.get(svc.teamId) ?? "Unknown team"}
                 </Link>
+              </Table.Cell>
+              <Table.Cell className="text-sm">
+                <SystemCell systemId={svc.systemId} systemDisplayName={svc.systemDisplayName} />
               </Table.Cell>
               <Table.Cell className="text-sm">
                 <CreatedByLink user={svc.createdBy} />

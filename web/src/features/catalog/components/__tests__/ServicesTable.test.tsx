@@ -70,4 +70,35 @@ describe("ServicesTable", () => {
     await userEvent.click(screen.getByRole("columnheader", { name: /name/i }));
     expect(onSortChange).toHaveBeenCalled();
   });
+
+  it("renders a 'System' column header in the loaded state", () => {
+    render(withRouter(<ServicesTable list={makeList({ items: [s1] })} sortBy="displayName" sortOrder="desc" onSortChange={noop} teamNameById={teamNames} />));
+    expect(screen.getByRole("columnheader", { name: /^system$/i })).toBeInTheDocument();
+  });
+
+  it("renders a 'System' column header in the loading state, and the skeleton cell count equals the header count", () => {
+    render(withRouter(<ServicesTable list={makeList({ isLoading: true })} sortBy="displayName" sortOrder="desc" onSortChange={noop} teamNameById={teamNames} />));
+    const headers = screen.getAllByRole("columnheader");
+    expect(screen.getByRole("columnheader", { name: /^system$/i })).toBeInTheDocument();
+    const [firstSkeletonRow] = screen.getAllByTestId("row-skeleton");
+    expect(firstSkeletonRow).toBeDefined();
+    const cellsInRow = firstSkeletonRow!.querySelectorAll('[role="gridcell"], [role="rowheader"]');
+    expect(cellsInRow.length).toBe(headers.length);
+  });
+
+  it("renders the System link when systemId/systemDisplayName are present", () => {
+    const withSystem: ServiceResponse = {
+      ...s1,
+      systemId: "00000000-0000-0000-0000-0000000000cc",
+      systemDisplayName: "Payments Platform",
+    };
+    render(withRouter(<ServicesTable list={makeList({ items: [withSystem] })} sortBy="displayName" sortOrder="desc" onSortChange={noop} teamNameById={teamNames} />));
+    const link = screen.getByRole("link", { name: "Payments Platform" });
+    expect(link).toHaveAttribute("href", "/catalog/systems/00000000-0000-0000-0000-0000000000cc");
+  });
+
+  it("renders '—' when the row has no System assigned", () => {
+    render(withRouter(<ServicesTable list={makeList({ items: [s1] })} sortBy="displayName" sortOrder="desc" onSortChange={noop} teamNameById={teamNames} />));
+    expect(screen.getByText("—")).toBeInTheDocument();
+  });
 });
