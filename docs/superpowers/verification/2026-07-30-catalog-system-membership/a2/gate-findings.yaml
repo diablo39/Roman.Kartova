@@ -12,44 +12,164 @@
 
 slice:  2026-07-30-catalog-system-membership/a2
 branch: feat/catalog-system-list-surface-a2
-head:   <short-sha>
+head:   1abb9603
 
-# One entry per issue a gate raised.
-#
-# gate     — the dod.md row this finding came from (slug, not number):
-#              build              (1  Build, TreatWarningsAsErrors)
-#              reviews            (2  per-task subagent reviews)
-#              suite              (3  full test suite incl. real-seam)
-#              container          (4  container build / images CI)
-#              simplify           (5  /simplify)
-#              requesting-review  (6  requesting-code-review)
-#              review-pr          (7  review-pr)
-#              deep-review        (8  deep-review)
-#              manual             (9  visual / API verification, ADR-0084)
-#              terminal-reverify  (terminal re-verify: build + suite)
-#              ci-mirror          (10 CI green on PR / pre-push mirror, ci-local.sh)
-# severity — blocking | should-fix | nit
-# verdict  — real     : a genuine issue that warranted a change
-#            delusion : a false positive the gate raised that was not a real issue
-# title    — one-line description of the finding
-# note     — optional: resolution (fix sha), or why it was a delusion
-findings: []
+# NOTE ON SCOPE: this slice also ran a pre-implementation "wave review" of the PLAN
+# (9 agents, two waves) before gate 0. Those are NOT DoD-gate findings and live in the
+# plan's own wave-1/wave-2 triage records, with per-agent cost telemetry in
+# docs/superpowers/templates/plan-wave-review.md section 6. Summary: wave 1 raised 6
+# blocking -> 3 upheld, 2 downgraded, 1 upheld at lower severity; wave 2 raised 5
+# blocking, all real, one of which was a defect wave 1 itself introduced.
 
-# Example entries (delete when filling in real data):
-#
-# findings:
-#   - gate: deep-review
-#     severity: blocking
-#     verdict: real
-#     title: "RLS filter missing on graph traversal query"
-#     note: "fixed in 0a1b2c3"
-#   - gate: review-pr
-#     severity: should-fix
-#     verdict: delusion
-#     title: "claimed N+1 in display-name lookup"
-#     note: "already batched over distinct refs; reviewer misread"
-#   - gate: simplify
-#     severity: nit
-#     verdict: real
-#     title: "extract duplicated dagre layout options"
-#     note: "applied"
+findings:
+  - gate: reviews
+    severity: blocking
+    verdict: real
+    title: "Vacuous-pass risk: forged-cursor replay test asserted per-item inside a foreach with no row-count assertion"
+    note: "A zero-row regression would have passed silently. Fixed in 7dd98119 with a deterministic Items.Count assertion."
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "Wave-1's own prescribed unit-test fix (Limit 1 + IsNotNull guard) made the test permanently red"
+    note: "BuildDbWithBothLifecyclesAsync seeds 1 Active + 1 Decommissioned; the ADR-0073 default view hides one, so no cursor is emitted. Swapped to BuildDbWithTwoTeamsAsync. Caught by three wave-2 agents independently."
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "IdOf() helper method would not translate - EF Core does not inline user-defined static methods into an expression tree"
+    note: "Replaced with an IdFieldName property re-exporting the shadow-key name, keeping EF.Property inline. Would have thrown at query-compile time on every ?systemId= request."
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "Task 2b could not compile: CurrentMembershipQueries is internal and InternalsVisibleTo named only Kartova.Catalog.Tests"
+    note: "Added the IntegrationTests grant plus the missing CatalogDb() fixture helper."
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "ProducesProblem(400) missing on both list endpoints while the delegates have two 400 paths each"
+    note: "Fixed in 932ace02 before Task 6 regenerated the OpenAPI client, which would otherwise have shipped blind to the cap's 400."
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "Malformed XML doc on ISystemMembershipEnricher (two closing summary tags)"
+    note: "CS1570 never fires because no project sets GenerateDocumentationFile, so a clean build was not evidence. Fixed in 932ace02."
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "Filter-value cap ran after the createdByUserId IUserDirectory DB round trip"
+    note: "Cheap checks now precede the resource gate. Fixed in 932ace02."
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "Filter-value cap block duplicated verbatim across both list delegates"
+    note: "Three of four cleanup agents converged on this. Extracted TryDedupAndCap in 56996e52."
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "f-map canonicalization hand-written at six sites, with a comment warning readers away from the adjacent culture-sensitive .Order()"
+    note: "A comment defending against a bug three lines away is a naming signal. Extracted CursorFilterValues.Join with StringComparer.Ordinal baked in; all six sites routed through it and the warning deleted. 56996e52."
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "New EXISTS predicate hand-written in both handlers, bypassing CurrentMembershipQueries - the class whose stated purpose is centralizing that predicate"
+    note: "Routed through a new IsMemberOfAnySystem overload, keeping the Target.Kind clause. 56996e52."
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "Query-record doc claimed the handler normalizes null-vs-empty in one place when the pattern-match is repeated at every read site"
+    note: "Comment corrected to describe actual behaviour rather than restructuring the record (out of scope). 56996e52."
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "New fixture helpers hand-rolled the DbContextOptionsBuilder that the same slice's CatalogDb() helper exists to remove"
+    note: "Self-contradiction inside one diff. Routed through the helper. 56996e52."
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "Plan-task labels baked into shipped comments while docs/superpowers/plans/ is gitignored"
+    note: "Dead pointers for any future reader. Rationale prose kept, labels dropped in production code. Test-file section banners left - deferred."
+  - gate: simplify
+    severity: nit
+    verdict: delusion
+    title: "Frontend facet fetches 200 Systems unconditionally on mount"
+    note: "Real cost, but it mirrors an accepted 15+-site useTeamsList precedent; fixing only the new occurrence would be inconsistent. Deferred by decision, not a defect in this diff."
+  - gate: requesting-review
+    severity: blocking
+    verdict: real
+    title: "A System assign/move/clear never invalidated the applications/services list caches - the new column showed stale data for up to 30s"
+    note: "invalidateAfterRelationshipChange invalidated only the relationships and catalog key families; neither list key family descends from those. Exactly the flow gate 9 drives. Fixed at the shared seam in 70f293f with a regression test that fails before and passes after."
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "Detail-read enrichment has no frontend consumer and adds two round trips per detail GET"
+    note: "Deferred: the fix is a scope decision (wire useComponentSystem to the detail query, or revert). Recorded in the PR description; spec section 4 did not ask for it."
+  - gate: review-pr
+    severity: blocking
+    verdict: real
+    title: "Cap 400 rendered a generic error card whose Reset button could not clear the offending filter - an infinite retry loop"
+    note: "reset() clears only the cursor stack, leaving systemId in the URL, so every click replays the identical 400. The server's ProblemDetails detail is now surfaced with a working clear action. Fixed in 1abb9603."
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "Services-side cap, dedup, at-cap replay and multi-value union had no test at any tier"
+    note: "The cap helper is shared but invoked from two call sites; a wiring slip on the Services side would ship an uncapped filter with nothing red. Four tests added in 8ff25e58. No production defect was present."
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "services.ts systemId query spread executed by no test - the page test mocks the hook itself"
+    note: "A dropped spread would ship an unfiltered Services list. Wire-level test added in 8ff25e58."
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "Four inaccurate code comments: stale call-site enumeration, a wrong useTeamsList call-site count, two stale file:line citations"
+    note: "Comment-analyzer lens. Partially addressed in 56996e52; residual line-number citations deferred as nits."
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "Facet fetch failure logs to console only - an empty dropdown is indistinguishable from no Systems existing"
+    note: "Pre-existing pattern shared with the team facet; deferred rather than fixed in one place only."
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "Dangling-target and duplicate-edge drops in the enrichment are silent"
+    note: "Lens confirmed both correct: DistinctBy prevents a duplicate key from 500-ing an entire list page, and the write path validates the target System under RLS so neither state is reachable today. A tripwire log was suggested, not required."
+  - gate: deep-review
+    severity: blocking
+    verdict: real
+    title: "This ledger and gate-findings.yaml were unfilled templates while six gates had already run"
+    note: "The only surviving record was the gitignored .superpowers/sdd ledger, so the slice's gate telemetry would have vanished at merge and no completion claim would have been citable. This file is that fix."
+  - gate: deep-review
+    severity: blocking
+    verdict: real
+    title: "Plan case 15's run-it-on-both-lists acceptance criterion was unmet"
+    note: "Same finding as the review-pr Services-cap entry, reached independently by a different lens. Closed by 8ff25e58."
+  - gate: deep-review
+    severity: blocking
+    verdict: real
+    title: "Plan's Impact Analysis section was self-declared grep-only and never re-grounded"
+    note: "roslyn-codelens returned empty reference sets for every symbol; the built-in LSP tool answered correctly once the character offset landed inside the symbol name. Grounding backfilled into the plan; CLAUDE.md switched to LSP in 3349d965."
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "Filter and column can disagree for a PartOf edge whose target System row is absent"
+    note: "Filter checks only the edge; enrichment drops an unresolvable target. Not reachable through the product (no DELETE /systems endpoint), but the PurgePartOfRelationships migration exists because stranded edges have occurred. Deferred with the decision recorded."
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "New integration tests leak Systems, teams and PartOf edges into the assembly-shared OrgA tenant"
+    note: "Components are cleaned up but their edges and systems are not, manufacturing dangling rows inside the shared fixture. Deferred; no current assertion depends on an unfiltered Systems count."
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "Doc comments name catalog_relationships; the table is mapped as relationships"
+    note: "Slipped through the gate-5 stale-comment pass. Deferred."
+  - gate: manual
+    severity: should-fix
+    verdict: real
+    title: "/catalog redirects to /catalog/applications and drops the query string, so a filter deep-link through the alias loses its filter"
+    note: "Found by driving gate 9. Pre-existing routing behaviour, not introduced by this slice; affects every list filter, not just systemId. Filed as an observation - a shared filter URL must use the canonical path."
+  - gate: manual
+    severity: nit
+    verdict: real
+    title: "The System multi-select popover does not dismiss on Escape and intercepts the following click"
+    note: "Cost four locator iterations before the gate-9 spec was switched to a deep link, which is the stronger assertion anyway (it exercises the useListUrlState READ path). The click path stays covered by the page-level vitest specs."
+
