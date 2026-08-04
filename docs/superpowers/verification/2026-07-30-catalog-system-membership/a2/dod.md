@@ -1,7 +1,7 @@
 # DoD Ledger — System list surface (E-03.F-03.S-01 sub-slice A2)
 
 **Slice:** `2026-07-30-catalog-system-membership/a2` · **Branch:** `feat/catalog-system-list-surface-a2` · **HEAD:** `1abb9603`
-**PR:** <#NN> · **Last updated:** 2026-08-02
+**PR:** [#83](https://github.com/diablo39/Roman.Kartova/pull/83) · **Last updated:** 2026-08-02
 **Spec:** `docs/superpowers/specs/2026-07-30-catalog-system-membership-assignment-design.md` (§4 = A2)
 **Plan:** `docs/superpowers/plans/2026-08-02-catalog-system-list-surface-a2.md` (gitignored scratch)
 **Plan review:** two agent waves, 9 agents — see `docs/superpowers/templates/plan-wave-review.md` §6 and the plan's own wave-1/wave-2 triage records
@@ -25,7 +25,7 @@
 | 8 `deep-review` | ✅ PASS | 2026-08-02 |
 | Terminal re-verify (build + suite) | ✅ PASS | 2026-08-02 |
 | 9 Visual / API verification (ADR-0084) | ✅ PASS | 2026-08-02 |
-| 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING | — |
+| 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ✅ PASS | 2026-08-02 |
 
 ## Gate detail
 
@@ -86,6 +86,8 @@
 **At:** `1abb9603` (+ the spec commit) / 2026-08-02
 
 ### 10 — CI green on the PR (terminal; `scripts/ci-local.sh` = required pre-push mirror)
-**Status:** ⏳ PENDING
-**Evidence:** <PR CI run URL (all jobs green — the runner is the source of truth) + pre-push `ci-local.sh` result. A CI-only failure → fix determinism, don't re-push blindly.>
-**At:** <commit / date>
+**Status:** ✅ PASS
+**Evidence:** PR [#83](https://github.com/diablo39/Roman.Kartova/pull/83), run 30936287860 - **all five jobs green**: Backend (arch + unit + integration) 3m44s, Container images 2m4s, Frontend (test + typecheck + build) 3m26s, Helm 6s, Stryker config drift 5s. The runner is the source of truth.
+
+**Pre-push mirror:** `scripts/ci-local.sh` (Release). First aggregate run reported backend FAIL; re-ran `scripts/ci-local.sh backend` standalone -> PASS, and CI then passed backend on the runner. Cause is consistent with the known local Docker-saturation flake (the aggregate run builds images and runs Testcontainers concurrently on one host); it did not reproduce in isolation and did not reproduce on CI. Recorded rather than re-pushed blindly, per the gate-10 rule.
+**At:** `1abb9603`+ / 2026-08-02
