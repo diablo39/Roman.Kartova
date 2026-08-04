@@ -4,6 +4,8 @@ import { useCursorList } from "@/lib/list/useCursorList";
 import { unwrapData } from "@/shared/api/openapi-fetch-helpers";
 import type { components, operations } from "@/generated/openapi";
 import type { EntityKind } from "@/features/catalog/relationships/relationshipTypeRules";
+import { applicationKeys } from "./applications";
+import { serviceKeys } from "./services";
 
 export type RelationshipResponse = components["schemas"]["RelationshipResponse"];
 export type CreateRelationshipPayload = components["schemas"]["CreateRelationshipRequest"];
@@ -59,9 +61,19 @@ export function useRelationshipsList(
 // ["catalog", ...] — the API surface (provides/consumes), the dependency graph,
 // derived dependencies, and impact analysis. Invalidate both families so those
 // sections refresh without a manual page reload.
+//
+// Also invalidate applicationKeys.all / serviceKeys.all: the Applications and
+// Services list rows carry a System projection derived from the component's
+// outgoing `partOf` edge (ADR-0111 amended). A relationship write — the
+// PUT /system setter, or a POST/DELETE /relationships with type=partOf — changes
+// that projection even though no application/service row was itself written, so
+// those two list caches must be invalidated here too, or the System column shows
+// stale data for up to the global staleTime.
 export function invalidateAfterRelationshipChange(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: relationshipKeys.all });
   qc.invalidateQueries({ queryKey: ["catalog"] });
+  qc.invalidateQueries({ queryKey: applicationKeys.all });
+  qc.invalidateQueries({ queryKey: serviceKeys.all });
 }
 
 export function useCreateRelationship() {
