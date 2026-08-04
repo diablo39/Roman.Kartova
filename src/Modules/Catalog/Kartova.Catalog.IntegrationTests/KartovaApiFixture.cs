@@ -79,8 +79,8 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     /// <summary>
     /// Opens a bypass-RLS <see cref="CatalogDbContext"/> for tests that call internal
     /// query helpers (e.g. <c>CurrentMembershipQueries</c>) directly rather than through
-    /// HTTP. Every existing caller hand-rolled this options builder inline; A2 task 2b
-    /// centralizes it since it now has more than one caller.
+    /// HTTP, or that seed/mutate Catalog rows outside RLS. Centralizes the options-builder
+    /// boilerplate every caller below used to hand-roll inline.
     /// </summary>
     public CatalogDbContext CatalogDb() =>
         new(new DbContextOptionsBuilder<CatalogDbContext>().UseNpgsql(BypassConnectionString).Options);
@@ -94,11 +94,7 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     /// </summary>
     public async Task SeedApplicationsAsync(TenantId tenantId, int count, string namePrefix)
     {
-        var opts = new DbContextOptionsBuilder<CatalogDbContext>()
-            .UseNpgsql(BypassConnectionString)
-            .Options;
-
-        await using var db = new CatalogDbContext(opts);
+        await using var db = CatalogDb();
         var origin = DateTimeOffset.UtcNow.AddMinutes(-count);
         for (var i = 0; i < count; i++)
         {
@@ -121,11 +117,7 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     /// </summary>
     public async Task DeleteApplicationAsync(TenantId tenantId, Guid applicationId)
     {
-        var opts = new DbContextOptionsBuilder<CatalogDbContext>()
-            .UseNpgsql(BypassConnectionString)
-            .Options;
-
-        await using var db = new CatalogDbContext(opts);
+        await using var db = CatalogDb();
         await db.Database.ExecuteSqlRawAsync(
             "DELETE FROM catalog_applications WHERE id = {0} AND tenant_id = {1}",
             applicationId, tenantId.Value);
@@ -143,11 +135,7 @@ public class KartovaApiFixture : KartovaApiFixtureBase
         string namePrefix,
         Lifecycle lifecycle)
     {
-        var opts = new DbContextOptionsBuilder<CatalogDbContext>()
-            .UseNpgsql(BypassConnectionString)
-            .Options;
-
-        await using var db = new CatalogDbContext(opts);
+        await using var db = CatalogDb();
         var origin = DateTimeOffset.UtcNow.AddMinutes(-count);
         for (var i = 0; i < count; i++)
         {
@@ -198,11 +186,7 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     /// </summary>
     public async Task DeleteApplicationsByPrefixAsync(TenantId tenantId, string namePrefix)
     {
-        var opts = new DbContextOptionsBuilder<CatalogDbContext>()
-            .UseNpgsql(BypassConnectionString)
-            .Options;
-
-        await using var db = new CatalogDbContext(opts);
+        await using var db = CatalogDb();
         await db.Database.ExecuteSqlRawAsync(
             "DELETE FROM catalog_applications WHERE tenant_id = {0} AND display_name LIKE {1} || '%'",
             tenantId.Value, namePrefix);
@@ -219,10 +203,7 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     public async Task<Guid> SeedSingleApplicationAsync(
         TenantId tenantId, Guid createdByUserId, Guid? teamId, string? namePrefix = null)
     {
-        var opts = new DbContextOptionsBuilder<CatalogDbContext>()
-            .UseNpgsql(BypassConnectionString)
-            .Options;
-        await using var db = new CatalogDbContext(opts);
+        await using var db = CatalogDb();
 
         var name = (namePrefix ?? "assign-app") + "-" + Guid.NewGuid().ToString("N").Substring(0, 8);
         var app = DomainApplication.Create(
@@ -241,16 +222,12 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     /// <summary>
     /// Deletes service rows for a tenant whose <c>DisplayName</c> starts with
     /// <paramref name="namePrefix"/>. Mirrors <see cref="DeleteApplicationsByPrefixAsync"/> —
-    /// added for A2 task 5b, whose Services-side cases (unlike the pre-existing
-    /// <c>ListServicesPaginationTests</c>) scope themselves by a unique prefix and clean up.
+    /// the Services-side cases (unlike the pre-existing <c>ListServicesPaginationTests</c>)
+    /// scope themselves by a unique prefix and clean up.
     /// </summary>
     public async Task DeleteServicesByPrefixAsync(TenantId tenantId, string namePrefix)
     {
-        var opts = new DbContextOptionsBuilder<CatalogDbContext>()
-            .UseNpgsql(BypassConnectionString)
-            .Options;
-
-        await using var db = new CatalogDbContext(opts);
+        await using var db = CatalogDb();
         await db.Database.ExecuteSqlRawAsync(
             "DELETE FROM catalog_services WHERE tenant_id = {0} AND display_name LIKE {1} || '%'",
             tenantId.Value, namePrefix);
@@ -258,16 +235,13 @@ public class KartovaApiFixture : KartovaApiFixtureBase
 
     /// <summary>
     /// Seeds a single Catalog service for a tenant and returns its id. Mirrors
-    /// <see cref="SeedSingleApplicationAsync"/> for A2 task 5b's Services-side cases —
+    /// <see cref="SeedSingleApplicationAsync"/> for the Services-side cases —
     /// bypass-RLS so RLS does not block the insert.
     /// </summary>
     public async Task<Guid> SeedSingleServiceAsync(
         TenantId tenantId, Guid createdByUserId, Guid? teamId, string? namePrefix = null)
     {
-        var opts = new DbContextOptionsBuilder<CatalogDbContext>()
-            .UseNpgsql(BypassConnectionString)
-            .Options;
-        await using var db = new CatalogDbContext(opts);
+        await using var db = CatalogDb();
 
         var name = (namePrefix ?? "assign-svc") + "-" + Guid.NewGuid().ToString("N").Substring(0, 8);
         var svc = DomainService.Create(
@@ -289,8 +263,8 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     /// <see cref="EntityKind.Service"/>) row with a caller-specified id, via raw SQL over the
     /// BYPASSRLS connection. <c>Application.Create</c>/<c>Service.Create</c> always generate
     /// their own id and their id-taking constructors are private, so this is the only way to
-    /// reproduce a same-Guid collision across the two component tables — A2 task 5b case 11
-    /// (<c>An_application_and_a_service_with_the_same_id_do_not_cross_contaminate</c>). Optional
+    /// reproduce a same-Guid collision across the two component tables — used by
+    /// <c>An_application_and_a_service_with_the_same_id_do_not_cross_contaminate</c>. Optional
     /// columns (lifecycle/sunset_date/successor for Applications; health/endpoints for Services)
     /// are left at their DB defaults/NULL — irrelevant to the cross-kind isolation under test.
     /// Mirrors <see cref="InsertRawRelationshipAsync"/>'s raw-SQL idiom; the table name is chosen
@@ -422,10 +396,7 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     /// </summary>
     public async Task SetApplicationLifecycleAsync(Guid applicationId, Lifecycle lifecycle)
     {
-        var opts = new DbContextOptionsBuilder<CatalogDbContext>()
-            .UseNpgsql(BypassConnectionString)
-            .Options;
-        await using var db = new CatalogDbContext(opts);
+        await using var db = CatalogDb();
         await db.Database.ExecuteSqlRawAsync(
             "UPDATE catalog_applications SET lifecycle = {0} WHERE id = {1}",
             (short)lifecycle, applicationId);
@@ -452,19 +423,16 @@ public class KartovaApiFixture : KartovaApiFixtureBase
 
     /// <summary>
     /// Seeds a single <c>CatalogSystem</c> grouping node directly via BYPASSRLS, bypassing
-    /// the HTTP register endpoint's team-existence + authorization checks. Task 12/13
-    /// (E-03.F-03.S-01) — used by Get/List/PartOf integration tests that need a System row
-    /// without a full register round-trip each time. <paramref name="createdAt"/> defaults
-    /// to now; pass an explicit spread-apart value for createdAt-sort pagination tests
-    /// (mirrors <see cref="SeedApplicationsAsync"/>).
+    /// the HTTP register endpoint's team-existence + authorization checks (E-03.F-03.S-01) —
+    /// used by Get/List/PartOf integration tests that need a System row without a full
+    /// register round-trip each time. <paramref name="createdAt"/> defaults to now; pass an
+    /// explicit spread-apart value for createdAt-sort pagination tests (mirrors
+    /// <see cref="SeedApplicationsAsync"/>).
     /// </summary>
     public async Task<Guid> SeedSystemAsync(
         TenantId tenantId, Guid teamId, string displayName, Guid? createdByUserId = null, DateTimeOffset? createdAt = null)
     {
-        var opts = new DbContextOptionsBuilder<CatalogDbContext>()
-            .UseNpgsql(BypassConnectionString)
-            .Options;
-        await using var db = new CatalogDbContext(opts);
+        await using var db = CatalogDb();
 
         var system = DomainSystem.Create(
             displayName: displayName,
@@ -483,8 +451,7 @@ public class KartovaApiFixture : KartovaApiFixtureBase
     /// used to reproduce the pre-existing multi-membership state S-01 allowed.</summary>
     public async Task InsertPartOfEdgeAsync(TenantId tenantId, EntityKind sourceKind, Guid sourceId, Guid systemId)
     {
-        var options = new DbContextOptionsBuilder<CatalogDbContext>().UseNpgsql(BypassConnectionString).Options;
-        await using var db = new CatalogDbContext(options);
+        await using var db = CatalogDb();
         db.Relationships.Add(Relationship.CreateManual(
             new EntityRef(sourceKind, sourceId), new EntityRef(EntityKind.System, systemId),
             RelationshipType.PartOf, Guid.NewGuid(), tenantId, TimeProvider.System));

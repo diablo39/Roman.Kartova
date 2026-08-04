@@ -48,16 +48,13 @@ public sealed class ListServicesHandler(IUserDirectory directory, ISystemMembers
             source = source.Where(s => EF.Functions.ILike(s.DisplayName, pattern, "\\"));
         }
 
-        // System filter (A2) — EXISTS over the PartOf edge; see ListApplicationsHandler for the
-        // full rationale on Target.Kind and Source.Kind. EntityKind.Service here, not Application.
+        // System filter (A2) — EXISTS over the PartOf edge, built by
+        // CurrentMembershipQueries.IsMemberOfAnySystem; see that method's doc for the full
+        // rationale on Target.Kind and Source.Kind. EntityKind.Service here, not Application.
         if (q.SystemId is { Length: > 0 } systemIds)
         {
-            source = source.Where(s => db.Relationships.Any(r =>
-                r.Type == RelationshipType.PartOf
-                && r.Source.Kind == EntityKind.Service
-                && r.Target.Kind == EntityKind.System
-                && r.Source.Id == EF.Property<Guid>(s, ServiceSortSpecs.IdFieldName)
-                && systemIds.Contains(r.Target.Id)));
+            source = source.Where(CurrentMembershipQueries.IsMemberOfAnySystem<DomainService>(
+                db, EntityKind.Service, ServiceSortSpecs.IdFieldName, systemIds));
         }
 
         // Build the f-map dict. Only non-empty filter dimensions are encoded so
@@ -70,22 +67,13 @@ public sealed class ListServicesHandler(IUserDirectory directory, ISystemMembers
         {
             filters = new Dictionary<string, string>(StringComparer.Ordinal);
             if (q.TeamId.Length > 0)
-                // Sorted so the f-map value is canonical regardless of input order.
-                filters["teamId"] = string.Join(",", q.TeamId.Select(g => g.ToString("D")).Order());
+                filters["teamId"] = CursorFilterValues.Join(q.TeamId);
             if (q.Health.Length > 0)
-                // Sorted enum names (same pattern as lifecycle in ListApplicationsHandler).
-                filters["health"] = string.Join(",", q.Health.Select(h => h.ToString()).Order());
+                filters["health"] = CursorFilterValues.Join(q.Health.Select(h => h.ToString()));
             if (q.DisplayNameContains is { } dn)
                 filters["displayNameContains"] = dn;
-            // StringComparer.Ordinal, NOT the neighbouring `.Order()` above. `.Order()` resolves
-            // to Comparer<string>.Default, which is culture-sensitive, while the decode-side
-            // comparison (CursorFilterComparer) is strictly ordinal. Two API replicas under
-            // different cultures would canonicalize the same filter set differently and emit
-            // spurious cursor-filter-mismatch 400s. Benign for Guid "D" strings (ASCII) — but do
-            // not copy `.Order()` forward for new keys.
             if (q.SystemId is { Length: > 0 } systemFilter)
-                filters["systemId"] = string.Join(",",
-                    systemFilter.Select(g => g.ToString("D")).OrderBy(s => s, StringComparer.Ordinal));
+                filters["systemId"] = CursorFilterValues.Join(systemFilter);
         }
 
         var page = await source

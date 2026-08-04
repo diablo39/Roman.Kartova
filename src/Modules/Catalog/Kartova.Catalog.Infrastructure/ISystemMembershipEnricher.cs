@@ -4,8 +4,9 @@ namespace Kartova.Catalog.Infrastructure;
 
 /// <summary>
 /// Port over <see cref="CurrentMembershipQueries.SystemsForComponentsAsync"/> — the page-batched
-/// System-column lookup shared by <see cref="ListApplicationsHandler"/> (and, from Task 4,
-/// <c>ListServicesHandler</c>). Exists purely for testability, not layering: the EF Core InMemory
+/// System-column lookup shared by <see cref="ListApplicationsHandler"/>, <c>ListServicesHandler</c>,
+/// <c>GetApplicationByIdHandler</c>, and <c>GetServiceByIdHandler</c>. Exists purely for
+/// testability, not layering: the EF Core InMemory
 /// provider (used throughout this module's handler unit tests) cannot translate a query that
 /// materializes <see cref="Kartova.Catalog.Domain.Relationship"/> — its <c>Source</c>/<c>Target</c>
 /// members are <c>ComplexProperty</c>-mapped with a <c>HasConversion&lt;string&gt;()</c> on

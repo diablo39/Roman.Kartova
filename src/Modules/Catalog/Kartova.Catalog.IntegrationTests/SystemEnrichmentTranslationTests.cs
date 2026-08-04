@@ -4,17 +4,17 @@ using Kartova.Catalog.Infrastructure;
 namespace Kartova.Catalog.IntegrationTests;
 
 /// <summary>
-/// Task 2b (A2) — fail-fast checkpoint proving <see cref="CurrentMembershipQueries.SystemsForComponentsAsync"/>
-/// actually translates and executes against real Postgres, BEFORE Tasks 3/4/5 build the correlated
-/// <c>?systemId=</c> filter and the frontend list-column enrichment on top of it. Every query in
+/// Fail-fast checkpoint proving <see cref="CurrentMembershipQueries.SystemsForComponentsAsync"/>
+/// actually translates and executes against real Postgres. Every query in
 /// <c>CurrentMembershipQueries</c> reads <c>Relationship.Source</c>/<c>.Target</c>, which are EF
 /// ComplexProperties — a translation failure there is unconditional on data (throws
 /// <see cref="InvalidOperationException"/> at query-compile time regardless of what's seeded), so
-/// discovering it here costs one seeded row instead of reopening three downstream tasks.
+/// discovering it here costs one seeded row instead of surfacing as a 500 further downstream.
 /// <para>
-/// Endpoint-level <c>?systemId=</c> smoke tests (the correlated <c>EXISTS</c> shape) are deliberately
-/// NOT here — that query parameter doesn't exist until Tasks 3/4 add it. This class covers only the
-/// direct <see cref="CurrentMembershipQueries.SystemsForComponentsAsync"/> call already merged in Task 2.
+/// Endpoint-level <c>?systemId=</c> smoke tests (the correlated <c>EXISTS</c> shape built on
+/// <see cref="CurrentMembershipQueries.IsMemberOfAnySystem{TComponent}"/>) live elsewhere
+/// (<c>ListBySystemFilterTests</c>); this class covers only the direct
+/// <see cref="CurrentMembershipQueries.SystemsForComponentsAsync"/> call.
 /// </para>
 /// </summary>
 [TestClass]

@@ -91,26 +91,15 @@ public sealed class ListApplicationsHandler(IUserDirectory directory, ISystemMem
         }
 
         // System filter (ADR-0107, A2). System membership is a PartOf EDGE, not a column, so
-        // this is an EXISTS sub-query rather than a Contains over a property. Applied before
-        // paging so a hidden row never becomes a cursor boundary. `null` and empty both mean
-        // "absent" — normalized here once (see the query record's doc for why the parameter is
-        // nullable).
-        //
-        // Target.Kind IS asserted, matching spec §4 verbatim. RelationshipTypeRules already
-        // constrains PartOf targets to System at write time, but relationships.target_id is a
-        // POLYMORPHIC column with no FK — the PurgePartOfRelationships migration exists because
-        // stranded PartOf rows have really occurred. Without this clause a caller-supplied GUID
-        // that happens to match a non-System target makes the row filterable while the column
-        // (which joins catalog_systems) renders "—": filter and column would disagree.
-        // Source.Kind is asserted because Application and Service ids share one Guid space.
+        // this is an EXISTS sub-query rather than a Contains over a property, built by
+        // CurrentMembershipQueries.IsMemberOfAnySystem — see that method's doc for why
+        // Target.Kind and Source.Kind are both asserted. Applied before paging so a hidden row
+        // never becomes a cursor boundary. `null` and empty both mean "absent" (checked at each
+        // read site — see the query record's doc).
         if (q.SystemId is { Length: > 0 } systemIds)
         {
-            source = source.Where(a => db.Relationships.Any(r =>
-                r.Type == RelationshipType.PartOf
-                && r.Source.Kind == EntityKind.Application
-                && r.Target.Kind == EntityKind.System
-                && r.Source.Id == EF.Property<Guid>(a, ApplicationSortSpecs.IdFieldName)
-                && systemIds.Contains(r.Target.Id)));
+            source = source.Where(CurrentMembershipQueries.IsMemberOfAnySystem<DomainApplication>(
+                db, EntityKind.Application, ApplicationSortSpecs.IdFieldName, systemIds));
         }
 
         // Filter state the cursor is issued under (ADR-0095). Every applied filter is
@@ -121,13 +110,11 @@ public sealed class ListApplicationsHandler(IUserDirectory directory, ISystemMem
         var filters = new Dictionary<string, string>(StringComparer.Ordinal);
         if (q.Lifecycle.Length > 0)
         {
-            filters["lifecycle"] = string.Join(",",
-                q.Lifecycle.Select(l => l.ToString()).OrderBy(s => s, StringComparer.Ordinal));
+            filters["lifecycle"] = CursorFilterValues.Join(q.Lifecycle.Select(l => l.ToString()));
         }
         if (q.TeamId.Length > 0)
         {
-            filters["teamId"] = string.Join(",",
-                q.TeamId.Select(t => t.ToString("D")).OrderBy(s => s, StringComparer.Ordinal));
+            filters["teamId"] = CursorFilterValues.Join(q.TeamId);
         }
         if (q.CreatedByUserId is { } createdBy)
         {
@@ -139,8 +126,7 @@ public sealed class ListApplicationsHandler(IUserDirectory directory, ISystemMem
         }
         if (q.SystemId is { Length: > 0 } systemFilter)
         {
-            filters["systemId"] = string.Join(",",
-                systemFilter.Select(s => s.ToString("D")).OrderBy(s => s, StringComparer.Ordinal));
+            filters["systemId"] = CursorFilterValues.Join(systemFilter);
         }
 
         var page = await source

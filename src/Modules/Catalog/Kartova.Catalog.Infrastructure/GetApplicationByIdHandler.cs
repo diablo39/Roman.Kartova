@@ -18,7 +18,7 @@ namespace Kartova.Catalog.Infrastructure;
 /// <c>CreatedBy</c> is left null — the wire contract treats the field as optional.
 /// </para>
 /// <para>
-/// A2 (task 5c): also enriched with the current System membership, via the same
+/// Also enriched with the current System membership, via the same
 /// <see cref="ISystemMembershipEnricher"/> port the list handlers use — so this detail
 /// read agrees with the list row for the same component instead of always reporting
 /// <c>systemId: null</c>.

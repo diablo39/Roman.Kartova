@@ -41,6 +41,29 @@ internal static class CatalogEndpointDelegates
     private const int MaxFilterValues = 50;
 
     /// <summary>
+    /// Shared dedup-then-cap check for a multi-select Guid filter (ADR-0107). De-dups
+    /// <paramref name="raw"/> via <c>ToHashSet</c> before comparing against
+    /// <see cref="MaxFilterValues"/>, so the cap counts distinct values, not raw repeats.
+    /// <paramref name="distinct"/> is set to the de-duped array (or <see langword="null"/> when
+    /// <paramref name="raw"/> is null/empty) regardless of outcome. Returns <see langword="null"/>
+    /// on success; returns the 400 <see cref="ProblemTypes.TooManyFilterValues"/> problem,
+    /// naming <paramref name="filterName"/> in the detail, when the cap is exceeded.
+    /// </summary>
+    private static IResult? TryDedupAndCap(Guid[]? raw, string filterName, out Guid[]? distinct)
+    {
+        distinct = raw is { Length: > 0 } ? raw.ToHashSet().ToArray() : null;
+        if (distinct is { Length: > MaxFilterValues })
+        {
+            return Results.Problem(
+                type: ProblemTypes.TooManyFilterValues,
+                title: "Too many filter values",
+                detail: $"At most {MaxFilterValues} distinct {filterName} values may be supplied; got {distinct.Length}.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+        return null;
+    }
+
+    /// <summary>
     /// Synchronous in-process handler dispatch — invoked directly rather than
     /// via <c>IMessageBus.InvokeAsync</c>. Wolverine's bus opens its own DI
     /// scope which would not see the HTTP request's <c>ITenantScope</c> begun
@@ -188,18 +211,10 @@ internal static class CatalogEndpointDelegates
             lifecycles.Add(parsed);
         }
 
-        // De-dup first so the cap counts distinct values, not raw repeats. Checked before the
-        // createdByUserId resource gate below so a too-many-values 400 never pays for the
-        // IUserDirectory DB round trip.
-        var distinctSystemIds = systemId is { Length: > 0 } ? systemId.ToHashSet().ToArray() : null;
-        if (distinctSystemIds is { Length: > MaxFilterValues })
-        {
-            return Results.Problem(
-                type: ProblemTypes.TooManyFilterValues,
-                title: "Too many filter values",
-                detail: $"At most {MaxFilterValues} distinct systemId values may be supplied; got {distinctSystemIds.Length}.",
-                statusCode: StatusCodes.Status400BadRequest);
-        }
+        // Checked before the createdByUserId resource gate below so a too-many-values 400
+        // never pays for the IUserDirectory DB round trip.
+        if (TryDedupAndCap(systemId, "systemId", out var distinctSystemIds) is { } tooManySystemIds)
+            return tooManySystemIds;
 
         // Resource gate: when ?createdByUserId= is supplied, validate it resolves to a
         // user in the current tenant BEFORE invoking the handler. IUserDirectory is
@@ -571,16 +586,8 @@ internal static class CatalogEndpointDelegates
         // Blank/whitespace ⇒ no filter (filter-absent must equal today's unfiltered cursor).
         var name = string.IsNullOrWhiteSpace(displayNameContains) ? null : displayNameContains.Trim();
 
-        // De-dup first so the cap counts distinct values, not raw repeats.
-        var distinctSystemIds = systemId is { Length: > 0 } ? systemId.ToHashSet().ToArray() : null;
-        if (distinctSystemIds is { Length: > MaxFilterValues })
-        {
-            return Results.Problem(
-                type: ProblemTypes.TooManyFilterValues,
-                title: "Too many filter values",
-                detail: $"At most {MaxFilterValues} distinct systemId values may be supplied; got {distinctSystemIds.Length}.",
-                statusCode: StatusCodes.Status400BadRequest);
-        }
+        if (TryDedupAndCap(systemId, "systemId", out var distinctSystemIds) is { } tooManySystemIds)
+            return tooManySystemIds;
 
         var query = new ListServicesQuery(
             SortBy: parsedSortBy ?? ServiceSortField.DisplayName,   // default flips: was CreatedAt

@@ -9,7 +9,7 @@ namespace Kartova.Catalog.Infrastructure;
 /// <summary>Handler for <see cref="GetServiceByIdQuery"/>. Returns null when the row
 /// is invisible in the current tenant scope (RLS auto-filters). Enriches
 /// <c>CreatedBy</c> via <see cref="IUserDirectory"/> (mirrors GetApplicationByIdHandler).
-/// A2 (task 5c): also enriches the current System membership via
+/// Also enriches the current System membership via
 /// <see cref="ISystemMembershipEnricher"/>, so this detail read agrees with the list row.</summary>
 public sealed class GetServiceByIdHandler(IUserDirectory directory, ISystemMembershipEnricher systemMembership)
 {

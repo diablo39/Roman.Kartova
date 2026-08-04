@@ -41,8 +41,9 @@ namespace Kartova.Catalog.Application;
 /// empty ⇒ no predicate. Encoded into the cursor f-map (sorted comma-joined Guid "D"
 /// strings) only when non-empty. Declared as a trailing optional so the record's existing
 /// named-argument call sites keep compiling; a record cannot default an array to
-/// <c>Array.Empty&lt;Guid&gt;()</c>, so <c>null</c> and empty both mean "absent" and the
-/// handler normalizes them in one place.
+/// <c>Array.Empty&lt;Guid&gt;()</c>, so <c>null</c> and empty both mean "absent" — the
+/// handler checks <c>is { Length: &gt; 0 }</c> independently at each of its read sites
+/// rather than normalizing to a single canonical value up front.
 /// </para>
 /// </summary>
 public sealed record ListApplicationsQuery(

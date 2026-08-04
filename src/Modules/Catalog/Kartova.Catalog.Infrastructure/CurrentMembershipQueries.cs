@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Kartova.Catalog.Domain;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,8 +20,10 @@ public readonly record struct SystemRef(Guid Id, string DisplayName);
 /// 23505-conflict re-query, <see cref="SetComponentSystemHandler"/>'s tracked-entity fetch,
 /// <see cref="CatalogEndpointDelegates.SetComponentSystemAsync"/>'s per-edge authorization
 /// projection (ids only, via <c>.Select(r => r.Target.Id)</c> over <see cref="CurrentMembershipOf"/>),
-/// and <see cref="SystemsForComponentsAsync"/>'s page-batched list-column enrichment (set-valued
-/// source overload) cannot drift from one another.
+/// <see cref="SystemsForComponentsAsync"/>'s page-batched list-column enrichment (set-valued
+/// source overload), and <see cref="IsMemberOfAnySystem{TComponent}"/>'s <c>?systemId=</c>
+/// list-filter EXISTS predicate (used by the Applications/Services list handlers) cannot drift
+/// from one another.
 /// </summary>
 internal static class CurrentMembershipQueries
 {
@@ -50,6 +53,37 @@ internal static class CurrentMembershipQueries
         => CurrentMembershipOf(db, sourceKind, sourceId)
             .Select(r => (Guid?)r.Target.Id)
             .FirstOrDefaultAsync(ct);
+
+    /// <summary>
+    /// EF-translatable predicate: "the component has a <c>PartOf</c> edge to any of
+    /// <paramref name="systemIds"/>" — the <c>?systemId=</c> list-filter's correlated
+    /// <c>EXISTS</c> shape (ADR-0107, A2), shared by <c>ListApplicationsHandler</c> and
+    /// <c>ListServicesHandler</c> so it cannot drift between the two. Unlike
+    /// <see cref="CurrentMembershipOf(CatalogDbContext, EntityKind, Guid)"/> and its overloads,
+    /// this predicate ALSO asserts <c>r.Target.Kind == EntityKind.System</c> — a component-scoped
+    /// caller (e.g. the at-most-one-System write path) already knows every edge it reads is a
+    /// component→System edge by construction, but the list filter's target System id is
+    /// caller-supplied and <c>relationships.target_id</c> is a polymorphic column with no FK, so
+    /// a stray <c>PartOf</c> edge to a non-System target must not accidentally satisfy the filter.
+    /// This is therefore a third variant of the shared predicate, not a reuse of the overloads
+    /// above — do not drop the <c>Target.Kind</c> clause when refactoring further.
+    /// <para>
+    /// Returns an <see cref="Expression{TDelegate}"/>, not a <see langword="bool"/>: EF Core does
+    /// not translate a call to an arbitrary C# method inside a query lambda (see
+    /// <c>ServiceSortSpecs.IdFieldName</c>'s remarks for the same constraint), so this must build
+    /// and hand back the expression tree itself for the caller to pass directly to
+    /// <c>Queryable.Where</c>.
+    /// </para>
+    /// </summary>
+    public static Expression<Func<TComponent, bool>> IsMemberOfAnySystem<TComponent>(
+        CatalogDbContext db, EntityKind sourceKind, string idFieldName, IReadOnlyCollection<Guid> systemIds)
+        where TComponent : class
+        => component => db.Relationships.Any(r =>
+            r.Type == RelationshipType.PartOf
+            && r.Source.Kind == sourceKind
+            && r.Target.Kind == EntityKind.System
+            && r.Source.Id == EF.Property<Guid>(component, idFieldName)
+            && systemIds.Contains(r.Target.Id));
 
     /// <summary>Multi-component overload of <see cref="CurrentMembershipOf(CatalogDbContext, EntityKind, Guid)"/>
     /// for page-batched reads. Same predicate, set-valued source.</summary>
