@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 
 vi.mock("react-oidc-context", () => ({
   useAuth: () => ({
@@ -48,6 +48,20 @@ function setPerms(perms: string[]) {
 }
 function renderPage(initialPath = "/catalog/services") {
   return render(<MemoryRouter initialEntries={[initialPath]}><ServicesListPage /></MemoryRouter>);
+}
+
+function LocationProbe() {
+  const loc = useLocation();
+  return <div data-testid="probe">{loc.search}</div>;
+}
+
+function renderPageWithProbe(initialPath = "/catalog/services") {
+  return render(
+    <MemoryRouter initialEntries={[initialPath]}>
+      <ServicesListPage />
+      <LocationProbe />
+    </MemoryRouter>,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -191,5 +205,43 @@ describe("ServicesListPage — team + health multi-select threading", () => {
         expect.objectContaining({ health: ["healthy"] }),
       ),
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Filter-cap error legibility + recovery (gate 7/8 fix)
+// ---------------------------------------------------------------------------
+
+describe("ServicesListPage — filter-cap error", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setPerms(Object.values(KartovaPermissions));
+    useTeamsListMock.mockReturnValue(stubList());
+    useSystemsListMock.mockReturnValue(stubList());
+  });
+
+  it("renders the server's detail text and the clear action removes systemId from the URL", async () => {
+    useServicesListMock.mockReturnValue({
+      ...stubList(),
+      isError: true,
+      error: {
+        type: "https://kartova.io/problems/too-many-filter-values",
+        title: "Too many filter values",
+        detail: "At most 50 distinct systemId values may be supplied; got 51.",
+      },
+    });
+
+    renderPageWithProbe("/catalog/services?systemId=11111111-1111-1111-1111-111111111111");
+
+    expect(
+      await screen.findByText(/at most 50 distinct systemid values may be supplied; got 51/i),
+    ).toBeInTheDocument();
+    // The generic copy must be replaced, not merely supplemented.
+    expect(screen.queryByText(/try refreshing or resetting the list/i)).not.toBeInTheDocument();
+
+    expect(screen.getByTestId("probe").textContent).toContain("systemId");
+    await userEvent.click(screen.getByRole("button", { name: /clear filters/i }));
+
+    expect(screen.getByTestId("probe").textContent).not.toContain("systemId");
   });
 });

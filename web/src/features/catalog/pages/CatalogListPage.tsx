@@ -13,6 +13,7 @@ import { ApplicationsTable } from "@/features/catalog/components/ApplicationsTab
 import { RegisterApplicationDialog } from "@/features/catalog/components/RegisterApplicationDialog";
 import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
+import type { ProblemDetails } from "@/shared/forms/problemDetails";
 
 const ALLOWED_SORT_FIELDS = ["createdAt", "displayName"] as const;
 const TEXT_FILTERS = ["displayNameContains"] as const;
@@ -77,6 +78,33 @@ export function CatalogListPage() {
     systemId: filters.multiValues.systemId,
   });
 
+  // Surface the server's ProblemDetails (e.g. too-many-filter-values) instead of the generic
+  // "Failed to load…" copy when one is present, so a filter-cap 400 is legible instead of a
+  // dead end (gate 7/8 fix). Falls back to undefined for non-ProblemDetails errors (network
+  // failures, etc.), which keep the generic copy.
+  const errorDetail = useMemo(() => {
+    if (!list.isError) return undefined;
+    const problem = list.error as ProblemDetails | undefined;
+    return problem?.detail ?? problem?.title;
+  }, [list.isError, list.error]);
+
+  // Clears every filter this page defines (mirrors FilterBar's own "Clear all" — reuses
+  // urlState.setFilters rather than inventing a second URL-clearing path). Unlike list.reset()
+  // (which only pops the cursor stack), this actually removes the offending params from the
+  // URL, so a filter-cap 400 has a real escape instead of the Reset button replaying the same
+  // request forever.
+  const clearFilters = () => {
+    const text: Record<string, string> = {};
+    const booleans: Record<string, boolean> = {};
+    const multi: Record<string, string[]> = {};
+    for (const s of filterSpecs) {
+      if (s.type === "text" || s.type === "single-select") text[s.key] = "";
+      else if (s.type === "boolean") booleans[s.key] = false;
+      else if (s.type === "multi-select") multi[s.key] = [];
+    }
+    urlState.setFilters({ text, booleans, multi });
+  };
+
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const { hasPermission, isLoading: permissionsLoading } = usePermissions();
@@ -116,8 +144,13 @@ export function CatalogListPage() {
         <Card className="mx-auto max-w-md">
           <CardContent className="space-y-3 p-6 text-center">
             <p className="text-base font-medium text-error-primary">Failed to load applications</p>
-            <p className="text-sm text-tertiary">Try refreshing or resetting the list.</p>
-            <Button size="sm" onClick={() => list.reset()}>Reset</Button>
+            <p className="text-sm text-tertiary">{errorDetail ?? "Try refreshing or resetting the list."}</p>
+            <div className="flex items-center justify-center gap-2">
+              <Button size="sm" onClick={() => list.reset()}>Reset</Button>
+              {filters.isActive && (
+                <Button size="sm" color="secondary" onClick={clearFilters}>Clear filters</Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       ) : !list.isLoading && list.items.length === 0 && filters.isActive ? (

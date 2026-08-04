@@ -370,6 +370,46 @@ describe("CatalogListPage — filtered empty state", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Filter-cap error legibility + recovery (gate 7/8 fix)
+// ---------------------------------------------------------------------------
+
+describe("CatalogListPage — filter-cap error", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockPermissions(Object.values(KartovaPermissions));
+    useTeamsListMock.mockReturnValue(emptyTeams());
+  });
+
+  it("renders the server's detail text and the clear action removes systemId from the URL", async () => {
+    vi.spyOn(applicationsModule, "useApplicationsList").mockReturnValue({
+      ...stubListResult,
+      isError: true,
+      error: {
+        type: "https://kartova.io/problems/too-many-filter-values",
+        title: "Too many filter values",
+        detail: "At most 50 distinct systemId values may be supplied; got 51.",
+      },
+    });
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<></>, {
+      wrapper: harnessWithRoutes(qc, ["/?systemId=11111111-1111-1111-1111-111111111111"]),
+    });
+
+    expect(
+      await screen.findByText(/at most 50 distinct systemid values may be supplied; got 51/i),
+    ).toBeInTheDocument();
+    // The generic copy must be replaced, not merely supplemented.
+    expect(screen.queryByText(/try refreshing or resetting the list/i)).not.toBeInTheDocument();
+
+    expect(screen.getByTestId("probe").textContent).toContain("systemId");
+    await userEvent.click(screen.getByRole("button", { name: /clear filters/i }));
+
+    expect(screen.getByTestId("probe").textContent).not.toContain("systemId");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // setFilters clobber regression — text filter must survive alongside multi-select
 // ---------------------------------------------------------------------------
 
