@@ -1028,6 +1028,146 @@ public sealed class ListBySystemFilterTests : CatalogIntegrationTestBase
         }
     }
 
+    // -----------------------------------------------------------------------
+    // Gate 7/8 fix (A2): the Services-side mirrors of the cap/dedup/union cases above.
+    // Every existing test in this file that exercises the cap, the dedup-then-cap ordering,
+    // or a two-System union hits the Applications endpoint only — a wiring slip at the
+    // Services call site of TryDedupAndCap (wrong argument, ignored return, or a check placed
+    // after the query) would ship an uncapped/undeduped Services filter with nothing reddening.
+    // -----------------------------------------------------------------------
+
+    [TestMethod]
+    public async Task Services_more_than_the_cap_systemId_values_returns_400_too_many_filter_values()
+    {
+        var client = Fx.CreateClientForOrgA();
+        var ids = Enumerable.Range(0, 51).Select(_ => Guid.NewGuid()).ToArray();
+        var query = string.Join("&", ids.Select(id => $"systemId={id}"));
+
+        var resp = await client.GetAsync($"/api/v1/catalog/services?{query}");
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+        var problem = await resp.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(ProblemTypes.TooManyFilterValues, problem!.Type);
+        var detail = problem.Detail ?? string.Empty;
+        StringAssert.Contains(detail, "50", "the detail must name the cap");
+        StringAssert.Contains(detail, "51", "the detail must name the supplied count");
+    }
+
+    [TestMethod]
+    public async Task Services_at_the_cap_the_returned_cursor_is_replayable()
+    {
+        var unique = $"a2-svc-cap-{Guid.NewGuid():N}";
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var client = Fx.CreateClientForOrgA();
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenant, $"{unique}-team");
+        var systemId = await Fx.SeedSystemAsync(tenant, teamId, $"{unique}-system");
+        var s1 = await Fx.SeedSingleServiceAsync(tenant, Guid.NewGuid(), teamId, $"{unique}-s1");
+        var s2 = await Fx.SeedSingleServiceAsync(tenant, Guid.NewGuid(), teamId, $"{unique}-s2");
+
+        try
+        {
+            await Fx.InsertPartOfEdgeAsync(tenant, EntityKind.Service, s1, systemId);
+            await Fx.InsertPartOfEdgeAsync(tenant, EntityKind.Service, s2, systemId);
+
+            var ids = new List<Guid> { systemId };
+            ids.AddRange(Enumerable.Range(0, 49).Select(_ => Guid.NewGuid()));
+            Assert.AreEqual(50, ids.Distinct().Count());
+            var query = string.Join("&", ids.Select(id => $"systemId={id}"));
+
+            var page1 = await client.GetFromJsonAsync<CursorPage<ServiceResponse>>(
+                $"/api/v1/catalog/services?{query}&limit=1", KartovaApiFixtureBase.WireJson);
+            Assert.IsNotNull(page1!.NextCursor);
+
+            var resp = await client.GetAsync(
+                $"/api/v1/catalog/services?{query}&limit=1&cursor={Uri.EscapeDataString(page1.NextCursor!)}");
+
+            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        }
+        finally
+        {
+            await Fx.DeleteServicesByPrefixAsync(tenant, unique);
+        }
+    }
+
+    [TestMethod]
+    public async Task Services_repeated_systemId_values_are_deduped_in_the_cursor()
+    {
+        var unique = $"a2-svc-dedup-{Guid.NewGuid():N}";
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var client = Fx.CreateClientForOrgA();
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenant, $"{unique}-team");
+        var systemId = await Fx.SeedSystemAsync(tenant, teamId, $"{unique}-system");
+        var s1 = await Fx.SeedSingleServiceAsync(tenant, Guid.NewGuid(), teamId, $"{unique}-s1");
+        var s2 = await Fx.SeedSingleServiceAsync(tenant, Guid.NewGuid(), teamId, $"{unique}-s2");
+
+        try
+        {
+            await Fx.InsertPartOfEdgeAsync(tenant, EntityKind.Service, s1, systemId);
+            await Fx.InsertPartOfEdgeAsync(tenant, EntityKind.Service, s2, systemId);
+
+            var page1 = await client.GetFromJsonAsync<CursorPage<ServiceResponse>>(
+                $"/api/v1/catalog/services?systemId={systemId}&systemId={systemId}&limit=1",
+                KartovaApiFixtureBase.WireJson);
+            Assert.IsNotNull(page1!.NextCursor);
+
+            // Replay with the returned cursor and a SINGLE ?systemId= — a client that
+            // normalizes duplicate selections between pages must not get a spurious
+            // cursor-filter-mismatch 400.
+            var resp = await client.GetAsync(
+                $"/api/v1/catalog/services?systemId={systemId}&limit=1&cursor={Uri.EscapeDataString(page1.NextCursor!)}");
+
+            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode,
+                "a client that normalizes duplicate selections between pages must not get a spurious mismatch");
+        }
+        finally
+        {
+            await Fx.DeleteServicesByPrefixAsync(tenant, unique);
+        }
+    }
+
+    [TestMethod]
+    public async Task Services_filtered_by_two_systems_returns_the_union()
+    {
+        // Nothing currently proves the Services endpoint accepts more than one ?systemId=
+        // value at all — a model-binding divergence between the two list delegates (e.g. the
+        // parameter accidentally bound as a scalar Guid? on the Services side) would silently
+        // degrade multi-select to "one value wins" without reddening any existing test.
+        var unique = $"a2-svc-union-{Guid.NewGuid():N}";
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var client = Fx.CreateClientForOrgA();
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenant, $"{unique}-team");
+        var systemA = await Fx.SeedSystemAsync(tenant, teamId, $"{unique}-system-a");
+        var systemB = await Fx.SeedSystemAsync(tenant, teamId, $"{unique}-system-b");
+        var systemC = await Fx.SeedSystemAsync(tenant, teamId, $"{unique}-system-c");
+
+        var inA = await Fx.SeedSingleServiceAsync(tenant, Guid.NewGuid(), teamId, $"{unique}-a");
+        var inB = await Fx.SeedSingleServiceAsync(tenant, Guid.NewGuid(), teamId, $"{unique}-b");
+        var inC = await Fx.SeedSingleServiceAsync(tenant, Guid.NewGuid(), teamId, $"{unique}-c");
+        var inNone = await Fx.SeedSingleServiceAsync(tenant, Guid.NewGuid(), teamId, $"{unique}-none");
+
+        try
+        {
+            await Fx.InsertPartOfEdgeAsync(tenant, EntityKind.Service, inA, systemA);
+            await Fx.InsertPartOfEdgeAsync(tenant, EntityKind.Service, inB, systemB);
+            await Fx.InsertPartOfEdgeAsync(tenant, EntityKind.Service, inC, systemC);
+
+            var page = await GetServicePageAsync(
+                client, $"/api/v1/catalog/services?systemId={systemA}&systemId={systemB}&limit=200");
+            var ids = page.Items.Select(i => i.Id).ToHashSet();
+
+            // Inclusion alone survives a dropped predicate — assert exclusion of C and the
+            // unassigned service too (mirrors the Applications union case).
+            Assert.IsTrue(ids.Contains(inA), "member of System A must be included");
+            Assert.IsTrue(ids.Contains(inB), "member of System B must be included");
+            Assert.IsFalse(ids.Contains(inC), "member of System C (not selected) must be excluded");
+            Assert.IsFalse(ids.Contains(inNone), "unassigned service must be excluded");
+        }
+        finally
+        {
+            await Fx.DeleteServicesByPrefixAsync(tenant, unique);
+        }
+    }
+
     /// <summary>
     /// Base64url-decodes a cursor issued by <c>CursorCodec</c>, overwrites its filter-map ("f")
     /// entry for <paramref name="filterKey"/>, and re-encodes — the f-map counterpart to
