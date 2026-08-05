@@ -1,0 +1,161 @@
+# gate-findings.yaml — per-gate findings telemetry for one slice.
+#
+# Purpose: record every issue each DoD gate raised, with a real/delusion verdict,
+# so gate effectiveness is queryable across slices.
+#   Aggregate:  find docs/superpowers/verification -name gate-findings.yaml
+#   Rank gates by precision (real ÷ found) and by real issues caught.
+#
+# Sibling of dod.md in docs/superpowers/verification/<date>-<topic>/.
+# dod.md records each gate's PASS/FAIL/PENDING/N-A status; this file records what it FOUND.
+# A gate with status PASS and no entries here ⇒ it ran and found nothing.
+
+slice:  2026-08-05-catalog-system-graph-nodes
+branch: feat/catalog-system-graph-nodes
+head:   b05cc2a6
+
+# NOTE ON SCOPE: this slice was executed with superpowers:subagent-driven-development — 11 tasks,
+# a fresh implementer and a fresh task review per task, then one whole-branch review and one
+# consolidated fix wave. The `reviews` entries below are the per-task gate (gate 2); the
+# `requesting-review` entries are the whole-branch review (gate 6). Per-task detail lives in
+# .superpowers/sdd/2026-08-05-catalog-system-graph-nodes/progress.md (gitignored scratch, retained
+# until gates 4-10 close).
+
+findings:
+
+  # ---- gate 2: per-task subagent reviews (11/11 approved; 0 Critical, 0 Important) ----
+
+  - gate: reviews
+    severity: important
+    verdict: real
+    title: "Task 1's widening of parseEntityRef made a latent GraphExplorerSidebar crash reachable"
+    note: "Once `system:` became a valid focus token, `selectedRef` could be a System, and the sidebar indexed a {application,service,api} query record with it, then read `.data`/`.isError` off the undefined result. Task 2 added optional-chaining guards as part of its type ripple and flagged the edit as outside its brief. NOTE the task reviewer's rationale was wrong — it called this a pre-existing crash, but before Task 1 the sidebar never rendered for a System node. The guard is *required by* Task 1, not a fix for an older bug. Found by the implementer's own compile ripple, confirmed by the task review."
+
+  - gate: reviews
+    severity: minor
+    verdict: real
+    title: "Task 2's two new safety branches had no test coverage at all"
+    note: "No GraphExplorerSidebar test file existed, and GraphExplorerPage.test.tsx had zero `system` references, so both forced guards were correct-but-unverified. Deferred at the time; escalated to must-fix by gate 6 and closed by the fix wave, which added GraphExplorerSidebar.test.tsx."
+
+  - gate: reviews
+    severity: minor
+    verdict: real
+    title: "graphFilter.ts was edited by Task 2 though the plan assigned that file to Task 3"
+    note: "`Array<RelationshipKind>.includes` rejects a wider `EntityKind` argument, so Task 2's widening forced a `.some` rewrite at line 21 while Task 3 owned lines 2 and 4. No collision; recorded so git-blame is not misread. Deferred."
+
+  - gate: reviews
+    severity: minor
+    verdict: real
+    title: "Task 6's .ts-vs-.tsx wrapper comment states its reason obliquely"
+    note: "Cosmetic; the note is accurate. Deferred by gate 6 triage."
+
+  - gate: reviews
+    severity: minor
+    verdict: real
+    title: "useGraph's new `depth` parameter is unbounded client-side"
+    note: "`depth?: number` accepts 0 or negative. The server rejects anything outside 1..4 with a 400 (CatalogEndpointDelegates.cs:1396-1399) and both call sites pass literals, so there is no reachable defect. Deferred by gate 6 triage."
+
+  - gate: reviews
+    severity: minor
+    verdict: real
+    title: "SystemDiagram's onNodeClick selection and its systemBoundary early return were untested"
+    note: "The brief's seven cases did not include a click test though the sibling component has one. Deferred at the time; closed by the fix wave (F8)."
+
+  - gate: reviews
+    severity: minor
+    verdict: real
+    title: "The truncation banner renders only in the non-empty branch"
+    note: "A truncation that cut every member would show 'No members yet.' with no hint the result was cut. Inherited from DependencyMiniGraph's existing structure, not introduced here, and only reachable above the traversal node cap. Deferred."
+
+  - gate: reviews
+    severity: minor
+    verdict: real
+    title: "SystemDiagram's selectedId/includeExternal are not reset when systemId changes"
+    note: "Recorded first with a wrong rationale (that the host remounts per System). Gate 6 corrected it: SystemDetailPage reads useParams and carries no `key`, so a system→system param change would NOT remount. It is harmless for a different reason — no in-SPA system→system link exists, a stale selectedId matches no node in the new layout, and a sticky toggle is arguably desirable. Deferred with the corrected reason."
+
+  - gate: reviews
+    severity: minor
+    verdict: real
+    title: "Task 10 asserts m1's traversal depth but not m2's"
+    note: "Presence of both members is established by the node count plus both ids appearing in the edge assertions; the second member's depth is not load-bearing for the diagram. Deferred."
+
+  - gate: reviews
+    severity: minor
+    verdict: delusion
+    title: "SeedSystemAsync omits WireJson on the request side"
+    note: "Flagged as possible drift, ruled not a defect: the anonymous object's properties are already camelCase so the default serializer emits the right wire names, and all three sibling seed helpers in the file do the same. Pre-existing convention, not new."
+
+  # ---- gate 2 process finding ----
+
+  - gate: reviews
+    severity: important
+    verdict: real
+    title: "Task 5's reviewer report was truncated by output compression, so its severity sections were never legible"
+    note: "Process failure, not a code defect: the controller received only the spec verdict and Strengths for systemBoundary.ts. Handled by (a) recording the partial evidence honestly in the SDD ledger rather than claiming a clean review, and (b) pointing gate 6 explicitly at that module — where the missing findings did surface as the F6 assertion gaps. Worth remembering: a compressed subagent report can silently drop the half that matters."
+
+  # ---- gate 6: whole-branch review (1 Blocking, 6 Should-fix, 8 Nits, 5 test gaps) ----
+
+  - gate: requesting-review
+    severity: blocking
+    verdict: real
+    title: "No verification ledger existed while CHECKLIST.md already claimed the story complete"
+    note: "Task 11 flipped E-03.F-03.S-01 to [x] citing only the A1 and A2 ledgers. The entire record for THIS slice — the SDD ledger and all 11 task reports — sat under gitignored .superpowers/, so no completion claim was citable and the gate telemetry would have vanished at merge. Exactly the defect the A2 slice's own gate 8 caught. This file and dod.md are the fix."
+
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "An external neighbour can render INSIDE the boundary band, which is the signal decision 7 relies on"
+    note: "systemBoundaryBox is an axis-aligned box over focus + members; nothing excludes a non-member laid out within it. With dagre rankdir LR and partOf edges retained in the layout input, the System is one rank right of its members and a member's external out-neighbour can land in that same rank — the same x-column the box spans. DELIBERATELY NOT FIXED: the remedy (dim non-members via layoutGraph's existing `dimmed` argument) reverses spec decision 7, which is the owner's call. Routed to gate 9 with a specific reproduction recipe. OPEN DECISION, not a discard."
+
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "Selecting a System node showed a bare UUID, justified by a comment that was factually false"
+    note: "GraphExplorerSidebar set `active = undefined` for system under the comment 'has no detail query yet (deferred to FU-A)'. FU-A *is* this slice, and useSystem(id) already existed with the same shape as the three sibling hooks. So the widening exposed a new, degraded surface. Fixed in the fix wave: the hook is wired into the same record, the false comment is gone, and a new GraphExplorerSidebar.test.tsx asserts the display name renders and the id does not."
+
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "ExplorerEdge.type was typed `string`, discarding the closed union the generated client already has"
+    note: "The field is load-bearing and compared against a bare \"partOf\" literal at two independent sites. A typo (\"partof\") compiled, silently yielded zero members, and rendered 'No members yet.' for a populated System — a wrong-but-plausible screen. Fixed: narrowed to the generated wire union and both sites route through one exported PART_OF_TYPE constant."
+
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "SystemDiagram can draw a dashed derived edge with no legend explaining the dash"
+    note: "Its data path consumes derivedEdges and layoutGraph applies strokeDasharray, but the sibling's '— explicit / - - derived' legend was not copied, though spec §4.5 lists it among the mirrored chrome. Fixed."
+
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "NODE_W/NODE_H duplicated across a module boundary, guarded only by a comment"
+    note: "systemBoundary.ts re-declared 180/56 with a 'must match graphLayout.ts' comment while the originals were unexported; either moving would mis-size the band with no failing test. Fixed by exporting from graphLayout.ts and importing — the comment is now unnecessary rather than load-bearing."
+
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "Five comments and test names across the branch described deferrals this slice closed"
+    note: "relationshipTypeRules.ts still said `system` is 'not a graph URL token' (the opposite of the new code); its test and two graphMerge test names still called System-node rendering 'deferred (FU-A)'. The branch had correctly deleted one stale comment along with the cast it justified but left its siblings. All fixed; assertions unchanged."
+
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "systemBoundaryBox's size was never asserted — only an inequality — so arithmetic mutations survived"
+    note: "The test pinned x and y exactly but checked size via `box.x + box.width < 500`. Mutating the padding doubling or swapping NODE_W for NODE_H passed. Also uncovered: the second null guard (non-empty memberIds matching no laid-out node) and the depth-2 case of a member that also has a partOf edge to a SECOND System. All three closed by the fix wave. This is the module whose task-level review evidence was lost to truncation — so gate 6 caught what gate 2 could not report."
+
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "Nothing in the frontend suite proved a member-to-member edge renders"
+    note: "That edge is the entire justification for using /graph over useRelationshipsList (decision 2). It was pinned on the backend but the component fixture had a single partOf edge, so the only frontend coverage was a negative assertion that also passes when no edges render at all. Fixed with a dependsOn fixture asserting edge-count 1 and the rendered label."
+
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "Eight polish items: no-op cast, truncation wording, stray top-level test, node-component signature, stringly-typed label record, dead narrowing branch"
+    note: "Four were fixed in the wave (no-op cast, banner wording with its test matcher, the stray top-level `it`, the SystemBoundaryNode signature now matching NodeProps). The rest were left: ENTITY_KIND_LABEL staying Record<string,string>, GraphExplorerPage's inert narrowing branch, SystemMembersSection's isRelationshipKind link guard, and the per-render memo recomputation inherited verbatim from GraphExplorerPage. None affects behaviour."
+
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "The band's position and size are verified nowhere end-to-end"
+    note: "The repo's established xyflow mock renders labels only, so systemBoundaryBox's output reaching the node's position/data is not asserted by any component test; SystemBoundaryNode.test.tsx proves only that the leaf styles itself from its data. Acceptable given the mock is the house pattern — but it means gate 9 is the ONLY check that the band lands over the right nodes, which is also where the geometry finding above must be looked for. Recorded so that is explicit rather than implicit."
