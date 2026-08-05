@@ -7,6 +7,17 @@ export interface ProblemDetails {
   [key: string]: unknown;
 }
 
+/**
+ * Runtime guard for a value that is claimed to be a `ProblemDetails` body (e.g. from a caught
+ * fetch error whose type is `unknown`). Every field on `ProblemDetails` is optional, so this
+ * intentionally only checks the shape that all real usages need: a plain object, since RFC 7807
+ * bodies are always JSON objects (never arrays, primitives, or null).
+ */
+export function asProblemDetails(value: unknown): ProblemDetails | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+  return value as ProblemDetails;
+}
+
 type SetError = (
   name: string,
   error: { type: string; message: string }

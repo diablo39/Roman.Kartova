@@ -13,7 +13,7 @@ import { ServicesTable } from "@/features/catalog/components/ServicesTable";
 import { RegisterServiceDialog } from "@/features/catalog/components/RegisterServiceDialog";
 import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
-import type { ProblemDetails } from "@/shared/forms/problemDetails";
+import { asProblemDetails } from "@/shared/forms/problemDetails";
 
 const ALLOWED_SORT_FIELDS = ["createdAt", "displayName"] as const;
 const TEXT_FILTERS = ["displayNameContains"] as const;
@@ -85,7 +85,7 @@ export function ServicesListPage() {
   // failures, etc.), which keep the generic copy.
   const errorDetail = useMemo(() => {
     if (!list.isError) return undefined;
-    const problem = list.error as ProblemDetails | undefined;
+    const problem = asProblemDetails(list.error);
     return problem?.detail ?? problem?.title;
   }, [list.isError, list.error]);
 
