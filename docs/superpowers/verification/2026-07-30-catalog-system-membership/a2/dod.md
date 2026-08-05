@@ -4,9 +4,10 @@
 **PR:** [#83](https://github.com/diablo39/Roman.Kartova/pull/83) · **Last updated:** 2026-08-05
 
 > ⚠️ **The all-green table below describes commit `1abb9603` and is NOT the current branch state.**
-> Two production commits landed on 2026-08-05 after this ledger closed. Their gate status is
-> **partial** — see [Addendum: post-close commits](#addendum--post-close-commits-2026-08-05) at the
-> end of this file before treating the slice as verified.
+> Two production commits landed on 2026-08-05 after this ledger closed. Their gates are recorded
+> separately — green except gates 5–8, which are **owner-waived** — see
+> [Addendum: post-close commits](#addendum--post-close-commits-2026-08-05) at the end of this file
+> before treating the slice as verified.
 **Spec:** `docs/superpowers/specs/2026-07-30-catalog-system-membership-assignment-design.md` (§4 = A2)
 **Plan:** `docs/superpowers/plans/2026-08-02-catalog-system-list-surface-a2.md` (gitignored scratch)
 **Plan review:** two agent waves, 9 agents — see `docs/superpowers/templates/plan-wave-review.md` §6 and the plan's own wave-1/wave-2 triage records
@@ -110,22 +111,81 @@ covered only `systemId`, and the TypeScript reviewer flagged an unguarded `as Pr
 | `6947309c` | `fix(catalog)`: cap `teamId` on all four list endpoints, `lifecycle` (Applications) and `health` (Services); `TryCapDistinctCount<T>`; 8 integration tests; 4 `list-filter-registry.md` rows |
 | `8d5f3804` | `fix(web)`: `asProblemDetails` runtime guard at the two list-page call sites + unit tests |
 
-**Gate status for these two commits — partial, not green:**
+**Gate status for these two commits — gates 5–8 owner-waived, everything else green:**
 
 | Gate | Status | Evidence / reason |
 |------|--------|-------------------|
 | 1 Build (`TreatWarningsAsErrors`) | ✅ PASS | `dotnet build Kartova.slnx -p:TreatWarningsAsErrors=true` → **0 Warning(s), 0 Error(s)** |
 | 2 Per-task subagent reviews | ✅ PASS | `csharp-code-reviewer` + `typescript-code-reviewer` on the final diffs. C# review returned 2×S2 — **both fixed before commit**: the cap was extended to `/catalog/apis` + `/catalog/systems` (their handlers encode `teamId` into the cursor `f`-map identically, so the original 2-endpoint scope left the same defect live) and the missing `Services` cursor-replay test was added. TS review: 0 S0/S1/S2, 4 S3 advisories, none blocking |
 | 3 Full suite (+ real seam) | ✅ PASS | Unit 272/272 · Architecture 69/69 · **`Kartova.Catalog.IntegrationTests` 404/404** against real Postgres + RLS via Testcontainers (396 baseline + 8 new) · frontend `tsc -b --noEmit` clean, `eslint --no-ignore` clean, `vitest` 549/549 across 73 files |
-| 4 Container build | ⏳ NOT RUN | Owner decision 2026-08-05: gates 4–10 explicitly declined for this follow-up |
-| 5 `/simplify` | ⏳ NOT RUN | same |
-| 6 `requesting-code-review` | ⏳ NOT RUN | same |
-| 7 `review-pr` | ⏳ NOT RUN | same |
-| 8 `deep-review` | ⏳ NOT RUN | same |
+| 4 Container build | ✅ PASS | CI job **Container images (build — Dockerfile/restore gate)** green on `99bab73d` (run [31000888343](https://github.com/diablo39/Roman.Kartova/actions/runs/31000888343)), which has both commits as ancestors. Re-confirmed locally on 2026-08-05: `docker compose build api web` → `Image kartova/api:dev Built`, `Image kartova/web:dev Built` |
+| 5 `/simplify` | ⚠️ WAIVED | Owner decision 2026-08-05: gates 5–8 explicitly declined for this follow-up. **A waiver, not green** |
+| 6 `requesting-code-review` | ⚠️ WAIVED | same |
+| 7 `review-pr` | ⚠️ WAIVED | same |
+| 8 `deep-review` | ⚠️ WAIVED | same |
 | Terminal re-verify | ✅ PASS | Build + unit + arch + integration re-run on the final state after the gate-2 fixes were applied (figures above are from that run, not an earlier one) |
-| 9 Visual / API verification | ⏳ NOT RUN | same. Note: the cap adds a new reachable 400 on three further endpoints, so this has a real runtime surface — it is **not** N/A |
-| 10 CI green on PR | ⏳ NOT RUN | same; not pushed. `scripts/ci-local.sh` not run |
+| 9 Visual / API verification | ✅ PASS | Run for real on 2026-08-05 — see [Gate 9 for the follow-up commits](#gate-9-for-the-follow-up-commits-2026-08-05) below |
+| 10 CI green on PR | ✅ PASS | Run [31000888343](https://github.com/diablo39/Roman.Kartova/actions/runs/31000888343) on `99bab73d` — **all five jobs green** (Backend 3m25s · Container images 2m6s · Frontend 3m17s · Helm 9s · Stryker config drift 7s). Both follow-up commits are ancestors of that SHA, so the runner has verified them. The earlier "not pushed" entry was written before the push and is corrected here |
 
-**Honest status: implementation staged and verified through gate 3; gates 4–10 pending verification
-by owner decision.** The all-green summary table at the top of this file applies to `1abb9603`
-only and must not be read as covering these two commits.
+**Honest status: gates 1–4, 9, 10 and the terminal re-verify green with cited evidence; gates 5–8
+owner-waived (recorded as waivers, not green).** The all-green summary table at the top of this
+file applies to `1abb9603` only; this addendum is the record for the two follow-up commits.
+
+### Gate 9 for the follow-up commits (2026-08-05)
+
+Driven on the real stack (`docker compose up -d`: postgres + keycloak + migrator + api + web, with
+`api` and `web` images **rebuilt from the current tree** first — the images from `1abb9603` predate
+the cap, so an un-rebuilt stack would have verified nothing).
+
+**API half — the cap boundary, live, on all four list endpoints.** Real Keycloak token
+(`admin@orga.kartova.local`, `kartova-api` client), real Postgres/RLS:
+
+| Request | Result |
+|---|---|
+| `GET /api/v1/catalog/{applications,services,apis,systems}?teamId=×50` | **200** on all four |
+| `GET /api/v1/catalog/{applications,services,apis,systems}?teamId=×51` | **400** on all four |
+| `?teamId=×60` params but only 50 distinct (Applications) | **200** — de-dup runs before the count, as designed |
+| `?systemId=×51` (Applications) | **400** — the original A2 cap still intact |
+
+Body identical on all four endpoints, so the shared helper is genuinely shared:
+
+```json
+{"type":"https://kartova.io/problems/too-many-filter-values","title":"Too many filter values",
+ "status":400,"detail":"At most 50 distinct teamId values may be supplied; got 51.","traceId":"…"}
+```
+
+`lifecycle` (Applications) and `health` (Services) were **not** probed: with 3 and 4 enum members
+and a parse loop that rejects unknown tokens before the set is built, 50 distinct values are
+unreachable through HTTP. Those caps are defence-in-depth and the commit says so — there is no
+runtime surface to observe.
+
+**UI half — the `asProblemDetails` guard (`8d5f3804`).** Screenshots in this folder:
+`gate9-applications-teamid-cap.png`, `gate9-services-teamid-cap.png`. Both list pages render the
+server's `detail` **verbatim** ("At most 50 distinct teamId values may be supplied; got 51.")
+instead of the generic "Try refreshing or resetting the list." fallback — which only happens if the
+guard narrows the `unknown` error at runtime — and the card offers a **Clear filters** action that
+removes the offending params. No `pageerror`: the guard held on a real response.
+
+**Converted to a permanent regression spec** ("any bug it finds becomes a regression test"):
+`e2e/tests/filter-value-cap.spec.ts`, both cases green locally
+(`npx playwright test tests/filter-value-cap.spec.ts` → **2 passed**). It asserts the server detail
+is surfaced, the generic fallback is absent, and that **Clear filters** both drops `teamId=` from
+the URL and lets the list load — the escape whose absence was the gate-7 HIGH finding on A2. It
+deliberately tracks `pageerror` only, not console errors: the list page `console.error`s a failed
+query by design, so the clean-console assertion stays in `system-list-surface.spec.ts`.
+
+**E2E-impact trigger:** no existing spec drives an over-cap filter or asserts the error card, so
+nothing needed updating; this is a new spec, not a change to one.
+
+**One observation, not introduced by these commits:** the Team facet renders "51 selected" for ids
+that exist in no team in the tenant — `useListFilters` hydrates multi-select values from the URL
+without intersecting them against the fetched facet list. Same behaviour as A2's `systemId`.
+Recorded in `gate-findings.yaml`.
+
+### Branch state beyond the slice
+
+Four further commits landed on this branch on 2026-08-05 that are **not part of this slice** and are
+not covered by any row above: `7286553` (nightly-red tracking issue in `e2e.yml`), `4027e3b`
+(Audit stryker route), `2be49f9` + this ledger edit (verification docs), `9172599` (plugin
+enablement). No production code; the workflow change is schedule-only and first exercises on the
+next nightly.

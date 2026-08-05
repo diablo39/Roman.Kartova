@@ -12,7 +12,7 @@
 
 slice:  2026-07-30-catalog-system-membership/a2
 branch: feat/catalog-system-list-surface-a2
-head:   1abb9603
+head:   1abb9603 (+ post-close follow-ups 6947309c, 8d5f3804 — see dod.md addendum)
 
 # NOTE ON SCOPE: this slice also ran a pre-implementation "wave review" of the PLAN
 # (9 agents, two waves) before gate 0. Those are NOT DoD-gate findings and live in the
@@ -172,4 +172,16 @@ findings:
     verdict: real
     title: "The System multi-select popover does not dismiss on Escape and intercepts the following click"
     note: "Cost four locator iterations before the gate-9 spec was switched to a deep link, which is the stronger assertion anyway (it exercises the useListUrlState READ path). The click path stays covered by the page-level vitest specs."
+
+  # --- gate 9 for the two post-close follow-up commits (6947309c, 8d5f3804), run 2026-08-05 ---
+  - gate: manual
+    severity: nit
+    verdict: real
+    title: "The Team facet renders \"51 selected\" for teamIds that match no team in the tenant"
+    note: "Found by driving gate 9 on the follow-up cap commit with 51 random guids. useListFilters hydrates multi-select values from the URL without intersecting them against the fetched facet list, so an unknown id counts toward the label. Pre-existing behaviour of every multi-select facet, identical to A2's systemId, and harmless here because the server rejects the request anyway. Filed as an observation."
+  - gate: manual
+    severity: nit
+    verdict: real
+    title: "An un-rebuilt compose stack silently verifies the wrong code"
+    note: "The kartova/api:dev and kartova/web:dev images in the local stack were built at 1abb9603, before the cap existed, so the first attempt at gate 9 would have exercised pre-cap behaviour and passed for the wrong reason. Process note, not a code defect: docker compose build api web must precede any gate-9 run that observes new backend or frontend behaviour."
 
