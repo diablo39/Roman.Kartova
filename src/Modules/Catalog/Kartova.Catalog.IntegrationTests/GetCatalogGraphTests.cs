@@ -434,4 +434,72 @@ public class GetCatalogGraphTests : CatalogIntegrationTestBase
         Assert.IsFalse(graph.DerivedEdges.Any(e => leakedIds.Contains(e.Source.Id) || leakedIds.Contains(e.Target.Id)),
             "no tenant-B id should appear in tenant A's derived edges");
     }
+
+    private static async Task<Guid> SeedSystemAsync(HttpClient client, Guid teamId, string name)
+    {
+        var resp = await client.PostAsJsonAsync("/api/v1/catalog/systems", new { displayName = name, description = "x", teamId });
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode, $"SeedSystem '{name}': {resp.StatusCode}");
+        var body = await resp.Content.ReadFromJsonAsync<SystemResponse>(KartovaApiFixtureBase.WireJson);
+        return body!.Id;
+    }
+
+    private static async Task AssignSystemAsync(HttpClient client, Guid serviceId, Guid systemId)
+    {
+        var resp = await client.PutAsJsonAsync($"/api/v1/catalog/services/{serviceId}/system",
+            new { systemId }, KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode, $"AssignSystem {serviceId}: {resp.StatusCode}");
+    }
+
+    [TestMethod]
+    public async Task GET_graph_focused_on_system_returns_members_and_the_edges_between_them()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Graph System Team");
+        var sysId = await SeedSystemAsync(client, teamId, "graph-system-container");
+        var m1 = await SeedServiceAsync(client, teamId, "graph-system-member-1");
+        var m2 = await SeedServiceAsync(client, teamId, "graph-system-member-2");
+        await AssignSystemAsync(client, m1, sysId);
+        await AssignSystemAsync(client, m2, sysId);
+        await DependsOnAsync(client, m1, m2);   // member -> member
+
+        var resp = await client.GetAsync($"/api/v1/catalog/graph?entityKind=System&entityId={sysId}&depth=1&direction=all");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var graph = await resp.Content.ReadFromJsonAsync<GraphResponse>(KartovaApiFixtureBase.WireJson);
+
+        // System + both members, and the System node is enriched like any other kind.
+        Assert.AreEqual(3, graph!.Nodes.Count);
+        Assert.AreEqual("graph-system-container", graph.Nodes.Single(n => n.Id == sysId).DisplayName);
+        Assert.AreEqual(EntityKind.System, graph.Nodes.Single(n => n.Id == sysId).Kind);
+        Assert.AreEqual(0, graph.Nodes.Single(n => n.Id == sysId).Depth);
+        Assert.AreEqual(1, graph.Nodes.Single(n => n.Id == m1).Depth);
+
+        // THE load-bearing property for the System diagram: a depth-1 traversal from the System
+        // still returns the dependency BETWEEN its members, because the traversal re-scans for every
+        // edge among kept nodes (GraphTraversal.cs:66-71). Without this the diagram would only ever
+        // draw a star of membership edges and carry no more information than the Members table.
+        Assert.AreEqual(3, graph.Edges.Count);   // 2x partOf + 1x dependsOn
+        Assert.IsTrue(graph.Edges.Any(e =>
+            e.Type == RelationshipType.DependsOn && e.Source.Id == m1 && e.Target.Id == m2));
+        Assert.AreEqual(2, graph.Edges.Count(e => e.Type == RelationshipType.PartOf));
+        Assert.IsFalse(graph.Truncated);
+    }
+
+    [TestMethod]
+    public async Task GET_graph_focused_on_another_tenants_system_leaks_no_members()
+    {
+        var orgA = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var orgB = await Fx.CreateAuthenticatedClientAsync(OrgBUser);
+        var teamA = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Graph RLS Team A");
+        var sysA = await SeedSystemAsync(orgA, teamA, "graph-system-rls");
+        var memberA = await SeedServiceAsync(orgA, teamA, "graph-system-rls-member");
+        await AssignSystemAsync(orgA, memberA, sysA);
+
+        // Org B asks for Org A's System by id: RLS must yield no members and no edges.
+        var resp = await orgB.GetAsync($"/api/v1/catalog/graph?entityKind=System&entityId={sysA}&depth=1&direction=all");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var graph = await resp.Content.ReadFromJsonAsync<GraphResponse>(KartovaApiFixtureBase.WireJson);
+
+        Assert.AreEqual(0, graph!.Edges.Count);
+        Assert.IsFalse(graph.Nodes.Any(n => n.Id == memberA), "Org A's member must not appear for Org B");
+    }
 }
