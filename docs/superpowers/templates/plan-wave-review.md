@@ -183,6 +183,6 @@ Per slice: `docs/superpowers/verification/<slice>/plan-review-findings.yaml`, sa
 
 ## 8. Known limitations
 
-- **Reproducibility:** the dev-hm agents live in `.claude/agents/` and resolve their oracles to `test-plugin/` — **both untracked in git today**. Until they are committed, this process only works on one machine.
+- **Reproducibility:** the dev-hm agents live in `.claude/agents/dev-hm/` and resolve their knowledge and oracles to `.claude/dev-hm/` — **both untracked in git today**. Paths are repo-relative, so the set is portable once committed; until then this process only works on one machine.
 - Agents will assert things about code that does not exist yet; the anchor + concrete-fix requirement is what makes those assertions checkable.
 - The `What looks right` section is mandatory precisely because an agent that only finds problems gives no signal about what it verified and accepted.
