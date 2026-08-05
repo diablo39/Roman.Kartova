@@ -1,7 +1,7 @@
 # DoD Ledger — System list surface (E-03.F-03.S-01 sub-slice A2)
 
 **Slice:** `2026-07-30-catalog-system-membership/a2` · **Branch:** `feat/catalog-system-list-surface-a2` · **HEAD:** `1abb9603`
-**PR:** [#83](https://github.com/diablo39/Roman.Kartova/pull/83) · **Last updated:** 2026-08-05
+**PR:** [#83](https://github.com/diablo39/Roman.Kartova/pull/83) — **merged 2026-08-05 as `9de908f3`** (squash) · **Last updated:** 2026-08-05
 
 > ⚠️ **The all-green table below describes commit `1abb9603` and is NOT the current branch state.**
 > Two production commits landed on 2026-08-05 after this ledger closed. Their gates are recorded
@@ -125,7 +125,7 @@ covered only `systemId`, and the TypeScript reviewer flagged an unguarded `as Pr
 | 8 `deep-review` | ⚠️ WAIVED | same |
 | Terminal re-verify | ✅ PASS | Build + unit + arch + integration re-run on the final state after the gate-2 fixes were applied (figures above are from that run, not an earlier one) |
 | 9 Visual / API verification | ✅ PASS | Run for real on 2026-08-05 — see [Gate 9 for the follow-up commits](#gate-9-for-the-follow-up-commits-2026-08-05) below |
-| 10 CI green on PR | ✅ PASS | Run [31000888343](https://github.com/diablo39/Roman.Kartova/actions/runs/31000888343) on `99bab73d` — **all five jobs green** (Backend 3m25s · Container images 2m6s · Frontend 3m17s · Helm 9s · Stryker config drift 7s). Both follow-up commits are ancestors of that SHA, so the runner has verified them. The earlier "not pushed" entry was written before the push and is corrected here |
+| 10 CI green on PR | ✅ PASS | **Terminal run** [31008124469](https://github.com/diablo39/Roman.Kartova/actions/runs/31008124469) on `3ea8a3fc`, the last commit before merge — **all five jobs green** (Backend · Container images · Frontend · Helm · Stryker config drift). The earlier run [31000888343](https://github.com/diablo39/Roman.Kartova/actions/runs/31000888343) on `99bab73d` was also green and is what first covered the two follow-up commits; the original "not pushed" entry predated that push and is corrected here. Pre-push mirror: only the relevant subset (`generate-stryker-configs.py --validate` → OK) — the commits after `99bab73d` touch no C#/TS production code |
 
 **Honest status: gates 1–4, 9, 10 and the terminal re-verify green with cited evidence; gates 5–8
 owner-waived (recorded as waivers, not green).** The all-green summary table at the top of this
