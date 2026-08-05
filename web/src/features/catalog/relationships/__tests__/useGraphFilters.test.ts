@@ -90,4 +90,14 @@ describe("useGraphFilters", () => {
     const second = renderHook(() => useGraphFilters("application:focus", storage));
     expect(second.result.current.filters.kinds).toEqual(["api"]);
   });
+
+  it("accepts a persisted system kind and drops a junk one (FU-A)", () => {
+    const storage = makeStorage();
+    storage.setItem(
+      "graph-explorer-filters:system:s1",
+      JSON.stringify({ kinds: ["system", "not-a-kind"], teamIds: [] }),
+    );
+    const { result } = renderHook(() => useGraphFilters("system:s1", storage));
+    expect(result.current.filters.kinds).toEqual(["system"]);
+  });
 });

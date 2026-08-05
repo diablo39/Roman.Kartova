@@ -1,20 +1,21 @@
 // web/src/features/catalog/components/GraphFilterControls.tsx
 import { MultiSelect } from "@/components/base/multi-select/multi-select";
 import { Button } from "@/components/base/buttons/button";
-import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
+import type { EntityKind } from "@/features/catalog/relationships/relationshipTypeRules";
 
 const KIND_OPTIONS = [
   { label: "Application", value: "application" },
   { label: "Service", value: "service" },
   { label: "API", value: "api" },
+  { label: "System", value: "system" },
 ];
 
 export interface GraphFilterControlsProps {
-  kinds: RelationshipKind[];
+  kinds: EntityKind[];
   teamIds: string[];
   teams: { id: string; displayName: string }[];
   activeCount: number;
-  onKindsChange: (kinds: RelationshipKind[]) => void;
+  onKindsChange: (kinds: EntityKind[]) => void;
   onTeamIdsChange: (ids: string[]) => void;
   onClear: () => void;
 }
@@ -54,7 +55,7 @@ export function GraphFilterControls({
         placeholder="Any kind"
         options={KIND_OPTIONS}
         selectedKeys={kinds}
-        onChange={(v) => onKindsChange(v as RelationshipKind[])}
+        onChange={(v) => onKindsChange(v as EntityKind[])}
       />
       <MultiSelect
         name="graph-team"

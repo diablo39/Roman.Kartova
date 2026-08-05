@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import type { GraphFilters } from "@/features/catalog/relationships/graphFilter";
-import { isRelationshipKind, type RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
+import { isEntityKind, type EntityKind } from "@/features/catalog/relationships/relationshipTypeRules";
 
 const EMPTY: GraphFilters = { kinds: [], teamIds: [] };
 const storageKey = (focusKey: string) => `graph-explorer-filters:${focusKey}`;
@@ -13,7 +13,7 @@ function read(storage: Storage, focusKey: string): GraphFilters {
     if (!parsed || typeof parsed !== "object") return EMPTY;
     const p = parsed as Partial<GraphFilters>;
     return {
-      kinds: Array.isArray(p.kinds) ? p.kinds.filter(isRelationshipKind) : [],
+      kinds: Array.isArray(p.kinds) ? p.kinds.filter(isEntityKind) : [],
       teamIds: Array.isArray(p.teamIds) ? p.teamIds.filter((t): t is string => typeof t === "string") : [],
     };
   } catch {
@@ -46,7 +46,7 @@ export function useGraphFilters(focusKey: string, storage: Storage = window.sess
     [storage, focusKey],
   );
 
-  const setKinds = useCallback((kinds: RelationshipKind[]) => commit({ ...filters, kinds }), [filters, commit]);
+  const setKinds = useCallback((kinds: EntityKind[]) => commit({ ...filters, kinds }), [filters, commit]);
   const setTeamIds = useCallback((teamIds: string[]) => commit({ ...filters, teamIds }), [filters, commit]);
   const clear = useCallback(() => commit(EMPTY), [commit]);
 

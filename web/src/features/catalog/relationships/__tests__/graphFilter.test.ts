@@ -69,4 +69,29 @@ describe("applyGraphFilters", () => {
     expect(dimmedNodeIds.has("service:s1")).toBe(true);
     expect(dimmedNodeIds.has("application:focus")).toBe(false); // focus exempt
   });
+
+  it("dims a system node when the kind filter selects applications only (FU-A)", () => {
+    const graph = {
+      nodes: [
+        { id: "application:a1", kind: "application", entityId: "a1", displayName: "App", outDegree: 0, inDegree: 0 },
+        { id: "system:s1", kind: "system", entityId: "s1", displayName: "Sys", outDegree: 0, inDegree: 1 },
+      ],
+      edges: [],
+      truncated: false,
+    } as unknown as ExplorerGraph;
+
+    const { dimmedNodeIds } = applyGraphFilters(graph, { kinds: ["application"], teamIds: [] }, "application:a1");
+    expect([...dimmedNodeIds]).toEqual(["system:s1"]);
+  });
+
+  it("does not dim a system node when System is selected", () => {
+    const graph = {
+      nodes: [{ id: "system:s1", kind: "system", entityId: "s1", displayName: "Sys", outDegree: 0, inDegree: 0 }],
+      edges: [],
+      truncated: false,
+    } as unknown as ExplorerGraph;
+
+    const { dimmedNodeIds } = applyGraphFilters(graph, { kinds: ["system"], teamIds: [] }, "application:a1");
+    expect(dimmedNodeIds.size).toBe(0);
+  });
 });
