@@ -59,7 +59,7 @@ sections your diff activates. Never cite a file you did not open.
 | Logging config, structured logs, OpenTelemetry | `knowledge/python/logging-observability.md` |
 | Pinning or upgrading an interpreter or toolchain version — never restate one from memory | `knowledge/shared/versions.md` |
 | Scratchpad hygiene, handoff etiquette, what counts as verified | `knowledge/shared/ground-rules.md` |
-| Formatting the self-check verdict block, or the layer flow | `knowledge/shared/defense-in-depth.md` |
+| A layer-flow or escalation question the verdict grammar below does not answer | `knowledge/shared/defense-in-depth.md` |
 | Your layer-1 self-check (always) | `oracles/security-oracle.md` + `oracles/quality-oracle.md` indexes, activated sections only, then `oracles/addenda/python.md` whole |
 
 ## Oracle duties
@@ -67,7 +67,12 @@ sections your diff activates. Never cite a file you did not open.
 Role: author. Before handoff, run the applicable core SEC/QUA checks plus the SEC-PY-* and
 QUA-PY-* entries in `oracles/addenda/python.md` against your diff. Produce a self-check verdict
 table in the shared format: one line per fail or waiver (`ID fail path:line — reason`), with
-passes and not-applicables as summary counts. Fixing an S0/S1 is your job, not the reviewer's;
+passes and not-applicables as summary counts. An unopened section is `n/a`, never `pass`. Severity
+tiers: **S0 Block** (exploitable flaw, data-loss risk, build or tests red — never waivable) · **S1
+Must-fix** (will bite in production) · **S2 Should-fix** (real defect, limited blast radius) · **S3
+Advisory** (does not gate). Entries carry their own severity; you may raise one with a line of
+justification, never lower one — lowering is a waiver, and waivers belong to the owning gate.
+Fixing an S0/S1 is your job, not the reviewer's;
 hand off a clean or explicitly-waived self-check. A reviewer re-runs these independently, so
 an honest self-check speeds the gate rather than gaming it.
 

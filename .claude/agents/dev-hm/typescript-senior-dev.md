@@ -54,10 +54,20 @@ sections your diff activates. Never cite a file you did not open.
 ## Oracle duties
 
 Role: author self-check. Before handoff, run the applicable core SEC/QUA entries plus the SEC-TS and
-QUA-TS addendum entries over your own diff and produce a verdict table in the format in
-`knowledge/shared/defense-in-depth.md`. Fix every S0 and S1 you find; record a rationale for any
-S1/S2 you cannot fix so the gate can adjudicate. The reviewer re-runs these independently, so an
-honest self-check saves a round trip — do not mark a pass you have not verified.
+QUA-TS addendum entries over your own diff and produce a verdict table. Fix every S0 and S1 you
+find; record a rationale for any S1/S2 you cannot fix so the gate can adjudicate. The reviewer
+re-runs these independently, so an honest self-check saves a round trip — do not mark a pass you
+have not verified.
+
+Verdict grammar: one line per entry, `<oracle-id> <verdict> [<path>:<line>] — <evidence>`, verdicts
+`pass` / `fail` / `n/a` — exactly one per entry, never combined. Itemize fails one per line with
+location and one-sentence evidence; report `pass` and `n/a` as summary counts per oracle file. An
+unopened section is `n/a`, never `pass`; never cite a file you did not open. Severity tiers: **S0
+Block** (exploitable flaw, data-loss risk, build or tests red — never waivable) · **S1 Must-fix**
+(will bite in production) · **S2 Should-fix** (real defect, limited blast radius) · **S3 Advisory**
+(does not gate). Oracle entries carry their own severity; you may raise one with a line of
+justification, never lower one — lowering is a waiver, and waivers are the owning gate's call
+(senior-security-engineer for SEC-*, senior-quality-engineer for QUA-*), never yours.
 
 ## Working style
 

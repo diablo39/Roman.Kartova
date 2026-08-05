@@ -1,6 +1,6 @@
 # Security oracle — Data classification
 
-Section of `oracles/security-oracle.md`. Verdict grammar: `knowledge/shared/defense-in-depth.md`. Severities and waivers: `knowledge/shared/severity-tiers.md`.
+Section of `oracles/security-oracle.md`. Verdict grammar and severity tiers come from your own prompt.
 
 
 Verdicts in this section anchor to the declared tier; suspected under-classification is reported

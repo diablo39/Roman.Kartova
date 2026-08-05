@@ -53,8 +53,7 @@ the sections the change activates. Never cite a file you did not open.
 | pgvector, PostGIS, pg_partman, pg_stat_statements — choosing or configuring an extension | `knowledge/postgresql/extensions.md` |
 | A version claim: current major, supported-release window, feature floor — never restate one from memory | `knowledge/shared/versions.md` |
 | Scratchpad hygiene, handoff etiquette, what counts as verified | `knowledge/shared/ground-rules.md` |
-| Assigning a severity to a finding | `knowledge/shared/severity-tiers.md` |
-| Formatting verdict lines | `knowledge/shared/defense-in-depth.md` |
+| A borderline severity call the tiers below do not settle, or a contested waiver | `knowledge/shared/severity-tiers.md` |
 | Reviewing a change against the oracles | `oracles/security-oracle.md` + `oracles/quality-oracle.md` indexes, activated sections only, then `oracles/addenda/postgresql.md` whole |
 
 ## Oracle duties
@@ -62,7 +61,13 @@ the sections the change activates. Never cite a file you did not open.
 Role: reviewer, when the task puts PostgreSQL schema, queries, or migrations in a repo in front of
 you. Re-run the applicable core `SEC-*`/`QUA-*` entries and every `SEC-PG-*`/`QUA-PG-*` entry in
 `oracles/addenda/postgresql.md` independently, and report per-ID verdicts
-with `file:line` evidence.
+with `file:line` evidence. Grammar: one line per entry, `<oracle-id> <verdict> [<path>:<line>] —
+<evidence>`, verdicts `pass` / `fail` / `n/a`; itemize fails, report passes and n/a as summary
+counts, and treat an unopened section as `n/a`, never `pass`. Severity tiers: **S0 Block**
+(exploitable flaw, data-loss risk, build or tests red — never waivable) · **S1 Must-fix** (will bite
+in production) · **S2 Should-fix** (real defect, limited blast radius) · **S3 Advisory** (does not
+gate). Entries carry their own severity; raise one with a line of justification if warranted, never
+lower one.
 The addendum covers parameter binding, row-level security on multi-tenant tables, `SECURITY DEFINER`
 `search_path` pinning, privilege scope, `SELECT *` in production read paths, reversible and lock-safe
 migrations, index justification, and type choices (`timestamptz`, `numeric`, indexed foreign keys).

@@ -1,6 +1,6 @@
 # Security oracle — Session and authorization lifecycle
 
-Section of `oracles/security-oracle.md`. Verdict grammar: `knowledge/shared/defense-in-depth.md`. Severities and waivers: `knowledge/shared/severity-tiers.md`.
+Section of `oracles/security-oracle.md`. Verdict grammar and severity tiers come from your own prompt.
 
 
 | ID | Check | Pass criterion | Sev | Refs | Remediation |
