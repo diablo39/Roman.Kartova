@@ -1,0 +1,107 @@
+import { it, expect, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
+
+const useGraphMock = vi.fn();
+vi.mock("@/features/catalog/api/graph", () => ({ useGraph: (a: unknown) => useGraphMock(a) }));
+
+vi.mock("@xyflow/react", () => ({
+  ReactFlow: (props: {
+    nodes: { id: string; data: { displayName?: string; label?: string } }[];
+    edges: { id: string; label: string }[];
+    onNodeClick?: (e: unknown, n: unknown) => void;
+  }) => (
+    <div data-testid="rf">
+      <span data-testid="node-count">{props.nodes.length}</span>
+      <span data-testid="edge-count">{props.edges.length}</span>
+      {props.nodes.map((n) => (
+        <button key={n.id} onClick={() => props.onNodeClick?.({}, n)}>
+          {n.data.displayName ?? n.data.label}
+        </button>
+      ))}
+      {props.edges.map((e) => (
+        <span key={e.id} data-testid="edge-label">
+          {e.label}
+        </span>
+      ))}
+    </div>
+  ),
+  Background: () => null,
+}));
+
+import { SystemDiagram } from "@/features/catalog/components/SystemDiagram";
+
+const oneMemberGraph = {
+  results: [
+    {
+      nodes: [
+        { kind: "system", id: "s1", displayName: "Payments Platform", depth: 0, teamId: null, outDegree: 0, inDegree: 1 },
+        { kind: "service", id: "m1", displayName: "Ledger", depth: 1, teamId: "t1", outDegree: 0, inDegree: 0 },
+      ],
+      edges: [{ id: "e1", source: { kind: "service", id: "m1" }, target: { kind: "system", id: "s1" }, type: "partOf" }],
+      derivedEdges: [],
+      truncated: false,
+    },
+  ],
+  isLoading: false,
+  isError: false,
+};
+
+function renderDiagram(systemId = "s1", displayName = "Payments Platform") {
+  return render(
+    <MemoryRouter>
+      <SystemDiagram systemId={systemId} displayName={displayName} />
+    </MemoryRouter>,
+  );
+}
+
+it("requests depth 1 by default and depth 2 once external dependencies are included", async () => {
+  useGraphMock.mockReturnValue(oneMemberGraph);
+  renderDiagram();
+  expect(useGraphMock).toHaveBeenLastCalledWith(expect.objectContaining({ depth: 1 }));
+
+  await userEvent.click(screen.getByRole("switch", { name: /include external dependencies/i }));
+  expect(useGraphMock).toHaveBeenLastCalledWith(expect.objectContaining({ depth: 2 }));
+});
+
+it("renders the band labelled with the system name, and the member node", () => {
+  useGraphMock.mockReturnValue(oneMemberGraph);
+  renderDiagram();
+  expect(screen.getAllByText("Payments Platform").length).toBeGreaterThan(0);
+  expect(screen.getByText("Ledger")).toBeInTheDocument();
+});
+
+it("does not render partOf edges", () => {
+  useGraphMock.mockReturnValue(oneMemberGraph);
+  const { container } = renderDiagram();
+  expect(container.textContent).not.toContain("Part of");
+});
+
+it("shows the empty state for a system with no members", () => {
+  useGraphMock.mockReturnValue({
+    results: [{ nodes: [{ kind: "system", id: "s1", displayName: "Empty", depth: 0, teamId: null, outDegree: 0, inDegree: 0 }], edges: [], derivedEdges: [], truncated: false }],
+    isLoading: false,
+    isError: false,
+  });
+  renderDiagram("s1", "Empty");
+  expect(screen.getByText(/no members yet/i)).toBeInTheDocument();
+});
+
+it("shows an error state scoped to the diagram", () => {
+  useGraphMock.mockReturnValue({ results: [], isLoading: false, isError: true });
+  renderDiagram("s1", "X");
+  expect(screen.getByText(/couldn.t load the system diagram/i)).toBeInTheDocument();
+});
+
+it("warns when the response was truncated", () => {
+  useGraphMock.mockReturnValue({ ...oneMemberGraph, results: [{ ...oneMemberGraph.results[0]!, truncated: true }] });
+  renderDiagram("s1", "X");
+  expect(screen.getByText(/only the first/i)).toBeInTheDocument();
+});
+
+it("links to the full explorer focused on the system", () => {
+  useGraphMock.mockReturnValue(oneMemberGraph);
+  renderDiagram("s1", "X");
+  expect(screen.getByRole("link", { name: /open full graph/i })).toHaveAttribute("href", "/graph?focus=system:s1");
+});
