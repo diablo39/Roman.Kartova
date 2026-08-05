@@ -1,12 +1,13 @@
 import { describe, it, expect } from "vitest";
 import type { Node } from "@xyflow/react";
-import { systemMemberIds, systemBoundaryBox, BOUNDARY_PADDING } from "../systemBoundary";
-import type { ExplorerGraph } from "../graphMerge";
+import { systemMemberIds, systemBoundaryBox, BOUNDARY_PADDING, PART_OF_TYPE } from "../systemBoundary";
+import { NODE_W, NODE_H } from "../graphLayout";
+import type { ExplorerGraph, WireRelationshipType } from "../graphMerge";
 import type { GraphNodeData } from "../graphModel";
 
 const FOCUS = "system:s1";
 
-function graph(edges: { id: string; source: string; target: string; type?: string }[]): ExplorerGraph {
+function graph(edges: { id: string; source: string; target: string; type?: WireRelationshipType }[]): ExplorerGraph {
   return { nodes: [], edges: edges.map((e) => ({ ...e, label: "x" })), truncated: false } as ExplorerGraph;
 }
 
@@ -39,6 +40,14 @@ describe("systemMemberIds", () => {
     const g = graph([{ id: "e1", source: FOCUS, target: "service:m1", type: "partOf" }]);
     expect(systemMemberIds(g, FOCUS).size).toBe(0);
   });
+
+  it("still counts a member that also has a partOf edge to a second system (reachable at depth 2)", () => {
+    const g = graph([
+      { id: "e1", source: "service:m1", target: FOCUS, type: PART_OF_TYPE },
+      { id: "e2", source: "service:m1", target: "system:other", type: PART_OF_TYPE },
+    ]);
+    expect([...systemMemberIds(g, FOCUS)]).toEqual(["service:m1"]);
+  });
 });
 
 describe("systemBoundaryBox", () => {
@@ -50,9 +59,20 @@ describe("systemBoundaryBox", () => {
     expect(box.y).toBe(0 - BOUNDARY_PADDING);
     // members span y 0..100 plus node height; the external node at x=500 must not widen the box
     expect(box.x + box.width).toBeLessThan(500);
+    // Exact size, expressed in the same constants layoutGraph/systemBoundaryBox use — mutating
+    // NODE_W/NODE_H/BOUNDARY_PADDING's contribution to width/height fails this test.
+    expect(box.width).toBe(NODE_W + BOUNDARY_PADDING * 2);
+    expect(box.height).toBe(100 + NODE_H + BOUNDARY_PADDING * 2);
   });
 
   it("returns null for a system with no members", () => {
     expect(systemBoundaryBox([node(FOCUS, 0, 0)], new Set(), FOCUS)).toBeNull();
+  });
+
+  it("returns null when memberIds is non-empty but matches no node in the nodes array", () => {
+    // Distinguishes this guard from the memberIds.size === 0 case above: here membership is
+    // non-empty, but neither the focus node nor any member id is present among `nodes`.
+    const nodes = [node("service:unrelated", 0, 0)];
+    expect(systemBoundaryBox(nodes, new Set(["service:ghost"]), FOCUS)).toBeNull();
   });
 });

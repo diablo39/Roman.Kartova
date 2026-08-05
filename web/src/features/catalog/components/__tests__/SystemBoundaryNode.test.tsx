@@ -5,7 +5,11 @@ import { SystemBoundaryNode } from "../SystemBoundaryNode";
 describe("SystemBoundaryNode", () => {
   it("renders the system name and sizes itself from its data", () => {
     const { container } = render(
-      <SystemBoundaryNode data={{ label: "Payments Platform", width: 300, height: 200 }} />,
+      <SystemBoundaryNode
+        {...({ data: { label: "Payments Platform", width: 300, height: 200 } } as unknown as Parameters<
+          typeof SystemBoundaryNode
+        >[0])}
+      />,
     );
 
     expect(screen.getByText("Payments Platform")).toBeInTheDocument();

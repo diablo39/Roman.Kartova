@@ -1,5 +1,5 @@
 import { it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 
@@ -8,7 +8,7 @@ vi.mock("@/features/catalog/api/graph", () => ({ useGraph: (a: unknown) => useGr
 
 vi.mock("@xyflow/react", () => ({
   ReactFlow: (props: {
-    nodes: { id: string; data: { displayName?: string; label?: string } }[];
+    nodes: { id: string; type?: string; data: { displayName?: string; label?: string; selected?: boolean } }[];
     edges: { id: string; label: string }[];
     onNodeClick?: (e: unknown, n: unknown) => void;
   }) => (
@@ -16,7 +16,12 @@ vi.mock("@xyflow/react", () => ({
       <span data-testid="node-count">{props.nodes.length}</span>
       <span data-testid="edge-count">{props.edges.length}</span>
       {props.nodes.map((n) => (
-        <button key={n.id} onClick={() => props.onNodeClick?.({}, n)}>
+        <button
+          key={n.id}
+          data-selected={n.data.selected ? "true" : "false"}
+          data-node-type={n.type}
+          onClick={() => props.onNodeClick?.({}, n)}
+        >
           {n.data.displayName ?? n.data.label}
         </button>
       ))}
@@ -40,6 +45,27 @@ const oneMemberGraph = {
         { kind: "service", id: "m1", displayName: "Ledger", depth: 1, teamId: "t1", outDegree: 0, inDegree: 0 },
       ],
       edges: [{ id: "e1", source: { kind: "service", id: "m1" }, target: { kind: "system", id: "s1" }, type: "partOf" }],
+      derivedEdges: [],
+      truncated: false,
+    },
+  ],
+  isLoading: false,
+  isError: false,
+};
+
+const twoMemberGraph = {
+  results: [
+    {
+      nodes: [
+        { kind: "system", id: "s1", displayName: "Payments Platform", depth: 0, teamId: null, outDegree: 0, inDegree: 2 },
+        { kind: "service", id: "m1", displayName: "Ledger", depth: 1, teamId: "t1", outDegree: 1, inDegree: 0 },
+        { kind: "service", id: "m2", displayName: "Billing", depth: 1, teamId: "t1", outDegree: 0, inDegree: 1 },
+      ],
+      edges: [
+        { id: "e1", source: { kind: "service", id: "m1" }, target: { kind: "system", id: "s1" }, type: "partOf" },
+        { id: "e2", source: { kind: "service", id: "m2" }, target: { kind: "system", id: "s1" }, type: "partOf" },
+        { id: "e3", source: { kind: "service", id: "m1" }, target: { kind: "service", id: "m2" }, type: "dependsOn" },
+      ],
       derivedEdges: [],
       truncated: false,
     },
@@ -78,6 +104,29 @@ it("does not render partOf edges", () => {
   expect(container.textContent).not.toContain("Part of");
 });
 
+it("renders a dependsOn edge between two members (the reason this diagram uses /graph)", () => {
+  useGraphMock.mockReturnValue(twoMemberGraph);
+  renderDiagram();
+  // Both partOf edges are filtered out; only the member<->member dependsOn edge remains.
+  expect(screen.getByTestId("edge-count")).toHaveTextContent("1");
+  expect(screen.getByTestId("edge-label")).toHaveTextContent("Depends on");
+});
+
+it("does not select the boundary band on click, leaving a previously-selected member selected", () => {
+  useGraphMock.mockReturnValue(oneMemberGraph);
+  const { container } = renderDiagram();
+
+  fireEvent.click(screen.getByRole("button", { name: "Ledger" }));
+  expect(screen.getByRole("button", { name: "Ledger" })).toHaveAttribute("data-selected", "true");
+
+  // Clicking the band (systemBoundary node) must early-return rather than falling through to
+  // setSelectedId — otherwise it would clear the member's selection above.
+  const band = container.querySelector('button[data-node-type="systemBoundary"]');
+  expect(band).not.toBeNull();
+  fireEvent.click(band!);
+  expect(screen.getByRole("button", { name: "Ledger" })).toHaveAttribute("data-selected", "true");
+});
+
 it("shows the empty state for a system with no members", () => {
   useGraphMock.mockReturnValue({
     results: [{ nodes: [{ kind: "system", id: "s1", displayName: "Empty", depth: 0, teamId: null, outDegree: 0, inDegree: 0 }], edges: [], derivedEdges: [], truncated: false }],
@@ -97,7 +146,7 @@ it("shows an error state scoped to the diagram", () => {
 it("warns when the response was truncated", () => {
   useGraphMock.mockReturnValue({ ...oneMemberGraph, results: [{ ...oneMemberGraph.results[0]!, truncated: true }] });
   renderDiagram("s1", "X");
-  expect(screen.getByText(/only the first/i)).toBeInTheDocument();
+  expect(screen.getByText(/only part of/i)).toBeInTheDocument();
 });
 
 it("links to the full explorer focused on the system", () => {

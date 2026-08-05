@@ -54,9 +54,9 @@ describe("mergeGraphs", () => {
     expect(merged.edges).toEqual([{ id: "e1", source: "service:s1", target: "api:api-1", label: "Provides API for", type: "providesApiFor" }]);
   });
 
-  it("passes a system node + PartOf edge through unchanged (widened kind after client refresh; render deferred FU-A)", () => {
-    // /graph can return system nodes (S-01 PartOf edges); the generated kind union now includes
-    // "system". mergeGraphs must not drop or throw on it — it flows through (rendering is FU-A).
+  it("passes a system node + PartOf edge through unchanged (rendered on the graph explorer and System diagram, FU-A)", () => {
+    // /graph can return system nodes (S-01 PartOf edges); the generated kind union includes
+    // "system". mergeGraphs must not drop or throw on it — it flows through to rendering (FU-A).
     const merged = mergeGraphs([
       {
         nodes: [
@@ -69,7 +69,9 @@ describe("mergeGraphs", () => {
         truncated: false,
       } as never,
     ]);
-    expect(merged.nodes.find((n) => n.id === "system:sys-1")?.kind).toBe("system");
+    const sys = merged.nodes.find((n) => n.id === "system:sys-1");
+    expect(sys?.kind).toBe("system");
+    expect(sys?.displayName).toBe("Payments Platform");
     // A1 (2026-07-30) added `partOf: "Part of"` to relationshipTypeLabel, so the edge label is
     // now the human string rather than the raw token. Membership edges render on the Dependencies
     // tab for every assigned component, so leaving them as camelCase was a visible wart.
@@ -280,24 +282,4 @@ describe("computeAffordance", () => {
     const m = computeAffordance(graph, (node, dir) => node === "service:a" && dir === "out");
     expect(m.get("service:a")).toMatchObject({ expandedOut: true });
   });
-});
-
-it("keeps a system node's kind as \"system\" (FU-A: no cast to RelationshipKind)", () => {
-  const merged = mergeGraphs([
-    {
-      nodes: [
-        { kind: "system", id: "s1", displayName: "Payments Platform", depth: 0, teamId: null, outDegree: 0, inDegree: 2 },
-        { kind: "service", id: "m1", displayName: "Ledger", depth: 1, teamId: "t1", outDegree: 1, inDegree: 0 },
-      ],
-      edges: [
-        { id: "e1", source: { kind: "service", id: "m1" }, target: { kind: "system", id: "s1" }, type: "partOf" },
-      ],
-      derivedEdges: [],
-      truncated: false,
-    } as unknown as GraphResponse,
-  ]);
-
-  const sys = merged.nodes.find((n) => n.id === "system:s1");
-  expect(sys?.kind).toBe("system");
-  expect(sys?.displayName).toBe("Payments Platform");
 });

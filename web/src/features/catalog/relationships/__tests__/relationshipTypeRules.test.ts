@@ -60,8 +60,9 @@ describe("relationshipTypeRules", () => {
     expect(isEntityKind("system")).toBe(true);
     expect(isEntityKind("application")).toBe(true);
     expect(isEntityKind("nope")).toBe(false);
-    // Graph URL tokens and the creatable-edge matrix stay on RelationshipKind (graph node
-    // rendering is FU-A) — widening this would change /graph?focus= parsing.
+    // The creatable-edge matrix stays on RelationshipKind — `system` is a real graph node and a
+    // valid `/graph?focus=` token (both via EntityKind/isEntityKind, FU-A), but never a creatable
+    // relationship endpoint.
     expect(isRelationshipKind("system")).toBe(false);
   });
 
