@@ -1,11 +1,11 @@
 import { createContext, useContext } from "react";
 import type { ExpandDir } from "@/features/catalog/relationships/useExplorerState";
-import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
+import type { EntityKind } from "@/features/catalog/relationships/relationshipTypeRules";
 
 export type GraphActions = {
   toggleExpand: (node: string, dir: ExpandDir) => void;
-  setFocus: (kind: RelationshipKind, id: string) => void;
-  openPage: (kind: RelationshipKind, id: string) => void;
+  setFocus: (kind: EntityKind, id: string) => void;
+  openPage: (kind: EntityKind, id: string) => void;
   atCap: boolean;
   /**
    * Whether nodes support expand/collapse. Omitted (or `true`) in the full graph explorer.

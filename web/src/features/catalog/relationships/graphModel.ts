@@ -2,7 +2,6 @@ import type { RelationshipResponse } from "@/features/catalog/api/relationships"
 import {
   relationshipTypeLabel,
   isEntityKind,
-  type RelationshipKind,
   type CreatableRelationshipType,
   type EntityKind,
 } from "@/features/catalog/relationships/relationshipTypeRules";
@@ -10,7 +9,7 @@ import {
 export type GraphSide = "focused" | "dependency" | "dependent";
 
 export type GraphNodeData = {
-  kind: RelationshipKind;
+  kind: EntityKind;
   entityId: string;
   displayName: string;
   side: GraphSide;
@@ -46,7 +45,7 @@ export type GraphEdge = { id: string; source: string; target: string; label: str
 
 export type GraphModel = { nodes: GraphNode[]; edges: GraphEdge[] };
 
-export type FocusedEntity = { kind: RelationshipKind; id: string; displayName: string };
+export type FocusedEntity = { kind: EntityKind; id: string; displayName: string };
 
 export type DerivedNeighbour = { serviceId: string; displayName: string; label: string };
 export type DerivedDependencySets = { dependencies: DerivedNeighbour[]; dependents: DerivedNeighbour[] };
@@ -78,7 +77,7 @@ export function toGraphModel(
     const existing = neighbours.get(otherId);
     if (!existing) {
       neighbours.set(otherId, {
-        kind: other.kind as RelationshipKind,
+        kind: other.kind,
         entityId: other.id,
         displayName: other.displayName,
         side,

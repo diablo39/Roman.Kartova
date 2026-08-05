@@ -14,7 +14,7 @@ import {
 } from "@/features/catalog/relationships/graphModel";
 import { EntityGraphNode } from "@/features/catalog/components/EntityGraphNode";
 import { GraphActionsProvider } from "@/features/catalog/relationships/GraphActionsContext";
-import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
+import type { EntityKind, RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
 
 const NODE_TYPES = { entity: EntityGraphNode };
 const GRAPH_LIMIT = 50;
@@ -45,8 +45,8 @@ export function DependencyMiniGraph({ entityKind, entityId, displayName }: Props
     () => ({
       // Fixed 1-hop preview: not expandable, so the ⋯ menu drops its Expand items (supportsExpand).
       toggleExpand: () => {},
-      setFocus: (kind: RelationshipKind, id: string) => navigate(`/graph?focus=${kind}:${id}`),
-      openPage: (kind: RelationshipKind, id: string) => navigate(entityDetailPath(kind, id)),
+      setFocus: (kind: EntityKind, id: string) => navigate(`/graph?focus=${kind}:${id}`),
+      openPage: (kind: EntityKind, id: string) => navigate(entityDetailPath(kind, id)),
       atCap: false,
       supportsExpand: false,
     }),

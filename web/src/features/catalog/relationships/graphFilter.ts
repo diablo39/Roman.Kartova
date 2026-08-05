@@ -18,7 +18,7 @@ export function applyGraphFilters(
   const dimmedNodeIds = new Set<string>();
   for (const n of graph.nodes) {
     if (n.id === focusId) continue; // focus never dims
-    const kindOk = filters.kinds.length === 0 || filters.kinds.includes(n.kind);
+    const kindOk = filters.kinds.length === 0 || filters.kinds.some((k) => k === n.kind);
     const teamOk =
       filters.teamIds.length === 0 || (n.teamId != null && filters.teamIds.includes(n.teamId));
     if (!(kindOk && teamOk)) dimmedNodeIds.add(n.id);

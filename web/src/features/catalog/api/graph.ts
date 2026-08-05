@@ -3,11 +3,11 @@ import { useQueries } from "@tanstack/react-query";
 import { apiClient } from "./client";
 import { unwrapData } from "@/shared/api/openapi-fetch-helpers";
 import type { components } from "@/generated/openapi";
-import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
+import type { EntityKind } from "@/features/catalog/relationships/relationshipTypeRules";
 import type { ExpandEntry } from "@/features/catalog/relationships/useExplorerState";
 
 export type GraphResponse = components["schemas"]["GraphResponse"];
-export type GraphFocus = { kind: RelationshipKind; id: string };
+export type GraphFocus = { kind: EntityKind; id: string };
 
 const FOCUS_DEPTH = 2;
 const EXPAND_DEPTH = 1;
@@ -17,7 +17,7 @@ type GraphDirection = "outgoing" | "incoming" | "all";
 // inputs are always well-formed "kind:id" nodeKeys from the expand set; not untrusted (URL focus is validated by parseRef).
 function parseNode(node: string): GraphFocus {
   const [kind, id] = node.split(":");
-  return { kind: kind as RelationshipKind, id: id ?? "" };
+  return { kind: kind as EntityKind, id: id ?? "" };
 }
 
 export const graphKeys = {

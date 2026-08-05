@@ -8,9 +8,9 @@ import { useApi } from "@/features/catalog/api/apis";
 import type { ApiResponse } from "@/features/catalog/api/apis";
 import type { ExpandDir } from "@/features/catalog/relationships/useExplorerState";
 import { ENTITY_KIND_LABEL, entityDetailPath } from "@/features/catalog/relationships/graphModel";
-import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
+import type { EntityKind } from "@/features/catalog/relationships/relationshipTypeRules";
 
-type Selected = { kind: RelationshipKind; id: string };
+type Selected = { kind: EntityKind; id: string };
 
 export function GraphExplorerSidebar(props: {
   selected: Selected;
@@ -30,8 +30,9 @@ export function GraphExplorerSidebar(props: {
   const appQ = useApplication(selected.kind === "application" ? selected.id : "");
   const svcQ = useService(selected.kind === "service" ? selected.id : "");
   const apiQ = useApi(selected.kind === "api" ? selected.id : "");
-  const active = { application: appQ, service: svcQ, api: apiQ }[selected.kind];
-  const entity = active.data as ApplicationResponse | ServiceResponse | ApiResponse | undefined;
+  // "system" has no detail query yet (deferred to FU-A); active is undefined for it.
+  const active = selected.kind === "system" ? undefined : { application: appQ, service: svcQ, api: apiQ }[selected.kind];
+  const entity = active?.data as ApplicationResponse | ServiceResponse | ApiResponse | undefined;
   const lifecycle = selected.kind === "application" ? (entity as ApplicationResponse | undefined)?.lifecycle : undefined;
   const health = selected.kind === "service" ? (entity as ServiceResponse | undefined)?.health : undefined;
 
@@ -59,7 +60,7 @@ export function GraphExplorerSidebar(props: {
         <button type="button" onClick={onClose} aria-label="Close details" className="text-tertiary">✕</button>
       </div>
 
-      {active.isError ? (
+      {active?.isError ? (
         <p className="text-sm text-error-primary">Couldn&apos;t load details.</p>
       ) : (
         <dl className="space-y-1 text-sm">

@@ -245,3 +245,23 @@ describe("computeAffordance", () => {
     expect(m.get("service:a")).toMatchObject({ expandedOut: true });
   });
 });
+
+it("keeps a system node's kind as \"system\" (FU-A: no cast to RelationshipKind)", () => {
+  const merged = mergeGraphs([
+    {
+      nodes: [
+        { kind: "system", id: "s1", displayName: "Payments Platform", depth: 0, teamId: null, outDegree: 0, inDegree: 2 },
+        { kind: "service", id: "m1", displayName: "Ledger", depth: 1, teamId: "t1", outDegree: 1, inDegree: 0 },
+      ],
+      edges: [
+        { id: "e1", source: { kind: "service", id: "m1" }, target: { kind: "system", id: "s1" }, type: "partOf" },
+      ],
+      derivedEdges: [],
+      truncated: false,
+    } as unknown as GraphResponse,
+  ]);
+
+  const sys = merged.nodes.find((n) => n.id === "system:s1");
+  expect(sys?.kind).toBe("system");
+  expect(sys?.displayName).toBe("Payments Platform");
+});
