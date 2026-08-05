@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "@/components/base/card/card";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
@@ -7,6 +7,10 @@ import { CreatedByLink } from "@/features/users/components/CreatedByLink";
 import { useSystem } from "@/features/catalog/api/systems";
 import { useTeamsList } from "@/features/teams/api/teams";
 import { SystemMembersSection } from "@/features/catalog/components/SystemMembersSection";
+
+const SystemDiagram = lazy(() =>
+  import("@/features/catalog/components/SystemDiagram").then((m) => ({ default: m.SystemDiagram })),
+);
 
 export function SystemDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -81,7 +85,12 @@ export function SystemDetailPage() {
           </DetailTabs.Tab>
 
           <DetailTabs.Tab id="members" label="Members">
-            <SystemMembersSection systemId={sys.id} systemTeamId={sys.teamId} systemDisplayName={sys.displayName} />
+            <div className="space-y-6">
+              <Suspense fallback={<Skeleton className="h-80 w-full" />}>
+                <SystemDiagram systemId={sys.id} displayName={sys.displayName} />
+              </Suspense>
+              <SystemMembersSection systemId={sys.id} systemTeamId={sys.teamId} systemDisplayName={sys.displayName} />
+            </div>
           </DetailTabs.Tab>
         </DetailTabs>
       </Card>
