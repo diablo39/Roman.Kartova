@@ -34,11 +34,21 @@ async function fetchGraph(f: GraphFocus, depth: number, direction: GraphDirectio
   return unwrapData(data);
 }
 
-export function useGraph({ focus, expand }: { focus: GraphFocus; expand: ExpandEntry[] }) {
+export function useGraph({
+  focus,
+  expand,
+  depth = FOCUS_DEPTH,
+}: {
+  focus: GraphFocus;
+  expand: ExpandEntry[];
+  /** Focus-query depth. Defaults to the explorer's 2; the System diagram passes 1 (members +
+   *  every edge between them) or 2 (adds their external neighbours). */
+  depth?: number;
+}) {
   const enabled = focus.id !== "";
   const queries = useQueries({
     queries: [
-      { queryKey: graphKeys.node(focus, FOCUS_DEPTH, "all"), queryFn: () => fetchGraph(focus, FOCUS_DEPTH, "all"), enabled },
+      { queryKey: graphKeys.node(focus, depth, "all"), queryFn: () => fetchGraph(focus, depth, "all"), enabled },
       ...expand.map((e) => {
         const f = parseNode(e.node);
         const direction: GraphDirection = e.dir === "out" ? "outgoing" : "incoming";
