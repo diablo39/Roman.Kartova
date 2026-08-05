@@ -38,8 +38,9 @@ export function isRelationshipKind(kind: string): kind is RelationshipKind {
 }
 
 // Rendering/search superset of RelationshipKind. `system` is a real catalog entity that can
-// appear as a relationship ENDPOINT (PartOf, ADR-0111) and be searched, but it is not a
-// creatable-edge kind and not a graph URL token — those stay on RelationshipKind.
+// appear as a relationship ENDPOINT (PartOf, ADR-0111), be searched, rendered as a graph node,
+// and used as a `/graph?focus=` URL token (`parseEntityRef` accepts it, FU-A) — but it is not a
+// creatable-edge kind, so it stays off RelationshipKind.
 export type EntityKind = RelationshipKind | "system";
 
 export function isEntityKind(kind: string): kind is EntityKind {

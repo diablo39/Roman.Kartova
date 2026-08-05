@@ -1,3 +1,5 @@
+import type { Node, NodeProps } from "@xyflow/react";
+
 export type SystemBoundaryData = { label: string; width: number; height: number };
 
 /**
@@ -5,7 +7,7 @@ export type SystemBoundaryData = { label: string; width: number; height: number 
  * behind the real nodes (zIndex set where the node object is built) and never takes pointer
  * events, so clicks fall through to the nodes on top of it.
  */
-export function SystemBoundaryNode({ data }: { data: SystemBoundaryData }) {
+export function SystemBoundaryNode({ data }: NodeProps<Node<SystemBoundaryData>>) {
   return (
     <div
       className="relative rounded-xl border border-dashed border-brand bg-brand-primary/10"

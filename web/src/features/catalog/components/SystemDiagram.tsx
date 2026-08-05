@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ReactFlow, Background, type Node, type Edge } from "@xyflow/react";
+import { ReactFlow, Background, type Node } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
 import { Toggle } from "@/components/base/toggle/toggle";
 import { useGraph } from "@/features/catalog/api/graph";
 import { mergeGraphs } from "@/features/catalog/relationships/graphMerge";
 import { layoutGraph } from "@/features/catalog/relationships/graphLayout";
-import { systemMemberIds, systemBoundaryBox } from "@/features/catalog/relationships/systemBoundary";
+import { systemMemberIds, systemBoundaryBox, PART_OF_TYPE } from "@/features/catalog/relationships/systemBoundary";
 import { SystemBoundaryNode, type SystemBoundaryData } from "@/features/catalog/components/SystemBoundaryNode";
 import { EntityGraphNode } from "@/features/catalog/components/EntityGraphNode";
 import { GraphActionsProvider } from "@/features/catalog/relationships/GraphActionsContext";
@@ -55,7 +55,7 @@ export function SystemDiagram({ systemId, displayName }: Props) {
 
     // partOf edges stay in the dagre input above (they anchor member ranks next to the System
     // node) but are not drawn — the band states membership, drawing it again is noise.
-    const partOfIds = new Set(merged.edges.filter((e) => e.type === "partOf").map((e) => e.id));
+    const partOfIds = new Set(merged.edges.filter((e) => e.type === PART_OF_TYPE).map((e) => e.id));
     const visibleEdges = laid.edges.filter((e) => !partOfIds.has(e.id));
 
     const bandNode: Node<SystemBoundaryData>[] = box
@@ -104,7 +104,7 @@ export function SystemDiagram({ systemId, displayName }: Props) {
             <GraphActionsProvider value={actions}>
               <ReactFlow
                 nodes={nodes as Node[]}
-                edges={edges as Edge[]}
+                edges={edges}
                 nodeTypes={NODE_TYPES}
                 fitView
                 nodesDraggable={false}
@@ -122,8 +122,12 @@ export function SystemDiagram({ systemId, displayName }: Props) {
               </ReactFlow>
             </GraphActionsProvider>
           </div>
+          <p className="text-xs text-tertiary">
+            <span className="mr-3">— explicit</span>
+            <span className="font-mono">- - derived</span>
+          </p>
           {truncated && (
-            <p className="text-xs text-warning-primary">Showing only the first nodes of a large system.</p>
+            <p className="text-xs text-warning-primary">Showing only part of a large system.</p>
           )}
         </>
       )}

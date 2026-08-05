@@ -7,6 +7,9 @@ import {
 import { derivedViaLabel, type ExpandAffordance } from "@/features/catalog/relationships/graphModel";
 import type { ExpandDir } from "@/features/catalog/relationships/useExplorerState";
 
+/** The closed wire union for a real (non-derived) relationship type, per GraphEdgeDto. */
+export type WireRelationshipType = GraphResponse["edges"][number]["type"];
+
 export type ExplorerNode = {
   id: string;
   kind: EntityKind;
@@ -27,7 +30,7 @@ export type ExplorerEdge = {
    * because membership classification is directional and must not guess from a label string.
    * Undefined on derived edges — they have no persisted relationship row.
    */
-  type?: string;
+  type?: WireRelationshipType;
   derived?: boolean;
   provenance?: { apiName: string; viaAppName?: string | null }[];
 };

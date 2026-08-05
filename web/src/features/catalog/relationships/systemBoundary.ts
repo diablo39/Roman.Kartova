@@ -1,11 +1,12 @@
 import type { Node } from "@xyflow/react";
 import type { ExplorerGraph } from "@/features/catalog/relationships/graphMerge";
 import type { GraphNodeData } from "@/features/catalog/relationships/graphModel";
+import { NODE_W, NODE_H } from "@/features/catalog/relationships/graphLayout";
 
-/** Must match graphLayout.ts's NODE_W / NODE_H — the box is computed from positions, which are top-left. */
-const NODE_W = 180;
-const NODE_H = 56;
 export const BOUNDARY_PADDING = 24;
+
+/** The wire relationship type that marks System membership (component -> System). */
+export const PART_OF_TYPE = "partOf" as const;
 
 /**
  * Members of the focused System, read off the edge direction rather than a label or a depth
@@ -16,7 +17,7 @@ export const BOUNDARY_PADDING = 24;
 export function systemMemberIds(graph: ExplorerGraph, focusId: string): Set<string> {
   const ids = new Set<string>();
   for (const e of graph.edges) {
-    if (e.type === "partOf" && e.target === focusId) ids.add(e.source);
+    if (e.type === PART_OF_TYPE && e.target === focusId) ids.add(e.source);
   }
   return ids;
 }

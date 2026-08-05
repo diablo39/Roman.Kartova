@@ -3,8 +3,8 @@ import dagre from "@dagrejs/dagre";
 import type { Node, Edge } from "@xyflow/react";
 import type { GraphNodeData, ExpandAffordance } from "@/features/catalog/relationships/graphModel";
 import type { ExplorerGraph } from "@/features/catalog/relationships/graphMerge";
-const NODE_W = 180;
-const NODE_H = 56;
+export const NODE_W = 180;
+export const NODE_H = 56;
 
 export function layoutGraph(
   graph: ExplorerGraph,
