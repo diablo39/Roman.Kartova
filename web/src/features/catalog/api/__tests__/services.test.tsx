@@ -87,6 +87,25 @@ describe("services api", () => {
     expect(sentQuery).not.toHaveProperty("displayNameContains");
   });
 
+  it("threads systemId through to the query params (gate 7/8 fix)", async () => {
+    // ServicesListPage mocks useServicesList directly, so the ...(params.systemId?.length ? …)
+    // spread in services.ts is otherwise never executed by any test — a dropped spread there
+    // would ship an unfiltered Services list with no reddening.
+    const get = vi.fn().mockResolvedValue({
+      data: { items: [], nextCursor: null, prevCursor: null }, error: undefined,
+    });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: get, POST: vi.fn() } as never);
+
+    const { result } = renderHook(
+      () => useServicesList({ sortBy: "displayName", sortOrder: "asc", systemId: ["11111111-1111-1111-1111-111111111111"] }),
+      { wrapper: wrapper() },
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(get).toHaveBeenCalledWith("/api/v1/catalog/services", expect.objectContaining({
+      params: { query: expect.objectContaining({ systemId: ["11111111-1111-1111-1111-111111111111"] }) },
+    }));
+  });
+
   it("invalidates the services cache after a successful register", async () => {
     const post = vi.fn().mockResolvedValue({ data: { id: "svc-1" }, error: undefined, response: { status: 201 } });
     vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: vi.fn(), POST: post } as never);

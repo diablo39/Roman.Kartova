@@ -68,6 +68,22 @@ public sealed class ListApplicationsHandlerOwnerEnrichmentTests
         Lifecycle: Array.Empty<Lifecycle>(),
         TeamId: Array.Empty<Guid>());
 
+    /// <summary>
+    /// Returns an <see cref="ISystemMembershipEnricher"/> stub whose lookup always resolves to an
+    /// empty dictionary. These tests exercise CreatedBy-enrichment only; stubbing this port keeps
+    /// them off the EF Core InMemory provider's ComplexProperty translation gap (see the
+    /// interface's doc) — System-column rendering is proven against real Postgres by
+    /// <c>SystemEnrichmentTranslationTests</c>.
+    /// </summary>
+    private static ISystemMembershipEnricher NoOpSystemMembership()
+    {
+        var enricher = Substitute.For<ISystemMembershipEnricher>();
+        enricher.SystemsForComponentsAsync(
+                Arg.Any<CatalogDbContext>(), Arg.Any<EntityKind>(), Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<Guid, SystemRef>());
+        return enricher;
+    }
+
     [TestMethod]
     public async Task Handle_populates_CreatedBy_when_directory_returns_matching_user()
     {
@@ -82,7 +98,7 @@ public sealed class ListApplicationsHandlerOwnerEnrichmentTests
         directory.GetManyAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(new Dictionary<Guid, UserDisplayInfo> { [creatorId] = displayInfo });
 
-        var handler = new ListApplicationsHandler(directory);
+        var handler = new ListApplicationsHandler(directory, NoOpSystemMembership());
         var page = await handler.Handle(DefaultQuery(), db, CancellationToken.None);
 
         var item = page.Items.Single();
@@ -107,7 +123,7 @@ public sealed class ListApplicationsHandlerOwnerEnrichmentTests
         directory.GetManyAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(new Dictionary<Guid, UserDisplayInfo>());
 
-        var handler = new ListApplicationsHandler(directory);
+        var handler = new ListApplicationsHandler(directory, NoOpSystemMembership());
         var page = await handler.Handle(DefaultQuery(), db, CancellationToken.None);
 
         var item = page.Items.Single();
@@ -136,7 +152,7 @@ public sealed class ListApplicationsHandlerOwnerEnrichmentTests
                 [sharedCreator] = new UserDisplayInfo(sharedCreator, "Shared Creator", "shared@orga.kartova.local"),
             });
 
-        var handler = new ListApplicationsHandler(directory);
+        var handler = new ListApplicationsHandler(directory, NoOpSystemMembership());
         var page = await handler.Handle(DefaultQuery(), db, CancellationToken.None);
 
         Assert.AreEqual(2, page.Items.Count);
@@ -169,7 +185,7 @@ public sealed class ListApplicationsHandlerOwnerEnrichmentTests
                 [matchedCreator] = new UserDisplayInfo(matchedCreator, "Matched", "matched@orga.kartova.local"),
             });
 
-        var handler = new ListApplicationsHandler(directory);
+        var handler = new ListApplicationsHandler(directory, NoOpSystemMembership());
         var page = await handler.Handle(DefaultQuery(), db, CancellationToken.None);
 
         var matched = page.Items.Single(i => i.CreatedByUserId == matchedCreator);
@@ -192,7 +208,7 @@ public sealed class ListApplicationsHandlerOwnerEnrichmentTests
         directory.GetManyAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(new Dictionary<Guid, UserDisplayInfo>());
 
-        var handler = new ListApplicationsHandler(directory);
+        var handler = new ListApplicationsHandler(directory, NoOpSystemMembership());
         var page = await handler.Handle(DefaultQuery(), db, CancellationToken.None);
 
         Assert.AreEqual(0, page.Items.Count);

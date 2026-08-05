@@ -136,6 +136,12 @@ ROUTES: dict[str, list[str]] = {
         "./src/Modules/Catalog/Kartova.Catalog.IntegrationTests/Kartova.Catalog.IntegrationTests.csproj",
     ],
 
+    # Audit module: only Kartova.Audit.Domain is mutated, and its domain types
+    # are pure — the dedicated unit-test project is the whole oracle.
+    "src/Modules/Audit/stryker-config.json": [
+        "./src/Modules/Audit/Kartova.Audit.Domain.Tests/Kartova.Audit.Domain.Tests.csproj",
+    ],
+
     # Catalog module: shared by all four Catalog source projects.
     "src/Modules/Catalog/stryker-config.json": [
         "./src/Modules/Catalog/Kartova.Catalog.Tests/Kartova.Catalog.Tests.csproj",

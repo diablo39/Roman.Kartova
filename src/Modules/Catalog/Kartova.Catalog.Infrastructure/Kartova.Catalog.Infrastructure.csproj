@@ -37,6 +37,11 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Kartova.Catalog.Tests" />
+    <!-- SystemEnrichmentTranslationTests calls the internal
+         CurrentMembershipQueries.SystemsForComponentsAsync directly to pin its SQL translation
+         against real Postgres, ahead of the correlated EXISTS predicate the list handlers build
+         on top of it (System filter, ADR-0107). -->
+    <InternalsVisibleTo Include="Kartova.Catalog.IntegrationTests" />
   </ItemGroup>
 
 </Project>

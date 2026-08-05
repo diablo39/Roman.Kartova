@@ -25,6 +25,12 @@ internal static class ApplicationSortSpecs
     public static readonly Expression<Func<DomainApplication, Guid>> IdSelector =
         x => EF.Property<Guid>(x, EfApplicationConfiguration.IdFieldName);
 
+    /// <summary>Re-exports the shadow-PK field name for correlated sub-queries, which need
+    /// <c>EF.Property</c> inline rather than a pre-built expression. Keeps the <c>_id</c> magic
+    /// string inside this class, alongside <see cref="IdSelector"/> (keyset ORDER BY) and
+    /// <see cref="IdEquals"/> (single-row lookup).</summary>
+    public static string IdFieldName => EfApplicationConfiguration.IdFieldName;
+
     public static readonly SortSpec<DomainApplication> CreatedAt =
         new("createdAt", x => x.CreatedAt);
 

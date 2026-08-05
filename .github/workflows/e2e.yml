@@ -13,6 +13,9 @@ jobs:
   e2e:
     name: E2E (Playwright, nightly)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
     steps:
       - uses: actions/checkout@v4
 
@@ -30,3 +33,49 @@ jobs:
           name: playwright-report
           path: e2e/playwright-report
           retention-days: 7
+
+      # A scheduled workflow's only default signal is a "run failed" email, which
+      # is easy to miss — the suite was red for 10 days (2026-07-21 .. 2026-07-31,
+      # broken by #70/#78) before anyone noticed. Mirror the state into a tracking
+      # issue instead: opened on the first red night, commented on each subsequent
+      # one, closed automatically when the suite goes green again.
+      - name: Open or update the nightly-red tracking issue
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          gh label create nightly-red --color B60205 \
+            --description "Nightly E2E suite is failing" 2>/dev/null || true
+          issue=$(gh issue list --label nightly-red --state open \
+            --json number --jq '.[0].number // empty')
+          if [ -z "$issue" ]; then
+            printf '%s\n' \
+              "The nightly Playwright suite failed on \`${GITHUB_SHA}\`." \
+              "" \
+              "First failing run: ${RUN_URL}" \
+              "" \
+              "This issue closes itself on the next green nightly. Each further red night adds a comment, so the comment count is the streak length." \
+              | gh issue create --label nightly-red \
+                  --title "Nightly E2E is red" --body-file -
+          else
+            gh issue comment "$issue" \
+              --body "Still red on \`${GITHUB_SHA}\` — ${RUN_URL}"
+          fi
+
+      - name: Close the nightly-red tracking issue
+        if: success() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # Tolerate the label not existing yet (gh errors on an unknown label,
+          # which would otherwise turn a passing nightly into a failed run).
+          open=$(gh issue list --label nightly-red --state open \
+            --json number --jq '.[].number' 2>/dev/null || true)
+          for issue in $open; do
+            gh issue close "$issue" --reason completed \
+              --comment "Green again on \`${GITHUB_SHA}\` — ${RUN_URL}"
+          done

@@ -12,6 +12,12 @@ internal static class ServiceSortSpecs
     public static readonly Expression<Func<DomainService, Guid>> IdSelector =
         x => EF.Property<Guid>(x, EfServiceConfiguration.IdFieldName);
 
+    /// <summary>Re-exports the shadow-PK field name for correlated sub-queries, which need
+    /// <c>EF.Property</c> inline rather than a pre-built expression (mirrors
+    /// <c>ApplicationSortSpecs.IdFieldName</c>). EF Core does not inline user-defined static
+    /// methods into an expression tree, so this MUST be a property, not a method.</summary>
+    public static string IdFieldName => EfServiceConfiguration.IdFieldName;
+
     public static readonly SortSpec<DomainService> CreatedAt = new("createdAt", x => x.CreatedAt);
     public static readonly SortSpec<DomainService> DisplayName = new("displayName", x => x.DisplayName);
 

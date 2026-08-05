@@ -32,6 +32,59 @@ namespace Kartova.Catalog.Infrastructure;
 
 internal static class CatalogEndpointDelegates
 {
+    /// <summary>Maximum distinct values accepted for a multi-select id filter. Each id costs 37
+    /// chars in the cursor's f-map, so 50 ids ≈ 1.8 KB — well inside Kestrel's 8 KB request-line
+    /// limit once base64-encoded with the rest of the cursor. Uncapped, ~150 ids produce a
+    /// nextCursor that is unusable when replayed as ?cursor=…: page 1 succeeds and page 2 is a
+    /// hard failure, a self-inflicted break reachable by an ordinary user with a big selection.
+    /// </summary>
+    private const int MaxFilterValues = 50;
+
+    /// <summary>
+    /// Shared dedup-then-cap check for a multi-select Guid filter (ADR-0107). De-dups
+    /// <paramref name="raw"/> via <c>ToHashSet</c> before comparing against
+    /// <see cref="MaxFilterValues"/>, so the cap counts distinct values, not raw repeats.
+    /// <paramref name="distinct"/> is set to the de-duped array (or <see langword="null"/> when
+    /// <paramref name="raw"/> is null/empty) regardless of outcome. Returns <see langword="null"/>
+    /// on success; returns the 400 <see cref="ProblemTypes.TooManyFilterValues"/> problem,
+    /// naming <paramref name="filterName"/> in the detail, when the cap is exceeded.
+    /// </summary>
+    private static IResult? TryDedupAndCap(Guid[]? raw, string filterName, out Guid[]? distinct)
+    {
+        distinct = raw is { Length: > 0 } ? raw.ToHashSet().ToArray() : null;
+        if (distinct is { Length: > MaxFilterValues })
+        {
+            return Results.Problem(
+                type: ProblemTypes.TooManyFilterValues,
+                title: "Too many filter values",
+                detail: $"At most {MaxFilterValues} distinct {filterName} values may be supplied; got {distinct.Length}.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Cap-only check for a multi-select filter that has already been de-duped into a
+    /// <see cref="HashSet{T}"/> (the enum <c>lifecycle</c>/<c>health</c> filters build one while
+    /// rejecting unknown tokens, so re-hashing here would be redundant). Unlike
+    /// <see cref="TryDedupAndCap"/> this does not de-dup — it only compares
+    /// <paramref name="distinct"/>'s count against <see cref="MaxFilterValues"/>. Returns
+    /// <see langword="null"/> on success; returns the 400 <see cref="ProblemTypes.TooManyFilterValues"/>
+    /// problem, naming <paramref name="filterName"/> in the detail, when the cap is exceeded.
+    /// </summary>
+    private static IResult? TryCapDistinctCount<T>(ICollection<T> distinct, string filterName)
+    {
+        if (distinct.Count > MaxFilterValues)
+        {
+            return Results.Problem(
+                type: ProblemTypes.TooManyFilterValues,
+                title: "Too many filter values",
+                detail: $"At most {MaxFilterValues} distinct {filterName} values may be supplied; got {distinct.Count}.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+        return null;
+    }
+
     /// <summary>
     /// Synchronous in-process handler dispatch — invoked directly rather than
     /// via <c>IMessageBus.InvokeAsync</c>. Wolverine's bus opens its own DI
@@ -107,12 +160,17 @@ internal static class CatalogEndpointDelegates
     /// strings are rejected with 400 <c>invalid-lifecycle-filter</c>. Empty ⇒
     /// ADR-0073 default view (hide Decommissioned). Cursor encodes the filter
     /// (sorted comma-joined) so paging is stable; mismatch returns 400
-    /// <c>cursor-filter-mismatch</c>.
+    /// <c>cursor-filter-mismatch</c>. Capped at <see cref="MaxFilterValues"/> distinct values
+    /// (A2 extension) via <see cref="TryCapDistinctCount{T}"/> — defense-in-depth only, since
+    /// <see cref="Lifecycle"/> has 3 members and can never realistically reach the cap.
     /// </para>
     /// <para>
     /// <c>teamId</c> — ADR-0107 multi-select team filter. Repeated <c>?teamId=</c>
     /// Guids narrow the result set to the selected teams. Encoded into the cursor
-    /// <c>f</c>-map only when non-empty.
+    /// <c>f</c>-map only when non-empty. De-duplicated and capped at
+    /// <see cref="MaxFilterValues"/> distinct values (A2 extension) via
+    /// <see cref="TryDedupAndCap"/>, same as <c>systemId</c>; over the cap returns 400
+    /// <c>too-many-filter-values</c>.
     /// </para>
     /// <para>
     /// <c>createdByUserId</c> — slice 9 / E2 (spec §6.5), reframed slice 10 /
@@ -127,6 +185,15 @@ internal static class CatalogEndpointDelegates
     /// the slice-8 <c>invalid-team</c> envelope pattern in
     /// <see cref="AssignApplicationTeamAsync"/>.
     /// </para>
+    /// <para>
+    /// <c>systemId</c> — ADR-0107 multi-select System filter (A2). Repeated
+    /// <c>?systemId=</c> Guids narrow the result set to applications with a <c>PartOf</c>
+    /// edge to one of the selected Systems. De-duplicated (<c>ToHashSet</c>) before the
+    /// <see cref="MaxFilterValues"/> cap is checked, so the cap counts distinct values; over
+    /// the cap returns 400 <c>too-many-filter-values</c>. No existence validation — an
+    /// unknown/other-tenant System id simply matches nothing (RLS already scopes the join),
+    /// mirroring <c>teamId</c>. Encoded into the cursor <c>f</c>-map only when non-empty.
+    /// </para>
     /// </summary>
     internal static async Task<IResult> ListApplicationsAsync(
         [FromQuery] string? sortBy,
@@ -137,6 +204,7 @@ internal static class CatalogEndpointDelegates
         [FromQuery] string[]? lifecycle,
         [FromQuery] Guid[]? teamId,
         [FromQuery] Guid? createdByUserId,
+        [FromQuery] Guid[]? systemId,
         ListApplicationsHandler handler,
         CatalogDbContext db,
         IUserDirectory directory,
@@ -170,6 +238,16 @@ internal static class CatalogEndpointDelegates
             lifecycles.Add(parsed);
         }
 
+        // Checked before the createdByUserId resource gate below so a too-many-values 400
+        // never pays for the IUserDirectory DB round trip. teamId/lifecycle join systemId here
+        // (A2 extension) so all three multi-select checks run before that round trip too.
+        if (TryDedupAndCap(systemId, "systemId", out var distinctSystemIds) is { } tooManySystemIds)
+            return tooManySystemIds;
+        if (TryDedupAndCap(teamId, "teamId", out var distinctTeamIds) is { } tooManyTeamIds)
+            return tooManyTeamIds;
+        if (TryCapDistinctCount(lifecycles, "lifecycle") is { } tooManyLifecycles)
+            return tooManyLifecycles;
+
         // Resource gate: when ?createdByUserId= is supplied, validate it resolves to a
         // user in the current tenant BEFORE invoking the handler. IUserDirectory is
         // already RLS-scoped so an id from another tenant returns null; we surface
@@ -196,11 +274,14 @@ internal static class CatalogEndpointDelegates
             Cursor: cursor,
             Limit: effectiveLimit,
             Lifecycle: lifecycles.ToArray(),
-            // ToHashSet de-dups repeated ?teamId= values (mirrors the lifecycle HashSet) so the
-            // cursor f-map stays canonical; ToArray() for the query record.
-            TeamId: (teamId ?? Array.Empty<Guid>()).ToHashSet().ToArray(),
+            TeamId: distinctTeamIds ?? Array.Empty<Guid>(),
             DisplayNameContains: name,
-            CreatedByUserId: createdByUserId);
+            CreatedByUserId: createdByUserId,
+            // ToHashSet de-dups repeated ?systemId= values so the cursor f-map stays canonical.
+            // No existence validation: an unknown/other-tenant System id simply matches nothing
+            // (RLS already scopes the join) — this mirrors teamId, which is also unvalidated.
+            // Contrast createdByUserId, which IS validated because slice 9 chose a 422 envelope there.
+            SystemId: distinctSystemIds);
 
         var page = await handler.Handle(query, db, ct);
         return Results.Ok(page);
@@ -477,13 +558,28 @@ internal static class CatalogEndpointDelegates
     /// <para>
     /// <c>teamId</c> — ADR-0107 multi-select team filter. Repeated <c>?teamId=</c>
     /// Guids narrow the result set to the selected teams. Encoded into the cursor
-    /// <c>f</c>-map only when non-empty. Empty ⇒ no predicate (show all).
+    /// <c>f</c>-map only when non-empty. Empty ⇒ no predicate (show all). De-duplicated and
+    /// capped at <see cref="MaxFilterValues"/> distinct values (A2 extension) via
+    /// <see cref="TryDedupAndCap"/>, same as <c>systemId</c>; over the cap returns 400
+    /// <c>too-many-filter-values</c>.
     /// </para>
     /// <para>
     /// <c>health</c> — ADR-0107 multi-select health filter. Repeated <c>?health=</c>
     /// tokens are parsed as case-insensitive enum names; numeric tokens and unknown
     /// strings are rejected with 400 <c>invalid-health-filter</c>. Empty ⇒ no predicate
-    /// (show all health statuses — no ADR-0073 default-view rule applies to Services).
+    /// (show all health statuses — no ADR-0073 default-view rule applies to Services). Capped at
+    /// <see cref="MaxFilterValues"/> distinct values (A2 extension) via
+    /// <see cref="TryCapDistinctCount{T}"/> — defense-in-depth only, since
+    /// <see cref="HealthStatus"/> has 4 members and can never realistically reach the cap.
+    /// </para>
+    /// <para>
+    /// <c>systemId</c> — ADR-0107 multi-select System filter (A2). Repeated
+    /// <c>?systemId=</c> Guids narrow the result set to services with a <c>PartOf</c>
+    /// edge to one of the selected Systems. De-duplicated (<c>ToHashSet</c>) before the
+    /// <see cref="MaxFilterValues"/> cap is checked, so the cap counts distinct values; over
+    /// the cap returns 400 <c>too-many-filter-values</c>. No existence validation — an
+    /// unknown/other-tenant System id simply matches nothing (RLS already scopes the join),
+    /// mirroring <c>teamId</c>. Encoded into the cursor <c>f</c>-map only when non-empty.
     /// </para>
     /// </summary>
     internal static async Task<IResult> ListServicesAsync(
@@ -494,6 +590,7 @@ internal static class CatalogEndpointDelegates
         [FromQuery] string? displayNameContains,
         [FromQuery] Guid[]? teamId,
         [FromQuery] string[]? health,
+        [FromQuery] Guid[]? systemId,
         ListServicesHandler handler,
         CatalogDbContext db,
         CancellationToken ct)
@@ -525,15 +622,26 @@ internal static class CatalogEndpointDelegates
         // Blank/whitespace ⇒ no filter (filter-absent must equal today's unfiltered cursor).
         var name = string.IsNullOrWhiteSpace(displayNameContains) ? null : displayNameContains.Trim();
 
+        // Checked before the query is built (A2 extension: teamId/health join systemId here).
+        if (TryDedupAndCap(systemId, "systemId", out var distinctSystemIds) is { } tooManySystemIds)
+            return tooManySystemIds;
+        if (TryDedupAndCap(teamId, "teamId", out var distinctTeamIds) is { } tooManyTeamIds)
+            return tooManyTeamIds;
+        if (TryCapDistinctCount(healthSet, "health") is { } tooManyHealth)
+            return tooManyHealth;
+
         var query = new ListServicesQuery(
             SortBy: parsedSortBy ?? ServiceSortField.DisplayName,   // default flips: was CreatedAt
             SortOrder: parsedSortOrder ?? SortOrder.Asc,            // default flips: was Desc
             Cursor: cursor,
             Limit: effectiveLimit,
-            // ToHashSet de-dups repeated ?teamId= values so the cursor f-map stays canonical; ToArray() for the query record.
-            TeamId: (teamId ?? Array.Empty<Guid>()).ToHashSet().ToArray(),
+            TeamId: distinctTeamIds ?? Array.Empty<Guid>(),
             Health: healthSet.ToArray(),
-            DisplayNameContains: name);
+            DisplayNameContains: name,
+            // ToHashSet de-dups repeated ?systemId= values so the cursor f-map stays canonical.
+            // No existence validation: an unknown/other-tenant System id simply matches nothing
+            // (RLS already scopes the join) — this mirrors teamId, which is also unvalidated.
+            SystemId: distinctSystemIds);
 
         var page = await handler.Handle(query, db, ct);
         return Results.Ok(page);
@@ -621,12 +729,18 @@ internal static class CatalogEndpointDelegates
 
         var name = string.IsNullOrWhiteSpace(displayNameContains) ? null : displayNameContains.Trim();
 
+        // Checked before the query is built. teamId is encoded into the cursor f-map
+        // (ListApisHandler), so an uncapped value list breaks page-2 replay here exactly as it
+        // does on the Applications/Services lists — same cap, same 400.
+        if (TryDedupAndCap(teamId, "teamId", out var distinctTeamIds) is { } tooManyTeamIds)
+            return tooManyTeamIds;
+
         var query = new ListApisQuery(
             SortBy: parsedSortBy ?? ApiSortField.DisplayName,
             SortOrder: parsedSortOrder ?? SortOrder.Asc,
             Cursor: cursor,
             Limit: effectiveLimit,
-            TeamId: (teamId ?? Array.Empty<Guid>()).ToHashSet().ToArray(),
+            TeamId: distinctTeamIds ?? Array.Empty<Guid>(),
             Style: styles.ToArray(),
             DisplayNameContains: name);
 
@@ -695,13 +809,18 @@ internal static class CatalogEndpointDelegates
 
         var name = string.IsNullOrWhiteSpace(displayNameContains) ? null : displayNameContains.Trim();
 
+        // Checked before the query is built. teamId is encoded into the cursor f-map
+        // (ListSystemsHandler), so an uncapped value list breaks page-2 replay here exactly as it
+        // does on the Applications/Services lists — same cap, same 400.
+        if (TryDedupAndCap(teamId, "teamId", out var distinctTeamIds) is { } tooManyTeamIds)
+            return tooManyTeamIds;
+
         var query = new ListSystemsQuery(
             SortBy: parsedSortBy ?? SystemSortField.DisplayName,
             SortOrder: parsedSortOrder ?? SortOrder.Asc,
             Cursor: cursor,
             Limit: effectiveLimit,
-            // ToHashSet de-dups repeated ?teamId= values so the cursor f-map stays canonical.
-            TeamId: (teamId ?? Array.Empty<Guid>()).ToHashSet().ToArray(),
+            TeamId: distinctTeamIds ?? Array.Empty<Guid>(),
             DisplayNameContains: name);
 
         var page = await handler.Handle(query, db, ct);

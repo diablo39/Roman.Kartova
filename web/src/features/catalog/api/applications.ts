@@ -28,6 +28,8 @@ type ApplicationsListParams = {
   lifecycle?: string[];
   /** ADR-0107 team multi-select (team ids). Empty/undefined ⇒ omitted. */
   teamId?: string[];
+  /** ADR-0107 System multi-select (System ids). Empty/undefined ⇒ omitted. */
+  systemId?: string[];
   /** When set, server filters to applications created by this user (slice-10 ownership realignment). */
   createdByUserId?: string;
   displayNameContains?: string;
@@ -55,6 +57,7 @@ export function useApplicationsList(params: ApplicationsListParams) {
             cursor,
             ...(params.lifecycle?.length ? { lifecycle: params.lifecycle } : {}),
             ...(params.teamId?.length ? { teamId: params.teamId } : {}),
+            ...(params.systemId?.length ? { systemId: params.systemId } : {}),
             ...(params.createdByUserId ? { createdByUserId: params.createdByUserId } : {}),
             ...(params.displayNameContains ? { displayNameContains: params.displayNameContains } : {}),
           },

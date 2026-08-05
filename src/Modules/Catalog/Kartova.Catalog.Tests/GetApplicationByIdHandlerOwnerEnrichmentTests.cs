@@ -1,4 +1,5 @@
 using Kartova.Catalog.Application;
+using Kartova.Catalog.Domain;
 using Kartova.Catalog.Infrastructure;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.Identity;
@@ -27,6 +28,21 @@ public sealed class GetApplicationByIdHandlerOwnerEnrichmentTests
     private static readonly Guid Team = Guid.Parse("cccccccc-2222-0000-0000-000000000001");
     private static readonly DateTimeOffset BaseTime =
         new(2026, 5, 27, 12, 0, 0, TimeSpan.Zero);
+
+    /// <summary>
+    /// Returns an <see cref="ISystemMembershipEnricher"/> stub whose lookup always resolves to an
+    /// empty dictionary. Mirrors <c>ListApplicationsHandlerOwnerEnrichmentTests.NoOpSystemMembership</c>
+    /// — these tests exercise CreatedBy-enrichment only, and stubbing this port keeps them off the
+    /// EF Core InMemory provider's ComplexProperty translation gap (see the interface's doc).
+    /// </summary>
+    private static ISystemMembershipEnricher NoOpSystemMembership()
+    {
+        var enricher = Substitute.For<ISystemMembershipEnricher>();
+        enricher.SystemsForComponentsAsync(
+                Arg.Any<CatalogDbContext>(), Arg.Any<EntityKind>(), Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<Guid, SystemRef>());
+        return enricher;
+    }
 
     private static async Task<(CatalogDbContext Db, Guid AppId, Guid CreatorId)> SeedSingleAppAsync()
     {
@@ -63,7 +79,7 @@ public sealed class GetApplicationByIdHandlerOwnerEnrichmentTests
         var displayInfo = new UserDisplayInfo(creatorId, "Bob Bridger", "bob@orga.kartova.local");
         directory.GetAsync(creatorId, Arg.Any<CancellationToken>()).Returns(displayInfo);
 
-        var handler = new GetApplicationByIdHandler(directory);
+        var handler = new GetApplicationByIdHandler(directory, NoOpSystemMembership());
         var resp = await handler.Handle(new GetApplicationByIdQuery(appId), db, CancellationToken.None);
 
         Assert.IsNotNull(resp);
@@ -87,7 +103,7 @@ public sealed class GetApplicationByIdHandlerOwnerEnrichmentTests
         var directory = Substitute.For<IUserDirectory>();
         directory.GetAsync(creatorId, Arg.Any<CancellationToken>()).Returns((UserDisplayInfo?)null);
 
-        var handler = new GetApplicationByIdHandler(directory);
+        var handler = new GetApplicationByIdHandler(directory, NoOpSystemMembership());
         var resp = await handler.Handle(new GetApplicationByIdQuery(appId), db, CancellationToken.None);
 
         Assert.IsNotNull(resp);
@@ -109,7 +125,7 @@ public sealed class GetApplicationByIdHandlerOwnerEnrichmentTests
 
         var directory = Substitute.For<IUserDirectory>();
 
-        var handler = new GetApplicationByIdHandler(directory);
+        var handler = new GetApplicationByIdHandler(directory, NoOpSystemMembership());
         var resp = await handler.Handle(new GetApplicationByIdQuery(Guid.NewGuid()), db, CancellationToken.None);
 
         Assert.IsNull(resp);

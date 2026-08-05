@@ -107,6 +107,26 @@ it("useSetComponentSystem invalidates relationships, catalog, and systems on suc
   expect(invalidate).toHaveBeenCalledWith({ queryKey: ["systems"] });
 });
 
+it("useSetComponentSystem also invalidates the applications and services list caches, so the System column refreshes", async () => {
+  const put = vi.fn().mockResolvedValue({
+    data: { systemId: "sys1", systemDisplayName: "Payments" },
+    error: undefined,
+    response: new Response(),
+  });
+  vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ PUT: put } as never);
+  const qc = newQc();
+  const invalidate = vi.spyOn(qc, "invalidateQueries");
+
+  const { result } = renderHook(() => useSetComponentSystem(), { wrapper: wrapper(qc) });
+  await result.current.mutateAsync({ componentKind: "application", componentId: "a1", systemId: "sys1" });
+
+  // The Applications/Services list rows render a System projection derived from the
+  // partOf edge this mutation writes — without invalidating these two key families,
+  // the list screens keep showing the pre-mutation System for up to the global staleTime.
+  await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ["applications"] }));
+  expect(invalidate).toHaveBeenCalledWith({ queryKey: ["services"] });
+});
+
 it("useSetComponentSystem attaches the response status to the thrown error on failure", async () => {
   const problem = { title: "Conflict", status: 409 };
   const put = vi.fn().mockResolvedValue({

@@ -20,7 +20,6 @@ Fill these in before pasting the prompt to the reviewer.
 | `{PLAN_PATHS}` | `docs/superpowers/plans/2026-04-22-slice-2-auth-multitenancy-plan.md` |
 | `{ADR_INDEX}` | `docs/architecture/decisions/README.md` |
 | `{TEST_TAXONOMY_ADR}` | `ADR-0083` (for missing-test analysis) |
-| `{MUTATION_REPORT}` | `mutation-report-surviving.md` (optional) |
 | `{DOD_REFERENCE}` | `CLAUDE.md §Definition of Done` |
 
 ---
@@ -63,11 +62,6 @@ Do not just read the diff. Read it **against** the following:
    For every gate, confirm it has been satisfied with citable evidence.
    Self-claims of completion without evidence are findings.
 
-6. **(Optional) Mutation report: {MUTATION_REPORT}
-   For every logic-class surviving mutant, identify the missing test. List
-   actionable test cases by file:line. Equivalent / cosmetic mutants are not
-   findings.
-
 ## Evidence rules
 
 For every finding:
@@ -102,9 +96,8 @@ Cosmetic / readability / minor. Same schema. Cap at 5 — if you have more,
 your should-fix bar is too high.
 
 ### Missing tests
-Acceptance criteria from the spec/plan with no corresponding test. Logic
-survivors from the mutation report (if provided) with no test. For each:
-- The acceptance criterion or mutant.
+Acceptance criteria from the spec/plan with no corresponding test. For each:
+- The acceptance criterion.
 - The test that should exist (project, class, scenario, expected assertion).
 
 ### What looks good

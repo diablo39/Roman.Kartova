@@ -161,6 +161,17 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "systemId",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
           }
         ],
         "responses": {
@@ -170,6 +181,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CursorPageOfApplicationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -1021,6 +1042,17 @@
                 "type": "string"
               }
             }
+          },
+          {
+            "name": "systemId",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
           }
         ],
         "responses": {
@@ -1030,6 +1062,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CursorPageOfServiceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -3808,6 +3850,19 @@
               "null",
               "string"
             ]
+          },
+          "systemId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "systemDisplayName": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -4976,6 +5031,19 @@
               {
                 "$ref": "#/components/schemas/UserDisplayInfo"
               }
+            ]
+          },
+          "systemId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "systemDisplayName": {
+            "type": [
+              "null",
+              "string"
             ]
           }
         }

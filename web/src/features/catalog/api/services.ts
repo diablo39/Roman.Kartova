@@ -17,6 +17,8 @@ type ServicesListParams = {
   /** ADR-0107 health multi-select (wire values unknown|healthy|degraded|unhealthy).
    *  Empty/undefined ⇒ omitted ⇒ no predicate (show all health statuses). */
   health?: string[];
+  /** ADR-0107 System multi-select (System ids). Empty/undefined ⇒ omitted. */
+  systemId?: string[];
   displayNameContains?: string;
 };
 
@@ -42,6 +44,7 @@ export function useServicesList(params: ServicesListParams) {
             cursor,
             ...(params.teamId?.length ? { teamId: params.teamId } : {}),
             ...(params.health?.length ? { health: params.health } : {}),
+            ...(params.systemId?.length ? { systemId: params.systemId } : {}),
             ...(params.displayNameContains ? { displayNameContains: params.displayNameContains } : {}),
           },
         },

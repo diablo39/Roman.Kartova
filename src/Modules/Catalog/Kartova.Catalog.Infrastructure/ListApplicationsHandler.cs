@@ -24,8 +24,15 @@ namespace Kartova.Catalog.Infrastructure;
 /// application was registered) — those rows carry <c>CreatedBy = null</c> in the
 /// response, which the wire contract allows.
 /// </para>
+/// <para>
+/// A2 (ADR-0107/ADR-0111): each row is also enriched with its current System membership via
+/// <see cref="ISystemMembershipEnricher"/> — a thin port over
+/// <see cref="CurrentMembershipQueries.SystemsForComponentsAsync"/>, batched per page the same
+/// way. It is a port (not a direct static call) purely for unit-test isolation — see that
+/// interface's doc for why.
+/// </para>
 /// </summary>
-public sealed class ListApplicationsHandler(IUserDirectory directory)
+public sealed class ListApplicationsHandler(IUserDirectory directory, ISystemMembershipEnricher systemMembership)
 {
     // The separate IdExtractor accesses the primary key in-memory via the domain
     // property (x.Id.Value) for cursor encoding — EF.Property is not invokable
@@ -83,6 +90,18 @@ public sealed class ListApplicationsHandler(IUserDirectory directory)
             source = source.Where(a => q.TeamId.Contains(a.TeamId));
         }
 
+        // System filter (ADR-0107, A2). System membership is a PartOf EDGE, not a column, so
+        // this is an EXISTS sub-query rather than a Contains over a property, built by
+        // CurrentMembershipQueries.IsMemberOfAnySystem — see that method's doc for why
+        // Target.Kind and Source.Kind are both asserted. Applied before paging so a hidden row
+        // never becomes a cursor boundary. `null` and empty both mean "absent" (checked at each
+        // read site — see the query record's doc).
+        if (q.SystemId is { Length: > 0 } systemIds)
+        {
+            source = source.Where(CurrentMembershipQueries.IsMemberOfAnySystem<DomainApplication>(
+                db, EntityKind.Application, ApplicationSortSpecs.IdFieldName, systemIds));
+        }
+
         // Filter state the cursor is issued under (ADR-0095). Every applied filter is
         // recorded; absent filters add no key — so the default (unfiltered) cursor map
         // is EMPTY (byte-identical to a filterless cursor). Multi-value filters serialize
@@ -91,13 +110,11 @@ public sealed class ListApplicationsHandler(IUserDirectory directory)
         var filters = new Dictionary<string, string>(StringComparer.Ordinal);
         if (q.Lifecycle.Length > 0)
         {
-            filters["lifecycle"] = string.Join(",",
-                q.Lifecycle.Select(l => l.ToString()).OrderBy(s => s, StringComparer.Ordinal));
+            filters["lifecycle"] = CursorFilterValues.Join(q.Lifecycle.Select(l => l.ToString()));
         }
         if (q.TeamId.Length > 0)
         {
-            filters["teamId"] = string.Join(",",
-                q.TeamId.Select(t => t.ToString("D")).OrderBy(s => s, StringComparer.Ordinal));
+            filters["teamId"] = CursorFilterValues.Join(q.TeamId);
         }
         if (q.CreatedByUserId is { } createdBy)
         {
@@ -106,6 +123,10 @@ public sealed class ListApplicationsHandler(IUserDirectory directory)
         if (q.DisplayNameContains is { } displayName)
         {
             filters["displayNameContains"] = displayName;
+        }
+        if (q.SystemId is { Length: > 0 } systemFilter)
+        {
+            filters["systemId"] = CursorFilterValues.Join(systemFilter);
         }
 
         var page = await source
@@ -120,13 +141,21 @@ public sealed class ListApplicationsHandler(IUserDirectory directory)
         var creatorIds = new HashSet<Guid>(page.Items.Select(a => a.CreatedByUserId));
         var creators = await directory.GetManyAsync(creatorIds, ct);
 
+        // One extra round trip for the whole page (NOT per row) — same discipline as the
+        // creator enrichment above. Components with no PartOf edge are absent from the map and
+        // keep SystemId/SystemDisplayName null, which the FE renders as "—".
+        var systems = await systemMembership.SystemsForComponentsAsync(
+            db, EntityKind.Application, [.. page.Items.Select(a => a.Id.Value)], ct);
+
         var items = page.Items
             .Select(r =>
             {
                 var resp = r.ToResponse();
-                return creators.TryGetValue(r.CreatedByUserId, out var creator)
-                    ? resp with { CreatedBy = creator }
-                    : resp;
+                if (creators.TryGetValue(r.CreatedByUserId, out var creator))
+                    resp = resp with { CreatedBy = creator };
+                if (systems.TryGetValue(r.Id.Value, out var system))
+                    resp = resp with { SystemId = system.Id, SystemDisplayName = system.DisplayName };
+                return resp;
             })
             .ToList();
         return new CursorPage<ApplicationResponse>(items, page.NextCursor, page.PrevCursor);

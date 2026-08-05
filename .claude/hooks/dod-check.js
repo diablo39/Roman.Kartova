@@ -46,6 +46,17 @@ function lastAssistantText(transcriptPath) {
 }
 
 const CLAIM_RE = /slice( \d+)? complete|implementation complete|all done|ready to merge|finished implementing|fully finished|implementation is (complete|finished|ready)|✅ done|\bdone\.$/im;
+
+// Quoted or code-span text is being *discussed*, not asserted — e.g. explaining what the
+// hook matches, or citing a template. Blank it out before testing for a claim so those
+// mentions don't self-trigger the gate.
+function stripQuoted(text) {
+  return text
+    .replace(/```[\s\S]*?```/g, ' ')      // fenced code blocks
+    .replace(/`[^`\n]*`/g, ' ')           // inline code spans
+    .replace(/"[^"\n]*"/g, ' ')           // straight double quotes
+    .replace(/[“][^”\n]*[”]/g, ' ');      // curly double quotes
+}
 // A completion claim must point at the slice's DoD ledger (the queryable record of gate status).
 const LEDGER_RE = /superpowers[\/\\]verification[\/\\][^\s)"']+[\/\\]dod\.md/i;
 
@@ -60,22 +71,23 @@ const LEDGER_RE = /superpowers[\/\\]verification[\/\\][^\s)"']+[\/\\]dod\.md/i;
   const text = lastAssistantText(transcript);
   if (!text) process.exit(0);
 
-  if (!CLAIM_RE.test(text)) process.exit(0);
+  if (!CLAIM_RE.test(stripQuoted(text))) process.exit(0);
   // A completion claim is only allowed when it cites the DoD ledger for the slice.
   // The ledger is the mandated record of per-gate status (CLAUDE.md §Definition of Done);
   // evidence keywords alone no longer suffice.
   if (LEDGER_RE.test(text)) process.exit(0);
 
   const reason = [
-    'Completion claim detected without verification evidence. Definition of Done (CLAUDE.md) — the eight always-blocking gates (gate 6 is conditional):',
+    'Completion claim detected without verification evidence. Definition of Done (CLAUDE.md) — the ten always-blocking gates:',
     '  1. Full solution build green with TreatWarningsAsErrors=true.',
     '  2. Per-task subagent reviews (spec-compliance + code-quality) executed — no skipping on grounds of "trivial".',
     '  3. Full test suite green: unit + architecture + integration; wiring slices must include real-seam coverage (real JwtBearer/KeyCloak + real Postgres/RLS, never mocked).',
     '  4. Container build green: the images CI job (docker compose build); manual docker compose up is smoke, not evidence.',
     '  5. /simplify applied; should-fix items addressed or skipped with reason.',
-    '  6. Mutation loop (mutation-sentinel -> test-generator) — conditional: blocking only for Domain/Application logic changes, else should-do.',
-    '  7-9. requesting-code-review, review-pr, deep-review on final code.',
+    '  6-8. requesting-code-review, review-pr, deep-review on final code.',
     '  Then re-run build + full suite and confirm still green.',
+    '  9. Visual / API verification against the running system (ADR-0084); N/A only when the diff has no runtime surface.',
+    '  10. CI green on the PR (terminal); scripts/ci-local.sh is the required pre-push mirror.',
     '',
     'Record each gate in the slice DoD ledger and CITE it in the claim:',
     '  docs/superpowers/verification/<date>-<topic>/dod.md',

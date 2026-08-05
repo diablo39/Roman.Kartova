@@ -52,6 +52,9 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .WithName("ListApplications")
               // CursorPage<T> envelope — ADR-0095: items + nextCursor + prevCursor.
               .Produces<CursorPage<ApplicationResponse>>(StatusCodes.Status200OK)
+              // 400: invalid-lifecycle-filter (?lifecycle= token parse) and
+              // too-many-filter-values (ADR-0107 systemId cap, A2).
+              .ProducesProblem(StatusCodes.Status400BadRequest)
               // Slice 9 / E2 (spec §6.5), renamed slice 10 / ADR-0103: ?createdByUserId=
               // validation produces a 422 invalid-created-by envelope when the supplied
               // id does not resolve to a user in the current tenant (cross-tenant ids hit
@@ -220,6 +223,9 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .RequireAuthorization(KartovaPermissions.CatalogRead)
               .WithName("ListServices")
               .Produces<CursorPage<ServiceResponse>>(StatusCodes.Status200OK)
+              // 400: invalid-health-filter (?health= token parse) and
+              // too-many-filter-values (ADR-0107 systemId cap, A2).
+              .ProducesProblem(StatusCodes.Status400BadRequest)
               // sortBy/sortOrder enum schemas + bounded-integer limit schema are emitted by
               // Kartova.Api.OpenApi.CursorListQueryParameterTransformer (same as ListApplications);
               // the C# binding stays string? so the RFC 7807 parse-failure envelopes survive.
@@ -310,6 +316,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         // comment on CatalogEndpointDelegates.RegisterApplicationAsync.
         services.AddScoped<RegisterApplicationHandler>();
         services.AddScoped<GetApplicationByIdHandler>();
+        services.AddScoped<ISystemMembershipEnricher, SystemMembershipEnricher>();
         services.AddScoped<ListApplicationsHandler>();
         services.AddScoped<EditApplicationHandler>();
         services.AddScoped<DeprecateApplicationHandler>();

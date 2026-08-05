@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { applyProblemDetailsToForm, type ProblemDetails } from "../problemDetails";
+import { applyProblemDetailsToForm, asProblemDetails, type ProblemDetails } from "../problemDetails";
 
 describe("applyProblemDetailsToForm", () => {
   it("calls setError per field/message pair", () => {
@@ -70,5 +70,34 @@ describe("applyProblemDetailsToForm", () => {
     // Only the valid one fired.
     expect(setError).toHaveBeenCalledTimes(1);
     expect(setError).toHaveBeenCalledWith("displayName", { type: "server", message: "valid" });
+  });
+});
+
+describe("asProblemDetails", () => {
+  it("returns the value when it is a plain object", () => {
+    const payload = { title: "Bad Request", detail: "Too many filter values", status: 400 };
+    expect(asProblemDetails(payload)).toBe(payload);
+  });
+
+  it("returns undefined for null", () => {
+    expect(asProblemDetails(null)).toBeUndefined();
+  });
+
+  it("returns undefined for undefined", () => {
+    expect(asProblemDetails(undefined)).toBeUndefined();
+  });
+
+  it("returns undefined for an array", () => {
+    expect(asProblemDetails(["not", "a", "problem"])).toBeUndefined();
+  });
+
+  it("returns undefined for primitives", () => {
+    expect(asProblemDetails("network error")).toBeUndefined();
+    expect(asProblemDetails(42)).toBeUndefined();
+    expect(asProblemDetails(true)).toBeUndefined();
+  });
+
+  it("accepts an empty object (shape-only guard)", () => {
+    expect(asProblemDetails({})).toEqual({});
   });
 });
