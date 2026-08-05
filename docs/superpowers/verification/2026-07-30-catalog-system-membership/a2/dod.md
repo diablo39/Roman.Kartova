@@ -1,7 +1,12 @@
 # DoD Ledger — System list surface (E-03.F-03.S-01 sub-slice A2)
 
 **Slice:** `2026-07-30-catalog-system-membership/a2` · **Branch:** `feat/catalog-system-list-surface-a2` · **HEAD:** `1abb9603`
-**PR:** [#83](https://github.com/diablo39/Roman.Kartova/pull/83) · **Last updated:** 2026-08-02
+**PR:** [#83](https://github.com/diablo39/Roman.Kartova/pull/83) · **Last updated:** 2026-08-05
+
+> ⚠️ **The all-green table below describes commit `1abb9603` and is NOT the current branch state.**
+> Two production commits landed on 2026-08-05 after this ledger closed. Their gate status is
+> **partial** — see [Addendum: post-close commits](#addendum--post-close-commits-2026-08-05) at the
+> end of this file before treating the slice as verified.
 **Spec:** `docs/superpowers/specs/2026-07-30-catalog-system-membership-assignment-design.md` (§4 = A2)
 **Plan:** `docs/superpowers/plans/2026-08-02-catalog-system-list-surface-a2.md` (gitignored scratch)
 **Plan review:** two agent waves, 9 agents — see `docs/superpowers/templates/plan-wave-review.md` §6 and the plan's own wave-1/wave-2 triage records
@@ -91,3 +96,36 @@
 
 **Pre-push mirror:** `scripts/ci-local.sh` (Release). First aggregate run reported backend FAIL; re-ran `scripts/ci-local.sh backend` standalone -> PASS, and CI then passed backend on the runner. Cause is consistent with the known local Docker-saturation flake (the aggregate run builds images and runs Testcontainers concurrently on one host); it did not reproduce in isolation and did not reproduce on CI. Recorded rather than re-pushed blindly, per the gate-10 rule.
 **At:** `1abb9603`+ / 2026-08-02
+
+---
+
+## Addendum — post-close commits (2026-08-05)
+
+Two production commits landed after this ledger closed at `1abb9603`. Both originate from findings
+the closed gates raised but scoped out: the security gate flagged that the A2 filter-value cap
+covered only `systemId`, and the TypeScript reviewer flagged an unguarded `as ProblemDetails` cast.
+
+| Commit | Change |
+|---|---|
+| `6947309c` | `fix(catalog)`: cap `teamId` on all four list endpoints, `lifecycle` (Applications) and `health` (Services); `TryCapDistinctCount<T>`; 8 integration tests; 4 `list-filter-registry.md` rows |
+| `8d5f3804` | `fix(web)`: `asProblemDetails` runtime guard at the two list-page call sites + unit tests |
+
+**Gate status for these two commits — partial, not green:**
+
+| Gate | Status | Evidence / reason |
+|------|--------|-------------------|
+| 1 Build (`TreatWarningsAsErrors`) | ✅ PASS | `dotnet build Kartova.slnx -p:TreatWarningsAsErrors=true` → **0 Warning(s), 0 Error(s)** |
+| 2 Per-task subagent reviews | ✅ PASS | `csharp-code-reviewer` + `typescript-code-reviewer` on the final diffs. C# review returned 2×S2 — **both fixed before commit**: the cap was extended to `/catalog/apis` + `/catalog/systems` (their handlers encode `teamId` into the cursor `f`-map identically, so the original 2-endpoint scope left the same defect live) and the missing `Services` cursor-replay test was added. TS review: 0 S0/S1/S2, 4 S3 advisories, none blocking |
+| 3 Full suite (+ real seam) | ✅ PASS | Unit 272/272 · Architecture 69/69 · **`Kartova.Catalog.IntegrationTests` 404/404** against real Postgres + RLS via Testcontainers (396 baseline + 8 new) · frontend `tsc -b --noEmit` clean, `eslint --no-ignore` clean, `vitest` 549/549 across 73 files |
+| 4 Container build | ⏳ NOT RUN | Owner decision 2026-08-05: gates 4–10 explicitly declined for this follow-up |
+| 5 `/simplify` | ⏳ NOT RUN | same |
+| 6 `requesting-code-review` | ⏳ NOT RUN | same |
+| 7 `review-pr` | ⏳ NOT RUN | same |
+| 8 `deep-review` | ⏳ NOT RUN | same |
+| Terminal re-verify | ✅ PASS | Build + unit + arch + integration re-run on the final state after the gate-2 fixes were applied (figures above are from that run, not an earlier one) |
+| 9 Visual / API verification | ⏳ NOT RUN | same. Note: the cap adds a new reachable 400 on three further endpoints, so this has a real runtime surface — it is **not** N/A |
+| 10 CI green on PR | ⏳ NOT RUN | same; not pushed. `scripts/ci-local.sh` not run |
+
+**Honest status: implementation staged and verified through gate 3; gates 4–10 pending verification
+by owner decision.** The all-green summary table at the top of this file applies to `1abb9603`
+only and must not be read as covering these two commits.
