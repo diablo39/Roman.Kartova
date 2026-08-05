@@ -81,7 +81,7 @@ Explicit and directional. A `partOf` edge pointing at a *different* System — r
 
 ### 4.5 `SystemDiagram.tsx` (new)
 
-Fetches `useGraph({ entityKind: "system", entityId, depth: includeExternal ? 2 : 1, direction: "all" })`, then `mergeGraphs` → `layoutGraph` → boundary injection. Mirrors `DependencyMiniGraph`'s chrome (heading, `Open full graph ↗`, legend, fixed height, non-draggable canvas) but is backed by `/graph` rather than `useRelationshipsList` — **the reason being decision 2**: a relationships list of the System returns only its `PartOf` edges and would never show one member depending on another.
+Fetches through the existing explorer hook, which needs one small extension: `useGraph` (`api/graph.ts:37`) hard-codes `FOCUS_DEPTH = 2` and takes `{ focus, expand }`. It gains an **optional `depth`** defaulting to `FOCUS_DEPTH`, so the diagram calls `useGraph({ focus: { kind: "system", id: systemId }, expand: [], depth: includeExternal ? 2 : 1 })` and the explorer is unaffected. `graphKeys.node` already includes depth in the query key, so depth 1 and 2 cannot collide in the cache. Then `mergeGraphs` → `layoutGraph` → boundary injection. Mirrors `DependencyMiniGraph`'s chrome (heading, `Open full graph ↗`, legend, fixed height, non-draggable canvas) but is backed by `/graph` rather than `useRelationshipsList` — **the reason being decision 2**: a relationships list of the System returns only its `PartOf` edges and would never show one member depending on another.
 
 States: skeleton while loading · error card **scoped to the diagram section** so the members table below is unaffected · `No members yet.` when the system is empty · a "showing the first N" banner when the response is `truncated` · `Open full graph ↗` → `/graph?focus=system:<id>`, which works only because of §4.1.
 
@@ -125,7 +125,7 @@ Impact analysis for the plan: **C# is `N/A` — no existing C# symbol changes.**
 |---|---|
 | §4.1 type split across ~8 files | ~80 |
 | §4.2 + §4.3 + §4.4 | ~60 |
-| §4.5 `SystemDiagram` + boundary node component | ~180 |
+| §4.5 `SystemDiagram` + boundary node component + the `useGraph` depth param | ~185 |
 | §4.6 wiring | ~5 |
 | **Total** | **~325** |
 
