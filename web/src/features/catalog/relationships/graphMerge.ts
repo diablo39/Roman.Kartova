@@ -22,6 +22,12 @@ export type ExplorerEdge = {
   source: string;
   target: string;
   label: string;
+  /**
+   * Raw wire relationship type ("partOf", "dependsOn", …), kept alongside the display `label`
+   * because membership classification is directional and must not guess from a label string.
+   * Undefined on derived edges — they have no persisted relationship row.
+   */
+  type?: string;
   derived?: boolean;
   provenance?: { apiName: string; viaAppName?: string | null }[];
 };
@@ -58,6 +64,7 @@ export function mergeGraphs(results: GraphResponse[]): ExplorerGraph {
           source: nodeId(e.source.kind, e.source.id),
           target: nodeId(e.target.kind, e.target.id),
           label: relationshipTypeLabel[e.type as CreatableRelationshipType] ?? e.type,
+          type: e.type,
         });
       }
     }
