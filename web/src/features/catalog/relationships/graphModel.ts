@@ -1,7 +1,7 @@
 import type { RelationshipResponse } from "@/features/catalog/api/relationships";
 import {
   relationshipTypeLabel,
-  isRelationshipKind,
+  isEntityKind,
   type RelationshipKind,
   type CreatableRelationshipType,
   type EntityKind,
@@ -139,10 +139,10 @@ const ENTITY_PATH_SEGMENT: Record<EntityKind, string> = {
   system: "systems",
 };
 
-export function parseEntityRef(token: string | null | undefined): { kind: RelationshipKind; id: string } | null {
+export function parseEntityRef(token: string | null | undefined): { kind: EntityKind; id: string } | null {
   if (!token) return null;
   const [kind, id] = token.split(":");
-  if (kind && id && isRelationshipKind(kind)) return { kind, id };
+  if (kind && id && isEntityKind(kind)) return { kind, id };
   return null;
 }
 
@@ -150,7 +150,7 @@ export function entityDetailPath(kind: EntityKind, id: string): string {
   return `/catalog/${ENTITY_PATH_SEGMENT[kind]}/${id}`;
 }
 
-export function graphFocusPath(kind: RelationshipKind, id: string): string {
+export function graphFocusPath(kind: EntityKind, id: string): string {
   return `/graph?focus=${kind}:${id}`;
 }
 
