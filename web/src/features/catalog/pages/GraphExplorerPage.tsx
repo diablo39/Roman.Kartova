@@ -15,7 +15,7 @@ import { ImpactBanner } from "@/features/catalog/components/ImpactBanner";
 import { GraphActionsProvider, type GraphActions } from "@/features/catalog/relationships/GraphActionsContext";
 import type { GraphNodeData } from "@/features/catalog/relationships/graphModel";
 import { parseEntityRef, entityDetailPath, graphFocusPath } from "@/features/catalog/relationships/graphModel";
-import type { EntityKind } from "@/features/catalog/relationships/relationshipTypeRules";
+import { isRelationshipKind, type EntityKind } from "@/features/catalog/relationships/relationshipTypeRules";
 import { useGraphFilters } from "@/features/catalog/relationships/useGraphFilters";
 import { applyGraphFilters } from "@/features/catalog/relationships/graphFilter";
 import { GraphFilterControls } from "@/features/catalog/components/GraphFilterControls";
@@ -197,7 +197,7 @@ export function GraphExplorerPage() {
                 onImpactAnalysis={() => {
                   // Sidebar only renders this button for application/service (impact analysis over
                   // a System focus is out of scope) — narrow here so ImpactSubject stays RelationshipKind.
-                  if (selectedRef.kind !== "system") {
+                  if (isRelationshipKind(selectedRef.kind)) {
                     setImpactSubject({ kind: selectedRef.kind, id: selectedRef.id });
                   }
                 }}

@@ -31,8 +31,11 @@ const CREATABLE_TYPES: CreatableRelationshipType[] = [
 ];
 const ALL_KINDS: RelationshipKind[] = ["application", "service", "api"];
 
-// Shared predicate: is this a known relationship kind at all (application/service/api)?
-// Used to validate untrusted tokens — URL graph focus and persisted filter kinds.
+// Shared predicate: is this a known relationship kind at all (application/service/api) — the
+// base for the three creatable-edge kinds. `isEntityKind` below builds on this and also accepts
+// `system`; untrusted tokens that may legitimately be a System (URL graph focus via
+// `parseEntityRef`, and the persisted-filter reader in useGraphFilters.ts) validate through
+// `isEntityKind`, not this one.
 export function isRelationshipKind(kind: string): kind is RelationshipKind {
   return kind === "application" || kind === "service" || kind === "api";
 }

@@ -9,8 +9,13 @@ import type { ExpandEntry } from "@/features/catalog/relationships/useExplorerSt
 export type GraphResponse = components["schemas"]["GraphResponse"];
 export type GraphFocus = { kind: EntityKind; id: string };
 
-const FOCUS_DEPTH = 2;
-const EXPAND_DEPTH = 1;
+// Server-enforced range (CatalogEndpointDelegates.cs:1396-1399, the GET /graph handler):
+// depth outside 1..4 400s. Callers are all in-repo literals, so this is exhaustive, not an
+// approximation.
+type GraphDepth = 1 | 2 | 3 | 4;
+
+const FOCUS_DEPTH: GraphDepth = 2;
+const EXPAND_DEPTH: GraphDepth = 1;
 
 type GraphDirection = "outgoing" | "incoming" | "all";
 
@@ -22,11 +27,11 @@ function parseNode(node: string): GraphFocus {
 
 export const graphKeys = {
   all: ["catalog", "graph"] as const,
-  node: (f: GraphFocus, depth: number, direction: GraphDirection) =>
+  node: (f: GraphFocus, depth: GraphDepth, direction: GraphDirection) =>
     [...graphKeys.all, f.kind, f.id, depth, direction] as const,
 };
 
-async function fetchGraph(f: GraphFocus, depth: number, direction: GraphDirection): Promise<GraphResponse> {
+async function fetchGraph(f: GraphFocus, depth: GraphDepth, direction: GraphDirection): Promise<GraphResponse> {
   const { data, error } = await apiClient.GET("/api/v1/catalog/graph", {
     params: { query: { entityKind: f.kind, entityId: f.id, depth, direction } },
   });
@@ -43,7 +48,7 @@ export function useGraph({
   expand: ExpandEntry[];
   /** Focus-query depth. Defaults to the explorer's 2; the System diagram passes 1 (members +
    *  every edge between them) or 2 (adds their external neighbours). */
-  depth?: number;
+  depth?: GraphDepth;
 }) {
   const enabled = focus.id !== "";
   const queries = useQueries({

@@ -3,7 +3,7 @@ import { MultiSelect } from "@/components/base/multi-select/multi-select";
 import { Button } from "@/components/base/buttons/button";
 import type { EntityKind } from "@/features/catalog/relationships/relationshipTypeRules";
 
-const KIND_OPTIONS = [
+const KIND_OPTIONS: { label: string; value: EntityKind }[] = [
   { label: "Application", value: "application" },
   { label: "Service", value: "service" },
   { label: "API", value: "api" },

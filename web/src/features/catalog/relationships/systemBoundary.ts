@@ -3,6 +3,8 @@ import type { ExplorerGraph } from "@/features/catalog/relationships/graphMerge"
 import type { GraphNodeData } from "@/features/catalog/relationships/graphModel";
 import { NODE_W, NODE_H } from "@/features/catalog/relationships/graphLayout";
 
+// Visual breathing room around the member bounding box — not tied to NODE_W/NODE_H or any other
+// layout constant, so it is safe to retune for legibility alone.
 export const BOUNDARY_PADDING = 24;
 
 /** The wire relationship type that marks System membership (component -> System). */

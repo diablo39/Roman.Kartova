@@ -501,5 +501,17 @@ public class GetCatalogGraphTests : CatalogIntegrationTestBase
 
         Assert.AreEqual(0, graph!.Edges.Count);
         Assert.IsFalse(graph.Nodes.Any(n => n.Id == memberA), "Org A's member must not appear for Org B");
+
+        // GraphTraversal.BuildAsync always seeds the frontier from the caller-supplied ref
+        // (nodeDepth[focus] = 0) before any RLS check runs, so the focus node is present in
+        // Nodes for every caller — that alone discloses nothing new, since Org B already
+        // supplied this id. The RLS guarantee under test is the *enrichment*: GraphTraversalHandler
+        // fills DisplayName/TeamId via the RLS-scoped ICatalogEntityLookup, which must resolve to
+        // nothing for another tenant's System — this is what would leak first if RLS regressed
+        // while member-hiding kept working.
+        var focusNode = graph.Nodes.SingleOrDefault(n => n.Id == sysA);
+        Assert.IsNotNull(focusNode, "the focus ref is always present as a bare node; only its enrichment is RLS-guarded");
+        Assert.AreEqual(string.Empty, focusNode!.DisplayName, "Org A's focus System DisplayName must not leak to Org B");
+        Assert.IsNull(focusNode.TeamId, "Org A's focus System TeamId must not leak to Org B");
     }
 }

@@ -118,15 +118,22 @@ it("requests depth 1 by default and depth 2 once external dependencies are inclu
 
 it("renders the band labelled with the system name, and the member node", () => {
   useGraphMock.mockReturnValue(oneMemberGraph);
-  renderDiagram();
-  expect(screen.getAllByText("Payments Platform").length).toBeGreaterThan(0);
+  const { container } = renderDiagram();
+  // The System's own entity node renders the same display name, so assert on the band node
+  // itself (data-node-type="systemBoundary") rather than the text anywhere on the page — that
+  // would pass even if the band computation returned null.
+  const band = container.querySelector('button[data-node-type="systemBoundary"]');
+  expect(band).not.toBeNull();
+  expect(band).toHaveTextContent("Payments Platform");
   expect(screen.getByText("Ledger")).toBeInTheDocument();
 });
 
 it("does not render partOf edges", () => {
   useGraphMock.mockReturnValue(oneMemberGraph);
-  const { container } = renderDiagram();
-  expect(container.textContent).not.toContain("Part of");
+  renderDiagram();
+  // oneMemberGraph's only edge is the member's partOf; asserting edge-count is 0 is the
+  // stronger check the next test in this file already uses for dependsOn edges.
+  expect(screen.getByTestId("edge-count")).toHaveTextContent("0");
 });
 
 it("renders a dependsOn edge between two members (the reason this diagram uses /graph)", () => {
