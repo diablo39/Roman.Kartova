@@ -10,9 +10,8 @@ import { layoutGraph } from "@/features/catalog/relationships/graphLayout";
 import { systemMemberIds, systemBoundaryBox, PART_OF_TYPE } from "@/features/catalog/relationships/systemBoundary";
 import { SystemBoundaryNode, type SystemBoundaryData } from "@/features/catalog/components/SystemBoundaryNode";
 import { EntityGraphNode } from "@/features/catalog/components/EntityGraphNode";
-import { GraphActionsProvider } from "@/features/catalog/relationships/GraphActionsContext";
-import { entityDetailPath, graphFocusPath, type GraphNodeData } from "@/features/catalog/relationships/graphModel";
-import type { EntityKind } from "@/features/catalog/relationships/relationshipTypeRules";
+import { GraphActionsProvider, createReadOnlyGraphActions } from "@/features/catalog/relationships/GraphActionsContext";
+import { graphFocusPath, type GraphNodeData } from "@/features/catalog/relationships/graphModel";
 
 const NODE_TYPES = { entity: EntityGraphNode, systemBoundary: SystemBoundaryNode };
 
@@ -35,33 +34,26 @@ export function SystemDiagram({ systemId, displayName }: Props) {
 
   // Matches the standalone /graph explorer's interaction: a node click SELECTS (highlights)
   // rather than navigating; navigation is an explicit "Open page ↗" in the node's ⋯ menu.
-  const actions = useMemo(
-    () => ({
-      // Fixed-depth diagram: not expandable, so the ⋯ menu drops its Expand items (supportsExpand).
-      toggleExpand: () => {},
-      setFocus: (kind: EntityKind, id: string) => navigate(graphFocusPath(kind, id)),
-      openPage: (kind: EntityKind, id: string) => navigate(entityDetailPath(kind, id)),
-      atCap: false,
-      supportsExpand: false,
-    }),
-    [navigate],
-  );
+  const actions = useMemo(() => createReadOnlyGraphActions(navigate), [navigate]);
 
-  const { nodes, edges, memberCount, truncated } = useMemo(() => {
+  // Split to match GraphExplorerPage's pattern: the merge + membership pass doesn't depend on
+  // selection, so it shouldn't re-run on every node click — only layout/filtering/band do.
+  const { merged, memberIds } = useMemo(() => {
     const merged = mergeGraphs(graph.results);
     const memberIds = systemMemberIds(merged, focusId);
-    const laid = layoutGraph(merged, focusId, selectedId);
-    const box = systemBoundaryBox(laid.nodes, memberIds, focusId);
+    return { merged, memberIds };
+  }, [graph.results, focusId]);
 
+  const { nodes, edges, memberCount, truncated } = useMemo(() => {
     // Membership must be readable per node (spec 7a): dagre's rankdir:"LR" layout can place a
     // non-member in the same rank — and x-column — as a member, so the band's position alone
     // cannot carry it. Every node that is neither the focus nor a member is marked outside;
     // members and the focus never are.
-    const decoratedNodes = laid.nodes.map((n) =>
-      n.id === focusId || memberIds.has(n.id)
-        ? n
-        : { ...n, data: { ...n.data, outsideBoundary: true } },
+    const outsideIds = new Set(
+      merged.nodes.filter((n) => n.id !== focusId && !memberIds.has(n.id)).map((n) => n.id),
     );
+    const laid = layoutGraph(merged, focusId, selectedId, undefined, undefined, undefined, outsideIds);
+    const box = systemBoundaryBox(laid.nodes, memberIds, focusId);
 
     // partOf edges stay in the dagre input above (they anchor member ranks next to the System
     // node) but are not drawn — the band states membership, drawing it again is noise.
@@ -84,12 +76,12 @@ export function SystemDiagram({ systemId, displayName }: Props) {
       : [];
 
     return {
-      nodes: [...bandNode, ...decoratedNodes],
+      nodes: [...bandNode, ...laid.nodes],
       edges: visibleEdges,
       memberCount: memberIds.size,
       truncated: merged.truncated,
     };
-  }, [graph.results, focusId, selectedId, displayName]);
+  }, [merged, memberIds, focusId, selectedId, displayName]);
 
   return (
     <section className="space-y-2" aria-label="System diagram">

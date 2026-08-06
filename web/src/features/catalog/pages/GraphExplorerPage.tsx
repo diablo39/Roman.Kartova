@@ -197,7 +197,7 @@ export function GraphExplorerPage() {
                 onImpactAnalysis={() => {
                   // Sidebar only renders this button for application/service (impact analysis over
                   // a System focus is out of scope) — narrow here so ImpactSubject stays RelationshipKind.
-                  if (selectedRef.kind === "application" || selectedRef.kind === "service") {
+                  if (selectedRef.kind !== "system") {
                     setImpactSubject({ kind: selectedRef.kind, id: selectedRef.id });
                   }
                 }}

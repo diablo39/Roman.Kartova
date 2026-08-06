@@ -34,7 +34,7 @@ export function GraphExplorerSidebar(props: {
   const apiQ = useApi(selected.kind === "api" ? selected.id : "");
   const sysQ = useSystem(selected.kind === "system" ? selected.id : "");
   const active = { application: appQ, service: svcQ, api: apiQ, system: sysQ }[selected.kind];
-  const entity = active?.data as ApplicationResponse | ServiceResponse | ApiResponse | SystemResponse | undefined;
+  const entity = active.data as ApplicationResponse | ServiceResponse | ApiResponse | SystemResponse | undefined;
   const lifecycle = selected.kind === "application" ? (entity as ApplicationResponse | undefined)?.lifecycle : undefined;
   const health = selected.kind === "service" ? (entity as ServiceResponse | undefined)?.health : undefined;
 
@@ -62,7 +62,7 @@ export function GraphExplorerSidebar(props: {
         <button type="button" onClick={onClose} aria-label="Close details" className="text-tertiary">✕</button>
       </div>
 
-      {active?.isError ? (
+      {active.isError ? (
         <p className="text-sm text-error-primary">Couldn&apos;t load details.</p>
       ) : (
         <dl className="space-y-1 text-sm">
