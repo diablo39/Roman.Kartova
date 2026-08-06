@@ -23,8 +23,15 @@ export function systemMemberIds(graph: ExplorerGraph, focusId: string): Set<stri
 }
 
 /**
- * Bounding box over the focus node and its members, in flow coordinates, padded. Returns null
- * when the System has no members — there is nothing to enclose and the caller skips the band.
+ * Bounding box over the System's members only, in flow coordinates, padded. Returns null when
+ * the System has no members — there is nothing to enclose and the caller skips the band.
+ *
+ * The focus System node is deliberately excluded (spec 4a): with `rankdir: "LR"` it occupies its
+ * own dagre rank to the right of every member, so including it stretched the band across empty
+ * canvas (measured: band 350-1190 for content ending at 887). The System node renders just
+ * outside its own band as an accepted trade-off. `focusId` is still taken and checked here as a
+ * defensive exclusion — `systemMemberIds` should never place the focus in `memberIds`, but this
+ * guards against that changing silently.
  */
 export function systemBoundaryBox(
   nodes: Node<GraphNodeData>[],
@@ -32,7 +39,7 @@ export function systemBoundaryBox(
   focusId: string,
 ): { x: number; y: number; width: number; height: number } | null {
   if (memberIds.size === 0) return null;
-  const inside = nodes.filter((n) => n.id === focusId || memberIds.has(n.id));
+  const inside = nodes.filter((n) => n.id !== focusId && memberIds.has(n.id));
   if (inside.length === 0) return null;
 
   const minX = Math.min(...inside.map((n) => n.position.x));

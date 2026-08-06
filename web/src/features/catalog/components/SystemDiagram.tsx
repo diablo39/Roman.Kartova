@@ -53,6 +53,16 @@ export function SystemDiagram({ systemId, displayName }: Props) {
     const laid = layoutGraph(merged, focusId, selectedId);
     const box = systemBoundaryBox(laid.nodes, memberIds, focusId);
 
+    // Membership must be readable per node (spec 7a): dagre's rankdir:"LR" layout can place a
+    // non-member in the same rank — and x-column — as a member, so the band's position alone
+    // cannot carry it. Every node that is neither the focus nor a member is marked outside;
+    // members and the focus never are.
+    const decoratedNodes = laid.nodes.map((n) =>
+      n.id === focusId || memberIds.has(n.id)
+        ? n
+        : { ...n, data: { ...n.data, outsideBoundary: true } },
+    );
+
     // partOf edges stay in the dagre input above (they anchor member ranks next to the System
     // node) but are not drawn — the band states membership, drawing it again is noise.
     const partOfIds = new Set(merged.edges.filter((e) => e.type === PART_OF_TYPE).map((e) => e.id));
@@ -74,7 +84,7 @@ export function SystemDiagram({ systemId, displayName }: Props) {
       : [];
 
     return {
-      nodes: [...bandNode, ...laid.nodes],
+      nodes: [...bandNode, ...decoratedNodes],
       edges: visibleEdges,
       memberCount: memberIds.size,
       truncated: merged.truncated,
@@ -125,6 +135,10 @@ export function SystemDiagram({ systemId, displayName }: Props) {
           <p className="text-xs text-tertiary">
             <span className="mr-3">— explicit</span>
             <span className="font-mono">- - derived</span>
+          </p>
+          <p className="text-xs text-tertiary">
+            <span className="rounded-sm border border-dashed border-secondary px-1 text-quaternary">dashed</span>
+            <span className="ml-1">= outside this system</span>
           </p>
           {truncated && (
             <p className="text-xs text-warning-primary">Showing only part of a large system.</p>

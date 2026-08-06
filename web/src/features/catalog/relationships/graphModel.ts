@@ -25,6 +25,13 @@ export type GraphNodeData = {
   // explorer: impact-analysis tier (hop distance from the analyzed node); undefined outside impact mode,
   // 0 for the analyzed node itself (no glow). Drives the tier glow ring in EntityGraphNode.
   impactTier?: number;
+  // system diagram: this node is not a member of the focused System (and not the System itself),
+  // set per node because dagre's rankdir:"LR" layout can place a non-member in the same rank —
+  // and x-column — as a member, so position alone cannot carry membership (spec 7a). Distinct
+  // from `dimmed`, which means "doesn't match the active filter" elsewhere and fades at
+  // opacity-30 — too faint for a state the toggle exists to reveal. Undefined (explorer,
+  // DependencyMiniGraph) means no change.
+  outsideBoundary?: boolean;
 };
 
 // The 6 node-level expand-affordance fields, kept as one source of truth so

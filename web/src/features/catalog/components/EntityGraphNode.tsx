@@ -22,6 +22,12 @@ export function EntityGraphNode({ data }: NodeProps<Node<GraphNodeData>>) {
       : "border border-secondary shadow-xs";
   const dim = data.dimmed ? "opacity-30" : "";
 
+  // "Outside this system" (spec 7a): a dashed border layered on top of whatever `variant` chose
+  // (border-width/color utilities only set border-style via a separate class, so this composes
+  // without fighting selected/focused), plus a muted label — legible, unlike `dimmed`'s opacity-30.
+  const outside = data.outsideBoundary ? "border-dashed" : "";
+  const labelColor = data.outsideBoundary ? "text-quaternary" : "text-primary";
+
   // Impact-analysis glow: tier-1 strongest → deeper tiers cooler. Focus (tier 0) gets no ring.
   // ring-*-solid utilities aren't generated for error/warning/success (theme.css only defines
   // --ring-color-brand-solid), so all use arbitrary values against the underlying
@@ -78,13 +84,13 @@ export function EntityGraphNode({ data }: NodeProps<Node<GraphNodeData>>) {
   };
 
   return (
-    <div className={`${base} ${variant} ${dim} ${impact} relative`}>
+    <div className={`${base} ${variant} ${dim} ${impact} ${outside} relative`}>
       <Handle type="target" position={Position.Left} className="!border-0 !bg-transparent" />
       {canExpand && chevron("in")}
       {canExpand && chevron("out")}
       <div className="flex items-start gap-2">
         <div className="min-w-0">
-          <div className="text-sm text-primary">{data.displayName}</div>
+          <div className={`text-sm ${labelColor}`}>{data.displayName}</div>
           <div className="text-xs text-tertiary">{ENTITY_KIND_LABEL[data.kind] ?? data.kind}</div>
         </div>
         <div className="nodrag nopan ml-auto" onPointerDown={stop} onClick={stop}>
