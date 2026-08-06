@@ -8,7 +8,11 @@ vi.mock("@/features/catalog/api/graph", () => ({ useGraph: (a: unknown) => useGr
 
 vi.mock("@xyflow/react", () => ({
   ReactFlow: (props: {
-    nodes: { id: string; type?: string; data: { displayName?: string; label?: string; selected?: boolean } }[];
+    nodes: {
+      id: string;
+      type?: string;
+      data: { displayName?: string; label?: string; selected?: boolean; outsideBoundary?: boolean };
+    }[];
     edges: { id: string; label: string }[];
     onNodeClick?: (e: unknown, n: unknown) => void;
   }) => (
@@ -20,6 +24,7 @@ vi.mock("@xyflow/react", () => ({
           key={n.id}
           data-selected={n.data.selected ? "true" : "false"}
           data-node-type={n.type}
+          data-outside={n.data.outsideBoundary ? "true" : "false"}
           onClick={() => props.onNodeClick?.({}, n)}
         >
           {n.data.displayName ?? n.data.label}
@@ -65,6 +70,26 @@ const twoMemberGraph = {
         { id: "e1", source: { kind: "service", id: "m1" }, target: { kind: "system", id: "s1" }, type: "partOf" },
         { id: "e2", source: { kind: "service", id: "m2" }, target: { kind: "system", id: "s1" }, type: "partOf" },
         { id: "e3", source: { kind: "service", id: "m1" }, target: { kind: "service", id: "m2" }, type: "dependsOn" },
+      ],
+      derivedEdges: [],
+      truncated: false,
+    },
+  ],
+  isLoading: false,
+  isError: false,
+};
+
+const memberAndNonMemberGraph = {
+  results: [
+    {
+      nodes: [
+        { kind: "system", id: "s1", displayName: "Payments Platform", depth: 0, teamId: null, outDegree: 0, inDegree: 1 },
+        { kind: "service", id: "m1", displayName: "Ledger", depth: 1, teamId: "t1", outDegree: 1, inDegree: 0 },
+        { kind: "service", id: "ext", displayName: "Auth Service", depth: 2, teamId: "t2", outDegree: 0, inDegree: 1 },
+      ],
+      edges: [
+        { id: "e1", source: { kind: "service", id: "m1" }, target: { kind: "system", id: "s1" }, type: "partOf" },
+        { id: "e2", source: { kind: "service", id: "m1" }, target: { kind: "service", id: "ext" }, type: "dependsOn" },
       ],
       derivedEdges: [],
       truncated: false,
@@ -153,4 +178,25 @@ it("links to the full explorer focused on the system", () => {
   useGraphMock.mockReturnValue(oneMemberGraph);
   renderDiagram("s1", "X");
   expect(screen.getByRole("link", { name: /open full graph/i })).toHaveAttribute("href", "/graph?focus=system:s1");
+});
+
+it("marks a non-member outside the boundary and leaves the member unmarked (spec 7a)", () => {
+  useGraphMock.mockReturnValue(memberAndNonMemberGraph);
+  renderDiagram();
+
+  expect(screen.getByRole("button", { name: "Ledger" })).toHaveAttribute("data-outside", "false");
+  expect(screen.getByRole("button", { name: "Auth Service" })).toHaveAttribute("data-outside", "true");
+  // The focus System node is the subject of the diagram, never marked outside. Both the band and
+  // the System's own entity node render the label "Payments Platform" (the known, out-of-scope
+  // duplicated label) — narrow to the entity node specifically.
+  const systemNode = screen
+    .getAllByRole("button", { name: "Payments Platform" })
+    .find((el) => el.getAttribute("data-node-type") === "entity")!;
+  expect(systemNode).toHaveAttribute("data-outside", "false");
+});
+
+it("shows the outside-boundary legend row", () => {
+  useGraphMock.mockReturnValue(oneMemberGraph);
+  renderDiagram();
+  expect(screen.getByText(/outside this system/i)).toBeInTheDocument();
 });

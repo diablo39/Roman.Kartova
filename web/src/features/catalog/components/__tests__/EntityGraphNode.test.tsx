@@ -110,6 +110,33 @@ it("applies dimmed styling with opacity-30", () => {
   expect(screen.getByText("S").closest("div[class*='opacity-30']")).toBeInTheDocument();
 });
 
+it("applies outside-boundary styling with a dashed border and a muted label", () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency", outsideBoundary: true });
+  expect(screen.getByText("S").closest("div[class*='border-dashed']")).toBeInTheDocument();
+  expect(screen.getByText("S")).toHaveClass("text-quaternary");
+});
+
+it("does not apply outside-boundary styling when the flag is absent (explorer / mini-graph)", () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency" });
+  expect(screen.getByText("S").closest("div[class*='border-dashed']")).toBeNull();
+  expect(screen.getByText("S")).toHaveClass("text-primary");
+});
+
+it("composes outside-boundary with the selected border rather than overriding it", () => {
+  renderNode({
+    kind: "service",
+    entityId: "s",
+    displayName: "S",
+    side: "dependency",
+    selected: true,
+    outsideBoundary: true,
+  });
+  const el = screen.getByText("S").closest("div[class*='border-dashed']");
+  expect(el).not.toBeNull();
+  expect(el).toHaveClass("border-brand-solid");
+  expect(el).toHaveClass("border-dashed");
+});
+
 it("clicking the expand chevron does not select the node (stopPropagation contract)", async () => {
   const selectSpy = vi.fn();
   const value: GraphActions = { toggleExpand: vi.fn(), setFocus: vi.fn(), openPage: vi.fn(), atCap: false };
