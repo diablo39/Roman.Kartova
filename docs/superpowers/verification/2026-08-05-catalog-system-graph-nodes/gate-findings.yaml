@@ -159,6 +159,7 @@ findings:
   - gate: manual
     severity: blocking
     verdict: real
+    resolution: "CLOSED at cc508e89. Owner chose remedy C on 2026-08-06; spec amended (§3.1, decisions 7a + 4a) and implemented: non-members carry a dashed border + muted label + legend row set per node, and the band's extent covers the members only. Re-run of the same probe: band 351-979, Notifier Service 1052-1170 (outside), both non-members marked, no member marked, console clean."
     title: "An external non-member renders entirely inside the boundary band — decision 7 is false as built"
     note: "Predicted by gate 6, confirmed by measurement on the running stack. Client rects with the toggle ON: band x 350-1190 / y 347-496; Notifier Service (non-member) x 1038-1155 / y 365-407, i.e. fully inside. Auth Service escaped only by landing 12px above the band's top edge — luck, not mechanism. Cause is as predicted: rankdir LR plus retained partOf edges put the System one rank right of its members, so a member's external out-neighbour lands in that same rank, inside the box. Remedies A/B/C are recorded in dod.md; the choice reverses or amends an owner-approved decision, so it is deliberately not fixed yet. THIS is the finding that justifies gate 9 not folding into the automated suite: no unit test can see it, because the repo's xyflow mock renders labels only."
 
@@ -171,8 +172,15 @@ findings:
   - gate: manual
     severity: minor
     verdict: real
+    resolution: "CLOSED at cc508e89 as a side effect of decision 4a — the band now covers the members only, measured 351-979 instead of 350-1190."
     title: "The diagram layout is sparse — over half the band is empty space"
     note: "The System node occupies its own dagre rank far right, so even with the toggle OFF the band spans x 350-1190 for content ending at x 887. Remedy B (excluding the focus node from the band's extent) would fix this as a side effect. Not blocking."
+
+  - gate: manual
+    severity: minor
+    verdict: real
+    title: "The focus System node now renders outside its own band and reads a little orphaned"
+    note: "Introduced deliberately by decision 4a (the band covers members only) and recorded there as an accepted trade-off. Seeing it on screen makes the spec §3.1 follow-up — dropping the System node from the diagram, since the band already carries its name — more attractive than it looked on paper. Not blocking; deferred as a follow-up, not silently accepted."
 
   - gate: manual
     severity: minor

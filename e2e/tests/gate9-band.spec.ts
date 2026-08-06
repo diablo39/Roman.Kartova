@@ -20,10 +20,13 @@ async function geometry(page: import("@playwright/test").Page) {
     const bandRect = band?.getBoundingClientRect();
     const nodes = [...document.querySelectorAll<HTMLElement>(".react-flow__node-entity")].map((n) => {
       const r = n.getBoundingClientRect();
+      const card = n.querySelector<HTMLElement>("div");
       return {
         label: (n.querySelector("div > div")?.textContent ?? "").trim(),
         left: Math.round(r.left), top: Math.round(r.top),
         right: Math.round(r.right), bottom: Math.round(r.bottom),
+        // spec §3 row 7a: the outside-this-system state is a dashed border on the node card.
+        dashed: (card?.className ?? "").includes("border-dashed"),
       };
     });
     return {
@@ -81,4 +84,12 @@ test("gate 9 — boundary band vs external nodes", async ({ page }) => {
   console.log("EXTERNALS_INSIDE_BAND " + JSON.stringify(externalsInsideBand));
   console.log("MEMBERS_OUTSIDE_BAND " + JSON.stringify(membersOutsideBand));
   console.log("CONSOLE_ERRORS " + JSON.stringify(consoleErrors));
+
+  // spec §3 row 7a — the signal is per node, so it must hold regardless of where dagre put anything.
+  const externals = after.nodes.filter(named(EXTERNALS));
+  const members = after.nodes.filter(named(MEMBERS));
+  console.log("EXTERNALS_MARKED " + JSON.stringify(externals.map((n) => [n.label, n.dashed])));
+  console.log("MEMBERS_MARKED " + JSON.stringify(members.map((n) => [n.label, n.dashed])));
+  expect(externals.every((n) => n.dashed), "every non-member must be marked outside").toBe(true);
+  expect(members.some((n) => n.dashed), "no member may be marked outside").toBe(false);
 });

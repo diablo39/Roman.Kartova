@@ -7,7 +7,7 @@
 **Execution:** `superpowers:subagent-driven-development` — 11 tasks, fresh implementer + task review each, then one whole-branch review and one consolidated fix wave. SDD ledger with per-task detail: `.superpowers/sdd/2026-08-05-catalog-system-graph-nodes/progress.md` (gitignored; **kept, not deleted**, until gates 4–10 close — it holds the per-task reports those gates may need to cite).
 **Findings telemetry:** `./gate-findings.yaml`
 
-> ⚠️ **Honest status: gate 9 FAILED — a real defect is open.** An external non-member renders inside the boundary band, which disproves spec §3 decision 7 (see gate 9 below). Gates 1, 4, 5, 7, 10 and the terminal re-verify have not run. This slice is **not** complete and must not be described as merge-ready.
+> ⚠️ **Honest status: gates 2, 3, 6 and 9 pass; gates 1, 4, 5, 7, 10 and the terminal re-verify have NOT run.** Gate 9 failed on its first run, forced a spec amendment (§3.1) and passes on the fix. This slice is **not** complete and must not be described as merge-ready until the remaining six gates run.
 
 ## Summary
 
@@ -22,7 +22,7 @@
 | 7 `review-pr` | ⏳ PENDING | — |
 | 8 `deep-review` | ⏳ PENDING | — |
 | Terminal re-verify (build + suite) | ⏳ PENDING | — |
-| 9 Visual / API verification (ADR-0084) | ❌ FAIL | 2026-08-06 |
+| 9 Visual / API verification (ADR-0084) | ✅ PASS (after fix) | 2026-08-06 |
 | 10 CI green on PR | ⏳ PENDING | — |
 
 ## Gate detail
@@ -68,7 +68,24 @@ One consolidated fix wave (`6cd82963`, `b05cc2a6`) closed **F1–F8 and all four
 **Status:** ⏳ PENDING — owed after gates 5, 7 and 8 run and apply any fixes. The frontend half is already green on `b05cc2a6` (988/988, tsc exit 0); the solution build is the missing piece.
 
 ### 9 — Visual / API verification (observe the running system)
-**Status:** ❌ **FAIL — ran 2026-08-06 and disproved spec §3 decision 7.** An external non-member renders inside the boundary band. Awaiting the owner's ruling on the remedy; the gate cannot pass until the diagram carries a truthful member signal.
+**Status:** ✅ **PASS at `cc508e89`, after failing at `58fa2e61` and forcing a spec amendment.** The gate's first run disproved spec §3 decision 7 — an external non-member rendered inside the boundary band. The owner chose remedy **C**; decisions **7a** and **4a** were written into the spec (§3.1) and implemented, and the same probe now passes against the fixed build. Both states are recorded below, because the failure is the more useful half of the record.
+
+#### Re-run after the fix (`cc508e89`) — measured, same probe
+
+| Element | x | y | marked outside? |
+|---|---|---|---|
+| band (members only) | **351–979** | 355–441 | — |
+| `Notifier Service` (non-member) | **1052–1170** | 373–415 | **yes** |
+| `Auth Service` (non-member) | 824–929 | 300–343 | **yes** |
+| `Ledger` / `Fees` / `Checkout Service` (members) | inside | inside | no |
+
+`EXTERNALS_INSIDE_BAND` is now empty **and the matcher is proven live** — the same run reports both non-members found and marked, so the empty result is a real one rather than the vacuous one this probe produced on its first attempt. Console clean. The band tightened from 350–1190 to 351–979, so the empty-canvas stretch is gone as well.
+
+The per-node signal reads correctly and, crucially, **legibly**: the two non-members carry a dashed border and a muted label with a `dashed = outside this system` legend row, rather than the 30% opacity that would have hidden the very nodes the toggle exists to reveal. That was the reason spec 7a rejected reusing `layoutGraph`'s `dimmed` channel.
+
+**One thing to look at with human eyes before merge:** the focus System node now sits outside its own band, detached at the lower right, and reads a little orphaned — it is the trade-off spec 4a records, but seeing it makes the "drop the System node from the diagram entirely" follow-up (spec §3.1) look more attractive than it did on paper. Not blocking; the band already carries the System's name.
+
+**Original failure, retained — this is what the gate caught:**
 
 **What was driven.** Real stack (`docker compose`: postgres + keycloak + migrator + api) with the **vite dev server on 5173** for the web tier — deliberately not the 4173 container, whose image predates this branch and would have verified nothing. Seeded through the product's own API: System *Payments Platform*, three member services (*Ledger*, *Fees*, *Checkout Service*) assigned via `PUT /catalog/services/{id}/system`, two inter-member `dependsOn` edges, and three external `dependsOn` edges to two non-member services (*Auth Service*, *Notifier Service*) — the "≥2 members with external dependencies" recipe this ledger asked for. Driven in-SPA (ADR-0084) via Playwright with the repo's own `e2e/fixtures/auth.ts` login. Probe: `e2e/tests/gate9-band.spec.ts` (a probe, not yet a regression spec). Evidence: `gate9-band-toggle-off.png`, `gate9-band-toggle-on.png`.
 
