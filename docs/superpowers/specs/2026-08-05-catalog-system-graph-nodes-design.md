@@ -38,8 +38,22 @@ Already fixed by A1 and **not** part of this slice: `ENTITY_KIND_LABEL` and `ENT
 | 4 | Boundary drawn as a **labelled background band** behind the member nodes, computed from their post-layout bounding box | Keeps the existing dagre layout. The alternatives were rejected: xyflow parent/child nodes need a hand-rolled nested layout (dagre cannot nest) and bring relative-coordinate handling; styling-plus-legend alone reads like the existing explorer |
 | 5 | Diagram sits at the **top of the existing Members tab**, table underneath. Tabs stay `Overview · Members` | 1:1 with the established pattern on component pages: `ApplicationDetailPage.tsx:148-163` puts the mini-graph and the relationship tables in one tab |
 | 6 | `partOf` edges are **not rendered**, but are kept in the dagre input | The band states membership; drawing it again is the noise decision 3 exists to avoid. They stay in the layout graph so members keep their rank next to the System node. One flag to reverse if gate 9 shows it reads as missing |
-| 7 | External neighbours get **no extra styling** — falling outside the band is the signal | One mechanism instead of two |
+| ~~7~~ | ~~External neighbours get **no extra styling** — falling outside the band is the signal~~ | ~~One mechanism instead of two~~ — **AMENDED 2026-08-06, see §3.1: the premise was disproved by gate 9** |
+| 7a | Non-members carry an explicit **"outside this system"** treatment — dashed border, muted label, legend row — set per node, not inferred from position | Membership must be readable wherever dagre places a node. Deliberately **not** `layoutGraph`'s existing `dimmed` (`opacity-30`): that channel already means "does not match your filter" in the explorer, and 30% opacity would hide the very nodes the toggle was switched on to reveal |
+| 4a | The band's extent covers **the members only** — the focus System node is excluded from the bounding box | Amends decision 4's extent. The System occupies its own dagre rank to the right of every member, so including it stretched the band across empty canvas (measured: band 350–1190 for content ending at 887). Accepted trade-off: the System node renders just outside its own band |
 | 8 | Authoring stays where it is | `PartOf` is not creatable through the generic Add-Relationship flow (A1 / ADR-0111); the graph is a read surface |
+
+### 3.1 Amendment 2026-08-06 — decision 7 was false as built
+
+Gate 9 drove the diagram on the running stack against a System with three members, two inter-member dependencies and three dependencies out to two non-member services. With the toggle on, measured client rects: band `x 350–1190 / y 347–496`, and `Notifier Service` — a non-member — at `x 1038–1155 / y 365–407`, **entirely inside the band**. `Auth Service` fell outside only because dagre placed it 12 px above the band's top edge.
+
+The cause is structural, not a layout accident. With `rankdir: "LR"` and `partOf` retained in the dagre input, the ranks in that fixture were: members at 0, 1, 2 and non-members at 2, 3 — so a non-member (`Auth`, rank 2) **shares a rank, and therefore an x-column, with a member** (`Fees`, rank 2). Any external dependency of a member sits one rank right of it, and that rank routinely contains members too. A bounding box therefore cannot carry "inside = member", and shrinking it to members only (4a) does not fix that on its own — it only removed this fixture's failure by luck of the y-assignment.
+
+Hence 7a: membership is expressed **per node**. 4a is kept as well, because it is independently worth having (it removes the empty-canvas stretch), not because it fixes the signal.
+
+**Not adopted:** dropping the focus System node from the diagram entirely. The band is labelled with the System's name, so the node is arguably redundant and removing it would also end the duplicated label — but it changes what the focus node is, and with it selection and the expand affordances. Recorded as a follow-up, not done here.
+
+Evidence: `docs/superpowers/verification/2026-08-05-catalog-system-graph-nodes/dod.md` gate 9, plus `gate9-band-toggle-off.png` / `gate9-band-toggle-on.png`.
 
 ### Rejected alternatives
 
