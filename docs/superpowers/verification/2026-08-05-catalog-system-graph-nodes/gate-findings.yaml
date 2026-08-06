@@ -154,6 +154,44 @@ findings:
     title: "Eight polish items: no-op cast, truncation wording, stray top-level test, node-component signature, stringly-typed label record, dead narrowing branch"
     note: "Four were fixed in the wave (no-op cast, banner wording with its test matcher, the stray top-level `it`, the SystemBoundaryNode signature now matching NodeProps). The rest were left: ENTITY_KIND_LABEL staying Record<string,string>, GraphExplorerPage's inert narrowing branch, SystemMembersSection's isRelationshipKind link guard, and the per-render memo recomputation inherited verbatim from GraphExplorerPage. None affects behaviour."
 
+  # ---- gate 9: visual / API verification, run 2026-08-06 (FAILED) ----
+
+  - gate: manual
+    severity: blocking
+    verdict: real
+    title: "An external non-member renders entirely inside the boundary band — decision 7 is false as built"
+    note: "Predicted by gate 6, confirmed by measurement on the running stack. Client rects with the toggle ON: band x 350-1190 / y 347-496; Notifier Service (non-member) x 1038-1155 / y 365-407, i.e. fully inside. Auth Service escaped only by landing 12px above the band's top edge — luck, not mechanism. Cause is as predicted: rankdir LR plus retained partOf edges put the System one rank right of its members, so a member's external out-neighbour lands in that same rank, inside the box. Remedies A/B/C are recorded in dod.md; the choice reverses or amends an owner-approved decision, so it is deliberately not fixed yet. THIS is the finding that justifies gate 9 not folding into the automated suite: no unit test can see it, because the repo's xyflow mock renders labels only."
+
+  - gate: manual
+    severity: important
+    verdict: real
+    title: "The gate-9 probe's own containment check was vacuous on its first run"
+    note: "It matched node labels by exact equality against the display name while the DOM text is displayName + kind concatenated (\"Notifier ServiceService\"), so it reported EXTERNALS_INSIDE_BAND [] — a clean result — while the defect was on screen. The real verdict initially came from reading raw coordinates by hand. Fixed to a prefix match plus two length guards asserting all five seeded nodes are found; the re-run then reproduced the finding through the assertion. Recorded because a vacuously-passing check is exactly what this slice's own reviews were told to hunt, and the controller's own probe committed it."
+
+  - gate: manual
+    severity: minor
+    verdict: real
+    title: "The diagram layout is sparse — over half the band is empty space"
+    note: "The System node occupies its own dagre rank far right, so even with the toggle OFF the band spans x 350-1190 for content ending at x 887. Remedy B (excluding the focus node from the band's extent) would fix this as a side effect. Not blocking."
+
+  - gate: manual
+    severity: minor
+    verdict: real
+    title: "The band label duplicates the System node's own display name"
+    note: "\"Payments Platform\" renders twice — once as the band label, once as the focus node's title. Mild; would disappear if the System node stopped being drawn inside its own band, which is a design change rather than a fix."
+
+  - gate: manual
+    severity: minor
+    verdict: real
+    title: "The Include-external-dependencies toggle cannot be clicked under Playwright's actionability check"
+    note: "Its inner thumb div and the tab panel both 'intercept pointer events', so the probe activates it with a Space press instead. Whether a human mouse click lands was NOT verified. Possibly the same class as the A2 multi-select popover issue (gate-findings, 2026-07-30 a2). Flagged as an observation, not a defect."
+
+  - gate: manual
+    severity: nit
+    verdict: delusion
+    title: "Hiding partOf edges might read as missing edges (decision 6 risk) — did not materialise"
+    note: "Gate 6 asked for human eyes on this. On screen the diagram reads as intentional: the band communicates membership and no edge looks absent. Decision 6 holds. Recorded as a delusion because the anticipated problem was not real."
+
   - gate: requesting-review
     severity: nit
     verdict: real

@@ -7,7 +7,7 @@
 **Execution:** `superpowers:subagent-driven-development` — 11 tasks, fresh implementer + task review each, then one whole-branch review and one consolidated fix wave. SDD ledger with per-task detail: `.superpowers/sdd/2026-08-05-catalog-system-graph-nodes/progress.md` (gitignored; **kept, not deleted**, until gates 4–10 close — it holds the per-task reports those gates may need to cite).
 **Findings telemetry:** `./gate-findings.yaml`
 
-> ⚠️ **Honest status: implementation staged and verified through gate 3 (plus gates 2, 5-equivalent, 6 and 8 as noted). Gates 4, 7, 9 and 10 have NOT run.** This slice is **not** "complete" and must not be described as merged-ready until they do.
+> ⚠️ **Honest status: gate 9 FAILED — a real defect is open.** An external non-member renders inside the boundary band, which disproves spec §3 decision 7 (see gate 9 below). Gates 1, 4, 5, 7, 10 and the terminal re-verify have not run. This slice is **not** complete and must not be described as merge-ready.
 
 ## Summary
 
@@ -22,7 +22,7 @@
 | 7 `review-pr` | ⏳ PENDING | — |
 | 8 `deep-review` | ⏳ PENDING | — |
 | Terminal re-verify (build + suite) | ⏳ PENDING | — |
-| 9 Visual / API verification (ADR-0084) | ⏳ PENDING | — |
+| 9 Visual / API verification (ADR-0084) | ❌ FAIL | 2026-08-06 |
 | 10 CI green on PR | ⏳ PENDING | — |
 
 ## Gate detail
@@ -68,7 +68,29 @@ One consolidated fix wave (`6cd82963`, `b05cc2a6`) closed **F1–F8 and all four
 **Status:** ⏳ PENDING — owed after gates 5, 7 and 8 run and apply any fixes. The frontend half is already green on `b05cc2a6` (988/988, tsc exit 0); the solution build is the missing piece.
 
 ### 9 — Visual / API verification (observe the running system)
-**Status:** ⏳ PENDING — **and it carries a specific question, not just a screenshot.**
+**Status:** ❌ **FAIL — ran 2026-08-06 and disproved spec §3 decision 7.** An external non-member renders inside the boundary band. Awaiting the owner's ruling on the remedy; the gate cannot pass until the diagram carries a truthful member signal.
+
+**What was driven.** Real stack (`docker compose`: postgres + keycloak + migrator + api) with the **vite dev server on 5173** for the web tier — deliberately not the 4173 container, whose image predates this branch and would have verified nothing. Seeded through the product's own API: System *Payments Platform*, three member services (*Ledger*, *Fees*, *Checkout Service*) assigned via `PUT /catalog/services/{id}/system`, two inter-member `dependsOn` edges, and three external `dependsOn` edges to two non-member services (*Auth Service*, *Notifier Service*) — the "≥2 members with external dependencies" recipe this ledger asked for. Driven in-SPA (ADR-0084) via Playwright with the repo's own `e2e/fixtures/auth.ts` login. Probe: `e2e/tests/gate9-band.spec.ts` (a probe, not yet a regression spec). Evidence: `gate9-band-toggle-off.png`, `gate9-band-toggle-on.png`.
+
+**The finding, measured rather than eyeballed** (client rects, toggle ON):
+
+| Element | x | y |
+|---|---|---|
+| band | 350–1190 | 347–496 |
+| `Notifier Service` (non-member) | **1038–1155** | **365–407** |
+| `Auth Service` (non-member) | 815–918 | 294–335 |
+
+`Notifier Service` lies **entirely inside the band**. `Auth Service` escapes only because dagre happened to place it 12 px above the band's top edge — luck, not a mechanism. Cause is exactly as predicted: with `rankdir: LR` and `partOf` retained in the layout input, the System sits one rank right of its members and a member's external out-neighbour lands in that same rank, i.e. inside the box the band spans. **Decision 7 ("external neighbours get no extra styling — falling outside the band is the signal") is therefore false as built.**
+
+**Honesty note on the probe.** Its first run reported `EXTERNALS_INSIDE_BAND []` — a clean result — because it matched node labels by exact equality against the display name while the DOM text is display name + kind concatenated (`"Notifier ServiceService"`). The check was vacuous and the "clean" result meaningless; the verdict above initially came from reading the raw coordinates by hand. The matcher was then fixed to a prefix match **plus** two length guards asserting all five nodes are actually found, and the re-run reproduced the finding through the assertion. Recorded because a vacuously-passing check is precisely what this slice's own reviews were told to hunt for.
+
+**Remedies on the table** (owner's call — the fix wave deliberately left this alone because every option reverses or amends an approved decision): (A) pass the non-member ids as `layoutGraph`'s existing `dimmed` argument so externals render at `opacity-30` — robust regardless of geometry, ~5 lines, reverses decision 7; (B) drop the focus System node from `systemBoundaryBox`'s extent so the band hugs only its members — fixes this case (the box would end at x 887) and removes the large empty area, but is not robust in general and leaves the System node outside its own band; (C) both.
+
+**What gate 9 confirmed as working** (worth as much as the failure): `partOf` edges being hidden reads as intentional, not as missing edges — decision 6 holds. Both inter-member `dependsOn` edges render with "Depends on" labels, which is the payoff decision 2 exists for and the thing the Members table cannot show. The legend is present, the band is labelled, and the console is clean (zero errors, zero pageerrors).
+
+**Further observations, not blocking:** the layout is sparse — the System node occupies its own rank far right, so even with the toggle OFF the band spans 350→1190 for content ending at 887, making over half the band empty; the band label duplicates the System node's own name; and the toggle **cannot be clicked** under Playwright's actionability check (its inner thumb and the tab panel both "intercept pointer events"), so the probe activates it with Space. Whether a human mouse click lands was not verified — this may be the same class as the A2 multi-select popover issue.
+
+**Original brief for this gate, retained for the record:**
 This is a first-time visual surface, so gate 9 is where the boundary band is actually judged. The gate-6 review raised a geometry concern the automated tests structurally cannot answer: `systemBoundaryBox` computes an **axis-aligned bounding box** over the focus plus its members, and nothing prevents a *non-member* from being laid out inside that rectangle. With dagre's `rankdir: "LR"` and the `partOf` edges retained in the layout input, the System sits one rank right of its members, and a member's external out-neighbour can land in that same rank — i.e. the same x-column the box spans. If that reproduces, spec §3 **decision 7** ("external neighbours get no extra styling — falling outside the band is the signal") rests on a false premise.
 **Drive it deliberately:** a System with **≥2 members that each have external dependencies**, with the *Include external dependencies* toggle **on**. If an external node renders inside the band, the cheapest fix that preserves decision 4 (keep the band, keep dagre) is to pass the non-member ids as `layoutGraph`'s existing `dimmed` argument so externals render at `opacity-30` — that reverses only decision 7. **That is the owner's call, which is why the fix wave left it alone.**
 Also worth human eyes: whether hiding `partOf` edges (decision 6) reads as intentional or as missing, and the band label's position.
