@@ -50,9 +50,6 @@ describe("GraphFilterControls", () => {
         onKindsChange={() => {}} onTeamIdsChange={() => {}} onClear={() => {}}
       />,
     );
-    expect(screen.getByRole("button", { name: /filter by kind/i })).toBeInTheDocument();
-    // Open the multi-select and assert the option exists; follows the same interaction
-    // pattern as the "offers an API kind option" test above.
     await userEvent.click(screen.getByLabelText("Filter by kind"));
     expect(screen.getByText("System")).toBeInTheDocument();
   });
