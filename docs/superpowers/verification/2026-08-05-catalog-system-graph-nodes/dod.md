@@ -177,7 +177,7 @@ Convert to a new `e2e/` spec afterwards. **E2E-impact trigger: N/A, verified** �
 **PR [#85](https://github.com/diablo39/Roman.Kartova/pull/85)**, run [31158955954](https://github.com/diablo39/Roman.Kartova/actions/runs/31158955954) on `e3ab579d` — **all five jobs green**: Backend (arch + unit + integration), Container images, Frontend (test + typecheck + build), Helm, Stryker config drift. The runner is the source of truth.
 
 **Pre-push mirror (`scripts/ci-local.sh`):** 5/5 — but the first aggregate run reported `frontend FAIL`, and the diagnosis is worth keeping. It was the known `lightningcss` EPERM: even with the vite dev server stopped, an orphaned `esbuild.exe` running out of `web/node_modules` **and** one stray `node` process from an earlier run in this session still held the native module, and the failed `npm ci` had half-wiped `node_modules` on its way out. Resolved by identifying the single process that actually had the module loaded (rather than killing node processes indiscriminately, which risks the owner's own), reinstalling, and re-running: `frontend PASS`. The other four jobs passed on the first attempt. Recorded because the failure looks like a code failure in the summary line and is not one.
-**At:** `e3ab579d`
+**At:** `e3ab579d` — the last code-bearing commit — and re-confirmed green on `96297218` (run [31159…](https://github.com/diablo39/Roman.Kartova/actions), all five jobs), which is this ledger entry itself. Anything after that point is documentation only.
 
 ## Impact analysis
 
