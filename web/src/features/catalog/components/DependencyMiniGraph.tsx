@@ -8,12 +8,12 @@ import { useDerivedDependencies, type DerivedDependencyItem } from "@/features/c
 import {
   toGraphModel,
   derivedViaLabel,
-  entityDetailPath,
+  graphFocusPath,
   type FocusedEntity,
   type GraphNodeData,
 } from "@/features/catalog/relationships/graphModel";
 import { EntityGraphNode } from "@/features/catalog/components/EntityGraphNode";
-import { GraphActionsProvider } from "@/features/catalog/relationships/GraphActionsContext";
+import { GraphActionsProvider, createReadOnlyGraphActions } from "@/features/catalog/relationships/GraphActionsContext";
 import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
 
 const NODE_TYPES = { entity: EntityGraphNode };
@@ -41,17 +41,7 @@ export function DependencyMiniGraph({ entityKind, entityId, displayName }: Props
 
   // Match the standalone /graph explorer's interaction: a node click SELECTS (highlights)
   // rather than navigating; navigation is an explicit "Open page ↗" in the node's ⋯ menu.
-  const actions = useMemo(
-    () => ({
-      // Fixed 1-hop preview: not expandable, so the ⋯ menu drops its Expand items (supportsExpand).
-      toggleExpand: () => {},
-      setFocus: (kind: RelationshipKind, id: string) => navigate(`/graph?focus=${kind}:${id}`),
-      openPage: (kind: RelationshipKind, id: string) => navigate(entityDetailPath(kind, id)),
-      atCap: false,
-      supportsExpand: false,
-    }),
-    [navigate],
-  );
+  const actions = useMemo(() => createReadOnlyGraphActions(navigate), [navigate]);
 
   const model = useMemo(() => {
     const focused: FocusedEntity = { kind: entityKind, id: entityId, displayName };
@@ -73,7 +63,7 @@ export function DependencyMiniGraph({ entityKind, entityId, displayName }: Props
     <section className="space-y-2" aria-label="Dependency graph">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-primary">Dependency graph</h3>
-        <Link to={`/graph?focus=${entityKind}:${entityId}`} className="text-xs text-brand-secondary underline">
+        <Link to={graphFocusPath(entityKind, entityId)} className="text-xs text-brand-secondary underline">
           Open full graph ↗
         </Link>
       </div>

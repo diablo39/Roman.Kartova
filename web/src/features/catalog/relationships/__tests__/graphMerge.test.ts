@@ -13,7 +13,7 @@ describe("mergeGraphs", () => {
     const r: GraphResponse = { nodes: [node("f", "Focus", 0), node("a", "A", 1)], edges: [edge("e1", "f", "a")], truncated: false, derivedEdges: [] };
     const g = mergeGraphs([r]);
     expect(g.nodes.map((n) => n.id).sort()).toEqual(["service:a", "service:f"]);
-    expect(g.edges).toEqual([{ id: "e1", source: "service:f", target: "service:a", label: "Depends on" }]);
+    expect(g.edges).toEqual([{ id: "e1", source: "service:f", target: "service:a", label: "Depends on", type: "dependsOn" }]);
     expect(g.truncated).toBe(false);
   });
 
@@ -51,12 +51,12 @@ describe("mergeGraphs", () => {
       } as never,
     ]);
     expect(merged.nodes.find((n) => n.id === "api:api-1")?.kind).toBe("api");
-    expect(merged.edges).toEqual([{ id: "e1", source: "service:s1", target: "api:api-1", label: "Provides API for" }]);
+    expect(merged.edges).toEqual([{ id: "e1", source: "service:s1", target: "api:api-1", label: "Provides API for", type: "providesApiFor" }]);
   });
 
-  it("passes a system node + PartOf edge through unchanged (widened kind after client refresh; render deferred FU-A)", () => {
-    // /graph can return system nodes (S-01 PartOf edges); the generated kind union now includes
-    // "system". mergeGraphs must not drop or throw on it — it flows through (rendering is FU-A).
+  it("passes a system node + PartOf edge through unchanged (rendered on the graph explorer and System diagram, FU-A)", () => {
+    // /graph can return system nodes (S-01 PartOf edges); the generated kind union includes
+    // "system". mergeGraphs must not drop or throw on it — it flows through to rendering (FU-A).
     const merged = mergeGraphs([
       {
         nodes: [
@@ -69,11 +69,13 @@ describe("mergeGraphs", () => {
         truncated: false,
       } as never,
     ]);
-    expect(merged.nodes.find((n) => n.id === "system:sys-1")?.kind).toBe("system");
+    const sys = merged.nodes.find((n) => n.id === "system:sys-1");
+    expect(sys?.kind).toBe("system");
+    expect(sys?.displayName).toBe("Payments Platform");
     // A1 (2026-07-30) added `partOf: "Part of"` to relationshipTypeLabel, so the edge label is
     // now the human string rather than the raw token. Membership edges render on the Dependencies
     // tab for every assigned component, so leaving them as camelCase was a visible wart.
-    expect(merged.edges).toEqual([{ id: "e1", source: "service:s1", target: "system:sys-1", label: "Part of" }]);
+    expect(merged.edges).toEqual([{ id: "e1", source: "service:s1", target: "system:sys-1", label: "Part of", type: "partOf" }]);
   });
 });
 
@@ -186,6 +188,42 @@ describe("mergeGraphs — derived edges", () => {
     } as unknown as GraphResponse;
     const g = mergeGraphs([r, r]);
     expect(g.edges.filter((e) => e.derived).length).toBe(1);
+  });
+
+  it("carries the raw relationship type alongside the label (FU-A)", () => {
+    const merged = mergeGraphs([
+      {
+        nodes: [],
+        edges: [
+          { id: "e1", source: { kind: "service", id: "m1" }, target: { kind: "system", id: "s1" }, type: "partOf" },
+        ],
+        derivedEdges: [],
+        truncated: false,
+      } as unknown as GraphResponse,
+    ]);
+
+    expect(merged.edges[0]!.type).toBe("partOf");
+    expect(merged.edges[0]!.label).toBe("Part of"); // unchanged
+  });
+
+  it("leaves type undefined on a derived edge", () => {
+    const merged = mergeGraphs([
+      {
+        nodes: [],
+        edges: [],
+        derivedEdges: [
+          {
+            source: { kind: "service", id: "a" },
+            target: { kind: "service", id: "b" },
+            paths: [{ apiName: "Orders", viaApplicationDisplayName: null }],
+          },
+        ],
+        truncated: false,
+      } as unknown as GraphResponse,
+    ]);
+
+    expect(merged.edges[0]!.type).toBeUndefined();
+    expect(merged.edges[0]!.derived).toBe(true);
   });
 });
 

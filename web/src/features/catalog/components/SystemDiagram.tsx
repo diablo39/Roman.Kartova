@@ -1,0 +1,142 @@
+import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { ReactFlow, Background, type Node } from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+import { Skeleton } from "@/components/base/skeleton/skeleton";
+import { Toggle } from "@/components/base/toggle/toggle";
+import { useGraph } from "@/features/catalog/api/graph";
+import { mergeGraphs } from "@/features/catalog/relationships/graphMerge";
+import { layoutGraph } from "@/features/catalog/relationships/graphLayout";
+import { systemMemberIds, systemBoundaryBox, PART_OF_TYPE } from "@/features/catalog/relationships/systemBoundary";
+import { SystemBoundaryNode, type SystemBoundaryData } from "@/features/catalog/components/SystemBoundaryNode";
+import { EntityGraphNode } from "@/features/catalog/components/EntityGraphNode";
+import { GraphActionsProvider, createReadOnlyGraphActions } from "@/features/catalog/relationships/GraphActionsContext";
+import { graphFocusPath, type GraphNodeData } from "@/features/catalog/relationships/graphModel";
+
+const NODE_TYPES = { entity: EntityGraphNode, systemBoundary: SystemBoundaryNode };
+
+interface Props {
+  systemId: string;
+  displayName: string;
+}
+
+export function SystemDiagram({ systemId, displayName }: Props) {
+  const navigate = useNavigate();
+  const [includeExternal, setIncludeExternal] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const focusId = `system:${systemId}`;
+  const graph = useGraph({
+    focus: { kind: "system", id: systemId },
+    expand: [],
+    depth: includeExternal ? 2 : 1,
+  });
+
+  // Matches the standalone /graph explorer's interaction: a node click SELECTS (highlights)
+  // rather than navigating; navigation is an explicit "Open page ↗" in the node's ⋯ menu.
+  const actions = useMemo(() => createReadOnlyGraphActions(navigate), [navigate]);
+
+  // Split to match GraphExplorerPage's pattern: the merge + membership pass doesn't depend on
+  // selection, so it shouldn't re-run on every node click — only layout/filtering/band do.
+  const { merged, memberIds } = useMemo(() => {
+    const merged = mergeGraphs(graph.results);
+    const memberIds = systemMemberIds(merged, focusId);
+    return { merged, memberIds };
+  }, [graph.results, focusId]);
+
+  const { nodes, edges, memberCount, truncated } = useMemo(() => {
+    // Membership must be readable per node (spec 7a): dagre's rankdir:"LR" layout can place a
+    // non-member in the same rank — and x-column — as a member, so the band's position alone
+    // cannot carry it. Every node that is neither the focus nor a member is marked outside;
+    // members and the focus never are.
+    const outsideIds = new Set(
+      merged.nodes.filter((n) => n.id !== focusId && !memberIds.has(n.id)).map((n) => n.id),
+    );
+    const laid = layoutGraph(merged, focusId, selectedId, undefined, undefined, undefined, outsideIds);
+    const box = systemBoundaryBox(laid.nodes, memberIds, focusId);
+
+    // partOf edges stay in the dagre input above (they anchor member ranks next to the System
+    // node) but are not drawn — the band states membership, drawing it again is noise.
+    const partOfIds = new Set(merged.edges.filter((e) => e.type === PART_OF_TYPE).map((e) => e.id));
+    const visibleEdges = laid.edges.filter((e) => !partOfIds.has(e.id));
+
+    const bandNode: Node<SystemBoundaryData>[] = box
+      ? [
+          {
+            id: "system-boundary",
+            type: "systemBoundary",
+            position: { x: box.x, y: box.y },
+            data: { label: displayName, width: box.width, height: box.height },
+            draggable: false,
+            selectable: false,
+            focusable: false,
+            zIndex: -1,
+          },
+        ]
+      : [];
+
+    return {
+      nodes: [...bandNode, ...laid.nodes],
+      edges: visibleEdges,
+      memberCount: memberIds.size,
+      truncated: merged.truncated,
+    };
+  }, [merged, memberIds, focusId, selectedId, displayName]);
+
+  return (
+    <section className="space-y-2" aria-label="System diagram">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-primary">System diagram</h3>
+        <div className="flex items-center gap-4">
+          <Toggle label="Include external dependencies" isSelected={includeExternal} onChange={setIncludeExternal} />
+          <Link to={graphFocusPath("system", systemId)} className="text-xs text-brand-secondary underline">
+            Open full graph ↗
+          </Link>
+        </div>
+      </div>
+      {graph.isLoading ? (
+        <Skeleton className="h-80 w-full" />
+      ) : graph.isError ? (
+        <p className="text-sm text-error-primary">Couldn&apos;t load the system diagram.</p>
+      ) : memberCount === 0 ? (
+        <p className="text-sm italic text-tertiary">No members yet.</p>
+      ) : (
+        <>
+          <div className="h-80 w-full overflow-hidden rounded-lg ring-1 ring-secondary">
+            <GraphActionsProvider value={actions}>
+              <ReactFlow
+                nodes={nodes as Node[]}
+                edges={edges}
+                nodeTypes={NODE_TYPES}
+                fitView
+                nodesDraggable={false}
+                nodesConnectable={false}
+                elementsSelectable={false}
+                proOptions={{ hideAttribution: true }}
+                onNodeClick={(_, node) => {
+                  if (node.type === "systemBoundary") return;
+                  const data = node.data as GraphNodeData;
+                  if (data.side === "focused") return;
+                  setSelectedId(node.id);
+                }}
+              >
+                <Background />
+              </ReactFlow>
+            </GraphActionsProvider>
+          </div>
+          <p className="text-xs text-tertiary">
+            <span className="mr-3">— explicit</span>
+            <span className="font-mono">- - derived</span>
+          </p>
+          <p className="text-xs text-tertiary">
+            <span className="rounded-sm border border-dashed border-secondary px-1 text-quaternary">dashed</span>
+            <span className="ml-1">= outside this system</span>
+          </p>
+          {truncated && (
+            <p className="text-xs text-warning-primary">Showing only part of a large system.</p>
+          )}
+        </>
+      )}
+    </section>
+  );
+}

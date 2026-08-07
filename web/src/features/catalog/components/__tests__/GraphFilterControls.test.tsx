@@ -43,6 +43,17 @@ describe("GraphFilterControls", () => {
     expect(screen.getByText("API")).toBeInTheDocument();
   });
 
+  it("offers System as a filterable kind (FU-A)", async () => {
+    render(
+      <GraphFilterControls
+        kinds={[]} teamIds={[]} teams={[]} activeCount={0}
+        onKindsChange={() => {}} onTeamIdsChange={() => {}} onClear={() => {}}
+      />,
+    );
+    await userEvent.click(screen.getByLabelText("Filter by kind"));
+    expect(screen.getByText("System")).toBeInTheDocument();
+  });
+
   it("renders without Clear when no filter is active", () => {
     render(
       <GraphFilterControls

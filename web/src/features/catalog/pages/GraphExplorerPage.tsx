@@ -15,7 +15,7 @@ import { ImpactBanner } from "@/features/catalog/components/ImpactBanner";
 import { GraphActionsProvider, type GraphActions } from "@/features/catalog/relationships/GraphActionsContext";
 import type { GraphNodeData } from "@/features/catalog/relationships/graphModel";
 import { parseEntityRef, entityDetailPath, graphFocusPath } from "@/features/catalog/relationships/graphModel";
-import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
+import { isRelationshipKind, type EntityKind } from "@/features/catalog/relationships/relationshipTypeRules";
 import { useGraphFilters } from "@/features/catalog/relationships/useGraphFilters";
 import { applyGraphFilters } from "@/features/catalog/relationships/graphFilter";
 import { GraphFilterControls } from "@/features/catalog/components/GraphFilterControls";
@@ -34,7 +34,7 @@ export function GraphExplorerPage() {
   const { filters, setKinds, setTeamIds, clear, activeCount } = useGraphFilters(focusId);
   const teamsList = useTeamsList({ sortBy: "displayName", sortOrder: "asc", limit: 200 });
 
-  const safeFocus = focus ?? { kind: "application" as RelationshipKind, id: "" };
+  const safeFocus = focus ?? { kind: "application" as EntityKind, id: "" };
   const { results, isLoading, isError, expandError, refetch } = useGraph({ focus: safeFocus, expand });
 
   const [impactSubject, setImpactSubject] = useState<ImpactSubject | null>(null);
@@ -194,7 +194,13 @@ export function GraphExplorerPage() {
                 onToggleExpand={toggleExpand}
                 onSetFocus={() => navigate(graphFocusPath(selectedRef.kind, selectedRef.id))}
                 onClose={() => select(null)}
-                onImpactAnalysis={() => setImpactSubject(selectedRef)}
+                onImpactAnalysis={() => {
+                  // Sidebar only renders this button for application/service (impact analysis over
+                  // a System focus is out of scope) — narrow here so ImpactSubject stays RelationshipKind.
+                  if (isRelationshipKind(selectedRef.kind)) {
+                    setImpactSubject({ kind: selectedRef.kind, id: selectedRef.id });
+                  }
+                }}
               />
             )}
           </div>

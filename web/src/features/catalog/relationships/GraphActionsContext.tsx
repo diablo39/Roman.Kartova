@@ -1,11 +1,12 @@
 import { createContext, useContext } from "react";
 import type { ExpandDir } from "@/features/catalog/relationships/useExplorerState";
-import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
+import type { EntityKind } from "@/features/catalog/relationships/relationshipTypeRules";
+import { entityDetailPath, graphFocusPath } from "@/features/catalog/relationships/graphModel";
 
 export type GraphActions = {
   toggleExpand: (node: string, dir: ExpandDir) => void;
-  setFocus: (kind: RelationshipKind, id: string) => void;
-  openPage: (kind: RelationshipKind, id: string) => void;
+  setFocus: (kind: EntityKind, id: string) => void;
+  openPage: (kind: EntityKind, id: string) => void;
   atCap: boolean;
   /**
    * Whether nodes support expand/collapse. Omitted (or `true`) in the full graph explorer.
@@ -25,3 +26,17 @@ const GraphActionsContext = createContext<GraphActions>({
 
 export const GraphActionsProvider = GraphActionsContext.Provider;
 export const useGraphActions = () => useContext(GraphActionsContext);
+
+/**
+ * Shared shape for a fixed-depth, read-only preview graph (SystemDiagram, DependencyMiniGraph):
+ * no expand/collapse, no cap, and navigation delegated to the caller's router.
+ */
+export function createReadOnlyGraphActions(navigate: (path: string) => void): GraphActions {
+  return {
+    toggleExpand: noop,
+    setFocus: (kind, id) => navigate(graphFocusPath(kind, id)),
+    openPage: (kind, id) => navigate(entityDetailPath(kind, id)),
+    atCap: false,
+    supportsExpand: false,
+  };
+}

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   toGraphModel,
   parseEntityRef,
+  graphFocusPath,
   entityDetailPath,
   derivedViaLabel,
   ENTITY_KIND_LABEL,
@@ -171,5 +172,26 @@ describe("toGraphModel derived edges", () => {
     expect(m.nodes.filter((n) => n.id === "service:s2")).toHaveLength(1);
     expect(m.edges.filter((e) => e.derived)).toHaveLength(1);
     expect(m.edges).toHaveLength(2);
+  });
+});
+
+describe("parseEntityRef — system tokens (FU-A)", () => {
+  it("resolves a system token so /graph?focus=system:<id> is not silently dropped", () => {
+    expect(parseEntityRef("system:8f14e45f-ea8c-4b6a-9a1b-2c3d4e5f6071")).toEqual({
+      kind: "system",
+      id: "8f14e45f-ea8c-4b6a-9a1b-2c3d4e5f6071",
+    });
+  });
+
+  it("still rejects an unknown kind", () => {
+    expect(parseEntityRef("team:8f14e45f-ea8c-4b6a-9a1b-2c3d4e5f6071")).toBeNull();
+  });
+
+  it("still rejects a token with no id", () => {
+    expect(parseEntityRef("system:")).toBeNull();
+  });
+
+  it("builds a system focus path", () => {
+    expect(graphFocusPath("system", "abc")).toBe("/graph?focus=system:abc");
   });
 });

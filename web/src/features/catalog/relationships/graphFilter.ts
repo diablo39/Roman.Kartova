@@ -1,7 +1,7 @@
 import type { ExplorerGraph } from "@/features/catalog/relationships/graphMerge";
-import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
+import type { EntityKind } from "@/features/catalog/relationships/relationshipTypeRules";
 
-export type GraphFilters = { kinds: RelationshipKind[]; teamIds: string[] };
+export type GraphFilters = { kinds: EntityKind[]; teamIds: string[] };
 
 /**
  * Pure filter pass over the in-memory merged graph. Returns the ids to dim;

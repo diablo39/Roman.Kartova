@@ -1,32 +1,37 @@
 // web/src/features/catalog/api/graph.ts
-import { useQueries } from "@tanstack/react-query";
+import { useQueries, keepPreviousData } from "@tanstack/react-query";
 import { apiClient } from "./client";
 import { unwrapData } from "@/shared/api/openapi-fetch-helpers";
 import type { components } from "@/generated/openapi";
-import type { RelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
+import type { EntityKind } from "@/features/catalog/relationships/relationshipTypeRules";
 import type { ExpandEntry } from "@/features/catalog/relationships/useExplorerState";
 
 export type GraphResponse = components["schemas"]["GraphResponse"];
-export type GraphFocus = { kind: RelationshipKind; id: string };
+export type GraphFocus = { kind: EntityKind; id: string };
 
-const FOCUS_DEPTH = 2;
-const EXPAND_DEPTH = 1;
+// Server-enforced range (CatalogEndpointDelegates.cs:1396-1399, the GET /graph handler):
+// depth outside 1..4 400s. Callers are all in-repo literals, so this is exhaustive, not an
+// approximation.
+type GraphDepth = 1 | 2 | 3 | 4;
+
+const FOCUS_DEPTH: GraphDepth = 2;
+const EXPAND_DEPTH: GraphDepth = 1;
 
 type GraphDirection = "outgoing" | "incoming" | "all";
 
 // inputs are always well-formed "kind:id" nodeKeys from the expand set; not untrusted (URL focus is validated by parseRef).
 function parseNode(node: string): GraphFocus {
   const [kind, id] = node.split(":");
-  return { kind: kind as RelationshipKind, id: id ?? "" };
+  return { kind: kind as EntityKind, id: id ?? "" };
 }
 
 export const graphKeys = {
   all: ["catalog", "graph"] as const,
-  node: (f: GraphFocus, depth: number, direction: GraphDirection) =>
+  node: (f: GraphFocus, depth: GraphDepth, direction: GraphDirection) =>
     [...graphKeys.all, f.kind, f.id, depth, direction] as const,
 };
 
-async function fetchGraph(f: GraphFocus, depth: number, direction: GraphDirection): Promise<GraphResponse> {
+async function fetchGraph(f: GraphFocus, depth: GraphDepth, direction: GraphDirection): Promise<GraphResponse> {
   const { data, error } = await apiClient.GET("/api/v1/catalog/graph", {
     params: { query: { entityKind: f.kind, entityId: f.id, depth, direction } },
   });
@@ -34,11 +39,28 @@ async function fetchGraph(f: GraphFocus, depth: number, direction: GraphDirectio
   return unwrapData(data);
 }
 
-export function useGraph({ focus, expand }: { focus: GraphFocus; expand: ExpandEntry[] }) {
+export function useGraph({
+  focus,
+  expand,
+  depth = FOCUS_DEPTH,
+}: {
+  focus: GraphFocus;
+  expand: ExpandEntry[];
+  /** Focus-query depth. Defaults to the explorer's 2; the System diagram passes 1 (members +
+   *  every edge between them) or 2 (adds their external neighbours). */
+  depth?: GraphDepth;
+}) {
   const enabled = focus.id !== "";
   const queries = useQueries({
     queries: [
-      { queryKey: graphKeys.node(focus, FOCUS_DEPTH, "all"), queryFn: () => fetchGraph(focus, FOCUS_DEPTH, "all"), enabled },
+      {
+        queryKey: graphKeys.node(focus, depth, "all"),
+        queryFn: () => fetchGraph(focus, depth, "all"),
+        enabled,
+        // Depth changes the query key (a toggle flip in SystemDiagram), which would otherwise blank
+        // the canvas while the new depth loads (nit 3) — hold the previous layout on screen instead.
+        placeholderData: keepPreviousData,
+      },
       ...expand.map((e) => {
         const f = parseNode(e.node);
         const direction: GraphDirection = e.dir === "out" ? "outgoing" : "incoming";
@@ -46,6 +68,7 @@ export function useGraph({ focus, expand }: { focus: GraphFocus; expand: ExpandE
           queryKey: graphKeys.node(f, EXPAND_DEPTH, direction),
           queryFn: () => fetchGraph(f, EXPAND_DEPTH, direction),
           enabled,
+          placeholderData: keepPreviousData,
         };
       }),
     ],

@@ -14,6 +14,11 @@ vi.mock("@/features/teams/api/teams", () => ({
 vi.mock("@/features/catalog/api/relationships", () => ({
   useRelationshipsList: () => ({ items: [], isLoading: false, isError: false, hasNext: false, hasPrev: false, goNext: vi.fn(), goPrev: vi.fn() }),
 }));
+// SystemDiagram (Task 9) fetches through useGraph — an empty result renders its "No members
+// yet." state without needing @xyflow/react mounted, keeping this page test focused on wiring.
+vi.mock("@/features/catalog/api/graph", () => ({
+  useGraph: () => ({ results: [], isLoading: false, isError: false }),
+}));
 // SystemMembersSection (Task 9) gates Assign/Remove on usePermissions — outside an
 // AuthProvider, `useAuth()` returns undefined and `auth.isAuthenticated` throws, so every
 // test on this page (not just the Members-tab one) needs this mocked.
@@ -73,6 +78,17 @@ describe("SystemDetailPage", () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { container } = render(harness(qc, "/catalog/systems/sys1"));
     expect(container.querySelectorAll('[data-testid="system-detail-skeleton"]').length).toBeGreaterThan(0);
+  });
+
+  it("renders the diagram above the members table on the Members tab (FU-A)", async () => {
+    renderCached();
+    await userEvent.click(screen.getByRole("tab", { name: "Members" }));
+
+    const diagram = await screen.findByRole("region", { name: /system diagram/i });
+    const members = screen.getByRole("region", { name: /members/i });
+    expect(diagram).toBeInTheDocument();
+    // DOM order = visual order: the diagram precedes the members section.
+    expect(diagram.compareDocumentPosition(members) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("shows a not-found card on 404", async () => {
