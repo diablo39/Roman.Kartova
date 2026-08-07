@@ -1,5 +1,5 @@
 // web/src/features/catalog/api/graph.ts
-import { useQueries } from "@tanstack/react-query";
+import { useQueries, keepPreviousData } from "@tanstack/react-query";
 import { apiClient } from "./client";
 import { unwrapData } from "@/shared/api/openapi-fetch-helpers";
 import type { components } from "@/generated/openapi";
@@ -53,7 +53,14 @@ export function useGraph({
   const enabled = focus.id !== "";
   const queries = useQueries({
     queries: [
-      { queryKey: graphKeys.node(focus, depth, "all"), queryFn: () => fetchGraph(focus, depth, "all"), enabled },
+      {
+        queryKey: graphKeys.node(focus, depth, "all"),
+        queryFn: () => fetchGraph(focus, depth, "all"),
+        enabled,
+        // Depth changes the query key (a toggle flip in SystemDiagram), which would otherwise blank
+        // the canvas while the new depth loads (nit 3) — hold the previous layout on screen instead.
+        placeholderData: keepPreviousData,
+      },
       ...expand.map((e) => {
         const f = parseNode(e.node);
         const direction: GraphDirection = e.dir === "out" ? "outgoing" : "incoming";
@@ -61,6 +68,7 @@ export function useGraph({
           queryKey: graphKeys.node(f, EXPAND_DEPTH, direction),
           queryFn: () => fetchGraph(f, EXPAND_DEPTH, direction),
           enabled,
+          placeholderData: keepPreviousData,
         };
       }),
     ],

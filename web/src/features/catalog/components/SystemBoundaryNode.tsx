@@ -10,7 +10,10 @@ export type SystemBoundaryData = { label: string; width: number; height: number 
 export function SystemBoundaryNode({ data }: NodeProps<Node<SystemBoundaryData>>) {
   return (
     <div
-      className="relative rounded-xl border border-dashed border-brand bg-brand-primary/10"
+      // Solid border, deliberately not dashed (spec S6): dashed on a non-member node means "outside
+      // this system", and the legend states that meaning once. A dashed band would contradict it —
+      // the translucent brand fill already reads as a container without borrowing that channel.
+      className="relative rounded-xl border border-brand bg-brand-primary/10"
       style={{ width: data.width, height: data.height, pointerEvents: "none" }}
     >
       <span className="absolute -top-5 left-1 text-xs font-semibold text-brand-secondary">

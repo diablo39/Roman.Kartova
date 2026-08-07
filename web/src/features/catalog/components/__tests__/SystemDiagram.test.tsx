@@ -99,6 +99,31 @@ const memberAndNonMemberGraph = {
   isError: false,
 };
 
+// depth-2 shape: focus s1 <- partOf m1; m1 -> ext (dependsOn); ext -> s2 (partOf, a DIFFERENT
+// System). s2 is a non-member of s1 — reachable only through a non-member's own partOf edge —
+// and must carry the same outside-boundary marking as `ext` (spec 7a / missing-test 4).
+const memberAndSecondSystemGraph = {
+  results: [
+    {
+      nodes: [
+        { kind: "system", id: "s1", displayName: "Payments Platform", depth: 0, teamId: null, outDegree: 0, inDegree: 1 },
+        { kind: "service", id: "m1", displayName: "Ledger", depth: 1, teamId: "t1", outDegree: 1, inDegree: 0 },
+        { kind: "service", id: "ext", displayName: "Auth Service", depth: 2, teamId: "t2", outDegree: 1, inDegree: 1 },
+        { kind: "system", id: "s2", displayName: "Other Platform", depth: 2, teamId: "t3", outDegree: 0, inDegree: 1 },
+      ],
+      edges: [
+        { id: "e1", source: { kind: "service", id: "m1" }, target: { kind: "system", id: "s1" }, type: "partOf" },
+        { id: "e2", source: { kind: "service", id: "m1" }, target: { kind: "service", id: "ext" }, type: "dependsOn" },
+        { id: "e3", source: { kind: "service", id: "ext" }, target: { kind: "system", id: "s2" }, type: "partOf" },
+      ],
+      derivedEdges: [],
+      truncated: false,
+    },
+  ],
+  isLoading: false,
+  isError: false,
+};
+
 function renderDiagram(systemId = "s1", displayName = "Payments Platform") {
   return render(
     <MemoryRouter>
@@ -169,6 +194,14 @@ it("shows the empty state for a system with no members", () => {
   expect(screen.getByText(/no members yet/i)).toBeInTheDocument();
 });
 
+it("shows a loading skeleton while the graph query is in flight (missing test 3)", () => {
+  useGraphMock.mockReturnValue({ results: [], isLoading: true, isError: false });
+  const { container } = renderDiagram();
+  expect(screen.getByRole("region", { name: /system diagram/i })).toBeInTheDocument();
+  expect(container.querySelector(".animate-pulse")).not.toBeNull();
+  expect(screen.queryByTestId("rf")).not.toBeInTheDocument();
+});
+
 it("shows an error state scoped to the diagram", () => {
   useGraphMock.mockReturnValue({ results: [], isLoading: false, isError: true });
   renderDiagram("s1", "X");
@@ -200,6 +233,16 @@ it("marks a non-member outside the boundary and leaves the member unmarked (spec
     .getAllByRole("button", { name: "Payments Platform" })
     .find((el) => el.getAttribute("data-node-type") === "entity")!;
   expect(systemNode).toHaveAttribute("data-outside", "false");
+});
+
+it("marks a second System reached at depth 2 as a non-member, same as any other non-member (missing test 4, spec 7a)", () => {
+  useGraphMock.mockReturnValue(memberAndSecondSystemGraph);
+  renderDiagram();
+
+  const secondSystemNode = screen
+    .getAllByRole("button", { name: "Other Platform" })
+    .find((el) => el.getAttribute("data-node-type") === "entity")!;
+  expect(secondSystemNode).toHaveAttribute("data-outside", "true");
 });
 
 it("shows the outside-boundary legend row", () => {
