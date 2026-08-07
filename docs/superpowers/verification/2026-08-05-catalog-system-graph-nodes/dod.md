@@ -1,26 +1,26 @@
 # DoD Ledger — System nodes in the graph (FU-A, E-03.F-03.S-01 closeout)
 
-**Slice:** `2026-08-05-catalog-system-graph-nodes` · **Branch:** `feat/catalog-system-graph-nodes` · **HEAD:** `b05cc2a6`
-**Merge base (master):** `b9f4eb7f` · **PR:** not opened yet · **Last updated:** 2026-08-05
+**Slice:** `2026-08-05-catalog-system-graph-nodes` · **Branch:** `feat/catalog-system-graph-nodes` · **HEAD:** `a725290`
+**Merge base (master):** `b9f4eb7f` · **PR:** not opened yet · **Last updated:** 2026-08-06
 **Spec:** `docs/superpowers/specs/2026-08-05-catalog-system-graph-nodes-design.md`
 **Plan:** `docs/superpowers/plans/2026-08-05-catalog-system-graph-nodes.md` (gitignored scratch)
 **Execution:** `superpowers:subagent-driven-development` — 11 tasks, fresh implementer + task review each, then one whole-branch review and one consolidated fix wave. SDD ledger with per-task detail: `.superpowers/sdd/2026-08-05-catalog-system-graph-nodes/progress.md` (gitignored; **kept, not deleted**, until gates 4–10 close — it holds the per-task reports those gates may need to cite).
 **Findings telemetry:** `./gate-findings.yaml`
 
-> ⚠️ **Honest status: gates 2, 3, 6 and 9 pass; gates 1, 4, 5, 7, 10 and the terminal re-verify have NOT run.** Gate 9 failed on its first run, forced a spec amendment (§3.1) and passes on the fix. This slice is **not** complete and must not be described as merge-ready until the remaining six gates run.
+> ⚠️ **Honest status: gates 1–7 and 9 pass; gate 8's fix wave is in and re-verified, but B2/B3 (controller bookkeeping) and S4 (an ADR-0040 amendment) remain open pending owner review, and the terminal re-verify and gate 10 have NOT run.** Gate 9 failed on its first run and forced a spec amendment (§3.1); gate 7 caught a Critical the six gates before it all missed; gate 8 then caught a second nightly-landmine class (B1) inside the very spec that replaced gate 7's. This slice is **not** complete and must not be described as merge-ready until the remaining items close.
 
 ## Summary
 
 | Gate | Status | Updated |
 |------|--------|---------|
-| 1 Build (`TreatWarningsAsErrors`) | ⏳ PENDING | — |
+| 1 Build (`TreatWarningsAsErrors`) | ✅ PASS | 2026-08-06 |
 | 2 Per-task subagent reviews | ✅ PASS | 2026-08-05 |
 | 3 Full suite (+ real-seam) | ✅ PASS | 2026-08-05 |
-| 4 Container build (images CI) | ⏳ PENDING | — |
-| 5 `/simplify` | ⏳ PENDING | — |
+| 4 Container build (images CI) | ✅ PASS | 2026-08-06 |
+| 5 `/simplify` | ✅ PASS | 2026-08-06 |
 | 6 `requesting-code-review` | ✅ PASS | 2026-08-05 |
-| 7 `review-pr` | ⏳ PENDING | — |
-| 8 `deep-review` | ⏳ PENDING | — |
+| 7 `review-pr` | ✅ PASS | 2026-08-06 |
+| 8 `deep-review` | 🟡 PARTIAL — fix wave in (B1, S5–S10, nits 1/3/4, MT1–4); B2/B3/S4 open | 2026-08-06 |
 | Terminal re-verify (build + suite) | ⏳ PENDING | — |
 | 9 Visual / API verification (ADR-0084) | ✅ PASS (after fix) | 2026-08-06 |
 | 10 CI green on PR | ⏳ PENDING | — |
@@ -28,8 +28,9 @@
 ## Gate detail
 
 ### 1 — Build (`TreatWarningsAsErrors=true`)
-**Status:** ⏳ PENDING
-The full-solution Release build has not been run for this slice. The **frontend** type gate is green on the final commit — `npx tsc -b --noEmit` → exit 0 — and the slice changes no C# production code, but `dotnet build Kartova.slnx -p:TreatWarningsAsErrors=true` is still owed because the branch adds a C# test file.
+**Status:** ✅ PASS
+`cmd //c "dotnet build Kartova.slnx -p:TreatWarningsAsErrors=true --nologo"` → **0 Warning(s), 0 Error(s)**, 1m35s. Frontend type gate green alongside it: `npx tsc -b --noEmit` → exit 0.
+**At:** `4190ce4a`
 
 ### 2 — Per-task subagent reviews (spec + quality)
 **Status:** ✅ PASS
@@ -45,10 +46,20 @@ Notable per-task catches: Task 2's three out-of-brief edits were each reviewed o
 **At:** `b05cc2a6` (frontend) / `bb930aa2` (backend)
 
 ### 4 — Container build (images CI job)
-**Status:** ⏳ PENDING — `docker compose build` not run for this slice.
+**Status:** ✅ PASS
+`docker compose build` → exit 0. Images built: `kartova/migrator:dev`, `kartova/web:dev`, `kartova/api:dev`.
+**At:** `4190ce4a`
 
 ### 5 — `/simplify` against branch diff
-**Status:** ⏳ PENDING as a distinct gate. Not folded: the whole-branch review (gate 6) did surface and close reuse/quality items of the kind `/simplify` targets — the duplicated `NODE_W`/`NODE_H` (now exported from `graphLayout.ts`), a no-op cast, a stray top-level test, and a node-component signature diverging from its sibling — but per the no-folding rule that does **not** count as gate 5 having run.
+**Status:** ✅ PASS
+Four cleanup agents in parallel (reuse · simplification · efficiency · altitude) over the code-only branch diff. **16 findings: 8 applied, 8 skipped with reasons.** Two agents converged independently on the same site (`GraphExplorerPage`'s redundant kind enumeration), which is the signal that mattered most.
+
+Applied (`055716e9`, `c0d970cc`): the impact-analysis kind rule stopped being enumerated twice in two files and is now derived (`kind !== "system"`) — the duplicate also silently excluded `api`, so loosening the sidebar's gate later would have produced a silent no-op; `outsideBoundary` now flows through `layoutGraph`'s existing per-node extension point instead of a bespoke post-layout `.map` beside it, so there is one mechanism for "mark a computed set of node ids" rather than two; `SystemDiagram`'s data pipeline recovered the two-memo split its sibling `GraphExplorerPage` deliberately has, so clicking a node no longer re-runs `mergeGraphs` + `systemMemberIds` + `systemBoundaryBox` when only the layout needed redoing; `.some(k => k === x)` went back to `.includes(x)` now that the widening made it type-check; the optional chaining added when the sidebar's kind record had three keys is gone now that it has four; the read-only `GraphActions` object, duplicated verbatim between the two preview surfaces, moved to a factory in the module that already owns the type; `DependencyMiniGraph` stopped hand-rolling the `/graph?focus=` URL three lines from the helper that builds it; and the new filter-kind test was aligned with the sibling it was copy-pasted from.
+
+Skipped with reasons (recorded so they are decisions, not omissions): the legend JSX has deliberately diverged (the diagram gained a third row); the `@xyflow/react` test mock is a fourth copy of an already-tolerated three; the integration-test seed helpers follow an established per-file pattern; the sidebar's four per-kind queries are the wrong altitude but fixing it touches four API modules and every caller — recorded as a follow-up; `useGraph`'s unstable `results` identity and dagre re-laying out on selection are inherited from the sibling, not introduced here; `systemBoundary.ts`'s second `null` guard is defensive, not dead (without it `Math.min(...[])` yields `Infinity` and a garbage box); and `GraphNodeData`'s five per-node flags are genuinely orthogonal, with the branch's own test asserting they compose.
+
+**Behaviour-unchanged check, run because two of the fixes restructured the diagram's pipeline:** the gate-9 probe was re-run and returned **byte-identical geometry and marking** (band 351–979; every node position and dashed flag the same). The unit suite alone would not have proven that.
+**At:** `c0d970cc`
 
 ### 6 — `requesting-code-review` at slice boundary
 **Status:** ✅ PASS
@@ -59,13 +70,50 @@ One consolidated fix wave (`6cd82963`, `b05cc2a6`) closed **F1–F8 and all four
 **At:** `b05cc2a6`
 
 ### 7 — `review-pr` (pr-review-toolkit)
-**Status:** ⏳ PENDING — has not run. Not folded into 6 or 8.
+**Status:** ✅ PASS — **and it earned its keep.** Five specialist agents in parallel (code · tests · comments · silent failures · type design). **1 Critical, 2 Important, 6 Suggestions**, all applied in `920920ec` + `11527d64`. The Critical was invisible to every earlier gate, and two agents found it independently.
+
+**The Critical — a nightly landmine, self-inflicted.** The gate-9 probe had been committed as `e2e/tests/gate9-band.spec.ts`, reading its System id from `process.env.GATE9_SYSTEM_ID!`. TypeScript's `!` is compile-time only, `playwright.config.ts` discovers every spec under `tests/` with no filter, `run.sh` runs them unfiltered, and the nightly workflow sets no such variable and seeds no such data — so the nightly would have navigated to `/catalog/systems/undefined`, timed out, and (thanks to the nightly-red tracking issue added earlier the same day) opened a GitHub issue every night. Precisely the #70 failure mode CLAUDE.md's retro warns about, reintroduced by the person who wrote that retro's guard.
+Fixed by conversion rather than deletion, because the defect it guards is the one no unit test can reach: it is now `e2e/tests/system-diagram-boundary.spec.ts`, seeding its own System, two members, two non-members and the edges between them through the product's API, and asserting that **no non-member intersects the band** and that **every non-member carries the outside marking while no member does** — with the cardinality guards that stop the matcher matching nothing. The implementer validated it mutation-style: reintroduced each defect, watched the spec fail, reverted. Controller re-ran it independently **with the variable unset**, as the nightly will: **1 passed, 4.2s.**
+
+**The two Important:** the cross-tenant RLS test asserted the other tenant's *member* was absent but never the focus System node itself — so a regression that resolved the focus for the wrong tenant while correctly hiding its members would have passed unchanged (test-only C# fix, +12 lines, `GetCatalogGraphTests` 18/18). And one stale comment survived the branch's own five-comment sweep: `isRelationshipKind`'s doc still named "URL graph focus and persisted filter kinds" as its callers, both of which this branch moved to `isEntityKind`.
+
+**The six Suggestions**, all applied: `ENTITY_KIND_LABEL` typed `Record<EntityKind, string>` to match its exhaustive sibling four lines away (a fifth kind was a silent fallback, now a build error); `KIND_OPTIONS` tied to `EntityKind`; the impact-analysis narrowing routed through the named `isRelationshipKind` guard instead of a hand-rolled `!== "system"`; `useGraph`'s `depth` narrowed to `1 | 2 | 3 | 4`, matching the server's own domain; `BOUNDARY_PADDING` given the rationale its neighbours had; and two weak assertions strengthened — a test whose name claimed it proved the band rendered while asserting only text the System's own node also carries, and an edge test using text-absence where the sibling test one line below already used an exact edge count.
+
+**Recorded as follow-ups, not fixed:** no `ErrorBoundary` anywhere in `web/src` (systemic, the sibling mini-graph has the identical exposure); `GraphNodeData`'s five orthogonal per-node flags (revisit at a fourth surface or sixth flag); `ExplorerEdge`'s `type?`/`derived?` pairing permitting states its single producer never emits.
+**Not folded into 6 or 8.**
+**At:** `11527d64`
 
 ### 8 — `deep-review`
-**Status:** ⏳ PENDING as a distinct gate. The gate-6 review was run against the spec, the ADRs and the tests and produced the fixed-schema output, but `/deep-review` itself has not been dispatched.
+**Status:** 🟡 PARTIAL. `/deep-review` ran against `b9f4eb7f..11527d64` (spec incl. §3.1 amendments, plan, ADR index, `docs/TESTING-STRATEGY.md`/ADR-0097, this ledger + `gate-findings.yaml`). **3 blocking · 7 should-fix · 5 nits · 4 missing tests · 5 good.** Full record: `./deep-review.md`.
+
+A fix wave closed the twelve findings routed to it — **B1, S5, S6, S7, S8, S9, S10, nits 1/3/4, and all four missing tests (MT1–MT4)**:
+- **B1 (blocking):** the E2E spec's `externalsInsideBand`/`toHaveLength(0)` assertion pinned a geometric invariant the spec itself says does not hold (held by 12px of luck; `BOUNDARY_PADDING` is documented as safe to retune, which would have reddened the nightly with no defect present — the same failure class gate 7 had just removed, reintroduced by gate 7's own fix). Replaced with the one property 4a actually guarantees deterministically: every member intersects the band. The two per-node marking assertions are unchanged. File header rewritten to frame the real contract as per-node marking (7a), not band geometry.
+- **S5:** `docs/design/list-filter-registry.md`'s `/graph` row now documents the `kind` facet's fourth option (System).
+- **S6:** the boundary band's border is solid (`border border-brand`, no `border-dashed`) — the legend's "dashed = outside this system" was wrong about the band, the canvas's most prominent dashed element. `SystemBoundaryNode.test.tsx` now asserts the class list carries no `border-dashed`. **Verified on screen** at `localhost:5173` (screenshot below): the band renders solid, both external (non-member) cards render dashed, matching the legend.
+- **S7:** the E2E spec now clicks the visible label (`getByText(/include external dependencies/i).click()`) instead of `focus()`+`Space`, exercising react-aria `Switch`'s native label→input delegation — a real mouse click. **Re-run against `localhost:5173`: 1 passed.**
+- **S8:** spec §4.4/§5.1 decision-7-era text (the band as "members plus the focus node"; the boundary test framed as proving containment) rewritten to match what shipped (4a/7a).
+- **S9:** `CHECKLIST.md`'s FU-A line now names this slice's own ledger and states gates 8/terminal-reverify/10 are pending; the premature `[x]` marker was left in place per the finding's own triage note ("revisit the marker at gate 10").
+- **S10 (minimal fix, per triage):** the E2E spec now find-or-creates one Team against a fixed name instead of minting one per run. System/Service creation stays run-scoped (no delete endpoint exists) — moving the whole fixture into `DevSeed` is recorded as the fuller follow-up.
+- **Nit 1:** the spec's truncation-banner text amended to match the wire shape — `GraphResponse.Truncated` is a bare boolean, so the banner cannot name "the first N".
+- **Nit 3:** `graph.ts`'s focus and expand queries now pass `placeholderData: keepPreviousData`, so toggling *Include external dependencies* no longer blanks the canvas mid-query.
+- **Nit 4:** spec §5.1 now names the real file, `systemBoundary.test.ts`.
+- **MT1:** new `GraphActionsContext.test.ts` — `setFocus`/`openPage` routing and `supportsExpand === false` were previously asserted nowhere.
+- **MT2 (sharpest of the four, test-only — no C# production change):** `GetCatalogGraphTests.cs` gained a lowercase-`entityKind` System-focus case (ADR-0109). `CatalogEndpointDelegates.cs` already parses with `Enum.TryParse<EntityKind>(..., ignoreCase: true, ...)`, so this pins existing behaviour rather than fixing a bug.
+- **MT3:** `SystemDiagram.test.tsx` gained an `isLoading: true` case (skeleton visible, canvas absent) — previously uncovered among error/empty/truncated/happy-path.
+- **MT4:** pinned exactly as the finding specified — a second System reached at depth 2 through a non-member's own `partOf` edge to a *different* System is itself a non-member and gets the same outside marking, no special-casing by kind.
+
+**Deliberately left open, not silently fixed:**
+- **B2** (`gate-findings.yaml` missing gate-5/gate-7 entries, stale `head:`) and **B3** (gates 1/3's cited evidence commits predate the branch's last C# change) are the controller's own bookkeeping findings, out of scope for this fix wave.
+- **S4** (a third embedded graph surface + a new visual channel with no governing ADR) is a proposed ADR-0040 amendment — raised with the owner for preview rather than silently written, per CLAUDE.md.
+- **Nit 2** (`layoutGraph`'s seven positional params → options object) is DEFER — touches every caller, recorded as a follow-up.
+
+**S6 solid-band verification (screenshot, `localhost:5173`, fixture system "Boundary Band E2E System"):** the band around the two member cards renders with a plain solid blue border and light fill; the two external (non-member) cards outside it render with a visibly dashed border, matching "dashed = outside this system." Legibility reads fine — no channel collision, no washed-out non-member treatment.
+
+**At:** `a725290` (fix wave: `8a733fa` e2e, `6952617` frontend, `a725290` backend test)
 
 ### Terminal re-verify (build + full suite after gates 5–8)
-**Status:** ⏳ PENDING — owed after gates 5, 7 and 8 run and apply any fixes. The frontend half is already green on `b05cc2a6` (988/988, tsc exit 0); the solution build is the missing piece.
+**Status:** owed after gates 5, 7 and 8 (deep-review fix wave) apply their fixes. Re-run on the final commit of this fix wave: **frontend** `npx vitest run` → 135 files / 1001 tests passed (up from 134/988 pre-wave); `npx tsc -b --noEmit` → exit 0; `npx eslint --no-ignore` clean on every touched file. **Backend** `dotnet build Kartova.slnx -p:TreatWarningsAsErrors=true --nologo` → 0 Warning(s), 0 Error(s); `Kartova.Catalog.IntegrationTests` filtered to `GetCatalogGraphTests` → 19/19 against real Postgres/RLS (18 pre-wave + the new MT2 case).
+**At:** `a725290`
 
 ### 9 — Visual / API verification (observe the running system)
 **Status:** ✅ **PASS at `cc508e89`, after failing at `58fa2e61` and forcing a spec amendment.** The gate's first run disproved spec §3 decision 7 — an external non-member rendered inside the boundary band. The owner chose remedy **C**; decisions **7a** and **4a** were written into the spec (§3.1) and implemented, and the same probe now passes against the fixed build. Both states are recorded below, because the failure is the more useful half of the record.

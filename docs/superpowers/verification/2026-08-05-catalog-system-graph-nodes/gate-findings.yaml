@@ -205,3 +205,108 @@ findings:
     verdict: real
     title: "The band's position and size are verified nowhere end-to-end"
     note: "The repo's established xyflow mock renders labels only, so systemBoundaryBox's output reaching the node's position/data is not asserted by any component test; SystemBoundaryNode.test.tsx proves only that the leaf styles itself from its data. Acceptable given the mock is the house pattern — but it means gate 9 is the ONLY check that the band lands over the right nodes, which is also where the geometry finding above must be looked for. Recorded so that is explicit rather than implicit."
+
+  # ---- gate 8: deep-review, run 2026-08-06 (3 blocking · 7 should-fix · 5 nits · 4 missing tests · 5 good) ----
+  # Fix wave below covers only the findings assigned to this pass: B1, S5-S10, nits 1/3/4, MT1-4.
+  # B2 and B3 (controller's own gate-5/7 telemetry + evidence-commit bookkeeping) and S4 (a proposed
+  # ADR-0040 amendment, previewed with the owner rather than silently written) and nit 2 (layoutGraph's
+  # seven positional params -> options object, touches every caller) are OUT OF SCOPE for this entry
+  # and remain open — see deep-review.md for their own triage text.
+
+  - gate: deep-review
+    severity: blocking
+    verdict: real
+    resolution: "FIXED. Deleted the externalsInsideBand/toHaveLength(0) assertion. Replaced with the one geometric property 4a actually guarantees deterministically: every member intersects the band (membersOutsideBand toHaveLength(0)). Kept both per-node marking assertions (every non-member dashed, no member dashed) unchanged. Rewrote the file header to frame the spec's real contract as per-node marking (7a), not band geometry."
+    title: "B1 — the nightly E2E spec asserted a geometric invariant the spec says does not hold"
+    note: "externalsInsideBand held by 12px of luck and BOUNDARY_PADDING is documented as safe to retune for legibility alone -- a retune with no defect present would have reddened the nightly (the #70 failure mode, reintroduced by the gate-7 fix). The replacement assertion is retune-proof: it fails only if an actual member renders outside the band, which 4a guarantees never happens absent a real regression."
+
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    resolution: "FIXED. docs/design/list-filter-registry.md's /graph row now documents the kind facet's four options (Application/Service/API/System), dated 2026-08-06."
+    title: "S5 — list-filter-registry.md not updated for the fourth kind option"
+    note: "KIND_OPTIONS in GraphFilterControls.tsx gained System; the canonical registry disagreed with its own facet's value set."
+
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    resolution: "FIXED. SystemBoundaryNode.tsx's className dropped border-dashed (kept border border-brand bg-brand-primary/10); SystemBoundaryNode.test.tsx now asserts the rendered box's className does not contain border-dashed, so the two channels cannot silently re-converge. Verified on screen at localhost:5173 (screenshot): band renders with a solid border, non-member cards render dashed, matching the 'dashed = outside this system' legend."
+    title: "S6 — dashed carried two contradictory meanings on the same canvas"
+    note: "The band (inside) and non-member nodes (outside) both used border-dashed; the legend named only one of them. Gate 9's human pass had judged only the node treatment and missed the band."
+
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    resolution: "FIXED. e2e/tests/system-diagram-boundary.spec.ts now clicks the visible label (page.getByText(/include external dependencies/i).click()) instead of focus()+Space, exercising react-aria Switch's native label->input click delegation. Re-run against localhost:5173: 1 passed."
+    title: "S7 — the feature's only control had never been verified against a mouse click"
+    note: "Toggle wraps a react-aria Switch: a <label> around a visually-hidden role=switch input. A plain .click() on the switch role fails Playwright's actionability check; clicking the label text is what a real mouse user does and is now what the spec does."
+
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    resolution: "FIXED. Spec 4.4 now states the focus node is excluded from the band's extent (4a) explicitly, and a new paragraph makes membership-signalled-per-node (7a) the documented contract, including the second-System-at-depth-2 case. Spec 5.1 table's boundary-test row description no longer frames the test as proving decision-7 containment."
+    title: "S8 — the amended spec still contained decision-7-era text contradicting 4a"
+    note: "Section 4.4 said the band was a bounding box over members 'plus the focus node' -- the opposite of what shipped and of systemBoundary.ts's own exclusion check."
+
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    resolution: "FIXED. docs/product/CHECKLIST.md's FU-A line now names this slice's own ledger (docs/superpowers/verification/2026-08-05-catalog-system-graph-nodes/dod.md) and states verification is in progress with gates 8/terminal-reverify/10 pending. The premature [x] marker was left in place per the finding's own triage note ('revisit the marker at gate 10') rather than flipped back here."
+    title: "S9 — CHECKLIST.md's FU-A sentence cited no verification ledger for this slice"
+    note: "The row named only the A1 and A2 ledgers, not FU-A's own, whose header says the slice is not complete."
+
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    resolution: "PARTIALLY FIXED (minimal fix taken, per triage). e2e/tests/system-diagram-boundary.spec.ts now find-or-creates one Team against a fixed display name (findOrCreateFixtureTeam) instead of minting one per run. System/Service creation is unchanged (still RUN_ID-suffixed) -- Catalog has no delete endpoint, matching the integration-test seed convention this spec mirrors. Moving the whole fixture into DevSeed is recorded as the fuller follow-up, not done here."
+    title: "S10 — the E2E spec seeded unbounded fixture data into the shared dev tenant"
+    note: "One team + one System + four Services were created per run, keyed by Date.now(), with retries=2 tripling it on a flaky night -- roughly two teams a night against the limit:200 team lookups SystemDetailPage/GraphExplorerPage make, a slow-fuse failure."
+
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    resolution: "FIXED (amended the spec, per the finding's own recommended remedy). Spec 4.5's truncation-banner text no longer promises a count; it documents that GraphResponse.Truncated is a bare boolean and /graph returns no total, so the banner cannot name 'the first N' without inventing a number the wire doesn't carry."
+    title: "Nit 1 — truncation copy dropped the count the spec promised"
+    note: "SystemDiagram.tsx's banner text and spec 4.5 disagreed; the wire shape makes the banner's text correct and the spec's promise the thing to fix."
+
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    resolution: "FIXED. web/src/features/catalog/api/graph.ts now passes placeholderData: keepPreviousData (TanStack Query) to both the main focus query and the expand useQueries, so toggling 'Include external dependencies' no longer blanks the canvas while the depth-2 query is in flight."
+    title: "Nit 3 — toggling the switch blanked the canvas"
+    note: "A depth change produces a new query key; without keepPreviousData the diagram flashed away and back on every toggle."
+
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    resolution: "FIXED. Spec 5.1's table now names the real file, systemBoundary.test.ts."
+    title: "Nit 4 — spec named a test file that does not exist"
+    note: "Spec 5.1 said systemBoundaryBox.test.ts; the actual file is systemBoundary.test.ts."
+
+  - gate: deep-review
+    severity: missing-test
+    verdict: real
+    resolution: "FIXED. Added web/src/features/catalog/relationships/__tests__/GraphActionsContext.test.ts: setFocus(\"system\",\"s1\") -> /graph?focus=system:s1, openPage(\"system\",\"s1\") -> /catalog/systems/s1, supportsExpand === false, and toggleExpand/atCap no-op behaviour."
+    title: "MT1 — createReadOnlyGraphActions had no test at all"
+    note: "The plan calls the setFocus/openPage widening to EntityKind 'a live bug fix, not future-proofing', yet it was asserted nowhere."
+
+  - gate: deep-review
+    severity: missing-test
+    verdict: real
+    resolution: "FIXED (test-only, no C# production change -- CatalogEndpointDelegates.cs already parses entityKind with Enum.TryParse<EntityKind>(..., ignoreCase: true, ...)). Added GET_graph_focused_on_system_accepts_lowercase_entityKind to GetCatalogGraphTests.cs, mirroring the existing System-focus test but with entityKind=system (lowercase). 19/19 passed in Kartova.Catalog.IntegrationTests (filter ~GetCatalogGraphTests) against real Postgres/RLS."
+    title: "MT2 — fetchGraph sends lowercase entityKind but both new integration tests queried uppercase System"
+    note: "ADR-0109 requires camelCase wire enums; today a regression to case-sensitive server-side enum parsing would leave both existing tests green while the SPA 400s on every System diagram. Sharpest of the four missing tests."
+
+  - gate: deep-review
+    severity: missing-test
+    verdict: real
+    resolution: "FIXED. Added a SystemDiagram.test.tsx case asserting the loading skeleton (isLoading: true): the region role stays visible, a .animate-pulse element renders, and the xyflow canvas (data-testid=\"rf\") does not."
+    title: "MT3 — SystemDiagram.test.tsx never covered isLoading: true"
+    note: "That branch renders on every first paint of the Members tab and had no coverage among the error/empty/truncated/happy-path cases."
+
+  - gate: deep-review
+    severity: missing-test
+    verdict: real
+    resolution: "FIXED, and the semantics were pinned exactly as the finding specified: a second System reached at depth 2 through a non-member's own partOf edge to a DIFFERENT System is itself a non-member and receives the same outside marking as any other non-member, no special-casing by kind. Added the memberAndSecondSystemGraph fixture and a SystemDiagram.test.tsx case asserting data-outside=\"true\" on the second System's node. Spec 4.4 now states this explicitly too (S8's fix)."
+    title: "MT4 — amendment 7a's second-System-at-depth-2 case was neither decided in the spec nor pinned by a test"
+    note: "At depth 2 the non-member set can include another System, reached through a non-member's own partOf edge, which then renders dashed under the 'outside this system' legend."

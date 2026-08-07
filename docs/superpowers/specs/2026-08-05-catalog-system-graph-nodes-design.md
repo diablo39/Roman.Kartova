@@ -51,6 +51,8 @@ The cause is structural, not a layout accident. With `rankdir: "LR"` and `partOf
 
 Hence 7a: membership is expressed **per node**. 4a is kept as well, because it is independently worth having (it removes the empty-canvas stretch), not because it fixes the signal.
 
+**Amendment 2026-08-06 (S6) — the band's border is solid, not dashed.** As first built, the band (meaning "inside" this System) and 7a's non-member marking (meaning "outside") both used a dashed border, while the legend stated only the second meaning (`dashed = outside this system`) — a deep-review finding a human gate-9 pass had missed because it judged only the node treatment. The band is now `border` (solid); the translucent brand fill (`bg-brand-primary/10`) already reads as a container without borrowing the channel 7a needs. Pinned by `SystemBoundaryNode.test.tsx` asserting the band's classes never contain `border-dashed`.
+
 **Not adopted:** dropping the focus System node from the diagram entirely. The band is labelled with the System's name, so the node is arguably redundant and removing it would also end the duplicated label — but it changes what the focus node is, and with it selection and the expand affordances. Recorded as a follow-up, not done here.
 
 Evidence: `docs/superpowers/verification/2026-08-05-catalog-system-graph-nodes/dod.md` gate 9, plus `gate9-band-toggle-off.png` / `gate9-band-toggle-on.png`.
@@ -91,13 +93,15 @@ Explicit and directional. A `partOf` edge pointing at a *different* System — r
 
 ### 4.4 `systemBoundaryBox` (pure function)
 
-`(layoutNodes, memberIds, focusId) → { x, y, width, height } | null`. Bounding box over the member nodes plus the focus node, padded; `null` when the system has no members. Injected as a non-interactive node of a new type `systemBoundary` — below the others by `zIndex`, `selectable`/`draggable` false, `pointer-events: none`, labelled with the System's display name. Computed in the same `useMemo` as the layout, so no second render.
+`(layoutNodes, memberIds, focusId) → { x, y, width, height } | null`. Bounding box over the member nodes **only** — the focus node is excluded (amended by 4a in §3.1; this section originally said "plus the focus node", which is decision-7-era text 4a superseded), padded; `null` when the system has no members. Injected as a non-interactive node of a new type `systemBoundary` — below the others by `zIndex`, `selectable`/`draggable` false, `pointer-events: none`, labelled with the System's display name. Computed in the same `useMemo` as the layout, so no second render.
+
+Membership is signalled **per node** (amendment 7a, §3.1), never by band geometry: the band is a *members-only* bounding box, so every member is guaranteed to intersect it, but a non-member is **not** guaranteed to fall outside it (dagre's `rankdir: "LR"` can share a rank — and x-column — between a member and a non-member). A second System reached at depth 2, through a non-member's own `partOf` edge to a *different* System, is itself a non-member and receives the same outside marking as any other non-member — no special-casing by kind. Pinned by `SystemDiagram.test.tsx`.
 
 ### 4.5 `SystemDiagram.tsx` (new)
 
 Fetches through the existing explorer hook, which needs one small extension: `useGraph` (`api/graph.ts:37`) hard-codes `FOCUS_DEPTH = 2` and takes `{ focus, expand }`. It gains an **optional `depth`** defaulting to `FOCUS_DEPTH`, so the diagram calls `useGraph({ focus: { kind: "system", id: systemId }, expand: [], depth: includeExternal ? 2 : 1 })` and the explorer is unaffected. `graphKeys.node` already includes depth in the query key, so depth 1 and 2 cannot collide in the cache. Then `mergeGraphs` → `layoutGraph` → boundary injection. Mirrors `DependencyMiniGraph`'s chrome (heading, `Open full graph ↗`, legend, fixed height, non-draggable canvas) but is backed by `/graph` rather than `useRelationshipsList` — **the reason being decision 2**: a relationships list of the System returns only its `PartOf` edges and would never show one member depending on another.
 
-States: skeleton while loading · error card **scoped to the diagram section** so the members table below is unaffected · `No members yet.` when the system is empty · a "showing the first N" banner when the response is `truncated` · `Open full graph ↗` → `/graph?focus=system:<id>`, which works only because of §4.1.
+States: skeleton while loading · error card **scoped to the diagram section** so the members table below is unaffected · `No members yet.` when the system is empty · a truncation warning when the response is `truncated` — **no count** (nit 1: `GraphResponse.Truncated` is a bare boolean, `/graph` does not return a total, so the banner cannot name "the first N" without inventing a number the wire doesn't carry) · `Open full graph ↗` → `/graph?focus=system:<id>`, which works only because of §4.1.
 
 `includeExternal` is local component state, default **off**.
 
@@ -112,13 +116,16 @@ States: skeleton while loading · error card **scoped to the diagram section** s
 | Artefact | Asserts |
 |---|---|
 | `graphMerge.test.ts` (extend) | raw `type` survives; `label` unchanged |
-| `systemBoundaryBox.test.ts` (new) | padded box over members + focus; `null` with no members; an external neighbour lies outside the box |
+| `systemBoundary.test.ts` (new) — nit 4: this row previously named the non-existent `systemBoundaryBox.test.ts` | padded box over members only, excluding the focus (4a); `null` with no members; an external node does not widen the box |
 | member classification (in the same new test file) | direction respected; a `partOf` edge aimed at another System does not mark a member |
 | `graphModel.test.ts` (extend) | `parseEntityRef("system:<guid>")` resolves; malformed tokens still `null` |
 | `useGraphFilters.test.ts` (extend) | a persisted `system` token is accepted, a junk token rejected |
 | `graphFilter.test.ts` (extend) | a `system` node dims under `kinds=["application"]` |
-| `SystemDiagram.test.tsx` (new) | band and member nodes render; the toggle changes the `depth` passed to the hook; empty / error / truncated states; `Open full graph` href |
+| `SystemDiagram.test.tsx` (new) | band and member nodes render; the toggle changes the `depth` passed to the hook; empty / error / truncated states; `Open full graph` href; **per-node marking (7a)** — a non-member is marked outside while a member and the focus are not, including a second System reached at depth 2 |
+| `EntityGraphNode.test.tsx` (extend) | the outside-boundary dashed border composes with the selected/focused border rather than replacing it |
+| `SystemBoundaryNode.test.tsx` (extend, S6) | the band's classes never contain `border-dashed` — that channel means "outside this system" on a node, so the band (meaning "inside") must not reuse it |
 | `SystemDetailPage.test.tsx` (extend) | the Members tab renders the diagram above the members table |
+| `GraphActionsContext.test.ts` (new — missing test) | `createReadOnlyGraphActions`: `setFocus`/`openPage` route through `graphFocusPath`/`entityDetailPath`; `supportsExpand === false` |
 
 ### 5.2 Backend integration (real seam) — named artefacts
 
@@ -126,6 +133,7 @@ Two cases added to the existing `GetCatalogGraphTests.cs`, against real Postgres
 
 1. **Happy:** `GET /graph?entityKind=system&entityId={id}&depth=1` returns the System plus its members, and the edge set includes the members' mutual `dependsOn` — the load-bearing property of `GraphTraversal.cs:66-71` — as well as their `partOf` edges.
 2. **Negative:** the same request focused on a System id belonging to **another tenant** leaks no members and no edges.
+3. **Missing test 2:** `entityKind=system` lowercase (ADR-0109 camelCase wire enums) — the frontend sends `entityKind: "system"` lowercase (`fetchGraph`, §4.5), but both tests above query `entityKind=System`. Without a lowercase case, a regression to case-sensitive enum parsing leaves both green while every System diagram 400s. The file already exercises lowercase for `service` (e.g. `entityKind=service`); this case follows that pattern.
 
 ### 5.3 Gates
 
