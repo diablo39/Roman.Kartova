@@ -1,13 +1,15 @@
 # DoD Ledger — System nodes in the graph (FU-A, E-03.F-03.S-01 closeout)
 
-**Slice:** `2026-08-05-catalog-system-graph-nodes` · **Branch:** `feat/catalog-system-graph-nodes` · **HEAD:** `a725290`
-**Merge base (master):** `b9f4eb7f` · **PR:** not opened yet · **Last updated:** 2026-08-06
+**Slice:** `2026-08-05-catalog-system-graph-nodes` · **Branch:** `feat/catalog-system-graph-nodes` · **HEAD:** `197e4457`
+**Merge base (master):** `b9f4eb7f` · **PR:** not opened yet · **Last updated:** 2026-08-07
 **Spec:** `docs/superpowers/specs/2026-08-05-catalog-system-graph-nodes-design.md`
 **Plan:** `docs/superpowers/plans/2026-08-05-catalog-system-graph-nodes.md` (gitignored scratch)
 **Execution:** `superpowers:subagent-driven-development` — 11 tasks, fresh implementer + task review each, then one whole-branch review and one consolidated fix wave. SDD ledger with per-task detail: `.superpowers/sdd/2026-08-05-catalog-system-graph-nodes/progress.md` (gitignored; **kept, not deleted**, until gates 4–10 close — it holds the per-task reports those gates may need to cite).
 **Findings telemetry:** `./gate-findings.yaml`
 
-> ⚠️ **Honest status: gates 1–7 and 9 pass; gate 8's fix wave is in and re-verified, but B2/B3 (controller bookkeeping) and S4 (an ADR-0040 amendment) remain open pending owner review, and the terminal re-verify and gate 10 have NOT run.** Gate 9 failed on its first run and forced a spec amendment (§3.1); gate 7 caught a Critical the six gates before it all missed; gate 8 then caught a second nightly-landmine class (B1) inside the very spec that replaced gate 7's. This slice is **not** complete and must not be described as merge-ready until the remaining items close.
+> ⚠️ **Honest status: gates 1–9 and the terminal re-verify pass. Gate 10 has NOT run — nothing is pushed and no PR exists — and one gate-8 finding (S4, an ADR-0040 amendment) is open with the owner.** So the slice is **not** complete and must not be described as merge-ready.
+>
+> Three gates each caught something the ones before them missed, which is the argument against folding any of them: **gate 9** disproved locked decision 7 by measurement and forced the §3.1 amendments; **gate 7** found a Critical — a spec committed with an unset-env-var dependency that would have reddened the nightly every night — that six earlier gates had looked at and not seen; **gate 8** then found the same nightly-landmine class *inside the spec that replaced gate 7's*, plus a legend that contradicted the most prominent element on a screen a human gate-9 pass had already approved.
 
 ## Summary
 
@@ -20,8 +22,8 @@
 | 5 `/simplify` | ✅ PASS | 2026-08-06 |
 | 6 `requesting-code-review` | ✅ PASS | 2026-08-05 |
 | 7 `review-pr` | ✅ PASS | 2026-08-06 |
-| 8 `deep-review` | 🟡 PARTIAL — fix wave in (B1, S5–S10, nits 1/3/4, MT1–4); B2/B3/S4 open | 2026-08-06 |
-| Terminal re-verify (build + suite) | ⏳ PENDING | — |
+| 8 `deep-review` | ✅ PASS — B2/B3 closed 2026-08-07; S4 (ADR-0040) open with owner | 2026-08-07 |
+| Terminal re-verify (build + suite) | ✅ PASS | 2026-08-07 |
 | 9 Visual / API verification (ADR-0084) | ✅ PASS (after fix) | 2026-08-06 |
 | 10 CI green on PR | ⏳ PENDING | — |
 
@@ -42,8 +44,9 @@ Notable per-task catches: Task 2's three out-of-brief edits were each reviewed o
 ### 3 — Full test suite (unit + arch + integration; real seam)
 **Status:** ✅ PASS
 **Frontend:** `npx vitest run` from `web/` → **134 files / 988 tests passed** on the final commit `b05cc2a6` (983 before the fix wave; +5 from the new sidebar and boundary cases). `npx tsc -b --noEmit` → exit 0. `npx eslint --no-ignore` → clean on every touched file (frontend lint is not in CI, so this is the only place it runs).
-**Backend real seam:** `Kartova.Catalog.IntegrationTests` → **406/406** against real Postgres + RLS via Testcontainers and real JWT validation through `KartovaApiFixtureBase`, measured at `bb930aa2`. The slice adds **no C# production code**, so the two new tests exist to pin behaviour the diagram depends on and had no coverage: (a) a depth-1 traversal focused on a System returns the `dependsOn` edge **between its members** — matched on edge type *and* both endpoints, so a wrong edge mix cannot satisfy it; (b) a cross-tenant System focus leaks no member and no edge. Commits after `bb930aa2` touch only frontend and docs, so this figure still describes the final commit.
-**At:** `b05cc2a6` (frontend) / `bb930aa2` (backend)
+**Backend real seam:** `Kartova.Catalog.IntegrationTests` → **406/406** against real Postgres + RLS via Testcontainers and real JWT validation through `KartovaApiFixtureBase`, measured at `bb930aa2`. The slice adds **no C# production code**, so the two new tests exist to pin behaviour the diagram depends on and had no coverage: (a) a depth-1 traversal focused on a System returns the `dependsOn` edge **between its members** — matched on edge type *and* both endpoints, so a wrong edge mix cannot satisfy it; (b) a cross-tenant System focus leaks no member and no edge.
+**Correction (gate 8, finding B3):** this row previously claimed "commits after `bb930aa2` touch only frontend and docs, so this figure still describes the final commit". That was **false** — `920920ec` (gate 7) and `a7252906` (gate 8) both changed `GetCatalogGraphTests.cs`, and the frontend figure predated three later waves. Superseded by the terminal re-verify below, which is the row to cite for the final commit.
+**At:** `b05cc2a6` (frontend) / `bb930aa2` (backend) — **stale; see the terminal re-verify**
 
 ### 4 — Container build (images CI job)
 **Status:** ✅ PASS
@@ -111,7 +114,15 @@ A fix wave closed the twelve findings routed to it — **B1, S5, S6, S7, S8, S9,
 
 **At:** `a725290` (fix wave: `8a733fa` e2e, `6952617` frontend, `a725290` backend test)
 
-### Terminal re-verify (build + full suite after gates 5–8)
+### Terminal re-verify (build + full suite after gates 5–8) — **✅ PASS, 2026-08-07**
+**This is the row to cite for the final commit.** Run after every gate that could apply fixes had applied them (5, 6, 7, 8 and gate 9's amendment wave):
+- `cmd //c "dotnet build Kartova.slnx -p:TreatWarningsAsErrors=true --nologo"` → **0 Warning(s), 0 Error(s)** (1m28s)
+- `npx vitest run` from `web/` → **135 files / 1001 tests passed** (983 → 988 → 994 → 1001 across the four waves)
+- `cmd //c "dotnet test …Kartova.Catalog.IntegrationTests…"` → **407/407**, real Postgres + RLS via Testcontainers, real JWT (406 before gate 8's lowercase-`entityKind` test)
+- `e2e/tests/system-diagram-boundary.spec.ts` → **1 passed**, run with **no environment variables** against a **freshly rebuilt container image** on 4173 — the nightly's actual configuration, not the dev server. This was checked specifically because the fix wave's report flagged a failure here; it turned out to be a stale local image, and rebuilding as `run.sh` does resolves it.
+**At:** `197e4457` + the ledger commit that follows it.
+
+### Superseded — original terminal re-verify note
 **Status:** owed after gates 5, 7 and 8 (deep-review fix wave) apply their fixes. Re-run on the final commit of this fix wave: **frontend** `npx vitest run` → 135 files / 1001 tests passed (up from 134/988 pre-wave); `npx tsc -b --noEmit` → exit 0; `npx eslint --no-ignore` clean on every touched file. **Backend** `dotnet build Kartova.slnx -p:TreatWarningsAsErrors=true --nologo` → 0 Warning(s), 0 Error(s); `Kartova.Catalog.IntegrationTests` filtered to `GetCatalogGraphTests` → 19/19 against real Postgres/RLS (18 pre-wave + the new MT2 case).
 **At:** `a725290`
 
