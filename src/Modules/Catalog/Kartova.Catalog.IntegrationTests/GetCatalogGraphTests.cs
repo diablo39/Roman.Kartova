@@ -485,6 +485,36 @@ public class GetCatalogGraphTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
+    public async Task GET_graph_focused_on_system_accepts_lowercase_entityKind()
+    {
+        // ADR-0109 camelCase wire enums: the frontend sends `entityKind: "system"` lowercase
+        // (fetchGraph, api/graph.ts). Without this case, a regression to case-sensitive enum
+        // parsing would leave the two `entityKind=System` tests above green while every System
+        // diagram 400s in the browser — this pins the same shape as the happy-path test above,
+        // through the lowercase form the SPA actually sends (the file already exercises lowercase
+        // for `service`; see e.g. GET_graph_focused_on_system_returns_members_and_the_edges_between_them's siblings).
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Graph System Lowercase Team");
+        var sysId = await SeedSystemAsync(client, teamId, "graph-system-lowercase-container");
+        var m1 = await SeedServiceAsync(client, teamId, "graph-system-lowercase-member-1");
+        var m2 = await SeedServiceAsync(client, teamId, "graph-system-lowercase-member-2");
+        await AssignSystemAsync(client, m1, sysId);
+        await AssignSystemAsync(client, m2, sysId);
+        await DependsOnAsync(client, m1, m2);   // member -> member
+
+        var resp = await client.GetAsync($"/api/v1/catalog/graph?entityKind=system&entityId={sysId}&depth=1&direction=all");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var graph = await resp.Content.ReadFromJsonAsync<GraphResponse>(KartovaApiFixtureBase.WireJson);
+
+        Assert.AreEqual(3, graph!.Nodes.Count);
+        Assert.AreEqual(EntityKind.System, graph.Nodes.Single(n => n.Id == sysId).Kind);
+        Assert.AreEqual(3, graph.Edges.Count);   // 2x partOf + 1x dependsOn
+        Assert.IsTrue(graph.Edges.Any(e =>
+            e.Type == RelationshipType.DependsOn && e.Source.Id == m1 && e.Target.Id == m2));
+        Assert.IsFalse(graph.Truncated);
+    }
+
+    [TestMethod]
     public async Task GET_graph_focused_on_another_tenants_system_leaks_no_members()
     {
         var orgA = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
