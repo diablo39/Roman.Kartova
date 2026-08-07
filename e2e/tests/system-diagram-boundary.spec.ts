@@ -2,12 +2,19 @@ import { test, expect, type Page, type APIRequestContext } from "@playwright/tes
 import { login } from "../fixtures/auth";
 
 /**
- * Regression spec for the System diagram's boundary band (spec §3 decisions 4a/7a) — the worst
- * defect this slice shipped: `systemBoundaryBox` draws an axis-aligned rectangle over the
- * System's members, and with dagre's `rankdir: "LR"` layout and `partOf` edges retained as layout
- * input, a member's *external* dependency can land in the same x-column the band spans. No unit
- * test can catch this — the repo's `@xyflow/react` mock (see SystemDiagram.test.tsx) renders
- * labels only, never real DOM geometry, so this has to be driven on the real stack.
+ * Regression spec for the System diagram's per-node membership marking (spec §3.1 amendments
+ * 7a/4a). The real contract, established after gate 9 disproved decision 7, is per-node: every
+ * non-member carries the "outside this system" marking and no member does — membership is NOT,
+ * and structurally cannot be, read off whether a node's rect intersects the boundary band. §3.1
+ * explains why: with dagre's `rankdir: "LR"` layout and `partOf` edges retained as layout input, a
+ * member's *external* dependency can share a rank — and therefore an x-column — with a member, so
+ * an "no non-member intersects the band" assertion would be geometry-fragile (it held on the
+ * original fixture by 12px of luck) and could redden the nightly on a legibility-only
+ * `BOUNDARY_PADDING` retune with no defect present. This spec instead pins the two per-node
+ * marking assertions (the real contract) plus the one band-geometry property 4a actually
+ * guarantees deterministically: every *member* intersects the band. No unit test can catch a
+ * regression here — the repo's `@xyflow/react` mock (see SystemDiagram.test.tsx) renders labels
+ * only, never real DOM geometry, so this has to be driven on the real stack.
  *
  * Seeds its own fixture through the product's own API, using the session `login()` already
  * established — no environment variable, no assumption about what the shared dev tenant already
@@ -18,9 +25,15 @@ import { login } from "../fixtures/auth";
  * one the boundary-band bug needs).
  *
  * Catalog has no delete endpoint for Systems/Services (audit-log-first domain, no hard delete —
- * consistent with every other list/detail slice), so each run's fixture is named with a run-scoped
- * suffix and is left in the shared dev tenant, same as the integration-test seed helpers this spec
- * mirrors (`GetCatalogGraphTests.cs`).
+ * consistent with every other list/detail slice), so each run's System and Services are named with
+ * a run-scoped suffix and left in the shared dev tenant, same as the integration-test seed helpers
+ * this spec mirrors (`GetCatalogGraphTests.cs`).
+ *
+ * The Team, however, is find-or-created against a fixed name and reused across runs (spec S10):
+ * a run-scoped team name here would add ~two teams a night against the `limit: 200` team lookups
+ * `SystemDetailPage`/`GraphExplorerPage` make — a slow-fuse failure that would only surface months
+ * later, once the shared tenant's team count crosses 200, as team names silently failing to
+ * resolve. Moving the whole fixture into `DevSeed` is the fuller fix, recorded as a follow-up.
  */
 const API_BASE_URL = process.env.E2E_API_BASE_URL ?? "http://localhost:8080";
 const RUN_ID = Date.now().toString(36);
@@ -73,6 +86,32 @@ async function apiPut(request: APIRequestContext, token: string, path: string, d
   expect(resp.ok(), `PUT ${path} -> ${resp.status()}: ${await resp.text()}`).toBeTruthy();
 }
 
+async function apiGet<T>(request: APIRequestContext, token: string, path: string): Promise<T> {
+  const resp = await request.get(`${API_BASE_URL}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  expect(resp.ok(), `GET ${path} -> ${resp.status()}: ${await resp.text()}`).toBeTruthy();
+  return resp.json() as Promise<T>;
+}
+
+const FIXTURE_TEAM_NAME = "Boundary Band E2E Fixture Team";
+
+/**
+ * Find-or-create against a fixed name so the nightly run reuses one team instead of minting a new
+ * one every run (spec S10) — see the file header for why an unbounded team count is a slow-fuse bug.
+ */
+async function findOrCreateFixtureTeam(request: APIRequestContext, token: string): Promise<{ id: string }> {
+  const page = await apiGet<{ items: { id: string; displayName: string }[] }>(
+    request,
+    token,
+    `/api/v1/organizations/teams?displayNameContains=${encodeURIComponent(FIXTURE_TEAM_NAME)}&limit=50`,
+  );
+  const existing = page.items.find((t) => t.displayName === FIXTURE_TEAM_NAME);
+  if (existing) return existing;
+  return apiPost(request, token, "/api/v1/organizations/teams", {
+    displayName: FIXTURE_TEAM_NAME,
+    description: "system-diagram-boundary.spec.ts fixture — reused across runs, never re-created.",
+  });
+}
+
 async function dependsOn(request: APIRequestContext, token: string, sourceId: string, targetId: string) {
   await apiPost(request, token, "/api/v1/catalog/relationships", {
     sourceKind: "service",
@@ -83,7 +122,7 @@ async function dependsOn(request: APIRequestContext, token: string, sourceId: st
   });
 }
 
-test("non-member services never render inside the System diagram's boundary band, and carry the outside marking", async ({
+test("every member intersects the boundary band and carries no outside marking, while every non-member does", async ({
   page,
   request,
 }) => {
@@ -97,10 +136,7 @@ test("non-member services never render inside the System diagram's boundary band
   const token = await accessToken(page);
 
   // --- seed the fixture through the product's own API -----------------------------------------
-  const team = await apiPost<{ id: string }>(request, token, "/api/v1/organizations/teams", {
-    displayName: `Boundary Band E2E Team ${RUN_ID}`,
-    description: "system-diagram-boundary.spec.ts fixture",
-  });
+  const team = await findOrCreateFixtureTeam(request, token);
 
   const system = await apiPost<{ id: string }>(request, token, "/api/v1/catalog/systems", {
     displayName: `Boundary Band E2E System ${RUN_ID}`,
@@ -134,12 +170,13 @@ test("non-member services never render inside the System diagram's boundary band
   // Waiting for the band proves layout ran and members were classified before we measure anything.
   await expect(page.locator(".react-flow__node-systemBoundary")).toBeVisible();
 
-  // NOTE: a plain .click() on the toggle fails Playwright's actionability check — its inner thumb
-  // div and the tab panel both "intercept pointer events". Keyboard activation (Space) is the
-  // accessible path and is what a real user's Space press does.
+  // NOTE: a plain .click() on the switch itself fails Playwright's actionability check — the
+  // control is a react-aria `Switch` (a `<label>` wrapping a visually-hidden `role="switch"`
+  // input), so clicking the input's own (near-zero) box resolves to whatever sits on top of it.
+  // A real mouse user clicks the visible label text, which the browser's native label->input
+  // delegation forwards to the input — verified here rather than assumed (spec S7).
   const toggle = page.getByRole("switch", { name: /include external dependencies/i });
-  await toggle.focus();
-  await page.keyboard.press("Space");
+  await page.getByText(/include external dependencies/i).click();
   await expect(toggle).toBeChecked();
   // The external nodes must be on the canvas before geometry is measured.
   await expect(page.getByText(EXTERNAL_A, { exact: true })).toBeVisible();
@@ -192,10 +229,15 @@ test("non-member services never render inside the System diagram's boundary band
   expect(externalNodes, "both non-member services must be on the canvas").toHaveLength(2);
   expect(memberNodes, "both member services must be on the canvas").toHaveLength(2);
 
-  const externalsInsideBand = externalNodes.filter(intersects);
+  // The deterministic geometric property 4a actually guarantees: the band is a bounding box over
+  // the member nodes (spec §3.1), so every member must intersect it. The converse — no non-member
+  // intersects the band — is NOT guaranteed (§3.1) and must not be asserted here: it held on the
+  // original fixture by 12px of luck, and `BOUNDARY_PADDING` (systemBoundary.ts) is documented as
+  // safe to retune for legibility alone, which would flip this property with no defect present.
+  const membersOutsideBand = memberNodes.filter((n) => !intersects(n));
   expect(
-    externalsInsideBand,
-    `non-member(s) rendered inside the boundary band: ${JSON.stringify(externalsInsideBand)}`,
+    membersOutsideBand,
+    `member(s) rendered outside the boundary band: ${JSON.stringify(membersOutsideBand)}`,
   ).toHaveLength(0);
 
   expect(externalNodes.every((n) => n.dashed), "every non-member must carry the outside-boundary marking").toBe(
