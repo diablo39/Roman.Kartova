@@ -1,10 +1,10 @@
 # DoD Ledger — System nodes in the graph (FU-A, E-03.F-03.S-01 closeout)
 
 **Slice:** `2026-08-05-catalog-system-graph-nodes` · **Branch:** `feat/catalog-system-graph-nodes` · **HEAD:** `e3ab579d`
-**Merge base (master):** `b9f4eb7f` · **PR:** [#85](https://github.com/diablo39/Roman.Kartova/pull/85) · **Last updated:** 2026-08-07
+**Merge base (master):** `b9f4eb7f` · **PR:** [#85](https://github.com/diablo39/Roman.Kartova/pull/85) — **merged 2026-08-07 as `95dcc519`** (squash) · **Last updated:** 2026-08-07
 **Spec:** `docs/superpowers/specs/2026-08-05-catalog-system-graph-nodes-design.md`
 **Plan:** `docs/superpowers/plans/2026-08-05-catalog-system-graph-nodes.md` (gitignored scratch)
-**Execution:** `superpowers:subagent-driven-development` — 11 tasks, fresh implementer + task review each, then one whole-branch review and one consolidated fix wave. SDD ledger with per-task detail: `.superpowers/sdd/2026-08-05-catalog-system-graph-nodes/progress.md` (gitignored; **kept, not deleted**, until gates 4–10 close — it holds the per-task reports those gates may need to cite).
+**Execution:** `superpowers:subagent-driven-development` — 11 tasks, fresh implementer + task review each, then one whole-branch review and four fix waves (gates 6, 7, 8 and the gate-9 amendment). The SDD scratch workspace held 45 artefacts: the per-task briefs and reports, the per-gate findings lists and fix reports, and 12 review-package diffs. It was retained while gates 4–10 ran, since those gates cite it, and **deleted at merge** — everything load-bearing was lifted into this file and `gate-findings.yaml`, and git history is the record now.
 **Findings telemetry:** `./gate-findings.yaml`
 
 > ✅ **All ten gates and the terminal re-verify are green, each citable by command and output below.** The last open finding (S4) closed on 2026-08-07 with the ADR-0040 amendment at `e3ab579d`. The slice is ready to merge; it is **not merged yet**.
