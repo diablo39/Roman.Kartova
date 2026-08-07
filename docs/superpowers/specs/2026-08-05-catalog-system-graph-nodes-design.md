@@ -2,7 +2,7 @@
 
 **Story:** E-03.F-03.S-01 closeout — the story's third acceptance criterion is "system has description **and diagram**" (`docs/product/phases/phase-1-core-catalog.md:86`). Description shipped 2026-07-22 with the System UI surface; the diagram is the only reason the story is still `[~]`. Registered as **FU-A** in `2026-07-22-catalog-system-ui-surface-design.md:29` and re-deferred by `2026-07-30-catalog-system-membership-assignment-design.md:112`.
 **Date:** 2026-08-05 · **Author:** Roman Głogowski (AI-assisted)
-**ADRs touched:** none new. Works inside ADR-0111 (`PartOf` visible on the generic relationships/graph read paths), ADR-0040 (canvas-overlay graph filters), ADR-0094 (Untitled UI / react-aria), ADR-0114 (tabbed detail layout), ADR-0084 (browser verification).
+**ADRs touched:** **ADR-0040 amended 2026-08-07** — this slice's third embedded graph view broke that ADR's "two views" arithmetic, and its membership channel (boundary band + per-node `outsideBoundary`) is new to the ADR library; the amendment retitles it around scoped surfaces instead of a count. *(This line originally read "none new", which gate 8 correctly flagged as false.)* Otherwise works inside ADR-0111 (`PartOf` visible on the generic relationships/graph read paths), ADR-0094 (Untitled UI / react-aria), ADR-0114 (tabbed detail layout), ADR-0084 (browser verification).
 
 ---
 
