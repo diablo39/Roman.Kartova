@@ -1573,6 +1573,26 @@
         }
       }
     },
+    "/api/v1/catalog/hierarchy": {
+      "get": {
+        "tags": [
+          "CatalogEndpointDelegates"
+        ],
+        "operationId": "GetCatalogHierarchy",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogHierarchyResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/catalog/relationships/{id}": {
       "delete": {
         "tags": [
@@ -3878,6 +3898,33 @@
           }
         }
       },
+      "CatalogHierarchyResponse": {
+        "required": [
+          "totalComponentCount",
+          "truncated",
+          "teams"
+        ],
+        "type": "object",
+        "properties": {
+          "totalComponentCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "teams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HierarchyTeamDto"
+            }
+          }
+        }
+      },
       "CreateInvitationRequest": {
         "required": [
           "email",
@@ -4504,6 +4551,113 @@
           "degraded",
           "unhealthy"
         ]
+      },
+      "HierarchyBucketDto": {
+        "required": [
+          "componentCount",
+          "members"
+        ],
+        "type": "object",
+        "properties": {
+          "componentCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HierarchyMemberDto"
+            }
+          }
+        }
+      },
+      "HierarchyMemberDto": {
+        "required": [
+          "kind",
+          "id",
+          "displayName"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          }
+        }
+      },
+      "HierarchySystemDto": {
+        "required": [
+          "systemId",
+          "displayName",
+          "componentCount",
+          "members"
+        ],
+        "type": "object",
+        "properties": {
+          "systemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "componentCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HierarchyMemberDto"
+            }
+          }
+        }
+      },
+      "HierarchyTeamDto": {
+        "required": [
+          "teamId",
+          "componentCount",
+          "systems",
+          "ungrouped"
+        ],
+        "type": "object",
+        "properties": {
+          "teamId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "componentCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "systems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HierarchySystemDto"
+            }
+          },
+          "ungrouped": {
+            "$ref": "#/components/schemas/HierarchyBucketDto"
+          }
+        }
       },
       "InvitationAcceptContext": {
         "required": [
