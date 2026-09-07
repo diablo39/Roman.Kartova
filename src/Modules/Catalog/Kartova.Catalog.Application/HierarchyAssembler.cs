@@ -63,12 +63,12 @@ public static class HierarchyAssembler
                 .ThenBy(s => s.Id)
                 .Select(s =>
                 {
-                    var members = Sorted(systemMembers, s.Id);
+                    var members = MembersOf(systemMembers, s.Id);
                     return new HierarchySystemDto(s.Id, s.DisplayName, members.Count, members);
                 })
                 .ToList();
 
-            var ungroupedMembers = Sorted(ungroupedByTeam, teamId);
+            var ungroupedMembers = MembersOf(ungroupedByTeam, teamId);
             var ungrouped = new HierarchyBucketDto(ungroupedMembers.Count, ungroupedMembers);
             var count = teamSystems.Sum(s => s.ComponentCount) + ungrouped.ComponentCount;
             teams.Add(new HierarchyTeamDto(teamId, count, teamSystems, ungrouped));
@@ -82,10 +82,10 @@ public static class HierarchyAssembler
             list.Add(m);
         }
 
-        static IReadOnlyList<HierarchyMemberDto> Sorted(Dictionary<Guid, List<HierarchyMemberDto>> map, Guid key)
-            => map.TryGetValue(key, out var list)
-                ? list.OrderBy(m => m.DisplayName, StringComparer.Ordinal).ThenBy(m => m.Id).ToList()
-                : [];
+        // Already sorted: each bucket only ever receives a subsequence of `ordered` (appended in that
+        // enumeration order), so it inherits the (DisplayName, Id) order without re-sorting here.
+        static IReadOnlyList<HierarchyMemberDto> MembersOf(Dictionary<Guid, List<HierarchyMemberDto>> map, Guid key)
+            => map.TryGetValue(key, out var list) ? list : [];
 
         static string KindWire(EntityKind k) => k switch
         {
