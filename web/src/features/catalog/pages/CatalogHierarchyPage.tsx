@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCatalogHierarchy } from "../api/hierarchy";
 import { useTeamsList } from "@/features/teams/api/teams";
 import { useOrgProfile } from "@/features/organization/api/organization";
-import { buildHierarchyView, type HierarchyView } from "../hierarchy/buildHierarchyView";
+import { buildHierarchyView, type HierarchyView, type MemberView } from "../hierarchy/buildHierarchyView";
 import { HierarchyTreeNode } from "../hierarchy/HierarchyTreeNode";
 
 const EXPAND_KEY = "catalog-hierarchy-expanded";
@@ -12,11 +12,21 @@ const ORG_NODE_KEY = "org";
  * Loads persisted expand/collapse state, defaulting the org root open on first visit (no stored
  * state yet) or when storage throws (private-window / thumbnail contexts). A key set is treated
  * literally once it exists — a user who collapses the root gets that choice back on reload.
+ *
+ * The stored value is untrusted (another tab/version could have written a different shape, or a
+ * user could hand-edit it via devtools), so the parsed JSON is validated before use: anything that
+ * isn't an array of strings falls back to the default rather than propagating a bad cast into
+ * `Set<string>`.
  */
 function loadExpanded(): Set<string> {
   try {
     const raw = sessionStorage.getItem(EXPAND_KEY);
-    return new Set(raw ? (JSON.parse(raw) as string[]) : [ORG_NODE_KEY]);
+    if (!raw) return new Set([ORG_NODE_KEY]);
+    const parsed: unknown = JSON.parse(raw);
+    const keys = Array.isArray(parsed)
+      ? parsed.filter((x): x is string => typeof x === "string")
+      : [ORG_NODE_KEY];
+    return new Set(keys);
   } catch {
     return new Set([ORG_NODE_KEY]);
   }
@@ -38,6 +48,13 @@ export default function CatalogHierarchyPage() {
   const [expanded, setExpanded] = useState<Set<string>>(loadExpanded);
   const [selectedPath, setSelectedPath] = useState<string[]>([]); // breadcrumb labels
 
+  // Persisting is a side effect, so it lives in an effect keyed off the state it mirrors — not
+  // inside the `setExpanded` updater, which React (StrictMode) may invoke more than once per
+  // update and which must stay pure.
+  useEffect(() => {
+    saveExpanded(expanded);
+  }, [expanded]);
+
   const view: HierarchyView | null = useMemo(() => {
     if (!hierarchy.data) return null;
     return buildHierarchyView(
@@ -51,9 +68,25 @@ export default function CatalogHierarchyPage() {
     setExpanded((prev) => {
       const next = new Set(prev);
       next.has(key) ? next.delete(key) : next.add(key);
-      saveExpanded(next);
       return next;
     });
+
+  // One member leaf, shared by the system-members list and the per-team ungrouped bucket — the
+  // only difference between the two call sites is the breadcrumb ancestry to select. Always
+  // passes `to` (never the hasChildren-less, to-less plain-div branch of HierarchyTreeNode).
+  const renderMemberLeaf = (member: MemberView, ancestry: string[]) => (
+    <HierarchyTreeNode
+      key={`${member.kind}:${member.id}`}
+      label={member.name}
+      count={0}
+      expanded={false}
+      hasChildren={false}
+      to={`/catalog/${member.kind === "application" ? "applications" : "services"}/${member.id}`}
+      onToggle={() => {}}
+      onSelect={() => setSelectedPath(ancestry)}
+      depth={3}
+    />
+  );
 
   if (hierarchy.isLoading) return <div className="p-6 text-secondary">Loading hierarchy…</div>;
   if (hierarchy.isError || !view)
@@ -120,19 +153,7 @@ export default function CatalogHierarchyPage() {
                       depth={2}
                       testId={`node-${sysKey}`}
                     >
-                      {sys.members.map((m) => (
-                        <HierarchyTreeNode
-                          key={`${m.kind}:${m.id}`}
-                          label={m.name}
-                          count={0}
-                          expanded={false}
-                          hasChildren={false}
-                          to={`/catalog/${m.kind === "application" ? "applications" : "services"}/${m.id}`}
-                          onToggle={() => {}}
-                          onSelect={() => setSelectedPath([team.name, sys.name, m.name])}
-                          depth={3}
-                        />
-                      ))}
+                      {sys.members.map((m) => renderMemberLeaf(m, [team.name, sys.name, m.name]))}
                     </HierarchyTreeNode>
                   );
                 })}
@@ -146,19 +167,7 @@ export default function CatalogHierarchyPage() {
                   depth={2}
                   testId={`node-ungrouped-${team.id}`}
                 >
-                  {team.ungrouped.members.map((m) => (
-                    <HierarchyTreeNode
-                      key={`${m.kind}:${m.id}`}
-                      label={m.name}
-                      count={0}
-                      expanded={false}
-                      hasChildren={false}
-                      to={`/catalog/${m.kind === "application" ? "applications" : "services"}/${m.id}`}
-                      onToggle={() => {}}
-                      onSelect={() => setSelectedPath([team.name, "Ungrouped", m.name])}
-                      depth={3}
-                    />
-                  ))}
+                  {team.ungrouped.members.map((m) => renderMemberLeaf(m, [team.name, "Ungrouped", m.name]))}
                 </HierarchyTreeNode>
               </HierarchyTreeNode>
             );
