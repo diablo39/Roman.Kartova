@@ -1369,6 +1369,20 @@ internal static class CatalogEndpointDelegates
     }
 
     /// <summary>
+    /// GET /hierarchy — the whole tenant as an Org → Team → { System, Ungrouped } → Component tree
+    /// (E-03.F-03.S-02). Bounded aggregate (node cap + truncated flag), not a cursor list. Team names are
+    /// resolved by the client from the teams list. Claim gate: catalog.read.
+    /// </summary>
+    internal static async Task<IResult> GetCatalogHierarchyAsync(
+        GetCatalogHierarchyHandler handler,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        var result = await handler.Handle(new GetCatalogHierarchyQuery(), db, ct);
+        return Results.Ok(result);
+    }
+
+    /// <summary>
     /// GET /graph?entityKind=&amp;entityId=&amp;depth=&amp;direction= — BFS dependency neighbourhood
     /// around the focus entity. depth 1..4 (default 2); direction outgoing|incoming|all (default all).
     /// Bounded aggregate (node cap + truncated flag) — not a cursor list. Claim gate: catalog.read.

@@ -10,6 +10,7 @@ import { ApisListPage } from "@/features/catalog/pages/ApisListPage";
 import { ApiDetailPage } from "@/features/catalog/pages/ApiDetailPage";
 import { SystemsListPage } from "@/features/catalog/pages/SystemsListPage";
 import { SystemDetailPage } from "@/features/catalog/pages/SystemDetailPage";
+import CatalogHierarchyPage from "@/features/catalog/pages/CatalogHierarchyPage";
 import { TeamsListPage } from "@/features/teams/pages/TeamsListPage";
 import { TeamDetailPage } from "@/features/teams/pages/TeamDetailPage";
 import { WelcomePage } from "@/features/auth/pages/WelcomePage";
@@ -61,6 +62,7 @@ export function AppRoutes() {
         <Route path="/catalog/apis/:id" element={<ApiDetailPage />} />
         <Route path="/catalog/systems" element={<SystemsListPage />} />
         <Route path="/catalog/systems/:id" element={<SystemDetailPage />} />
+        <Route path="/catalog/hierarchy" element={<CatalogHierarchyPage />} />
         <Route path="/teams" element={<TeamsListPage />} />
         <Route path="/teams/:id" element={<TeamDetailPage />} />
         <Route path="/settings/organization" element={<OrganizationSettingsPage />} />

@@ -14,6 +14,8 @@
     <PackageReference Include="MSTest.Analyzers" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Testcontainers.PostgreSql" />
+    <!-- Pin transitive SSH.NET to the patched version (GHSA-q939-rpr3-3284); version in Directory.Packages.props. -->
+    <PackageReference Include="SSH.NET" />
     <PackageReference Include="Npgsql" />
     <!-- Slice-9 carry-forward MT3: NSubstitute is used by InvitationFailureWiringTests
          to override IKeycloakAdminClient via ConfigureTestServices so a forced KC

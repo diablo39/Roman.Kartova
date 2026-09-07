@@ -107,6 +107,13 @@ describe("Sidebar", () => {
     expect(screen.getByRole("link", { name: "Systems" })).toHaveAttribute("href", "/catalog/systems");
   });
 
+  it("renders the Catalog Hierarchy link", () => {
+    setPermissions();
+    renderSidebar();
+    const link = screen.getByRole("link", { name: "Hierarchy" });
+    expect(link).toHaveAttribute("href", "/catalog/hierarchy");
+  });
+
   it("renders disabled placeholders (Infrastructure / Docs) with data-disabled", () => {
     setPermissions();
     renderSidebar();
