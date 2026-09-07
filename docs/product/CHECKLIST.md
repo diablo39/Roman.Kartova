@@ -12,7 +12,7 @@
 | Phase | Status | Progress |
 |-------|--------|----------|
 | Phase 0: Foundation | In Progress | 12/43 |
-| Phase 1: Core Catalog & Notifications | In Progress | 27/60 |
+| Phase 1: Core Catalog & Notifications | In Progress | 28/60 |
 | Phase 2: Auto-Import | Not Started | 0/36 |
 | Phase 3: Documentation | Not Started | 0/15 |
 | Phase 4: Status Page | Not Started | 0/16 |
@@ -21,7 +21,7 @@
 | Phase 7: Intelligence | Not Started | 0/13 |
 | Phase 8: Analytics | Not Started | 0/14 |
 | Phase 9: Advanced | Not Started | 0/0 |
-| **Total** | | **39/212** |
+| **Total** | | **40/212** |
 
 ---
 
@@ -165,7 +165,7 @@
 
 **E-03.F-03: System Grouping**
 - [x] E-03.F-03.S-01 — Create System and assign components (2026-07-21; `CatalogSystem` aggregate + `catalog_systems` table (RLS) + `POST/GET/GET-list /systems`; `RelationshipType.PartOf` reintroduced `{Application,Service}→System`, visible on the generic relationships/graph read paths (option A, ADR-0111 amendment DRAFT); backend-only, no UI this slice; verification still pending). **UI surface shipped 2026-07-22** (list `/catalog/systems` + tabbed detail with read-only Members; assignment UI deferred) — see `docs/superpowers/verification/2026-07-22-catalog-system-ui-surface/dod.md`. **Assignment shipped 2026-07-30** (catalog-system-membership A1): at-most-one PartOf (ADR-0111 amended 2026-07-30 — cardinality + partial unique index `ux_relationships_one_system` + per-edge move authority + PUT as canonical door), `PUT /catalog/{applications|services}/{id}/system` setter + 409 guard on the generic endpoint, assign/change/remove from both the System Members tab and the component Overview tab; `system` promoted to a renderable/searchable FE kind (fixes the raw badge + `/catalog/undefined/{id}` link); optional `type` filter added to `GET /catalog/relationships`. **List surface shipped (catalog-system-membership A2):** `System` column + `systemId` multi-select filter on both the Applications and Services lists, backed by an `EXISTS` sub-query over the `PartOf` edge applied before paging and a batched per-page enrichment (two round trips, client-joined — Npgsql can't translate a complex-property join key); detail reads (`GET /catalog/{applications|services}/{id}`) carry the same two fields; filter ids are de-duped then capped at 50 distinct values (400 `too-many-filter-values` beyond that). **Merged 2026-08-05 as `9de908f3` (PR #83).** Two follow-ups landed with it: the value cap extended to `teamId` on all four list endpoints plus the `lifecycle`/`health` enum filters (the APIs and Systems handlers encode `teamId` into the cursor `f`-map identically), and a runtime `asProblemDetails` guard replacing the bare cast on both list pages — gate 9 for both was driven live and is now a nightly spec (`e2e/tests/filter-value-cap.spec.ts`). **FU-A shipped 2026-08-05 (verification in progress):** `system` is a first-class graph kind (focus tokens, kind-filter selection, node rendering), and the System detail Members tab carries a diagram of members, the edges between them, and an optional "Include external dependencies" toggle; all three acceptance criteria from `phase-1-core-catalog.md:86` are addressed pending gate close. Ledger: `docs/superpowers/verification/2026-08-05-catalog-system-graph-nodes/dod.md` — as of its last update, gate 8, the terminal re-verify and gate 10 are still pending, so this row's completion is not yet final (revisit the `[x]` marker at gate 10). Prior sub-slice ledgers: `docs/superpowers/verification/2026-07-30-catalog-system-membership/a1/dod.md` (A1) and `.../a2/dod.md` (A2 — gates 5–8 for the two follow-up commits are owner waivers, not green).
-- [ ] E-03.F-03.S-02 — Browse catalog by Org/Team/System hierarchy. Hierarchy placement decided 2026-07-30 (ADR-0111 amendment): a System nests under its own steward team; members appear beneath it regardless of their owning team, so per-team counts in the tree will not match the Teams page.
+- [x] E-03.F-03.S-02 — Browse catalog by Org/Team/System hierarchy (2026-09-07, merged to local master `3c1e5f11`). New `GET /catalog/hierarchy` (Catalog-local; pure `HierarchyAssembler` groups systems + PartOf members + App/Service components into Org→Team→{System,Ungrouped}→Component with per-node counts, node cap 200 + `truncated`, returns team IDs only, `catalog.read`, `[BoundedListResult]`) + React `/catalog/hierarchy` tree page (`buildHierarchyView` name-join + empty-team injection, `HierarchyTreeNode` hand-built disclosure, sessionStorage expand, breadcrumb) + sidebar nav. Placement per ADR-0111 amendment: a System nests under its steward team; members appear beneath it regardless of owning team, so per-team tree counts won't match the Teams page. Additions: dismissible "About this view" help callout; per-row type icon + kind label (Team/System/Ungrouped/Application/Service). Verification `docs/superpowers/verification/2026-09-07-catalog-hierarchy-browse/dod.md` — DoD gates 1–8 + terminal re-verify green; gate 9 (visual) = owner self-verify on running app; gate 10 (CI) waived (owner direct-merged to local master, not pushed). Shipped alongside a transitive **SSH.NET 2026.0.0** security pin (GHSA-q939-rpr3-3284, newly-published, affected master too). E-03.F-03 feature complete.
 
 **E-03.F-04: Tag System**
 - [ ] E-03.F-04.S-01 — Define tag taxonomies
