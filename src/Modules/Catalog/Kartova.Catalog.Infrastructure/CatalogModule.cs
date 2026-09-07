@@ -204,6 +204,10 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .Produces<GraphResponse>(StatusCodes.Status200OK)
               .ProducesProblem(StatusCodes.Status400BadRequest)
               .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+        tenant.MapGet("/hierarchy", CatalogEndpointDelegates.GetCatalogHierarchyAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRead)
+              .WithName("GetCatalogHierarchy")
+              .Produces<CatalogHierarchyResponse>(StatusCodes.Status200OK);
         tenant.MapDelete("/relationships/{id:guid}", CatalogEndpointDelegates.DeleteRelationshipAsync)
               .RequireAuthorization(KartovaPermissions.CatalogRelationshipsWrite)
               .WithName("DeleteRelationship")
@@ -344,6 +348,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<GetApiSurfaceHandler>();
         services.AddScoped<GetDerivedDependenciesHandler>();
         services.AddScoped<GetImpactAnalysisHandler>();
+        services.AddScoped<GetCatalogHierarchyHandler>();
         services.AddScoped<ICatalogEntityLookup, CatalogEntityLookup>();
 
         // TimeProvider is needed by Application.Deprecate / Decommission for the
