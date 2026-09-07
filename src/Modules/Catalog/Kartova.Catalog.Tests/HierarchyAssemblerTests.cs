@@ -113,9 +113,30 @@ public sealed class HierarchyAssemblerTests
         var result = Build(systems, components, partOf, nodeCap: 3);
 
         Assert.IsTrue(result.Truncated);
-        var kept = result.Teams.SelectMany(t => t.Systems.SelectMany(s => s.Members))
-            .Concat(result.Teams.Select(t => t.Ungrouped).SelectMany(u => u.Members)).Count();
-        Assert.AreEqual(3, kept);
+        var keptNames = result.Teams.SelectMany(t => t.Systems.SelectMany(s => s.Members))
+            .Concat(result.Teams.Select(t => t.Ungrouped).SelectMany(u => u.Members))
+            .Select(m => m.DisplayName)
+            .ToList();
+        Assert.AreEqual(3, keptNames.Count);
         Assert.AreEqual(3, result.TotalComponentCount);
+        CollectionAssert.AreEquivalent(new[] { "svc-00", "svc-01", "svc-02" }, keptNames);
+    }
+
+    [TestMethod]
+    public void Dangling_partof_falls_through_to_owning_team_ungrouped()
+    {
+        // partOf points at a systemId that does not exist in systems → must not vanish; falls back
+        // to the component's own OWNING team's Ungrouped bucket.
+        var svc = Guid.NewGuid();
+        var danglingSystemId = Guid.NewGuid();
+        var components = new[] { new ComponentRow(EntityKind.Service, svc, "Svc", TeamA) };
+        var partOf = new Dictionary<(EntityKind, Guid), Guid> { [(EntityKind.Service, svc)] = danglingSystemId };
+
+        var result = Build(Array.Empty<SystemRow>(), components, partOf, nodeCap: 200);
+
+        var teamA = result.Teams.Single(t => t.TeamId == TeamA);
+        Assert.AreEqual(0, teamA.Systems.Count);
+        Assert.AreEqual(svc, teamA.Ungrouped.Members.Single().Id);
+        Assert.AreEqual(1, result.TotalComponentCount);
     }
 }

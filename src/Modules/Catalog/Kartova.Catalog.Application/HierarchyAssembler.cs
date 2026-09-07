@@ -22,7 +22,6 @@ public static class HierarchyAssembler
         IReadOnlyDictionary<(EntityKind Kind, Guid Id), Guid> partOf,
         int nodeCap)
     {
-        var componentById = components.ToDictionary(c => (c.Kind, c.Id));
         var systemById = systems.ToDictionary(s => s.Id);
 
         // Route each component to a bucket key: ("sys", systemId) if it has a membership whose system
