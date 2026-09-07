@@ -4,6 +4,7 @@ import { useTeamsList } from "@/features/teams/api/teams";
 import { useOrgProfile } from "@/features/organization/api/organization";
 import { buildHierarchyView, type HierarchyView, type MemberView } from "../hierarchy/buildHierarchyView";
 import { HierarchyTreeNode } from "../hierarchy/HierarchyTreeNode";
+import { HierarchyHelpCallout } from "../hierarchy/HierarchyHelpCallout";
 
 const EXPAND_KEY = "catalog-hierarchy-expanded";
 const ORG_NODE_KEY = "org";
@@ -101,6 +102,8 @@ export default function CatalogHierarchyPage() {
         Browse by organization, team, and system. {view.totalCount} component
         {view.totalCount === 1 ? "" : "s"}.
       </p>
+
+      <HierarchyHelpCallout />
 
       {/*
         Trail reflects the selected node's ancestry: empty until something is picked, so the org
