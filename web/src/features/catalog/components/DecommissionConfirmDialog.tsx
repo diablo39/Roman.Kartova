@@ -85,7 +85,7 @@ export function DecommissionConfirmDialog({ application, open, onOpenChange }: P
           <div className="space-y-1 mb-4">
             <h2 className="text-lg font-semibold text-primary">Decommission {application.displayName}?</h2>
             <p className="text-sm text-tertiary">
-              This is a terminal state. The application will be hidden from default views and become read-only. This cannot be undone in the current product version.
+              The application will be hidden from default views and become read-only. You can reactivate it or restore it to Deprecated later from the lifecycle menu.
             </p>
           </div>
 
