@@ -207,7 +207,8 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         tenant.MapGet("/hierarchy", CatalogEndpointDelegates.GetCatalogHierarchyAsync)
               .RequireAuthorization(KartovaPermissions.CatalogRead)
               .WithName("GetCatalogHierarchy")
-              .Produces<CatalogHierarchyResponse>(StatusCodes.Status200OK);
+              .Produces<CatalogHierarchyResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status403Forbidden);
         tenant.MapDelete("/relationships/{id:guid}", CatalogEndpointDelegates.DeleteRelationshipAsync)
               .RequireAuthorization(KartovaPermissions.CatalogRelationshipsWrite)
               .WithName("DeleteRelationship")

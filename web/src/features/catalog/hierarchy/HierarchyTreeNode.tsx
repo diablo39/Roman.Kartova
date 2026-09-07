@@ -18,7 +18,7 @@ const rowClass = "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:b
 
 function CountBadge({ count }: { count: number }) {
   return (
-    <span className="ml-auto rounded-full bg-secondary px-2 py-0.5 text-xs text-tertiary" aria-hidden={false}>
+    <span className="ml-auto rounded-full bg-secondary px-2 py-0.5 text-xs text-tertiary">
       {count}
     </span>
   );

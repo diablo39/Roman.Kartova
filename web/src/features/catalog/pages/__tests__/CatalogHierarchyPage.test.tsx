@@ -83,6 +83,19 @@ describe("CatalogHierarchyPage", () => {
     expect(crumb).toHaveTextContent("Team Alpha");
   });
 
+  it("shows a breadcrumb reflecting the full ancestry when a member leaf is selected", async () => {
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: /Team Alpha/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Billing/ }));
+    const memberLink = screen.getByRole("link", { name: /Invoicer/ });
+    await userEvent.click(memberLink);
+    const crumb = screen.getByTestId("hierarchy-breadcrumb");
+    expect(crumb).toHaveTextContent("Acme Corp");
+    expect(crumb).toHaveTextContent("Team Alpha");
+    expect(crumb).toHaveTextContent("Billing");
+    expect(crumb).toHaveTextContent("Invoicer");
+  });
+
   it("shows a loading state while the hierarchy query is in flight", () => {
     useCatalogHierarchyMock.mockReturnValue(stubHierarchy({ isLoading: true, data: undefined }));
     renderPage();

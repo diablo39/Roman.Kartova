@@ -42,6 +42,8 @@ function saveExpanded(set: Set<string>) {
 
 export default function CatalogHierarchyPage() {
   const hierarchy = useCatalogHierarchy();
+  // limit: 200 — teams beyond the first page are not injected as empty nodes; mirrors the
+  // backend hierarchy assembler's nodeCap parity and is acceptable at MVP scale.
   const teams = useTeamsList({ sortBy: "displayName", sortOrder: "asc", limit: 200 });
   const org = useOrgProfile();
 

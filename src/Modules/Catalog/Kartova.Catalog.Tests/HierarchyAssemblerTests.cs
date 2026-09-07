@@ -123,6 +123,57 @@ public sealed class HierarchyAssemblerTests
     }
 
     [TestMethod]
+    public void Node_cap_can_fully_truncate_one_system_while_steward_team_still_appears()
+    {
+        // Two teams, each stewarding one system. Global member order is (DisplayName Ordinal, Id):
+        // "a1" < "a2" < "z1" < "z2". With nodeCap=2, only SysA's two members survive; SysB's are
+        // truncated away entirely. SysB's steward team (B) must still appear with a zero-member
+        // system node, and the cross-team invariant (sum of team counts == total) must hold.
+        var sysA = Guid.NewGuid();
+        var sysB = Guid.NewGuid();
+        var a1 = Guid.NewGuid(); var a2 = Guid.NewGuid();
+        var z1 = Guid.NewGuid(); var z2 = Guid.NewGuid();
+        var systems = new[]
+        {
+            new SystemRow(sysA, "SysA", TeamA),
+            new SystemRow(sysB, "SysB", TeamB),
+        };
+        var components = new[]
+        {
+            new ComponentRow(EntityKind.Service, a1, "a1", TeamA),
+            new ComponentRow(EntityKind.Service, a2, "a2", TeamA),
+            new ComponentRow(EntityKind.Service, z1, "z1", TeamB),
+            new ComponentRow(EntityKind.Service, z2, "z2", TeamB),
+        };
+        var partOf = new Dictionary<(EntityKind, Guid), Guid>
+        {
+            [(EntityKind.Service, a1)] = sysA,
+            [(EntityKind.Service, a2)] = sysA,
+            [(EntityKind.Service, z1)] = sysB,
+            [(EntityKind.Service, z2)] = sysB,
+        };
+
+        var result = Build(systems, components, partOf, nodeCap: 2);
+
+        Assert.IsTrue(result.Truncated);
+
+        var teamAResult = result.Teams.Single(t => t.TeamId == TeamA);
+        CollectionAssert.AreEqual(new[] { "a1", "a2" },
+            teamAResult.Systems.Single(s => s.SystemId == sysA).Members.Select(m => m.DisplayName).ToArray());
+
+        // Team B is still present — steward teams are unioned in unconditionally — with SysB
+        // emitted as an empty node, even though every one of its members was truncated away.
+        var teamBResult = result.Teams.Single(t => t.TeamId == TeamB);
+        var sysBNode = teamBResult.Systems.Single(s => s.SystemId == sysB);
+        Assert.AreEqual(0, sysBNode.ComponentCount);
+        Assert.AreEqual(0, sysBNode.Members.Count);
+        Assert.AreEqual(0, teamBResult.ComponentCount);
+
+        Assert.AreEqual(2, result.TotalComponentCount);
+        Assert.AreEqual(result.TotalComponentCount, result.Teams.Sum(t => t.ComponentCount));
+    }
+
+    [TestMethod]
     public void Dangling_partof_falls_through_to_owning_team_ungrouped()
     {
         // partOf points at a systemId that does not exist in systems → must not vanish; falls back
