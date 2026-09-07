@@ -76,10 +76,14 @@ describe("DecommissionConfirmDialog", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders the terminal-state warning copy", () => {
+  it("renders the reversible decommission copy (hidden + read-only, restorable)", () => {
     setup({ post: vi.fn() });
-    expect(screen.getByText(/terminal state/i)).toBeInTheDocument();
-    expect(screen.getByText(/cannot be undone/i)).toBeInTheDocument();
+    expect(screen.getByText(/hidden from default views and become read-only/i)).toBeInTheDocument();
+    // Decommission is reversible (Reactivate / Restore to Deprecated shipped in slice 7) —
+    // the copy must NOT claim it is terminal / cannot be undone.
+    expect(screen.getByText(/reactivate it or restore it to Deprecated/i)).toBeInTheDocument();
+    expect(screen.queryByText(/cannot be undone/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/terminal state/i)).not.toBeInTheDocument();
   });
 
   it("submits empty POST /decommission on confirm and closes on success", async () => {
