@@ -15,6 +15,8 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
     <PackageReference Include="Testcontainers.PostgreSql" />
+    <!-- Pin transitive SSH.NET to the patched version (GHSA-q939-rpr3-3284); version in Directory.Packages.props. -->
+    <PackageReference Include="SSH.NET" />
     <PackageReference Include="Npgsql" />
     <PackageReference Include="Npgsql.DependencyInjection" />
     <PackageReference Include="NSubstitute" />
