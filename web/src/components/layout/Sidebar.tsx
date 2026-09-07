@@ -92,6 +92,9 @@ export function Sidebar() {
               <NavItemLink to="/catalog/systems" label="Systems" />
             </li>
             <li>
+              <NavItemLink to="/catalog/hierarchy" label="Hierarchy" />
+            </li>
+            <li>
               <DisabledItem label="Infrastructure" />
             </li>
             <li>
