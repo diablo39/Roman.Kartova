@@ -88,6 +88,7 @@ export default function CatalogHierarchyPage() {
       onToggle={() => {}}
       onSelect={() => setSelectedPath(ancestry)}
       depth={3}
+      nodeType={member.kind}
     />
   );
 
@@ -128,6 +129,7 @@ export default function CatalogHierarchyPage() {
           onToggle={() => toggle(ORG_NODE_KEY)}
           onSelect={() => setSelectedPath([])}
           depth={0}
+          nodeType="org"
           testId="node-org"
         >
           {view.teams.map((team) => {
@@ -142,6 +144,7 @@ export default function CatalogHierarchyPage() {
                 onToggle={() => toggle(teamKey)}
                 onSelect={() => setSelectedPath([team.name])}
                 depth={1}
+                nodeType="team"
                 testId={`node-${teamKey}`}
               >
                 {team.systems.map((sys) => {
@@ -156,6 +159,7 @@ export default function CatalogHierarchyPage() {
                       onToggle={() => toggle(sysKey)}
                       onSelect={() => setSelectedPath([team.name, sys.name])}
                       depth={2}
+                      nodeType="system"
                       testId={`node-${sysKey}`}
                     >
                       {sys.members.map((m) => renderMemberLeaf(m, [team.name, sys.name, m.name]))}
@@ -170,6 +174,7 @@ export default function CatalogHierarchyPage() {
                   onToggle={() => toggle(`ungrouped:${team.id}`)}
                   onSelect={() => setSelectedPath([team.name, "Ungrouped"])}
                   depth={2}
+                  nodeType="ungrouped"
                   testId={`node-ungrouped-${team.id}`}
                 >
                   {team.ungrouped.members.map((m) => renderMemberLeaf(m, [team.name, "Ungrouped", m.name]))}

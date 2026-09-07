@@ -9,12 +9,13 @@ describe("HierarchyTreeNode", () => {
     const onToggle = vi.fn();
     render(
       <MemoryRouter>
-        <HierarchyTreeNode label="Team Alpha" count={3} expanded={false} hasChildren onToggle={onToggle} depth={0} />
+        <HierarchyTreeNode label="Team Alpha" count={3} expanded={false} hasChildren onToggle={onToggle} depth={0} nodeType="team" />
       </MemoryRouter>,
     );
     const btn = screen.getByRole("button", { name: /Team Alpha/ });
     expect(btn).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getByText("Team")).toBeInTheDocument();
     await userEvent.click(btn);
     expect(onToggle).toHaveBeenCalledOnce();
   });
@@ -23,17 +24,18 @@ describe("HierarchyTreeNode", () => {
     render(
       <MemoryRouter>
         <HierarchyTreeNode label="member-svc" count={0} expanded={false} hasChildren={false}
-          to="/catalog/services/abc" onToggle={() => {}} depth={2} />
+          to="/catalog/services/abc" onToggle={() => {}} depth={2} nodeType="service" />
       </MemoryRouter>,
     );
     const link = screen.getByRole("link", { name: /member-svc/ });
     expect(link).toHaveAttribute("href", "/catalog/services/abc");
+    expect(screen.getByText("Service")).toBeInTheDocument();
   });
 
   it("does not render children when collapsed", () => {
     render(
       <MemoryRouter>
-        <HierarchyTreeNode label="Team" count={1} expanded={false} hasChildren onToggle={() => {}} depth={0}>
+        <HierarchyTreeNode label="Team" count={1} expanded={false} hasChildren onToggle={() => {}} depth={0} nodeType="team">
           <div>child-content</div>
         </HierarchyTreeNode>
       </MemoryRouter>,
