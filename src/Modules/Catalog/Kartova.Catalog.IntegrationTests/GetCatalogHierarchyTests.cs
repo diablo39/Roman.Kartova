@@ -75,4 +75,49 @@ public sealed class GetCatalogHierarchyTests : CatalogIntegrationTestBase
         Assert.AreEqual(1, bNode.ComponentCount);
         Assert.IsFalse(tree.Truncated);
     }
+
+    [TestMethod]
+    public async Task Unauthenticated_request_is_401()
+    {
+        var client = Fx.CreateClient();   // no bearer token
+        var resp = await client.GetAsync("/api/v1/catalog/hierarchy");
+        Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Rls_isolates_other_tenants_systems_and_components()
+    {
+        // Seed a system+member in Org B.
+        var bClient = await Fx.CreateAuthenticatedClientAsync(OrgBUser);
+        var bTenant = Fx.TenantIdForEmail(OrgBUser);
+        var bTeam = await Fx.SeedTeamInOrganizationAsync(bTenant, "Hier-Bten-" + Guid.NewGuid());
+        var bSys = await SeedSystemAsync(bClient, bTeam, "b-only-sys");
+        var bSvc = await SeedServiceAsync(bClient, bTeam, "b-only-svc");
+        await AssignSystemAsync(bClient, "services", bSvc, bSys);
+
+        // Org A's hierarchy must not contain any Org B id.
+        var aClient = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var tree = (await (await aClient.GetAsync("/api/v1/catalog/hierarchy"))
+            .Content.ReadFromJsonAsync<CatalogHierarchyResponse>(KartovaApiFixtureBase.WireJson))!;
+
+        Assert.IsFalse(tree.Teams.Any(t => t.TeamId == bTeam));
+        Assert.IsFalse(tree.Teams.SelectMany(t => t.Systems).Any(s => s.SystemId == bSys));
+        Assert.IsFalse(tree.Teams
+            .SelectMany(t => t.Systems.SelectMany(s => s.Members).Concat(t.Ungrouped.Members))
+            .Any(m => m.Id == bSvc));
+    }
+
+    [TestMethod]
+    public async Task Small_catalog_is_not_truncated()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var team = await Fx.SeedTeamInOrganizationAsync(tenant, "Hier-NT-" + Guid.NewGuid());
+        for (var i = 0; i < 3; i++) await SeedServiceAsync(client, team, $"nt-{i}-{Guid.NewGuid()}");
+
+        var tree = (await (await client.GetAsync("/api/v1/catalog/hierarchy"))
+            .Content.ReadFromJsonAsync<CatalogHierarchyResponse>(KartovaApiFixtureBase.WireJson))!;
+
+        Assert.IsFalse(tree.Truncated);
+    }
 }
