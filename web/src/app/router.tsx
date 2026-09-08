@@ -11,6 +11,9 @@ import { ApiDetailPage } from "@/features/catalog/pages/ApiDetailPage";
 import { SystemsListPage } from "@/features/catalog/pages/SystemsListPage";
 import { SystemDetailPage } from "@/features/catalog/pages/SystemDetailPage";
 import CatalogHierarchyPage from "@/features/catalog/pages/CatalogHierarchyPage";
+import { AllInfrastructureListPage } from "@/features/catalog/pages/AllInfrastructureListPage";
+import { VirtualMachinesListPage } from "@/features/catalog/pages/VirtualMachinesListPage";
+import { VmDetailPage } from "@/features/catalog/pages/VmDetailPage";
 import { TeamsListPage } from "@/features/teams/pages/TeamsListPage";
 import { TeamDetailPage } from "@/features/teams/pages/TeamDetailPage";
 import { WelcomePage } from "@/features/auth/pages/WelcomePage";
@@ -62,6 +65,9 @@ export function AppRoutes() {
         <Route path="/catalog/apis/:id" element={<ApiDetailPage />} />
         <Route path="/catalog/systems" element={<SystemsListPage />} />
         <Route path="/catalog/systems/:id" element={<SystemDetailPage />} />
+        <Route path="/catalog/infrastructure" element={<AllInfrastructureListPage />} />
+        <Route path="/catalog/infrastructure/vms" element={<VirtualMachinesListPage />} />
+        <Route path="/catalog/infrastructure/vms/:id" element={<VmDetailPage />} />
         <Route path="/catalog/hierarchy" element={<CatalogHierarchyPage />} />
         <Route path="/teams" element={<TeamsListPage />} />
         <Route path="/teams/:id" element={<TeamDetailPage />} />
