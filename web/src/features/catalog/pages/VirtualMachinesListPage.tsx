@@ -42,10 +42,10 @@ export function VirtualMachinesListPage() {
   const filterSpecs: FilterSpec[] = useMemo(
     () => [
       { key: "powerState", type: "single-select", label: "Power state", options: POWER_STATE_OPTIONS },
-      { key: "os", type: "text", label: "OS", placeholder: "Search by OS…" },
-      { key: "region", type: "text", label: "Region", placeholder: "Search by region…" },
-      { key: "hostname", type: "text", label: "Hostname", placeholder: "Search by hostname…" },
-      { key: "ipAddress", type: "text", label: "IP address", placeholder: "Search by IP…" },
+      { key: "os", type: "text", label: "OS", placeholder: "Exact OS…" },
+      { key: "region", type: "text", label: "Region", placeholder: "Exact region…" },
+      { key: "hostname", type: "text", label: "Hostname", placeholder: "Exact hostname…" },
+      { key: "ipAddress", type: "text", label: "IP address", placeholder: "IP address…" },
     ],
     [],
   );

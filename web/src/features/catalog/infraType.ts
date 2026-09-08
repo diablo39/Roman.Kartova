@@ -32,5 +32,5 @@ export function infraTypeColor(type: InfraType): BadgeColors {
 
 /** Type-guard / coercion: narrow an unknown server string to `InfraType`. */
 export function isInfraType(value: unknown): value is InfraType {
-  return typeof value === "string" && value in LABEL;
+  return typeof value === "string" && Object.hasOwn(LABEL, value);
 }

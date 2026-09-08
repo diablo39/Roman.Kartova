@@ -32,5 +32,5 @@ export function powerStateColor(state: PowerState): BadgeColors {
 
 /** Type-guard / coercion: narrow an unknown server string to `PowerState`. */
 export function isPowerState(value: unknown): value is PowerState {
-  return typeof value === "string" && value in LABEL;
+  return typeof value === "string" && Object.hasOwn(LABEL, value);
 }
