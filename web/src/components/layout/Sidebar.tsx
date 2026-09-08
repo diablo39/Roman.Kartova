@@ -81,15 +81,13 @@ function NavCollapsibleGroup({
   });
 
   const toggle = () => {
-    setOpen((prev) => {
-      const next = !prev;
-      try {
-        sessionStorage.setItem(key, String(next));
-      } catch {
-        /* storage unavailable — keep in-memory state only */
-      }
-      return next;
-    });
+    const next = !open;
+    setOpen(next);
+    try {
+      sessionStorage.setItem(key, String(next));
+    } catch {
+      /* storage unavailable — keep in-memory state only */
+    }
   };
 
   return (
@@ -113,9 +111,7 @@ function NavCollapsibleGroup({
         </svg>
       </button>
       {open && (
-        <ul className="space-y-1 pl-2" data-testid={`nav-collapsible-${storageKey}-items`}>
-          {children}
-        </ul>
+        <ul className="space-y-1 pl-2">{children}</ul>
       )}
     </div>
   );
