@@ -1,0 +1,39 @@
+{
+    "items": [
+        {
+            "id": "dd0f95a1-774b-48a8-bd86-c3678977b7b9",
+            "tenantId": "11111111-1111-1111-1111-111111111111",
+            "displayName": "app-vm-03",
+            "description": "Seeded VM: application worker node, suspended.",
+            "type": "virtualMachine",
+            "teamId": "dddddddd-0001-0001-0001-000000000001",
+            "systemId": null,
+            "createdByUserId": "aaaabbbb-0001-0001-0001-000000000001",
+            "createdAt": "2026-09-08T14:53:41.829685+00:00"
+        },
+        {
+            "id": "9f6efec8-9809-4be9-91e0-e3c75747075e",
+            "tenantId": "11111111-1111-1111-1111-111111111111",
+            "displayName": "gate9-verify-vm",
+            "description": "Gate 9 live create - SPA string wire path",
+            "type": "virtualMachine",
+            "teamId": "dddddddd-0001-0001-0001-000000000001",
+            "systemId": null,
+            "createdByUserId": "601eecd8-1054-4432-a6c0-40d5d53a50df",
+            "createdAt": "2026-09-08T17:58:01.837349+00:00"
+        },
+        {
+            "id": "4828fec6-2829-4944-9451-c66fa1f835df",
+            "tenantId": "11111111-1111-1111-1111-111111111111",
+            "displayName": "sql-vm-02",
+            "description": "Seeded VM: primary SQL database, currently stopped for maintenance.",
+            "type": "virtualMachine",
+            "teamId": "dddddddd-0001-0001-0001-000000000001",
+            "systemId": null,
+            "createdByUserId": "aaaabbbb-0001-0001-0001-000000000001",
+            "createdAt": "2026-09-08T14:52:41.829685+00:00"
+        }
+    ],
+    "nextCursor": "eyJzIjoic3FsLXZtLTAyIiwiaSI6IjQ4MjhmZWM2LTI4MjktNDk0NC05NDUxLWM2NmZhMWY4MzVkZiIsImQiOiJhc2MifQ",
+    "prevCursor": null
+}

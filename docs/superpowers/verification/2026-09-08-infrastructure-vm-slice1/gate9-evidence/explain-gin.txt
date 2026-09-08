@@ -1,0 +1,18 @@
+SET
+SET
+                               QUERY PLAN                               
+------------------------------------------------------------------------
+ Seq Scan on catalog_infrastructure  (cost=0.00..11.00 rows=1 width=16)
+   Filter: (attributes @> '{"powerState": "running"}'::jsonb)
+(2 rows)
+
+SET
+SET
+                                             QUERY PLAN                                             
+----------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on catalog_infrastructure  (cost=12.81..16.82 rows=1 width=16)
+   Recheck Cond: (attributes @> '{"powerState": "running"}'::jsonb)
+   ->  Bitmap Index Scan on ix_catalog_infrastructure_attributes  (cost=0.00..12.81 rows=1 width=0)
+         Index Cond: (attributes @> '{"powerState": "running"}'::jsonb)
+(4 rows)
+

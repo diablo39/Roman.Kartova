@@ -1,0 +1,64 @@
+slice:  2026-09-08-infrastructure-vm-slice1
+branch: feat/catalog-infrastructure-vm-slice1
+head:   c56bb3d
+
+# Per-task subagent reviews (gate 2) were almost all clean; findings below are the
+# ones that drove a change or are notable telemetry. Most per-task findings were Minor/deferred.
+findings:
+  - gate: reviews
+    severity: blocking
+    verdict: real
+    title: "FE EntityKind union/maps not widened for 'infrastructure' → 5 tsc errors, build red"
+    note: "surfaced at T16 build; T3 enum + T14 codegen propagated the member; fixed centrally in graphMerge/graphModel/GraphExplorerSidebar (8f761b6d). Impact analysis had covered only C# consumers."
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "SPA string-number wire path (vcpu/memoryGb) had zero automated coverage"
+    note: "fixed FW1 6589d5e — added real-seam POST-as-strings test; relies on ASP.NET AllowReadingFromString default"
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "VmAttributes.ToDto hand-rolled enum lowercasing (multi-word divergence risk)"
+    note: "fixed FW1 — routed through shared JsonSerializerOptions"
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "No server-side max-length/count bounds on os/hostname/region/ipAddresses (FE had them)"
+    note: "fixed FW1 — MaxOs/Hostname/Region mirror FE zod, MaxIpAddresses=32 server-only (FE has no cap)"
+  - gate: deep-review
+    severity: blocking
+    verdict: real
+    title: "Spec-mandated new ADR (amending ADR-0111) was never written"
+    note: "authored ADR-0115 (Proposed, pending human accept) + wired into index (56b915b)"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "Generic-list sort allowlist dropped 'type' (spec §6.5) — typed column, not covered by JSONB-sort deferral"
+    note: "fixed FW3 420dafc — added Type to InfrastructureSortField + SortSpec + integration test"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "list-filter-registry.md rows falsely said 'no SPA screen ships' after screens shipped"
+    note: "fixed FW3 88a74b2 (also raised by review-pr — same finding, two lenses)"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "VM text-filter placeholders implied substring but backend does exact @> equality"
+    note: "fixed FW3 bb0a597 — placeholders reworded to signal exact match; substring deferred"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "isPowerState/isInfraType used `in` (prototype-chain) instead of Object.hasOwn"
+    note: "fixed FW3"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "registerVm.ts POWER_STATE_LABEL duplicated powerState.ts helper; 3 redundant unit tests"
+    note: "fixed FW2 8275121 — deduped label + removed subset/parametrized-covered tests (coverage preserved)"
+  - gate: manual
+    severity: nit
+    verdict: real
+    title: "Malformed-UTF-8 request body → 500 not 400 (framework decoder-fallback edge)"
+    note: "not slice-specific (any endpoint); observed during gate-9 live curl; not fixed — framework-level"
+
+# No delusion findings this slice — every review finding that led to no change was a documented accepted-deferral, not a false positive.

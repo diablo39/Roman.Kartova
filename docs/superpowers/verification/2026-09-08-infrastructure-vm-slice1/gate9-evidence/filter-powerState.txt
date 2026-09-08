@@ -1,0 +1,1 @@
+powerState=running -> 2 VMs: ['gate9-verify-vm', 'web-vm-01']
