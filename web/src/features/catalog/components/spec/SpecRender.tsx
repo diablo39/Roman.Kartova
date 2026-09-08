@@ -54,6 +54,10 @@ export default class SpecRender extends Component<Props, State> {
             // button (defaults to shown), which is the actual SSRF/live-request surface.
             hideClientButton: true,
             hideTestRequestButton: true,
+            // Disable Scalar's "Generate MCP server" button. Its own logic force-shows
+            // it on any localhost URL (isLocalUrl) regardless of other flags — only
+            // mcp.disabled suppresses it. We don't expose MCP generation from the spec view.
+            mcp: { disabled: true },
             theme: "default",
           }}
         />
