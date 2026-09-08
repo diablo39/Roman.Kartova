@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { cx } from "@/lib/utils/cx";
 import { usePermissions } from "@/shared/auth/usePermissions";
@@ -53,6 +54,73 @@ function NavItemLink({ to, label }: { to: string; label: string }) {
   );
 }
 
+/**
+ * Collapsible sub-group inside a NavGroup — a clickable header (with a rotating
+ * chevron) that shows/hides a stack of nav items. Used to split the Catalog
+ * section into "Software" and "Infrastructure". Open/closed state is remembered
+ * per browser session under `nav.group.<storageKey>` (same sessionStorage
+ * convention as the Hierarchy tree); reads are guarded because storage access
+ * can throw in locked-down contexts.
+ */
+function NavCollapsibleGroup({
+  title,
+  storageKey,
+  children,
+}: {
+  title: string;
+  storageKey: string;
+  children: React.ReactNode;
+}) {
+  const key = `nav.group.${storageKey}`;
+  const [open, setOpen] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem(key) !== "false"; // default open
+    } catch {
+      return true;
+    }
+  });
+
+  const toggle = () => {
+    setOpen((prev) => {
+      const next = !prev;
+      try {
+        sessionStorage.setItem(key, String(next));
+      } catch {
+        /* storage unavailable — keep in-memory state only */
+      }
+      return next;
+    });
+  };
+
+  return (
+    <div className="space-y-1" data-testid={`nav-collapsible-${storageKey}`}>
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary_hover"
+      >
+        <span>{title}</span>
+        <svg
+          className={cx("ml-auto size-4 shrink-0 transition-transform motion-reduce:transition-none", !open && "-rotate-90")}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          aria-hidden="true"
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+      {open && (
+        <ul className="space-y-1 pl-2" data-testid={`nav-collapsible-${storageKey}-items`}>
+          {children}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function DisabledItem({ label }: { label: string }) {
   return (
     <span
@@ -78,29 +146,38 @@ export function Sidebar() {
       </div>
       <nav className="flex-1 overflow-y-auto p-3">
         <NavGroup title="Catalog" className="mt-0">
-          <ul className="space-y-1">
-            <li>
-              <NavItemLink to="/catalog/applications" label="Applications" />
-            </li>
-            <li>
-              <NavItemLink to="/catalog/services" label="Services" />
-            </li>
-            <li>
-              <NavItemLink to="/catalog/apis" label="APIs" />
-            </li>
-            <li>
-              <NavItemLink to="/catalog/systems" label="Systems" />
-            </li>
-            <li>
-              <NavItemLink to="/catalog/hierarchy" label="Hierarchy" />
-            </li>
-            <li>
-              <DisabledItem label="Infrastructure" />
-            </li>
-            <li>
-              <DisabledItem label="Docs" />
-            </li>
-          </ul>
+          <div className="space-y-1">
+            <NavCollapsibleGroup title="Software" storageKey="software">
+              <li>
+                <NavItemLink to="/catalog/applications" label="Applications" />
+              </li>
+              <li>
+                <NavItemLink to="/catalog/services" label="Services" />
+              </li>
+              <li>
+                <NavItemLink to="/catalog/apis" label="APIs" />
+              </li>
+              <li>
+                <NavItemLink to="/catalog/systems" label="Systems" />
+              </li>
+            </NavCollapsibleGroup>
+            <NavCollapsibleGroup title="Infrastructure" storageKey="infrastructure">
+              <li>
+                <DisabledItem label="Components" />
+              </li>
+              <li>
+                <DisabledItem label="Brokers" />
+              </li>
+            </NavCollapsibleGroup>
+            <ul className="space-y-1">
+              <li>
+                <NavItemLink to="/catalog/hierarchy" label="Hierarchy" />
+              </li>
+              <li>
+                <DisabledItem label="Docs" />
+              </li>
+            </ul>
+          </div>
         </NavGroup>
         {(canSeeTeams || canSeeMembers) && (
           <ul className="mt-4 space-y-1">

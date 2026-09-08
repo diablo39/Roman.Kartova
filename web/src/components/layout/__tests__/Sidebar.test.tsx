@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 // Hoisted mock — must precede the `import { Sidebar } from "../Sidebar"` below
@@ -37,6 +37,7 @@ function renderSidebar() {
 describe("Sidebar", () => {
   beforeEach(() => {
     usePermissionsMock.mockReset();
+    sessionStorage.clear();
   });
 
   it("always renders the Catalog group + Applications link, regardless of permissions", () => {
@@ -114,14 +115,57 @@ describe("Sidebar", () => {
     expect(link).toHaveAttribute("href", "/catalog/hierarchy");
   });
 
-  it("renders disabled placeholders (Infrastructure / Docs) with data-disabled", () => {
+  it("renders Docs as the only top-level disabled placeholder", () => {
     setPermissions();
     renderSidebar();
-    const disabled = screen.getAllByText(/Infrastructure|Docs/);
-    expect(disabled.length).toBe(2);
-    for (const node of disabled) {
-      expect(node.getAttribute("data-disabled")).toBe("true");
+    const docs = screen.getByText("Docs");
+    expect(docs.getAttribute("data-disabled")).toBe("true");
+    // The old top-level disabled "Infrastructure" leaf is gone — it is now a
+    // collapsible group header (a button), not a disabled placeholder.
+    expect(screen.queryByRole("button", { name: /^Infrastructure$/i })).toBeInTheDocument();
+  });
+
+  it("groups the software entities under a collapsible Software group, expanded by default", () => {
+    setPermissions();
+    renderSidebar();
+    const header = screen.getByRole("button", { name: /^Software$/i });
+    expect(header).toHaveAttribute("aria-expanded", "true");
+    for (const name of ["Applications", "Services", "APIs", "Systems"]) {
+      expect(screen.getByRole("link", { name })).toBeInTheDocument();
     }
+  });
+
+  it("renders a collapsible Infrastructure group with disabled Components + Brokers leaves", () => {
+    setPermissions();
+    renderSidebar();
+    const header = screen.getByRole("button", { name: /^Infrastructure$/i });
+    expect(header).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Components").getAttribute("data-disabled")).toBe("true");
+    expect(screen.getByText("Brokers").getAttribute("data-disabled")).toBe("true");
+  });
+
+  it("collapsing the Software group hides its member links", () => {
+    setPermissions();
+    renderSidebar();
+    const header = screen.getByRole("button", { name: /^Software$/i });
+    fireEvent.click(header);
+    expect(header).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("link", { name: "Applications" })).toBeNull();
+  });
+
+  it("persists a collapsed group to sessionStorage", () => {
+    setPermissions();
+    renderSidebar();
+    fireEvent.click(screen.getByRole("button", { name: /^Software$/i }));
+    expect(sessionStorage.getItem("nav.group.software")).toBe("false");
+  });
+
+  it("restores a collapsed group from sessionStorage on mount", () => {
+    sessionStorage.setItem("nav.group.software", "false");
+    setPermissions();
+    renderSidebar();
+    expect(screen.getByRole("button", { name: /^Software$/i })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("link", { name: "Applications" })).toBeNull();
   });
 
   function renderAt(path: string) {
