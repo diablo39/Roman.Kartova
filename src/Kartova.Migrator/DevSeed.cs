@@ -281,6 +281,85 @@ internal static class DevSeed
             await ExecAsync(conn, "ALTER TABLE catalog_apis FORCE ROW LEVEL SECURITY;");
             await ExecAsync(conn, "ALTER TABLE catalog_api_specs FORCE ROW LEVEL SECURITY;");
         }
+
+        // Seed ~3 sample Virtual Machines for Org A so the new Virtual Machines list screen
+        // renders real data in dev (Task 13, infrastructure slice 1). Entities are built via
+        // InfrastructureResource.Create (domain factory) purely to get its validation + a
+        // stable generated id — persistence itself stays raw SQL, mirroring every other block
+        // in this file. Attributes are built through VmAttributes.Validate(...).ToJson() so the
+        // seeded jsonb payload is guaranteed valid + camelCase-correct, matching what RegisterVm
+        // would persist for a real write. Guarded by the same count-then-insert idempotency
+        // check as the 120-application block above.
+        try
+        {
+            await ExecAsync(conn, "ALTER TABLE catalog_infrastructure NO FORCE ROW LEVEL SECURITY;");
+            await using var infraCheckCmd = conn.CreateCommand();
+            infraCheckCmd.CommandText = "SELECT COUNT(*) FROM catalog_infrastructure WHERE tenant_id = $1;";
+            infraCheckCmd.Parameters.AddWithValue(OrgATenantId);
+            var existingInfra = (long?)await infraCheckCmd.ExecuteScalarAsync() ?? 0L;
+
+            if (existingInfra == 0L)
+            {
+                var origin = DateTimeOffset.UtcNow.AddMinutes(-60);
+                var vms = new[]
+                {
+                    Kartova.Catalog.Domain.InfrastructureResource.Create(
+                        "web-vm-01",
+                        "Seeded VM: public-facing web frontend.",
+                        Kartova.Catalog.Domain.InfrastructureType.VirtualMachine,
+                        Kartova.Catalog.Application.VmAttributes.Validate(new Kartova.Catalog.Contracts.VmAttributesDto(
+                            "running", "Ubuntu 22.04 LTS", 4, 16, "web-vm-01.orga.internal",
+                            new[] { "10.0.1.11" }, "eu-west-1")).ToJson(),
+                        TeamAdminUserId, DemoTeamId, new TenantId(OrgATenantId), origin),
+                    Kartova.Catalog.Domain.InfrastructureResource.Create(
+                        "sql-vm-02",
+                        "Seeded VM: primary SQL database, currently stopped for maintenance.",
+                        Kartova.Catalog.Domain.InfrastructureType.VirtualMachine,
+                        Kartova.Catalog.Application.VmAttributes.Validate(new Kartova.Catalog.Contracts.VmAttributesDto(
+                            "stopped", "Windows Server 2022", 8, 32, "sql-vm-02.orga.internal",
+                            new[] { "10.0.2.21", "10.0.2.22" }, "us-east-1")).ToJson(),
+                        TeamAdminUserId, DemoTeamId, new TenantId(OrgATenantId), origin.AddMinutes(1)),
+                    Kartova.Catalog.Domain.InfrastructureResource.Create(
+                        "app-vm-03",
+                        "Seeded VM: application worker node, suspended.",
+                        Kartova.Catalog.Domain.InfrastructureType.VirtualMachine,
+                        Kartova.Catalog.Application.VmAttributes.Validate(new Kartova.Catalog.Contracts.VmAttributesDto(
+                            "suspended", "Red Hat Enterprise Linux 9", 2, 8, "app-vm-03.orga.internal",
+                            new[] { "10.0.3.31" }, "eu-north-1")).ToJson(),
+                        TeamAdminUserId, DemoTeamId, new TenantId(OrgATenantId), origin.AddMinutes(2)),
+                };
+
+                foreach (var vm in vms)
+                {
+                    await using var insertCmd = conn.CreateCommand();
+                    insertCmd.CommandText = """
+                        INSERT INTO catalog_infrastructure
+                            (id, tenant_id, display_name, description, type, attributes, team_id, created_by_user_id, created_at)
+                        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9);
+                        """;
+                    insertCmd.Parameters.AddWithValue(vm.Id.Value);
+                    insertCmd.Parameters.AddWithValue(vm.TenantId.Value);
+                    insertCmd.Parameters.AddWithValue(vm.DisplayName);
+                    insertCmd.Parameters.AddWithValue(vm.Description);
+                    insertCmd.Parameters.AddWithValue((short)vm.Type);
+                    insertCmd.Parameters.AddWithValue(vm.Attributes);
+                    insertCmd.Parameters.AddWithValue(vm.TeamId);
+                    insertCmd.Parameters.AddWithValue(vm.CreatedByUserId);
+                    insertCmd.Parameters.AddWithValue(vm.CreatedAt);
+                    await insertCmd.ExecuteNonQueryAsync();
+                }
+
+                logger.LogInformation("Dev seed: inserted {Count} virtual machines for Org A.", vms.Length);
+            }
+            else
+            {
+                logger.LogInformation("Dev seed: infrastructure already present (Count={Count}).", existingInfra);
+            }
+        }
+        finally
+        {
+            await ExecAsync(conn, "ALTER TABLE catalog_infrastructure FORCE ROW LEVEL SECURITY;");
+        }
     }
 
     private static async Task ExecAsync(NpgsqlConnection conn, string sql)
