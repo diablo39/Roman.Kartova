@@ -99,7 +99,15 @@ export function VmTable({ list, sortBy, sortOrder, onSortChange, teamNameById }:
                 <Table.Cell className="text-sm text-tertiary">{vm.attributes.memoryGb}</Table.Cell>
                 <Table.Cell className="text-sm">{vm.attributes.hostname}</Table.Cell>
                 <Table.Cell className="text-sm text-tertiary">
-                  {ips.length === 0 ? "—" : ips.length === 1 ? ips[0] : `${ips[0]} +${ips.length - 1}`}
+                  {ips.length === 0 ? (
+                    "—"
+                  ) : (
+                    <div className="flex flex-col">
+                      {ips.map((ip) => (
+                        <span key={ip}>{ip}</span>
+                      ))}
+                    </div>
+                  )}
                 </Table.Cell>
                 <Table.Cell className="text-sm">{vm.attributes.region}</Table.Cell>
                 <Table.Cell className="text-sm">
