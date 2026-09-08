@@ -168,6 +168,41 @@ describe("Sidebar", () => {
     expect(screen.queryByRole("link", { name: "Applications" })).toBeNull();
   });
 
+  it("links the group toggle to its list via aria-controls", () => {
+    setPermissions();
+    renderSidebar();
+    const btn = screen.getByRole("button", { name: /^Software$/i });
+    const controls = btn.getAttribute("aria-controls");
+    expect(controls).toBeTruthy();
+    expect(document.getElementById(controls!)).toBeInTheDocument();
+  });
+
+  it("defaults open and still toggles when sessionStorage throws", () => {
+    const getSpy = vi
+      .spyOn(Storage.prototype, "getItem")
+      .mockImplementation(() => {
+        throw new Error("storage blocked");
+      });
+    const setSpy = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(() => {
+        throw new Error("storage blocked");
+      });
+    try {
+      setPermissions();
+      renderSidebar();
+      const btn = screen.getByRole("button", { name: /^Software$/i });
+      // read threw → falls back to default-open
+      expect(btn).toHaveAttribute("aria-expanded", "true");
+      // write throws → state still flips, persistence silently skipped
+      fireEvent.click(btn);
+      expect(btn).toHaveAttribute("aria-expanded", "false");
+    } finally {
+      getSpy.mockRestore();
+      setSpy.mockRestore();
+    }
+  });
+
   function renderAt(path: string) {
     return render(
       <MemoryRouter initialEntries={[path]}>

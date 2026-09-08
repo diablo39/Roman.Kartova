@@ -72,6 +72,7 @@ function NavCollapsibleGroup({
   children: React.ReactNode;
 }) {
   const key = `nav.group.${storageKey}`;
+  const listId = `nav-collapsible-${storageKey}-items`;
   const [open, setOpen] = useState<boolean>(() => {
     try {
       return sessionStorage.getItem(key) !== "false"; // default open
@@ -96,6 +97,7 @@ function NavCollapsibleGroup({
         type="button"
         onClick={toggle}
         aria-expanded={open}
+        aria-controls={listId}
         className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary_hover"
       >
         <span>{title}</span>
@@ -110,9 +112,12 @@ function NavCollapsibleGroup({
           <path d="M6 9l6 6 6-6" />
         </svg>
       </button>
-      {open && (
-        <ul className="space-y-1 pl-2">{children}</ul>
-      )}
+      {/* Always rendered (hidden when collapsed) so `aria-controls` always
+          resolves; the `hidden` subtree is excluded from the a11y tree, so
+          collapsed items are unreachable by AT and by role queries. */}
+      <ul id={listId} hidden={!open} className="space-y-1 pl-2">
+        {children}
+      </ul>
     </div>
   );
 }
