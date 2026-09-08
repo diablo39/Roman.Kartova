@@ -40,15 +40,21 @@ const navItemClass = (active: boolean) =>
  * Extracted so the Catalog and Settings groups can render sub-items with
  * identical chrome.
  *
- * Plain `NavLink` descendant matching is correct for every item: Applications
+ * Plain `NavLink` descendant matching is correct for most items: Applications
  * (`/catalog/applications`), Services (`/catalog/services`), APIs
  * (`/catalog/apis`), and Systems (`/catalog/systems`) no longer share a path
  * prefix beyond `/catalog`, so none highlights on another's routes, while each
  * still lights up on its own detail pages (`…/:id`).
+ *
+ * The Infrastructure group is the exception: "All Objects" (`/catalog/infrastructure`)
+ * IS a path prefix of "Virtual Machines" (`/catalog/infrastructure/vms`), so with
+ * descendant matching All Objects would also highlight on every VM route. Pass
+ * `end` for such a parent link to require an exact-path match. (Virtual Machines
+ * keeps descendant matching so it still lights up on `…/vms/:id`.)
  */
-function NavItemLink({ to, label }: { to: string; label: string }) {
+function NavItemLink({ to, label, end }: { to: string; label: string; end?: boolean }) {
   return (
-    <NavLink to={to} className={({ isActive }) => navItemClass(isActive)}>
+    <NavLink to={to} end={end} className={({ isActive }) => navItemClass(isActive)}>
       {label}
     </NavLink>
   );
@@ -170,7 +176,7 @@ export function Sidebar() {
                 <DisabledItem label="Brokers" />
               </li>
               <li>
-                <NavItemLink to="/catalog/infrastructure" label="All Objects" />
+                <NavItemLink to="/catalog/infrastructure" label="All Objects" end />
               </li>
             </NavCollapsibleGroup>
             <ul className="space-y-1">
