@@ -95,4 +95,7 @@ public static class ProblemTypes
     // API spec upload — ADR-0112.
     public const string UnsupportedSpecMediaType = Base + "unsupported-spec-media-type"; // 415: Content-Type not application/json or application/yaml.
     public const string SpecTooLarge             = Base + "spec-too-large";              // 400: declared or streamed length exceeded the configured Catalog:ApiSpec:MaxContentBytes.
+
+    // Catalog ?type= multi-select filter — generic infrastructure list (ADR-0111 amendment).
+    public const string InvalidTypeFilter        = Base + "invalid-type-filter";
 }
