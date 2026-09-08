@@ -23,7 +23,7 @@
 | 8 `deep-review` | ✅ PASS | 2026-09-08 |
 | Terminal re-verify (build + suite) | ✅ PASS | 2026-09-08 — build 0/0 + full suite 0 failures @ c56bb3d |
 | 9 Visual / API verification (ADR-0084) | ✅ PASS | 2026-09-08 — see `gate9-evidence/` (3 UI screenshots + live API json + EXPLAIN-GIN) |
-| 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING | — |
+| 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ✅ PASS | 2026-09-08 — PR #86, run 34272174372 all 5 checks green (Backend/Container/Frontend/Helm/Stryker). First run reddened Frontend on a stale Sidebar test (fixed 4e1dfdb); ci-local Backend reds were confirmed local memory-flakes (runner passed). |
 | ADR (0115, amends ADR-0111 taxonomy) | ✅ ACCEPTED | 2026-09-08 — accepted by human |
 
 ## Gate detail
