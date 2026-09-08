@@ -267,6 +267,73 @@ namespace Kartova.Catalog.Infrastructure.Migrations
                     b.ToTable("catalog_systems", (string)null);
                 });
 
+            modelBuilder.Entity("Kartova.Catalog.Domain.InfrastructureResource", b =>
+                {
+                    b.Property<Guid>("_id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Attributes")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("attributes");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("display_name");
+
+                    b.Property<Guid?>("SystemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("system_id");
+
+                    b.Property<Guid>("TeamId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("team_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<short>("Type")
+                        .HasColumnType("smallint")
+                        .HasColumnName("type");
+
+                    b.Property<uint>("Xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("_id");
+
+                    b.HasIndex("TeamId")
+                        .HasDatabaseName("idx_catalog_infrastructure_team");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_catalog_infrastructure_tenant_id");
+
+                    b.HasIndex("TenantId", "DisplayName")
+                        .HasDatabaseName("ix_catalog_infrastructure_tenant_id_display_name");
+
+                    b.ToTable("catalog_infrastructure", (string)null);
+                });
+
             modelBuilder.Entity("Kartova.Catalog.Domain.Relationship", b =>
                 {
                     b.Property<Guid>("_id")

@@ -43,11 +43,12 @@ export function isRelationshipKind(kind: string): kind is RelationshipKind {
 // Rendering/search superset of RelationshipKind. `system` is a real catalog entity that can
 // appear as a relationship ENDPOINT (PartOf, ADR-0111), be searched, rendered as a graph node,
 // and used as a `/graph?focus=` URL token (`parseEntityRef` accepts it, FU-A) — but it is not a
-// creatable-edge kind, so it stays off RelationshipKind.
-export type EntityKind = RelationshipKind | "system";
+// creatable-edge kind, so it stays off RelationshipKind. `infrastructure` (VM/infra resources)
+// is likewise render-only here — not a creatable-edge kind.
+export type EntityKind = RelationshipKind | "system" | "infrastructure";
 
 export function isEntityKind(kind: string): kind is EntityKind {
-  return isRelationshipKind(kind) || kind === "system";
+  return isRelationshipKind(kind) || kind === "system" || kind === "infrastructure";
 }
 
 // FE creatable subset of backend RelationshipTypeRules.IsAllowedPair (ADR-0068/ADR-0111).

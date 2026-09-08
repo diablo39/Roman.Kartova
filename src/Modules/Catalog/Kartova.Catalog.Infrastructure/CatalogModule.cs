@@ -299,6 +299,31 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .ProducesProblem(StatusCodes.Status403Forbidden)
               .ProducesProblem(StatusCodes.Status404NotFound)
               .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+        // Infrastructure/VM read+write surface (ADR-0111 amendment, slice-1 allowlist).
+        // Generic list is shared-columns-only across every InfrastructureType; the VM list/get/
+        // register endpoints are the type-specific surface (only VirtualMachine exists today).
+        tenant.MapGet("/infrastructure", CatalogEndpointDelegates.ListInfrastructureAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRead)
+              .WithName("ListInfrastructure")
+              .Produces<CursorPage<InfrastructureListItemResponse>>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status400BadRequest);
+        tenant.MapGet("/infrastructure/vms", CatalogEndpointDelegates.ListVmsAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRead)
+              .WithName("ListVms")
+              .Produces<CursorPage<VmListItemResponse>>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status400BadRequest);
+        tenant.MapGet("/infrastructure/vms/{id:guid}", CatalogEndpointDelegates.GetVmByIdAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRead)
+              .WithName("GetVmById")
+              .Produces<VmDetailResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status404NotFound);
+        tenant.MapPost("/infrastructure/vms", CatalogEndpointDelegates.RegisterVmAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogInfrastructureRegister)
+              .WithName("RegisterVm")
+              .Produces<VmDetailResponse>(StatusCodes.Status201Created)
+              .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
+              .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
@@ -351,6 +376,10 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<GetImpactAnalysisHandler>();
         services.AddScoped<GetCatalogHierarchyHandler>();
         services.AddScoped<ICatalogEntityLookup, CatalogEntityLookup>();
+        services.AddScoped<ListInfrastructureHandler>();
+        services.AddScoped<ListVmsHandler>();
+        services.AddScoped<GetVmByIdHandler>();
+        services.AddScoped<RegisterVmHandler>();
 
         // TimeProvider is needed by Application.Deprecate / Decommission for the
         // "sunsetDate must be in the future" / "now >= sunsetDate" checks. TryAdd

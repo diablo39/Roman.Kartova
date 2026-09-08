@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.SharedKernel.AspNetCore;
@@ -23,6 +24,7 @@ using HealthStatus = Kartova.Catalog.Domain.HealthStatus;
 using ApiStyle = Kartova.Catalog.Domain.ApiStyle;
 using EntityRef = Kartova.Catalog.Domain.EntityRef;
 using EntityKind = Kartova.Catalog.Domain.EntityKind;
+using InfrastructureType = Kartova.Catalog.Domain.InfrastructureType;
 using ComponentAlreadyInSystemException = Kartova.Catalog.Domain.ComponentAlreadyInSystemException;
 using RelationshipType = Kartova.Catalog.Domain.RelationshipType;
 using RelationshipDirection = Kartova.Catalog.Application.RelationshipDirection;
@@ -39,6 +41,17 @@ internal static class CatalogEndpointDelegates
     /// hard failure, a self-inflicted break reachable by an ordinary user with a big selection.
     /// </summary>
     private const int MaxFilterValues = 50;
+
+    /// <summary>
+    /// Comma-joined, camelCase names of every <see cref="InfrastructureType"/> member
+    /// (e.g. <c>virtualMachine</c>), computed once from <see cref="Enum.GetNames{TEnum}"/> so
+    /// the <c>invalid-type-filter</c> 400 detail can never drift from the actual enum as new
+    /// members are added — mirrors the wire form <see cref="ListInfrastructureAsync"/> parses
+    /// against (<c>Enum.TryParse(ignoreCase: true)</c>).
+    /// </summary>
+    private static readonly string InfrastructureTypeNames = string.Join(
+        ", ",
+        Enum.GetNames<InfrastructureType>().Select(JsonNamingPolicy.CamelCase.ConvertName));
 
     /// <summary>
     /// Shared dedup-then-cap check for a multi-select Guid filter (ADR-0107). De-dups
@@ -645,6 +658,177 @@ internal static class CatalogEndpointDelegates
 
         var page = await handler.Handle(query, db, ct);
         return Results.Ok(page);
+    }
+
+    /// <summary>
+    /// <c>sortBy</c>/<c>sortOrder</c>/<c>limit</c> follow the same raw-string binding as
+    /// <see cref="ListServicesAsync"/> (ADR-0095). Generic across every
+    /// <see cref="InfrastructureType"/> — shared columns only (ADR-0111 amendment).
+    /// <para>
+    /// <c>teamId</c> — ADR-0107 multi-select team filter, same semantics as
+    /// <see cref="ListServicesAsync"/>'s <c>teamId</c>.
+    /// </para>
+    /// <para>
+    /// <c>type</c> — multi-select kind filter. Repeated <c>?type=</c> tokens are parsed as
+    /// case-insensitive enum names; numeric tokens and unknown strings are rejected with 400
+    /// <c>invalid-type-filter</c> (mirrors the <c>health</c>/<c>style</c> token parse in
+    /// <see cref="ListServicesAsync"/>/<see cref="ListApisAsync"/>). Empty ⇒ no predicate
+    /// (show every kind).
+    /// </para>
+    /// </summary>
+    internal static async Task<IResult> ListInfrastructureAsync(
+        [FromQuery] string? sortBy,
+        [FromQuery] string? sortOrder,
+        [FromQuery] string? cursor,
+        [FromQuery] string? limit,
+        [FromQuery] Guid[]? teamId,
+        [FromQuery] string[]? type,
+        ListInfrastructureHandler handler,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        var (parsedSortBy, parsedSortOrder, effectiveLimit) = CursorListBinding.Bind<InfrastructureSortField>(
+            sortBy, sortOrder, limit, InfrastructureSortSpecs.AllowedFieldNames);
+
+        // HashSet de-dups in place (repeated ?type=virtualMachine&type=virtualMachine is a
+        // no-op insert) so the cursor f-map stays canonical without a second .Distinct() pass.
+        var types = new HashSet<InfrastructureType>();
+        foreach (var raw in type ?? Array.Empty<string>())
+        {
+            if (int.TryParse(raw, out _)
+                || !Enum.TryParse<InfrastructureType>(raw, ignoreCase: true, out var parsed)
+                || !Enum.IsDefined(parsed))
+            {
+                return Results.Problem(
+                    type: ProblemTypes.InvalidTypeFilter,
+                    title: "Invalid type filter",
+                    detail: $"'{raw}' is not a valid infrastructure type. Expected one of: {InfrastructureTypeNames}.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+            types.Add(parsed);
+        }
+
+        if (TryDedupAndCap(teamId, "teamId", out var distinctTeamIds) is { } tooManyTeamIds)
+            return tooManyTeamIds;
+        if (TryCapDistinctCount(types, "type") is { } tooManyTypes)
+            return tooManyTypes;
+
+        var query = new ListInfrastructureQuery(
+            SortBy: parsedSortBy ?? InfrastructureSortField.DisplayName,
+            SortOrder: parsedSortOrder ?? SortOrder.Asc,
+            Cursor: cursor,
+            Limit: effectiveLimit,
+            TeamId: distinctTeamIds ?? Array.Empty<Guid>(),
+            Type: types.Count > 0 ? types.ToArray() : null);
+
+        var page = await handler.Handle(query, db, ct);
+        return Results.Ok(page);
+    }
+
+    /// <summary>
+    /// <c>sortBy</c>/<c>sortOrder</c>/<c>limit</c>/<c>teamId</c> follow the same binding as
+    /// <see cref="ListInfrastructureAsync"/>. Type is implicitly fixed to
+    /// <see cref="InfrastructureType.VirtualMachine"/> by <see cref="ListVmsHandler"/> — there
+    /// is no <c>type</c> parameter here.
+    /// <para>
+    /// <c>powerState</c>/<c>os</c>/<c>region</c>/<c>hostname</c>/<c>ipAddress</c> — single-value
+    /// equality filters over the jsonb <c>VmAttributes</c> payload (ADR-0111 amendment). Each is
+    /// a raw string passed straight through to <see cref="ListVmsHandler"/>'s jsonb containment
+    /// predicate — no enum parse, unlike <c>type</c>/<c>health</c>/<c>style</c>, since these are
+    /// free-form equality filters over VM attribute values rather than an allow-listed C# enum.
+    /// Blank/whitespace ⇒ no filter (mirrors <c>displayNameContains</c> elsewhere in this file).
+    /// </para>
+    /// </summary>
+    internal static async Task<IResult> ListVmsAsync(
+        [FromQuery] string? sortBy,
+        [FromQuery] string? sortOrder,
+        [FromQuery] string? cursor,
+        [FromQuery] string? limit,
+        [FromQuery] Guid[]? teamId,
+        [FromQuery] string? powerState,
+        [FromQuery] string? os,
+        [FromQuery] string? region,
+        [FromQuery] string? hostname,
+        [FromQuery] string? ipAddress,
+        ListVmsHandler handler,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        var (parsedSortBy, parsedSortOrder, effectiveLimit) = CursorListBinding.Bind<InfrastructureSortField>(
+            sortBy, sortOrder, limit, InfrastructureSortSpecs.AllowedFieldNames);
+
+        if (TryDedupAndCap(teamId, "teamId", out var distinctTeamIds) is { } tooManyTeamIds)
+            return tooManyTeamIds;
+
+        var query = new ListVmsQuery(
+            SortBy: parsedSortBy ?? InfrastructureSortField.DisplayName,
+            SortOrder: parsedSortOrder ?? SortOrder.Asc,
+            Cursor: cursor,
+            Limit: effectiveLimit,
+            TeamId: distinctTeamIds ?? Array.Empty<Guid>(),
+            PowerState: string.IsNullOrWhiteSpace(powerState) ? null : powerState.Trim(),
+            Os: string.IsNullOrWhiteSpace(os) ? null : os.Trim(),
+            Region: string.IsNullOrWhiteSpace(region) ? null : region.Trim(),
+            Hostname: string.IsNullOrWhiteSpace(hostname) ? null : hostname.Trim(),
+            IpAddress: string.IsNullOrWhiteSpace(ipAddress) ? null : ipAddress.Trim());
+
+        var page = await handler.Handle(query, db, ct);
+        return Results.Ok(page);
+    }
+
+    internal static async Task<IResult> GetVmByIdAsync(
+        Guid id,
+        GetVmByIdHandler handler,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        var resp = await handler.Handle(new GetVmByIdQuery(id), db, ct);
+        return resp is null ? EndpointResultExtensions.VmNotFound() : Results.Ok(resp);
+    }
+
+    /// <summary>
+    /// Registers a new VM-kind Infrastructure resource (ADR-0111 amendment). Team
+    /// existence/membership gates mirror <see cref="RegisterServiceAsync"/> exactly. Attribute
+    /// validation (<see cref="VmAttributes.Validate"/>) runs after those gates and before
+    /// dispatch; a thrown <see cref="ArgumentException"/> is NOT caught locally — it propagates
+    /// to <c>DomainValidationExceptionHandler</c>, the same global 400 ValidationFailed mapping
+    /// every other domain-invariant failure in this file relies on (no delegate here locally
+    /// catches ArgumentException).
+    /// </summary>
+    internal static async Task<IResult> RegisterVmAsync(
+        [FromBody] RegisterVmRequest request,
+        RegisterVmHandler handler,
+        CatalogDbContext db,
+        ITenantContext tenant,
+        ClaimsPrincipal caller,
+        ICurrentUser currentUser,
+        IAuthorizationService auth,
+        IOrganizationTeamExistenceChecker teamChecker,
+        IAuditWriter audit,
+        CancellationToken ct)
+    {
+        // ADR-0103: a new VM requires an existing owning team in the tenant.
+        // RLS-scoped checker → a cross-tenant id resolves as "not found" (same 422 branch).
+        if (!await teamChecker.ExistsAsync(request.TeamId, ct))
+        {
+            return Results.Problem(
+                type: ProblemTypes.InvalidTeam,
+                title: "Invalid team",
+                detail: "The supplied teamId does not resolve to a team in the current tenant.",
+                statusCode: StatusCodes.Status422UnprocessableEntity);
+        }
+
+        // Target-team membership gate (reuses the shared ApplicationTeamScoped policy).
+        if (await AuthorizeTargetTeamAsync(auth, caller, request.TeamId) is { } forbidden)
+            return forbidden;
+
+        var attrs = VmAttributes.Validate(request.Attributes);
+
+        var response = await handler.Handle(
+            new RegisterVmCommand(request.DisplayName, request.Description, request.TeamId, attrs),
+            db, tenant, currentUser, audit, ct);
+
+        return Results.Created($"/api/v1/catalog/infrastructure/vms/{response.Id}", response);
     }
 
     internal static async Task<IResult> RegisterApiAsync(

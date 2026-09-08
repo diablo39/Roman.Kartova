@@ -13,6 +13,7 @@ public static class KartovaPermissions
     public const string CatalogServicesRegister = "catalog.services.register";
     public const string CatalogApisRegister = "catalog.apis.register";
     public const string CatalogSystemsRegister = "catalog.systems.register";
+    public const string CatalogInfrastructureRegister = "catalog.infrastructure.register";
     public const string CatalogRelationshipsWrite = "catalog.relationships.write";
 
     public const string TeamRead          = "team.read";
@@ -39,6 +40,7 @@ public static class KartovaPermissions
         CatalogServicesRegister,
         CatalogApisRegister,
         CatalogSystemsRegister,
+        CatalogInfrastructureRegister,
         CatalogRelationshipsWrite,
         TeamRead,
         TeamCreate,

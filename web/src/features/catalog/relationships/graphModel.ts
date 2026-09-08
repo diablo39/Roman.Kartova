@@ -136,13 +136,20 @@ export function toGraphModel(
   return { nodes, edges };
 }
 
-export const ENTITY_KIND_LABEL: Record<EntityKind, string> = { application: "Application", service: "Service", api: "API", system: "System" };
+export const ENTITY_KIND_LABEL: Record<EntityKind, string> = {
+  application: "Application",
+  service: "Service",
+  api: "API",
+  system: "System",
+  infrastructure: "Infrastructure",
+};
 
 const ENTITY_PATH_SEGMENT: Record<EntityKind, string> = {
   application: "applications",
   service: "services",
   api: "apis",
   system: "systems",
+  infrastructure: "infrastructure",
 };
 
 export function parseEntityRef(token: string | null | undefined): { kind: EntityKind; id: string } | null {
