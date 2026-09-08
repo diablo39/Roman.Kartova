@@ -261,7 +261,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Scan / Import Architecture**: 0054, 0055, 0056, 0057
 - **Observability & Monitoring**: 0058, 0059, 0060
 - **Billing**: 0061, 0062, 0063
-- **Domain Model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073, 0103, 0110, 0111, 0112
+- **Domain Model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073, 0103, 0110, 0111, 0112, 0115
 - **Scale & Performance**: 0074, 0075, 0076
 - **Non-Functional / Cross-Cutting**: 0077, 0078, 0079
 - **Testing & Quality**: 0083, 0097
@@ -286,7 +286,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Resource identifier / entity ID format**: 0092, 0098
 - **Retention / archival / deletion**: 0017, 0019, 0020, 0073, 0102
 - **Audit & logging**: 0018, 0050, 0058, 0102, 0105
-- **Domain model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073, 0103, 0110, 0111, 0112
+- **Domain model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073, 0103, 0110, 0111, 0112, 0115
 - **Scale & performance**: 0013, 0031, 0074, 0075, 0076
 - **Availability & SLA**: 0005, 0023, 0053, 0076
 - **Billing & pricing**: 0061, 0062, 0063
