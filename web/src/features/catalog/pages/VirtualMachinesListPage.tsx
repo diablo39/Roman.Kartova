@@ -1,4 +1,5 @@
-import { useMemo, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { Plus } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { Card, CardContent } from "@/components/base/card/card";
 import { FilterBar } from "@/components/application/filter-bar/FilterBar";
@@ -8,6 +9,9 @@ import { useVmList } from "@/features/catalog/api/infrastructure";
 import { useTeamsList } from "@/features/teams/api/teams";
 import { useListUrlState } from "@/lib/list/useListUrlState";
 import { VmTable } from "@/features/catalog/components/VmTable";
+import { RegisterVmDialog } from "@/features/catalog/components/RegisterVmDialog";
+import { usePermissions } from "@/shared/auth/usePermissions";
+import { KartovaPermissions } from "@/shared/auth/permissions";
 import { asProblemDetails } from "@/shared/forms/problemDetails";
 
 const ALLOWED_SORT_FIELDS = ["createdAt", "displayName"] as const;
@@ -74,10 +78,10 @@ export function VirtualMachinesListPage() {
     urlState.setFilters({ text });
   };
 
-  // TODO(Task 20): add a "+ Register VM" header button gated on
-  // usePermissions().hasPermission(KartovaPermissions.CatalogInfrastructureRegister),
-  // wired to RegisterVmDialog once that component exists. Omitted here rather than
-  // importing a not-yet-created component, to keep this task's build green.
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const { hasPermission, isLoading: permissionsLoading } = usePermissions();
+  const canRegister = !permissionsLoading && hasPermission(KartovaPermissions.CatalogInfrastructureRegister);
 
   useEffect(() => {
     if (list.isError) console.error("VirtualMachinesListPage list error", list.error);
@@ -91,6 +95,11 @@ export function VirtualMachinesListPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold text-primary">Virtual Machines</h2>
+        {canRegister && (
+          <Button onClick={() => setDialogOpen(true)} size="sm" color="primary" iconLeading={Plus}>
+            Register VM
+          </Button>
+        )}
       </div>
 
       <FilterBar specs={filterSpecs} urlState={urlState} />
@@ -124,6 +133,8 @@ export function VirtualMachinesListPage() {
           teamNameById={teamNameById}
         />
       )}
+
+      {canRegister && <RegisterVmDialog open={dialogOpen} onOpenChange={setDialogOpen} />}
     </div>
   );
 }
