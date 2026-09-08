@@ -24,7 +24,7 @@
 | Terminal re-verify (build + suite) | ✅ PASS | 2026-09-08 — build 0/0 + full suite 0 failures @ c56bb3d |
 | 9 Visual / API verification (ADR-0084) | ✅ PASS | 2026-09-08 — see `gate9-evidence/` (3 UI screenshots + live API json + EXPLAIN-GIN) |
 | 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING | — |
-| ADR (0115, amends ADR-0111 taxonomy) | 🟡 PROPOSED | 2026-09-08 — written + indexed; **pending human acceptance** per ADR working agreement |
+| ADR (0115, amends ADR-0111 taxonomy) | ✅ ACCEPTED | 2026-09-08 — accepted by human |
 
 ## Gate detail
 

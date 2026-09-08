@@ -1,6 +1,6 @@
 # ADR-0115: Infrastructure Is a Discriminated Catalog Entity with Indexed-JSONB Variant Storage
 
-**Status:** Proposed (pending human acceptance — previewed per the ADR working agreement)
+**Status:** Accepted (2026-09-08 — previewed and accepted by the human per the ADR working agreement)
 **Date:** 2026-09-08
 **Deciders:** Roman Głogowski (solo developer, AI-assisted)
 **Category:** Domain Model
