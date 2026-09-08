@@ -139,8 +139,8 @@
   - **B2 — `/derived-dependencies` endpoint + mini-graph merge + read-only `DerivedDependenciesSection`** implemented on branch `feat/catalog-derived-dependencies-b2` (2026-07-09): shared `DerivedEdgeLoader`+`DerivedProvenanceNames` extracted from `GraphTraversalHandler` (DRY, behavior-preserving); bounded `GET /catalog/derived-dependencies?entityId=` (service-only, `entityId`-only shape, unknown/non-service/cross-tenant → 422) + `GetDerivedDependenciesHandler` (Dependencies/Dependents split); read-only `DerivedDependenciesSection` on service detail; derived dashed edges merged into the per-service mini-graph via `toGraphModel`. Real-seam 7/7 (incl. explicit-wins + cross-tenant 422); web 753/753. Plan `docs/superpowers/plans/2026-07-09-catalog-derived-dependencies-b2.md`, ledger `docs/superpowers/verification/2026-07-09-catalog-derived-dependencies/b2/dod.md`.
 
 **E-02.F-04: Infrastructure & Broker Entity Management**
-- [ ] E-02.F-04.S-01 — Register infrastructure components
-- [ ] E-02.F-04.S-02 — Register message brokers with queues/topics
+- [~] E-02.F-04.S-01 — Register infrastructure components — **slice 1 (read + create) merged 2026-09-08 (PR #86, ADR-0115)**: discriminated `EntityKind.Infrastructure` keyed by `InfrastructureType` (VM first), kind-agnostic aggregate + opaque indexed-JSONB attributes, generic vs type-specific `/vms` endpoint tiers, `catalog.infrastructure.register` perm, VM list/detail/register + All-Objects list. All ten DoD gates green — ledger `docs/superpowers/verification/2026-09-08-infrastructure-vm-slice1/dod.md`, spec `docs/superpowers/specs/2026-09-08-infrastructure-vm-slice1-design.md`. **Still open for full S-01:** VM update/delete, `provider` field, service-linkage (`DeployedOn`)/`PartOf` System membership, JSONB-column sort.
+- [ ] E-02.F-04.S-02 — Register message brokers with queues/topics — deferred; reuses the ADR-0115 Infrastructure aggregate with `InfrastructureType.Broker`
 
 **E-02.F-05: Environment & Deployment Tracking**
 - [ ] E-02.F-05.S-01 — Register environments with infra details
