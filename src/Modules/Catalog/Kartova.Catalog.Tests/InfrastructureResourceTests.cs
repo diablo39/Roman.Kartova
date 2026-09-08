@@ -18,17 +18,6 @@ public class InfrastructureResourceTests
         => InfrastructureResource.Create(name, desc, type, attributesJson, creator ?? Creator, team ?? Team, Tenant, Clock);
 
     [TestMethod]
-    public void Create_sets_fields_and_type()
-    {
-        var vm = InfrastructureResource.Create("web-01", "prod web VM",
-            InfrastructureType.VirtualMachine, "{}", Guid.NewGuid(), Guid.NewGuid(),
-            new TenantId(Guid.NewGuid()), TimeProvider.System);
-        Assert.AreEqual("web-01", vm.DisplayName);
-        Assert.AreEqual(InfrastructureType.VirtualMachine, vm.Type);
-        Assert.IsNull(vm.SystemId);
-    }
-
-    [TestMethod]
     public void Create_with_valid_args_sets_all_fields()
     {
         var r = Create();
@@ -47,12 +36,6 @@ public class InfrastructureResourceTests
     [TestMethod]
     public void Create_generates_fresh_id_each_call() =>
         Assert.AreNotEqual(Create().Id.Value, Create().Id.Value);
-
-    [TestMethod]
-    public void Create_rejects_empty_display_name() =>
-        Assert.ThrowsExactly<ArgumentException>(() => InfrastructureResource.Create(
-            " ", "d", InfrastructureType.VirtualMachine, "{}", Guid.NewGuid(), Guid.NewGuid(),
-            new TenantId(Guid.NewGuid()), TimeProvider.System));
 
     [TestMethod]
     [DataRow("")]
@@ -86,12 +69,6 @@ public class InfrastructureResourceTests
     public void Create_rejects_unknown_type() =>
         Assert.ThrowsExactly<ArgumentException>(() => InfrastructureResource.Create(
             "n", "d", (InfrastructureType)999, "{}", Guid.NewGuid(), Guid.NewGuid(),
-            new TenantId(Guid.NewGuid()), TimeProvider.System));
-
-    [TestMethod]
-    public void Create_rejects_empty_attributes() =>
-        Assert.ThrowsExactly<ArgumentException>(() => InfrastructureResource.Create(
-            "n", "d", InfrastructureType.VirtualMachine, "", Guid.NewGuid(), Guid.NewGuid(),
             new TenantId(Guid.NewGuid()), TimeProvider.System));
 
     [TestMethod]

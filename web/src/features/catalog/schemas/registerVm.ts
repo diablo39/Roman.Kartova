@@ -11,14 +11,6 @@ import type { PowerState } from "@/features/catalog/powerState";
  */
 export const POWER_STATES = ["running", "stopped", "suspended"] as const satisfies readonly PowerState[];
 
-/** Human-friendly labels for the power-state <select>. Total Record so a missing/extra
- *  key (e.g. a casing drift) fails `tsc`. */
-export const POWER_STATE_LABEL: Record<PowerState, string> = {
-  running: "Running",
-  stopped: "Stopped",
-  suspended: "Suspended",
-};
-
 function isValidIpAddress(value: string): boolean {
   return z.ipv4().safeParse(value).success || z.ipv6().safeParse(value).success;
 }

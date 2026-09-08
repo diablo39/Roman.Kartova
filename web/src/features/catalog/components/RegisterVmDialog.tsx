@@ -14,9 +14,9 @@ import { Avatar } from "@/components/base/avatar/avatar";
 import {
   registerVmSchema,
   POWER_STATES,
-  POWER_STATE_LABEL,
   type RegisterVmInput,
 } from "@/features/catalog/schemas/registerVm";
+import { powerStateLabel } from "@/features/catalog/powerState";
 import { useRegisterVm, type RegisterVmRequest } from "@/features/catalog/api/infrastructure";
 import { useTeamsList } from "@/features/teams/api/teams";
 import { applyProblemDetailsToForm, type ProblemDetails } from "@/shared/forms/problemDetails";
@@ -173,7 +173,7 @@ export function RegisterVmDialog({ open, onOpenChange }: Props) {
                       aria-invalid={!!fieldState.error}
                     >
                       {POWER_STATES.map((state) => (
-                        <option key={state} value={state}>{POWER_STATE_LABEL[state]}</option>
+                        <option key={state} value={state}>{powerStateLabel(state)}</option>
                       ))}
                     </select>
                     {fieldState.error && <p className="text-xs text-error-primary">{fieldState.error.message}</p>}
