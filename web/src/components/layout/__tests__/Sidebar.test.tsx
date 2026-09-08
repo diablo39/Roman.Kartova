@@ -135,13 +135,23 @@ describe("Sidebar", () => {
     }
   });
 
-  it("renders a collapsible Infrastructure group with disabled Components + Brokers leaves", () => {
+  it("renders a collapsible Infrastructure group: live Virtual Machines + All Objects, disabled Brokers", () => {
     setPermissions();
     renderSidebar();
     const header = screen.getByRole("button", { name: /^Infrastructure$/i });
     expect(header).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText("Components").getAttribute("data-disabled")).toBe("true");
+    // Virtual Machines and All Objects are live links (the old "Components" disabled stub is gone).
+    expect(screen.getByRole("link", { name: "Virtual Machines" })).toHaveAttribute(
+      "href",
+      "/catalog/infrastructure/vms",
+    );
+    expect(screen.getByRole("link", { name: "All Objects" })).toHaveAttribute(
+      "href",
+      "/catalog/infrastructure",
+    );
+    // Brokers remains a disabled placeholder.
     expect(screen.getByText("Brokers").getAttribute("data-disabled")).toBe("true");
+    expect(screen.queryByText("Components")).toBeNull();
   });
 
   it("collapsing the Software group hides its member links", () => {
