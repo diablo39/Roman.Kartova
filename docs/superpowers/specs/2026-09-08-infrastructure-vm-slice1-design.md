@@ -69,7 +69,7 @@ InfrastructureResource
   InfrastructureId Id            // strongly-typed (like ApiId)
   InfrastructureType Type        // discriminator; VirtualMachine first
   string DisplayName
-  string? Description
+  string Description             // required, non-empty ≤4096 (aligned with the aggregate)
   Guid TeamId
   Guid? SystemId                 // nullable, unwritten in slice 1
   Guid CreatedByUserId
