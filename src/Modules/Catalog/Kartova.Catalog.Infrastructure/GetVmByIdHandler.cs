@@ -15,7 +15,7 @@ public sealed class GetVmByIdHandler
         GetVmByIdQuery q, CatalogDbContext db, CancellationToken ct)
     {
         var vm = await db.Infrastructure
-            .Where(x => EF.Property<Guid>(x, InfrastructureSortSpecs.IdFieldName) == q.Id)
+            .Where(x => EF.Property<Guid>(x, EfInfrastructureConfiguration.IdFieldName) == q.Id)
             .Where(x => x.Type == InfrastructureType.VirtualMachine)
             .SingleOrDefaultAsync(ct);
 

@@ -374,4 +374,85 @@ public sealed class InfrastructureVmEndpointsTests : CatalogIntegrationTestBase
 
         Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
     }
+
+    /// <summary>FW3-F2: <c>type</c> is a typed smallint column (not JSONB), so it's added to
+    /// the generic-list sort allowlist alongside displayName/createdAt. This pins that
+    /// <c>?sortBy=type</c> returns 200 with a page, rather than 400 invalid-sort-field.</summary>
+    [TestMethod]
+    public async Task ListInfrastructure_sortBy_type_returns_200_sorted_page()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team SortByType");
+        var unique = $"vm-sortbytype-{Guid.NewGuid():N}";
+
+        await RegisterVmAsync(client, VmBody(teamId, $"{unique}-1"));
+        await RegisterVmAsync(client, VmBody(teamId, $"{unique}-2"));
+
+        var resp = await client.GetAsync($"/api/v1/catalog/infrastructure?teamId={teamId}&sortBy=type&limit=200");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var page = await resp.Content.ReadFromJsonAsync<CursorPage<InfrastructureListItemResponse>>(KartovaApiFixtureBase.WireJson);
+
+        Assert.IsTrue(page!.Items.Count >= 2, "both seeded rows must be present in the sorted page");
+    }
+
+    /// <summary>FW3-F8a: <c>os=</c> proves the object-containment path for a string VM
+    /// attribute (mirrors <see cref="ListVms_filter_powerState"/>).</summary>
+    [TestMethod]
+    public async Task ListVms_filter_os()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team OsFilter");
+        var unique = $"vm-os-{Guid.NewGuid():N}";
+
+        var ubuntu = await RegisterVmAsync(client, VmBody(teamId, $"{unique}-ubuntu", os: "ubuntu-22.04"));
+        var windows = await RegisterVmAsync(client, VmBody(teamId, $"{unique}-windows", os: "windows-server-2022"));
+
+        var resp = await client.GetAsync($"/api/v1/catalog/infrastructure/vms?teamId={teamId}&os=ubuntu-22.04&limit=200");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var page = await resp.Content.ReadFromJsonAsync<CursorPage<VmListItemResponse>>(KartovaApiFixtureBase.WireJson);
+        var ids = page!.Items.Select(i => i.Id).ToHashSet();
+
+        Assert.IsTrue(ids.Contains(ubuntu.Id), "the ubuntu VM must be returned");
+        Assert.IsFalse(ids.Contains(windows.Id), "the windows VM must be excluded");
+    }
+
+    /// <summary>FW3-F8b: generic-list <c>type</c>-filtered pagination is cursor-stable — no
+    /// dup/skip across pages (mirrors <see cref="ListVms_cursor_is_stable_default_sort"/>).</summary>
+    [TestMethod]
+    public async Task ListInfrastructure_type_filter_cursor_is_stable()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team TypeCursor");
+        var unique = $"vm-typecursor-{Guid.NewGuid():N}";
+
+        var registered = new List<VmDetailResponse>();
+        for (var i = 0; i < 5; i++)
+        {
+            registered.Add(await RegisterVmAsync(client, VmBody(teamId, $"{unique}-{i:D3}")));
+        }
+
+        var page1Resp = await client.GetAsync(
+            $"/api/v1/catalog/infrastructure?teamId={teamId}&type=virtualMachine&limit=2");
+        Assert.AreEqual(HttpStatusCode.OK, page1Resp.StatusCode);
+        var page1 = await page1Resp.Content.ReadFromJsonAsync<CursorPage<InfrastructureListItemResponse>>(KartovaApiFixtureBase.WireJson);
+        Assert.IsNotNull(page1!.NextCursor, "5 rows with limit=2 must yield a next cursor");
+
+        var page2Resp = await client.GetAsync(
+            $"/api/v1/catalog/infrastructure?teamId={teamId}&type=virtualMachine&limit=2&cursor={Uri.EscapeDataString(page1.NextCursor!)}");
+        Assert.AreEqual(HttpStatusCode.OK, page2Resp.StatusCode);
+        var page2 = await page2Resp.Content.ReadFromJsonAsync<CursorPage<InfrastructureListItemResponse>>(KartovaApiFixtureBase.WireJson);
+
+        var page3Resp = await client.GetAsync(
+            $"/api/v1/catalog/infrastructure?teamId={teamId}&type=virtualMachine&limit=2&cursor={Uri.EscapeDataString(page2!.NextCursor!)}");
+        var page3 = await page3Resp.Content.ReadFromJsonAsync<CursorPage<InfrastructureListItemResponse>>(KartovaApiFixtureBase.WireJson);
+
+        var allIds = page1.Items.Select(i => i.Id)
+            .Concat(page2.Items.Select(i => i.Id))
+            .Concat(page3!.Items.Select(i => i.Id))
+            .ToList();
+
+        Assert.AreEqual(5, allIds.Count, "no row skipped or duplicated across pages");
+        Assert.AreEqual(5, allIds.Distinct().Count(), "no duplicate ids across pages");
+        CollectionAssert.AreEquivalent(registered.Select(r => r.Id).ToList(), allIds, "all 5 registered VMs must appear exactly once");
+    }
 }

@@ -42,7 +42,7 @@ public sealed class RegisterVmHandler
             {
                 ["displayName"] = vm.DisplayName,
                 ["teamId"] = vm.TeamId.ToString(),
-                ["type"] = vm.Type.ToString(),
+                ["type"] = ListInfrastructureHandler.KindWire(vm.Type),
             }), ct);
 
         var attrs = cmd.Attributes.ToDto();

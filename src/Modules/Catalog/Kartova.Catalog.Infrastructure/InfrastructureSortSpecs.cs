@@ -23,12 +23,19 @@ internal static class InfrastructureSortSpecs
     public static readonly SortSpec<InfrastructureResource> CreatedAt = new("createdAt", x => x.CreatedAt);
     public static readonly SortSpec<InfrastructureResource> DisplayName = new("displayName", x => x.DisplayName);
 
-    public static readonly IReadOnlyList<string> AllowedFieldNames = [CreatedAt.FieldName, DisplayName.FieldName];
+    /// <summary>Typed smallint column (not JSONB) — not covered by the JSONB-attribute-sort
+    /// deferral noted on <see cref="InfrastructureSortField"/>; keyset-safe like any other
+    /// scalar column.</summary>
+    public static readonly SortSpec<InfrastructureResource> Type = new("type", x => x.Type);
+
+    public static readonly IReadOnlyList<string> AllowedFieldNames =
+        [CreatedAt.FieldName, DisplayName.FieldName, Type.FieldName];
 
     public static SortSpec<InfrastructureResource> Resolve(InfrastructureSortField field) => field switch
     {
         InfrastructureSortField.CreatedAt => CreatedAt,
         InfrastructureSortField.DisplayName => DisplayName,
+        InfrastructureSortField.Type => Type,
         _ => throw new InvalidSortFieldException(field.ToString(), AllowedFieldNames),
     };
 }
