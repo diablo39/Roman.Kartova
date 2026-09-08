@@ -20,6 +20,7 @@ public static class CatalogAuditActions
     public const string RelationshipCreated = "relationship.created";
     public const string RelationshipRemoved = "relationship.removed";
     public const string SystemRegistered = "system.registered";
+    public const string InfrastructureRegistered = "infrastructure.registered";
 }
 
 /// <summary>
@@ -33,4 +34,5 @@ public static class CatalogAuditTargetTypes
     public const string Api = "Api";
     public const string Relationship = "Relationship";
     public const string System = "System";
+    public const string Infrastructure = "Infrastructure";
 }
