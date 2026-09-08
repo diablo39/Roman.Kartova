@@ -33,7 +33,7 @@ public class ListVmsHandlerFilterTests
 
     [TestMethod]
     public void Contains_escapes_the_supplied_value() =>
-        Assert.AreEqual("{\"hostname\":\"web-01\"}", ListVmsHandler.Contains("hostname", "web-01"));
+        Assert.AreEqual("{\"hostname\":\"web-\\u002201\\u0022\"}", ListVmsHandler.Contains("hostname", "web-\"01\""));
 
     [TestMethod]
     public void ContainsArray_builds_single_element_array_containment_json() =>

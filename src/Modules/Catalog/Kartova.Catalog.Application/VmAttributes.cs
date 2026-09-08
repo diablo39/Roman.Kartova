@@ -33,6 +33,20 @@ public sealed record VmAttributes(
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
     };
 
+    // Mirrors the FE zod caps in web/src/features/catalog/schemas/registerVm.ts
+    // (registerVmSchema/vmAttributesSchema) so the server rejects the same oversized
+    // input the client would already have blocked, rather than silently accepting
+    // whatever a non-SPA caller sends.
+    private const int MaxOsLength = 128;
+    private const int MaxHostnameLength = 255;
+    private const int MaxRegionLength = 128;
+
+    // The FE's InputTags for ipAddresses has no configured maxTags (unbounded on the
+    // client) — there is no FE number to mirror here. This cap is a server-side-only
+    // defense against an unbounded jsonb array; 32 comfortably covers realistic
+    // multi-NIC VMs while keeping the stored attributes payload bounded.
+    private const int MaxIpAddresses = 32;
+
     public static VmAttributes Validate(VmAttributesDto dto)
     {
         ArgumentNullException.ThrowIfNull(dto);
@@ -47,14 +61,29 @@ public sealed record VmAttributes(
             throw new ArgumentException("Os must not be empty.", nameof(dto));
         }
 
+        if (dto.Os.Length > MaxOsLength)
+        {
+            throw new ArgumentException($"Os must be at most {MaxOsLength} characters.", nameof(dto));
+        }
+
         if (string.IsNullOrWhiteSpace(dto.Hostname))
         {
             throw new ArgumentException("Hostname must not be empty.", nameof(dto));
         }
 
+        if (dto.Hostname.Length > MaxHostnameLength)
+        {
+            throw new ArgumentException($"Hostname must be at most {MaxHostnameLength} characters.", nameof(dto));
+        }
+
         if (string.IsNullOrWhiteSpace(dto.Region))
         {
             throw new ArgumentException("Region must not be empty.", nameof(dto));
+        }
+
+        if (dto.Region.Length > MaxRegionLength)
+        {
+            throw new ArgumentException($"Region must be at most {MaxRegionLength} characters.", nameof(dto));
         }
 
         if (dto.Vcpu <= 0)
@@ -70,6 +99,11 @@ public sealed record VmAttributes(
         if (dto.IpAddresses is null || dto.IpAddresses.Count == 0)
         {
             throw new ArgumentException("IpAddresses must not be empty.", nameof(dto));
+        }
+
+        if (dto.IpAddresses.Count > MaxIpAddresses)
+        {
+            throw new ArgumentException($"At most {MaxIpAddresses} IP addresses may be supplied.", nameof(dto));
         }
 
         foreach (var ip in dto.IpAddresses)
@@ -89,8 +123,15 @@ public sealed record VmAttributes(
         JsonSerializer.Deserialize<VmAttributes>(json, JsonOptions)
         ?? throw new ArgumentException("VM attributes JSON deserialized to null.", nameof(json));
 
+    // Serializes PowerState through the same JsonOptions (and therefore the same
+    // JsonStringEnumConverter(JsonNamingPolicy.CamelCase)) that ToJson uses, so the DTO's
+    // powerState value is guaranteed to equal ToJson's — rather than a hand-rolled
+    // ToLowerInvariant() that would silently diverge for any future multi-word member.
+    private static string PowerStateWireValue(VmPowerState state) =>
+        JsonSerializer.Serialize(state, JsonOptions).Trim('"');
+
     public VmAttributesDto ToDto() => new(
-        PowerState.ToString().ToLowerInvariant(),
+        PowerStateWireValue(PowerState),
         Os,
         Vcpu,
         MemoryGb,

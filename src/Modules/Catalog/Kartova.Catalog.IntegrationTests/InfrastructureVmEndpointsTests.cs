@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using Kartova.Catalog.Contracts;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Pagination;
@@ -273,5 +274,104 @@ public sealed class InfrastructureVmEndpointsTests : CatalogIntegrationTestBase
             .ToList();
         var expectedOrder = registered.Select(r => r.DisplayName).OrderBy(n => n, StringComparer.Ordinal).ToList();
         CollectionAssert.AreEqual(expectedOrder, allNames, "rows must be returned in stable displayName-asc, id-tiebreak order");
+    }
+
+    /// <summary>
+    /// SF1: the SPA's registerVm schema keeps <c>vcpu</c>/<c>memoryGb</c> as validated digit
+    /// STRINGS on the wire (openapi-typescript's int32-as-string generation — see
+    /// web/src/features/catalog/schemas/registerVm.ts), not JSON numbers, even though
+    /// <see cref="VmAttributesDto"/> types them as C# <c>int</c>. This pins the ASP.NET
+    /// <c>System.Text.Json</c> default of accepting a quoted numeric string for an <c>int</c>
+    /// property (<c>JsonNumberHandling.AllowReadingFromString</c> is on by default for minimal-API
+    /// body binding) — a future switch to <c>JsonNumberHandling.Strict</c> would silently break
+    /// every VM registration from the real SPA, and this test would catch it as a 400 instead.
+    /// </summary>
+    [TestMethod]
+    public async Task RegisterVm_accepts_vcpu_and_memoryGb_as_json_strings()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team StringWire");
+        var unique = $"vm-stringwire-{Guid.NewGuid():N}";
+
+        var rawJson = $$"""
+            {
+              "displayName": "{{unique}}",
+              "description": "seeded for infrastructure/vm integration tests (string-wire path)",
+              "teamId": "{{teamId}}",
+              "attributes": {
+                "powerState": "running",
+                "os": "ubuntu-22.04",
+                "vcpu": "4",
+                "memoryGb": "16",
+                "hostname": "host-1",
+                "ipAddresses": ["10.0.0.1", "10.0.0.2"],
+                "region": "eu-west-1"
+              }
+            }
+            """;
+
+        var resp = await client.PostAsync(
+            "/api/v1/catalog/infrastructure/vms",
+            new StringContent(rawJson, Encoding.UTF8, "application/json"));
+
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode, $"RegisterVm (string wire) failed: {await resp.Content.ReadAsStringAsync()}");
+        var created = await resp.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(4, created!.Attributes.Vcpu);
+        Assert.AreEqual(16, created.Attributes.MemoryGb);
+
+        var getResp = await client.GetAsync($"/api/v1/catalog/infrastructure/vms/{created.Id}");
+        Assert.AreEqual(HttpStatusCode.OK, getResp.StatusCode);
+        var fetched = await getResp.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(4, fetched!.Attributes.Vcpu);
+        Assert.AreEqual(16, fetched.Attributes.MemoryGb);
+    }
+
+    /// <summary>MT1: an unknown/non-existent teamId surfaces the same 422 invalid-team envelope
+    /// as RegisterApplicationAsync/RegisterServiceAsync (ADR-0103).</summary>
+    [TestMethod]
+    public async Task RegisterVm_unknown_teamId_returns_422()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+
+        var resp = await client.PostAsJsonAsync(
+            "/api/v1/catalog/infrastructure/vms", VmBody(Guid.NewGuid(), "vm-unknown-team"));
+
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
+    }
+
+    /// <summary>MT2a: the generic Infrastructure list with an explicit <c>type=virtualMachine</c>
+    /// filter returns the VM row, and a generic list with no <c>type</c> filter at all also
+    /// returns it (sanity — matches <see cref="ListInfrastructure_returns_vm_row_shared_cols"/>'s
+    /// no-filter case, but pins the filtered path too).</summary>
+    [TestMethod]
+    public async Task ListInfrastructure_type_filter_virtualMachine_returns_vm_row()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team TypeFilter");
+        var unique = $"vm-typefilter-{Guid.NewGuid():N}";
+
+        var vm = await RegisterVmAsync(client, VmBody(teamId, unique));
+
+        var filteredResp = await client.GetAsync($"/api/v1/catalog/infrastructure?teamId={teamId}&type=virtualMachine&limit=200");
+        Assert.AreEqual(HttpStatusCode.OK, filteredResp.StatusCode);
+        var filteredPage = await filteredResp.Content.ReadFromJsonAsync<CursorPage<InfrastructureListItemResponse>>(KartovaApiFixtureBase.WireJson);
+        Assert.IsTrue(filteredPage!.Items.Any(i => i.Id == vm.Id), "type=virtualMachine must return the VM row");
+
+        var unfilteredResp = await client.GetAsync($"/api/v1/catalog/infrastructure?teamId={teamId}&limit=200");
+        Assert.AreEqual(HttpStatusCode.OK, unfilteredResp.StatusCode);
+        var unfilteredPage = await unfilteredResp.Content.ReadFromJsonAsync<CursorPage<InfrastructureListItemResponse>>(KartovaApiFixtureBase.WireJson);
+        Assert.IsTrue(unfilteredPage!.Items.Any(i => i.Id == vm.Id), "no type filter must also return the VM row");
+    }
+
+    /// <summary>MT2b: an unrecognized <c>type</c> filter value returns 400 invalid-type-filter
+    /// (mirrors the lifecycle/health/style token-parse rejects in CatalogEndpointDelegates).</summary>
+    [TestMethod]
+    public async Task ListInfrastructure_invalid_type_filter_returns_400()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+
+        var resp = await client.GetAsync("/api/v1/catalog/infrastructure?type=notARealType");
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
     }
 }

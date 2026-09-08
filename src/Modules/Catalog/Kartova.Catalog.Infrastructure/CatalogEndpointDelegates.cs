@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.SharedKernel.AspNetCore;
@@ -40,6 +41,17 @@ internal static class CatalogEndpointDelegates
     /// hard failure, a self-inflicted break reachable by an ordinary user with a big selection.
     /// </summary>
     private const int MaxFilterValues = 50;
+
+    /// <summary>
+    /// Comma-joined, camelCase names of every <see cref="InfrastructureType"/> member
+    /// (e.g. <c>virtualMachine</c>), computed once from <see cref="Enum.GetNames{TEnum}"/> so
+    /// the <c>invalid-type-filter</c> 400 detail can never drift from the actual enum as new
+    /// members are added — mirrors the wire form <see cref="ListInfrastructureAsync"/> parses
+    /// against (<c>Enum.TryParse(ignoreCase: true)</c>).
+    /// </summary>
+    private static readonly string InfrastructureTypeNames = string.Join(
+        ", ",
+        Enum.GetNames<InfrastructureType>().Select(JsonNamingPolicy.CamelCase.ConvertName));
 
     /// <summary>
     /// Shared dedup-then-cap check for a multi-select Guid filter (ADR-0107). De-dups
@@ -690,7 +702,7 @@ internal static class CatalogEndpointDelegates
                 return Results.Problem(
                     type: ProblemTypes.InvalidTypeFilter,
                     title: "Invalid type filter",
-                    detail: $"'{raw}' is not a valid infrastructure type. Expected one of: virtualMachine.",
+                    detail: $"'{raw}' is not a valid infrastructure type. Expected one of: {InfrastructureTypeNames}.",
                     statusCode: StatusCodes.Status400BadRequest);
             }
             types.Add(parsed);
