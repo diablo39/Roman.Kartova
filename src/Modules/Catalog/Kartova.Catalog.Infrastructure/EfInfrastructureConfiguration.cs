@@ -33,9 +33,8 @@ public sealed class EfInfrastructureConfiguration : IEntityTypeConfiguration<Inf
 
         b.Property(x => x.Description).HasColumnName("description").HasMaxLength(4096).IsRequired();
 
-        // nullable free string (ADR-0115 slice 2a). Deliberate deviation from spec §3 #2 / §5.2
-        // ("provider text NULL"): varchar(256) enforces the domain's 256-char cap at the DB
-        // level too, not just in the entity — chosen over the spec's plain text for that reason.
+        // nullable free string (ADR-0115 slice 2a).
+        // varchar(256) enforces the domain's 256-char cap at the DB level (spec §3 #2).
         b.Property(x => x.Provider).HasColumnName("provider").HasMaxLength(256);
 
         b.Property(x => x.Type)

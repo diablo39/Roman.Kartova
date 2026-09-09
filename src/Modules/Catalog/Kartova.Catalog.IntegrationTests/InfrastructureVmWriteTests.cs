@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Multitenancy;
@@ -245,6 +246,32 @@ public sealed class InfrastructureVmWriteTests : CatalogIntegrationTestBase
         Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
     }
 
+    // gate-8 FIX 3 (spec §6.2: "Both write an IAuditWriter entry"): assert the edit path
+    // writes an infrastructure.edited row with target-type Infrastructure, target-id the
+    // VM id, and the new provider in the payload — mirrors AuditWiringTests' pattern
+    // (Fx.ReadAuditLogAsync + CatalogAuditActions).
+    [TestMethod]
+    public async Task Put_WritesInfrastructureEditedAuditRow()
+    {
+        var tenantId = Fx.TenantIdForEmail(OrgAUser);
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenantId, "Vm Team Audit Edit");
+        var unique = $"vm-audit-edit-{Guid.NewGuid():N}";
+
+        var created = await RegisterVmAsync(client, ValidVm(teamId, unique));
+
+        var resp = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, provider: "Azure")));
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode, $"EditVm failed: {await resp.Content.ReadAsStringAsync()}");
+
+        var rows = await Fx.ReadAuditLogAsync(tenantId.Value);
+        var row = rows.Single(r =>
+            r.Action == CatalogAuditActions.InfrastructureEdited &&
+            r.TargetId == created.Id.ToString());
+        Assert.AreEqual(CatalogAuditTargetTypes.Infrastructure, row.TargetType);
+        using var data = JsonDocument.Parse(row.DataJson!);
+        Assert.AreEqual("Azure", data.RootElement.GetProperty("provider").GetString());
+    }
+
     [TestMethod]
     public async Task Put_WithoutRegisterPerm_Returns403()
     {
@@ -319,6 +346,29 @@ public sealed class InfrastructureVmWriteTests : CatalogIntegrationTestBase
 
         var get = await client.GetAsync($"/api/v1/catalog/infrastructure/vms/{created.Id}");
         Assert.AreEqual(HttpStatusCode.NotFound, get.StatusCode);
+    }
+
+    // gate-8 FIX 3 (spec §6.2): same as the edit-side audit assertion above, for delete.
+    [TestMethod]
+    public async Task Delete_WritesInfrastructureDeletedAuditRow()
+    {
+        var tenantId = Fx.TenantIdForEmail(OrgAUser);
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenantId, "Vm Team Audit Delete");
+        var unique = $"vm-audit-delete-{Guid.NewGuid():N}";
+
+        var created = await RegisterVmAsync(client, ValidVm(teamId, unique, provider: "AWS"));
+
+        var del = await client.SendAsync(NewDelete(created.Id, created.Version));
+        Assert.AreEqual(HttpStatusCode.NoContent, del.StatusCode, $"DeleteVm failed: {await del.Content.ReadAsStringAsync()}");
+
+        var rows = await Fx.ReadAuditLogAsync(tenantId.Value);
+        var row = rows.Single(r =>
+            r.Action == CatalogAuditActions.InfrastructureDeleted &&
+            r.TargetId == created.Id.ToString());
+        Assert.AreEqual(CatalogAuditTargetTypes.Infrastructure, row.TargetType);
+        using var data = JsonDocument.Parse(row.DataJson!);
+        Assert.AreEqual("AWS", data.RootElement.GetProperty("provider").GetString());
     }
 
     [TestMethod]

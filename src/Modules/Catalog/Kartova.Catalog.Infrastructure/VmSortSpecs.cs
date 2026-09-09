@@ -52,6 +52,16 @@ internal static class VmSortSpecs
     public static readonly SortSpec<InfrastructureResource> CreatedAt = InfrastructureSortSpecs.CreatedAt;
     public static readonly SortSpec<InfrastructureResource> Provider = InfrastructureSortSpecs.Provider;
 
+    // Null-key precondition (deliberate deferral — do NOT add COALESCE here without re-matching
+    // all 6 partial indexes + the EXPLAIN tests byte-for-byte, see class remarks above):
+    // These JSONB selectors assume every sorted attribute key is present and non-null on every
+    // stored row — guaranteed today by VmAttributes.Validate on the create/edit write path (all 7
+    // keys always written). Unlike InfrastructureSortSpecs.Provider, they are NOT COALESCE-guarded:
+    // a NULL/missing key would make the shared keyset predicate evaluate to SQL UNKNOWN and
+    // truncate pagination (text), or diverge 0-vs-NULL (int-cast). This is safe until a write path
+    // bypasses VmAttributes.Validate — slice-4 auto-import (spec §3 #4) MUST either validate the
+    // attribute set or add COALESCE to these selectors AND re-match the 6 partial indexes
+    // accordingly.
     public static readonly SortSpec<InfrastructureResource> PowerState =
         new("powerState", x => JsonbFunctions.JsonbExtractPathText(x.Attributes, "powerState")!);
     public static readonly SortSpec<InfrastructureResource> Os =

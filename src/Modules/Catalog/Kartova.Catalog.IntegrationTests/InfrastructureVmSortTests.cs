@@ -331,9 +331,10 @@ public sealed class InfrastructureVmSortTests : CatalogIntegrationTestBase
     /// proving <see cref="JsonbFunctions.JsonbExtractPathText"/>'s <c>[NotParameterized]</c>
     /// attribute on <c>key</c> actually holds; (2) a raw <c>EXPLAIN</c> of that exact statement
     /// shows the field's partial expression index used and no <c>Seq Scan</c>. Covers both the
-    /// TEXT-cast index shape (<c>powerState</c>) and the INT-cast shape (<c>vcpu</c>/
-    /// <c>memoryGb</c>), which is a materially different expression
-    /// (<c>(jsonb_extract_path_text(...))::int</c>) — all three were previously verified only by
+    /// TEXT-cast index shape (<c>powerState</c>/<c>os</c>/<c>hostname</c>/<c>region</c>, gate-8
+    /// FIX 4 extends the DataRow set to the remaining three text-cast fields) and the INT-cast
+    /// shape (<c>vcpu</c>/<c>memoryGb</c>), which is a materially different expression
+    /// (<c>(jsonb_extract_path_text(...))::int</c>) — all were previously verified only by
     /// ordering assertions, which a seq-scan-and-sort plan satisfies just as well as an index
     /// scan; this proof needs a real EXPLAIN per shape.
     /// </summary>
@@ -341,6 +342,9 @@ public sealed class InfrastructureVmSortTests : CatalogIntegrationTestBase
     [DataRow(VmSortField.PowerState, "powerState", "ix_catalog_infrastructure_vm_power_state")]
     [DataRow(VmSortField.Vcpu, "vcpu", "ix_catalog_infrastructure_vm_vcpu")]
     [DataRow(VmSortField.MemoryGb, "memoryGb", "ix_catalog_infrastructure_vm_memory_gb")]
+    [DataRow(VmSortField.Os, "os", "ix_catalog_infrastructure_vm_os")]
+    [DataRow(VmSortField.Hostname, "hostname", "ix_catalog_infrastructure_vm_hostname")]
+    [DataRow(VmSortField.Region, "region", "ix_catalog_infrastructure_vm_region")]
     public async Task ListVms_sortBy_jsonbField_emits_literal_key_and_uses_partial_index(
         VmSortField sortField, string key, string expectedIndexName)
     {
