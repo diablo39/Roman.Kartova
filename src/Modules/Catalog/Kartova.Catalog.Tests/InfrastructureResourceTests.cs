@@ -13,9 +13,9 @@ public class InfrastructureResourceTests
     private static readonly FakeTimeProvider Clock = new(DateTimeOffset.Parse("2026-07-03T10:00:00Z"));
 
     private static InfrastructureResource Create(
-        string name = "web-01", string desc = "prod web VM", InfrastructureType type = InfrastructureType.VirtualMachine,
+        string name = "web-01", string desc = "prod web VM", string? provider = null, InfrastructureType type = InfrastructureType.VirtualMachine,
         string attributesJson = "{}", Guid? creator = null, Guid? team = null)
-        => InfrastructureResource.Create(name, desc, type, attributesJson, creator ?? Creator, team ?? Team, Tenant, Clock);
+        => InfrastructureResource.Create(name, desc, provider, type, attributesJson, creator ?? Creator, team ?? Team, Tenant, Clock);
 
     [TestMethod]
     public void Create_with_valid_args_sets_all_fields()
@@ -68,7 +68,7 @@ public class InfrastructureResourceTests
     [TestMethod]
     public void Create_rejects_unknown_type() =>
         Assert.ThrowsExactly<ArgumentException>(() => InfrastructureResource.Create(
-            "n", "d", (InfrastructureType)999, "{}", Guid.NewGuid(), Guid.NewGuid(),
+            "n", "d", null, (InfrastructureType)999, "{}", Guid.NewGuid(), Guid.NewGuid(),
             new TenantId(Guid.NewGuid()), TimeProvider.System));
 
     [TestMethod]
@@ -90,14 +90,14 @@ public class InfrastructureResourceTests
     {
         TimeProvider? nullClock = null;
         Assert.ThrowsExactly<ArgumentNullException>(
-            () => InfrastructureResource.Create("a", "d", InfrastructureType.VirtualMachine, "{}", Creator, Team, Tenant, nullClock!));
+            () => InfrastructureResource.Create("a", "d", null, InfrastructureType.VirtualMachine, "{}", Creator, Team, Tenant, nullClock!));
     }
 
     [TestMethod]
     public void Create_with_explicit_createdAt_sets_CreatedAt()
     {
         var createdAt = DateTimeOffset.Parse("2026-01-01T00:00:00Z");
-        var r = InfrastructureResource.Create("a", "d", InfrastructureType.VirtualMachine, "{}",
+        var r = InfrastructureResource.Create("a", "d", null, InfrastructureType.VirtualMachine, "{}",
             Creator, Team, Tenant, createdAt);
         Assert.AreEqual(createdAt, r.CreatedAt);
     }
@@ -114,5 +114,25 @@ public class InfrastructureResourceTests
     {
         ITenantOwned r = Create();
         Assert.AreEqual(Tenant, r.TenantId);
+    }
+
+    [TestMethod]
+    public void Create_StoresProvider()
+    {
+        var vm = InfrastructureResource.Create(
+            "vm-01", "seeded", "AWS", InfrastructureType.VirtualMachine, "{}",
+            Guid.NewGuid(), Guid.NewGuid(), Tenant, DateTimeOffset.UnixEpoch);
+
+        Assert.AreEqual("AWS", vm.Provider);
+    }
+
+    [TestMethod]
+    public void Create_AllowsNullProvider()
+    {
+        var vm = InfrastructureResource.Create(
+            "vm-02", "seeded", null, InfrastructureType.VirtualMachine, "{}",
+            Guid.NewGuid(), Guid.NewGuid(), Tenant, DateTimeOffset.UnixEpoch);
+
+        Assert.IsNull(vm.Provider);
     }
 }

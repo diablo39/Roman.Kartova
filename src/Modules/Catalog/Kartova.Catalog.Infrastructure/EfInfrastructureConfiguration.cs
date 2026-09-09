@@ -33,6 +33,8 @@ public sealed class EfInfrastructureConfiguration : IEntityTypeConfiguration<Inf
 
         b.Property(x => x.Description).HasColumnName("description").HasMaxLength(4096).IsRequired();
 
+        b.Property(x => x.Provider).HasColumnName("provider").HasMaxLength(256);   // nullable free string (ADR-0115 slice 2a)
+
         b.Property(x => x.Type)
             .HasColumnName("type")
             .HasColumnType("smallint")
