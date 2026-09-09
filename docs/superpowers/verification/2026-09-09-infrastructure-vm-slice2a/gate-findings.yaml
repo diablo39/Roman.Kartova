@@ -1,55 +1,117 @@
 # gate-findings.yaml — per-gate findings telemetry for one slice.
-#
-# Purpose: record every issue each DoD gate raised, with a real/delusion verdict,
-# so gate effectiveness is queryable across slices.
-#   Aggregate:  find docs/superpowers/verification -name gate-findings.yaml
-#   Rank gates by precision (real ÷ found) and by real issues caught.
-#
-# Sibling of dod.md in docs/superpowers/verification/<date>-<topic>/.
-# Copy this file there at slice start; append a finding the moment a gate raises one.
 # dod.md records each gate's PASS/FAIL/PENDING/N-A status; this file records what it FOUND.
-# A gate with status PASS and no entries here ⇒ it ran and found nothing.
 
 slice:  2026-09-09-infrastructure-vm-slice2a
 branch: feat/catalog-infrastructure-vm-slice2a
-head:   20ff16c
+head:   361a710
 
-# One entry per issue a gate raised.
-#
-# gate     — the dod.md row this finding came from (slug, not number):
-#              build              (1  Build, TreatWarningsAsErrors)
-#              reviews            (2  per-task subagent reviews)
-#              suite              (3  full test suite incl. real-seam)
-#              container          (4  container build / images CI)
-#              simplify           (5  /simplify)
-#              requesting-review  (6  requesting-code-review)
-#              review-pr          (7  review-pr)
-#              deep-review        (8  deep-review)
-#              manual             (9  visual / API verification, ADR-0084)
-#              terminal-reverify  (terminal re-verify: build + suite)
-#              ci-mirror          (10 CI green on PR / pre-push mirror, ci-local.sh)
-# severity — blocking | should-fix | nit
-# verdict  — real     : a genuine issue that warranted a change
-#            delusion : a false positive the gate raised that was not a real issue
-# title    — one-line description of the finding
-# note     — optional: resolution (fix sha), or why it was a delusion
-findings: []
+findings:
+  # --- gate 2 (per-task reviews) — Task 7 JSONB sort ---
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "JSONB key literal parameterization unproven (ToQueryString + hand-written EXPLAIN, not real EF path)"
+    note: "fixed 36852d8 — [NotParameterized] + real-DbCommand interceptor EXPLAIN test"
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "nullable Provider sort truncates keyset pagination at first NULL (SQL 3-valued logic)"
+    note: "fixed 36852d8 — COALESCE(provider,'') both tiers + null-boundary test"
 
-# Example entries (delete when filling in real data):
-#
-# findings:
-#   - gate: deep-review
-#     severity: blocking
-#     verdict: real
-#     title: "RLS filter missing on graph traversal query"
-#     note: "fixed in 0a1b2c3"
-#   - gate: review-pr
-#     severity: should-fix
-#     verdict: delusion
-#     title: "claimed N+1 in display-name lookup"
-#     note: "already batched over distinct refs; reviewer misread"
-#   - gate: simplify
-#     severity: nit
-#     verdict: real
-#     title: "extract duplicated dagre layout options"
-#     note: "applied"
+  # --- gate 5 (/simplify) ---
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "EditVmHandler re-parses attributes JSON instead of using cmd.Attributes.ToDto()"
+    note: "fixed 27cc450"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "VM id-load predicate duplicated 4x — no IdEquals like sibling entities"
+    note: "fixed 27cc450 — added VmSortSpecs.IdEquals"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "EditVmDialog/RegisterVmDialog ~180 lines duplicated JSX"
+    note: "fixed 27cc450 — extracted VmFormFields"
+
+  # --- gate 6 (requesting-code-review — whole-branch opus) ---
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "int-cast partial indexes (vcpu/memoryGb) never EXPLAIN-verified — headline byte-identical guarantee half-proven"
+    note: "fixed fa76a97 — int-cast interceptor+EXPLAIN DataRows"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "seq-scan comments overstate (imply keyset non-determinism; actually perf-only) + varchar/spec note + generic null test"
+    note: "fixed fa76a97"
+
+  # --- gate 7 (review-pr — 5 reviewers) ---
+  - gate: review-pr
+    severity: blocking
+    verdict: real
+    title: "VM-attribute 400 validation errors silently invisible (VmAttributes.Validate paramName=nameof(dto) -> FE setError('dto') renders nowhere)"
+    note: "fixed 361a710 — paramName per-branch = attributes.<field>; zod ipAddresses .max(32); tests assert real error-key shape"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "AllInfrastructureTable provider-column sort silently no-ops (guard forwarded only createdAt/displayName)"
+    note: "fixed 361a710 — isSortField allowlist incl. provider + AllInfrastructureTable test"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "RegisterVmDialog `as unknown as Control<EditVmInput>` cast defeats tsc structural check"
+    note: "fixed 361a710 — VmFormFields generic over shared fields, cast removed + RegisterVmDialog test"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "InfrastructureConcurrency swallows capture exception with zero logging"
+    note: "fixed 361a710 — ILogger injected + LogWarning in catch (still swallowed)"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "test gaps: provider-256 (no backend test), 412 currentVersion unasserted, Edit branches, int-cast multi-page keyset, JsonbFunctions direct unit, VmDetailPage perm cross-check"
+    note: "fixed 361a710 — T1..T6 added"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "provider '' vs null both valid; stale/circular/invented comments (VmSortSpecsTests phantom class, InfrastructureSortSpecs circular xref, VmFormFields disabled doc)"
+    note: "fixed 361a710 — empty->null normalize + comment fixes"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "RegisterVmDialog teamId <select> may not register value (RHF useController on native select in react-aria Form) -> 'Team is required'; sibling RegisterApplicationDialog has useState workaround"
+    note: "DEFERRED to gate-9 browser verification (pre-existing slice-1 pattern; confirm real vs jsdom, fix with useState workaround if real)"
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "domain ValidateAttributes should JSON-shape-validate attributes vs Type"
+    note: "rejected — contradicts ADR-0115 decision #3 (opaque string at domain; variant validation is app-layer by design)"
+
+  # --- gate 8 (deep-review) ---
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "6 JSONB sort selectors lack null/missing-key COALESCE (latent keyset truncation, same class as Provider)"
+    note: "DEFERRED to slice-4 w/ ruling — unreachable today (VmAttributes.Validate guarantees keys); documented as invariant in VmSortSpecs + spec §11; re-touching byte-matched indexes for an unreachable case is higher risk than the guard"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "DoD ledger + gate-findings.yaml stale (all PENDING / findings:[]) despite gates run"
+    note: "fixed — this backfill"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "stale EF-config comment claims spec deviation that no longer exists (spec reconciled f980b51)"
+    note: "fixed gate-8 commit"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "EditVmAsync loads VM twice per edit"
+    note: "parked — matches EditApplication sibling double-load, same identity map, efficiency-only"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "missing tests: audit-write on edit/delete (spec §6.2); os/hostname/region EXPLAIN partial-index-use DataRows"
+    note: "fixed gate-8 commit"

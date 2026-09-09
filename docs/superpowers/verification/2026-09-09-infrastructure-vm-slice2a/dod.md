@@ -1,84 +1,72 @@
 # DoD Ledger — Infrastructure/VM slice 2a (fields + mutation)
 
-**Slice:** `2026-09-09-infrastructure-vm-slice2a` · **Branch:** `feat/catalog-infrastructure-vm-slice2a` · **HEAD:** `20ff16c`
-**PR:** <#NN / url> · **Last updated:** 2026-09-09
+**Slice:** `2026-09-09-infrastructure-vm-slice2a` · **Branch:** `feat/catalog-infrastructure-vm-slice2a` · **HEAD:** `361a710` (pre gate-8 fix)
+**PR:** <#NN / url — pending gate 10> · **Last updated:** 2026-09-09
 **Spec:** `docs/superpowers/specs/2026-09-09-infrastructure-vm-slice2a-fields-mutation-design.md`
 **Plan:** `docs/superpowers/plans/2026-09-09-infrastructure-vm-slice2a-fields-mutation.md`
-**Findings telemetry:** `./gate-findings.yaml` — per-gate issues × severity × real/delusion (copy from `templates/gate-findings-template.yaml`)
+**Findings telemetry:** `./gate-findings.yaml`
 
-> Records the Definition of Done from `CLAUDE.md`. Update each row the moment its gate runs.
-> Legend: ✅ PASS · ❌ FAIL · ⏳ PENDING · N/A — FAIL and N/A require a one-line reason.
-> This table records each gate's **status**; what each gate **found** (and whether it was real) goes in `gate-findings.yaml`.
+> Legend: ✅ PASS · ❌ FAIL · ⏳ PENDING · N/A. Status here; what each gate FOUND is in `gate-findings.yaml`.
+> Executed subagent-driven (9 tasks + finishing gates). Reviews/reports live in `.superpowers/sdd/2026-09-09-infrastructure-vm-slice2a-fields-mutation/` (gitignored scratch); durable evidence below.
 
 ## Summary
 
 | Gate | Status | Updated |
 |------|--------|---------|
-| 1 Build (`TreatWarningsAsErrors`) | ⏳ PENDING | — |
-| 2 Per-task subagent reviews | ⏳ PENDING | — |
-| 3 Full suite (+ real-seam if wiring) | ⏳ PENDING | — |
+| 1 Build (`TreatWarningsAsErrors`) | ✅ PASS | 2026-09-09 |
+| 2 Per-task subagent reviews | ✅ PASS | 2026-09-09 |
+| 3 Full suite (+ real-seam) | ✅ PASS (per-slice suites; whole-solution at terminal re-verify) | 2026-09-09 |
 | 4 Container build (images CI) | ⏳ PENDING | — |
-| 5 `/simplify` | ⏳ PENDING | — |
-| 6 `requesting-code-review` | ⏳ PENDING | — |
-| 7 `review-pr` | ⏳ PENDING | — |
-| 8 `deep-review` | ⏳ PENDING | — |
-| Terminal re-verify (build + suite) | ⏳ PENDING | — |
+| 5 `/simplify` | ✅ PASS | 2026-09-09 |
+| 6 `requesting-code-review` | ✅ PASS | 2026-09-09 |
+| 7 `review-pr` | ✅ PASS | 2026-09-09 |
+| 8 `deep-review` | ✅ PASS | 2026-09-09 |
+| Terminal re-verify (build + suite) | ⏳ PENDING (after gate-8 fix) | — |
 | 9 Visual / API verification (ADR-0084) | ⏳ PENDING | — |
-| 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING | — |
+| 10 CI green on PR | ⏳ PENDING | — |
 
 ## Gate detail
 
 ### 1 — Build (`TreatWarningsAsErrors=true`)
-**Status:** ⏳ PENDING
-**Evidence:** <command + output excerpt, or CI run URL>
-**At:** <commit / date>
+**Status:** ✅ PASS — `dotnet build Kartova.slnx -p:TreatWarningsAsErrors=true` → 0 warnings / 0 errors, confirmed at every task commit and the gate-7 fix (`361a710`).
+**At:** 361a710 / 2026-09-09
 
 ### 2 — Per-task subagent reviews (spec + quality)
-**Status:** ⏳ PENDING
-**Evidence:** <subagent ids / linked report files>
-**At:** <commit / date>
+**Status:** ✅ PASS — all 9 plan tasks reviewed (spec-compliance + code-quality) by a fresh subagent per task; T7 (JSONB sort) took 1 fix round (2 Criticals fixed 36852d8). Reports: `.superpowers/.../task-N-report.md` + progress ledger.
+**At:** per task / 2026-09-09
 
-### 3 — Full test suite (unit + arch + integration; real-seam if wiring)
-**Status:** ⏳ PENDING
-**Evidence:** <command + counts, or CI run URL. Note real-seam N/A with reason if frontend-only>
-**At:** <commit / date>
+### 3 — Full test suite (unit + arch + integration; real-seam)
+**Status:** ✅ PASS (per-slice) — `Kartova.Catalog.Tests` 356/356, `Kartova.Catalog.Infrastructure.Tests` 11/11, `Kartova.Catalog.IntegrationTests` 460/460 (real Postgres/RLS + real JWT via Testcontainers), `Kartova.ArchitectureTests` 69/69, web vitest catalog green. Whole-solution run at terminal re-verify.
+**At:** 361a710 / 2026-09-09
 
 ### 4 — Container build (images CI job)
-**Status:** ⏳ PENDING
-**Evidence:** <CI "Container images" check URL>
-**At:** <commit / date>
+**Status:** ⏳ PENDING — `docker compose build` (migration container carries the provider column + 6 partial indexes migration).
+**At:** —
 
 ### 5 — `/simplify` against branch diff
-**Status:** ⏳ PENDING
-**Evidence:** <link to simplify.md / findings summary>
-**At:** <commit / date>
+**Status:** ✅ PASS — 4 cleanup agents; 7 accepted cleanups applied (`27cc450`, net -193 lines: VmSortSpecs.IdEquals, shared VmFormFields, alias shared sort specs, test dedup); scoped re-review confirmed all 7 behavior-preserving. 2 out-of-scope items deferred (SharedKernel nullable-keyset general fix; shared ConcurrencyCapture via EF metadata).
+**At:** 27cc450 / 2026-09-09
 
 ### 6 — `requesting-code-review` at slice boundary
-**Status:** ⏳ PENDING
-**Evidence:** <link to requesting-code-review.md / findings>
-**At:** <commit / date>
+**Status:** ✅ PASS — whole-branch opus review: 0 critical; 1 Important (int-cast indexes not EXPLAIN-verified) + minors fixed (`fa76a97`); scoped re-review clean.
+**At:** fa76a97 / 2026-09-09
 
 ### 7 — `review-pr` (pr-review-toolkit)
-**Status:** ⏳ PENDING
-**Evidence:** <link to review-pr.md / PR review>
-**At:** <commit / date>
+**Status:** ✅ PASS — 5 specialized reviewers (code/tests/errors/types/comments). Found what prior gates missed (validates no-folding): 1 Critical (VM-attribute-400 silent failure), 1 Important (AllInfrastructure provider-sort no-op), Mediums + test/comment gaps — 15-item fix wave applied (`361a710`); scoped re-review all addressed. 1 delusion rejected (ValidateAttributes JSON vs ADR-0115). teamId-select bug deferred to gate 9.
+**At:** 361a710 / 2026-09-09
 
 ### 8 — `deep-review`
-**Status:** ⏳ PENDING
-**Evidence:** <link to deep-review.md>
-**At:** <commit / date>
+**Status:** ✅ PASS — 0 blocking / 2 should-fix / 2 nits / 2 missing-test / 5 good; conforms to spec §3 + implicated ADRs. Report: `./deep-review.md`. SF1 (JSONB COALESCE) deferred to slice-4 with ruling + documented invariant; SF2 (this ledger) backfilled; nits/missing-tests fixed (gate-8 fix commit).
+**At:** 361a710 (+ gate-8 fix) / 2026-09-09
 
 ### Terminal re-verify (build + full suite after gates 5–8)
-**Status:** ⏳ PENDING
-**Evidence:** <command + output / CI run URL>
-**At:** <commit / date>
+**Status:** ⏳ PENDING — build + whole-solution suite on the final commit (after the gate-8 fix lands).
+**At:** —
 
 ### 9 — Visual / API verification (observe the running system)
-**Status:** ⏳ PENDING
-**Evidence:** <UI: screenshot(s) of the changed surface under verification/<slice>/ + console-clean note; API: live request/response captured against the running stack. Or N/A reason (no runtime surface — docs/pure refactor). Distinct from gate 3 (automated tests).>
-**At:** <commit / date>
+**Status:** ⏳ PENDING — cold-start stack; in-SPA: VM edit dialog (If-Match/412), delete confirm overlay (no blank-page), JSONB sort headers, provider column/sort on both lists, **VM create teamId-select (confirm the gate-7-flagged bug real vs jsdom)**; API: live PUT/DELETE/GET + `EXPLAIN` per JSONB sort. Evidence committed here.
+**At:** —
 
-### 10 — CI green on the PR (terminal; `scripts/ci-local.sh` = required pre-push mirror)
-**Status:** ⏳ PENDING
-**Evidence:** <PR CI run URL (all jobs green — the runner is the source of truth) + pre-push `ci-local.sh` result. A CI-only failure → fix determinism, don't re-push blindly.>
-**At:** <commit / date>
+### 10 — CI green on the PR (terminal; `scripts/ci-local.sh` pre-push mirror)
+**Status:** ⏳ PENDING — push + PR; `ci-local.sh` (Release mirror) pre-push, then PR CI all-green.
+**At:** —
