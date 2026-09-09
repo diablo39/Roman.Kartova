@@ -1,6 +1,6 @@
 # DoD Ledger — Infrastructure/VM slice 2a (fields + mutation)
 
-**Slice:** `2026-09-09-infrastructure-vm-slice2a` · **Branch:** `feat/catalog-infrastructure-vm-slice2a` · **HEAD:** `a40c668`
+**Slice:** `2026-09-09-infrastructure-vm-slice2a` · **Branch:** `feat/catalog-infrastructure-vm-slice2a` · **HEAD:** `ebf7303`
 **PR:** <#NN / url — pending gate 10> · **Last updated:** 2026-09-09
 **Spec:** `docs/superpowers/specs/2026-09-09-infrastructure-vm-slice2a-fields-mutation-design.md`
 **Plan:** `docs/superpowers/plans/2026-09-09-infrastructure-vm-slice2a-fields-mutation.md`
@@ -22,7 +22,7 @@
 | 7 `review-pr` | ✅ PASS | 2026-09-09 |
 | 8 `deep-review` | ✅ PASS | 2026-09-09 |
 | Terminal re-verify (build + suite) | ✅ PASS | 2026-09-09 |
-| 9 Visual / API verification (ADR-0084) | ⏳ PENDING | — |
+| 9 Visual / API verification (ADR-0084) | ✅ PASS (found + fixed VM-create bug, re-verified live) | 2026-09-09 |
 | 10 CI green on PR | ⏳ PENDING | — |
 
 ## Gate detail
@@ -64,8 +64,8 @@
 **At:** a40c668 / 2026-09-09
 
 ### 9 — Visual / API verification (observe the running system)
-**Status:** ⏳ PENDING — cold-start stack; in-SPA: VM edit dialog (If-Match/412), delete confirm overlay (no blank-page), JSONB sort headers, provider column/sort on both lists, **VM create teamId-select (confirm the gate-7-flagged bug real vs jsdom)**; API: live PUT/DELETE/GET + `EXPLAIN` per JSONB sort. Evidence committed here.
-**At:** —
+**Status:** ✅ PASS — live stack (built images) + claude-in-chrome, in-SPA (`gate-9-verification.md`). Confirmed: provider column + JSONB sort headers, isRowHeader invariant (overlay no blank-page), multi-IP render, Register VM dialog + provider field. **Found a real Critical the automated gates missed:** VM create via SPA was broken ("Team is required" even with a team selected — RHF useController on native `<select>`); fixed (`ebf7303`, mirror RegisterApplicationDialog useState pattern + regression test) and **re-verified live** (VM created via SPA, provider AWS shown end-to-end). API PUT/DELETE/GET + EXPLAIN covered by real-seam integration (gate 3/7/8).
+**At:** ebf7303 / 2026-09-09
 
 ### 10 — CI green on the PR (terminal; `scripts/ci-local.sh` pre-push mirror)
 **Status:** ⏳ PENDING — push + PR; `ci-local.sh` (Release mirror) pre-push, then PR CI all-green.

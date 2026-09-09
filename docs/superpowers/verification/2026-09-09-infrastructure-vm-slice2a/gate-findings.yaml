@@ -115,3 +115,10 @@ findings:
     verdict: real
     title: "missing tests: audit-write on edit/delete (spec §6.2); os/hostname/region EXPLAIN partial-index-use DataRows"
     note: "fixed gate-8 commit"
+
+  # --- gate 9 (visual / API verification) ---
+  - gate: manual
+    severity: blocking
+    verdict: real
+    title: "VM create via SPA broken — Register VM dialog always fails 'Team is required' even with a team selected (RHF useController on native <select> in react-aria Form)"
+    note: "confirmed live in browser; fixed ebf7303 — mirror RegisterApplicationDialog useState-for-teamId workaround + regression test; fix re-verified live (VM created, provider AWS shown). Pre-existing slice-1; slice 2a touched RegisterVmDialog (added provider)."
