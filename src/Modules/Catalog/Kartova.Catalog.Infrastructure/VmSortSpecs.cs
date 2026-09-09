@@ -15,14 +15,17 @@ namespace Kartova.Catalog.Infrastructure;
 /// <para>
 /// <b>Expression discipline (critical):</b> each JSONB selector's EF-translated SQL MUST be
 /// byte-identical to its partial index expression, or Postgres falls back to a sequential scan
-/// and cursor keyset paging becomes non-deterministic across pages. The selectors below were
-/// verified (via a throwaway <c>.ToQueryString()</c> capture on a VM-filtered
-/// <c>CatalogDbContext.Infrastructure</c> query ordered by each <c>KeySelector</c>) to translate
-/// to <c>jsonb_extract_path_text(c.attributes, 'key')</c> for the text members and
+/// for that sort — a PERFORMANCE regression, not a correctness one: every sort here appends the
+/// <c>id</c> tiebreaker, so cursor keyset paging stays deterministic across pages regardless of
+/// whether the index is used. The selectors below were verified (via a throwaway
+/// <c>.ToQueryString()</c> capture on a VM-filtered <c>CatalogDbContext.Infrastructure</c> query
+/// ordered by each <c>KeySelector</c>) to translate to
+/// <c>jsonb_extract_path_text(c.attributes, 'key')</c> for the text members and
 /// <c>jsonb_extract_path_text(c.attributes, 'key')::int</c> for the int members (via
 /// <see cref="Convert.ToInt32(string?)"/>) — the migration's index DDL is authored from that
-/// exact captured fragment, and <c>InfrastructureVmSortTests</c>' raw <c>EXPLAIN</c> test proves
-/// the match holds against real Postgres (index used, no <c>Seq Scan</c>).
+/// exact captured fragment, and <c>InfrastructureVmSortTests</c>' raw <c>EXPLAIN</c> tests prove
+/// the match holds against real Postgres (index used, no <c>Seq Scan</c>) for both a text-cast
+/// (powerState) and an int-cast (vcpu) selector.
 /// </para>
 /// </summary>
 internal static class VmSortSpecs

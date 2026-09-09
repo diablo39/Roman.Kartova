@@ -22,7 +22,9 @@ namespace Kartova.Catalog.Infrastructure.Migrations
             // expression is authored to be byte-identical to the SQL EF/Npgsql actually
             // emits for the matching SortSpec.KeySelector (captured via
             // CatalogDbContext.Infrastructure....ToQueryString() — see VmSortSpecs.cs remarks)
-            // — otherwise Postgres seq-scans and cursor keyset paging is non-deterministic.
+            // — otherwise Postgres seq-scans for that sort, which is purely a PERFORMANCE
+            // regression: every sort appends the id tiebreaker, so cursor keyset paging stays
+            // correct/deterministic across pages regardless of whether the index is used.
             // "WHERE type = 0" scopes each index to InfrastructureType.VirtualMachine rows only
             // (the smallint discriminator column), matching ListVmsHandler's fixed Type filter.
             migrationBuilder.Sql("""
