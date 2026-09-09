@@ -306,7 +306,7 @@ internal static class DevSeed
                     Kartova.Catalog.Domain.InfrastructureResource.Create(
                         "web-vm-01",
                         "Seeded VM: public-facing web frontend.",
-                        null,
+                        "AWS",
                         Kartova.Catalog.Domain.InfrastructureType.VirtualMachine,
                         Kartova.Catalog.Application.VmAttributes.Validate(new Kartova.Catalog.Contracts.VmAttributesDto(
                             "running", "Ubuntu 22.04 LTS", 4, 16, "web-vm-01.orga.internal",
@@ -315,7 +315,7 @@ internal static class DevSeed
                     Kartova.Catalog.Domain.InfrastructureResource.Create(
                         "sql-vm-02",
                         "Seeded VM: primary SQL database, currently stopped for maintenance.",
-                        null,
+                        "Azure",
                         Kartova.Catalog.Domain.InfrastructureType.VirtualMachine,
                         Kartova.Catalog.Application.VmAttributes.Validate(new Kartova.Catalog.Contracts.VmAttributesDto(
                             "stopped", "Windows Server 2022", 8, 32, "sql-vm-02.orga.internal",
@@ -323,7 +323,7 @@ internal static class DevSeed
                         TeamAdminUserId, DemoTeamId, new TenantId(OrgATenantId), origin.AddMinutes(1)),
                     Kartova.Catalog.Domain.InfrastructureResource.Create(
                         "app-vm-03",
-                        "Seeded VM: application worker node, suspended.",
+                        "Seeded VM: application worker node, suspended. Provider left unset to exercise null-provider handling.",
                         null,
                         Kartova.Catalog.Domain.InfrastructureType.VirtualMachine,
                         Kartova.Catalog.Application.VmAttributes.Validate(new Kartova.Catalog.Contracts.VmAttributesDto(
