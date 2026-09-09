@@ -37,15 +37,20 @@ internal static class VmSortSpecs
     /// <see cref="InfrastructureSortSpecs.IdFieldName"/>).</summary>
     public static string IdFieldName => EfInfrastructureConfiguration.IdFieldName;
 
-    public static readonly SortSpec<InfrastructureResource> DisplayName = new("displayName", x => x.DisplayName);
-    public static readonly SortSpec<InfrastructureResource> CreatedAt = new("createdAt", x => x.CreatedAt);
-    // Null-safe (gate-8 review finding, fix round 1): Provider is a nullable column. Sorting on
-    // the raw (possibly-null) value makes the shared keyset predicate
-    // `sortKey > @p OR (sortKey = @p AND id > @p)` evaluate to SQL UNKNOWN (=> excluded from
-    // WHERE) whenever a page-boundary row's Provider is NULL, silently truncating pagination at
-    // the first null-provider boundary. COALESCE-ing to "" removes NULL from the sort key
-    // entirely — see InfrastructureVmSortTests' null-provider paging coverage.
-    public static readonly SortSpec<InfrastructureResource> Provider = new("provider", x => x.Provider ?? "");
+    /// <summary>Returns an EF-translatable predicate that matches the VM-kind Infrastructure
+    /// resource with the given id. Used by <see cref="EditVmHandler"/>, <see cref="DeleteVmHandler"/>,
+    /// <see cref="GetVmByIdHandler"/>, and <see cref="CatalogEndpointDelegates.EditVmAsync"/> so none
+    /// of those repeat the shadow-PK-plus-Type predicate directly (mirrors
+    /// <see cref="ApplicationSortSpecs.IdEquals"/>).</summary>
+    public static Expression<Func<InfrastructureResource, bool>> IdEquals(Guid id) =>
+        x => EF.Property<Guid>(x, EfInfrastructureConfiguration.IdFieldName) == id
+             && x.Type == InfrastructureType.VirtualMachine;
+
+    // Shared with the generic Infrastructure list allowlist — single source of truth, see
+    // InfrastructureSortSpecs (including the Provider null-safety rationale).
+    public static readonly SortSpec<InfrastructureResource> DisplayName = InfrastructureSortSpecs.DisplayName;
+    public static readonly SortSpec<InfrastructureResource> CreatedAt = InfrastructureSortSpecs.CreatedAt;
+    public static readonly SortSpec<InfrastructureResource> Provider = InfrastructureSortSpecs.Provider;
 
     public static readonly SortSpec<InfrastructureResource> PowerState =
         new("powerState", x => JsonbFunctions.JsonbExtractPathText(x.Attributes, "powerState")!);

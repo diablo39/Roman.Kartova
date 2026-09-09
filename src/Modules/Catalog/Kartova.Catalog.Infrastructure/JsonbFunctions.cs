@@ -33,7 +33,7 @@ namespace Kartova.Catalog.Infrastructure;
 /// every existing test still green (the tests only ever exercise ONE key value per
 /// field, so parameterization vs. literal-inlining is externally invisible without inspecting the
 /// actual emitted <see cref="System.Data.Common.DbCommand"/> — see
-/// <c>InfrastructureVmSortTests.ListVms_sortBy_powerState_emits_literal_key_and_uses_partial_index</c>).
+/// <c>InfrastructureVmSortTests.ListVms_sortBy_jsonbField_emits_literal_key_and_uses_partial_index</c>).
 /// </para>
 /// </summary>
 internal static class JsonbFunctions

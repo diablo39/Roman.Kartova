@@ -22,9 +22,7 @@ public sealed class DeleteVmHandler
         DeleteVmCommand cmd, CatalogDbContext db, IAuditWriter audit, CancellationToken ct)
     {
         var vm = await db.Infrastructure
-            .Where(x => EF.Property<Guid>(x, EfInfrastructureConfiguration.IdFieldName) == cmd.Id.Value)
-            .Where(x => x.Type == InfrastructureType.VirtualMachine)
-            .SingleOrDefaultAsync(ct);
+            .SingleOrDefaultAsync(VmSortSpecs.IdEquals(cmd.Id.Value), ct);
         if (vm is null) return false;
 
         db.Entry(vm).Property(x => x.Xmin).OriginalValue = cmd.ExpectedVersion;

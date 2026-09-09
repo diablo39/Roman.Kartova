@@ -856,9 +856,7 @@ internal static class CatalogEndpointDelegates
         CancellationToken ct)
     {
         var vm = await db.Infrastructure
-            .Where(x => EF.Property<Guid>(x, EfInfrastructureConfiguration.IdFieldName) == id)
-            .Where(x => x.Type == InfrastructureType.VirtualMachine)
-            .SingleOrDefaultAsync(ct);
+            .SingleOrDefaultAsync(VmSortSpecs.IdEquals(id), ct);
         if (vm is null) return EndpointResultExtensions.VmNotFound();
 
         if (await AuthorizeTargetTeamAsync(auth, caller, vm.TeamId) is { } forbidden)

@@ -274,69 +274,24 @@ public sealed class InfrastructureVmSortTests : CatalogIntegrationTestBase
     }
 
     /// <summary>
-    /// FW7-S3 (the critical proof, gate-8 review fix round 1): captures the ACTUAL
-    /// <see cref="DbCommand"/> <see cref="ListVmsHandler"/> emits for a powerState-sorted query
-    /// and asserts two things against it: (1) the <c>'powerState'</c> key literal is embedded
-    /// directly in the emitted SQL text, not lifted into a bound parameter — proving
-    /// <see cref="JsonbFunctions.JsonbExtractPathText"/>'s <c>[NotParameterized]</c> attribute on
-    /// <c>key</c> actually holds; (2) a raw <c>EXPLAIN</c> of that exact statement shows the
-    /// <c>ix_catalog_infrastructure_vm_power_state</c> partial index used and no <c>Seq Scan</c>.
-    /// Covers the TEXT-cast index shape; see
-    /// <see cref="ListVms_sortBy_intCastField_emits_literal_key_and_uses_partial_index"/> for the
-    /// INT-cast shape (<c>vcpu</c>/<c>memoryGb</c>), which is a materially different expression
-    /// (<c>(jsonb_extract_path_text(...))::int</c>) and was NOT previously verified against a
-    /// real EXPLAIN (final-review fix wave, slice 2a).
+    /// FW7-S3 / FIX #1 (gate-8 review fix round 1; slice 2a final-review fix wave, Important
+    /// finding): captures the ACTUAL <see cref="DbCommand"/> <see cref="ListVmsHandler"/> emits
+    /// for a JSONB-attribute-sorted query and asserts two things against it: (1) the field's key
+    /// literal is embedded directly in the emitted SQL text, not lifted into a bound parameter —
+    /// proving <see cref="JsonbFunctions.JsonbExtractPathText"/>'s <c>[NotParameterized]</c>
+    /// attribute on <c>key</c> actually holds; (2) a raw <c>EXPLAIN</c> of that exact statement
+    /// shows the field's partial expression index used and no <c>Seq Scan</c>. Covers both the
+    /// TEXT-cast index shape (<c>powerState</c>) and the INT-cast shape (<c>vcpu</c>/
+    /// <c>memoryGb</c>), which is a materially different expression
+    /// (<c>(jsonb_extract_path_text(...))::int</c>) — all three were previously verified only by
+    /// ordering assertions, which a seq-scan-and-sort plan satisfies just as well as an index
+    /// scan; this proof needs a real EXPLAIN per shape.
     /// </summary>
     [TestMethod]
-    public async Task ListVms_sortBy_powerState_emits_literal_key_and_uses_partial_index()
-    {
-        var tenantId = Fx.TenantIdForEmail(OrgAUser);
-        var teamId = await Fx.SeedTeamInOrganizationAsync(tenantId, "Vm Team RealSqlCapture");
-        await SeedVmAsync(
-            tenantId, teamId, $"vm-realsql-{Guid.NewGuid():N}", DateTimeOffset.UtcNow, "provider-x",
-            "running", "os-x", 2, 8, "host-x", "region-x");
-
-        var (sql, parameters, plan) = await CaptureCommandAndExplainAsync(teamId, VmSortField.PowerState);
-
-        // Prove #1: the key literal is embedded directly in the SQL EF actually emits — not
-        // lifted into a bound parameter. Postgres expression-index matching needs the same Const
-        // node in the parsed query tree as the index definition; a bound parameter would silently
-        // break that match even though every other test here stays green.
-        Assert.IsTrue(
-            sql.Contains("jsonb_extract_path_text", StringComparison.Ordinal),
-            $"expected jsonb_extract_path_text in the emitted SQL:\n{sql}");
-        Assert.IsTrue(
-            sql.Contains("'powerState'", StringComparison.Ordinal),
-            $"expected the 'powerState' key literal inline (not parameterized) in the emitted SQL:\n{sql}");
-        Assert.IsFalse(
-            parameters.Any(p => "powerState".Equals(p.Value)),
-            "the 'powerState' key must not be sent as a bound parameter value");
-
-        // Prove #2: EXPLAIN of the ACTUAL EF-emitted statement uses the partial index, no seq scan.
-        Assert.IsFalse(
-            plan.Contains("Seq Scan", StringComparison.OrdinalIgnoreCase),
-            $"Expected no Seq Scan for the ACTUAL EF-emitted statement; plan:\n{plan}\nSQL was:\n{sql}");
-        Assert.IsTrue(
-            plan.Contains("ix_catalog_infrastructure_vm_power_state", StringComparison.OrdinalIgnoreCase),
-            $"Expected the partial expression index for the ACTUAL EF-emitted statement; plan:\n{plan}\nSQL was:\n{sql}");
-    }
-
-    /// <summary>
-    /// FIX #1 (slice 2a final-review fix wave, Important finding): the two INT-cast partial
-    /// indexes (<c>ix_catalog_infrastructure_vm_vcpu</c>, <c>ix_catalog_infrastructure_vm_memory_gb</c>
-    /// — backed by <c>((jsonb_extract_path_text(attributes,'key'))::int)</c>) were previously
-    /// verified only by ordering assertions, which a seq-scan-and-sort plan satisfies just as
-    /// well as an index scan — a non-matching int-cast expression could have shipped as a silent
-    /// perf regression. Mirrors <see cref="ListVms_sortBy_powerState_emits_literal_key_and_uses_partial_index"/>'s
-    /// interceptor+EXPLAIN proof for both int fields: captures the REAL emitted
-    /// <see cref="DbCommand"/> for a <c>sortBy=vcpu</c>/<c>sortBy=memoryGb</c> VM query, asserts
-    /// the key is an inline literal (no bound parameter), and <c>EXPLAIN</c>s that exact captured
-    /// statement asserting the matching int-cast partial index is used with no <c>Seq Scan</c>.
-    /// </summary>
-    [TestMethod]
+    [DataRow(VmSortField.PowerState, "powerState", "ix_catalog_infrastructure_vm_power_state")]
     [DataRow(VmSortField.Vcpu, "vcpu", "ix_catalog_infrastructure_vm_vcpu")]
     [DataRow(VmSortField.MemoryGb, "memoryGb", "ix_catalog_infrastructure_vm_memory_gb")]
-    public async Task ListVms_sortBy_intCastField_emits_literal_key_and_uses_partial_index(
+    public async Task ListVms_sortBy_jsonbField_emits_literal_key_and_uses_partial_index(
         VmSortField sortField, string key, string expectedIndexName)
     {
         var tenantId = Fx.TenantIdForEmail(OrgAUser);
@@ -359,8 +314,8 @@ public sealed class InfrastructureVmSortTests : CatalogIntegrationTestBase
             parameters.Any(p => key.Equals(p.Value)),
             $"the '{key}' key must not be sent as a bound parameter value");
 
-        // Prove #2: EXPLAIN of the ACTUAL EF-emitted statement uses the int-cast partial index,
-        // no seq scan — proving the ::int cast expression matches byte-for-byte.
+        // Prove #2: EXPLAIN of the ACTUAL EF-emitted statement uses the field's partial index,
+        // no seq scan — proving the expression (text- or int-cast) matches byte-for-byte.
         Assert.IsFalse(
             plan.Contains("Seq Scan", StringComparison.OrdinalIgnoreCase),
             $"Expected no Seq Scan for the ACTUAL EF-emitted statement; plan:\n{plan}\nSQL was:\n{sql}");
@@ -389,60 +344,10 @@ public sealed class InfrastructureVmSortTests : CatalogIntegrationTestBase
     /// </para>
     /// </summary>
     [TestMethod]
-    public async Task ListVms_cursor_is_stable_across_null_provider_boundary()
-    {
-        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
-        var tenantId = Fx.TenantIdForEmail(OrgAUser);
-        var teamId = await Fx.SeedTeamInOrganizationAsync(tenantId, "Vm Team NullProviderCursor");
-        var unique = $"vm-nullprovider-{Guid.NewGuid():N}";
-        var origin = DateTimeOffset.UtcNow;
-
-        var expectedIds = new List<Guid>();
-        for (var i = 0; i < 3; i++)
-        {
-            expectedIds.Add(await SeedVmAsync(
-                tenantId, teamId, $"{unique}-null-{i}", origin.AddMinutes(i), provider: null,
-                "running", "os-x", 2, 8, $"host-null-{i}", "region-x"));
-        }
-        expectedIds.Add(await SeedVmAsync(
-            tenantId, teamId, $"{unique}-p-a", origin.AddMinutes(10), "zzz-provider-a",
-            "running", "os-x", 2, 8, "host-p-a", "region-x"));
-        expectedIds.Add(await SeedVmAsync(
-            tenantId, teamId, $"{unique}-p-b", origin.AddMinutes(11), "zzz-provider-b",
-            "running", "os-x", 2, 8, "host-p-b", "region-x"));
-
-        var allItems = new List<VmListItemResponse>();
-        string? cursor = null;
-        for (var page = 0; page < 10; page++)
-        {
-            var url = $"/api/v1/catalog/infrastructure/vms?teamId={teamId}&sortBy=provider&sortOrder=asc&limit=2"
-                + (cursor is null ? "" : $"&cursor={Uri.EscapeDataString(cursor)}");
-            var resp = await client.GetAsync(url);
-            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode, $"page {page} failed: {await resp.Content.ReadAsStringAsync()}");
-            var thisPage = await resp.Content.ReadFromJsonAsync<CursorPage<VmListItemResponse>>(KartovaApiFixtureBase.WireJson);
-            allItems.AddRange(thisPage!.Items);
-            cursor = thisPage.NextCursor;
-            if (cursor is null)
-            {
-                break;
-            }
-        }
-
-        Assert.AreEqual(
-            5, allItems.Count,
-            "all 5 rows must be returned — pagination must not truncate at the null-provider boundary");
-        Assert.AreEqual(5, allItems.Select(i => i.Id).Distinct().Count(), "no duplicate rows across pages");
-        CollectionAssert.AreEquivalent(
-            expectedIds, allItems.Select(i => i.Id).ToList(), "every seeded row must appear exactly once");
-
-        var coalescedProviders = allItems.Select(i => i.Provider ?? "").ToList();
-        for (var i = 1; i < coalescedProviders.Count; i++)
-        {
-            Assert.IsTrue(
-                string.CompareOrdinal(coalescedProviders[i - 1], coalescedProviders[i]) <= 0,
-                $"expected non-decreasing provider order; got: {string.Join(", ", coalescedProviders)}");
-        }
-    }
+    public Task ListVms_cursor_is_stable_across_null_provider_boundary() =>
+        AssertNullProviderBoundaryStableAsync<VmListItemResponse>(
+            "/api/v1/catalog/infrastructure/vms", "Vm Team NullProviderCursor", "vm-nullprovider",
+            i => i.Id, i => i.Provider);
 
     /// <summary>
     /// FIX #6 (slice 2a final-review fix wave, Minor finding): the null-provider keyset-paging
@@ -455,12 +360,30 @@ public sealed class InfrastructureVmSortTests : CatalogIntegrationTestBase
     /// are a sufficient InfrastructureType since only one type exists in the domain today.
     /// </summary>
     [TestMethod]
-    public async Task ListInfrastructure_cursor_is_stable_across_null_provider_boundary()
+    public Task ListInfrastructure_cursor_is_stable_across_null_provider_boundary() =>
+        AssertNullProviderBoundaryStableAsync<InfrastructureListItemResponse>(
+            "/api/v1/catalog/infrastructure", "Vm Team GenericNullProviderCursor", "vm-genericnullprovider",
+            i => i.Id, i => i.Provider);
+
+    /// <summary>
+    /// Shared body for the null-provider keyset-paging boundary proof (dedup of the two tests
+    /// above — line-identical except list path, DTO type, team name, and seed-id prefix). Seeds
+    /// 3 null-provider rows + 2 non-null-provider rows with <c>limit=2</c>, which guarantees a
+    /// null-provider row is the page-1 boundary (empty string sorts before any non-empty
+    /// provider, so the first 2 rows returned are always drawn from the 3 tied null-provider
+    /// rows). Asserts every row is still returned across pages with no duplicates/truncation, and
+    /// that the coalesced provider values are non-decreasing overall. The exact tiebreak order
+    /// among rows sharing the same coalesced key is deliberately NOT asserted — .NET's default
+    /// <see cref="Guid"/> ordering does not match Postgres' <c>uuid</c> btree ordering, so pinning
+    /// a specific tiebreak sequence here would test the wrong thing.
+    /// </summary>
+    private static async Task AssertNullProviderBoundaryStableAsync<T>(
+        string listPath, string teamName, string uniquePrefix, Func<T, Guid> idOf, Func<T, string?> providerOf)
     {
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
         var tenantId = Fx.TenantIdForEmail(OrgAUser);
-        var teamId = await Fx.SeedTeamInOrganizationAsync(tenantId, "Vm Team GenericNullProviderCursor");
-        var unique = $"vm-genericnullprovider-{Guid.NewGuid():N}";
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenantId, teamName);
+        var unique = $"{uniquePrefix}-{Guid.NewGuid():N}";
         var origin = DateTimeOffset.UtcNow;
 
         var expectedIds = new List<Guid>();
@@ -477,15 +400,15 @@ public sealed class InfrastructureVmSortTests : CatalogIntegrationTestBase
             tenantId, teamId, $"{unique}-p-b", origin.AddMinutes(11), "zzz-provider-b",
             "running", "os-x", 2, 8, "host-p-b", "region-x"));
 
-        var allItems = new List<InfrastructureListItemResponse>();
+        var allItems = new List<T>();
         string? cursor = null;
         for (var page = 0; page < 10; page++)
         {
-            var url = $"/api/v1/catalog/infrastructure?teamId={teamId}&sortBy=provider&sortOrder=asc&limit=2"
+            var url = $"{listPath}?teamId={teamId}&sortBy=provider&sortOrder=asc&limit=2"
                 + (cursor is null ? "" : $"&cursor={Uri.EscapeDataString(cursor)}");
             var resp = await client.GetAsync(url);
             Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode, $"page {page} failed: {await resp.Content.ReadAsStringAsync()}");
-            var thisPage = await resp.Content.ReadFromJsonAsync<CursorPage<InfrastructureListItemResponse>>(KartovaApiFixtureBase.WireJson);
+            var thisPage = await resp.Content.ReadFromJsonAsync<CursorPage<T>>(KartovaApiFixtureBase.WireJson);
             allItems.AddRange(thisPage!.Items);
             cursor = thisPage.NextCursor;
             if (cursor is null)
@@ -497,11 +420,11 @@ public sealed class InfrastructureVmSortTests : CatalogIntegrationTestBase
         Assert.AreEqual(
             5, allItems.Count,
             "all 5 rows must be returned — pagination must not truncate at the null-provider boundary");
-        Assert.AreEqual(5, allItems.Select(i => i.Id).Distinct().Count(), "no duplicate rows across pages");
+        Assert.AreEqual(5, allItems.Select(idOf).Distinct().Count(), "no duplicate rows across pages");
         CollectionAssert.AreEquivalent(
-            expectedIds, allItems.Select(i => i.Id).ToList(), "every seeded row must appear exactly once");
+            expectedIds, allItems.Select(idOf).ToList(), "every seeded row must appear exactly once");
 
-        var coalescedProviders = allItems.Select(i => i.Provider ?? "").ToList();
+        var coalescedProviders = allItems.Select(i => providerOf(i) ?? "").ToList();
         for (var i = 1; i < coalescedProviders.Count; i++)
         {
             Assert.IsTrue(

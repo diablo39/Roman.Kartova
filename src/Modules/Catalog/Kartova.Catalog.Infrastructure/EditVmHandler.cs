@@ -23,9 +23,7 @@ public sealed class EditVmHandler
         EditVmCommand cmd, CatalogDbContext db, IAuditWriter audit, CancellationToken ct)
     {
         var vm = await db.Infrastructure
-            .Where(x => EF.Property<Guid>(x, EfInfrastructureConfiguration.IdFieldName) == cmd.Id.Value)
-            .Where(x => x.Type == InfrastructureType.VirtualMachine)
-            .SingleOrDefaultAsync(ct);
+            .SingleOrDefaultAsync(VmSortSpecs.IdEquals(cmd.Id.Value), ct);
         if (vm is null) return null;
 
         db.Entry(vm).Property(x => x.Xmin).OriginalValue = cmd.ExpectedVersion;
@@ -57,7 +55,7 @@ public sealed class EditVmHandler
                 ["provider"] = vm.Provider,
             }), ct);
 
-        var attrs = VmAttributes.FromJson(vm.Attributes).ToDto();
+        var attrs = cmd.Attributes.ToDto();
         return new VmDetailResponse(
             vm.Id.Value, vm.TenantId.Value, vm.DisplayName, vm.Description, vm.Provider,
             vm.TeamId, vm.SystemId, vm.CreatedByUserId, vm.CreatedAt,

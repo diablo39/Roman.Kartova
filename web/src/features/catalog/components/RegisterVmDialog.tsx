@@ -1,27 +1,25 @@
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
+import type { Control } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 
 import { ModalOverlay, Modal, Dialog } from "@/components/application/modals/modal";
 import { HookForm, FormField } from "@/components/base/form/hook-form";
-import { Input } from "@/components/base/input/input";
-import { InputTags } from "@/components/base/input/input-tags";
-import { TextArea } from "@/components/base/textarea/textarea";
 import { Button } from "@/components/base/buttons/button";
 import { Avatar } from "@/components/base/avatar/avatar";
 
 import {
   registerVmSchema,
-  POWER_STATES,
   type RegisterVmInput,
+  type EditVmInput,
 } from "@/features/catalog/schemas/registerVm";
-import { powerStateLabel } from "@/features/catalog/powerState";
 import { useRegisterVm, type RegisterVmRequest } from "@/features/catalog/api/infrastructure";
 import { useTeamsList } from "@/features/teams/api/teams";
 import { applyProblemDetailsToForm, type ProblemDetails } from "@/shared/forms/problemDetails";
 import { useCurrentUser } from "@/shared/auth/useCurrentUser";
 import { initialsOf } from "@/shared/auth/initials";
+import { VmFormFields } from "@/features/catalog/components/VmFormFields";
 
 interface Props {
   open: boolean;
@@ -99,182 +97,44 @@ export function RegisterVmDialog({ open, onOpenChange }: Props) {
             </div>
 
             <HookForm form={form} onSubmit={onSubmit} className="space-y-5">
-              <FormField name="displayName" control={form.control}>
-                {({ field, fieldState }) => (
-                  <Input
-                    label="Display Name"
-                    placeholder="web-prod-01"
-                    hint={fieldState.error?.message ?? "Human-friendly name shown in UI."}
-                    isInvalid={!!fieldState.error}
-                    isRequired
-                    {...field}
-                  />
-                )}
-              </FormField>
-              <FormField name="description" control={form.control}>
-                {({ field, fieldState }) => (
-                  <TextArea
-                    label="Description"
-                    rows={3}
-                    placeholder="Short summary..."
-                    hint={fieldState.error?.message}
-                    isInvalid={!!fieldState.error}
-                    isRequired
-                    {...field}
-                  />
-                )}
-              </FormField>
-
-              <FormField name="provider" control={form.control}>
-                {({ field, fieldState }) => (
-                  <Input
-                    label="Provider"
-                    placeholder="AWS, Azure, on-prem…"
-                    hint={fieldState.error?.message ?? "Optional — the cloud or hosting provider."}
-                    isInvalid={!!fieldState.error}
-                    {...field}
-                    value={field.value ?? ""}
-                  />
-                )}
-              </FormField>
-
-              <FormField name="teamId" control={form.control}>
-                {({ field, fieldState }) => (
-                  <div className="flex flex-col gap-1">
-                    <label htmlFor="register-vm-team" className="text-sm font-medium text-secondary">
-                      Team <span className="text-error-primary">*</span>
-                    </label>
-                    <select
-                      id="register-vm-team"
-                      data-testid="register-vm-team-select"
-                      className="rounded-md border border-secondary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-60 bg-primary text-primary"
-                      value={field.value}
-                      onChange={field.onChange}
-                      onBlur={field.onBlur}
-                      ref={field.ref}
-                      disabled={teamsList.isLoading || mutation.isPending}
-                      aria-invalid={!!fieldState.error}
-                    >
-                      <option value="">Select a team…</option>
-                      {teams.map((t) => (
-                        <option key={t.id} value={t.id}>{t.displayName}</option>
-                      ))}
-                    </select>
-                    {fieldState.error && <p className="text-xs text-error-primary">{fieldState.error.message}</p>}
-                    {noTeams && (
-                      <p className="text-xs text-tertiary">
-                        No teams available — create a team first before registering a virtual machine.
-                      </p>
+              <VmFormFields
+                control={form.control as unknown as Control<EditVmInput>}
+                idPrefix="register-vm"
+                disabled={mutation.isPending}
+                afterProvider={
+                  <FormField name="teamId" control={form.control}>
+                    {({ field, fieldState }) => (
+                      <div className="flex flex-col gap-1">
+                        <label htmlFor="register-vm-team" className="text-sm font-medium text-secondary">
+                          Team <span className="text-error-primary">*</span>
+                        </label>
+                        <select
+                          id="register-vm-team"
+                          data-testid="register-vm-team-select"
+                          className="rounded-md border border-secondary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-60 bg-primary text-primary"
+                          value={field.value}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
+                          ref={field.ref}
+                          disabled={teamsList.isLoading || mutation.isPending}
+                          aria-invalid={!!fieldState.error}
+                        >
+                          <option value="">Select a team…</option>
+                          {teams.map((t) => (
+                            <option key={t.id} value={t.id}>{t.displayName}</option>
+                          ))}
+                        </select>
+                        {fieldState.error && <p className="text-xs text-error-primary">{fieldState.error.message}</p>}
+                        {noTeams && (
+                          <p className="text-xs text-tertiary">
+                            No teams available — create a team first before registering a virtual machine.
+                          </p>
+                        )}
+                      </div>
                     )}
-                  </div>
-                )}
-              </FormField>
-
-              <FormField name="attributes.powerState" control={form.control}>
-                {({ field, fieldState }) => (
-                  <div className="flex flex-col gap-1">
-                    <label htmlFor="register-vm-power-state" className="text-sm font-medium text-secondary">
-                      Power State <span className="text-error-primary">*</span>
-                    </label>
-                    <select
-                      id="register-vm-power-state"
-                      data-testid="register-vm-power-state-select"
-                      className="rounded-md border border-secondary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-60 bg-primary text-primary"
-                      value={field.value}
-                      onChange={field.onChange}
-                      onBlur={field.onBlur}
-                      ref={field.ref}
-                      disabled={mutation.isPending}
-                      aria-invalid={!!fieldState.error}
-                    >
-                      {POWER_STATES.map((state) => (
-                        <option key={state} value={state}>{powerStateLabel(state)}</option>
-                      ))}
-                    </select>
-                    {fieldState.error && <p className="text-xs text-error-primary">{fieldState.error.message}</p>}
-                  </div>
-                )}
-              </FormField>
-
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                <FormField name="attributes.os" control={form.control}>
-                  {({ field, fieldState }) => (
-                    <Input
-                      label="OS"
-                      placeholder="Ubuntu 24.04"
-                      hint={fieldState.error?.message}
-                      isInvalid={!!fieldState.error}
-                      isRequired
-                      {...field}
-                    />
-                  )}
-                </FormField>
-                <FormField name="attributes.hostname" control={form.control}>
-                  {({ field, fieldState }) => (
-                    <Input
-                      label="Hostname"
-                      placeholder="web-prod-01.internal"
-                      hint={fieldState.error?.message}
-                      isInvalid={!!fieldState.error}
-                      isRequired
-                      {...field}
-                    />
-                  )}
-                </FormField>
-                <FormField name="attributes.region" control={form.control}>
-                  {({ field, fieldState }) => (
-                    <Input
-                      label="Region"
-                      placeholder="eu-west-1"
-                      hint={fieldState.error?.message}
-                      isInvalid={!!fieldState.error}
-                      isRequired
-                      {...field}
-                    />
-                  )}
-                </FormField>
-                <FormField name="attributes.vcpu" control={form.control}>
-                  {({ field, fieldState }) => (
-                    <Input
-                      label="vCPU"
-                      type="number"
-                      placeholder="2"
-                      hint={fieldState.error?.message}
-                      isInvalid={!!fieldState.error}
-                      isRequired
-                      {...field}
-                    />
-                  )}
-                </FormField>
-                <FormField name="attributes.memoryGb" control={form.control}>
-                  {({ field, fieldState }) => (
-                    <Input
-                      label="Memory (GB)"
-                      type="number"
-                      placeholder="4"
-                      hint={fieldState.error?.message}
-                      isInvalid={!!fieldState.error}
-                      isRequired
-                      {...field}
-                    />
-                  )}
-                </FormField>
-              </div>
-
-              <FormField name="attributes.ipAddresses" control={form.control}>
-                {({ field, fieldState }) => (
-                  <InputTags
-                    label="IP Addresses"
-                    placeholder="10.0.0.5 — press Enter to add"
-                    hint={fieldState.error?.message ?? "Press Enter after each address. At least one is required."}
-                    isInvalid={!!fieldState.error}
-                    isRequired
-                    isDisabled={mutation.isPending}
-                    value={field.value}
-                    onChange={field.onChange}
-                  />
-                )}
-              </FormField>
+                  </FormField>
+                }
+              />
 
               <div>
                 <p className="text-xs uppercase tracking-wide text-tertiary">Created by</p>

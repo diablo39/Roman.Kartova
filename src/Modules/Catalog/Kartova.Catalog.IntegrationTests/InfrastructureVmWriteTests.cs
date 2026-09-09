@@ -26,6 +26,17 @@ public sealed class InfrastructureVmWriteTests : CatalogIntegrationTestBase
         Attributes: new VmAttributesDto("running", "ubuntu-22.04", 4, 16, "host-1",
             new[] { "10.0.0.1" }, "eu-west-1"));
 
+    /// <summary>Shared POST-then-201-then-deserialize boilerplate repeated across most tests in
+    /// this file (each POSTs a VM as setup, then acts on the returned <see cref="VmDetailResponse"/>).
+    /// Not used by <see cref="Get_EmitsEtagMatchingVersion"/>, which needs the raw
+    /// <c>HttpResponseMessage</c> to assert the response's <c>ETag</c> header.</summary>
+    private static async Task<VmDetailResponse> RegisterVmAsync(HttpClient client, RegisterVmRequest request)
+    {
+        var post = await client.PostAsJsonAsync("/api/v1/catalog/infrastructure/vms", request, KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(HttpStatusCode.Created, post.StatusCode, $"RegisterVm failed: {await post.Content.ReadAsStringAsync()}");
+        return (await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson))!;
+    }
+
     [TestMethod]
     public async Task Post_ThenGet_ReturnsProvider()
     {
@@ -33,11 +44,8 @@ public sealed class InfrastructureVmWriteTests : CatalogIntegrationTestBase
         var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team Provider");
         var unique = $"vm-provider-{Guid.NewGuid():N}";
 
-        var post = await client.PostAsJsonAsync(
-            "/api/v1/catalog/infrastructure/vms", ValidVm(teamId, unique), KartovaApiFixtureBase.WireJson);
-        Assert.AreEqual(HttpStatusCode.Created, post.StatusCode, $"RegisterVm failed: {await post.Content.ReadAsStringAsync()}");
-        var created = await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
-        Assert.AreEqual("AWS", created!.Provider);
+        var created = await RegisterVmAsync(client, ValidVm(teamId, unique));
+        Assert.AreEqual("AWS", created.Provider);
 
         var get = await client.GetAsync($"/api/v1/catalog/infrastructure/vms/{created.Id}");
         Assert.AreEqual(HttpStatusCode.OK, get.StatusCode);
@@ -100,12 +108,9 @@ public sealed class InfrastructureVmWriteTests : CatalogIntegrationTestBase
         var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team Edit");
         var unique = $"vm-edit-{Guid.NewGuid():N}";
 
-        var post = await client.PostAsJsonAsync(
-            "/api/v1/catalog/infrastructure/vms", ValidVm(teamId, unique), KartovaApiFixtureBase.WireJson);
-        Assert.AreEqual(HttpStatusCode.Created, post.StatusCode, $"RegisterVm failed: {await post.Content.ReadAsStringAsync()}");
-        var created = await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+        var created = await RegisterVmAsync(client, ValidVm(teamId, unique));
 
-        var put = NewPut(created!.Id, created.Version, EditFrom(created, provider: "Azure"));
+        var put = NewPut(created.Id, created.Version, EditFrom(created, provider: "Azure"));
         var resp = await client.SendAsync(put);
 
         Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode, $"EditVm failed: {await resp.Content.ReadAsStringAsync()}");
@@ -122,12 +127,10 @@ public sealed class InfrastructureVmWriteTests : CatalogIntegrationTestBase
         var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team Stale");
         var unique = $"vm-stale-{Guid.NewGuid():N}";
 
-        var post = await client.PostAsJsonAsync(
-            "/api/v1/catalog/infrastructure/vms", ValidVm(teamId, unique), KartovaApiFixtureBase.WireJson);
-        var created = await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+        var created = await RegisterVmAsync(client, ValidVm(teamId, unique));
 
         // First edit advances the version.
-        var ok = await client.SendAsync(NewPut(created!.Id, created.Version, EditFrom(created, provider: "Azure")));
+        var ok = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, provider: "Azure")));
         Assert.AreEqual(HttpStatusCode.OK, ok.StatusCode);
 
         // Reuse the now-stale original ETag.
@@ -142,11 +145,9 @@ public sealed class InfrastructureVmWriteTests : CatalogIntegrationTestBase
         var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team NoIfMatch");
         var unique = $"vm-noifmatch-{Guid.NewGuid():N}";
 
-        var post = await client.PostAsJsonAsync(
-            "/api/v1/catalog/infrastructure/vms", ValidVm(teamId, unique), KartovaApiFixtureBase.WireJson);
-        var created = await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+        var created = await RegisterVmAsync(client, ValidVm(teamId, unique));
 
-        var resp = await client.SendAsync(NewPut(created!.Id, ifMatch: null, EditFrom(created, provider: "Azure")));
+        var resp = await client.SendAsync(NewPut(created.Id, ifMatch: null, EditFrom(created, provider: "Azure")));
 
         Assert.AreEqual(HttpStatusCode.PreconditionRequired, resp.StatusCode);
     }
@@ -158,11 +159,9 @@ public sealed class InfrastructureVmWriteTests : CatalogIntegrationTestBase
         var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team BadAttrs");
         var unique = $"vm-badattrs-{Guid.NewGuid():N}";
 
-        var post = await client.PostAsJsonAsync(
-            "/api/v1/catalog/infrastructure/vms", ValidVm(teamId, unique), KartovaApiFixtureBase.WireJson);
-        var created = await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+        var created = await RegisterVmAsync(client, ValidVm(teamId, unique));
 
-        var badAttrs = created!.Attributes with { Vcpu = 0 };
+        var badAttrs = created.Attributes with { Vcpu = 0 };
         var resp = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created) with { Attributes = badAttrs }));
 
         Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
@@ -175,14 +174,12 @@ public sealed class InfrastructureVmWriteTests : CatalogIntegrationTestBase
         var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team NoPerm");
         var unique = $"vm-noperm-{Guid.NewGuid():N}";
 
-        var post = await client.PostAsJsonAsync(
-            "/api/v1/catalog/infrastructure/vms", ValidVm(teamId, unique), KartovaApiFixtureBase.WireJson);
-        var created = await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+        var created = await RegisterVmAsync(client, ValidVm(teamId, unique));
 
         var viewer = await Fx.CreateAuthenticatedClientAsync(
             "viewer-edit@orga.kartova.local", new[] { KartovaRoles.Viewer });
 
-        var resp = await viewer.SendAsync(NewPut(created!.Id, created.Version, EditFrom(created, provider: "Azure")));
+        var resp = await viewer.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, provider: "Azure")));
 
         Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
     }
@@ -210,12 +207,10 @@ public sealed class InfrastructureVmWriteTests : CatalogIntegrationTestBase
         var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team CrossTenant");
         var unique = $"vm-crosstenant-{Guid.NewGuid():N}";
 
-        var post = await orgAClient.PostAsJsonAsync(
-            "/api/v1/catalog/infrastructure/vms", ValidVm(teamId, unique), KartovaApiFixtureBase.WireJson);
-        var created = await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+        var created = await RegisterVmAsync(orgAClient, ValidVm(teamId, unique));
 
         var orgBClient = await Fx.CreateAuthenticatedClientAsync(orgBUser);
-        var resp = await orgBClient.SendAsync(NewPut(created!.Id, created.Version, EditFrom(created, provider: "Hijack")));
+        var resp = await orgBClient.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, provider: "Hijack")));
 
         Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
     }
@@ -239,12 +234,9 @@ public sealed class InfrastructureVmWriteTests : CatalogIntegrationTestBase
         var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team Delete");
         var unique = $"vm-delete-{Guid.NewGuid():N}";
 
-        var post = await client.PostAsJsonAsync(
-            "/api/v1/catalog/infrastructure/vms", ValidVm(teamId, unique), KartovaApiFixtureBase.WireJson);
-        Assert.AreEqual(HttpStatusCode.Created, post.StatusCode, $"RegisterVm failed: {await post.Content.ReadAsStringAsync()}");
-        var created = await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+        var created = await RegisterVmAsync(client, ValidVm(teamId, unique));
 
-        var del = await client.SendAsync(NewDelete(created!.Id, created.Version));
+        var del = await client.SendAsync(NewDelete(created.Id, created.Version));
         Assert.AreEqual(HttpStatusCode.NoContent, del.StatusCode, $"DeleteVm failed: {await del.Content.ReadAsStringAsync()}");
 
         var get = await client.GetAsync($"/api/v1/catalog/infrastructure/vms/{created.Id}");
@@ -258,16 +250,14 @@ public sealed class InfrastructureVmWriteTests : CatalogIntegrationTestBase
         var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team DeleteNoPerm");
         var unique = $"vm-delete-noperm-{Guid.NewGuid():N}";
 
-        var post = await client.PostAsJsonAsync(
-            "/api/v1/catalog/infrastructure/vms", ValidVm(teamId, unique), KartovaApiFixtureBase.WireJson);
-        var created = await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+        var created = await RegisterVmAsync(client, ValidVm(teamId, unique));
 
         // Member carries CatalogInfrastructureRegister but NOT CatalogInfrastructureDelete
         // (OrgAdmin-only) — proves the delete gate is a distinct, narrower permission.
         var member = await Fx.CreateAuthenticatedClientAsync(
             "member-delete@orga.kartova.local", new[] { KartovaRoles.Member });
 
-        var resp = await member.SendAsync(NewDelete(created!.Id, created.Version));
+        var resp = await member.SendAsync(NewDelete(created.Id, created.Version));
 
         Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
     }
@@ -279,12 +269,10 @@ public sealed class InfrastructureVmWriteTests : CatalogIntegrationTestBase
         var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team DeleteStale");
         var unique = $"vm-delete-stale-{Guid.NewGuid():N}";
 
-        var post = await client.PostAsJsonAsync(
-            "/api/v1/catalog/infrastructure/vms", ValidVm(teamId, unique), KartovaApiFixtureBase.WireJson);
-        var created = await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+        var created = await RegisterVmAsync(client, ValidVm(teamId, unique));
 
         // Advance the version first so the original ETag goes stale.
-        var edit = await client.SendAsync(NewPut(created!.Id, created.Version, EditFrom(created, provider: "Azure")));
+        var edit = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, provider: "Azure")));
         Assert.AreEqual(HttpStatusCode.OK, edit.StatusCode);
 
         var stale = await client.SendAsync(NewDelete(created.Id, created.Version));
@@ -298,11 +286,9 @@ public sealed class InfrastructureVmWriteTests : CatalogIntegrationTestBase
         var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team DeleteNoIfMatch");
         var unique = $"vm-delete-noifmatch-{Guid.NewGuid():N}";
 
-        var post = await client.PostAsJsonAsync(
-            "/api/v1/catalog/infrastructure/vms", ValidVm(teamId, unique), KartovaApiFixtureBase.WireJson);
-        var created = await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+        var created = await RegisterVmAsync(client, ValidVm(teamId, unique));
 
-        var resp = await client.SendAsync(NewDelete(created!.Id, ifMatch: null));
+        var resp = await client.SendAsync(NewDelete(created.Id, ifMatch: null));
 
         Assert.AreEqual(HttpStatusCode.PreconditionRequired, resp.StatusCode);
     }
@@ -325,12 +311,10 @@ public sealed class InfrastructureVmWriteTests : CatalogIntegrationTestBase
         var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team DeleteCrossTenant");
         var unique = $"vm-delete-crosstenant-{Guid.NewGuid():N}";
 
-        var post = await orgAClient.PostAsJsonAsync(
-            "/api/v1/catalog/infrastructure/vms", ValidVm(teamId, unique), KartovaApiFixtureBase.WireJson);
-        var created = await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+        var created = await RegisterVmAsync(orgAClient, ValidVm(teamId, unique));
 
         var orgBClient = await Fx.CreateAuthenticatedClientAsync(orgBUser);
-        var resp = await orgBClient.SendAsync(NewDelete(created!.Id, created.Version));
+        var resp = await orgBClient.SendAsync(NewDelete(created.Id, created.Version));
 
         Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
     }
