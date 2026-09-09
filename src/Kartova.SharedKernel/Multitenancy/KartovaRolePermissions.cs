@@ -46,6 +46,7 @@ public static class KartovaRolePermissions
                 KartovaPermissions.CatalogApisRegister,
                 KartovaPermissions.CatalogSystemsRegister,
                 KartovaPermissions.CatalogInfrastructureRegister,
+                KartovaPermissions.CatalogInfrastructureDelete,
                 KartovaPermissions.CatalogRelationshipsWrite,
                 KartovaPermissions.TeamRead,
                 KartovaPermissions.TeamCreate,
