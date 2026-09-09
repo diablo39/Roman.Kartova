@@ -35,8 +35,8 @@ Complete the Virtual Machine entity's write + query surface: a `provider` field 
 | 4 | Long-tail VM fields (`diskGb`, `hypervisor`, `tags[]`) **deferred** | YAGNI — no consumer yet; auto-import (slice 4) will dictate the real field set. Keeps 2a under ceiling. |
 | 5 | **JSONB-column sort, full set** — `powerState, os, vcpu, memoryGb, hostname, region` — via 6 **partial btree-expression indexes** `WHERE type = 0` | Lifts ADR-0115's JSONB-sort deferral. Cost is the one-time machinery (`VmSortSpecs` + index migration), not the field count; `hostname` sort groups cluster members (explicit user need). |
 | 6 | **Separate `VmSortField` enum + `VmSortSpecs`** for the VM tier; generic `InfrastructureSortField`/`InfrastructureSortSpecs` gain **`Provider`** only | ADR-0115 two-tier separation: the generic tier must never learn VM-only sort keys. `provider` is a shared column, so the generic tier *can* sort by it. |
-| 7 | Add `version` to `VmDetailResponse` + **emit ETag** on VM single-GET | Prerequisite for `If-Match` on PUT/DELETE — slice 1 shipped the GET without it. Mirrors `EndpointResultExtensions` sibling pattern. |
-| 8 | Update = full replace (`PUT`) of `displayName`, `description`, `provider`, and the VM attribute set; optimistic concurrency via `If-Match` → `ExpectedVersion` → EF `OriginalValue` → 409 | Exact `EditApplication` pattern. VM attribute validation reruns (same `VmAttributes.Validate`). |
+| 7 | Add `string Version` (base64-encoded xmin via `VersionEncoding.Encode`) to `VmDetailResponse` + **emit ETag** (`.WithEtag(resp.Version)`) on VM single-GET | Prerequisite for `If-Match` on PUT/DELETE — slice 1 shipped the GET without it. Mirrors the `GetApplicationByIdAsync` → `WithEtag(resp.Version)` sibling pattern. `IfMatchEndpointFilter` decodes the header via `VersionEncoding.TryDecode`. |
+| 8 | Update = full replace (`PUT`) of `displayName`, `description`, `provider`, and the VM attribute set; optimistic concurrency via `If-Match` → `ExpectedVersion` → EF `.Property(x => x.Xmin).OriginalValue` → **412 Precondition Failed** (`ConcurrencyConflictExceptionHandler`) | Exact `EditApplication` pattern (note: Infra's concurrency token property is `Xmin`, not Application's `Version`). VM attribute validation reruns (same `VmAttributes.Validate`). |
 
 ### Rejected alternatives
 - **Delete via `register` perm** — rejected: mixes create + destroy under one grant; a destructive op deserves its own OrgAdmin-only gate (matches reverse-lifecycle precedent).
@@ -78,11 +78,11 @@ Parent story E-02.F-04.S-01 remaining work exceeds the ~800-line ceiling → dec
 ### 6.1 Endpoints (slice 2a)
 | Method | Route | Result | Perm | Concurrency |
 |--------|-------|--------|------|-------------|
-| GET | `/catalog/infrastructure/vms/{id}` *(amended)* | `VmDetail` + **ETag** | `catalog.read` | emits version ETag |
-| PUT | `/catalog/infrastructure/vms/{id}` | 200 + ETag | `catalog.infrastructure.register` | `If-Match` req → `ExpectedVersion` → EF `OriginalValue` → **409** on stale |
-| DELETE | `/catalog/infrastructure/vms/{id}` | 204 | `catalog.infrastructure.delete` (**OrgAdmin**) | `If-Match` req → **409** on stale; **404** on missing/cross-tenant |
+| GET | `/catalog/infrastructure/vms/{id}` *(amended)* | `VmDetail` + **ETag** | `catalog.read` | emits `.WithEtag(resp.Version)` |
+| PUT | `/catalog/infrastructure/vms/{id}` | 200 + ETag | `catalog.infrastructure.register` | `If-Match` req → `ExpectedVersion` → EF `.Property(x=>x.Xmin).OriginalValue` → **412** on stale |
+| DELETE | `/catalog/infrastructure/vms/{id}` | 204 | `catalog.infrastructure.delete` (**OrgAdmin**) | `If-Match` req → **412** on stale; **404** on missing/cross-tenant |
 
-`PUT`/`DELETE` carry `.AddEndpointFilter<IfMatchEndpointFilter>()` (mirror `CatalogModule.cs:71`). Missing/invalid `If-Match` → the filter's 428/412 as sibling PUTs already produce.
+`PUT`/`DELETE` carry `.AddEndpointFilter<IfMatchEndpointFilter>()` (mirror `CatalogModule.cs:71`). Missing/malformed `If-Match` → `PreconditionRequiredException` → **428** (filter); stale `If-Match` (version mismatch) → `DbUpdateConcurrencyException` → **412** (`ConcurrencyConflictExceptionHandler`). Concurrency handler needs the current-version capture (mirror `EditApplicationHandler.TryCaptureCurrentVersionAsync`) so the 412 carries `currentVersion`.
 
 ### 6.2 CQRS handlers (Wolverine)
 - `EditVmHandler` — loads aggregate (RLS), sets EF `OriginalValue = ExpectedVersion`, calls `Edit(...)`, `SaveChanges` → `DbUpdateConcurrencyException` bubbles to 409 mapping (sibling pattern). Team re-authorization mirrors `EditApplication`/`RegisterVm` (edit does not move team in 2a — team immutable, same as siblings; if team change wanted, defer).
@@ -118,8 +118,7 @@ All DTOs `[ExcludeFromCodeCoverage]` (Contracts coverage rule).
 
 ## 7. Frontend & nav (Untitled UI / react-aria, ADR-0094)
 
-- **Route:** `+ /catalog/infrastructure/vms/:id/edit`.
-- **`VmEditPage`** — reuse the create form + a `provider` text field; prefill from detail GET; capture the detail ETag and send it as `If-Match` on `PUT`; on 409 surface a "changed since you loaded it" conflict message and re-fetch.
+- **No new route.** Create is already a **dialog** (`RegisterVmDialog.tsx`) launched from the list page, not a page — so edit mirrors it: an **`EditVmDialog`** launched from `VmDetailPage`, reusing the same form (`registerVmSchema` + a `provider` field). Prefill from the detail query; capture the detail's ETag (from the `useVm` response headers / a `version` field) and send it as `If-Match` on `PUT`; on **412** surface a "changed since you loaded it" conflict message and re-fetch.
 - **Delete** — button on `VmDetailPage` → confirm dialog → `DELETE` with `If-Match` → redirect to VM list. **Gotcha (CLAUDE.md):** the confirm dialog is a react-aria overlay; the VM list `<Table>` must keep exactly one `isRowHeader` column (displayName) or opening the overlay blank-pages the screen — assert `getAllByRole("rowheader")` and open the dialog in a real browser at gate 9.
 - **`provider`** — field on create + edit forms; column on VM list + All-Objects list; row on both detail views.
 - **Sort headers** — VM list gains sortable headers for the 6 JSONB fields + provider; generic list gains provider.
@@ -140,9 +139,9 @@ Named gate-3/gate-4 artifacts (writing-plans emits one task each):
 - **Architecture (NetArchTest):** module-boundary + Contracts `[ExcludeFromCodeCoverage]` rules auto-cover new DTOs.
 - **Unit:** `VmSortSpecs` expression ↔ index-literal match (each of 6 + provider) · `EditVm` validation (enum, vcpu/memoryGb>0, per-NIC IP, hostname, provider length) · provider round-trip · `VmDetailResponse` version populated.
 - **Integration — real seam (mandatory):** `KartovaApiFixtureBase`, real Postgres/RLS + real `JwtBearer`.
-  - PUT: 200 (+ETag advances) / 400 (bad attrs) / 403 (missing register perm) / **409 (stale If-Match)** / 404 (missing) / RLS cross-tenant → 404.
-  - DELETE: 204 / 403 (non-OrgAdmin) / 404 (missing / cross-tenant) / **409 (stale If-Match)**; row gone on re-GET.
-  - GET emits ETag; ETag round-trips into a successful PUT.
+  - PUT: 200 (+ETag advances) / 400 (bad attrs) / 403 (missing register perm) / **412 (stale If-Match)** / 428 (missing/malformed If-Match) / 404 (missing) / RLS cross-tenant → 404.
+  - DELETE: 204 / 403 (non-OrgAdmin) / 404 (missing / cross-tenant) / **412 (stale If-Match)** / 428 (missing If-Match); row gone on re-GET.
+  - GET emits ETag; ETag round-trips into a successful PUT; a stale ETag yields 412 carrying `currentVersion`.
   - Sort: each of 6 JSONB fields + provider returns ordered rows; cursor keyset stable across a page boundary on a JSONB secondary sort; `EXPLAIN` (gate 9) confirms the partial index is used (no seq-scan).
 - **Container build (gate 4):** `docker compose build` — migration container carries the new migration (provider column + 6 indexes).
 - **E2E:** net-new surface (no existing `e2e/` spec traverses VM edit/delete) → **E2E-impact trigger N/A**. Optional VM edit/delete smoke → nightly, non-blocking.
