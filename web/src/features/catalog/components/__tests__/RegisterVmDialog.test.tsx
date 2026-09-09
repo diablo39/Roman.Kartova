@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
@@ -142,6 +142,33 @@ describe("RegisterVmDialog", () => {
     expect(screen.getByText(/region must not be empty/i)).toBeInTheDocument();
     expect(screen.getByText(/at least one ip address is required/i)).toBeInTheDocument();
     expect(mutateAsync).not.toHaveBeenCalled();
+  });
+
+  // Regression test for gate-9 finding: the team `<select>` used to be wired through
+  // RHF's useController (react-aria Form + controlled-select interaction never
+  // registered the selected value), so submit always failed with "Team is required"
+  // even when a team was visibly selected. Fills every required field, selects a
+  // team, and asserts the mutation actually fires with that team's id — and that
+  // "Team is required" never appears.
+  it("submits with teamId from the selected team when all required fields are filled", async () => {
+    mutateAsync.mockResolvedValue({});
+    setup();
+
+    await userEvent.type(screen.getByLabelText(/display name/i), "web-prod-01");
+    await userEvent.type(screen.getByLabelText(/description/i), "Primary web server");
+    await userEvent.selectOptions(screen.getByTestId("register-vm-team-select"), "Platform");
+    await userEvent.type(screen.getByLabelText(/^os/i), "Ubuntu 24.04");
+    await userEvent.type(screen.getByLabelText(/hostname/i), "web-prod-01.internal");
+    await userEvent.type(screen.getByLabelText(/region/i), "eu-west-1");
+    await userEvent.type(screen.getByPlaceholderText(/press enter to add/i), "10.0.0.5{enter}");
+
+    await userEvent.click(screen.getByRole("button", { name: /register virtual machine/i }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    expect(mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ teamId: "00000000-0000-0000-0000-000000000010" }),
+    );
+    expect(screen.queryByText(/team is required/i)).not.toBeInTheDocument();
   });
 
   it("disables submit and shows hint when no teams are available", () => {

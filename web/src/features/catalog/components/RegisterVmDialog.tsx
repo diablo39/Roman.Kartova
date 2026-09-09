@@ -1,14 +1,15 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { ModalOverlay, Modal, Dialog } from "@/components/application/modals/modal";
-import { HookForm, FormField } from "@/components/base/form/hook-form";
+import { HookForm } from "@/components/base/form/hook-form";
 import { Button } from "@/components/base/buttons/button";
 import { Avatar } from "@/components/base/avatar/avatar";
 
-import { registerVmSchema, type RegisterVmInput } from "@/features/catalog/schemas/registerVm";
+import { registerVmSchema } from "@/features/catalog/schemas/registerVm";
 import { useRegisterVm, type RegisterVmRequest } from "@/features/catalog/api/infrastructure";
 import { useTeamsList } from "@/features/teams/api/teams";
 import { applyProblemDetailsToForm, type ProblemDetails } from "@/shared/forms/problemDetails";
@@ -16,15 +17,21 @@ import { useCurrentUser } from "@/shared/auth/useCurrentUser";
 import { initialsOf } from "@/shared/auth/initials";
 import { VmFormFields } from "@/features/catalog/components/VmFormFields";
 
+// VM-attribute schema (displayName/description/provider/attributes.*) used by RHF/zod.
+// teamId is managed via separate useState and validated in the submit handler to avoid
+// react-aria Form + useController controlled-select interaction issues — the same fix
+// applied to RegisterApplicationDialog's team select.
+const vmFieldsSchema = registerVmSchema.omit({ teamId: true });
+type VmFieldsInput = z.infer<typeof vmFieldsSchema>;
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const DEFAULT_VALUES: RegisterVmInput = {
+const DEFAULT_VALUES: VmFieldsInput = {
   displayName: "",
   description: "",
-  teamId: "",
   provider: "",
   attributes: {
     powerState: "running",
@@ -41,23 +48,36 @@ export function RegisterVmDialog({ open, onOpenChange }: Props) {
   const user = useCurrentUser();
   const mutation = useRegisterVm();
   const teamsList = useTeamsList({ sortBy: "displayName", sortOrder: "asc", limit: 200 });
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("");
+  const [teamError, setTeamError] = useState<string>("");
 
-  const form = useForm<RegisterVmInput>({
-    resolver: zodResolver(registerVmSchema),
+  const form = useForm<VmFieldsInput>({
+    resolver: zodResolver(vmFieldsSchema),
     defaultValues: DEFAULT_VALUES,
   });
 
   useEffect(() => {
     if (!open) {
       form.reset(DEFAULT_VALUES);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedTeamId("");
+      setTeamError("");
     }
   }, [open, form]);
 
   const onSubmit = form.handleSubmit(async (values) => {
+    // Validate teamId separately since it's managed outside RHF to avoid react-aria
+    // Form + controlled-select interaction issues (mirrors RegisterApplicationDialog).
+    if (!selectedTeamId) {
+      setTeamError("Team is required");
+      return;
+    }
+    setTeamError("");
+
     const payload: RegisterVmRequest = {
       displayName: values.displayName,
       description: values.description,
-      teamId: values.teamId,
+      teamId: selectedTeamId,
       provider: values.provider || null,
       attributes: values.attributes,
     };
@@ -97,37 +117,34 @@ export function RegisterVmDialog({ open, onOpenChange }: Props) {
                 idPrefix="register-vm"
                 disabled={mutation.isPending}
                 afterProvider={
-                  <FormField name="teamId" control={form.control}>
-                    {({ field, fieldState }) => (
-                      <div className="flex flex-col gap-1">
-                        <label htmlFor="register-vm-team" className="text-sm font-medium text-secondary">
-                          Team <span className="text-error-primary">*</span>
-                        </label>
-                        <select
-                          id="register-vm-team"
-                          data-testid="register-vm-team-select"
-                          className="rounded-md border border-secondary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-60 bg-primary text-primary"
-                          value={field.value}
-                          onChange={field.onChange}
-                          onBlur={field.onBlur}
-                          ref={field.ref}
-                          disabled={teamsList.isLoading || mutation.isPending}
-                          aria-invalid={!!fieldState.error}
-                        >
-                          <option value="">Select a team…</option>
-                          {teams.map((t) => (
-                            <option key={t.id} value={t.id}>{t.displayName}</option>
-                          ))}
-                        </select>
-                        {fieldState.error && <p className="text-xs text-error-primary">{fieldState.error.message}</p>}
-                        {noTeams && (
-                          <p className="text-xs text-tertiary">
-                            No teams available — create a team first before registering a virtual machine.
-                          </p>
-                        )}
-                      </div>
+                  <div className="flex flex-col gap-1">
+                    <label htmlFor="register-vm-team" className="text-sm font-medium text-secondary">
+                      Team <span className="text-error-primary">*</span>
+                    </label>
+                    <select
+                      id="register-vm-team"
+                      data-testid="register-vm-team-select"
+                      className="rounded-md border border-secondary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-60 bg-primary text-primary"
+                      value={selectedTeamId}
+                      onChange={(e) => {
+                        setSelectedTeamId(e.target.value);
+                        if (e.target.value) setTeamError("");
+                      }}
+                      disabled={teamsList.isLoading || mutation.isPending}
+                      aria-invalid={!!teamError}
+                    >
+                      <option value="">Select a team…</option>
+                      {teams.map((t) => (
+                        <option key={t.id} value={t.id}>{t.displayName}</option>
+                      ))}
+                    </select>
+                    {teamError && <p className="text-xs text-error-primary">{teamError}</p>}
+                    {noTeams && (
+                      <p className="text-xs text-tertiary">
+                        No teams available — create a team first before registering a virtual machine.
+                      </p>
                     )}
-                  </FormField>
+                  </div>
                 }
               />
 
