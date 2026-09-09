@@ -36,7 +36,13 @@ internal static class VmSortSpecs
 
     public static readonly SortSpec<InfrastructureResource> DisplayName = new("displayName", x => x.DisplayName);
     public static readonly SortSpec<InfrastructureResource> CreatedAt = new("createdAt", x => x.CreatedAt);
-    public static readonly SortSpec<InfrastructureResource> Provider = new("provider", x => x.Provider!);
+    // Null-safe (gate-8 review finding, fix round 1): Provider is a nullable column. Sorting on
+    // the raw (possibly-null) value makes the shared keyset predicate
+    // `sortKey > @p OR (sortKey = @p AND id > @p)` evaluate to SQL UNKNOWN (=> excluded from
+    // WHERE) whenever a page-boundary row's Provider is NULL, silently truncating pagination at
+    // the first null-provider boundary. COALESCE-ing to "" removes NULL from the sort key
+    // entirely — see InfrastructureVmSortTests' null-provider paging coverage.
+    public static readonly SortSpec<InfrastructureResource> Provider = new("provider", x => x.Provider ?? "");
 
     public static readonly SortSpec<InfrastructureResource> PowerState =
         new("powerState", x => JsonbFunctions.JsonbExtractPathText(x.Attributes, "powerState")!);
