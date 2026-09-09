@@ -1,6 +1,7 @@
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
+using Kartova.SharedKernel.AspNetCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kartova.Catalog.Infrastructure;
@@ -25,6 +26,7 @@ public sealed class GetVmByIdHandler
         var attrs = VmAttributes.FromJson(vm.Attributes).ToDto();
         return new VmDetailResponse(
             vm.Id.Value, vm.TenantId.Value, vm.DisplayName, vm.Description, vm.Provider,
-            vm.TeamId, vm.SystemId, vm.CreatedByUserId, vm.CreatedAt, attrs);
+            vm.TeamId, vm.SystemId, vm.CreatedByUserId, vm.CreatedAt,
+            VersionEncoding.Encode(vm.Xmin), attrs);
     }
 }

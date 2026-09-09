@@ -14,4 +14,5 @@ public sealed record VmDetailResponse(
     Guid? SystemId,
     Guid CreatedByUserId,
     DateTimeOffset CreatedAt,
+    string Version,
     VmAttributesDto Attributes);

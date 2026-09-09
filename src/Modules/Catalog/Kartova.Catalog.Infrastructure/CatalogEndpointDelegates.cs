@@ -783,7 +783,7 @@ internal static class CatalogEndpointDelegates
         CancellationToken ct)
     {
         var resp = await handler.Handle(new GetVmByIdQuery(id), db, ct);
-        return resp is null ? EndpointResultExtensions.VmNotFound() : Results.Ok(resp);
+        return resp is null ? EndpointResultExtensions.VmNotFound() : Results.Ok(resp).WithEtag(resp.Version);
     }
 
     /// <summary>
@@ -828,7 +828,7 @@ internal static class CatalogEndpointDelegates
             new RegisterVmCommand(request.DisplayName, request.Description, request.TeamId, request.Provider, attrs),
             db, tenant, currentUser, audit, ct);
 
-        return Results.Created($"/api/v1/catalog/infrastructure/vms/{response.Id}", response);
+        return Results.Created($"/api/v1/catalog/infrastructure/vms/{response.Id}", response).WithEtag(response.Version);
     }
 
     internal static async Task<IResult> RegisterApiAsync(

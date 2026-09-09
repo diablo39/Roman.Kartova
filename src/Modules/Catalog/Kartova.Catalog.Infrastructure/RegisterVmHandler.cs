@@ -48,6 +48,7 @@ public sealed class RegisterVmHandler
         var attrs = cmd.Attributes.ToDto();
         return new VmDetailResponse(
             vm.Id.Value, vm.TenantId.Value, vm.DisplayName, vm.Description, vm.Provider,
-            vm.TeamId, vm.SystemId, vm.CreatedByUserId, vm.CreatedAt, attrs);
+            vm.TeamId, vm.SystemId, vm.CreatedByUserId, vm.CreatedAt,
+            VersionEncoding.Encode(vm.Xmin), attrs);
     }
 }

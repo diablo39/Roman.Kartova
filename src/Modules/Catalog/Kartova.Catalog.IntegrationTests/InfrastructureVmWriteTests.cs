@@ -42,4 +42,31 @@ public sealed class InfrastructureVmWriteTests : CatalogIntegrationTestBase
         var fetched = await get.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
         Assert.AreEqual("AWS", fetched!.Provider);
     }
+
+    /// <summary>
+    /// Task 4: GET single-VM emits an RFC 7232 quoted ETag equal to the body's
+    /// <c>version</c> field — the prerequisite for <c>If-Match</c> on the PUT/DELETE
+    /// endpoints Tasks 5/6 add. Mirrors the register response too, since both
+    /// construction sites encode <c>InfrastructureResource.Xmin</c>.
+    /// </summary>
+    [TestMethod]
+    public async Task Get_EmitsEtagMatchingVersion()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team Etag");
+        var unique = $"vm-etag-{Guid.NewGuid():N}";
+
+        var post = await client.PostAsJsonAsync(
+            "/api/v1/catalog/infrastructure/vms", ValidVm(teamId, unique), KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(HttpStatusCode.Created, post.StatusCode, $"RegisterVm failed: {await post.Content.ReadAsStringAsync()}");
+        var created = await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.IsNotNull(created!.Version);
+        Assert.AreEqual($"\"{created.Version}\"", post.Headers.ETag!.ToString());
+
+        var get = await client.GetAsync($"/api/v1/catalog/infrastructure/vms/{created.Id}");
+        Assert.AreEqual(HttpStatusCode.OK, get.StatusCode);
+        var fetched = await get.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.IsNotNull(fetched!.Version);
+        Assert.AreEqual($"\"{fetched.Version}\"", get.Headers.ETag!.ToString());
+    }
 }
