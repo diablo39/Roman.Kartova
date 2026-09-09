@@ -21,6 +21,7 @@ public static class CatalogAuditActions
     public const string RelationshipRemoved = "relationship.removed";
     public const string SystemRegistered = "system.registered";
     public const string InfrastructureRegistered = "infrastructure.registered";
+    public const string InfrastructureEdited = "infrastructure.edited";
 }
 
 /// <summary>

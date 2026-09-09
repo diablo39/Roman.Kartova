@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
 using Kartova.Catalog.Contracts;
+using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.Multitenancy;
 using Kartova.Testing.Auth;
 
 namespace Kartova.Catalog.IntegrationTests;
@@ -68,5 +70,153 @@ public sealed class InfrastructureVmWriteTests : CatalogIntegrationTestBase
         var fetched = await get.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
         Assert.IsNotNull(fetched!.Version);
         Assert.AreEqual($"\"{fetched.Version}\"", get.Headers.ETag!.ToString());
+    }
+
+    // ---- Task 5: PUT /infrastructure/vms/{id} with If-Match --------------------------
+
+    private static EditVmRequest EditFrom(VmDetailResponse created, string? provider = null) => new(
+        DisplayName: created.DisplayName,
+        Description: created.Description,
+        Provider: provider ?? created.Provider,
+        Attributes: created.Attributes);
+
+    private static HttpRequestMessage NewPut(Guid id, string? ifMatch, EditVmRequest request)
+    {
+        var msg = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/catalog/infrastructure/vms/{id}")
+        {
+            Content = JsonContent.Create(request, options: KartovaApiFixtureBase.WireJson),
+        };
+        if (ifMatch is not null)
+        {
+            msg.Headers.TryAddWithoutValidation("If-Match", $"\"{ifMatch}\"");
+        }
+        return msg;
+    }
+
+    [TestMethod]
+    public async Task Put_UpdatesVm_Returns200()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team Edit");
+        var unique = $"vm-edit-{Guid.NewGuid():N}";
+
+        var post = await client.PostAsJsonAsync(
+            "/api/v1/catalog/infrastructure/vms", ValidVm(teamId, unique), KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(HttpStatusCode.Created, post.StatusCode, $"RegisterVm failed: {await post.Content.ReadAsStringAsync()}");
+        var created = await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+
+        var put = NewPut(created!.Id, created.Version, EditFrom(created, provider: "Azure"));
+        var resp = await client.SendAsync(put);
+
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode, $"EditVm failed: {await resp.Content.ReadAsStringAsync()}");
+        var body = await resp.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual("Azure", body!.Provider);
+        Assert.AreNotEqual(created.Version, body.Version);
+        Assert.AreEqual($"\"{body.Version}\"", resp.Headers.ETag?.Tag);
+    }
+
+    [TestMethod]
+    public async Task Put_StaleIfMatch_Returns412()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team Stale");
+        var unique = $"vm-stale-{Guid.NewGuid():N}";
+
+        var post = await client.PostAsJsonAsync(
+            "/api/v1/catalog/infrastructure/vms", ValidVm(teamId, unique), KartovaApiFixtureBase.WireJson);
+        var created = await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+
+        // First edit advances the version.
+        var ok = await client.SendAsync(NewPut(created!.Id, created.Version, EditFrom(created, provider: "Azure")));
+        Assert.AreEqual(HttpStatusCode.OK, ok.StatusCode);
+
+        // Reuse the now-stale original ETag.
+        var stale = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, provider: "GCP")));
+        Assert.AreEqual(HttpStatusCode.PreconditionFailed, stale.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Put_MissingIfMatch_Returns428()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team NoIfMatch");
+        var unique = $"vm-noifmatch-{Guid.NewGuid():N}";
+
+        var post = await client.PostAsJsonAsync(
+            "/api/v1/catalog/infrastructure/vms", ValidVm(teamId, unique), KartovaApiFixtureBase.WireJson);
+        var created = await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+
+        var resp = await client.SendAsync(NewPut(created!.Id, ifMatch: null, EditFrom(created, provider: "Azure")));
+
+        Assert.AreEqual(HttpStatusCode.PreconditionRequired, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Put_BadAttributes_Returns400()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team BadAttrs");
+        var unique = $"vm-badattrs-{Guid.NewGuid():N}";
+
+        var post = await client.PostAsJsonAsync(
+            "/api/v1/catalog/infrastructure/vms", ValidVm(teamId, unique), KartovaApiFixtureBase.WireJson);
+        var created = await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+
+        var badAttrs = created!.Attributes with { Vcpu = 0 };
+        var resp = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created) with { Attributes = badAttrs }));
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Put_WithoutRegisterPerm_Returns403()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team NoPerm");
+        var unique = $"vm-noperm-{Guid.NewGuid():N}";
+
+        var post = await client.PostAsJsonAsync(
+            "/api/v1/catalog/infrastructure/vms", ValidVm(teamId, unique), KartovaApiFixtureBase.WireJson);
+        var created = await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+
+        var viewer = await Fx.CreateAuthenticatedClientAsync(
+            "viewer-edit@orga.kartova.local", new[] { KartovaRoles.Viewer });
+
+        var resp = await viewer.SendAsync(NewPut(created!.Id, created.Version, EditFrom(created, provider: "Azure")));
+
+        Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Put_UnknownId_Returns404()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+
+        var badVm = new VmDetailResponse(
+            Guid.NewGuid(), Guid.NewGuid(), "n", "d", "AWS", Guid.NewGuid(), null, Guid.NewGuid(),
+            DateTimeOffset.UtcNow, VersionEncoding.Encode(0u),
+            new VmAttributesDto("running", "ubuntu-22.04", 4, 16, "host-1", new[] { "10.0.0.1" }, "eu-west-1"));
+
+        var resp = await client.SendAsync(NewPut(Guid.NewGuid(), badVm.Version, EditFrom(badVm)));
+
+        Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Put_CrossTenant_Returns404()
+    {
+        const string orgBUser = "admin@orgb.kartova.local";
+        var orgAClient = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team CrossTenant");
+        var unique = $"vm-crosstenant-{Guid.NewGuid():N}";
+
+        var post = await orgAClient.PostAsJsonAsync(
+            "/api/v1/catalog/infrastructure/vms", ValidVm(teamId, unique), KartovaApiFixtureBase.WireJson);
+        var created = await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+
+        var orgBClient = await Fx.CreateAuthenticatedClientAsync(orgBUser);
+        var resp = await orgBClient.SendAsync(NewPut(created!.Id, created.Version, EditFrom(created, provider: "Hijack")));
+
+        Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
     }
 }

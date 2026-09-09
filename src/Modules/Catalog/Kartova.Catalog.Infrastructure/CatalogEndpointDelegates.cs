@@ -25,6 +25,7 @@ using ApiStyle = Kartova.Catalog.Domain.ApiStyle;
 using EntityRef = Kartova.Catalog.Domain.EntityRef;
 using EntityKind = Kartova.Catalog.Domain.EntityKind;
 using InfrastructureType = Kartova.Catalog.Domain.InfrastructureType;
+using InfrastructureId = Kartova.Catalog.Domain.InfrastructureId;
 using ComponentAlreadyInSystemException = Kartova.Catalog.Domain.ComponentAlreadyInSystemException;
 using RelationshipType = Kartova.Catalog.Domain.RelationshipType;
 using RelationshipDirection = Kartova.Catalog.Application.RelationshipDirection;
@@ -829,6 +830,49 @@ internal static class CatalogEndpointDelegates
             db, tenant, currentUser, audit, ct);
 
         return Results.Created($"/api/v1/catalog/infrastructure/vms/{response.Id}", response).WithEtag(response.Version);
+    }
+
+    /// <summary>
+    /// Full-update edit of a VM-kind Infrastructure resource (ADR-0111 amendment, slice 2a
+    /// Task 5). Team is IMMUTABLE on edit — there is no team-move field on
+    /// <see cref="EditVmRequest"/>, so the team gate here authorizes against the VM's
+    /// EXISTING (loaded) team id via the same <see cref="AuthorizeTargetTeamAsync"/> the
+    /// register path uses for its target team (OrgAdmin-OR-member of that team). Attribute
+    /// validation (<see cref="VmAttributes.Validate"/>) mirrors <see cref="RegisterVmAsync"/> —
+    /// a thrown <see cref="ArgumentException"/> is NOT caught locally; it propagates to
+    /// <c>DomainValidationExceptionHandler</c> for the global 400 mapping. <c>If-Match</c> is
+    /// enforced by <see cref="IfMatchEndpointFilter"/> upstream (428 missing / 412 stale via
+    /// <c>ConcurrencyConflictExceptionHandler</c> — never 409).
+    /// </summary>
+    internal static async Task<IResult> EditVmAsync(
+        Guid id,
+        [FromBody] EditVmRequest request,
+        EditVmHandler handler,
+        CatalogDbContext db,
+        IAuthorizationService auth,
+        ClaimsPrincipal caller,
+        HttpContext http,
+        IAuditWriter audit,
+        CancellationToken ct)
+    {
+        var vm = await db.Infrastructure
+            .Where(x => EF.Property<Guid>(x, EfInfrastructureConfiguration.IdFieldName) == id)
+            .Where(x => x.Type == InfrastructureType.VirtualMachine)
+            .SingleOrDefaultAsync(ct);
+        if (vm is null) return EndpointResultExtensions.VmNotFound();
+
+        if (await AuthorizeTargetTeamAsync(auth, caller, vm.TeamId) is { } forbidden)
+            return forbidden;
+
+        var attrs = VmAttributes.Validate(request.Attributes);
+
+        var expected = (uint)http.Items[IfMatchEndpointFilter.ExpectedVersionKey]!;
+
+        var resp = await handler.Handle(
+            new EditVmCommand(new InfrastructureId(id), request.DisplayName, request.Description, request.Provider, attrs, expected),
+            db, audit, ct);
+
+        return resp is null ? EndpointResultExtensions.VmNotFound() : Results.Ok(resp).WithEtag(resp.Version);
     }
 
     internal static async Task<IResult> RegisterApiAsync(

@@ -74,6 +74,24 @@ public sealed class InfrastructureResource : ITenantOwned, ITeamScopedResource
         return new InfrastructureResource(InfrastructureId.New(), tenantId, displayName, description, provider, type, attributesJson, createdByUserId, teamId, createdAt);
     }
 
+    /// <summary>
+    /// Full-update edit (ADR-0111 amendment, slice 2a Task 5). Team is IMMUTABLE on edit —
+    /// no team-move path here (mirrors <c>Application.EditMetadata</c>, which also edits
+    /// metadata only). Revalidates every shared invariant plus the (already-serialized)
+    /// attributes payload before mutating state, so a partially-invalid edit never lands.
+    /// </summary>
+    public void Edit(string displayName, string description, string? provider, string attributesJson)
+    {
+        ValidateDisplayName(displayName);
+        ValidateDescription(description);
+        ValidateProvider(provider);
+        ValidateAttributes(attributesJson);
+        DisplayName = displayName;
+        Description = description;
+        Provider = provider;
+        Attributes = attributesJson;
+    }
+
     private static void ValidateDisplayName(string displayName)
     {
         if (string.IsNullOrWhiteSpace(displayName))

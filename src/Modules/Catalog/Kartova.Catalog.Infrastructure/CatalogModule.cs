@@ -324,6 +324,16 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .ProducesProblem(StatusCodes.Status400BadRequest)
               .ProducesProblem(StatusCodes.Status403Forbidden)
               .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+        tenant.MapPut("/infrastructure/vms/{id:guid}", CatalogEndpointDelegates.EditVmAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogInfrastructureRegister)
+              .AddEndpointFilter<IfMatchEndpointFilter>()
+              .WithName("EditVm")
+              .Produces<VmDetailResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
+              .ProducesProblem(StatusCodes.Status404NotFound)
+              .ProducesProblem(StatusCodes.Status412PreconditionFailed)
+              .ProducesProblem(StatusCodes.Status428PreconditionRequired);
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
@@ -380,6 +390,7 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<ListVmsHandler>();
         services.AddScoped<GetVmByIdHandler>();
         services.AddScoped<RegisterVmHandler>();
+        services.AddScoped<EditVmHandler>();
 
         // TimeProvider is needed by Application.Deprecate / Decommission for the
         // "sunsetDate must be in the future" / "now >= sunsetDate" checks. TryAdd

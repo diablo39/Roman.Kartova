@@ -135,4 +135,26 @@ public class InfrastructureResourceTests
 
         Assert.IsNull(vm.Provider);
     }
+
+    [TestMethod]
+    public void Edit_UpdatesMetadataAndAttributes()
+    {
+        var vm = InfrastructureResource.Create(
+            "vm-01", "seeded", "AWS", InfrastructureType.VirtualMachine, "{\"a\":1}",
+            Guid.NewGuid(), Guid.NewGuid(), Tenant, DateTimeOffset.UnixEpoch);
+
+        vm.Edit("vm-01-renamed", "edited", "Azure", "{\"a\":2}");
+
+        Assert.AreEqual("vm-01-renamed", vm.DisplayName);
+        Assert.AreEqual("edited", vm.Description);
+        Assert.AreEqual("Azure", vm.Provider);
+        Assert.AreEqual("{\"a\":2}", vm.Attributes);
+    }
+
+    [TestMethod]
+    public void Edit_RejectsEmptyDisplayName()
+        => Assert.ThrowsExactly<ArgumentException>(() =>
+            InfrastructureResource.Create("vm", "d", null, InfrastructureType.VirtualMachine, "{}",
+                Guid.NewGuid(), Guid.NewGuid(), Tenant, DateTimeOffset.UnixEpoch)
+            .Edit("", "d", null, "{}"));
 }
