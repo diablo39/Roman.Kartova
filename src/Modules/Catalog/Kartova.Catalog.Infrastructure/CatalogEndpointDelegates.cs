@@ -755,14 +755,14 @@ internal static class CatalogEndpointDelegates
         CatalogDbContext db,
         CancellationToken ct)
     {
-        var (parsedSortBy, parsedSortOrder, effectiveLimit) = CursorListBinding.Bind<InfrastructureSortField>(
-            sortBy, sortOrder, limit, InfrastructureSortSpecs.AllowedFieldNames);
+        var (parsedSortBy, parsedSortOrder, effectiveLimit) = CursorListBinding.Bind<VmSortField>(
+            sortBy, sortOrder, limit, VmSortSpecs.AllowedFieldNames);
 
         if (TryDedupAndCap(teamId, "teamId", out var distinctTeamIds) is { } tooManyTeamIds)
             return tooManyTeamIds;
 
         var query = new ListVmsQuery(
-            SortBy: parsedSortBy ?? InfrastructureSortField.DisplayName,
+            SortBy: parsedSortBy ?? VmSortField.DisplayName,
             SortOrder: parsedSortOrder ?? SortOrder.Asc,
             Cursor: cursor,
             Limit: effectiveLimit,

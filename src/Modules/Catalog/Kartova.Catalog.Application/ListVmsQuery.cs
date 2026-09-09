@@ -22,7 +22,7 @@ namespace Kartova.Catalog.Application;
 /// </para>
 /// </summary>
 public sealed record ListVmsQuery(
-    InfrastructureSortField SortBy,
+    VmSortField SortBy,
     SortOrder SortOrder,
     string? Cursor,
     int Limit,

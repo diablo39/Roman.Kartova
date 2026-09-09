@@ -23,7 +23,7 @@ public class ListVmsHandlerFilterTests
     private static ListVmsQuery Query(
         Guid[]? teamId = null, string? powerState = null, string? os = null,
         string? region = null, string? hostname = null, string? ipAddress = null, int limit = 50) =>
-        new(InfrastructureSortField.DisplayName, SortOrder.Asc, Cursor: null, Limit: limit,
+        new(VmSortField.DisplayName, SortOrder.Asc, Cursor: null, Limit: limit,
             TeamId: teamId ?? [],
             PowerState: powerState, Os: os, Region: region, Hostname: hostname, IpAddress: ipAddress);
 

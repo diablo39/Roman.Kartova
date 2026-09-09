@@ -60,5 +60,13 @@ public sealed class CatalogDbContext : DbContext
         modelBuilder.ApplyConfiguration(new EfRelationshipConfiguration());
         modelBuilder.ApplyConfiguration(new EfSystemConfiguration());
         modelBuilder.ApplyConfiguration(new EfInfrastructureConfiguration());
+
+        // ADR-0115 slice 2a (Task 7): maps Postgres's builtin jsonb_extract_path_text so
+        // VmSortSpecs' JSONB sort selectors translate to SQL byte-identical to the partial
+        // expression indexes in the AddInfrastructureProviderAndSortIndexes migration.
+        modelBuilder.HasDbFunction(
+                typeof(JsonbFunctions).GetMethod(nameof(JsonbFunctions.JsonbExtractPathText))!)
+            .HasName("jsonb_extract_path_text")
+            .IsBuiltIn();
     }
 }

@@ -28,14 +28,18 @@ internal static class InfrastructureSortSpecs
     /// scalar column.</summary>
     public static readonly SortSpec<InfrastructureResource> Type = new("type", x => x.Type);
 
+    /// <summary>Typed nullable varchar column (slice 2a, ADR-0115) — keyset-safe like <see cref="Type"/>.</summary>
+    public static readonly SortSpec<InfrastructureResource> Provider = new("provider", x => x.Provider!);
+
     public static readonly IReadOnlyList<string> AllowedFieldNames =
-        [CreatedAt.FieldName, DisplayName.FieldName, Type.FieldName];
+        [CreatedAt.FieldName, DisplayName.FieldName, Type.FieldName, Provider.FieldName];
 
     public static SortSpec<InfrastructureResource> Resolve(InfrastructureSortField field) => field switch
     {
         InfrastructureSortField.CreatedAt => CreatedAt,
         InfrastructureSortField.DisplayName => DisplayName,
         InfrastructureSortField.Type => Type,
+        InfrastructureSortField.Provider => Provider,
         _ => throw new InvalidSortFieldException(field.ToString(), AllowedFieldNames),
     };
 }
