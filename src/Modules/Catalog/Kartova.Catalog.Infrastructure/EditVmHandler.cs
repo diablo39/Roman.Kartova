@@ -42,7 +42,8 @@ public sealed class EditVmHandler
             // connection before ConcurrencyConflictExceptionHandler runs, so a fresh
             // GetDatabaseValuesAsync would fail there. Stashing on Exception.Data is
             // the handoff path (mirrors EditApplicationHandler.TryCaptureCurrentVersionAsync).
-            await TryCaptureCurrentXminAsync(ex, ct);
+            // Shared with DeleteVmHandler (Task 6 DRY extraction) — see InfrastructureConcurrency.
+            await InfrastructureConcurrency.TryCaptureCurrentXminAsync(ex, ct);
             throw;
         }
 
@@ -61,31 +62,5 @@ public sealed class EditVmHandler
             vm.Id.Value, vm.TenantId.Value, vm.DisplayName, vm.Description, vm.Provider,
             vm.TeamId, vm.SystemId, vm.CreatedByUserId, vm.CreatedAt,
             VersionEncoding.Encode(vm.Xmin), attrs);
-    }
-
-    private static async Task TryCaptureCurrentXminAsync(
-        DbUpdateConcurrencyException ex, CancellationToken ct)
-    {
-        try
-        {
-            var entry = ex.Entries.FirstOrDefault();
-            if (entry is null) return;
-
-            var dbValues = await entry.GetDatabaseValuesAsync(ct);
-            if (dbValues is null) return;
-
-            if (dbValues["Xmin"] is uint currentVersion)
-            {
-                ex.Data["currentVersion"] = currentVersion;
-            }
-        }
-        catch (Exception captureEx) when (captureEx is not OperationCanceledException)
-        {
-            // Swallow — the 412 envelope is still informative without the
-            // currentVersion extension; we just lose the round-trip-saving
-            // hint. Don't mask the real DbUpdateConcurrencyException.
-            // OperationCanceledException is excluded so a request-cancellation
-            // mid-recapture isn't silently dropped.
-        }
     }
 }

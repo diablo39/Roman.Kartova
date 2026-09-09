@@ -22,6 +22,7 @@ public static class CatalogAuditActions
     public const string SystemRegistered = "system.registered";
     public const string InfrastructureRegistered = "infrastructure.registered";
     public const string InfrastructureEdited = "infrastructure.edited";
+    public const string InfrastructureDeleted = "infrastructure.deleted";
 }
 
 /// <summary>

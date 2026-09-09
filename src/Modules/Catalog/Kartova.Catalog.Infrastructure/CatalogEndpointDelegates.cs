@@ -875,6 +875,33 @@ internal static class CatalogEndpointDelegates
         return resp is null ? EndpointResultExtensions.VmNotFound() : Results.Ok(resp).WithEtag(resp.Version);
     }
 
+    /// <summary>
+    /// Hard delete of a VM-kind Infrastructure resource (ADR-0111 amendment, slice 2a Task 6).
+    /// OrgAdmin-only — <c>KartovaPermissions.CatalogInfrastructureDelete</c> is mapped to
+    /// <c>OrgAdmin</c> alone (<c>KartovaRolePermissions</c>), enforced entirely by the route's
+    /// <c>.RequireAuthorization</c> in <see cref="CatalogModule"/>; there is no team-scoped
+    /// resource gate here (unlike <see cref="EditVmAsync"/>) because the claim itself is already
+    /// the narrowest gate. <c>If-Match</c> is enforced by <see cref="IfMatchEndpointFilter"/>
+    /// upstream (428 missing / 412 stale via <c>ConcurrencyConflictExceptionHandler</c> — never
+    /// 409). No lifecycle/soft-delete for Infrastructure in slice 2a — this is a plain row
+    /// removal.
+    /// </summary>
+    internal static async Task<IResult> DeleteVmAsync(
+        Guid id,
+        DeleteVmHandler handler,
+        CatalogDbContext db,
+        HttpContext http,
+        IAuditWriter audit,
+        CancellationToken ct)
+    {
+        var expected = (uint)http.Items[IfMatchEndpointFilter.ExpectedVersionKey]!;
+
+        var deleted = await handler.Handle(
+            new DeleteVmCommand(new InfrastructureId(id), expected), db, audit, ct);
+
+        return deleted ? Results.NoContent() : EndpointResultExtensions.VmNotFound();
+    }
+
     internal static async Task<IResult> RegisterApiAsync(
         [FromBody] RegisterApiRequest request,
         RegisterApiHandler handler,

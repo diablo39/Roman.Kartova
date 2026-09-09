@@ -219,4 +219,119 @@ public sealed class InfrastructureVmWriteTests : CatalogIntegrationTestBase
 
         Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
     }
+
+    // ---- Task 6: DELETE /infrastructure/vms/{id} with If-Match (OrgAdmin-only) --------
+
+    private static HttpRequestMessage NewDelete(Guid id, string? ifMatch)
+    {
+        var msg = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/catalog/infrastructure/vms/{id}");
+        if (ifMatch is not null)
+        {
+            msg.Headers.TryAddWithoutValidation("If-Match", $"\"{ifMatch}\"");
+        }
+        return msg;
+    }
+
+    [TestMethod]
+    public async Task Delete_RemovesVm_Returns204()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team Delete");
+        var unique = $"vm-delete-{Guid.NewGuid():N}";
+
+        var post = await client.PostAsJsonAsync(
+            "/api/v1/catalog/infrastructure/vms", ValidVm(teamId, unique), KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(HttpStatusCode.Created, post.StatusCode, $"RegisterVm failed: {await post.Content.ReadAsStringAsync()}");
+        var created = await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+
+        var del = await client.SendAsync(NewDelete(created!.Id, created.Version));
+        Assert.AreEqual(HttpStatusCode.NoContent, del.StatusCode, $"DeleteVm failed: {await del.Content.ReadAsStringAsync()}");
+
+        var get = await client.GetAsync($"/api/v1/catalog/infrastructure/vms/{created.Id}");
+        Assert.AreEqual(HttpStatusCode.NotFound, get.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Delete_NonOrgAdmin_Returns403()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team DeleteNoPerm");
+        var unique = $"vm-delete-noperm-{Guid.NewGuid():N}";
+
+        var post = await client.PostAsJsonAsync(
+            "/api/v1/catalog/infrastructure/vms", ValidVm(teamId, unique), KartovaApiFixtureBase.WireJson);
+        var created = await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+
+        // Member carries CatalogInfrastructureRegister but NOT CatalogInfrastructureDelete
+        // (OrgAdmin-only) — proves the delete gate is a distinct, narrower permission.
+        var member = await Fx.CreateAuthenticatedClientAsync(
+            "member-delete@orga.kartova.local", new[] { KartovaRoles.Member });
+
+        var resp = await member.SendAsync(NewDelete(created!.Id, created.Version));
+
+        Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Delete_StaleIfMatch_Returns412()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team DeleteStale");
+        var unique = $"vm-delete-stale-{Guid.NewGuid():N}";
+
+        var post = await client.PostAsJsonAsync(
+            "/api/v1/catalog/infrastructure/vms", ValidVm(teamId, unique), KartovaApiFixtureBase.WireJson);
+        var created = await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+
+        // Advance the version first so the original ETag goes stale.
+        var edit = await client.SendAsync(NewPut(created!.Id, created.Version, EditFrom(created, provider: "Azure")));
+        Assert.AreEqual(HttpStatusCode.OK, edit.StatusCode);
+
+        var stale = await client.SendAsync(NewDelete(created.Id, created.Version));
+        Assert.AreEqual(HttpStatusCode.PreconditionFailed, stale.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Delete_MissingIfMatch_Returns428()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team DeleteNoIfMatch");
+        var unique = $"vm-delete-noifmatch-{Guid.NewGuid():N}";
+
+        var post = await client.PostAsJsonAsync(
+            "/api/v1/catalog/infrastructure/vms", ValidVm(teamId, unique), KartovaApiFixtureBase.WireJson);
+        var created = await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+
+        var resp = await client.SendAsync(NewDelete(created!.Id, ifMatch: null));
+
+        Assert.AreEqual(HttpStatusCode.PreconditionRequired, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Delete_UnknownId_Returns404()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+
+        var resp = await client.SendAsync(NewDelete(Guid.NewGuid(), VersionEncoding.Encode(0u)));
+
+        Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Delete_CrossTenant_Returns404()
+    {
+        const string orgBUser = "admin@orgb.kartova.local";
+        var orgAClient = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team DeleteCrossTenant");
+        var unique = $"vm-delete-crosstenant-{Guid.NewGuid():N}";
+
+        var post = await orgAClient.PostAsJsonAsync(
+            "/api/v1/catalog/infrastructure/vms", ValidVm(teamId, unique), KartovaApiFixtureBase.WireJson);
+        var created = await post.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
+
+        var orgBClient = await Fx.CreateAuthenticatedClientAsync(orgBUser);
+        var resp = await orgBClient.SendAsync(NewDelete(created!.Id, created.Version));
+
+        Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
+    }
 }
