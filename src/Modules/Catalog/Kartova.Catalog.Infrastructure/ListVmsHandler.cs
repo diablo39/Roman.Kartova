@@ -55,7 +55,7 @@ public sealed class ListVmsHandler
         var items = page.Items.Select(x =>
         {
             var attrs = VmAttributes.FromJson(x.Attributes).ToDto();
-            return new VmListItemResponse(x.Id.Value, x.TenantId.Value, x.DisplayName, x.Description,
+            return new VmListItemResponse(x.Id.Value, x.TenantId.Value, x.DisplayName, x.Description, x.Provider,
                 x.TeamId, x.SystemId, x.CreatedByUserId, x.CreatedAt, attrs);
         }).ToList();
         return new CursorPage<VmListItemResponse>(items, page.NextCursor, page.PrevCursor);

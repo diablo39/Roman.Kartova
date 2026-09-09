@@ -825,7 +825,7 @@ internal static class CatalogEndpointDelegates
         var attrs = VmAttributes.Validate(request.Attributes);
 
         var response = await handler.Handle(
-            new RegisterVmCommand(request.DisplayName, request.Description, request.TeamId, attrs),
+            new RegisterVmCommand(request.DisplayName, request.Description, request.TeamId, request.Provider, attrs),
             db, tenant, currentUser, audit, ct);
 
         return Results.Created($"/api/v1/catalog/infrastructure/vms/{response.Id}", response);

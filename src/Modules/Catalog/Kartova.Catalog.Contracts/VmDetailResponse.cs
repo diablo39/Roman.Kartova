@@ -9,6 +9,7 @@ public sealed record VmDetailResponse(
     Guid TenantId,
     string DisplayName,
     string Description,
+    string? Provider,
     Guid TeamId,
     Guid? SystemId,
     Guid CreatedByUserId,

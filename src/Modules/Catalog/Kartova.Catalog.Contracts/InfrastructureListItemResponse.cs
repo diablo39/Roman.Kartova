@@ -9,6 +9,7 @@ public sealed record InfrastructureListItemResponse(
     string DisplayName,
     string Description,
     string Type,
+    string? Provider,
     Guid TeamId,
     Guid? SystemId,
     Guid CreatedByUserId,
