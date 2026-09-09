@@ -1,21 +1,38 @@
-import { useMemo } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "@/components/base/card/card";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
+import { Button } from "@/components/base/buttons/button";
 import { useVm } from "@/features/catalog/api/infrastructure";
 import { useTeamsList } from "@/features/teams/api/teams";
 import { PowerStateBadge } from "@/features/catalog/components/PowerStateBadge";
 import { InfraTypeBadge } from "@/features/catalog/components/InfraTypeBadge";
+import { EditVmDialog } from "@/features/catalog/components/EditVmDialog";
+import { DeleteVmConfirm } from "@/features/catalog/components/DeleteVmConfirm";
 import { isPowerState } from "@/features/catalog/powerState";
+import { usePermissions } from "@/shared/auth/usePermissions";
+import { KartovaPermissions } from "@/shared/auth/permissions";
 
 export function VmDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const query = useVm(id ?? "");
   const teamsList = useTeamsList({ sortBy: "displayName", sortOrder: "asc", limit: 200 });
   const teamNameById = useMemo(
     () => new Map<string, string>((teamsList.items ?? []).map((t) => [t.id, t.displayName])),
     [teamsList.items],
   );
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  const { hasPermission, isLoading: permissionsLoading } = usePermissions();
+  // No lifecycle gate here (unlike ApplicationDetailPage's `!== "decommissioned"`) —
+  // VMs have no lifecycle/soft-delete state (ADR-0111 amendment); Edit is available
+  // for any VM the caller has the register permission for. Delete is gated on its
+  // own permission (T6), separate from register/edit.
+  const canEdit = !permissionsLoading && hasPermission(KartovaPermissions.CatalogInfrastructureRegister);
+  const canDelete = !permissionsLoading && hasPermission(KartovaPermissions.CatalogInfrastructureDelete);
 
   if (query.isLoading) {
     return (
@@ -51,14 +68,28 @@ export function VmDetailPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 className="text-2xl font-semibold text-primary">{vm.displayName}</h2>
-        <InfraTypeBadge type="virtualMachine" size="md" />
-        {isPowerState(attrs.powerState) ? (
-          <PowerStateBadge powerState={attrs.powerState} size="md" />
-        ) : (
-          <span className="text-sm text-tertiary">{attrs.powerState}</span>
-        )}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-2xl font-semibold text-primary">{vm.displayName}</h2>
+          <InfraTypeBadge type="virtualMachine" size="md" />
+          {isPowerState(attrs.powerState) ? (
+            <PowerStateBadge powerState={attrs.powerState} size="md" />
+          ) : (
+            <span className="text-sm text-tertiary">{attrs.powerState}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {canEdit && (
+            <Button color="secondary" size="sm" onClick={() => setEditOpen(true)}>
+              Edit
+            </Button>
+          )}
+          {canDelete && (
+            <Button color="secondary-destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+              Delete
+            </Button>
+          )}
+        </div>
       </div>
       <Card>
         <CardContent className="space-y-6 p-6">
@@ -71,6 +102,7 @@ export function VmDetailPage() {
           <hr className="border-secondary" />
           <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Field label="ID" value={vm.id} mono />
+            <Field label="Provider" value={vm.provider ?? "—"} />
             <div>
               <div className="text-xs uppercase tracking-wide text-tertiary">Team</div>
               <div className="mt-1 text-sm">
@@ -120,6 +152,16 @@ export function VmDetailPage() {
           </section>
         </CardContent>
       </Card>
+
+      {canEdit && <EditVmDialog vm={vm} open={editOpen} onOpenChange={setEditOpen} />}
+      {canDelete && (
+        <DeleteVmConfirm
+          vm={vm}
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          onDeleted={() => navigate("/catalog/infrastructure/vms")}
+        />
+      )}
     </div>
   );
 }

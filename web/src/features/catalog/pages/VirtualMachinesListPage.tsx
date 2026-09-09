@@ -14,7 +14,19 @@ import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
 import { asProblemDetails } from "@/shared/forms/problemDetails";
 
-const ALLOWED_SORT_FIELDS = ["createdAt", "displayName"] as const;
+// Wire names per VmSortField (Kartova.Catalog.Contracts) — camelCase, ADR-0095. Must
+// stay in sync with VmTable's own SORT_FIELDS (its SortableHead ids drive onSortChange).
+const ALLOWED_SORT_FIELDS = [
+  "createdAt",
+  "displayName",
+  "provider",
+  "powerState",
+  "os",
+  "vcpu",
+  "memoryGb",
+  "hostname",
+  "region",
+] as const;
 const TEXT_FILTERS = ["powerState", "os", "region", "hostname", "ipAddress"] as const;
 const POWER_STATE_OPTIONS = [
   { label: "Running", value: "running" },

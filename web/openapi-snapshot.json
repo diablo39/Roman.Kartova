@@ -2511,6 +2511,157 @@
             }
           }
         }
+      },
+      "put": {
+        "tags": [
+          "CatalogEndpointDelegates"
+        ],
+        "operationId": "EditVm",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditVmRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VmDetailResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Precondition Failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Precondition Required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "CatalogEndpointDelegates"
+        ],
+        "operationId": "DeleteVm",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Precondition Failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Precondition Required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/organizations/me": {
@@ -4737,6 +4888,32 @@
           }
         }
       },
+      "EditVmRequest": {
+        "required": [
+          "displayName",
+          "description",
+          "provider",
+          "attributes"
+        ],
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "provider": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "attributes": {
+            "$ref": "#/components/schemas/VmAttributesDto"
+          }
+        }
+      },
       "EntityKind": {
         "enum": [
           "application",
@@ -5019,6 +5196,7 @@
           "displayName",
           "description",
           "type",
+          "provider",
           "teamId",
           "systemId",
           "createdByUserId",
@@ -5042,6 +5220,12 @@
           },
           "type": {
             "type": "string"
+          },
+          "provider": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "teamId": {
             "type": "string",
@@ -5452,6 +5636,7 @@
           "displayName",
           "description",
           "teamId",
+          "provider",
           "attributes"
         ],
         "type": "object",
@@ -5465,6 +5650,12 @@
           "teamId": {
             "type": "string",
             "format": "uuid"
+          },
+          "provider": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "attributes": {
             "$ref": "#/components/schemas/VmAttributesDto"
@@ -6156,10 +6347,12 @@
           "tenantId",
           "displayName",
           "description",
+          "provider",
           "teamId",
           "systemId",
           "createdByUserId",
           "createdAt",
+          "version",
           "attributes"
         ],
         "type": "object",
@@ -6177,6 +6370,12 @@
           },
           "description": {
             "type": "string"
+          },
+          "provider": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "teamId": {
             "type": "string",
@@ -6197,6 +6396,9 @@
             "type": "string",
             "format": "date-time"
           },
+          "version": {
+            "type": "string"
+          },
           "attributes": {
             "$ref": "#/components/schemas/VmAttributesDto"
           }
@@ -6208,6 +6410,7 @@
           "tenantId",
           "displayName",
           "description",
+          "provider",
           "teamId",
           "systemId",
           "createdByUserId",
@@ -6229,6 +6432,12 @@
           },
           "description": {
             "type": "string"
+          },
+          "provider": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "teamId": {
             "type": "string",

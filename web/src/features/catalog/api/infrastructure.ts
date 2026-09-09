@@ -2,12 +2,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "./client";
 import { useCursorList } from "@/lib/list/useCursorList";
 import { throwWithStatus, unwrapData } from "@/shared/api/openapi-fetch-helpers";
+import type { EditVmInput } from "@/features/catalog/schemas/registerVm";
 import type { components, operations } from "@/generated/openapi";
 
 type VmListItemResponse = components["schemas"]["VmListItemResponse"];
 type InfrastructureListItemResponse = components["schemas"]["InfrastructureListItemResponse"];
 type VmDetailResponse = components["schemas"]["VmDetailResponse"];
 type RegisterVmRequest = components["schemas"]["RegisterVmRequest"];
+type EditVmRequest = components["schemas"]["EditVmRequest"];
 
 // NB: unlike ListServices, the generated ListVms/ListInfrastructure query types
 // type sortBy/sortOrder/limit as bare `string` (no backend enum annotation yet
@@ -131,4 +133,65 @@ export function useRegisterVm() {
   });
 }
 
-export type { VmListItemResponse, InfrastructureListItemResponse, VmDetailResponse, RegisterVmRequest };
+/**
+ * PUT /infrastructure/vms/{id} — full-replacement edit (T5, ADR-0096 concurrency).
+ * Mirrors `useEditApplication`: the If-Match header carries the optimistic-concurrency
+ * token straight from the cached `version` field on `VmDetailResponse` (wrapped in
+ * double quotes for the wire, per RFC 7232 §2.3 strong-ETag syntax) — no separate
+ * response-header read is needed since `version` already round-trips in the body.
+ * On 412 the hook invalidates the detail query so the dialog auto-refreshes.
+ */
+export function useEditVm(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { values: EditVmInput; expectedVersion: string }) => {
+      const body: EditVmRequest = {
+        displayName: input.values.displayName,
+        description: input.values.description,
+        provider: input.values.provider || null,
+        attributes: input.values.attributes,
+      };
+      const { data, error, response } = await apiClient.PUT("/api/v1/catalog/infrastructure/vms/{id}", {
+        params: { path: { id } },
+        body,
+        headers: { "If-Match": `"${input.expectedVersion}"` },
+      });
+      if (error) throwWithStatus(error, response);
+      return unwrapData(data, response);
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(infraKeys.detail(id), data);
+      qc.invalidateQueries({ queryKey: infraKeys.list() });
+      qc.invalidateQueries({ queryKey: infraKeys.vmList() });
+    },
+    onError: (err) => {
+      const status = (err as { __status?: number }).__status;
+      if (status === 412) {
+        qc.invalidateQueries({ queryKey: infraKeys.detail(id) });
+      }
+    },
+  });
+}
+
+/**
+ * DELETE /infrastructure/vms/{id} — hard delete (T6, ADR-0111 amendment). Same
+ * If-Match convention as `useEditVm`; no `onSuccess` cache write since the resource
+ * is gone — the caller navigates away and the invalidated list queries refetch.
+ */
+export function useDeleteVm(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (expectedVersion: string) => {
+      const { error, response } = await apiClient.DELETE("/api/v1/catalog/infrastructure/vms/{id}", {
+        params: { path: { id } },
+        headers: { "If-Match": `"${expectedVersion}"` },
+      });
+      if (error) throwWithStatus(error, response);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: infraKeys.all });
+    },
+  });
+}
+
+export type { VmListItemResponse, InfrastructureListItemResponse, VmDetailResponse, RegisterVmRequest, EditVmRequest };

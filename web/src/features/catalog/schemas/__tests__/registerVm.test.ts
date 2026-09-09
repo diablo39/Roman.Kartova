@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { registerVmSchema, vmAttributesSchema, POWER_STATES } from "../registerVm";
+import { registerVmSchema, editVmSchema, vmAttributesSchema, POWER_STATES } from "../registerVm";
 
 const validAttributes = {
   powerState: "running" as const,
@@ -23,6 +23,19 @@ describe("registerVmSchema", () => {
     expect(registerVmSchema.safeParse(valid).success).toBe(true);
   });
 
+  it("accepts a valid payload with provider", () => {
+    expect(registerVmSchema.safeParse({ ...valid, provider: "AWS" }).success).toBe(true);
+  });
+
+  it("accepts a valid payload omitting provider", () => {
+    const { provider: _provider, ...withoutProvider } = { ...valid, provider: undefined };
+    expect(registerVmSchema.safeParse(withoutProvider).success).toBe(true);
+  });
+
+  it("rejects a provider over 256 characters", () => {
+    expect(registerVmSchema.safeParse({ ...valid, provider: "a".repeat(257) }).success).toBe(false);
+  });
+
   it("exposes all three power states", () => {
     expect(POWER_STATES).toEqual(["running", "stopped", "suspended"]);
   });
@@ -39,6 +52,26 @@ describe("registerVmSchema", () => {
 
   it("rejects an empty displayName", () => {
     expect(registerVmSchema.safeParse({ ...valid, displayName: "" }).success).toBe(false);
+  });
+});
+
+describe("editVmSchema", () => {
+  const validEdit = { displayName: valid.displayName, description: valid.description, attributes: validAttributes };
+
+  it("accepts a valid payload without teamId", () => {
+    expect(editVmSchema.safeParse(validEdit).success).toBe(true);
+  });
+
+  it("accepts a valid payload with provider", () => {
+    expect(editVmSchema.safeParse({ ...validEdit, provider: "Azure" }).success).toBe(true);
+  });
+
+  it("omitting provider still parses", () => {
+    expect(editVmSchema.safeParse(validEdit).success).toBe(true);
+  });
+
+  it("rejects a provider over 256 characters", () => {
+    expect(editVmSchema.safeParse({ ...validEdit, provider: "a".repeat(257) }).success).toBe(false);
   });
 });
 
