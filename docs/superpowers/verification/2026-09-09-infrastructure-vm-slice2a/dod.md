@@ -1,7 +1,7 @@
 # DoD Ledger — Infrastructure/VM slice 2a (fields + mutation)
 
 **Slice:** `2026-09-09-infrastructure-vm-slice2a` · **Branch:** `feat/catalog-infrastructure-vm-slice2a` · **HEAD:** `ebf7303`
-**PR:** <#NN / url — pending gate 10> · **Last updated:** 2026-09-09
+**PR:** #87 (https://github.com/diablo39/Roman.Kartova/pull/87) · **Last updated:** 2026-09-09
 **Spec:** `docs/superpowers/specs/2026-09-09-infrastructure-vm-slice2a-fields-mutation-design.md`
 **Plan:** `docs/superpowers/plans/2026-09-09-infrastructure-vm-slice2a-fields-mutation.md`
 **Findings telemetry:** `./gate-findings.yaml`
@@ -23,7 +23,7 @@
 | 8 `deep-review` | ✅ PASS | 2026-09-09 |
 | Terminal re-verify (build + suite) | ✅ PASS | 2026-09-09 |
 | 9 Visual / API verification (ADR-0084) | ✅ PASS (found + fixed VM-create bug, re-verified live) | 2026-09-09 |
-| 10 CI green on PR | ⏳ PENDING | — |
+| 10 CI green on PR | ✅ PASS | 2026-09-09 |
 
 ## Gate detail
 
@@ -68,5 +68,5 @@
 **At:** ebf7303 / 2026-09-09
 
 ### 10 — CI green on the PR (terminal; `scripts/ci-local.sh` pre-push mirror)
-**Status:** ⏳ PENDING — push + PR; `ci-local.sh` (Release mirror) pre-push, then PR CI all-green.
-**At:** —
+**Status:** ✅ PASS — pre-push Release build 0/0. PR **#87** CI all green (run 34369913055): Backend (arch+unit+integration) SUCCESS 3m30s, Container images SUCCESS 2m1s, Frontend (test+typecheck+build) SUCCESS 3m12s, Stryker config drift SUCCESS, Helm SUCCESS. The ubuntu Backend job passing green confirms the local whole-solution mass-fail was Docker-saturation (concurrent Testcontainers), not a regression.
+**At:** 35f575b / 2026-09-09
