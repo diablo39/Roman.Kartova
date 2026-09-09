@@ -62,6 +62,7 @@ public sealed class InfrastructureResource : ITenantOwned, ITeamScopedResource
     {
         ValidateDisplayName(displayName);
         ValidateDescription(description);
+        provider = NormalizeProvider(provider);
         ValidateProvider(provider);
         if (!Enum.IsDefined(type))
             throw new ArgumentException("Unknown infrastructure type.", nameof(type));
@@ -84,6 +85,7 @@ public sealed class InfrastructureResource : ITenantOwned, ITeamScopedResource
     {
         ValidateDisplayName(displayName);
         ValidateDescription(description);
+        provider = NormalizeProvider(provider);
         ValidateProvider(provider);
         ValidateAttributes(attributesJson);
         DisplayName = displayName;
@@ -107,6 +109,12 @@ public sealed class InfrastructureResource : ITenantOwned, ITeamScopedResource
         if (description.Length > 4096)
             throw new ArgumentException("Infrastructure description must be <= 4096 characters.", nameof(description));
     }
+
+    // Canonicalizes "no provider" to a single representation — an empty/whitespace-only
+    // provider is stored as null rather than "" (gate-7 L1), so callers/queries never
+    // have to treat both as equivalent-but-distinct values.
+    private static string? NormalizeProvider(string? provider) =>
+        string.IsNullOrWhiteSpace(provider) ? null : provider;
 
     private static void ValidateProvider(string? provider)
     {

@@ -4,6 +4,7 @@ using Kartova.Catalog.Domain;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Audit;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Kartova.Catalog.Infrastructure;
 
@@ -20,7 +21,7 @@ namespace Kartova.Catalog.Infrastructure;
 public sealed class EditVmHandler
 {
     public async Task<VmDetailResponse?> Handle(
-        EditVmCommand cmd, CatalogDbContext db, IAuditWriter audit, CancellationToken ct)
+        EditVmCommand cmd, CatalogDbContext db, IAuditWriter audit, ILogger<EditVmHandler> logger, CancellationToken ct)
     {
         var vm = await db.Infrastructure
             .SingleOrDefaultAsync(VmSortSpecs.IdEquals(cmd.Id.Value), ct);
@@ -41,7 +42,7 @@ public sealed class EditVmHandler
             // GetDatabaseValuesAsync would fail there. Stashing on Exception.Data is
             // the handoff path (mirrors EditApplicationHandler.TryCaptureCurrentVersionAsync).
             // Shared with DeleteVmHandler (Task 6 DRY extraction) — see InfrastructureConcurrency.
-            await InfrastructureConcurrency.TryCaptureCurrentXminAsync(ex, ct);
+            await InfrastructureConcurrency.TryCaptureCurrentXminAsync(ex, cmd.Id.Value, logger, ct);
             throw;
         }
 

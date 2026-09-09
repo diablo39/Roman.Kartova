@@ -41,10 +41,10 @@ public sealed record VmAttributes(
     private const int MaxHostnameLength = 255;
     private const int MaxRegionLength = 128;
 
-    // The FE's InputTags for ipAddresses has no configured maxTags (unbounded on the
-    // client) — there is no FE number to mirror here. This cap is a server-side-only
-    // defense against an unbounded jsonb array; 32 comfortably covers realistic
-    // multi-NIC VMs while keeping the stored attributes payload bounded.
+    // Mirrors vmAttributesSchema's ipAddresses.max(32) in
+    // web/src/features/catalog/schemas/registerVm.ts — kept as a server-side backstop
+    // against an unbounded jsonb array for non-SPA callers, same rationale as the other
+    // Max*Length caps above.
     private const int MaxIpAddresses = 32;
 
     public static VmAttributes Validate(VmAttributesDto dto)
@@ -53,64 +53,64 @@ public sealed record VmAttributes(
 
         if (!Enum.TryParse<VmPowerState>(dto.PowerState, ignoreCase: true, out var powerState))
         {
-            throw new ArgumentException($"'{dto.PowerState}' is not a valid power state.", nameof(dto));
+            throw new ArgumentException($"'{dto.PowerState}' is not a valid power state.", "attributes.powerState");
         }
 
         if (string.IsNullOrWhiteSpace(dto.Os))
         {
-            throw new ArgumentException("Os must not be empty.", nameof(dto));
+            throw new ArgumentException("Os must not be empty.", "attributes.os");
         }
 
         if (dto.Os.Length > MaxOsLength)
         {
-            throw new ArgumentException($"Os must be at most {MaxOsLength} characters.", nameof(dto));
+            throw new ArgumentException($"Os must be at most {MaxOsLength} characters.", "attributes.os");
         }
 
         if (string.IsNullOrWhiteSpace(dto.Hostname))
         {
-            throw new ArgumentException("Hostname must not be empty.", nameof(dto));
+            throw new ArgumentException("Hostname must not be empty.", "attributes.hostname");
         }
 
         if (dto.Hostname.Length > MaxHostnameLength)
         {
-            throw new ArgumentException($"Hostname must be at most {MaxHostnameLength} characters.", nameof(dto));
+            throw new ArgumentException($"Hostname must be at most {MaxHostnameLength} characters.", "attributes.hostname");
         }
 
         if (string.IsNullOrWhiteSpace(dto.Region))
         {
-            throw new ArgumentException("Region must not be empty.", nameof(dto));
+            throw new ArgumentException("Region must not be empty.", "attributes.region");
         }
 
         if (dto.Region.Length > MaxRegionLength)
         {
-            throw new ArgumentException($"Region must be at most {MaxRegionLength} characters.", nameof(dto));
+            throw new ArgumentException($"Region must be at most {MaxRegionLength} characters.", "attributes.region");
         }
 
         if (dto.Vcpu <= 0)
         {
-            throw new ArgumentException("Vcpu must be greater than zero.", nameof(dto));
+            throw new ArgumentException("Vcpu must be greater than zero.", "attributes.vcpu");
         }
 
         if (dto.MemoryGb <= 0)
         {
-            throw new ArgumentException("MemoryGb must be greater than zero.", nameof(dto));
+            throw new ArgumentException("MemoryGb must be greater than zero.", "attributes.memoryGb");
         }
 
         if (dto.IpAddresses is null || dto.IpAddresses.Count == 0)
         {
-            throw new ArgumentException("IpAddresses must not be empty.", nameof(dto));
+            throw new ArgumentException("IpAddresses must not be empty.", "attributes.ipAddresses");
         }
 
         if (dto.IpAddresses.Count > MaxIpAddresses)
         {
-            throw new ArgumentException($"At most {MaxIpAddresses} IP addresses may be supplied.", nameof(dto));
+            throw new ArgumentException($"At most {MaxIpAddresses} IP addresses may be supplied.", "attributes.ipAddresses");
         }
 
         foreach (var ip in dto.IpAddresses)
         {
             if (!IPAddress.TryParse(ip, out _))
             {
-                throw new ArgumentException($"'{ip}' is not a valid IP address.", nameof(dto));
+                throw new ArgumentException($"'{ip}' is not a valid IP address.", "attributes.ipAddresses");
             }
         }
 

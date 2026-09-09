@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Kartova.Catalog.Infrastructure;
 
@@ -18,12 +19,14 @@ internal static class InfrastructureConcurrency
     /// <c>TenantScopeBeginMiddleware</c> rolls back and disposes the connection before
     /// <c>ConcurrencyConflictExceptionHandler</c> runs, so a fresh read there would fail.
     /// Swallows failures: the 412 envelope is still informative without the extension, and we
-    /// must not mask the real <see cref="DbUpdateConcurrencyException"/>.
+    /// must not mask the real <see cref="DbUpdateConcurrencyException"/> — but logs a warning
+    /// (gate-7 M2) so a break in the connection-lifetime assumption above is observable instead
+    /// of the <c>currentVersion</c> hint silently vanishing.
     /// <see cref="OperationCanceledException"/> is excluded so a request-cancellation
     /// mid-recapture isn't silently dropped.
     /// </summary>
     internal static async Task TryCaptureCurrentXminAsync(
-        DbUpdateConcurrencyException ex, CancellationToken ct)
+        DbUpdateConcurrencyException ex, Guid infrastructureId, ILogger logger, CancellationToken ct)
     {
         try
         {
@@ -40,7 +43,12 @@ internal static class InfrastructureConcurrency
         }
         catch (Exception captureEx) when (captureEx is not OperationCanceledException)
         {
-            // Swallow — see summary.
+            // Swallow — see summary. Still log: this is the only signal we get if the
+            // connection-lifetime assumption above ever breaks.
+            logger.LogWarning(
+                captureEx,
+                "Failed to capture current Xmin after concurrency conflict for infrastructure {InfrastructureId}",
+                infrastructureId);
         }
     }
 }

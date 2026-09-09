@@ -2,6 +2,7 @@ using Kartova.Catalog.Application;
 using Kartova.Catalog.Domain;
 using Kartova.SharedKernel.Audit;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Kartova.Catalog.Infrastructure;
 
@@ -19,7 +20,7 @@ namespace Kartova.Catalog.Infrastructure;
 public sealed class DeleteVmHandler
 {
     public async Task<bool> Handle(
-        DeleteVmCommand cmd, CatalogDbContext db, IAuditWriter audit, CancellationToken ct)
+        DeleteVmCommand cmd, CatalogDbContext db, IAuditWriter audit, ILogger<DeleteVmHandler> logger, CancellationToken ct)
     {
         var vm = await db.Infrastructure
             .SingleOrDefaultAsync(VmSortSpecs.IdEquals(cmd.Id.Value), ct);
@@ -35,7 +36,7 @@ public sealed class DeleteVmHandler
         catch (DbUpdateConcurrencyException ex)
         {
             // Shared with EditVmHandler (Task 6 DRY extraction) — see InfrastructureConcurrency.
-            await InfrastructureConcurrency.TryCaptureCurrentXminAsync(ex, ct);
+            await InfrastructureConcurrency.TryCaptureCurrentXminAsync(ex, cmd.Id.Value, logger, ct);
             throw;
         }
 

@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import type { Control } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 
@@ -9,11 +8,7 @@ import { HookForm, FormField } from "@/components/base/form/hook-form";
 import { Button } from "@/components/base/buttons/button";
 import { Avatar } from "@/components/base/avatar/avatar";
 
-import {
-  registerVmSchema,
-  type RegisterVmInput,
-  type EditVmInput,
-} from "@/features/catalog/schemas/registerVm";
+import { registerVmSchema, type RegisterVmInput } from "@/features/catalog/schemas/registerVm";
 import { useRegisterVm, type RegisterVmRequest } from "@/features/catalog/api/infrastructure";
 import { useTeamsList } from "@/features/teams/api/teams";
 import { applyProblemDetailsToForm, type ProblemDetails } from "@/shared/forms/problemDetails";
@@ -98,7 +93,7 @@ export function RegisterVmDialog({ open, onOpenChange }: Props) {
 
             <HookForm form={form} onSubmit={onSubmit} className="space-y-5">
               <VmFormFields
-                control={form.control as unknown as Control<EditVmInput>}
+                control={form.control}
                 idPrefix="register-vm"
                 disabled={mutation.isPending}
                 afterProvider={

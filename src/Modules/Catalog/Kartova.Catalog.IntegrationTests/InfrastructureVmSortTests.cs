@@ -204,6 +204,56 @@ public sealed class InfrastructureVmSortTests : CatalogIntegrationTestBase
     }
 
     /// <summary>
+    /// gate-7 T4: mirrors <see cref="ListVms_cursor_is_stable_for_jsonb_hostname_sort"/> but for
+    /// an INT-cast JSONB attribute (<c>vcpu</c>) — proves the id-tiebreak keyset mechanism is
+    /// stable (no dup/skip, globally ordered) across a page boundary for the numeric-cast sort
+    /// index too, not just the text-typed one hostname exercises.
+    /// </summary>
+    [TestMethod]
+    public async Task ListVms_cursor_is_stable_for_jsonb_vcpu_sort()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var tenantId = Fx.TenantIdForEmail(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(tenantId, "Vm Team VcpuCursor");
+        var unique = $"vm-vcpucursor-{Guid.NewGuid():N}";
+        var origin = DateTimeOffset.UtcNow;
+
+        var expectedIds = new List<Guid>();
+        for (var i = 0; i < 5; i++)
+        {
+            var vcpu = i + 1;
+            expectedIds.Add(await SeedVmAsync(
+                tenantId, teamId, $"{unique}-{i:D3}", origin.AddMinutes(i), $"provider-{i:D3}",
+                "running", "os-x", vcpu, 8, $"host-{i:D3}", "region-x"));
+        }
+
+        var page1Resp = await client.GetAsync(
+            $"/api/v1/catalog/infrastructure/vms?teamId={teamId}&sortBy=vcpu&sortOrder=asc&limit=2");
+        Assert.AreEqual(HttpStatusCode.OK, page1Resp.StatusCode);
+        var page1 = await page1Resp.Content.ReadFromJsonAsync<CursorPage<VmListItemResponse>>(KartovaApiFixtureBase.WireJson);
+        Assert.IsNotNull(page1!.NextCursor, "5 rows with limit=2 must yield a next cursor");
+
+        var page2Resp = await client.GetAsync(
+            $"/api/v1/catalog/infrastructure/vms?teamId={teamId}&sortBy=vcpu&sortOrder=asc&limit=2&cursor={Uri.EscapeDataString(page1.NextCursor!)}");
+        Assert.AreEqual(HttpStatusCode.OK, page2Resp.StatusCode);
+        var page2 = await page2Resp.Content.ReadFromJsonAsync<CursorPage<VmListItemResponse>>(KartovaApiFixtureBase.WireJson);
+
+        var page3Resp = await client.GetAsync(
+            $"/api/v1/catalog/infrastructure/vms?teamId={teamId}&sortBy=vcpu&sortOrder=asc&limit=2&cursor={Uri.EscapeDataString(page2!.NextCursor!)}");
+        Assert.AreEqual(HttpStatusCode.OK, page3Resp.StatusCode);
+        var page3 = await page3Resp.Content.ReadFromJsonAsync<CursorPage<VmListItemResponse>>(KartovaApiFixtureBase.WireJson);
+
+        var allIds = page1.Items.Select(i => i.Id)
+            .Concat(page2.Items.Select(i => i.Id))
+            .Concat(page3!.Items.Select(i => i.Id))
+            .ToList();
+
+        Assert.AreEqual(5, allIds.Count, "no row skipped or duplicated across pages");
+        Assert.AreEqual(5, allIds.Distinct().Count(), "no duplicate ids across pages (page1/page2/page3 disjoint)");
+        CollectionAssert.AreEqual(expectedIds, allIds, "rows must be returned in stable vcpu-asc, id-tiebreak order");
+    }
+
+    /// <summary>
     /// Shared plumbing for the "prove it against the REAL emitted command" tests (gate-8 review
     /// fix round 1; extended for the int-cast indexes in the slice 2a final-review fix wave):
     /// runs <see cref="ListVmsHandler"/> for the given sort field through

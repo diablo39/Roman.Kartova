@@ -149,10 +149,14 @@ describe("EditVmDialog", () => {
     );
   });
 
-  it("on 400 ProblemDetails with errors map sets field-level errors", async () => {
+  // gate-7 C1: the real 400 shape for a VM-attribute validation failure keys on the
+  // dotted SPA form-field path (VmAttributes.Validate's ParamName), e.g.
+  // "attributes.os" — not a fictitious top-level "displayName" mock that never
+  // exercised the bug (the errors map used to key on "dto" and render invisibly).
+  it("on 400 ProblemDetails with a nested attributes.* error key sets the attribute field error", async () => {
     const put = vi.fn().mockResolvedValue({
       data: undefined,
-      error: { status: 400, errors: { displayName: ["Display Name is reserved"] } },
+      error: { status: 400, errors: { "attributes.os": ["Os must not be empty."] } },
       response: { status: 400 } as Response,
     });
     const onOpenChange = vi.fn();
@@ -160,7 +164,7 @@ describe("EditVmDialog", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /save changes/i }));
 
-    expect(await screen.findByText(/display name is reserved/i)).toBeInTheDocument();
+    expect(await screen.findByText(/os must not be empty/i)).toBeInTheDocument();
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
   });
 });

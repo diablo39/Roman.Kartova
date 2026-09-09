@@ -8,8 +8,8 @@ namespace Kartova.Catalog.Tests;
 /// Unit-tier tests for <see cref="VmSortSpecs"/>'s field-name mapping (ADR-0095 §5, ADR-0115
 /// slice 2a). Pure enum-to-<c>SortSpec</c> resolution — no DB involved, so EF's translation of
 /// the JSONB selectors to <c>jsonb_extract_path_text(...)</c> is NOT exercised here (that is
-/// <c>VmSortSpecsSqlCaptureTests</c>' job, plus the real-Postgres EXPLAIN coverage in
-/// <c>InfrastructureVmSortTests</c>).
+/// <c>InfrastructureVmSortTests</c>' job — the real emitted-SQL capture plus the real-Postgres
+/// EXPLAIN coverage both live there).
 /// <para>
 /// Wire-name literals under test MUST stay exactly the ADR-0109 camelCase keys
 /// (<c>powerState/os/vcpu/memoryGb/hostname/region</c>) plus <c>displayName/createdAt/provider</c>

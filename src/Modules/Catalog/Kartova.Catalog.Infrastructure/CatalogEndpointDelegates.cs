@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
 // ApplicationId is aliased rather than imported via `using Kartova.Catalog.Domain`
@@ -853,6 +854,7 @@ internal static class CatalogEndpointDelegates
         ClaimsPrincipal caller,
         HttpContext http,
         IAuditWriter audit,
+        ILogger<EditVmHandler> logger,
         CancellationToken ct)
     {
         var vm = await db.Infrastructure
@@ -868,7 +870,7 @@ internal static class CatalogEndpointDelegates
 
         var resp = await handler.Handle(
             new EditVmCommand(new InfrastructureId(id), request.DisplayName, request.Description, request.Provider, attrs, expected),
-            db, audit, ct);
+            db, audit, logger, ct);
 
         return resp is null ? EndpointResultExtensions.VmNotFound() : Results.Ok(resp).WithEtag(resp.Version);
     }
@@ -890,12 +892,13 @@ internal static class CatalogEndpointDelegates
         CatalogDbContext db,
         HttpContext http,
         IAuditWriter audit,
+        ILogger<DeleteVmHandler> logger,
         CancellationToken ct)
     {
         var expected = (uint)http.Items[IfMatchEndpointFilter.ExpectedVersionKey]!;
 
         var deleted = await handler.Handle(
-            new DeleteVmCommand(new InfrastructureId(id), expected), db, audit, ct);
+            new DeleteVmCommand(new InfrastructureId(id), expected), db, audit, logger, ct);
 
         return deleted ? Results.NoContent() : EndpointResultExtensions.VmNotFound();
     }

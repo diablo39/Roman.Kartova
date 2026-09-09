@@ -97,6 +97,19 @@ describe("vmAttributesSchema.ipAddresses (isValidIpAddress)", () => {
   it("rejects an empty ipAddresses array", () => {
     expect(vmAttributesSchema.safeParse({ ...validAttributes, ipAddresses: [] }).success).toBe(false);
   });
+
+  // Mirrors the server's MaxIpAddresses = 32 cap in VmAttributes.Validate
+  // (Kartova.Catalog.Application) — gate-7 C1 fix: without this cap the client could
+  // submit a payload the server rejects, and that 400 previously surfaced invisibly.
+  it("accepts exactly 32 IP addresses", () => {
+    const ips = Array.from({ length: 32 }, (_, i) => `10.0.${Math.floor(i / 256)}.${i % 256}`);
+    expect(vmAttributesSchema.safeParse({ ...validAttributes, ipAddresses: ips }).success).toBe(true);
+  });
+
+  it("rejects 33 IP addresses", () => {
+    const ips = Array.from({ length: 33 }, (_, i) => `10.0.${Math.floor(i / 256)}.${i % 256}`);
+    expect(vmAttributesSchema.safeParse({ ...validAttributes, ipAddresses: ips }).success).toBe(false);
+  });
 });
 
 // positiveIntStringSchema is not individually exported — exercised via the `vcpu`/`memoryGb`

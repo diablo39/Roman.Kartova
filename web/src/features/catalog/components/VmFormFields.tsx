@@ -1,29 +1,34 @@
 import type { ReactNode } from "react";
-import type { Control } from "react-hook-form";
+import type { Control, FieldPath } from "react-hook-form";
 
 import { FormField } from "@/components/base/form/hook-form";
 import { Input } from "@/components/base/input/input";
 import { InputTags } from "@/components/base/input/input-tags";
 import { TextArea } from "@/components/base/textarea/textarea";
 
-import { POWER_STATES, type EditVmInput } from "@/features/catalog/schemas/registerVm";
+import { POWER_STATES, type RegisterVmInput } from "@/features/catalog/schemas/registerVm";
 import { powerStateLabel } from "@/features/catalog/powerState";
 
-interface Props {
-  /**
-   * Typed against `EditVmInput` (the narrower, shared shape — `RegisterVmInput` minus
-   * `teamId`). `RegisterVmDialog`'s `Control<RegisterVmInput>` is a structural superset —
-   * every path this component reads (`displayName`/`description`/`provider`/`attributes.*`)
-   * exists on both — so it is passed in with a narrowing cast at that call site.
-   */
-  control: Control<EditVmInput>;
+/**
+ * Fields this component reads, shared structurally by both `RegisterVmInput` and
+ * `EditVmInput` (`editVmSchema = registerVmSchema.omit({ teamId: true })`, so every
+ * field here exists on both with the same type). `VmFormFields` is generic over the
+ * caller's own field-values type (constrained to this shape) rather than narrowing/
+ * widening a `Control<...>` with a cast at either call site — see gate-7 M1.
+ */
+type VmSharedFormFields = Pick<RegisterVmInput, "displayName" | "description" | "provider" | "attributes">;
+
+interface Props<TFieldValues extends VmSharedFormFields> {
+  control: Control<TFieldValues>;
   /** Prefixes each field's `id`/`data-testid` so the two dialogs don't collide when both
    * could theoretically be mounted (mirrors the previous `register-vm-*` / `edit-vm-*`
    * naming). */
   idPrefix: string;
-  /** Disables the controls that don't already derive their disabled state from RHF
-   * (mirrors each dialog's `mutation.isPending` wiring for the power-state select and the
-   * IP-addresses tag input). */
+  /** Mirrors each dialog's pre-existing `mutation.isPending` wiring, which only ever
+   * covered the power-state `<select>` and the IP-addresses `InputTags` — the plain
+   * text/number inputs here (displayName, description, provider, os, hostname, region,
+   * vcpu, memoryGb) stay enabled during submit; that is unchanged pre-existing behavior,
+   * not something this prop derives from RHF. */
   disabled?: boolean;
   /** Renders between `provider` and `attributes.powerState` — preserves `RegisterVmDialog`'s
    * exact original field order for its `teamId` select (immutable on edit, so
@@ -38,10 +43,27 @@ interface Props {
  * with its own `teamId` field and "Created by" block; `EditVmDialog` uses it standalone
  * (team is immutable on edit). Each dialog keeps its own submit/error-handling wiring.
  */
-export function VmFormFields({ control, idPrefix, disabled, afterProvider }: Props) {
+export function VmFormFields<TFieldValues extends VmSharedFormFields>({
+  control,
+  idPrefix,
+  disabled,
+  afterProvider,
+}: Props<TFieldValues>) {
+  // Each literal below is a real path on VmSharedFormFields — TFieldValues extends that
+  // shape, so every one of these paths is guaranteed to exist on TFieldValues too. The
+  // intersection cast (rather than widening to the whole FieldPath<TFieldValues> union)
+  // keeps the literal type FormField needs to compute this field's precise value type —
+  // widening it to the union is what previously made every field's `value` a union of
+  // every field's value type (string | string[] | the whole attributes object), breaking
+  // every typed input prop. This is a narrow, per-literal assertion restating what the
+  // generic constraint already guarantees — not the Control<A> ↔ Control<B> cast (gate-7
+  // M1) that defeated the structural check between the two concrete form schemas.
+  const name = <TName extends FieldPath<VmSharedFormFields>>(path: TName) =>
+    path as unknown as TName & FieldPath<TFieldValues>;
+
   return (
     <>
-      <FormField name="displayName" control={control}>
+      <FormField name={name("displayName")} control={control}>
         {({ field, fieldState }) => (
           <Input
             label="Display Name"
@@ -53,7 +75,7 @@ export function VmFormFields({ control, idPrefix, disabled, afterProvider }: Pro
           />
         )}
       </FormField>
-      <FormField name="description" control={control}>
+      <FormField name={name("description")} control={control}>
         {({ field, fieldState }) => (
           <TextArea
             label="Description"
@@ -67,7 +89,7 @@ export function VmFormFields({ control, idPrefix, disabled, afterProvider }: Pro
         )}
       </FormField>
 
-      <FormField name="provider" control={control}>
+      <FormField name={name("provider")} control={control}>
         {({ field, fieldState }) => (
           <Input
             label="Provider"
@@ -82,7 +104,7 @@ export function VmFormFields({ control, idPrefix, disabled, afterProvider }: Pro
 
       {afterProvider}
 
-      <FormField name="attributes.powerState" control={control}>
+      <FormField name={name("attributes.powerState")} control={control}>
         {({ field, fieldState }) => (
           <div className="flex flex-col gap-1">
             <label htmlFor={`${idPrefix}-power-state`} className="text-sm font-medium text-secondary">
@@ -109,7 +131,7 @@ export function VmFormFields({ control, idPrefix, disabled, afterProvider }: Pro
       </FormField>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-        <FormField name="attributes.os" control={control}>
+        <FormField name={name("attributes.os")} control={control}>
           {({ field, fieldState }) => (
             <Input
               label="OS"
@@ -121,7 +143,7 @@ export function VmFormFields({ control, idPrefix, disabled, afterProvider }: Pro
             />
           )}
         </FormField>
-        <FormField name="attributes.hostname" control={control}>
+        <FormField name={name("attributes.hostname")} control={control}>
           {({ field, fieldState }) => (
             <Input
               label="Hostname"
@@ -133,7 +155,7 @@ export function VmFormFields({ control, idPrefix, disabled, afterProvider }: Pro
             />
           )}
         </FormField>
-        <FormField name="attributes.region" control={control}>
+        <FormField name={name("attributes.region")} control={control}>
           {({ field, fieldState }) => (
             <Input
               label="Region"
@@ -145,7 +167,7 @@ export function VmFormFields({ control, idPrefix, disabled, afterProvider }: Pro
             />
           )}
         </FormField>
-        <FormField name="attributes.vcpu" control={control}>
+        <FormField name={name("attributes.vcpu")} control={control}>
           {({ field, fieldState }) => (
             <Input
               label="vCPU"
@@ -158,7 +180,7 @@ export function VmFormFields({ control, idPrefix, disabled, afterProvider }: Pro
             />
           )}
         </FormField>
-        <FormField name="attributes.memoryGb" control={control}>
+        <FormField name={name("attributes.memoryGb")} control={control}>
           {({ field, fieldState }) => (
             <Input
               label="Memory (GB)"
@@ -173,7 +195,7 @@ export function VmFormFields({ control, idPrefix, disabled, afterProvider }: Pro
         </FormField>
       </div>
 
-      <FormField name="attributes.ipAddresses" control={control}>
+      <FormField name={name("attributes.ipAddresses")} control={control}>
         {({ field, fieldState }) => (
           <InputTags
             label="IP Addresses"

@@ -31,9 +31,10 @@ internal static class InfrastructureSortSpecs
     /// <summary>Typed nullable varchar column (slice 2a, ADR-0115). COALESCE-d to "" (gate-8
     /// review finding, fix round 1) so the nullable column's sort key is never NULL — a NULL
     /// boundary value makes the shared keyset predicate evaluate to SQL UNKNOWN and silently
-    /// truncates pagination. See <see cref="VmSortSpecs.Provider"/> for the full rationale;
-    /// both tiers must agree so a row sorts the same way whether read through the generic
-    /// Infrastructure list or the VM-specific list.</summary>
+    /// truncates pagination. This is the canonical definition — <see cref="VmSortSpecs.Provider"/>
+    /// re-exports this exact instance rather than duplicating it, so both tiers necessarily
+    /// agree: a row sorts the same way whether read through the generic Infrastructure list or
+    /// the VM-specific list.</summary>
     public static readonly SortSpec<InfrastructureResource> Provider = new("provider", x => x.Provider ?? "");
 
     public static readonly IReadOnlyList<string> AllowedFieldNames =

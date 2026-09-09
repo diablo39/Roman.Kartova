@@ -44,6 +44,7 @@ export const vmAttributesSchema = z.object({
   ipAddresses: z
     .array(z.string().min(1, "IP address must not be empty"))
     .min(1, "At least one IP address is required")
+    .max(32, "At most 32 IP addresses may be supplied")
     .refine((ips) => ips.every(isValidIpAddress), "Each IP address must be a valid IPv4 or IPv6 address"),
 });
 

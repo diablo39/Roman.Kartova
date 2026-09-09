@@ -102,6 +102,25 @@ describe("VmDetailPage", () => {
     expect(screen.getByLabelText(/display name/i)).toHaveValue("web-prod-01");
   });
 
+  // gate-7 T6: cross-check both permission checks independently — guards a swap
+  // between the Edit and Delete permission constants (e.g. an Edit-only grant that
+  // accidentally also/instead shows Delete, or vice versa).
+  it("an Edit-only grant shows Edit but leaves Delete hidden", () => {
+    setPerms([KartovaPermissions.CatalogInfrastructureRegister]);
+    renderPage();
+
+    expect(screen.getByRole("button", { name: /^edit$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^delete$/i })).toBeNull();
+  });
+
+  it("a Delete-only grant shows Delete but leaves Edit hidden", () => {
+    setPerms([KartovaPermissions.CatalogInfrastructureDelete]);
+    renderPage();
+
+    expect(screen.getByRole("button", { name: /^delete$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^edit$/i })).toBeNull();
+  });
+
   it("Delete opens the confirm dialog and issues DELETE with If-Match, then navigates away", async () => {
     setPerms([KartovaPermissions.CatalogInfrastructureDelete]);
     const del = vi.fn().mockResolvedValue({ data: undefined, error: undefined, response: { status: 204 } });

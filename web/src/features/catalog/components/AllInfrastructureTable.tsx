@@ -11,7 +11,12 @@ import { isInfraType } from "@/features/catalog/infraType";
 // `InfrastructureListItemResponse` is the shared-columns-only projection (ADR-0111
 // amendment) — `provider` is its only non-shared sortable addition (slice 2a Task 7);
 // the JSONB VM attributes aren't columns here.
-type SortField = "createdAt" | "displayName" | "provider";
+const SORT_FIELDS = ["createdAt", "displayName", "provider"] as const;
+type SortField = (typeof SORT_FIELDS)[number];
+
+function isSortField(value: string): value is SortField {
+  return (SORT_FIELDS as readonly string[]).includes(value);
+}
 
 interface Props {
   list: CursorListResult<InfrastructureListItemResponse>;
@@ -60,7 +65,7 @@ export function AllInfrastructureTable({ list, sortBy, sortOrder, onSortChange, 
 
   const handleSortChange = (descriptor: Parameters<typeof toSort>[0]) => {
     const { field, order } = toSort(descriptor);
-    if (field === "createdAt" || field === "displayName") {
+    if (isSortField(field)) {
       onSortChange(field, order);
     }
   };

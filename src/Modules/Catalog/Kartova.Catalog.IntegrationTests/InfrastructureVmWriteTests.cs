@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Kartova.Catalog.Contracts;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Multitenancy;
@@ -132,10 +133,16 @@ public sealed class InfrastructureVmWriteTests : CatalogIntegrationTestBase
         // First edit advances the version.
         var ok = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, provider: "Azure")));
         Assert.AreEqual(HttpStatusCode.OK, ok.StatusCode);
+        var okBody = await ok.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
 
         // Reuse the now-stale original ETag.
         var stale = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, provider: "GCP")));
         Assert.AreEqual(HttpStatusCode.PreconditionFailed, stale.StatusCode);
+
+        // gate-7 T2: prove the VM Xmin capture works end-to-end, not just the status
+        // code — currentVersion must equal the version from the first (successful) PUT.
+        var problem = await stale.Content.ReadFromJsonAsync<ProblemPayload>();
+        Assert.AreEqual(okBody!.Version, problem!.CurrentVersion);
     }
 
     [TestMethod]
@@ -163,6 +170,77 @@ public sealed class InfrastructureVmWriteTests : CatalogIntegrationTestBase
 
         var badAttrs = created.Attributes with { Vcpu = 0 };
         var resp = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created) with { Attributes = badAttrs }));
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+
+        // gate-7 C1: the errors map must key on the SPA form-field path
+        // ("attributes.vcpu"), not the fictitious top-level "dto" — otherwise
+        // applyProblemDetailsToForm calls setError on a field that doesn't exist
+        // and the 400 renders invisibly in EditVmDialog.
+        await using var problemStream = await resp.Content.ReadAsStreamAsync();
+        using var problemDoc = await JsonDocument.ParseAsync(problemStream);
+        Assert.IsTrue(
+            problemDoc.RootElement.TryGetProperty("errors", out var errors),
+            "Validation 400 must expose field-level 'errors' map.");
+        Assert.IsTrue(
+            errors.TryGetProperty("attributes.vcpu", out _),
+            "Errors map must key on the SPA form-field path 'attributes.vcpu', not 'dto'.");
+        Assert.IsFalse(errors.TryGetProperty("dto", out _), "Errors map must not key on 'dto'.");
+    }
+
+    [TestMethod]
+    public async Task Post_BadAttributes_Returns400()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team BadAttrsPost");
+        var unique = $"vm-badattrs-post-{Guid.NewGuid():N}";
+
+        var badAttrs = new VmAttributesDto("running", "ubuntu-22.04", 0, 16, "host-1", new[] { "10.0.0.1" }, "eu-west-1");
+        var resp = await client.PostAsJsonAsync(
+            "/api/v1/catalog/infrastructure/vms",
+            ValidVm(teamId, unique) with { Attributes = badAttrs },
+            KartovaApiFixtureBase.WireJson);
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+
+        await using var problemStream = await resp.Content.ReadAsStreamAsync();
+        using var problemDoc = await JsonDocument.ParseAsync(problemStream);
+        Assert.IsTrue(
+            problemDoc.RootElement.TryGetProperty("errors", out var errors),
+            "Validation 400 must expose field-level 'errors' map.");
+        Assert.IsTrue(
+            errors.TryGetProperty("attributes.vcpu", out _),
+            "Errors map must key on the SPA form-field path 'attributes.vcpu', not 'dto'.");
+        Assert.IsFalse(errors.TryGetProperty("dto", out _), "Errors map must not key on 'dto'.");
+    }
+
+    // gate-7 T1: InfrastructureResource.ValidateProvider's <= 256 branch, exercised at
+    // the real HTTP seam for both write endpoints.
+    [TestMethod]
+    public async Task Put_ProviderTooLong_Returns400()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team ProviderTooLong");
+        var unique = $"vm-provider-too-long-{Guid.NewGuid():N}";
+
+        var created = await RegisterVmAsync(client, ValidVm(teamId, unique));
+
+        var resp = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, provider: new string('p', 257))));
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Post_ProviderTooLong_Returns400()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team ProviderTooLongPost");
+        var unique = $"vm-provider-too-long-post-{Guid.NewGuid():N}";
+
+        var resp = await client.PostAsJsonAsync(
+            "/api/v1/catalog/infrastructure/vms",
+            ValidVm(teamId, unique, provider: new string('p', 257)),
+            KartovaApiFixtureBase.WireJson);
 
         Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
     }
@@ -274,9 +352,15 @@ public sealed class InfrastructureVmWriteTests : CatalogIntegrationTestBase
         // Advance the version first so the original ETag goes stale.
         var edit = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, provider: "Azure")));
         Assert.AreEqual(HttpStatusCode.OK, edit.StatusCode);
+        var editBody = await edit.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
 
         var stale = await client.SendAsync(NewDelete(created.Id, created.Version));
         Assert.AreEqual(HttpStatusCode.PreconditionFailed, stale.StatusCode);
+
+        // gate-7 T2: prove the VM Xmin capture works end-to-end, not just the status
+        // code — currentVersion must equal the version from the successful PUT.
+        var problem = await stale.Content.ReadFromJsonAsync<ProblemPayload>();
+        Assert.AreEqual(editBody!.Version, problem!.CurrentVersion);
     }
 
     [TestMethod]
@@ -317,5 +401,14 @@ public sealed class InfrastructureVmWriteTests : CatalogIntegrationTestBase
         var resp = await orgBClient.SendAsync(NewDelete(created.Id, created.Version));
 
         Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
+    }
+
+    // Minimal typed-extension helper for the 412 ProblemDetails body — see the same
+    // pattern (and rationale) in EditApplicationTests.ProblemPayload. System.Text.Json
+    // deserialises the flat RFC 7807 extension member `currentVersion` by name.
+    private sealed class ProblemPayload
+    {
+        public string Type { get; set; } = string.Empty;
+        public string? CurrentVersion { get; set; }
     }
 }
