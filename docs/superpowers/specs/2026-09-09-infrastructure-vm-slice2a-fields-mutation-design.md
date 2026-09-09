@@ -30,7 +30,7 @@ Complete the Virtual Machine entity's write + query surface: a `provider` field 
 | # | Decision | Why |
 |---|---|---|
 | 1 | **Hard delete** — `DELETE /infrastructure/vms/{id}` removes the row (EF `Remove`), gated by a **new `catalog.infrastructure.delete`** permission (**OrgAdmin-only**), `If-Match` required | No sibling delete precedent; VM is observed/imported infra, not governance-tracked (ADR-0115 decision #8 — no lifecycle). New destructive perm mirrors OrgAdmin-only reverse-lifecycle ops rather than folding into `register`. Hard (not soft) delete: no edges exist in 2a, so no dangling references; soft-delete adds a filter predicate + column with no consumer. |
-| 2 | `provider` = **shared typed column** `provider text NULL` (free string) | `provider` is intrinsic infra-wide metadata (every infra type has a host), reused by future Broker/Cluster with zero duplication; visible to the generic/All-Objects tier and sortable/filterable as a typed column (no partial-index gymnastics). Free string (not enum) — open-ended (`AWS`/`Azure`/`GCP`/`on-prem`/`VMware`…), not RBAC-relevant. |
+| 2 | `provider` = **shared typed column** `provider varchar(256) NULL` (free string; implemented as `varchar(256)` rather than `text` to enforce the domain's 256-char cap at the DB level) | `provider` is intrinsic infra-wide metadata (every infra type has a host), reused by future Broker/Cluster with zero duplication; visible to the generic/All-Objects tier and sortable/filterable as a typed column (no partial-index gymnastics). Free string (not enum) — open-ended (`AWS`/`Azure`/`GCP`/`on-prem`/`VMware`…), not RBAC-relevant. |
 | 3 | `region` **stays in JSONB** — documented asymmetry (two acceptance fields, two zones) | Moving `region` to a column would touch slice-1 `VmAttributes`/partial-index/filter/list for no functional gain (YAGNI). Recorded as a known asymmetry, revisitable. |
 | 4 | Long-tail VM fields (`diskGb`, `hypervisor`, `tags[]`) **deferred** | YAGNI — no consumer yet; auto-import (slice 4) will dictate the real field set. Keeps 2a under ceiling. |
 | 5 | **JSONB-column sort, full set** — `powerState, os, vcpu, memoryGb, hostname, region` — via 6 **partial btree-expression indexes** `WHERE type = 0` | Lifts ADR-0115's JSONB-sort deferral. Cost is the one-time machinery (`VmSortSpecs` + index migration), not the field count; `hostname` sort groups cluster members (explicit user need). |
@@ -49,7 +49,7 @@ Complete the Virtual Machine entity's write + query surface: a `provider` field 
 
 Parent story E-02.F-04.S-01 remaining work exceeds the ~800-line ceiling → decomposed into **2a (this spec)** + **2b (relationships)**. This spec = 2a only; 2b gets its own spec→plan cycle.
 
-**Slice 2a (this spec):** `provider` column + migration · 6 partial JSONB-sort indexes · `InfrastructureResource.Provider` + `Edit(...)` · `EditVm*` (PUT) + `DeleteVm*` (DELETE) with `If-Match`/409 · `catalog.infrastructure.delete` perm (5-sync) · ETag on VM GET + `version` in detail · `VmSortField`/`VmSortSpecs` + generic `Provider` sort · frontend edit page + delete + provider field + sort headers + list-surface record · real-seam tests · CI/helm/compliance touchpoints. **No edges.**
+**Slice 2a (this spec):** `provider` column + migration · 6 partial JSONB-sort indexes · `InfrastructureResource.Provider` + `Edit(...)` · `EditVm*` (PUT) + `DeleteVm*` (DELETE) with `If-Match` (428 missing / 412 stale) · `catalog.infrastructure.delete` perm (5-sync) · ETag on VM GET + `version` in detail · `VmSortField`/`VmSortSpecs` + generic `Provider` sort · frontend edit page + delete + provider field + sort headers + list-surface record · real-seam tests · CI/helm/compliance touchpoints. **No edges.**
 
 **Deferred → slice 2b:** `DeployedOn` ({App,Service}→Infrastructure), `PartOf` System membership (`PUT .../vms/{id}/system`, `SystemId` write), graph/hierarchy integration, `RelationshipsSection` on VM detail, delete cascade/guard once edges exist. Also deferred: `provider` filter (column present, filter control later), long-tail fields (§3 #4), `region`→column normalization (§3 #3).
 
@@ -66,7 +66,7 @@ Parent story E-02.F-04.S-01 remaining work exceeds the ~800-line ceiling → dec
 `Edit` validates shared invariants only (DisplayName non-empty, Description ≤4096) — variant validation stays in the VM app layer (same split as create). Delete has **no** domain method: the handler loads the aggregate (RLS-scoped) and `db.Remove(...)`.
 
 ### 5.2 Table `catalog_infrastructure` migration (`Kartova.Migrator`)
-- `ADD COLUMN provider text NULL`.
+- `ADD COLUMN provider varchar(256) NULL` (DB-level enforcement of the domain 256-char cap).
 - **6 partial btree-expression indexes**, all `WHERE type = 0` (VM-scoped):
   - `(attributes->>'powerState')`, `(attributes->>'os')`, `(attributes->>'hostname')`, `(attributes->>'region')`
   - `((attributes->>'vcpu')::int)`, `((attributes->>'memoryGb')::int)`
