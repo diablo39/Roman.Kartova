@@ -1,7 +1,9 @@
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
+using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Audit;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Kartova.Catalog.Infrastructure;
 
@@ -19,6 +21,7 @@ public sealed class EditApplicationHandler
         EditApplicationCommand cmd,
         CatalogDbContext db,
         IAuditWriter audit,
+        ILogger<EditApplicationHandler> logger,
         CancellationToken ct)
     {
         var app = await db.Applications
@@ -38,8 +41,9 @@ public sealed class EditApplicationHandler
             // still alive — TenantScopeBeginMiddleware rolls back and disposes
             // the connection before ConcurrencyConflictExceptionHandler runs,
             // so a fresh GetDatabaseValuesAsync would fail there. Stashing on
-            // Exception.Data is the handoff path.
-            await TryCaptureCurrentVersionAsync(ex, ct);
+            // Exception.Data is the handoff path. Shared metadata-driven capture
+            // (TD-002) — resolves the token property from EF metadata, no hard-coded "Version".
+            await ConcurrencyTokenCapture.TryCaptureCurrentVersionAsync(ex, logger, ct);
             throw;
         }
 
@@ -54,31 +58,5 @@ public sealed class EditApplicationHandler
             }), ct);
 
         return app.ToResponse();
-    }
-
-    private static async Task TryCaptureCurrentVersionAsync(
-        DbUpdateConcurrencyException ex, CancellationToken ct)
-    {
-        try
-        {
-            var entry = ex.Entries.FirstOrDefault();
-            if (entry is null) return;
-
-            var dbValues = await entry.GetDatabaseValuesAsync(ct);
-            if (dbValues is null) return;
-
-            if (dbValues["Version"] is uint currentVersion)
-            {
-                ex.Data["currentVersion"] = currentVersion;
-            }
-        }
-        catch (Exception captureEx) when (captureEx is not OperationCanceledException)
-        {
-            // Swallow — the 412 envelope is still informative without the
-            // currentVersion extension; we just lose the round-trip-saving
-            // hint. Don't mask the real DbUpdateConcurrencyException.
-            // OperationCanceledException is excluded so a request-cancellation
-            // mid-recapture isn't silently dropped.
-        }
     }
 }

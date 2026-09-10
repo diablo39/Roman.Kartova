@@ -21,6 +21,7 @@ import {
   applyProblemDetailsToForm,
   type ProblemDetails,
 } from "@/shared/forms/problemDetails";
+import { zodFieldPaths } from "@/shared/forms/zodFieldPaths";
 
 interface Props {
   team: TeamDetailResponse | TeamResponse;
@@ -56,6 +57,7 @@ export function RenameTeamDialog({ team, open, onOpenChange }: Props) {
       const problem = err as ProblemDetails;
       const handled = applyProblemDetailsToForm(problem, (name, error) =>
         form.setError(name as Parameters<typeof form.setError>[0], error),
+        zodFieldPaths(updateTeamSchema),
       );
       if (!handled) {
         const detail = problem.detail ?? problem.title ?? "Could not update team";

@@ -379,22 +379,27 @@ public sealed class InfrastructureVmSortTests : CatalogIntegrationTestBase
     }
 
     /// <summary>
-    /// FW7-S4 (gate-8 review finding, fix round 1): <c>provider</c> is a nullable column. Before
-    /// the <c>COALESCE(provider, '')</c> fix, sorting by provider produced a NULL cursor
-    /// sort-value whenever a page-boundary row had a null <c>Provider</c> — the shared keyset
-    /// predicate <c>sortKey &gt; @p OR (sortKey = @p AND id &gt; @p)</c> then evaluates to SQL
-    /// UNKNOWN for EVERY row once <c>@p</c> is NULL (not just the null-provider one), so the next
-    /// page came back completely empty even though more rows existed — pagination silently
-    /// truncated at the first null-provider boundary.
+    /// FW7-S4 (originally gate-8): <c>provider</c> is a nullable column. Sorting by provider used
+    /// to produce a NULL cursor sort-value whenever a page-boundary row had a null <c>Provider</c>
+    /// — the shared keyset predicate <c>sortKey &gt; @p OR (sortKey = @p AND id &gt; @p)</c> then
+    /// evaluates to SQL UNKNOWN for EVERY row once <c>@p</c> is NULL (not just the null-provider
+    /// one), so the next page came back completely empty even though more rows existed —
+    /// pagination silently truncated at the first null-provider boundary.
     /// <para>
-    /// Seeds 3 null-provider rows + 2 non-null-provider rows with <c>limit=2</c>, which
-    /// guarantees a null-provider row is the page-1 boundary (empty string sorts before any
-    /// non-empty provider, so the first 2 rows returned are always drawn from the 3 tied
-    /// null-provider rows). Asserts every row is still returned across pages with no
-    /// duplicates/truncation, and that the coalesced provider values are non-decreasing overall.
-    /// The exact tiebreak order among rows sharing the same coalesced key is deliberately NOT
-    /// asserted — .NET's default <see cref="Guid"/> ordering does not match Postgres' <c>uuid</c>
-    /// btree ordering, so pinning a specific tiebreak sequence here would test the wrong thing.
+    /// TD-001 replaced the interim <c>COALESCE(provider, '')</c> workaround with the shared
+    /// null-safe keyset path (<c>SortSpec.IsNullable</c>): NULLs now sort LAST for ascending and
+    /// the cursor carries a null boundary key (ADR-0095 <c>n</c> flag), so paging walks the whole
+    /// null block instead of truncating.
+    /// </para>
+    /// <para>
+    /// Seeds 3 null-provider rows + 2 non-null-provider rows with <c>limit=2</c>. Under NULLS LAST
+    /// (asc) the first page returns the two named providers, and a page boundary necessarily falls
+    /// inside the trailing 3-row null block — the exact condition that used to truncate. Asserts
+    /// every row is still returned across pages with no duplicates/truncation, that the non-null
+    /// providers are ascending, and that the null block sorts last. The exact tiebreak order among
+    /// the tied null rows is deliberately NOT asserted — .NET's default <see cref="Guid"/> ordering
+    /// does not match Postgres' <c>uuid</c> btree ordering, so pinning a specific tiebreak sequence
+    /// here would test the wrong thing.
     /// </para>
     /// </summary>
     [TestMethod]
@@ -408,8 +413,8 @@ public sealed class InfrastructureVmSortTests : CatalogIntegrationTestBase
     /// boundary was previously proven only for the VM-specific tier
     /// (<see cref="ListVms_cursor_is_stable_across_null_provider_boundary"/> /
     /// <c>VmSortSpecs.Provider</c>). The GENERIC <c>GET /catalog/infrastructure</c> list
-    /// (<c>InfrastructureSortSpecs.Provider</c>) applies the identical <c>COALESCE(provider, "")</c>
-    /// fix but had no analogous coverage. Mirrors that test exactly, against
+    /// (<c>InfrastructureSortSpecs.Provider</c>) shares the identical null-safe sort spec
+    /// (TD-001) but had no analogous coverage. Mirrors that test exactly, against
     /// <c>ListInfrastructureHandler</c>/<c>InfrastructureListItemResponse</c> instead — VMs alone
     /// are a sufficient InfrastructureType since only one type exists in the domain today.
     /// </summary>
@@ -422,14 +427,13 @@ public sealed class InfrastructureVmSortTests : CatalogIntegrationTestBase
     /// <summary>
     /// Shared body for the null-provider keyset-paging boundary proof (dedup of the two tests
     /// above — line-identical except list path, DTO type, team name, and seed-id prefix). Seeds
-    /// 3 null-provider rows + 2 non-null-provider rows with <c>limit=2</c>, which guarantees a
-    /// null-provider row is the page-1 boundary (empty string sorts before any non-empty
-    /// provider, so the first 2 rows returned are always drawn from the 3 tied null-provider
-    /// rows). Asserts every row is still returned across pages with no duplicates/truncation, and
-    /// that the coalesced provider values are non-decreasing overall. The exact tiebreak order
-    /// among rows sharing the same coalesced key is deliberately NOT asserted — .NET's default
-    /// <see cref="Guid"/> ordering does not match Postgres' <c>uuid</c> btree ordering, so pinning
-    /// a specific tiebreak sequence here would test the wrong thing.
+    /// 3 null-provider rows + 2 non-null-provider rows with <c>limit=2</c>. Under TD-001 NULLS
+    /// LAST (asc) the null block sorts last, so a page boundary necessarily falls inside the
+    /// 3-row null block. Asserts every row is still returned across pages with no
+    /// duplicates/truncation, that the non-null providers are ascending, and that the null block
+    /// sorts last. The exact tiebreak order among the tied null rows is deliberately NOT
+    /// asserted — .NET's default <see cref="Guid"/> ordering does not match Postgres' <c>uuid</c>
+    /// btree ordering, so pinning a specific tiebreak sequence here would test the wrong thing.
     /// </summary>
     private static async Task AssertNullProviderBoundaryStableAsync<T>(
         string listPath, string teamName, string uniquePrefix, Func<T, Guid> idOf, Func<T, string?> providerOf)
@@ -478,12 +482,23 @@ public sealed class InfrastructureVmSortTests : CatalogIntegrationTestBase
         CollectionAssert.AreEquivalent(
             expectedIds, allItems.Select(idOf).ToList(), "every seeded row must appear exactly once");
 
-        var coalescedProviders = allItems.Select(i => providerOf(i) ?? "").ToList();
-        for (var i = 1; i < coalescedProviders.Count; i++)
+        // TD-001 NULLS LAST (asc): non-null providers come first in ascending order, then the
+        // null block. Verify (a) no non-null row appears after a null row, and (b) the non-null
+        // providers are non-decreasing.
+        var providers = allItems.Select(providerOf).ToList();
+        var firstNullIndex = providers.FindIndex(p => p is null);
+        if (firstNullIndex >= 0)
         {
             Assert.IsTrue(
-                string.CompareOrdinal(coalescedProviders[i - 1], coalescedProviders[i]) <= 0,
-                $"expected non-decreasing provider order; got: {string.Join(", ", coalescedProviders)}");
+                providers.Skip(firstNullIndex).All(p => p is null),
+                $"NULLs must sort last (asc); got: {string.Join(", ", providers.Select(p => p ?? "<null>"))}");
+        }
+        var nonNullProviders = providers.Where(p => p is not null).ToList();
+        for (var i = 1; i < nonNullProviders.Count; i++)
+        {
+            Assert.IsTrue(
+                string.CompareOrdinal(nonNullProviders[i - 1], nonNullProviders[i]) <= 0,
+                $"expected non-decreasing non-null provider order; got: {string.Join(", ", nonNullProviders)}");
         }
     }
 }

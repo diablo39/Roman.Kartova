@@ -22,6 +22,7 @@ import {
   applyProblemDetailsToForm,
   type ProblemDetails,
 } from "@/shared/forms/problemDetails";
+import { zodFieldPaths } from "@/shared/forms/zodFieldPaths";
 import { toastProblem } from "@/shared/forms/toastProblem";
 
 interface Props {
@@ -93,6 +94,7 @@ export function InviteUserDialog({ open, onOpenChange }: Props) {
 
       const handled = applyProblemDetailsToForm(problem, (name, error) =>
         form.setError(name as Parameters<typeof form.setError>[0], error),
+        zodFieldPaths(inviteUserSchema),
       );
       if (handled) return; // 400 — field errors applied, form stays open.
 

@@ -20,6 +20,7 @@ public sealed class QueryablePagingExtensionsTests
         public DateTime UpdatedAt { get; set; }
         public Guid OwnerId { get; set; }
         public int Sequence { get; set; }
+        public string? NullableName { get; set; }
     }
 
     public sealed class TestDbContext : DbContext
@@ -54,6 +55,10 @@ public sealed class QueryablePagingExtensionsTests
     private static readonly SortSpec<TestRow> ByUpdatedAt = new("updatedAt", x => x.UpdatedAt);
     private static readonly SortSpec<TestRow> ByOwnerId = new("ownerId", x => x.OwnerId);
     private static readonly SortSpec<TestRow> BySequence = new("sequence", x => x.Sequence);
+
+    // TD-001: nullable key sort, opts into the null-safe keyset path (NULLS LAST asc / FIRST desc).
+    private static readonly SortSpec<TestRow> ByNullableName =
+        new("nullableName", x => x.NullableName!) { IsNullable = true };
 
     [TestInitialize]
     public async Task TestInit()
@@ -553,5 +558,119 @@ public sealed class QueryablePagingExtensionsTests
         Assert.IsNotNull(page.NextCursor);
         var decoded = CursorCodec.Decode(page.NextCursor!);
         Assert.AreEqual(0, decoded.Filters.Count);
+    }
+
+    // ---- TD-001: null-safe keyset pagination for IsNullable sort keys --------------------
+
+    /// <summary>
+    /// Seeds rows whose nullable sort key is a mix of present and NULL. The three named rows sort
+    /// before/after the three NULL rows depending on direction; the NULL block is large enough
+    /// (3 rows) that a small page boundary necessarily lands inside it — the exact condition that
+    /// silently truncated pagination before TD-001.
+    /// </summary>
+    private async Task SeedWithNullsAsync()
+    {
+        string?[] names = ["alpha", null, "bravo", null, "charlie", null];
+        for (var i = 0; i < names.Length; i++)
+        {
+            _db.Rows.Add(new TestRow
+            {
+                Id = Guid.Parse($"00000000-0000-0000-0000-{i:D12}"),
+                Name = $"row-{i:D3}",
+                CreatedAt = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero).AddMinutes(i),
+                UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddMinutes(i),
+                OwnerId = Guid.NewGuid(),
+                Sequence = i,
+                NullableName = names[i],
+            });
+        }
+        await _db.SaveChangesAsync();
+    }
+
+    private async Task<List<TestRow>> PaginateAllAsync(SortSpec<TestRow> sort, SortOrder order, int limit)
+    {
+        var all = new List<TestRow>();
+        string? cursor = null;
+        // Bounded to avoid an infinite loop if paging ever fails to advance.
+        for (var guard = 0; guard < 100; guard++)
+        {
+            var page = await _db.Rows.ToCursorPagedAsync(
+                sort, order, cursor, limit, x => x.Id, CancellationToken.None);
+            all.AddRange(page.Items);
+            if (page.NextCursor is null) return all;
+            cursor = page.NextCursor;
+        }
+        Assert.Fail("Pagination did not terminate within the guard limit.");
+        return all;
+    }
+
+    [TestMethod]
+    public async Task NullableSort_asc_pages_through_null_boundary_without_dropping_rows()
+    {
+        await SeedWithNullsAsync();
+
+        // limit 2 over 6 rows → a page boundary falls inside the trailing 3-row NULL block.
+        var all = await PaginateAllAsync(ByNullableName, SortOrder.Asc, limit: 2);
+
+        Assert.AreEqual(6, all.Count, "every row must be returned exactly once across all pages");
+        CollectionAssert.AreEquivalent(
+            Enumerable.Range(0, 6).Select(i => Guid.Parse($"00000000-0000-0000-0000-{i:D12}")).ToList(),
+            all.Select(r => r.Id).ToList());
+        // NULLS LAST: the three named rows come first (ascending), then the three NULLs.
+        CollectionAssert.AreEqual(
+            new[] { "alpha", "bravo", "charlie" },
+            all.Where(r => r.NullableName is not null).Select(r => r.NullableName).ToList());
+        Assert.IsTrue(all.Skip(3).All(r => r.NullableName is null), "NULLs must sort last (asc)");
+    }
+
+    [TestMethod]
+    public async Task NullableSort_desc_pages_through_null_boundary_without_dropping_rows()
+    {
+        await SeedWithNullsAsync();
+
+        var all = await PaginateAllAsync(ByNullableName, SortOrder.Desc, limit: 2);
+
+        Assert.AreEqual(6, all.Count);
+        CollectionAssert.AreEquivalent(
+            Enumerable.Range(0, 6).Select(i => Guid.Parse($"00000000-0000-0000-0000-{i:D12}")).ToList(),
+            all.Select(r => r.Id).ToList());
+        // NULLS FIRST: the three NULLs lead, then the named rows descending.
+        Assert.IsTrue(all.Take(3).All(r => r.NullableName is null), "NULLs must sort first (desc)");
+        CollectionAssert.AreEqual(
+            new[] { "charlie", "bravo", "alpha" },
+            all.Where(r => r.NullableName is not null).Select(r => r.NullableName).ToList());
+    }
+
+    [TestMethod]
+    public async Task NullableSort_single_page_returns_all_rows_when_limit_exceeds_count()
+    {
+        await SeedWithNullsAsync();
+
+        var page = await _db.Rows.ToCursorPagedAsync(
+            ByNullableName, SortOrder.Asc, cursor: null, limit: 50, x => x.Id, CancellationToken.None);
+
+        Assert.AreEqual(6, page.Items.Count());
+        Assert.IsNull(page.NextCursor);
+    }
+
+    [TestMethod]
+    public async Task NullableSort_boundary_cursor_inside_null_block_encodes_null_key()
+    {
+        await SeedWithNullsAsync();
+
+        // asc, limit 4 → page 1 = [alpha, bravo, charlie, <first null>]; the boundary row's key is NULL.
+        var page = await _db.Rows.ToCursorPagedAsync(
+            ByNullableName, SortOrder.Asc, cursor: null, limit: 4, x => x.Id, CancellationToken.None);
+
+        Assert.IsNotNull(page.NextCursor);
+        var decoded = CursorCodec.Decode(page.NextCursor!);
+        Assert.IsInstanceOfType<CursorNullSortValue>(decoded.SortValue);
+
+        // Resuming from that null-key cursor returns exactly the remaining two NULL rows.
+        var page2 = await _db.Rows.ToCursorPagedAsync(
+            ByNullableName, SortOrder.Asc, page.NextCursor, limit: 4, x => x.Id, CancellationToken.None);
+        Assert.AreEqual(2, page2.Items.Count());
+        Assert.IsTrue(page2.Items.All(r => r.NullableName is null));
+        Assert.IsNull(page2.NextCursor);
     }
 }

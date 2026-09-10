@@ -15,6 +15,7 @@ import { registerSystemSchema, type RegisterSystemInput } from "@/features/catal
 import { useRegisterSystem } from "@/features/catalog/api/systems";
 import { useTeamsList } from "@/features/teams/api/teams";
 import { applyProblemDetailsToForm, type ProblemDetails } from "@/shared/forms/problemDetails";
+import { zodFieldPaths } from "@/shared/forms/zodFieldPaths";
 import { useCurrentUser } from "@/shared/auth/useCurrentUser";
 import { initialsOf } from "@/shared/auth/initials";
 
@@ -62,6 +63,7 @@ export function RegisterSystemDialog({ open, onOpenChange }: Props) {
       const problem = err as ProblemDetails;
       const handled = applyProblemDetailsToForm(problem, (name, error) =>
         form.setError(name as Parameters<typeof form.setError>[0], error),
+        zodFieldPaths(textFieldsSchema),
       );
       if (!handled) {
         toast.error(problem.detail ?? problem.title ?? "Failed to register system");

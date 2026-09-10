@@ -271,6 +271,41 @@ public sealed class CursorCodecTests
         Assert.ThrowsExactly<InvalidCursorException>(() => CursorCodec.Decode(encoded));
     }
 
+    // ---- TD-001: NULL boundary key round-trip ------------------------------------------
+
+    [TestMethod]
+    public void Encode_then_Decode_roundtrips_null_sort_value_as_sentinel()
+    {
+        var encoded = CursorCodec.Encode((object?)null, AnyId, SortOrder.Asc);
+        var decoded = CursorCodec.Decode(encoded);
+
+        Assert.IsInstanceOfType<CursorNullSortValue>(decoded.SortValue);
+        Assert.AreEqual(AnyId, decoded.Id);
+        Assert.AreEqual(SortOrder.Asc, decoded.Direction);
+    }
+
+    [TestMethod]
+    public void Encode_then_Decode_roundtrips_the_null_sentinel_instance()
+    {
+        var encoded = CursorCodec.Encode(CursorNullSortValue.Instance, AnyId, SortOrder.Desc);
+        var decoded = CursorCodec.Decode(encoded);
+
+        Assert.IsInstanceOfType<CursorNullSortValue>(decoded.SortValue);
+        Assert.AreEqual(SortOrder.Desc, decoded.Direction);
+    }
+
+    [TestMethod]
+    public void Null_sort_value_and_empty_string_decode_distinctly()
+    {
+        // The whole point of the null-key path (vs the old `?? ""` hack): "" and NULL are
+        // different boundaries and must not collapse into one.
+        var nullCursor = CursorCodec.Decode(CursorCodec.Encode((object?)null, AnyId, SortOrder.Asc));
+        var emptyCursor = CursorCodec.Decode(CursorCodec.Encode("", AnyId, SortOrder.Asc));
+
+        Assert.IsInstanceOfType<CursorNullSortValue>(nullCursor.SortValue);
+        Assert.AreEqual("", emptyCursor.SortValue);
+    }
+
     private static string ToBase64Url(string json) =>
         System.Buffers.Text.Base64Url.EncodeToString(System.Text.Encoding.UTF8.GetBytes(json));
 }

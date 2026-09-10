@@ -14,9 +14,9 @@ namespace Kartova.Catalog.Infrastructure;
 /// rows — handler does not need an explicit tenant id). Concurrency: sets
 /// <c>OriginalValue(Xmin)</c> to the supplied <c>ExpectedVersion</c> so EF's UPDATE
 /// includes <c>WHERE xmin = :expected</c>; mismatch raises
-/// <see cref="DbUpdateConcurrencyException"/> → 412. Mirrors <see cref="EditApplicationHandler"/>,
-/// reading <c>dbValues["Xmin"]</c> (not <c>"Version"</c>) — Infrastructure's concurrency
-/// property is <see cref="InfrastructureResource.Xmin"/>.
+/// <see cref="DbUpdateConcurrencyException"/> → 412. Infrastructure's concurrency property is
+/// <see cref="InfrastructureResource.Xmin"/>; the current-version capture on conflict is the
+/// shared metadata-driven <see cref="ConcurrencyTokenCapture"/> (TD-002).
 /// </summary>
 public sealed class EditVmHandler
 {
@@ -40,9 +40,9 @@ public sealed class EditVmHandler
             // alive — TenantScopeBeginMiddleware rolls back and disposes the
             // connection before ConcurrencyConflictExceptionHandler runs, so a fresh
             // GetDatabaseValuesAsync would fail there. Stashing on Exception.Data is
-            // the handoff path (mirrors EditApplicationHandler.TryCaptureCurrentVersionAsync).
-            // Shared with DeleteVmHandler (Task 6 DRY extraction) — see InfrastructureConcurrency.
-            await InfrastructureConcurrency.TryCaptureCurrentXminAsync(ex, cmd.Id.Value, logger, ct);
+            // the handoff path. Shared, metadata-driven capture (TD-002) — resolves the
+            // concurrency-token property from EF metadata, no hard-coded "Xmin".
+            await ConcurrencyTokenCapture.TryCaptureCurrentVersionAsync(ex, logger, ct);
             throw;
         }
 

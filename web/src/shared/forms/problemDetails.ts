@@ -23,9 +23,23 @@ type SetError = (
   error: { type: string; message: string }
 ) => void;
 
+/**
+ * Applies a server 400 `ProblemDetails.errors` map onto a form via `setError`, returning whether
+ * anything was applied to a REAL, registered form field.
+ *
+ * `knownFields` is the set of registered field paths (see {@link zodFieldPaths}). An error key
+ * that is NOT in this set is deliberately skipped — `setError` on an unregistered field is a
+ * silent no-op, so counting it as "handled" would let a 400 vanish with no toast and no field
+ * highlight. Skipped keys leave `handled = false` (when no key mapped), so the caller falls
+ * through to its generic `toast.error` fallback instead of swallowing the error (TD-003).
+ *
+ * Pass an empty set for a form with no fields (e.g. a confirm dialog): every error key is then
+ * unmapped and the caller always shows a toast.
+ */
 export function applyProblemDetailsToForm(
   payload: ProblemDetails | null | undefined,
-  setError: SetError
+  setError: SetError,
+  knownFields: ReadonlySet<string>
 ): boolean {
   if (!payload || typeof payload !== "object") return false;
   const errors = payload.errors;
@@ -34,6 +48,9 @@ export function applyProblemDetailsToForm(
   let any = false;
   for (const [field, messages] of Object.entries(errors)) {
     if (!Array.isArray(messages)) continue;
+    // An error key that maps to no registered field must not count as handled — otherwise the
+    // caller skips its toast and the 400 is silently swallowed (TD-003).
+    if (!knownFields.has(field)) continue;
     for (const message of messages) {
       if (typeof message !== "string") continue;
       setError(field, { type: "server", message });

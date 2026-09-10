@@ -22,6 +22,7 @@ import {
   applyProblemDetailsToForm,
   type ProblemDetails,
 } from "@/shared/forms/problemDetails";
+import { zodFieldPaths } from "@/shared/forms/zodFieldPaths";
 import { useCurrentUser } from "@/shared/auth/useCurrentUser";
 import { initialsOf } from "@/shared/auth/initials";
 
@@ -80,7 +81,8 @@ export function RegisterApplicationDialog({ open, onOpenChange }: Props) {
     } catch (err) {
       const problem = err as ProblemDetails;
       const handled = applyProblemDetailsToForm(problem, (name, error) =>
-        form.setError(name as Parameters<typeof form.setError>[0], error)
+        form.setError(name as Parameters<typeof form.setError>[0], error),
+        zodFieldPaths(textFieldsSchema),
       );
       if (!handled) {
         const detail =

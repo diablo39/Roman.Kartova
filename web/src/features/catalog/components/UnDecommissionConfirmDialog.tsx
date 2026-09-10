@@ -21,6 +21,7 @@ import {
   applyProblemDetailsToForm,
   type ProblemDetails,
 } from "@/shared/forms/problemDetails";
+import { zodFieldPaths } from "@/shared/forms/zodFieldPaths";
 import {
   isoDateAtMidnight,
   toDateInputValue,
@@ -70,7 +71,8 @@ export function UnDecommissionConfirmDialog({ application, open, onOpenChange }:
       const status = problem.__status;
 
       const handled = applyProblemDetailsToForm(problem, (name, error) =>
-        form.setError(name as Parameters<typeof form.setError>[0], error)
+        form.setError(name as Parameters<typeof form.setError>[0], error),
+        zodFieldPaths(unDecommissionApplicationSchema),
       );
       if (handled) return;
 

@@ -8,7 +8,7 @@ Convention: one `### TD-NNN` heading per item. Keep `Status: open` until done; o
 
 ### TD-001 — Generic null-safe keyset for nullable sort columns
 
-**Status:** open
+**Status:** done (branch `chore/tech-debt-td-001-002-003`) — `SortSpec<T>.IsNullable` opt-in; null-safe `ORDER BY` (NULLS LAST asc / FIRST desc via portable null-flag) + null-aware keyset predicate + cursor `n`-flag null boundary (ADR-0095 amended 2026-09-10); `InfrastructureSortSpecs.Provider` `?? ""` workaround removed. JSONB selectors stay `IsNullable = false` (ingest-invariant), slice-4 decision unchanged.
 **Origin:** E-02.F-04.S-01 slice 2a — deep-review (gate 8) / review-pr (gate 7) altitude finding. See `docs/superpowers/verification/2026-09-09-infrastructure-vm-slice2a/gate-findings.yaml` (gate `deep-review`, "6 JSONB sort selectors lack null/missing-key COALESCE") and the `Provider` COALESCE workaround.
 
 **Problem.** Keyset (cursor) pagination builds the predicate `sortKey > @v OR (sortKey = @v AND id > @v)`. Under SQL three-valued logic, if a page-boundary row's sort key is `NULL`, both comparisons evaluate to `UNKNOWN` (→ false in `WHERE`), so the next-page query returns **zero rows** and pagination silently truncates at the first NULL. This is a latent trap for **any** nullable sortable column.
@@ -30,7 +30,7 @@ Convention: one `### TD-NNN` heading per item. Keep `Status: open` until done; o
 
 ### TD-002 — Shared concurrency-token capture via EF metadata
 
-**Status:** open
+**Status:** done (branch `chore/tech-debt-td-001-002-003`) — single `ConcurrencyTokenCapture.TryCaptureCurrentVersionAsync` in `Kartova.SharedKernel.AspNetCore` resolves the token via `IProperty.IsConcurrencyToken`; `EditApplicationHandler`, `EditVmHandler`, `DeleteVmHandler` all use it; the two hard-coded copies (`"Version"`/`"Xmin"`) deleted.
 **Origin:** E-02.F-04.S-01 slice 2a — review-pr (gate 7) reuse finding + deep-review. See `gate-findings.yaml`.
 
 **Problem.** The "on optimistic-concurrency conflict, capture the current row version so the 412 response can carry a `currentVersion` hint" logic is duplicated, keyed by a hard-coded property-name string. Two near-identical copies exist, differing only by that string (`"Version"` vs `"Xmin"`). A third module would need a third copy.
@@ -50,7 +50,7 @@ Convention: one `### TD-NNN` heading per item. Keep `Status: open` until done; o
 
 ### TD-003 — Frontend: never silently swallow an unmapped 400 error key
 
-**Status:** open
+**Status:** done (branch `chore/tech-debt-td-001-002-003`) — `applyProblemDetailsToForm` now requires a `knownFields: ReadonlySet<string>` and counts/handles only mapped keys; unmapped keys fall through to the dialog's `toast.error`. Registered paths derived from each form's zod schema via new `zodFieldPaths` util; all 14 callers wired.
 **Origin:** E-02.F-04.S-01 slice 2a — review-pr (gate 7) silent-failure finding (the deeper half of the fix; the source-side bug was already fixed in commit 361a710). See `gate-findings.yaml`.
 
 **Problem.** `applyProblemDetailsToForm` iterates the server's `{ field: [messages] }` error map and calls `setError(field, …)`, returning `handled = true` for **any** key — even one that maps to no registered form field. Dialogs then do `if (handled) return;` and skip their toast fallback, so a 400 whose error key doesn't match a field renders **nothing** (no toast, no field highlight) — a silent failure indistinguishable from a hang.
