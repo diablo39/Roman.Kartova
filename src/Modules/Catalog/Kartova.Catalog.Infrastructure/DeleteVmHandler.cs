@@ -1,5 +1,6 @@
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Domain;
+using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Audit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -35,8 +36,9 @@ public sealed class DeleteVmHandler
         }
         catch (DbUpdateConcurrencyException ex)
         {
-            // Shared with EditVmHandler (Task 6 DRY extraction) — see InfrastructureConcurrency.
-            await InfrastructureConcurrency.TryCaptureCurrentXminAsync(ex, cmd.Id.Value, logger, ct);
+            // Shared metadata-driven capture (TD-002) — resolves the concurrency-token
+            // property from EF metadata, no hard-coded "Xmin".
+            await ConcurrencyTokenCapture.TryCaptureCurrentVersionAsync(ex, logger, ct);
             throw;
         }
 

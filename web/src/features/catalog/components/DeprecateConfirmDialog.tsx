@@ -22,6 +22,7 @@ import {
   applyProblemDetailsToForm,
   type ProblemDetails,
 } from "@/shared/forms/problemDetails";
+import { zodFieldPaths } from "@/shared/forms/zodFieldPaths";
 import {
   isoDateAtMidnight,
   toDateInputValue,
@@ -81,7 +82,8 @@ export function DeprecateConfirmDialog({ application, open, onOpenChange }: Prop
       const status = problem.__status;
 
       const handled = applyProblemDetailsToForm(problem, (name, error) =>
-        form.setError(name as Parameters<typeof form.setError>[0], error)
+        form.setError(name as Parameters<typeof form.setError>[0], error),
+        zodFieldPaths(deprecateApplicationSchema),
       );
       if (handled) return;
 

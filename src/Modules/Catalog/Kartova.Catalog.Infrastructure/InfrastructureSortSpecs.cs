@@ -28,14 +28,16 @@ internal static class InfrastructureSortSpecs
     /// scalar column.</summary>
     public static readonly SortSpec<InfrastructureResource> Type = new("type", x => x.Type);
 
-    /// <summary>Typed nullable varchar column (slice 2a, ADR-0115). COALESCE-d to "" (gate-8
-    /// review finding, fix round 1) so the nullable column's sort key is never NULL — a NULL
-    /// boundary value makes the shared keyset predicate evaluate to SQL UNKNOWN and silently
-    /// truncates pagination. This is the canonical definition — <see cref="VmSortSpecs.Provider"/>
-    /// re-exports this exact instance rather than duplicating it, so both tiers necessarily
-    /// agree: a row sorts the same way whether read through the generic Infrastructure list or
-    /// the VM-specific list.</summary>
-    public static readonly SortSpec<InfrastructureResource> Provider = new("provider", x => x.Provider ?? "");
+    /// <summary>Typed nullable varchar column (slice 2a, ADR-0115). Marked
+    /// <see cref="SortSpec{TEntity}.IsNullable"/> (TD-001) so the shared keyset mechanism sorts
+    /// NULLs LAST (asc) / FIRST (desc) and pages through them correctly — replacing the earlier
+    /// <c>?? ""</c> COALESCE workaround, which conflated a genuine empty-string provider with an
+    /// absent one and was not reusable for non-string nullable keys. This is the canonical
+    /// definition — <see cref="VmSortSpecs.Provider"/> re-exports this exact instance rather than
+    /// duplicating it, so both tiers necessarily agree: a row sorts the same way whether read
+    /// through the generic Infrastructure list or the VM-specific list.</summary>
+    public static readonly SortSpec<InfrastructureResource> Provider =
+        new("provider", x => x.Provider!) { IsNullable = true };
 
     public static readonly IReadOnlyList<string> AllowedFieldNames =
         [CreatedAt.FieldName, DisplayName.FieldName, Type.FieldName, Provider.FieldName];

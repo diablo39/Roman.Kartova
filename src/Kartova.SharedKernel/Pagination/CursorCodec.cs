@@ -29,7 +29,7 @@ public static class CursorCodec
         IReadOnlyDictionary<string, string> Filters);
 
     public static string Encode(
-        object sortValue,
+        object? sortValue,
         Guid id,
         SortOrder direction,
         IReadOnlyDictionary<string, string>? filters = null)
@@ -40,11 +40,19 @@ public static class CursorCodec
         // they are opaque, owned by the calling module. The map is serialized
         // synchronously below and never retained, so it is passed through without
         // a defensive copy.
+        //
+        // A NULL boundary sort key (only possible for an IsNullable sort — TD-001) is
+        // encoded as `n:true` with `s` omitted, so paging can resume from inside a NULLS
+        // FIRST/LAST block instead of the codec rejecting the null. Backward compatible:
+        // non-nullable sorts never pass null here, so `n` is absent from their cursors and
+        // an old cursor (no `n`) decodes exactly as before.
+        var isNull = sortValue is null or CursorNullSortValue;
         var payload = new CursorPayload(
-            sortValue,
+            isNull ? null : sortValue,
             id,
             direction == SortOrder.Asc ? "asc" : "desc",
-            filters is { Count: > 0 } ? filters : null);
+            filters is { Count: > 0 } ? filters : null,
+            isNull ? true : null);
         var json = JsonSerializer.SerializeToUtf8Bytes(payload, Options);
         return ToBase64Url(json);
     }
@@ -76,16 +84,28 @@ public static class CursorCodec
             throw new InvalidCursorException("Cursor JSON is malformed.", ex);
         }
 
+        // A null-key cursor (n:true — TD-001) legitimately omits `s`; every other cursor
+        // still requires it. Guard `s` only when the boundary key is not the null sentinel.
+        var isNullKey = payload?.N == true;
         if (payload is null
-            || payload.S is null
+            || (!isNullKey && payload.S is null)
             || payload.I == Guid.Empty
             || payload.D is not "asc" and not "desc")
         {
             throw new InvalidCursorException("Cursor is missing required fields.");
         }
 
+        // A null-key cursor omits `s`; carrying both `n:true` and a sort value is a malformed
+        // payload (they contradict). Reject it rather than silently discarding `s`.
+        if (isNullKey && payload.S is not null)
+        {
+            throw new InvalidCursorException("Cursor marks a null boundary key but also carries a sort value.");
+        }
+
         var direction = payload.D == "asc" ? SortOrder.Asc : SortOrder.Desc;
-        var sortValue = payload.S is JsonElement el ? UnwrapJsonElement(el) : payload.S;
+        object sortValue = isNullKey
+            ? CursorNullSortValue.Instance
+            : payload.S is JsonElement el ? UnwrapJsonElement(el) : payload.S!;
         // Cursors with no filter state (or cursors issued before any filter
         // existed) omit `f`; decode as an empty map so consumers never null-check.
         // Materialize a present map into a FrozenDictionary so DecodedCursor.Filters
@@ -126,5 +146,23 @@ public static class CursorCodec
         [property: JsonPropertyName("s")] object? S,
         [property: JsonPropertyName("i")] Guid I,
         [property: JsonPropertyName("d")] string? D,
-        [property: JsonPropertyName("f")] IReadOnlyDictionary<string, string>? F);
+        [property: JsonPropertyName("f")] IReadOnlyDictionary<string, string>? F,
+        [property: JsonPropertyName("n")] bool? N = null);
+}
+
+/// <summary>
+/// Sentinel returned by <see cref="CursorCodec.Decode"/> as
+/// <see cref="CursorCodec.DecodedCursor.SortValue"/> when the boundary row's sort key was
+/// <c>NULL</c> (an <see cref="Pagination.SortSpec{TEntity}.IsNullable"/> sort whose page boundary
+/// fell inside the NULLS block — TD-001). Its purpose is to keep <c>SortValue</c> statically
+/// non-null: a null boundary becomes a visible, pattern-matchable state (<c>is CursorNullSortValue</c>)
+/// the keyset predicate builder must handle, rather than a bare <c>null</c> flowing through the same
+/// <see langword="object"/> slot and risking an NRE. (Real cursor values are never CLR null anyway —
+/// <see cref="CursorCodec.Decode"/> rejects a JSON null sort value — so the sentinel's merit is the
+/// non-null contract, not disambiguation.)
+/// </summary>
+public sealed class CursorNullSortValue
+{
+    public static readonly CursorNullSortValue Instance = new();
+    private CursorNullSortValue() { }
 }

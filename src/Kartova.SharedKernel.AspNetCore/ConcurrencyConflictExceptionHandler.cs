@@ -43,7 +43,7 @@ public sealed class ConcurrencyConflictExceptionHandler : IExceptionHandler
             Detail = "The resource was modified by another request. Reload and reapply.",
         };
 
-        if (dbEx.Data["currentVersion"] is uint preCaptured)
+        if (dbEx.Data[ConcurrencyTokenCapture.CurrentVersionDataKey] is uint preCaptured)
         {
             problem.Extensions["currentVersion"] = VersionEncoding.Encode(preCaptured);
         }

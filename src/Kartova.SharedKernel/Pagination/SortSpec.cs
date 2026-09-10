@@ -15,6 +15,28 @@ public sealed record SortSpec<TEntity>(
     private Func<TEntity, object>? _compiled;
 
     /// <summary>
+    /// Opt-in flag: <see langword="true"/> when this sort key can be <c>NULL</c> for some rows
+    /// (a nullable column or expression). When set, keyset pagination applies a null-safe
+    /// <c>ORDER BY</c> (NULLS LAST for ascending, NULLS FIRST for descending, encoded explicitly
+    /// so PostgreSQL and the SQLite test path agree) and a null-aware boundary predicate, and the
+    /// cursor can carry a <c>NULL</c> boundary key (TD-001). Default <see langword="false"/> keeps
+    /// the original scalar-only predicate and provider-default ordering unchanged — required for
+    /// expression selectors whose translated SQL must stay byte-identical to a partial index
+    /// (e.g. the VM JSONB sort selectors), and correct for any genuinely non-null key.
+    /// <para>
+    /// A <see langword="false"/> spec whose key is nonetheless NULL at runtime reintroduces the
+    /// silent-truncation bug — set this to <see langword="true"/> whenever the underlying key is
+    /// nullable and not otherwise guaranteed non-null. Enforced for plain member-access selectors by
+    /// <c>PaginationConventionRules.SortSpecs_over_a_nullable_key_member_must_set_IsNullable</c>
+    /// (arch test): a spec whose selector reads a nullable CLR member with <c>IsNullable=false</c>
+    /// fails the build. Expression selectors that aren't a member access (e.g. the VM JSONB sorts)
+    /// can't be resolved to a CLR property there and remain the author's responsibility — the
+    /// documented deferral (they rely on the write-path presence invariant; TD-001).
+    /// </para>
+    /// </summary>
+    public bool IsNullable { get; init; }
+
+    /// <summary>
     /// Lazily-compiled extractor for the sort key, used to read the boundary
     /// row's value during cursor encoding (post-query, in-memory). Compiled
     /// once per spec instance; production use compiles once per process at

@@ -18,6 +18,7 @@ import {
   applyProblemDetailsToForm,
   type ProblemDetails,
 } from "@/shared/forms/problemDetails";
+import { zodFieldPaths } from "@/shared/forms/zodFieldPaths";
 
 interface Props {
   teamId: string;
@@ -63,6 +64,7 @@ export function AddMemberDialog({ teamId, open, onOpenChange }: Props) {
       const problem = err as ProblemDetails;
       const handled = applyProblemDetailsToForm(problem, (name, error) =>
         form.setError(name as Parameters<typeof form.setError>[0], error),
+        zodFieldPaths(addTeamMemberSchema),
       );
       if (!handled) {
         const detail = problem.detail ?? problem.title ?? "Could not add member";

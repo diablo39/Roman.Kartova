@@ -20,6 +20,7 @@ import {
 import { useRegisterApi } from "@/features/catalog/api/apis";
 import { useTeamsList } from "@/features/teams/api/teams";
 import { applyProblemDetailsToForm, type ProblemDetails } from "@/shared/forms/problemDetails";
+import { zodFieldPaths } from "@/shared/forms/zodFieldPaths";
 import { useCurrentUser } from "@/shared/auth/useCurrentUser";
 import { initialsOf } from "@/shared/auth/initials";
 
@@ -70,6 +71,7 @@ export function RegisterApiDialog({ open, onOpenChange }: Props) {
       const problem = err as ProblemDetails;
       const handled = applyProblemDetailsToForm(problem, (name, error) =>
         form.setError(name as Parameters<typeof form.setError>[0], error),
+        zodFieldPaths(scalarFieldsSchema),
       );
       if (!handled) toast.error(problem.detail ?? problem.title ?? "Failed to register API");
     }

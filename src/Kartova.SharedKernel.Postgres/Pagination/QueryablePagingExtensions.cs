@@ -91,12 +91,10 @@ public static class QueryablePagingExtensions
             {
                 throw new CursorFilterMismatchException(m.Name, m.Expected, m.Actual);
             }
-            q = ApplyKeysetFilter(q, sort.KeySelector, idSelector, decoded.SortValue, decoded.Id, order);
+            q = ApplyKeysetFilter(q, sort, idSelector, decoded.SortValue, decoded.Id, order);
         }
 
-        q = order == SortOrder.Asc
-            ? q.OrderBy(sort.KeySelector).ThenBy(idSelector)
-            : q.OrderByDescending(sort.KeySelector).ThenByDescending(idSelector);
+        q = OrderForKeyset(q, sort, idSelector, order);
 
         var rows = await q.Take(limit + 1).ToListAsync(ct);
 
@@ -105,10 +103,12 @@ public static class QueryablePagingExtensions
         {
             rows.RemoveAt(rows.Count - 1);
             var lastKept = rows[^1];
-            var sortValue = sort.CompiledKeySelector(lastKept)!;
+            // May be null for an IsNullable sort whose page boundary fell inside the NULLS block —
+            // Encode then emits a null-key cursor (n:true) so the next page resumes correctly (TD-001).
+            var sortValue = sort.CompiledKeySelector(lastKept);
             var id = idExtractor(lastKept);
             nextCursor = CursorCodec.Encode(
-                    NormalizeForCursor(sortValue),
+                    sortValue is null ? null : NormalizeForCursor(sortValue),
                     id,
                     order,
                     expectedFilters);
@@ -118,73 +118,169 @@ public static class QueryablePagingExtensions
     }
 
     /// <summary>
+    /// Orders the query for keyset pagination: <c>ORDER BY sortKey, id</c> (reversed for
+    /// descending). For an <see cref="SortSpec{TEntity}.IsNullable"/> sort a portable null-flag
+    /// key (<c>sortKey IS NULL</c>) is prepended so NULLs sort LAST for ascending / FIRST for
+    /// descending on both the PostgreSQL provider and the SQLite test path — which otherwise
+    /// disagree on default NULL placement (TD-001). Non-nullable sorts keep the original two-key
+    /// <c>ORDER BY</c> byte-for-byte, so expression selectors matched to a partial index (the VM
+    /// JSONB sorts) are unaffected.
+    /// </summary>
+    private static IQueryable<T> OrderForKeyset<T>(
+        IQueryable<T> source,
+        SortSpec<T> sort,
+        Expression<Func<T, Guid>> idSelector,
+        SortOrder order)
+        where T : class
+    {
+        if (!sort.IsNullable)
+        {
+            return order == SortOrder.Asc
+                ? source.OrderBy(sort.KeySelector).ThenBy(idSelector)
+                : source.OrderByDescending(sort.KeySelector).ThenByDescending(idSelector);
+        }
+
+        var nullFlag = BuildNullFlagSelector(sort.KeySelector);
+        // asc → NULLS LAST: order the flag ascending so non-null (false) precedes null (true).
+        // desc → NULLS FIRST: order the flag descending so null (true) precedes non-null (false).
+        return order == SortOrder.Asc
+            ? source.OrderBy(nullFlag).ThenBy(sort.KeySelector).ThenBy(idSelector)
+            : source.OrderByDescending(nullFlag).ThenByDescending(sort.KeySelector).ThenByDescending(idSelector);
+    }
+
+    /// <summary>
     /// Applies the keyset filter <c>WHERE sortKey &gt; @p OR (sortKey = @p AND id &gt; @p)</c>
     /// for ascending order (reversed comparators for descending). The disjunctive form is
     /// portable across the EF Core PostgreSQL provider and the sqlite test path; the
     /// row-constructor form <c>(sortKey, id) &gt; (?, ?)</c> was the original target but
     /// was dropped per design spec §14 mitigation. ADR-0095.
+    /// <para>
+    /// When the sort <see cref="SortSpec{TEntity}.IsNullable"/> is set, a null-aware predicate is
+    /// built instead so paging never truncates at a NULL boundary — the scalar predicate above
+    /// evaluates to SQL UNKNOWN (→ excluded) for any NULL key, silently dropping the
+    /// trailing/leading NULLS block. The null-aware form matches the NULLS LAST (asc) / NULLS FIRST
+    /// (desc) ordering of <see cref="OrderForKeyset"/> and handles a NULL boundary key
+    /// (<see cref="CursorNullSortValue"/>) explicitly (TD-001).
+    /// </para>
     /// </summary>
     private static IQueryable<T> ApplyKeysetFilter<T>(
         IQueryable<T> source,
-        Expression<Func<T, object>> keySelector,
+        SortSpec<T> sort,
         Expression<Func<T, Guid>> idSelector,
         object cursorSortValue,
         Guid cursorId,
         SortOrder order)
     {
         var param = Expression.Parameter(typeof(T), "x");
-        var keyBody = ReplaceParameter(keySelector.Body, keySelector.Parameters[0], param);
+        var keyBody = ReplaceParameter(sort.KeySelector.Body, sort.KeySelector.Parameters[0], param);
         var idBody = ReplaceParameter(idSelector.Body, idSelector.Parameters[0], param);
+        var (unwrappedKey, keyType) = UnwrapKeyConvert(keyBody);
 
-        // keySelector returns object => boxes value types via Expression.Convert.
-        // Unwrap the Convert so the comparison is on the actual underlying type.
-        Expression unwrappedKey;
-        Type keyType;
-        if (keyBody is UnaryExpression ux && ux.NodeType == ExpressionType.Convert)
+        Expression idAfter = order == SortOrder.Asc
+            ? Expression.GreaterThan(idBody, Expression.Constant(cursorId))
+            : Expression.LessThan(idBody, Expression.Constant(cursorId));
+
+        Expression predicate;
+        if (sort.IsNullable)
         {
-            unwrappedKey = ux.Operand;
-            keyType = ux.Operand.Type;
+            var keyIsNull = Expression.Equal(unwrappedKey, Expression.Constant(null, keyType));
+
+            if (cursorSortValue is CursorNullSortValue)
+            {
+                // Boundary key is NULL — the boundary sits inside the NULLS block.
+                // asc (NULLS LAST): only later NULL rows remain (id after boundary).
+                // desc (NULLS FIRST): the rest of the NULL block (id after boundary), then every
+                //                     non-NULL row.
+                predicate = order == SortOrder.Asc
+                    ? Expression.AndAlso(keyIsNull, idAfter)
+                    : Expression.OrElse(
+                        Expression.AndAlso(keyIsNull, idAfter),
+                        Expression.Not(keyIsNull));
+            }
+            else
+            {
+                var (keyAfter, keyEqual) = BuildKeyComparisons(
+                    unwrappedKey, keyType, cursorSortValue, order, nullableKey: true);
+                var core = Expression.OrElse(keyAfter, Expression.AndAlso(keyEqual, idAfter));
+                // asc (NULLS LAST): after a non-NULL boundary the trailing NULL block still follows.
+                // desc (NULLS FIRST): NULLs already precede every non-NULL row — none remain.
+                predicate = order == SortOrder.Asc
+                    ? Expression.OrElse(core, keyIsNull)
+                    : core;
+            }
         }
         else
         {
-            unwrappedKey = keyBody;
-            keyType = keyBody.Type;
+            var (keyAfter, keyEqual) = BuildKeyComparisons(
+                unwrappedKey, keyType, cursorSortValue, order, nullableKey: false);
+            predicate = Expression.OrElse(keyAfter, Expression.AndAlso(keyEqual, idAfter));
         }
 
-        var typedConstant = Expression.Constant(ConvertCursorValue(cursorSortValue, keyType), keyType);
+        var lambda = Expression.Lambda<Func<T, bool>>(predicate, param);
+        return source.Where(lambda);
+    }
 
-        Expression keyGreater;
-        Expression keyEqual;
+    /// <summary>
+    /// Builds the <c>(keyAfter, keyEqual)</c> comparison pair for the boundary key: <c>keyAfter</c>
+    /// is <c>key &gt; @p</c> (ascending) or <c>key &lt; @p</c> (descending); <c>keyEqual</c> is
+    /// <c>key = @p</c>. Strings route through the two-argument <see cref="string.Compare(string, string)"/>
+    /// (the only overload both providers translate). For a nullable value-type key the typed
+    /// constant is built on the underlying non-nullable type (Convert.ChangeType cannot target
+    /// <see cref="Nullable{T}"/>) then boxed back to the nullable column type.
+    /// </summary>
+    private static (Expression KeyAfter, Expression KeyEqual) BuildKeyComparisons(
+        Expression unwrappedKey, Type keyType, object cursorSortValue, SortOrder order, bool nullableKey)
+    {
+        var constantType = nullableKey ? (Nullable.GetUnderlyingType(keyType) ?? keyType) : keyType;
+        var converted = ConvertCursorValue(cursorSortValue, constantType);
+        var typedConstant = Expression.Constant(converted, keyType);
+
         if (keyType == typeof(string))
         {
             // Expression.GreaterThan/Equal don't work on string; use string.Compare(a, b) instead.
             // EF Core SQLite and PostgreSQL providers translate the two-argument string.Compare overload.
             // The three-argument overload with StringComparison is not translatable by either provider.
-            var compareMethod = typeof(string).GetMethod(
-                nameof(string.Compare),
-                [typeof(string), typeof(string)])!;
-            var compareCall = Expression.Call(compareMethod, unwrappedKey, typedConstant);
+            var compareCall = Expression.Call(StringCompareMethod, unwrappedKey, typedConstant);
             var zero = Expression.Constant(0);
-            keyGreater = order == SortOrder.Asc
+            var after = order == SortOrder.Asc
                 ? Expression.GreaterThan(compareCall, zero)
                 : Expression.LessThan(compareCall, zero);
-            keyEqual = Expression.Equal(compareCall, zero);
+            return (after, Expression.Equal(compareCall, zero));
         }
-        else
-        {
-            keyGreater = order == SortOrder.Asc
-                ? Expression.GreaterThan(unwrappedKey, typedConstant)
-                : Expression.LessThan(unwrappedKey, typedConstant);
-            keyEqual = Expression.Equal(unwrappedKey, typedConstant);
-        }
-        Expression idGreater = order == SortOrder.Asc
-            ? Expression.GreaterThan(idBody, Expression.Constant(cursorId))
-            : Expression.LessThan(idBody, Expression.Constant(cursorId));
 
-        var disjunction = Expression.OrElse(keyGreater, Expression.AndAlso(keyEqual, idGreater));
-        var lambda = Expression.Lambda<Func<T, bool>>(disjunction, param);
-        return source.Where(lambda);
+        var keyAfter = order == SortOrder.Asc
+            ? Expression.GreaterThan(unwrappedKey, typedConstant)
+            : Expression.LessThan(unwrappedKey, typedConstant);
+        return (keyAfter, Expression.Equal(unwrappedKey, typedConstant));
     }
+
+    /// <summary>
+    /// Builds an <c>x =&gt; sortKey == null</c> selector from an object-returning key selector,
+    /// used as the NULLS-ordering flag key. Unwraps the boxing <c>Convert</c> so the null test is
+    /// against the real column type.
+    /// </summary>
+    private static Expression<Func<T, bool>> BuildNullFlagSelector<T>(Expression<Func<T, object>> keySelector)
+    {
+        var param = Expression.Parameter(typeof(T), "x");
+        var body = ReplaceParameter(keySelector.Body, keySelector.Parameters[0], param);
+        var (unwrapped, unwrappedType) = UnwrapKeyConvert(body);
+        var isNull = Expression.Equal(unwrapped, Expression.Constant(null, unwrappedType));
+        return Expression.Lambda<Func<T, bool>>(isNull, param);
+    }
+
+    /// <summary>
+    /// An object-returning key selector boxes value types via <see cref="ExpressionType.Convert"/>.
+    /// Unwraps that boxing <c>Convert</c> so comparisons run on the real underlying column type;
+    /// returns the body unchanged for reference-type keys (no boxing node).
+    /// </summary>
+    private static (Expression Body, Type Type) UnwrapKeyConvert(Expression keyBody) =>
+        keyBody is UnaryExpression { NodeType: ExpressionType.Convert } ux
+            ? (ux.Operand, ux.Operand.Type)
+            : (keyBody, keyBody.Type);
+
+    // Resolved once — the two-argument string.Compare overload both EF providers translate.
+    private static readonly System.Reflection.MethodInfo StringCompareMethod =
+        typeof(string).GetMethod(nameof(string.Compare), [typeof(string), typeof(string)])!;
 
     private static Expression ReplaceParameter(Expression body, ParameterExpression from, ParameterExpression to)
         => new ParameterReplaceVisitor(from, to).Visit(body);

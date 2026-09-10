@@ -20,6 +20,7 @@ import {
   applyProblemDetailsToForm,
   type ProblemDetails,
 } from "@/shared/forms/problemDetails";
+import { zodFieldPaths } from "@/shared/forms/zodFieldPaths";
 
 interface Props {
   application: ApplicationResponse;
@@ -66,7 +67,8 @@ export function EditApplicationDialog({ application, open, onOpenChange }: Props
       const status = problem.__status;
 
       const handled = applyProblemDetailsToForm(problem, (name, error) =>
-        form.setError(name as Parameters<typeof form.setError>[0], error)
+        form.setError(name as Parameters<typeof form.setError>[0], error),
+        zodFieldPaths(editApplicationSchema),
       );
       if (handled) return; // 400 — field errors set, leave dialog open.
 

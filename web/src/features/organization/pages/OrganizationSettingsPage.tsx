@@ -25,6 +25,7 @@ import {
   applyProblemDetailsToForm,
   type ProblemDetails,
 } from "@/shared/forms/problemDetails";
+import { zodFieldPaths } from "@/shared/forms/zodFieldPaths";
 
 /**
  * Computes the list of IANA time zones the runtime knows about. Memoized at
@@ -123,6 +124,7 @@ export function OrganizationSettingsPage() {
 
       const handled = applyProblemDetailsToForm(problem, (name, error) =>
         form.setError(name as Parameters<typeof form.setError>[0], error),
+        zodFieldPaths(orgProfileSchema),
       );
       if (handled) return; // 400 — field errors set, form stays open.
 

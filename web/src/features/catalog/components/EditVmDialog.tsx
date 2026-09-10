@@ -10,6 +10,7 @@ import { editVmSchema, type EditVmInput } from "@/features/catalog/schemas/regis
 import { isPowerState } from "@/features/catalog/powerState";
 import { useEditVm, type VmDetailResponse } from "@/features/catalog/api/infrastructure";
 import { applyProblemDetailsToForm, type ProblemDetails } from "@/shared/forms/problemDetails";
+import { zodFieldPaths } from "@/shared/forms/zodFieldPaths";
 import { VmFormFields } from "@/features/catalog/components/VmFormFields";
 
 interface Props {
@@ -72,6 +73,7 @@ export function EditVmDialog({ vm, open, onOpenChange }: Props) {
 
       const handled = applyProblemDetailsToForm(problem, (name, error) =>
         form.setError(name as Parameters<typeof form.setError>[0], error),
+        zodFieldPaths(editVmSchema),
       );
       if (handled) return; // 400 — field errors set, leave dialog open.
 

@@ -67,3 +67,40 @@ opaque cursor. The **filter-consideration mandate** (every list must decide
 whether it needs filters) and the **standard filter UI** (`<FilterBar>` /
 `useListFilters`) are owned by **ADR-0107**. Look there for "how do we do list
 filtering"; this ADR is purely the cursor transport.
+
+## Amendment (2026-09-10): NULL boundary key (`n` flag) + null-safe keyset (TD-001)
+
+Clause 3's wire shape is extended from `{ s, i, d, f? }` to `{ s?, i, d, f?, n? }` to
+support pagination over a **nullable** sort key:
+
+- `n` is an optional boolean. `n: true` means the boundary row's sort key was `NULL`;
+  `s` is then omitted. Absent/false means `s` carries the boundary value exactly as
+  before. **Backward compatible:** a non-nullable sort never emits `n`, so existing
+  cursors are unchanged and decode identically; the decoder treats a missing `n` as
+  "boundary key is present in `s`".
+- A `NULL` boundary decodes to the `CursorNullSortValue` sentinel (not `null`), keeping
+  `DecodedCursor.SortValue` non-null and distinguishing a genuine `NULL` key from a real
+  empty string / zero value.
+
+Keyset mechanism (`QueryablePagingExtensions`) gains a **null-safe path**, opt-in per
+sort via `SortSpec<T>.IsNullable`:
+
+- **Ordering:** `NULL`s sort **LAST for `asc`, FIRST for `desc`** — encoded explicitly
+  via a portable null-flag key (`sortKey IS NULL`) prepended to the `ORDER BY`, because
+  PostgreSQL (default NULLS LAST asc) and the sqlite test path (default NULLS FIRST) do
+  not otherwise agree.
+- **Predicate:** the disjunctive keyset filter is made null-aware so paging never
+  truncates at a `NULL` boundary (the scalar predicate evaluates to SQL `UNKNOWN` → the
+  entire NULLS block is silently dropped). It handles a `NULL` boundary key explicitly.
+- **Non-nullable sorts are untouched** (default `IsNullable = false`): the original
+  two-key `ORDER BY` and scalar predicate are byte-for-byte unchanged, so expression
+  selectors matched to a partial index (the VM JSONB sorts) keep their index match.
+
+This replaces the earlier per-column `?? ""` (COALESCE-to-empty-string) workaround on
+`InfrastructureSortSpecs.Provider`, which conflated an empty-string provider with an
+absent one and was not reusable for non-string nullable keys.
+
+**Deferred:** the VM JSONB sort selectors remain `IsNullable = false`, relying on the
+`VmAttributes.Validate` write-path invariant (every attribute key present + non-null);
+whether they adopt the generic guard or slice-4 enforces attribute presence on ingest is
+decided in slice-4 (see `docs/engineering/tech-debt.md` TD-001).

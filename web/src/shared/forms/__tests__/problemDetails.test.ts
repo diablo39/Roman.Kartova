@@ -1,8 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 import { applyProblemDetailsToForm, asProblemDetails, type ProblemDetails } from "../problemDetails";
 
+const KNOWN = new Set(["name", "displayName"]);
+
 describe("applyProblemDetailsToForm", () => {
-  it("calls setError per field/message pair", () => {
+  it("calls setError per field/message pair for registered fields", () => {
     const setError = vi.fn();
     const payload: ProblemDetails = {
       type: "about:blank",
@@ -14,7 +16,7 @@ describe("applyProblemDetailsToForm", () => {
       },
     };
 
-    const applied = applyProblemDetailsToForm(payload, setError);
+    const applied = applyProblemDetailsToForm(payload, setError, KNOWN);
 
     expect(applied).toBe(true);
     expect(setError).toHaveBeenCalledWith("name", { type: "server", message: "Name is required" });
@@ -29,18 +31,45 @@ describe("applyProblemDetailsToForm", () => {
     const setError = vi.fn();
     applyProblemDetailsToForm(
       { status: 400, errors: { name: ["m1", "m2"] } },
-      setError
+      setError,
+      KNOWN
     );
     expect(setError).toHaveBeenCalledTimes(2);
     expect(setError).toHaveBeenNthCalledWith(1, "name", { type: "server", message: "m1" });
     expect(setError).toHaveBeenNthCalledWith(2, "name", { type: "server", message: "m2" });
   });
 
+  it("returns false (no toast-swallow) when the only error key maps to no registered field — TD-003", () => {
+    const setError = vi.fn();
+    const r = applyProblemDetailsToForm(
+      { status: 400, errors: { unknownKey: ["mystery"] } },
+      setError,
+      KNOWN
+    );
+    expect(r).toBe(false);
+    expect(setError).not.toHaveBeenCalled();
+  });
+
+  it("mixed mapped+unmapped payload: sets the mapped field but returns false so the caller also toasts — TD-003", () => {
+    const setError = vi.fn();
+    const r = applyProblemDetailsToForm(
+      { status: 400, errors: { name: ["bad"], unknownKey: ["mystery"] } },
+      setError,
+      KNOWN
+    );
+    // The mapped field is still highlighted...
+    expect(setError).toHaveBeenCalledTimes(1);
+    expect(setError).toHaveBeenCalledWith("name", { type: "server", message: "bad" });
+    // ...but the unmapped key must NOT be silently swallowed — false routes the caller to its toast.
+    expect(r).toBe(false);
+  });
+
   it("returns false and does not call setError when payload has no errors field", () => {
     const setError = vi.fn();
     const r = applyProblemDetailsToForm(
       { status: 400, title: "x" } as ProblemDetails,
-      setError
+      setError,
+      KNOWN
     );
     expect(r).toBe(false);
     expect(setError).not.toHaveBeenCalled();
@@ -48,8 +77,8 @@ describe("applyProblemDetailsToForm", () => {
 
   it("returns false when payload is null/undefined-ish", () => {
     const setError = vi.fn();
-    expect(applyProblemDetailsToForm(null as unknown as ProblemDetails, setError)).toBe(false);
-    expect(applyProblemDetailsToForm(undefined as unknown as ProblemDetails, setError)).toBe(false);
+    expect(applyProblemDetailsToForm(null as unknown as ProblemDetails, setError, KNOWN)).toBe(false);
+    expect(applyProblemDetailsToForm(undefined as unknown as ProblemDetails, setError, KNOWN)).toBe(false);
     expect(setError).not.toHaveBeenCalled();
   });
 
@@ -64,7 +93,8 @@ describe("applyProblemDetailsToForm", () => {
           displayName: ["valid"],
         },
       },
-      setError
+      setError,
+      KNOWN
     );
     expect(r).toBe(true);
     // Only the valid one fired.
