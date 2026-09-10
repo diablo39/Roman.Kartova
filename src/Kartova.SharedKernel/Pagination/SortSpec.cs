@@ -26,7 +26,12 @@ public sealed record SortSpec<TEntity>(
     /// <para>
     /// A <see langword="false"/> spec whose key is nonetheless NULL at runtime reintroduces the
     /// silent-truncation bug — set this to <see langword="true"/> whenever the underlying key is
-    /// nullable and not otherwise guaranteed non-null.
+    /// nullable and not otherwise guaranteed non-null. Enforced for plain member-access selectors by
+    /// <c>PaginationConventionRules.SortSpecs_over_a_nullable_key_member_must_set_IsNullable</c>
+    /// (arch test): a spec whose selector reads a nullable CLR member with <c>IsNullable=false</c>
+    /// fails the build. Expression selectors that aren't a member access (e.g. the VM JSONB sorts)
+    /// can't be resolved to a CLR property there and remain the author's responsibility — the
+    /// documented deferral (they rely on the write-path presence invariant; TD-001).
     /// </para>
     /// </summary>
     public bool IsNullable { get; init; }
