@@ -106,6 +106,27 @@ public sealed class PagingExceptionHandlerTests
     }
 
     [TestMethod]
+    public async Task CursorSortFieldMismatchException_maps_to_400_with_field_extensions()
+    {
+        var (handler, ctx) = Build();
+        var ex = new CursorSortFieldMismatchException("name", "createdAt");
+
+        var handled = await handler.TryHandleAsync(ctx, ex, CancellationToken.None);
+
+        Assert.IsTrue(handled);
+        Assert.AreEqual(StatusCodes.Status400BadRequest, ctx.Response.StatusCode);
+        StringAssert.StartsWith(ctx.Response.ContentType, "application/problem+json");
+
+        ctx.Response.Body.Position = 0;
+        var body = await new StreamReader(ctx.Response.Body).ReadToEndAsync();
+        StringAssert.Contains(body, ProblemTypes.CursorSortFieldMismatch);
+        StringAssert.Contains(body, "\"expectedField\"");
+        StringAssert.Contains(body, "\"name\"");
+        StringAssert.Contains(body, "\"actualField\"");
+        StringAssert.Contains(body, "\"createdAt\"");
+    }
+
+    [TestMethod]
     public async Task UnrelatedException_returns_false()
     {
         var (handler, ctx) = Build();

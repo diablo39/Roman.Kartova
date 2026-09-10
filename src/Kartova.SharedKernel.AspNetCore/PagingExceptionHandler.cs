@@ -57,6 +57,16 @@ public sealed class PagingExceptionHandler : IExceptionHandler
                 },
                 cancellationToken),
 
+            CursorSortFieldMismatchException sortFieldEx => await WriteProblemAsync(
+                httpContext, exception, ProblemTypes.CursorSortFieldMismatch,
+                "Cursor sort field mismatch", sortFieldEx.Message,
+                p =>
+                {
+                    p.Extensions["expectedField"] = sortFieldEx.ExpectedField;
+                    p.Extensions["actualField"] = sortFieldEx.ActualField;
+                },
+                cancellationToken),
+
             InvalidLimitException limitEx => await WriteProblemAsync(
                 httpContext, exception, ProblemTypes.InvalidLimit,
                 "Invalid limit", limitEx.Message,

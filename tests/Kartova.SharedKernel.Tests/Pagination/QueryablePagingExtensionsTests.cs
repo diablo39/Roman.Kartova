@@ -560,6 +560,72 @@ public sealed class QueryablePagingExtensionsTests
         Assert.AreEqual(0, decoded.Filters.Count);
     }
 
+    // ---- TD-004: cursor binds sortBy; a mid-pagination sort-field switch is a 400 --------
+
+    [TestMethod]
+    public async Task SortFieldMismatch_when_cursor_replayed_under_a_different_sortBy_throws()
+    {
+        await SeedAsync(3);
+        // Cursor issued under sortBy=name (same sortOrder=asc) …
+        var cursor = CursorCodec.Encode(
+            "row-001", Row1Id, SortOrder.Asc, filters: null, sortField: "name");
+
+        // … replayed under sortBy=createdAt → the new field's keyset predicate would run
+        // against the old field's boundary value. Guard fires before that: 400.
+        var ex = await Assert.ThrowsExactlyAsync<CursorSortFieldMismatchException>(async () =>
+            await _db.Rows.ToCursorPagedAsync(
+                ByCreatedAt, SortOrder.Asc, cursor, limit: 10, x => x.Id,
+                x => x.Id, CancellationToken.None));
+
+        Assert.AreEqual("name", ex.ExpectedField);
+        Assert.AreEqual("createdAt", ex.ActualField);
+    }
+
+    [TestMethod]
+    public async Task MatchingSortField_does_not_throw_and_returns_rows()
+    {
+        await SeedAsync(5);
+        var cursor = CursorCodec.Encode(
+            OriginIso, Row1Id, SortOrder.Asc, filters: null, sortField: "createdAt");
+
+        var page = await _db.Rows.ToCursorPagedAsync(
+            ByCreatedAt, SortOrder.Asc, cursor, limit: 10, x => x.Id,
+            x => x.Id, CancellationToken.None);
+
+        // Boundary (origin / Row1Id) excludes only row-0, so rows 1-4 come back — proves
+        // the matching-field check does not interfere with the keyset.
+        Assert.AreEqual(4, page.Items.Count());
+    }
+
+    [TestMethod]
+    public async Task OldCursor_without_sortField_is_accepted_under_any_sortBy_backward_compat()
+    {
+        await SeedAsync(5);
+        // Pre-TD-004 cursor: no `sf` discriminator.
+        var cursor = CursorCodec.Encode(OriginIso, Row1Id, SortOrder.Asc);
+
+        // Absent `sf` decodes as "no field recorded" → no check, no throw.
+        var page = await _db.Rows.ToCursorPagedAsync(
+            ByCreatedAt, SortOrder.Asc, cursor, limit: 10, x => x.Id,
+            x => x.Id, CancellationToken.None);
+
+        Assert.AreEqual(4, page.Items.Count());
+    }
+
+    [TestMethod]
+    public async Task NextCursor_round_trips_the_sortField()
+    {
+        await SeedAsync(6);
+
+        var page = await _db.Rows.ToCursorPagedAsync(
+            ByName, SortOrder.Asc, cursor: null, limit: 5, x => x.Id,
+            x => x.Id, CancellationToken.None);
+
+        Assert.IsNotNull(page.NextCursor);
+        var decoded = CursorCodec.Decode(page.NextCursor!);
+        Assert.AreEqual("name", decoded.SortField);
+    }
+
     // ---- TD-001: null-safe keyset pagination for IsNullable sort keys --------------------
 
     /// <summary>

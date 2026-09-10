@@ -222,6 +222,38 @@ public sealed class CursorCodecTests
     }
 
     [TestMethod]
+    public void Encode_then_Decode_roundtrips_sort_field_discriminator()
+    {
+        // TD-004: `sf` carries the SortSpec.FieldName the cursor was issued under.
+        var encoded = CursorCodec.Encode("alpha", AnyId, SortOrder.Asc, filters: null, sortField: "name");
+        var decoded = CursorCodec.Decode(encoded);
+
+        Assert.AreEqual("name", decoded.SortField);
+    }
+
+    [TestMethod]
+    public void Encode_with_null_sort_field_omits_sf_and_decodes_null()
+    {
+        // Pre-TD-004 shape: no `sf` in the JSON, decodes as "no field recorded".
+        var encoded = CursorCodec.Encode("alpha", AnyId, SortOrder.Asc);
+
+        var bytes = System.Buffers.Text.Base64Url.DecodeFromChars(encoded.AsSpan());
+        var json = System.Text.Encoding.UTF8.GetString(bytes);
+        StringAssert.DoesNotMatch(json, new Regex("\"sf\""));
+
+        Assert.IsNull(CursorCodec.Decode(encoded).SortField);
+    }
+
+    [TestMethod]
+    public void Decode_cursor_without_sf_field_returns_null_sort_field()
+    {
+        var json = $$"""{"s":"alpha","i":"{{AnyId}}","d":"asc"}""";
+        var encoded = System.Buffers.Text.Base64Url.EncodeToString(System.Text.Encoding.UTF8.GetBytes(json));
+
+        Assert.IsNull(CursorCodec.Decode(encoded).SortField);
+    }
+
+    [TestMethod]
     public void Encode_with_null_filters_omits_f_field_and_decodes_empty()
     {
         var encoded = CursorCodec.Encode("alpha", AnyId, SortOrder.Asc, filters: null);
