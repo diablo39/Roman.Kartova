@@ -66,3 +66,24 @@ Convention: one `### TD-NNN` heading per item. Keep `Status: open` until done; o
 **Why deferred.** `applyProblemDetailsToForm` is shared by every form dialog in the app; changing its contract risks regressions in unrelated forms — out of scope for a VM slice. Defense-in-depth (the actual VM bug is already fixed at source).
 
 **Acceptance.** A 400 with an error key that matches no registered field produces a visible error (toast), never a silent no-op; existing per-field-highlight behavior for mapped keys is unchanged; covered by a test.
+
+---
+
+### TD-004 — Cursor does not bind `sortBy`; a mid-pagination sort-field change mis-pages silently
+
+**Status:** open
+**Origin:** TD-001 slice (2026-09-10) — review-pr (gate 7) silent-failure finding, noted as pre-existing and out of TD-001 scope. See `docs/superpowers/verification/2026-09-10-tech-debt-td-001-002-003/deep-review.md` (should-fix) and `gate-9-verification.md`.
+
+**Problem.** The ADR-0095 cursor payload `{ s, i, d, f?, n? }` binds the sort **order** (`d`) and the filter state (`f`) but NOT the sort **field** (`sortBy`). `ToCursorPagedAsync` validates `decoded.Direction != order` and the filter map, but nothing checks that the request's `sortBy` matches the field the cursor was issued under. A client that changes `sortBy` mid-pagination while keeping `sortOrder` and reusing the cursor passes both guards, then the new field's keyset predicate is applied against the **previous** field's boundary value. When the two fields share a comparable CLR type (e.g. two strings, two timestamps) this does not error — it silently skips or repeats rows. Same failure class as the `f`-map mismatch that ADR-0095's 2026-06-01 amendment already guards, but for the sort key rather than the filters.
+
+**Affected files.**
+- `src/Kartova.SharedKernel/Pagination/CursorCodec.cs` — `CursorPayload` / `DecodedCursor` (would carry a sort-field discriminator).
+- `src/Kartova.SharedKernel.Postgres/Pagination/QueryablePagingExtensions.cs` — `ToCursorPagedAsync` (adds the `sortBy` equality check next to the existing `decoded.Direction != order` check).
+- `src/Kartova.SharedKernel.Postgres/Pagination/CursorListBinding.cs` + the per-module list handlers that resolve `sortBy` → `SortSpec` (supply the field name to encode).
+- ADR-0095 (owns the cursor wire format) — a further backward-compatible amendment.
+
+**Proposed fix.** Fold a sort-field discriminator into the cursor (e.g. a `sf` field carrying the resolved `SortSpec.FieldName`), encoded on issue and required to equal the request's `sortBy` on decode — mismatch → 400, mirroring `CursorFilterMismatchException`. Backward compatible: an absent `sf` (old cursor) is treated as "no field recorded" per the codec's forward-compat convention. Prefer routing it through the existing `f`-map machinery vs. a bespoke field if that keeps the codec simpler.
+
+**Why deferred.** Pre-existing (not introduced by TD-001); touches the shared cursor codec + every cursor list + ADR-0095 — too broad to fold into the VM null-safety slice. Low real-world incidence today (clients don't normally flip `sortBy` mid-scroll), but it's a latent skip/repeat identical in class to the already-guarded filter-mismatch case.
+
+**Acceptance.** A cursor issued under one `sortBy` and replayed under a different `sortBy` (same `sortOrder`) returns a 400, not silently mis-paged rows; existing single-field pagination is unchanged; covered by a shared-mechanism test seeding a sort-field switch across a page boundary.
