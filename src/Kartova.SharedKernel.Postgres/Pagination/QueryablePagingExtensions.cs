@@ -91,8 +91,7 @@ public static class QueryablePagingExtensions
             {
                 throw new CursorFilterMismatchException(m.Name, m.Expected, m.Actual);
             }
-            q = ApplyKeysetFilter(
-                q, sort.KeySelector, idSelector, decoded.SortValue, decoded.Id, order, sort.IsNullable);
+            q = ApplyKeysetFilter(q, sort, idSelector, decoded.SortValue, decoded.Id, order);
         }
 
         q = OrderForKeyset(q, sort, idSelector, order);
@@ -156,48 +155,33 @@ public static class QueryablePagingExtensions
     /// row-constructor form <c>(sortKey, id) &gt; (?, ?)</c> was the original target but
     /// was dropped per design spec §14 mitigation. ADR-0095.
     /// <para>
-    /// When <paramref name="sortIsNullable"/> is set, a null-aware predicate is built instead so
-    /// paging never truncates at a NULL boundary — the scalar predicate above evaluates to SQL
-    /// UNKNOWN (→ excluded) for any NULL key, silently dropping the trailing/leading NULLS block.
-    /// The null-aware form matches the NULLS LAST (asc) / NULLS FIRST (desc) ordering of
-    /// <see cref="OrderForKeyset"/> and handles a NULL boundary key
+    /// When the sort <see cref="SortSpec{TEntity}.IsNullable"/> is set, a null-aware predicate is
+    /// built instead so paging never truncates at a NULL boundary — the scalar predicate above
+    /// evaluates to SQL UNKNOWN (→ excluded) for any NULL key, silently dropping the
+    /// trailing/leading NULLS block. The null-aware form matches the NULLS LAST (asc) / NULLS FIRST
+    /// (desc) ordering of <see cref="OrderForKeyset"/> and handles a NULL boundary key
     /// (<see cref="CursorNullSortValue"/>) explicitly (TD-001).
     /// </para>
     /// </summary>
     private static IQueryable<T> ApplyKeysetFilter<T>(
         IQueryable<T> source,
-        Expression<Func<T, object>> keySelector,
+        SortSpec<T> sort,
         Expression<Func<T, Guid>> idSelector,
         object cursorSortValue,
         Guid cursorId,
-        SortOrder order,
-        bool sortIsNullable)
+        SortOrder order)
     {
         var param = Expression.Parameter(typeof(T), "x");
-        var keyBody = ReplaceParameter(keySelector.Body, keySelector.Parameters[0], param);
+        var keyBody = ReplaceParameter(sort.KeySelector.Body, sort.KeySelector.Parameters[0], param);
         var idBody = ReplaceParameter(idSelector.Body, idSelector.Parameters[0], param);
-
-        // keySelector returns object => boxes value types via Expression.Convert.
-        // Unwrap the Convert so the comparison is on the actual underlying type.
-        Expression unwrappedKey;
-        Type keyType;
-        if (keyBody is UnaryExpression ux && ux.NodeType == ExpressionType.Convert)
-        {
-            unwrappedKey = ux.Operand;
-            keyType = ux.Operand.Type;
-        }
-        else
-        {
-            unwrappedKey = keyBody;
-            keyType = keyBody.Type;
-        }
+        var (unwrappedKey, keyType) = UnwrapKeyConvert(keyBody);
 
         Expression idAfter = order == SortOrder.Asc
             ? Expression.GreaterThan(idBody, Expression.Constant(cursorId))
             : Expression.LessThan(idBody, Expression.Constant(cursorId));
 
         Expression predicate;
-        if (sortIsNullable)
+        if (sort.IsNullable)
         {
             var keyIsNull = Expression.Equal(unwrappedKey, Expression.Constant(null, keyType));
 
@@ -256,10 +240,7 @@ public static class QueryablePagingExtensions
             // Expression.GreaterThan/Equal don't work on string; use string.Compare(a, b) instead.
             // EF Core SQLite and PostgreSQL providers translate the two-argument string.Compare overload.
             // The three-argument overload with StringComparison is not translatable by either provider.
-            var compareMethod = typeof(string).GetMethod(
-                nameof(string.Compare),
-                [typeof(string), typeof(string)])!;
-            var compareCall = Expression.Call(compareMethod, unwrappedKey, typedConstant);
+            var compareCall = Expression.Call(StringCompareMethod, unwrappedKey, typedConstant);
             var zero = Expression.Constant(0);
             var after = order == SortOrder.Asc
                 ? Expression.GreaterThan(compareCall, zero)
@@ -282,10 +263,24 @@ public static class QueryablePagingExtensions
     {
         var param = Expression.Parameter(typeof(T), "x");
         var body = ReplaceParameter(keySelector.Body, keySelector.Parameters[0], param);
-        var unwrapped = body is UnaryExpression { NodeType: ExpressionType.Convert } ux ? ux.Operand : body;
-        var isNull = Expression.Equal(unwrapped, Expression.Constant(null, unwrapped.Type));
+        var (unwrapped, unwrappedType) = UnwrapKeyConvert(body);
+        var isNull = Expression.Equal(unwrapped, Expression.Constant(null, unwrappedType));
         return Expression.Lambda<Func<T, bool>>(isNull, param);
     }
+
+    /// <summary>
+    /// An object-returning key selector boxes value types via <see cref="ExpressionType.Convert"/>.
+    /// Unwraps that boxing <c>Convert</c> so comparisons run on the real underlying column type;
+    /// returns the body unchanged for reference-type keys (no boxing node).
+    /// </summary>
+    private static (Expression Body, Type Type) UnwrapKeyConvert(Expression keyBody) =>
+        keyBody is UnaryExpression { NodeType: ExpressionType.Convert } ux
+            ? (ux.Operand, ux.Operand.Type)
+            : (keyBody, keyBody.Type);
+
+    // Resolved once — the two-argument string.Compare overload both EF providers translate.
+    private static readonly System.Reflection.MethodInfo StringCompareMethod =
+        typeof(string).GetMethod(nameof(string.Compare), [typeof(string), typeof(string)])!;
 
     private static Expression ReplaceParameter(Expression body, ParameterExpression from, ParameterExpression to)
         => new ParameterReplaceVisitor(from, to).Visit(body);

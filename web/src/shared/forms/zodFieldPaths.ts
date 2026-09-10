@@ -15,9 +15,22 @@ import type { ZodType } from "zod";
  * at either level. Optional / nullable / default wrappers are unwrapped to reach the inner
  * shape. Non-object leaves (strings, numbers, enums, arrays) contribute only their own path.
  */
+// Schemas are module-level constants whose field set never changes, but the callers invoke this
+// on the (cold) 400-error path per submit. Memoize the top-level result per schema so the
+// recursive walk runs once per schema, not once per error. Keyed weakly so a schema that is GC'd
+// (e.g. a locally-derived .omit()/.pick() schema) does not leak.
+const cache = new WeakMap<ZodType, Set<string>>();
+
 export function zodFieldPaths(schema: ZodType, prefix = ""): Set<string> {
+  // Only the un-prefixed (top-level) call is cacheable; recursive calls carry a prefix and are
+  // cheap tail work under the cached root.
+  if (prefix === "") {
+    const cached = cache.get(schema);
+    if (cached) return cached;
+  }
   const out = new Set<string>();
   collect(schema, prefix, out);
+  if (prefix === "") cache.set(schema, out);
   return out;
 }
 
