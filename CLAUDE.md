@@ -47,6 +47,7 @@ General engineering judgment — understand before changing, minimal scope, conf
 | Per-slice implementation plans (local scratch, **gitignored** — not committed) | `docs/superpowers/plans/YYYY-MM-DD-*-plan.md` |
 | Per-slice verification proof (DoD ledger + reviews + evidence) | `docs/superpowers/verification/{date}-{topic}/` (entry point: `dod.md`) |
 | Testing strategy (tiers, real-seam rule, fixtures) | [docs/TESTING-STRATEGY.md](docs/TESTING-STRATEGY.md) |
+| Engineering tech-debt / deferred cross-cutting follow-ups (`TD-NNN`) | [docs/engineering/tech-debt.md](docs/engineering/tech-debt.md) |
 
 ## Conventions
 

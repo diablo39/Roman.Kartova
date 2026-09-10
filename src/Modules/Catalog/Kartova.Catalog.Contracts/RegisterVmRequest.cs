@@ -7,4 +7,5 @@ public sealed record RegisterVmRequest(
     string DisplayName,
     string Description,
     Guid TeamId,
+    string? Provider,
     VmAttributesDto Attributes);

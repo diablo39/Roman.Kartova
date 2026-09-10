@@ -8,6 +8,7 @@ public sealed record VmListItemResponse(
     Guid TenantId,
     string DisplayName,
     string Description,
+    string? Provider,
     Guid TeamId,
     Guid? SystemId,
     Guid CreatedByUserId,

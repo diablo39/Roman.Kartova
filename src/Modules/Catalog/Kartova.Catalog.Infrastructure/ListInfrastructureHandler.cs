@@ -53,7 +53,7 @@ public sealed class ListInfrastructureHandler
 
     private static InfrastructureListItemResponse ToListItem(InfrastructureResource x) =>
         new(x.Id.Value, x.TenantId.Value, x.DisplayName, x.Description,
-            KindWire(x.Type), x.TeamId, x.SystemId, x.CreatedByUserId, x.CreatedAt);
+            KindWire(x.Type), x.Provider, x.TeamId, x.SystemId, x.CreatedByUserId, x.CreatedAt);
 
     /// <summary>camelCase enum-name wire; extend as new Infrastructure types land.</summary>
     internal static string KindWire(InfrastructureType t) => t switch

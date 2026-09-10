@@ -13,9 +13,9 @@ public class InfrastructureResourceTests
     private static readonly FakeTimeProvider Clock = new(DateTimeOffset.Parse("2026-07-03T10:00:00Z"));
 
     private static InfrastructureResource Create(
-        string name = "web-01", string desc = "prod web VM", InfrastructureType type = InfrastructureType.VirtualMachine,
+        string name = "web-01", string desc = "prod web VM", string? provider = null, InfrastructureType type = InfrastructureType.VirtualMachine,
         string attributesJson = "{}", Guid? creator = null, Guid? team = null)
-        => InfrastructureResource.Create(name, desc, type, attributesJson, creator ?? Creator, team ?? Team, Tenant, Clock);
+        => InfrastructureResource.Create(name, desc, provider, type, attributesJson, creator ?? Creator, team ?? Team, Tenant, Clock);
 
     [TestMethod]
     public void Create_with_valid_args_sets_all_fields()
@@ -68,7 +68,7 @@ public class InfrastructureResourceTests
     [TestMethod]
     public void Create_rejects_unknown_type() =>
         Assert.ThrowsExactly<ArgumentException>(() => InfrastructureResource.Create(
-            "n", "d", (InfrastructureType)999, "{}", Guid.NewGuid(), Guid.NewGuid(),
+            "n", "d", null, (InfrastructureType)999, "{}", Guid.NewGuid(), Guid.NewGuid(),
             new TenantId(Guid.NewGuid()), TimeProvider.System));
 
     [TestMethod]
@@ -90,14 +90,14 @@ public class InfrastructureResourceTests
     {
         TimeProvider? nullClock = null;
         Assert.ThrowsExactly<ArgumentNullException>(
-            () => InfrastructureResource.Create("a", "d", InfrastructureType.VirtualMachine, "{}", Creator, Team, Tenant, nullClock!));
+            () => InfrastructureResource.Create("a", "d", null, InfrastructureType.VirtualMachine, "{}", Creator, Team, Tenant, nullClock!));
     }
 
     [TestMethod]
     public void Create_with_explicit_createdAt_sets_CreatedAt()
     {
         var createdAt = DateTimeOffset.Parse("2026-01-01T00:00:00Z");
-        var r = InfrastructureResource.Create("a", "d", InfrastructureType.VirtualMachine, "{}",
+        var r = InfrastructureResource.Create("a", "d", null, InfrastructureType.VirtualMachine, "{}",
             Creator, Team, Tenant, createdAt);
         Assert.AreEqual(createdAt, r.CreatedAt);
     }
@@ -115,4 +115,108 @@ public class InfrastructureResourceTests
         ITenantOwned r = Create();
         Assert.AreEqual(Tenant, r.TenantId);
     }
+
+    [TestMethod]
+    public void Create_StoresProvider()
+    {
+        var vm = InfrastructureResource.Create(
+            "vm-01", "seeded", "AWS", InfrastructureType.VirtualMachine, "{}",
+            Guid.NewGuid(), Guid.NewGuid(), Tenant, DateTimeOffset.UnixEpoch);
+
+        Assert.AreEqual("AWS", vm.Provider);
+    }
+
+    [TestMethod]
+    public void Create_AllowsNullProvider()
+    {
+        var vm = InfrastructureResource.Create(
+            "vm-02", "seeded", null, InfrastructureType.VirtualMachine, "{}",
+            Guid.NewGuid(), Guid.NewGuid(), Tenant, DateTimeOffset.UnixEpoch);
+
+        Assert.IsNull(vm.Provider);
+    }
+
+    [TestMethod]
+    public void Edit_UpdatesMetadataAndAttributes()
+    {
+        var vm = InfrastructureResource.Create(
+            "vm-01", "seeded", "AWS", InfrastructureType.VirtualMachine, "{\"a\":1}",
+            Guid.NewGuid(), Guid.NewGuid(), Tenant, DateTimeOffset.UnixEpoch);
+
+        vm.Edit("vm-01-renamed", "edited", "Azure", "{\"a\":2}");
+
+        Assert.AreEqual("vm-01-renamed", vm.DisplayName);
+        Assert.AreEqual("edited", vm.Description);
+        Assert.AreEqual("Azure", vm.Provider);
+        Assert.AreEqual("{\"a\":2}", vm.Attributes);
+    }
+
+    [TestMethod]
+    public void Edit_RejectsEmptyDisplayName()
+        => Assert.ThrowsExactly<ArgumentException>(() =>
+            InfrastructureResource.Create("vm", "d", null, InfrastructureType.VirtualMachine, "{}",
+                Guid.NewGuid(), Guid.NewGuid(), Tenant, DateTimeOffset.UnixEpoch)
+            .Edit("", "d", null, "{}"));
+
+    // ---- gate-7 T1: provider length validation ---------------------------------------
+
+    [TestMethod]
+    public void Create_RejectsProviderTooLong() =>
+        Assert.ThrowsExactly<ArgumentException>(() => Create(provider: new string('p', 257)));
+
+    [TestMethod]
+    public void Edit_RejectsProviderTooLong()
+        => Assert.ThrowsExactly<ArgumentException>(() =>
+            InfrastructureResource.Create("vm", "d", null, InfrastructureType.VirtualMachine, "{}",
+                Guid.NewGuid(), Guid.NewGuid(), Tenant, DateTimeOffset.UnixEpoch)
+            .Edit("vm", "d", new string('p', 257), "{}"));
+
+    // ---- gate-7 L1: canonicalize "no provider" to null ---------------------------------
+
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("   ")]
+    public void Create_EmptyOrWhitespaceProvider_YieldsNullProvider(string provider) =>
+        Assert.IsNull(Create(provider: provider).Provider);
+
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("   ")]
+    public void Edit_EmptyOrWhitespaceProvider_YieldsNullProvider(string provider)
+    {
+        var vm = InfrastructureResource.Create(
+            "vm-01", "seeded", "AWS", InfrastructureType.VirtualMachine, "{}",
+            Guid.NewGuid(), Guid.NewGuid(), Tenant, DateTimeOffset.UnixEpoch);
+
+        vm.Edit("vm-01", "seeded", provider, "{}");
+
+        Assert.IsNull(vm.Provider);
+    }
+
+    // ---- gate-7 T3: negative Edit branches not yet covered -----------------------------
+
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("   ")]
+    public void Edit_RejectsEmptyDescription(string desc)
+        => Assert.ThrowsExactly<ArgumentException>(() =>
+            InfrastructureResource.Create("vm", "d", null, InfrastructureType.VirtualMachine, "{}",
+                Guid.NewGuid(), Guid.NewGuid(), Tenant, DateTimeOffset.UnixEpoch)
+            .Edit("vm", desc, null, "{}"));
+
+    [TestMethod]
+    public void Edit_RejectsDescriptionOverMax()
+        => Assert.ThrowsExactly<ArgumentException>(() =>
+            InfrastructureResource.Create("vm", "d", null, InfrastructureType.VirtualMachine, "{}",
+                Guid.NewGuid(), Guid.NewGuid(), Tenant, DateTimeOffset.UnixEpoch)
+            .Edit("vm", new string('x', 4097), null, "{}"));
+
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("   ")]
+    public void Edit_RejectsBlankAttributes(string attrs)
+        => Assert.ThrowsExactly<ArgumentException>(() =>
+            InfrastructureResource.Create("vm", "d", null, InfrastructureType.VirtualMachine, "{}",
+                Guid.NewGuid(), Guid.NewGuid(), Tenant, DateTimeOffset.UnixEpoch)
+            .Edit("vm", "d", null, attrs));
 }

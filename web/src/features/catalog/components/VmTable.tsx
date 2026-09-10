@@ -7,7 +7,26 @@ import type { CursorListResult, SortDirection } from "@/lib/list/types";
 import type { VmListItemResponse } from "@/features/catalog/api/infrastructure";
 import { isPowerState } from "@/features/catalog/powerState";
 
-type SortField = "createdAt" | "displayName";
+// Wire names per VmSortField (Kartova.Catalog.Contracts) — camelCase, ADR-0095.
+// `provider`/`powerState`/`os`/`vcpu`/`memoryGb`/`hostname`/`region` sort the JSONB
+// attributes + top-level provider column (slice 2a Task 4/7); `createdAt`/
+// `displayName` predate them (slice 1).
+const SORT_FIELDS = [
+  "createdAt",
+  "displayName",
+  "provider",
+  "powerState",
+  "os",
+  "vcpu",
+  "memoryGb",
+  "hostname",
+  "region",
+] as const;
+type SortField = (typeof SORT_FIELDS)[number];
+
+function isSortField(value: string): value is SortField {
+  return (SORT_FIELDS as readonly string[]).includes(value);
+}
 
 interface Props {
   list: CursorListResult<VmListItemResponse>;
@@ -24,6 +43,7 @@ export function VmTable({ list, sortBy, sortOrder, onSortChange, teamNameById }:
       <Table aria-label="Virtual machines">
         <Table.Header>
           <Table.Head id="displayName" isRowHeader>Name</Table.Head>
+          <Table.Head id="provider">Provider</Table.Head>
           <Table.Head id="powerState">Power state</Table.Head>
           <Table.Head id="os">OS</Table.Head>
           <Table.Head id="vcpu">vCPU</Table.Head>
@@ -34,7 +54,7 @@ export function VmTable({ list, sortBy, sortOrder, onSortChange, teamNameById }:
           <Table.Head id="team">Team</Table.Head>
           <Table.Head id="createdAt">Created</Table.Head>
         </Table.Header>
-        <TableSkeleton rows={5} cells={10} />
+        <TableSkeleton rows={5} cells={11} />
       </Table>
     );
   }
@@ -54,7 +74,7 @@ export function VmTable({ list, sortBy, sortOrder, onSortChange, teamNameById }:
 
   const handleSortChange = (descriptor: Parameters<typeof toSort>[0]) => {
     const { field, order } = toSort(descriptor);
-    if (field === "createdAt" || field === "displayName") {
+    if (isSortField(field)) {
       onSortChange(field, order);
     }
   };
@@ -64,13 +84,14 @@ export function VmTable({ list, sortBy, sortOrder, onSortChange, teamNameById }:
       <Table aria-label="Virtual machines" sortDescriptor={fromSort(sortBy, sortOrder)} onSortChange={handleSortChange}>
         <Table.Header>
           <SortableHead id="displayName" isRowHeader>Name</SortableHead>
-          <Table.Head id="powerState">Power state</Table.Head>
-          <Table.Head id="os">OS</Table.Head>
-          <Table.Head id="vcpu">vCPU</Table.Head>
-          <Table.Head id="memoryGb">Memory</Table.Head>
-          <Table.Head id="hostname">Hostname</Table.Head>
+          <SortableHead id="provider">Provider</SortableHead>
+          <SortableHead id="powerState">Power state</SortableHead>
+          <SortableHead id="os">OS</SortableHead>
+          <SortableHead id="vcpu">vCPU</SortableHead>
+          <SortableHead id="memoryGb">Memory</SortableHead>
+          <SortableHead id="hostname">Hostname</SortableHead>
           <Table.Head id="ipAddresses">IP addresses</Table.Head>
-          <Table.Head id="region">Region</Table.Head>
+          <SortableHead id="region">Region</SortableHead>
           <Table.Head id="team">Team</Table.Head>
           <SortableHead id="createdAt">Created</SortableHead>
         </Table.Header>
@@ -87,6 +108,7 @@ export function VmTable({ list, sortBy, sortOrder, onSortChange, teamNameById }:
                     {vm.displayName}
                   </Link>
                 </Table.Cell>
+                <Table.Cell className="text-sm">{vm.provider ?? "—"}</Table.Cell>
                 <Table.Cell>
                   {isPowerState(vm.attributes.powerState) ? (
                     <PowerStateBadge powerState={vm.attributes.powerState} />

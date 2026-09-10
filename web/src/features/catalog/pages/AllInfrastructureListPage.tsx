@@ -12,7 +12,8 @@ import { AllInfrastructureTable } from "@/features/catalog/components/AllInfrast
 import { infraTypeLabel, type InfraType } from "@/features/catalog/infraType";
 import { asProblemDetails } from "@/shared/forms/problemDetails";
 
-const ALLOWED_SORT_FIELDS = ["createdAt", "displayName"] as const;
+// Wire names per InfrastructureSortField (Kartova.Catalog.Contracts) — camelCase, ADR-0095.
+const ALLOWED_SORT_FIELDS = ["createdAt", "displayName", "provider"] as const;
 const MULTI_FILTERS = ["type"] as const;
 
 // Currently just VirtualMachine — `InfraType` is a total union so a second member added there

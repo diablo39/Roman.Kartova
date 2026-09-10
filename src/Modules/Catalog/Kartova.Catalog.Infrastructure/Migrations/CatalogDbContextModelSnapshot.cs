@@ -298,6 +298,11 @@ namespace Kartova.Catalog.Infrastructure.Migrations
                         .HasColumnType("character varying(128)")
                         .HasColumnName("display_name");
 
+                    b.Property<string>("Provider")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("provider");
+
                     b.Property<Guid?>("SystemId")
                         .HasColumnType("uuid")
                         .HasColumnName("system_id");

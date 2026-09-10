@@ -44,6 +44,7 @@ export const vmAttributesSchema = z.object({
   ipAddresses: z
     .array(z.string().min(1, "IP address must not be empty"))
     .min(1, "At least one IP address is required")
+    .max(32, "At most 32 IP addresses may be supplied")
     .refine((ips) => ips.every(isValidIpAddress), "Each IP address must be a valid IPv4 or IPv6 address"),
 });
 
@@ -51,9 +52,17 @@ export const registerVmSchema = z.object({
   displayName: z.string().min(1, "Display Name must not be empty").max(128, "Display Name must be at most 128 characters"),
   description: z.string().min(1, "Description is required").max(4096, "Description must be at most 4096 characters"),
   teamId: z.string().uuid("Team is required"),
+  provider: z.string().max(256, "Provider must be at most 256 characters").optional(),
   attributes: vmAttributesSchema,
 });
 
 export type RegisterVmInput = z.infer<typeof registerVmSchema>;
+
+// Edit does not move team — T5 keeps team immutable (only PUT .../vms/{id}/team, not
+// modeled yet, could reassign it). Mirrors editApplicationSchema's narrower shape
+// relative to registration.
+export const editVmSchema = registerVmSchema.omit({ teamId: true });
+export type EditVmInput = z.infer<typeof editVmSchema>;
+
 export type VmAttributesInput = z.infer<typeof vmAttributesSchema>;
 export type { PowerState };

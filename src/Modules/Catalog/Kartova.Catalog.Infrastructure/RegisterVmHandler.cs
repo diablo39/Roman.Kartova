@@ -28,7 +28,7 @@ public sealed class RegisterVmHandler
         CancellationToken ct)
     {
         var vm = InfrastructureResource.Create(
-            cmd.DisplayName, cmd.Description, InfrastructureType.VirtualMachine, cmd.Attributes.ToJson(),
+            cmd.DisplayName, cmd.Description, cmd.Provider, InfrastructureType.VirtualMachine, cmd.Attributes.ToJson(),
             user.UserId, cmd.TeamId, tenant.Id, _clock);
 
         db.Infrastructure.Add(vm);
@@ -47,7 +47,8 @@ public sealed class RegisterVmHandler
 
         var attrs = cmd.Attributes.ToDto();
         return new VmDetailResponse(
-            vm.Id.Value, vm.TenantId.Value, vm.DisplayName, vm.Description,
-            vm.TeamId, vm.SystemId, vm.CreatedByUserId, vm.CreatedAt, attrs);
+            vm.Id.Value, vm.TenantId.Value, vm.DisplayName, vm.Description, vm.Provider,
+            vm.TeamId, vm.SystemId, vm.CreatedByUserId, vm.CreatedAt,
+            VersionEncoding.Encode(vm.Xmin), attrs);
     }
 }

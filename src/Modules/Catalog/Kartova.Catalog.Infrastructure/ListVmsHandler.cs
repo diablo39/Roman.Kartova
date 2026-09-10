@@ -29,7 +29,7 @@ public sealed class ListVmsHandler
     public async Task<CursorPage<VmListItemResponse>> Handle(
         ListVmsQuery q, CatalogDbContext db, CancellationToken ct)
     {
-        var spec = InfrastructureSortSpecs.Resolve(q.SortBy);
+        var spec = VmSortSpecs.Resolve(q.SortBy);
         IQueryable<InfrastructureResource> source =
             db.Infrastructure.Where(x => x.Type == InfrastructureType.VirtualMachine);
 
@@ -50,12 +50,12 @@ public sealed class ListVmsHandler
 
         var page = await source.ToCursorPagedAsync(
             spec, q.SortOrder, q.Cursor, q.Limit,
-            InfrastructureSortSpecs.IdSelector, IdExtractor, ct, expectedFilters: filters);
+            VmSortSpecs.IdSelector, IdExtractor, ct, expectedFilters: filters);
 
         var items = page.Items.Select(x =>
         {
             var attrs = VmAttributes.FromJson(x.Attributes).ToDto();
-            return new VmListItemResponse(x.Id.Value, x.TenantId.Value, x.DisplayName, x.Description,
+            return new VmListItemResponse(x.Id.Value, x.TenantId.Value, x.DisplayName, x.Description, x.Provider,
                 x.TeamId, x.SystemId, x.CreatedByUserId, x.CreatedAt, attrs);
         }).ToList();
         return new CursorPage<VmListItemResponse>(items, page.NextCursor, page.PrevCursor);

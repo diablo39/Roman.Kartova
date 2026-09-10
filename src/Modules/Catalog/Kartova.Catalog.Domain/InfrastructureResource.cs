@@ -17,6 +17,7 @@ public sealed class InfrastructureResource : ITenantOwned, ITeamScopedResource
     public TenantId TenantId { get; private set; }
     public string DisplayName { get; private set; } = string.Empty;
     public string Description { get; private set; } = string.Empty;
+    public string? Provider { get; private set; }
     public InfrastructureType Type { get; private set; }
     public Guid? SystemId { get; private set; }
     public string Attributes { get; private set; } = string.Empty;
@@ -30,13 +31,14 @@ public sealed class InfrastructureResource : ITenantOwned, ITeamScopedResource
     private InfrastructureResource() { }   // EF
 
     private InfrastructureResource(
-        InfrastructureId id, TenantId tenantId, string displayName, string description, InfrastructureType type,
+        InfrastructureId id, TenantId tenantId, string displayName, string description, string? provider, InfrastructureType type,
         string attributesJson, Guid createdByUserId, Guid teamId, DateTimeOffset createdAt)
     {
         _id = id.Value;
         TenantId = tenantId;
         DisplayName = displayName;
         Description = description;
+        Provider = provider;
         Type = type;
         SystemId = null;
         Attributes = attributesJson;
@@ -46,20 +48,22 @@ public sealed class InfrastructureResource : ITenantOwned, ITeamScopedResource
     }
 
     public static InfrastructureResource Create(
-        string displayName, string description, InfrastructureType type, string attributesJson,
+        string displayName, string description, string? provider, InfrastructureType type, string attributesJson,
         Guid createdByUserId, Guid teamId, TenantId tenantId, TimeProvider clock)
     {
         ArgumentNullException.ThrowIfNull(clock);
-        return Create(displayName, description, type, attributesJson, createdByUserId, teamId, tenantId, clock.GetUtcNow());
+        return Create(displayName, description, provider, type, attributesJson, createdByUserId, teamId, tenantId, clock.GetUtcNow());
     }
 
     /// <summary>Overload taking an explicit <paramref name="createdAt"/> — for seed/test fixtures.</summary>
     public static InfrastructureResource Create(
-        string displayName, string description, InfrastructureType type, string attributesJson,
+        string displayName, string description, string? provider, InfrastructureType type, string attributesJson,
         Guid createdByUserId, Guid teamId, TenantId tenantId, DateTimeOffset createdAt)
     {
         ValidateDisplayName(displayName);
         ValidateDescription(description);
+        provider = NormalizeProvider(provider);
+        ValidateProvider(provider);
         if (!Enum.IsDefined(type))
             throw new ArgumentException("Unknown infrastructure type.", nameof(type));
         ValidateAttributes(attributesJson);
@@ -68,7 +72,26 @@ public sealed class InfrastructureResource : ITenantOwned, ITeamScopedResource
         if (teamId == Guid.Empty)
             throw new ArgumentException("teamId is required.", nameof(teamId));
 
-        return new InfrastructureResource(InfrastructureId.New(), tenantId, displayName, description, type, attributesJson, createdByUserId, teamId, createdAt);
+        return new InfrastructureResource(InfrastructureId.New(), tenantId, displayName, description, provider, type, attributesJson, createdByUserId, teamId, createdAt);
+    }
+
+    /// <summary>
+    /// Full-update edit (ADR-0111 amendment, slice 2a Task 5). Team is IMMUTABLE on edit —
+    /// no team-move path here (mirrors <c>Application.EditMetadata</c>, which also edits
+    /// metadata only). Revalidates every shared invariant plus the (already-serialized)
+    /// attributes payload before mutating state, so a partially-invalid edit never lands.
+    /// </summary>
+    public void Edit(string displayName, string description, string? provider, string attributesJson)
+    {
+        ValidateDisplayName(displayName);
+        ValidateDescription(description);
+        provider = NormalizeProvider(provider);
+        ValidateProvider(provider);
+        ValidateAttributes(attributesJson);
+        DisplayName = displayName;
+        Description = description;
+        Provider = provider;
+        Attributes = attributesJson;
     }
 
     private static void ValidateDisplayName(string displayName)
@@ -85,6 +108,18 @@ public sealed class InfrastructureResource : ITenantOwned, ITeamScopedResource
             throw new ArgumentException("Infrastructure description must not be empty.", nameof(description));
         if (description.Length > 4096)
             throw new ArgumentException("Infrastructure description must be <= 4096 characters.", nameof(description));
+    }
+
+    // Canonicalizes "no provider" to a single representation — an empty/whitespace-only
+    // provider is stored as null rather than "" (gate-7 L1), so callers/queries never
+    // have to treat both as equivalent-but-distinct values.
+    private static string? NormalizeProvider(string? provider) =>
+        string.IsNullOrWhiteSpace(provider) ? null : provider;
+
+    private static void ValidateProvider(string? provider)
+    {
+        if (provider is not null && provider.Length > 256)
+            throw new ArgumentException("Infrastructure provider must be <= 256 characters.", nameof(provider));
     }
 
     private static void ValidateAttributes(string attributesJson)

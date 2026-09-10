@@ -324,6 +324,28 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .ProducesProblem(StatusCodes.Status400BadRequest)
               .ProducesProblem(StatusCodes.Status403Forbidden)
               .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+        tenant.MapPut("/infrastructure/vms/{id:guid}", CatalogEndpointDelegates.EditVmAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogInfrastructureRegister)
+              .AddEndpointFilter<IfMatchEndpointFilter>()
+              .WithName("EditVm")
+              .Produces<VmDetailResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
+              .ProducesProblem(StatusCodes.Status404NotFound)
+              .ProducesProblem(StatusCodes.Status412PreconditionFailed)
+              .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+        // Hard delete — OrgAdmin-only (CatalogInfrastructureDelete is mapped to OrgAdmin
+        // alone in KartovaRolePermissions). No lifecycle/soft-delete for Infrastructure in
+        // slice 2a (Task 6): a plain row removal, gated by If-Match like the PUT above.
+        tenant.MapDelete("/infrastructure/vms/{id:guid}", CatalogEndpointDelegates.DeleteVmAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogInfrastructureDelete)
+              .AddEndpointFilter<IfMatchEndpointFilter>()
+              .WithName("DeleteVm")
+              .Produces(StatusCodes.Status204NoContent)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
+              .ProducesProblem(StatusCodes.Status404NotFound)
+              .ProducesProblem(StatusCodes.Status412PreconditionFailed)
+              .ProducesProblem(StatusCodes.Status428PreconditionRequired);
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
@@ -380,6 +402,8 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<ListVmsHandler>();
         services.AddScoped<GetVmByIdHandler>();
         services.AddScoped<RegisterVmHandler>();
+        services.AddScoped<EditVmHandler>();
+        services.AddScoped<DeleteVmHandler>();
 
         // TimeProvider is needed by Application.Deprecate / Decommission for the
         // "sunsetDate must be in the future" / "now >= sunsetDate" checks. TryAdd

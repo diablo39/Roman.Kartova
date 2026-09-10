@@ -11,4 +11,5 @@ public sealed record RegisterVmCommand(
     string DisplayName,
     string Description,
     Guid TeamId,
+    string? Provider,
     VmAttributes Attributes);

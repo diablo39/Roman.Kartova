@@ -7,7 +7,16 @@ import type { CursorListResult, SortDirection } from "@/lib/list/types";
 import type { InfrastructureListItemResponse } from "@/features/catalog/api/infrastructure";
 import { isInfraType } from "@/features/catalog/infraType";
 
-type SortField = "createdAt" | "displayName";
+// Wire names per VmSortField (Kartova.Catalog.Contracts) — camelCase, ADR-0095.
+// `InfrastructureListItemResponse` is the shared-columns-only projection (ADR-0111
+// amendment) — `provider` is its only non-shared sortable addition (slice 2a Task 7);
+// the JSONB VM attributes aren't columns here.
+const SORT_FIELDS = ["createdAt", "displayName", "provider"] as const;
+type SortField = (typeof SORT_FIELDS)[number];
+
+function isSortField(value: string): value is SortField {
+  return (SORT_FIELDS as readonly string[]).includes(value);
+}
 
 interface Props {
   list: CursorListResult<InfrastructureListItemResponse>;
@@ -33,11 +42,12 @@ export function AllInfrastructureTable({ list, sortBy, sortOrder, onSortChange, 
         <Table.Header>
           <Table.Head id="displayName" isRowHeader>Name</Table.Head>
           <Table.Head id="type">Type</Table.Head>
+          <Table.Head id="provider">Provider</Table.Head>
           <Table.Head id="team">Team</Table.Head>
           <Table.Head id="system">System</Table.Head>
           <Table.Head id="createdAt">Created</Table.Head>
         </Table.Header>
-        <TableSkeleton rows={5} cells={5} />
+        <TableSkeleton rows={5} cells={6} />
       </Table>
     );
   }
@@ -55,7 +65,7 @@ export function AllInfrastructureTable({ list, sortBy, sortOrder, onSortChange, 
 
   const handleSortChange = (descriptor: Parameters<typeof toSort>[0]) => {
     const { field, order } = toSort(descriptor);
-    if (field === "createdAt" || field === "displayName") {
+    if (isSortField(field)) {
       onSortChange(field, order);
     }
   };
@@ -66,6 +76,7 @@ export function AllInfrastructureTable({ list, sortBy, sortOrder, onSortChange, 
         <Table.Header>
           <SortableHead id="displayName" isRowHeader>Name</SortableHead>
           <Table.Head id="type">Type</Table.Head>
+          <SortableHead id="provider">Provider</SortableHead>
           <Table.Head id="team">Team</Table.Head>
           <Table.Head id="system">System</Table.Head>
           <SortableHead id="createdAt">Created</SortableHead>
@@ -85,6 +96,7 @@ export function AllInfrastructureTable({ list, sortBy, sortOrder, onSortChange, 
                   <span className="text-sm text-tertiary">{item.type}</span>
                 )}
               </Table.Cell>
+              <Table.Cell className="text-sm">{item.provider ?? "—"}</Table.Cell>
               <Table.Cell className="text-sm">
                 {teamNameById.get(item.teamId) ?? "Unknown team"}
               </Table.Cell>

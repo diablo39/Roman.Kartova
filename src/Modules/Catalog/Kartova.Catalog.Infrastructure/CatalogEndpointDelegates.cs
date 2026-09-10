@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
 // ApplicationId is aliased rather than imported via `using Kartova.Catalog.Domain`
@@ -25,6 +26,7 @@ using ApiStyle = Kartova.Catalog.Domain.ApiStyle;
 using EntityRef = Kartova.Catalog.Domain.EntityRef;
 using EntityKind = Kartova.Catalog.Domain.EntityKind;
 using InfrastructureType = Kartova.Catalog.Domain.InfrastructureType;
+using InfrastructureId = Kartova.Catalog.Domain.InfrastructureId;
 using ComponentAlreadyInSystemException = Kartova.Catalog.Domain.ComponentAlreadyInSystemException;
 using RelationshipType = Kartova.Catalog.Domain.RelationshipType;
 using RelationshipDirection = Kartova.Catalog.Application.RelationshipDirection;
@@ -754,14 +756,14 @@ internal static class CatalogEndpointDelegates
         CatalogDbContext db,
         CancellationToken ct)
     {
-        var (parsedSortBy, parsedSortOrder, effectiveLimit) = CursorListBinding.Bind<InfrastructureSortField>(
-            sortBy, sortOrder, limit, InfrastructureSortSpecs.AllowedFieldNames);
+        var (parsedSortBy, parsedSortOrder, effectiveLimit) = CursorListBinding.Bind<VmSortField>(
+            sortBy, sortOrder, limit, VmSortSpecs.AllowedFieldNames);
 
         if (TryDedupAndCap(teamId, "teamId", out var distinctTeamIds) is { } tooManyTeamIds)
             return tooManyTeamIds;
 
         var query = new ListVmsQuery(
-            SortBy: parsedSortBy ?? InfrastructureSortField.DisplayName,
+            SortBy: parsedSortBy ?? VmSortField.DisplayName,
             SortOrder: parsedSortOrder ?? SortOrder.Asc,
             Cursor: cursor,
             Limit: effectiveLimit,
@@ -783,7 +785,7 @@ internal static class CatalogEndpointDelegates
         CancellationToken ct)
     {
         var resp = await handler.Handle(new GetVmByIdQuery(id), db, ct);
-        return resp is null ? EndpointResultExtensions.VmNotFound() : Results.Ok(resp);
+        return resp is null ? EndpointResultExtensions.VmNotFound() : Results.Ok(resp).WithEtag(resp.Version);
     }
 
     /// <summary>
@@ -825,10 +827,80 @@ internal static class CatalogEndpointDelegates
         var attrs = VmAttributes.Validate(request.Attributes);
 
         var response = await handler.Handle(
-            new RegisterVmCommand(request.DisplayName, request.Description, request.TeamId, attrs),
+            new RegisterVmCommand(request.DisplayName, request.Description, request.TeamId, request.Provider, attrs),
             db, tenant, currentUser, audit, ct);
 
-        return Results.Created($"/api/v1/catalog/infrastructure/vms/{response.Id}", response);
+        return Results.Created($"/api/v1/catalog/infrastructure/vms/{response.Id}", response).WithEtag(response.Version);
+    }
+
+    /// <summary>
+    /// Full-update edit of a VM-kind Infrastructure resource (ADR-0111 amendment, slice 2a
+    /// Task 5). Team is IMMUTABLE on edit — there is no team-move field on
+    /// <see cref="EditVmRequest"/>, so the team gate here authorizes against the VM's
+    /// EXISTING (loaded) team id via the same <see cref="AuthorizeTargetTeamAsync"/> the
+    /// register path uses for its target team (OrgAdmin-OR-member of that team). Attribute
+    /// validation (<see cref="VmAttributes.Validate"/>) mirrors <see cref="RegisterVmAsync"/> —
+    /// a thrown <see cref="ArgumentException"/> is NOT caught locally; it propagates to
+    /// <c>DomainValidationExceptionHandler</c> for the global 400 mapping. <c>If-Match</c> is
+    /// enforced by <see cref="IfMatchEndpointFilter"/> upstream (428 missing / 412 stale via
+    /// <c>ConcurrencyConflictExceptionHandler</c> — never 409).
+    /// </summary>
+    internal static async Task<IResult> EditVmAsync(
+        Guid id,
+        [FromBody] EditVmRequest request,
+        EditVmHandler handler,
+        CatalogDbContext db,
+        IAuthorizationService auth,
+        ClaimsPrincipal caller,
+        HttpContext http,
+        IAuditWriter audit,
+        ILogger<EditVmHandler> logger,
+        CancellationToken ct)
+    {
+        var vm = await db.Infrastructure
+            .SingleOrDefaultAsync(VmSortSpecs.IdEquals(id), ct);
+        if (vm is null) return EndpointResultExtensions.VmNotFound();
+
+        if (await AuthorizeTargetTeamAsync(auth, caller, vm.TeamId) is { } forbidden)
+            return forbidden;
+
+        var attrs = VmAttributes.Validate(request.Attributes);
+
+        var expected = (uint)http.Items[IfMatchEndpointFilter.ExpectedVersionKey]!;
+
+        var resp = await handler.Handle(
+            new EditVmCommand(new InfrastructureId(id), request.DisplayName, request.Description, request.Provider, attrs, expected),
+            db, audit, logger, ct);
+
+        return resp is null ? EndpointResultExtensions.VmNotFound() : Results.Ok(resp).WithEtag(resp.Version);
+    }
+
+    /// <summary>
+    /// Hard delete of a VM-kind Infrastructure resource (ADR-0111 amendment, slice 2a Task 6).
+    /// OrgAdmin-only — <c>KartovaPermissions.CatalogInfrastructureDelete</c> is mapped to
+    /// <c>OrgAdmin</c> alone (<c>KartovaRolePermissions</c>), enforced entirely by the route's
+    /// <c>.RequireAuthorization</c> in <see cref="CatalogModule"/>; there is no team-scoped
+    /// resource gate here (unlike <see cref="EditVmAsync"/>) because the claim itself is already
+    /// the narrowest gate. <c>If-Match</c> is enforced by <see cref="IfMatchEndpointFilter"/>
+    /// upstream (428 missing / 412 stale via <c>ConcurrencyConflictExceptionHandler</c> — never
+    /// 409). No lifecycle/soft-delete for Infrastructure in slice 2a — this is a plain row
+    /// removal.
+    /// </summary>
+    internal static async Task<IResult> DeleteVmAsync(
+        Guid id,
+        DeleteVmHandler handler,
+        CatalogDbContext db,
+        HttpContext http,
+        IAuditWriter audit,
+        ILogger<DeleteVmHandler> logger,
+        CancellationToken ct)
+    {
+        var expected = (uint)http.Items[IfMatchEndpointFilter.ExpectedVersionKey]!;
+
+        var deleted = await handler.Handle(
+            new DeleteVmCommand(new InfrastructureId(id), expected), db, audit, logger, ct);
+
+        return deleted ? Results.NoContent() : EndpointResultExtensions.VmNotFound();
     }
 
     internal static async Task<IResult> RegisterApiAsync(

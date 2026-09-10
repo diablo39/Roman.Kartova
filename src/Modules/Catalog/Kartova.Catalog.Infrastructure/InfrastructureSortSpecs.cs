@@ -28,14 +28,24 @@ internal static class InfrastructureSortSpecs
     /// scalar column.</summary>
     public static readonly SortSpec<InfrastructureResource> Type = new("type", x => x.Type);
 
+    /// <summary>Typed nullable varchar column (slice 2a, ADR-0115). COALESCE-d to "" (gate-8
+    /// review finding, fix round 1) so the nullable column's sort key is never NULL — a NULL
+    /// boundary value makes the shared keyset predicate evaluate to SQL UNKNOWN and silently
+    /// truncates pagination. This is the canonical definition — <see cref="VmSortSpecs.Provider"/>
+    /// re-exports this exact instance rather than duplicating it, so both tiers necessarily
+    /// agree: a row sorts the same way whether read through the generic Infrastructure list or
+    /// the VM-specific list.</summary>
+    public static readonly SortSpec<InfrastructureResource> Provider = new("provider", x => x.Provider ?? "");
+
     public static readonly IReadOnlyList<string> AllowedFieldNames =
-        [CreatedAt.FieldName, DisplayName.FieldName, Type.FieldName];
+        [CreatedAt.FieldName, DisplayName.FieldName, Type.FieldName, Provider.FieldName];
 
     public static SortSpec<InfrastructureResource> Resolve(InfrastructureSortField field) => field switch
     {
         InfrastructureSortField.CreatedAt => CreatedAt,
         InfrastructureSortField.DisplayName => DisplayName,
         InfrastructureSortField.Type => Type,
+        InfrastructureSortField.Provider => Provider,
         _ => throw new InvalidSortFieldException(field.ToString(), AllowedFieldNames),
     };
 }
