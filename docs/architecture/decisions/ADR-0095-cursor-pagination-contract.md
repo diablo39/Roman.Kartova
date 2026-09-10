@@ -104,3 +104,28 @@ absent one and was not reusable for non-string nullable keys.
 `VmAttributes.Validate` write-path invariant (every attribute key present + non-null);
 whether they adopt the generic guard or slice-4 enforces attribute presence on ingest is
 decided in slice-4 (see `docs/engineering/tech-debt.md` TD-001).
+
+## Amendment (2026-09-10): sort-field discriminator (`sf`) — bind `sortBy` into the cursor (TD-004)
+
+Clause 3's wire shape is extended from `{ s?, i, d, f?, n? }` to `{ s?, i, d, f?, n?, sf? }` to
+bind the sort **field** the cursor was issued under — closing the same skip/repeat gap the
+2026-06-01 `f`-map amendment closed for filters, but for the sort key.
+
+**Problem.** The cursor bound the sort **order** (`d`) and the filter state (`f`) but not the
+sort **field** (`sortBy`). A client that changed `sortBy` mid-pagination while keeping
+`sortOrder` and reusing the cursor passed both guards; the new field's keyset predicate was
+then applied against the **previous** field's boundary value. When the two fields share a
+comparable CLR type (two strings, two timestamps) this does not error — it silently skips or
+repeats rows.
+
+- `sf` is an optional string: the `SortSpec<T>.FieldName` the cursor was issued under. Encoded
+  on every new cursor; omitted (and normalized from blank) when a caller records no field.
+- On decode the handler requires the request's `sortBy` (the resolved `SortSpec.FieldName`) to
+  equal the cursor's `sf`; any difference is a 400 `cursor-sort-field-mismatch`
+  (`CursorSortFieldMismatchException`), mirroring `cursor-filter-mismatch`.
+- **Backward compatible:** an absent `sf` (a cursor issued before this field existed) decodes as
+  "no field recorded" → no check, per the codec's forward-compat convention. Cursors are opaque
+  and time-bound, so no legacy-`sf` decoding is needed.
+- **No per-handler change:** the check lives entirely in `QueryablePagingExtensions.ToCursorPagedAsync`,
+  which already receives the request's `SortSpec<T>` — the field name is read from `sort.FieldName`
+  on both encode and decode. Clause 7's slug list gains `cursor-sort-field-mismatch`.

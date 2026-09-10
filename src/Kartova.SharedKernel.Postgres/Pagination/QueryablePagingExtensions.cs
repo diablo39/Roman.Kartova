@@ -80,6 +80,16 @@ public static class QueryablePagingExtensions
                 throw new InvalidCursorException(
                     $"Cursor was issued for direction '{decoded.Direction}' but request uses '{order}'.");
             }
+            // Sort-field replay (ADR-0095, TD-004): the request's sort field must equal the
+            // field the cursor was issued under, or the new field's keyset predicate runs
+            // against the previous field's boundary value and silently skips/repeats rows.
+            // An old cursor without the `sf` discriminator decodes as null → no check
+            // (forward-compat; cursors are opaque + time-bound).
+            if (decoded.SortField is not null
+                && !string.Equals(decoded.SortField, sort.FieldName, StringComparison.Ordinal))
+            {
+                throw new CursorSortFieldMismatchException(decoded.SortField, sort.FieldName);
+            }
             // Filter-state replay (ADR-0095): the request's filter set must equal
             // the set the cursor was issued under, or paging would skip/repeat
             // rows. Domain-agnostic — CursorFilterComparer never interprets the
@@ -111,7 +121,8 @@ public static class QueryablePagingExtensions
                     sortValue is null ? null : NormalizeForCursor(sortValue),
                     id,
                     order,
-                    expectedFilters);
+                    expectedFilters,
+                    sort.FieldName);
         }
 
         return new CursorPage<T>(rows, nextCursor, PrevCursor: null);

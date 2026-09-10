@@ -23,6 +23,7 @@ public static class ProblemTypes
     public const string InvalidCursor          = Base + "invalid-cursor";
     public const string InvalidLimit           = Base + "invalid-limit";
     public const string CursorFilterMismatch   = Base + "cursor-filter-mismatch";
+    public const string CursorSortFieldMismatch = Base + "cursor-sort-field-mismatch"; // TD-004: sortBy changed mid-pagination.
 
     // Optimistic concurrency / preconditions — slice 5 (ADR-0096 + spec §7).
     public const string ConcurrencyConflict    = Base + "concurrency-conflict";

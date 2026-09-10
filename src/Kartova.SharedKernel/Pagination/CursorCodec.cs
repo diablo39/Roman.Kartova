@@ -6,12 +6,13 @@ namespace Kartova.SharedKernel.Pagination;
 
 /// <summary>
 /// Encodes and decodes opaque pagination cursors per ADR-0095.
-/// Wire format is base64url-encoded JSON <c>{ s, i, d, f? }</c>:
+/// Wire format is base64url-encoded JSON <c>{ s?, i, d, f?, n?, sf? }</c>:
 /// <list type="bullet">
 /// <item><description><c>s</c> — sort value of the boundary row (string|number|ISO-8601 string)</description></item>
 /// <item><description><c>i</c> — boundary row id (Guid, tiebreaker)</description></item>
 /// <item><description><c>d</c> — direction the cursor was produced under ("asc"|"desc"). The handler verifies this matches the request's <c>sortOrder</c> to detect reused cursors across a sort flip.</description></item>
 /// <item><description><c>f</c> — optional, opaque filter state the cursor was issued under: a string→string map the codec never interprets. The owning module (e.g. Catalog) supplies the keys/values; <see cref="CursorFilterComparer"/> detects a filter change mid-pagination, surfaced as <see cref="CursorFilterMismatchException"/>. Absent when no filters apply, decoding as an empty map.</description></item>
+/// <item><description><c>sf</c> — optional sort-field discriminator: the <see cref="SortSpec{TEntity}.FieldName"/> the cursor was issued under. The handler verifies it matches the request's <c>sortBy</c> to detect a sort-field change mid-pagination (applying the new field's keyset predicate against the old field's boundary value silently skips/repeats rows when both fields share a comparable CLR type), surfaced as <see cref="CursorSortFieldMismatchException"/> (TD-004). Absent on cursors issued before this field existed — treated as "no field recorded" (no check), per the codec's forward-compat convention.</description></item>
 /// </list>
 /// </summary>
 public static class CursorCodec
@@ -26,13 +27,15 @@ public static class CursorCodec
         object SortValue,
         Guid Id,
         SortOrder Direction,
-        IReadOnlyDictionary<string, string> Filters);
+        IReadOnlyDictionary<string, string> Filters,
+        string? SortField = null);
 
     public static string Encode(
         object? sortValue,
         Guid id,
         SortOrder direction,
-        IReadOnlyDictionary<string, string>? filters = null)
+        IReadOnlyDictionary<string, string>? filters = null,
+        string? sortField = null)
     {
         // `f` is omitted from the JSON when no filters apply (null/empty) to keep
         // cursors short and forward-compatible: a decoder that sees no `f` treats
@@ -46,13 +49,17 @@ public static class CursorCodec
         // FIRST/LAST block instead of the codec rejecting the null. Backward compatible:
         // non-nullable sorts never pass null here, so `n` is absent from their cursors and
         // an old cursor (no `n`) decodes exactly as before.
+        // `sf` (sort-field discriminator, TD-004) is omitted when null/blank, so a caller
+        // that records no field produces a cursor byte-identical to the pre-TD-004 shape and
+        // an old cursor (no `sf`) decodes as "no field recorded".
         var isNull = sortValue is null or CursorNullSortValue;
         var payload = new CursorPayload(
             isNull ? null : sortValue,
             id,
             direction == SortOrder.Asc ? "asc" : "desc",
             filters is { Count: > 0 } ? filters : null,
-            isNull ? true : null);
+            isNull ? true : null,
+            string.IsNullOrEmpty(sortField) ? null : sortField);
         var json = JsonSerializer.SerializeToUtf8Bytes(payload, Options);
         return ToBase64Url(json);
     }
@@ -115,7 +122,10 @@ public static class CursorCodec
         IReadOnlyDictionary<string, string> filters = payload.F is { Count: > 0 } f
             ? f.ToFrozenDictionary(StringComparer.Ordinal)
             : FrozenDictionary<string, string>.Empty;
-        return new DecodedCursor(sortValue, payload.I, direction, filters);
+        // `sf` is optional (absent on pre-TD-004 cursors); a blank is normalized to null so the
+        // handler's "no field recorded → skip check" branch is reached uniformly.
+        var sortField = string.IsNullOrEmpty(payload.Sf) ? null : payload.Sf;
+        return new DecodedCursor(sortValue, payload.I, direction, filters, sortField);
     }
 
     private static object UnwrapJsonElement(JsonElement el) => el.ValueKind switch
@@ -147,7 +157,8 @@ public static class CursorCodec
         [property: JsonPropertyName("i")] Guid I,
         [property: JsonPropertyName("d")] string? D,
         [property: JsonPropertyName("f")] IReadOnlyDictionary<string, string>? F,
-        [property: JsonPropertyName("n")] bool? N = null);
+        [property: JsonPropertyName("n")] bool? N = null,
+        [property: JsonPropertyName("sf")] string? Sf = null);
 }
 
 /// <summary>
