@@ -50,16 +50,18 @@ describe("applyProblemDetailsToForm", () => {
     expect(setError).not.toHaveBeenCalled();
   });
 
-  it("applies mapped keys and ignores unmapped ones in the same payload", () => {
+  it("mixed mapped+unmapped payload: sets the mapped field but returns false so the caller also toasts — TD-003", () => {
     const setError = vi.fn();
     const r = applyProblemDetailsToForm(
       { status: 400, errors: { name: ["bad"], unknownKey: ["mystery"] } },
       setError,
       KNOWN
     );
-    expect(r).toBe(true);
+    // The mapped field is still highlighted...
     expect(setError).toHaveBeenCalledTimes(1);
     expect(setError).toHaveBeenCalledWith("name", { type: "server", message: "bad" });
+    // ...but the unmapped key must NOT be silently swallowed — false routes the caller to its toast.
+    expect(r).toBe(false);
   });
 
   it("returns false and does not call setError when payload has no errors field", () => {

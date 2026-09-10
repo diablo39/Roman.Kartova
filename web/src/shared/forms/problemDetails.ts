@@ -28,10 +28,13 @@ type SetError = (
  * anything was applied to a REAL, registered form field.
  *
  * `knownFields` is the set of registered field paths (see {@link zodFieldPaths}). An error key
- * that is NOT in this set is deliberately skipped — `setError` on an unregistered field is a
- * silent no-op, so counting it as "handled" would let a 400 vanish with no toast and no field
- * highlight. Skipped keys leave `handled = false` (when no key mapped), so the caller falls
- * through to its generic `toast.error` fallback instead of swallowing the error (TD-003).
+ * that is NOT in this set is deliberately skipped by `setError` — that call is a silent no-op on
+ * an unregistered field — and, crucially, marks the result NOT fully handled so the caller still
+ * shows its generic `toast.error`. Returns `true` only when at least one field was set AND **every**
+ * error key mapped to a registered field. If any key is unmapped (including a payload that mixes a
+ * mapped key with an unmapped one), returns `false`: the caller then both keeps the field
+ * highlights that were set and shows a toast for the unmapped remainder, instead of silently
+ * dropping it (TD-003 — the mixed-key case is the one a naive OR-fold would swallow).
  *
  * Pass an empty set for a form with no fields (e.g. a confirm dialog): every error key is then
  * unmapped and the caller always shows a toast.
@@ -45,17 +48,21 @@ export function applyProblemDetailsToForm(
   const errors = payload.errors;
   if (!errors || typeof errors !== "object") return false;
 
-  let any = false;
+  let appliedAny = false;
+  let unmappedAny = false;
   for (const [field, messages] of Object.entries(errors)) {
+    // A key that maps to no registered field can't be shown on the form — flag it so the caller
+    // toasts instead of swallowing it, even when other keys DID map (the mixed-key case).
+    if (!knownFields.has(field)) {
+      unmappedAny = true;
+      continue;
+    }
     if (!Array.isArray(messages)) continue;
-    // An error key that maps to no registered field must not count as handled — otherwise the
-    // caller skips its toast and the 400 is silently swallowed (TD-003).
-    if (!knownFields.has(field)) continue;
     for (const message of messages) {
       if (typeof message !== "string") continue;
       setError(field, { type: "server", message });
-      any = true;
+      appliedAny = true;
     }
   }
-  return any;
+  return appliedAny && !unmappedAny;
 }

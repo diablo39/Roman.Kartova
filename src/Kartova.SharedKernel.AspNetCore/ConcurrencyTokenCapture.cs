@@ -11,9 +11,12 @@ namespace Kartova.SharedKernel.AspNetCore;
 /// <para>
 /// The token property is resolved generically from EF Core metadata
 /// (<c>IProperty.IsConcurrencyToken</c>) rather than a hard-coded name, so any aggregate whose
-/// mapping marks exactly one concurrency token works without a per-entity copy. This replaces the
-/// two former near-duplicates keyed by the literal strings <c>"Version"</c> (Application) and
-/// <c>"Xmin"</c> (Infrastructure) — TD-002.
+/// mapping marks exactly one <see cref="uint"/> concurrency token — the PostgreSQL <c>xmin</c>
+/// shape both current callers use — works without a per-entity copy. This replaces the two former
+/// near-duplicates keyed by the literal strings <c>"Version"</c> (Application) and <c>"Xmin"</c>
+/// (Infrastructure) — TD-002. A token of a different CLR type (<c>byte[]</c> rowversion,
+/// <c>Guid</c>, …) resolves the property fine but is skipped by the <c>is uint</c> read below,
+/// which logs a warning rather than silently producing no hint.
 /// </para>
 /// <para>
 /// Must run while the tenant connection is still alive — <c>TenantScopeBeginMiddleware</c> rolls
@@ -24,6 +27,13 @@ namespace Kartova.SharedKernel.AspNetCore;
 /// </summary>
 public static class ConcurrencyTokenCapture
 {
+    /// <summary>
+    /// The <see cref="System.Exception.Data"/> key this helper writes and
+    /// <see cref="ConcurrencyConflictExceptionHandler"/> reads — a single shared symbol so a rename
+    /// can't silently break the handshake across the two files (TD-002 review).
+    /// </summary>
+    internal const string CurrentVersionDataKey = "currentVersion";
+
     /// <summary>
     /// Best-effort capture of the conflicting row's current concurrency-token value onto
     /// <c>ex.Data["currentVersion"]</c>. Swallows and logs any failure — the 412 envelope is still
@@ -50,9 +60,18 @@ public static class ConcurrencyTokenCapture
             var dbValues = await entry.GetDatabaseValuesAsync(ct);
             if (dbValues is null) return;
 
-            if (dbValues[tokenProperty.Name] is uint currentVersion)
+            var raw = dbValues[tokenProperty.Name];
+            if (raw is uint currentVersion)
             {
-                ex.Data["currentVersion"] = currentVersion;
+                ex.Data[CurrentVersionDataKey] = currentVersion;
+            }
+            else
+            {
+                // Property resolved, value read, but it isn't the uint xmin shape the 412 hint
+                // encodes — don't fall through silently (that's the one gap the catch never sees).
+                logger.LogWarning(
+                    "Concurrency token '{Property}' was {Type}, not the expected uint; currentVersion hint skipped.",
+                    tokenProperty.Name, raw?.GetType().Name ?? "null");
             }
         }
         catch (Exception captureEx) when (captureEx is not OperationCanceledException)

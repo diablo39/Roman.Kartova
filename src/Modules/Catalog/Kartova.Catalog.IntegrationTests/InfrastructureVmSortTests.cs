@@ -393,8 +393,8 @@ public sealed class InfrastructureVmSortTests : CatalogIntegrationTestBase
     /// </para>
     /// <para>
     /// Seeds 3 null-provider rows + 2 non-null-provider rows with <c>limit=2</c>. Under NULLS LAST
-    /// (asc) the first page returns the two named providers, and a page boundary necessarily falls
-    /// inside the trailing 3-row null block — the exact condition that used to truncate. Asserts
+    /// (asc) the first page returns the two named providers, and a later page boundary necessarily
+    /// falls inside the trailing 3-row null block — the exact condition that used to truncate. Asserts
     /// every row is still returned across pages with no duplicates/truncation, that the non-null
     /// providers are ascending, and that the null block sorts last. The exact tiebreak order among
     /// the tied null rows is deliberately NOT asserted — .NET's default <see cref="Guid"/> ordering
@@ -406,7 +406,20 @@ public sealed class InfrastructureVmSortTests : CatalogIntegrationTestBase
     public Task ListVms_cursor_is_stable_across_null_provider_boundary() =>
         AssertNullProviderBoundaryStableAsync<VmListItemResponse>(
             "/api/v1/catalog/infrastructure/vms", "Vm Team NullProviderCursor", "vm-nullprovider",
-            i => i.Id, i => i.Provider);
+            "asc", i => i.Id, i => i.Provider);
+
+    /// <summary>
+    /// DESC counterpart of <see cref="ListVms_cursor_is_stable_across_null_provider_boundary"/>.
+    /// The desc null path (NULLS FIRST) is structurally different from asc — a distinct predicate
+    /// branch (<c>(keyIsNull AND idAfter) OR NOT keyIsNull</c>) and <c>OrderByDescending(nullFlag)</c>
+    /// — and the whole point of the explicit null-flag is that Postgres and the SQLite unit path
+    /// agree; this exercises the desc branch against real Postgres (TD-001 review gap).
+    /// </summary>
+    [TestMethod]
+    public Task ListVms_cursor_is_stable_across_null_provider_boundary_desc() =>
+        AssertNullProviderBoundaryStableAsync<VmListItemResponse>(
+            "/api/v1/catalog/infrastructure/vms", "Vm Team NullProviderCursorDesc", "vm-nullprovider-desc",
+            "desc", i => i.Id, i => i.Provider);
 
     /// <summary>
     /// FIX #6 (slice 2a final-review fix wave, Minor finding): the null-provider keyset-paging
@@ -422,7 +435,15 @@ public sealed class InfrastructureVmSortTests : CatalogIntegrationTestBase
     public Task ListInfrastructure_cursor_is_stable_across_null_provider_boundary() =>
         AssertNullProviderBoundaryStableAsync<InfrastructureListItemResponse>(
             "/api/v1/catalog/infrastructure", "Vm Team GenericNullProviderCursor", "vm-genericnullprovider",
-            i => i.Id, i => i.Provider);
+            "asc", i => i.Id, i => i.Provider);
+
+    /// <summary>DESC counterpart on the generic Infrastructure list (NULLS FIRST), mirroring
+    /// <see cref="ListVms_cursor_is_stable_across_null_provider_boundary_desc"/>.</summary>
+    [TestMethod]
+    public Task ListInfrastructure_cursor_is_stable_across_null_provider_boundary_desc() =>
+        AssertNullProviderBoundaryStableAsync<InfrastructureListItemResponse>(
+            "/api/v1/catalog/infrastructure", "Vm Team GenericNullProviderCursorDesc", "vm-genericnullprovider-desc",
+            "desc", i => i.Id, i => i.Provider);
 
     /// <summary>
     /// Shared body for the null-provider keyset-paging boundary proof (dedup of the two tests
@@ -436,8 +457,10 @@ public sealed class InfrastructureVmSortTests : CatalogIntegrationTestBase
     /// btree ordering, so pinning a specific tiebreak sequence here would test the wrong thing.
     /// </summary>
     private static async Task AssertNullProviderBoundaryStableAsync<T>(
-        string listPath, string teamName, string uniquePrefix, Func<T, Guid> idOf, Func<T, string?> providerOf)
+        string listPath, string teamName, string uniquePrefix, string sortOrder,
+        Func<T, Guid> idOf, Func<T, string?> providerOf)
     {
+        var ascending = sortOrder == "asc";
         var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
         var tenantId = Fx.TenantIdForEmail(OrgAUser);
         var teamId = await Fx.SeedTeamInOrganizationAsync(tenantId, teamName);
@@ -462,7 +485,7 @@ public sealed class InfrastructureVmSortTests : CatalogIntegrationTestBase
         string? cursor = null;
         for (var page = 0; page < 10; page++)
         {
-            var url = $"{listPath}?teamId={teamId}&sortBy=provider&sortOrder=asc&limit=2"
+            var url = $"{listPath}?teamId={teamId}&sortBy=provider&sortOrder={sortOrder}&limit=2"
                 + (cursor is null ? "" : $"&cursor={Uri.EscapeDataString(cursor)}");
             var resp = await client.GetAsync(url);
             Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode, $"page {page} failed: {await resp.Content.ReadAsStringAsync()}");
@@ -482,23 +505,38 @@ public sealed class InfrastructureVmSortTests : CatalogIntegrationTestBase
         CollectionAssert.AreEquivalent(
             expectedIds, allItems.Select(idOf).ToList(), "every seeded row must appear exactly once");
 
-        // TD-001 NULLS LAST (asc): non-null providers come first in ascending order, then the
-        // null block. Verify (a) no non-null row appears after a null row, and (b) the non-null
-        // providers are non-decreasing.
+        // TD-001 NULL placement: asc → NULLS LAST (non-null block first, ascending, then nulls);
+        // desc → NULLS FIRST (nulls first, then non-null block descending). Verify the null block
+        // sits on the correct side and the non-null block is ordered accordingly.
         var providers = allItems.Select(providerOf).ToList();
-        var firstNullIndex = providers.FindIndex(p => p is null);
-        if (firstNullIndex >= 0)
-        {
-            Assert.IsTrue(
-                providers.Skip(firstNullIndex).All(p => p is null),
-                $"NULLs must sort last (asc); got: {string.Join(", ", providers.Select(p => p ?? "<null>"))}");
-        }
+        var rendered = string.Join(", ", providers.Select(p => p ?? "<null>"));
         var nonNullProviders = providers.Where(p => p is not null).ToList();
+        if (ascending)
+        {
+            var firstNullIndex = providers.FindIndex(p => p is null);
+            if (firstNullIndex >= 0)
+            {
+                Assert.IsTrue(
+                    providers.Skip(firstNullIndex).All(p => p is null),
+                    $"NULLs must sort last (asc); got: {rendered}");
+            }
+        }
+        else
+        {
+            var firstNonNullIndex = providers.FindIndex(p => p is not null);
+            if (firstNonNullIndex >= 0)
+            {
+                Assert.IsTrue(
+                    providers.Skip(firstNonNullIndex).All(p => p is not null),
+                    $"NULLs must sort first (desc); got: {rendered}");
+            }
+        }
         for (var i = 1; i < nonNullProviders.Count; i++)
         {
+            var cmp = string.CompareOrdinal(nonNullProviders[i - 1], nonNullProviders[i]);
             Assert.IsTrue(
-                string.CompareOrdinal(nonNullProviders[i - 1], nonNullProviders[i]) <= 0,
-                $"expected non-decreasing non-null provider order; got: {string.Join(", ", nonNullProviders)}");
+                ascending ? cmp <= 0 : cmp >= 0,
+                $"expected non-null providers in {sortOrder} order; got: {string.Join(", ", nonNullProviders)}");
         }
     }
 }

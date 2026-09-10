@@ -167,4 +167,42 @@ describe("EditVmDialog", () => {
     expect(await screen.findByText(/os must not be empty/i)).toBeInTheDocument();
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
   });
+
+  // TD-003: a 400 whose error key maps to no registered field must surface a toast, never vanish.
+  it("on 400 with only an unmapped error key shows a toast and keeps the dialog open", async () => {
+    const put = vi.fn().mockResolvedValue({
+      data: undefined,
+      error: { status: 400, detail: "Server rejected the change.", errors: { serverOnlyKey: ["nope"] } },
+      response: { status: 400 } as Response,
+    });
+    const onOpenChange = vi.fn();
+    setup({ put, onOpenChange });
+
+    await userEvent.click(screen.getByRole("button", { name: /save changes/i }));
+
+    expect(await screen.findByText(/server rejected the change/i)).toBeInTheDocument();
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+  });
+
+  // TD-003 mixed-key case (the one a naive OR-fold swallowed): a mapped field error is shown
+  // AND the unmapped key still surfaces a toast, rather than being silently dropped.
+  it("on 400 mixing a mapped field error with an unmapped key shows both the field error and a toast", async () => {
+    const put = vi.fn().mockResolvedValue({
+      data: undefined,
+      error: {
+        status: 400,
+        detail: "Server rejected the change.",
+        errors: { "attributes.os": ["Os must not be empty."], serverOnlyKey: ["nope"] },
+      },
+      response: { status: 400 } as Response,
+    });
+    const onOpenChange = vi.fn();
+    setup({ put, onOpenChange });
+
+    await userEvent.click(screen.getByRole("button", { name: /save changes/i }));
+
+    expect(await screen.findByText(/os must not be empty/i)).toBeInTheDocument();
+    expect(await screen.findByText(/server rejected the change/i)).toBeInTheDocument();
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+  });
 });
