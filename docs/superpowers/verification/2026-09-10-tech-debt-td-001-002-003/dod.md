@@ -16,7 +16,7 @@
 | 6 · requesting-code-review | ✅ | ready-to-merge; 0 critical/important, 4 minor (all addressed or in gate-findings) |
 | 7 · review-pr (4 lenses) | ✅ | silent-failure caught the **TD-003 mixed-key blocking** gap (fixed); + tests/types/comments findings addressed |
 | 8 · deep-review | ✅ | `deep-review.md` — 1 blocking (fixed), should-fix cluster (applied), 1 design item deferred to owner |
-| 9 · Visual / API — running system | ⏳ pending user | backend (Provider NULLS-LAST sort + 412 hint) + FE (unmapped-400 toast) have runtime surface; not yet driven live (owner chose push+PR) |
+| 9 · Visual / API — running system | ✅ green | `gate-9-verification.md` + `gate9-vm-provider-sort-asc.jpg` — TD-001 Provider sort driven live (asc NULLS LAST / desc NULLS FIRST, no truncation across the null boundary, real Postgres) + browser screenshot; TD-002 stale-If-Match → 412 `currentVersion` live; TD-003 has no live-triggerable surface (test-covered) |
 | 10 · CI green on PR | ✅ green | PR #88 — all 5 checks pass (Backend arch+unit+integration, Frontend, Container images, Helm, Stryker). Pre-push: fresh audited restore (`--force-evaluate`, no NU1903) + Release build green |
 
 ## Terminal re-verify (post gate 5–8 fixes, final commit `aeced92`)
@@ -33,4 +33,4 @@
 
 ## Honest status
 
-**Gates 1–8 + 10 green** on PR #88 (`bf50ae9`). Gate 9 (live drive) is **pending user verification** — the owner chose push+PR over a local live-drive; the change has runtime surface (backend NULLS-LAST Provider sort + 412 `currentVersion` hint; FE unmapped-400 toast) that a gate-9 pass would exercise. Ready to merge once gate 9 is done or waived.
+**All ten gates green** on PR #88. Gate 9 driven live on the running stack (TD-001 Provider NULLS-LAST/FIRST paging on real Postgres + browser screenshot; TD-002 412 `currentVersion`); TD-003 has no live-triggerable surface and is test-covered. Ready to merge.
