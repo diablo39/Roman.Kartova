@@ -128,6 +128,19 @@ export function useEntitySearch(
         if (error) throw error;
         return unwrapData(data).items.map((e) => ({ kind, id: e.id, displayName: e.displayName }));
       }
+      if (kind === "infrastructure") {
+        // ListVms has no displayNameContains param (verified against ListVmsQuery.cs /
+        // CatalogEndpointDelegates.cs — not a codegen lag like the infra system PUT endpoint,
+        // the backend genuinely has no VM name-substring filter yet). `limit` is also typed as
+        // `string` here, unlike the numeric `limit` on the other list endpoints above, so this
+        // branch cannot reuse the shared `q` object. Sorted by displayName only; the typed
+        // search text does not narrow VM results server-side until that filter exists.
+        const { data, error } = await apiClient.GET("/api/v1/catalog/infrastructure/vms", {
+          params: { query: { sortBy: "displayName", sortOrder: "asc", limit: String(10) } },
+        });
+        if (error) throw error;
+        return unwrapData(data).items.map((e) => ({ kind, id: e.id, displayName: e.displayName }));
+      }
       const { data, error } = await apiClient.GET("/api/v1/catalog/services", { params: { query: q } });
       if (error) throw error;
       return unwrapData(data).items.map((e) => ({ kind, id: e.id, displayName: e.displayName }));
