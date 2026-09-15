@@ -15,6 +15,7 @@ import { KartovaPermissions } from "@/shared/auth/permissions";
 import { RelationshipsSection } from "@/features/catalog/components/RelationshipsSection";
 import { ApiSurfaceSection } from "@/features/catalog/components/ApiSurfaceSection";
 import { SystemMembershipRow } from "@/features/catalog/components/SystemMembershipRow";
+import { DeployOnVmDialog } from "@/features/catalog/components/DeployOnVmDialog";
 
 const DependencyMiniGraph = lazy(() =>
   import("@/features/catalog/components/DependencyMiniGraph").then((m) => ({ default: m.DependencyMiniGraph })),
@@ -25,12 +26,14 @@ export function ApplicationDetailPage() {
   const query = useApplication(id ?? "");
   const [editOpen, setEditOpen] = useState(false);
   const [successorDialogOpen, setSuccessorDialogOpen] = useState(false);
+  const [deployOnVmOpen, setDeployOnVmOpen] = useState(false);
 
   const { hasPermission, isLoading: permissionsLoading, role, teamIds } = usePermissions();
   const canEditMetadata = hasPermission(KartovaPermissions.CatalogApplicationsEditMetadata);
   const canForwardLifecycle = hasPermission(KartovaPermissions.CatalogApplicationsLifecycleForward);
   const canReverseLifecycle = hasPermission(KartovaPermissions.CatalogApplicationsLifecycleReverse);
   const canOverrideSunset = hasPermission(KartovaPermissions.CatalogApplicationsLifecycleOverride);
+  const canWriteRelationships = hasPermission(KartovaPermissions.CatalogRelationshipsWrite);
 
   if (query.isLoading) {
     return (
@@ -70,6 +73,8 @@ export function ApplicationDetailPage() {
     canForwardLifecycle &&
     (role === "OrgAdmin" || (app.teamId !== null && teamIds.includes(app.teamId)));
   const showSuccessorAction = app.lifecycle === "deprecated" && canManageSuccessor;
+  const canDeployOnVm =
+    canWriteRelationships && (role === "OrgAdmin" || (app.teamId !== null && teamIds.includes(app.teamId)));
 
   return (
     <>
@@ -152,6 +157,16 @@ export function ApplicationDetailPage() {
                 </Suspense>
                 <hr className="border-secondary" />
                 <ApiSurfaceSection entityKind="application" entityId={app.id} entityTeamId={app.teamId} entityDisplayName={app.displayName} />
+                {canDeployOnVm && (
+                  <>
+                    <hr className="border-secondary" />
+                    <div className="flex justify-end">
+                      <Button color="secondary" size="sm" onClick={() => setDeployOnVmOpen(true)}>
+                        Deploy on VM
+                      </Button>
+                    </div>
+                  </>
+                )}
                 <hr className="border-secondary" />
                 <RelationshipsSection
                   entityKind="application"
@@ -171,6 +186,14 @@ export function ApplicationDetailPage() {
 
       {successorDialogOpen && (
         <SetSuccessorDialog application={app} open onOpenChange={setSuccessorDialogOpen} />
+      )}
+
+      {deployOnVmOpen && (
+        <DeployOnVmDialog
+          open
+          onOpenChange={setDeployOnVmOpen}
+          component={{ kind: "application", id: app.id, displayName: app.displayName }}
+        />
       )}
     </>
   );
