@@ -254,7 +254,26 @@ describe("VmDetailPage", () => {
       expect(screen.getAllByRole("rowheader").length).toBeGreaterThan(0);
     });
 
-    it("filters out non-deployedOn incoming edges", () => {
+    // gate-8 #1: the filter for `deployedOn` must happen server-side (via the `type` param),
+    // not client-side over a possibly-truncated page — a VM with >=20 mixed incoming edges would
+    // otherwise silently drop hosted components past the default page size.
+    it("requests hosted components with the deployedOn type filter applied server-side", () => {
+      setPerms([]);
+
+      renderPage();
+
+      expect(useRelationshipsListMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entityKind: "infrastructure",
+          entityId: VM_ID,
+          direction: "incoming",
+          type: "deployedOn",
+        }),
+        expect.anything(),
+      );
+    });
+
+    it("renders whatever the hook returns without re-filtering client-side", () => {
       useRelationshipsListMock.mockReturnValue(
         listResult([
           {
@@ -272,8 +291,19 @@ describe("VmDetailPage", () => {
 
       renderPage();
 
+      // The hook is trusted to have already applied the deployedOn filter server-side, so a
+      // non-deployedOn item in the mocked response (which a real server call would never return)
+      // still renders here — this pins that the page no longer re-filters client-side.
+      expect(screen.getByText("Other")).toBeInTheDocument();
+    });
+
+    it("shows the empty state when the hook returns no items", () => {
+      useRelationshipsListMock.mockReturnValue(listResult([]));
+      setPerms([]);
+
+      renderPage();
+
       expect(screen.getByText(/no components are deployed on this vm/i)).toBeInTheDocument();
-      expect(screen.queryByText("Other")).toBeNull();
     });
   });
 });

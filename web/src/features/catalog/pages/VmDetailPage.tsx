@@ -31,10 +31,9 @@ export function VmDetailPage() {
   // side these arrive as incoming relationships. Read-only here — created via
   // DeployOnVmDialog from the component's own detail page, not from this page.
   const hosted = useRelationshipsList(
-    { entityKind: "infrastructure", entityId: id ?? "", direction: "incoming" },
+    { entityKind: "infrastructure", entityId: id ?? "", direction: "incoming", type: "deployedOn" },
     { enabled: !!id },
   );
-  const hostedEdges = useMemo(() => hosted.items.filter((r) => r.type === "deployedOn"), [hosted.items]);
 
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -176,7 +175,7 @@ export function VmDetailPage() {
               <Skeleton className="mt-2 h-12 w-full" />
             ) : hosted.isError ? (
               <p className="mt-1 text-sm text-error-primary">Couldn&apos;t load hosted components.</p>
-            ) : hostedEdges.length === 0 ? (
+            ) : hosted.items.length === 0 ? (
               <p className="mt-1 text-sm text-tertiary italic">No components are deployed on this VM.</p>
             ) : (
               <div className="mt-2 overflow-hidden rounded-lg ring-1 ring-secondary">
@@ -186,7 +185,7 @@ export function VmDetailPage() {
                     <Table.Head id="kind">Kind</Table.Head>
                   </Table.Header>
                   <Table.Body>
-                    {hostedEdges.map((r) => (
+                    {hosted.items.map((r) => (
                       <Table.Row key={r.id} id={r.id}>
                         <Table.Cell>
                           <Link to={entityDetailPath(r.source.kind, r.source.id)} className="text-primary hover:underline">

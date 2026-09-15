@@ -136,7 +136,7 @@ export function useEntitySearch(
         // branch cannot reuse the shared `q` object. Sorted by displayName only; the typed
         // search text does not narrow VM results server-side until that filter exists.
         const { data, error } = await apiClient.GET("/api/v1/catalog/infrastructure/vms", {
-          params: { query: { sortBy: "displayName", sortOrder: "asc", limit: String(10) } },
+          params: { query: { sortBy: "displayName", sortOrder: "asc", limit: "10" } },
         });
         if (error) throw error;
         return unwrapData(data).items.map((e) => ({ kind, id: e.id, displayName: e.displayName }));

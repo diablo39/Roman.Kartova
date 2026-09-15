@@ -4,6 +4,7 @@ using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
 using Kartova.SharedKernel.AspNetCore;   // ProblemTypes
+using Kartova.SharedKernel.Multitenancy;   // KartovaRoles
 using Kartova.SharedKernel.Pagination;
 using Kartova.Testing.Auth;
 using Microsoft.AspNetCore.Mvc;   // ProblemDetails
@@ -23,6 +24,7 @@ public sealed class InfrastructureRelationshipTests : CatalogIntegrationTestBase
 {
     private const string OrgAUser = "admin@orga.kartova.local";
     private const string OrgBUser = "admin@orgb.kartova.local";   // cf. SetComponentSystemTests
+    private const string MemberEmail = "member@orga.kartova.local";   // cf. SetComponentSystemTests
 
     private static Task<HttpResponseMessage> PostRelAsync(
         HttpClient client, EntityKind sk, Guid sid, RelationshipType t, EntityKind tk, Guid tid)
@@ -259,5 +261,69 @@ public sealed class InfrastructureRelationshipTests : CatalogIntegrationTestBase
             $"expected 409 RelationshipAlreadyExists, got {second.StatusCode}: {await second.Content.ReadAsStringAsync()}");
         var problem = await second.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
         Assert.AreEqual(ProblemTypes.RelationshipAlreadyExists, problem!.Type);
+    }
+
+    /// <summary>
+    /// Gate-8 fix (catalog-vm-linking): proves <see cref="Kartova.Catalog.Infrastructure.CatalogEntityLookup"/>'s
+    /// infrastructure arm feeds the graph endpoint's traversal enrichment, not just the
+    /// relationship-creation path already covered above. Seeds Service→VM DeployedOn (incoming
+    /// to the VM) and VM→System PartOf (outgoing from the VM), then focuses the graph on the VM
+    /// and asserts both the enriched infra node and both edges come back.
+    /// </summary>
+    [TestMethod]
+    public async Task GET_graph_focused_on_infrastructure_returns_infra_node_and_both_edges()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Graph Infra Team");
+        var serviceId = await SeedServiceAsync(client, teamId, "graph-infra-svc");
+        var vmId = await SeedVmAsync(client, teamId, "graph-infra-vm");
+        var sysId = await SeedSystemAsync(client, teamId, "graph-infra-system");
+
+        var deployResp = await PostRelAsync(client, EntityKind.Service, serviceId, RelationshipType.DeployedOn, EntityKind.Infrastructure, vmId);
+        Assert.AreEqual(HttpStatusCode.Created, deployResp.StatusCode, $"seed DeployedOn failed: {await deployResp.Content.ReadAsStringAsync()}");
+        var partOfResp = await PutSystemAsync(client, vmId, sysId);
+        Assert.AreEqual(HttpStatusCode.OK, partOfResp.StatusCode, $"seed PartOf failed: {await partOfResp.Content.ReadAsStringAsync()}");
+
+        var resp = await client.GetAsync($"/api/v1/catalog/graph?entityKind=Infrastructure&entityId={vmId}&depth=1&direction=all");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var graph = await resp.Content.ReadFromJsonAsync<GraphResponse>(KartovaApiFixtureBase.WireJson);
+
+        var vmNode = graph!.Nodes.SingleOrDefault(n => n.Id == vmId);
+        Assert.IsNotNull(vmNode, "the VM's infrastructure node must be present");
+        Assert.AreEqual(EntityKind.Infrastructure, vmNode!.Kind);
+        Assert.AreEqual("graph-infra-vm", vmNode.DisplayName,
+            "CatalogEntityLookup.Find's infrastructure arm must enrich the VM's DisplayName during traversal");
+        Assert.IsTrue(
+            graph.Edges.Any(e => e.Type == RelationshipType.DeployedOn && e.Source.Id == serviceId && e.Target.Id == vmId),
+            "the incoming DeployedOn edge (Service -> VM) must be present");
+        Assert.IsTrue(
+            graph.Edges.Any(e => e.Type == RelationshipType.PartOf && e.Source.Id == vmId && e.Target.Id == sysId),
+            "the outgoing PartOf edge (VM -> System) must be present");
+    }
+
+    /// <summary>
+    /// Gate-8 fix (catalog-vm-linking): pins that the reused ADR-0108 either-endpoint authorization
+    /// runs for the infrastructure wrapper of PUT /system too, not just the application/service
+    /// routes covered by <see cref="SetComponentSystemTests.PUT_by_a_member_of_neither_team_returns_403"/>.
+    /// A same-tenant caller who is neither OrgAdmin nor a member of the VM's or the System's team
+    /// must be refused.
+    /// </summary>
+    [TestMethod]
+    public async Task PUT_infrastructure_system_by_a_member_of_neither_team_returns_403()
+    {
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var admin = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var vmTeam = await Fx.SeedTeamInOrganizationAsync(tenant, "SetSystem Infra Neither VM Team");
+        var sysTeam = await Fx.SeedTeamInOrganizationAsync(tenant, "SetSystem Infra Neither Sys Team");
+        var vmId = await SeedVmAsync(admin, vmTeam, "vm-setsystem-403-neither");
+        var sysId = await SeedSystemAsync(admin, sysTeam, "system-infra-403-neither");
+        // The roles argument is REQUIRED: CreateAuthenticatedClientAsync defaults a null roles
+        // array to [OrgAdmin], which short-circuits the authorization check — same idiom as
+        // SetComponentSystemTests.PUT_by_a_member_of_neither_team_returns_403.
+        var member = await Fx.CreateAuthenticatedClientAsync(MemberEmail, new[] { KartovaRoles.Member });
+
+        var resp = await PutSystemAsync(member, vmId, sysId);
+
+        Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
     }
 }

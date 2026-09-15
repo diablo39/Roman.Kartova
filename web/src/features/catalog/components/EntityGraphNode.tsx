@@ -93,7 +93,11 @@ export function EntityGraphNode({ data }: NodeProps<Node<GraphNodeData>>) {
             identically to a bare label like application/service/api/system, so without this it
             would be visually indistinguishable from them on the graph. */}
         {data.kind === "infrastructure" && (
-          <HardDrive className="mt-0.5 size-4 shrink-0 text-brand-secondary" aria-hidden />
+          <HardDrive
+            data-testid="infra-icon"
+            className={`mt-0.5 size-4 shrink-0 ${labelColor}`}
+            aria-hidden
+          />
         )}
         <div className="min-w-0">
           <div className={`text-sm ${labelColor}`}>{data.displayName}</div>

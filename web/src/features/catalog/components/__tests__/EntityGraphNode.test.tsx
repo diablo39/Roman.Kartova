@@ -100,14 +100,22 @@ it("renders the infrastructure kind label with a distinct icon, not falling back
   expect(screen.getByText("Infrastructure")).toBeInTheDocument();
   const infraRoot = screen.getByText("I").closest("div[data-kind='infrastructure']");
   expect(infraRoot).toBeInTheDocument();
-  expect(infraRoot?.querySelector("svg.text-brand-secondary")).toBeInTheDocument();
+  expect(infraRoot?.querySelector("[data-testid='infra-icon']")).toBeInTheDocument();
 });
 
 it("does not render the infrastructure-only icon on a service node", () => {
   renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency" });
   const serviceRoot = screen.getByText("S").closest("div[data-kind='service']");
   expect(serviceRoot).toBeInTheDocument();
-  expect(serviceRoot?.querySelector("svg.text-brand-secondary")).toBeNull();
+  expect(serviceRoot?.querySelector("[data-testid='infra-icon']")).toBeNull();
+});
+
+it("dims the infrastructure icon along with the label when outside the boundary", () => {
+  renderNode({ kind: "infrastructure", entityId: "i", displayName: "I", side: "dependency", outsideBoundary: true });
+  const infraRoot = screen.getByText("I").closest("div[data-kind='infrastructure']");
+  const icon = infraRoot?.querySelector("[data-testid='infra-icon']");
+  expect(icon).toBeInTheDocument();
+  expect(icon).toHaveClass("text-quaternary");
 });
 
 it("emphasizes a focused node with font-semibold", () => {
