@@ -1307,7 +1307,7 @@ internal static class CatalogEndpointDelegates
     }
 
     /// <summary>
-    /// PUT /{applications|services}/{id}/system — atomic at-most-one System membership write
+    /// PUT /{applications|services|infrastructure}/{id}/system — atomic at-most-one System membership write
     /// over <c>PartOf</c> edges (ADR-0111 amended). <c>systemId: null</c> clears.
     /// 422 = unknown/cross-tenant component or System. 403 = caller is neither OrgAdmin, nor a
     /// member of the component's team, nor a member of the team of EVERY System whose edge this

@@ -3,8 +3,10 @@ using System.Net.Http.Json;
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
+using Kartova.SharedKernel.AspNetCore;   // ProblemTypes
 using Kartova.SharedKernel.Pagination;
 using Kartova.Testing.Auth;
+using Microsoft.AspNetCore.Mvc;   // ProblemDetails
 
 namespace Kartova.Catalog.IntegrationTests;
 
@@ -124,6 +126,13 @@ public sealed class InfrastructureRelationshipTests : CatalogIntegrationTestBase
         var resp = await PutSystemAsync(clientB, vmId, Guid.NewGuid());
 
         Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode); // component not found in tenant B
+        // Pin the specific branch, not just the status: SetComponentSystemAsync checks the
+        // component (source) before the System (target), so a bogus systemId would ALSO 422
+        // (InvalidTargetEntity) even if source-tenant isolation regressed. Asserting the Type
+        // proves this 422 came from the source lookup missing the VM under RLS — mirrors
+        // SetComponentSystemTests.PUT_a_cross_tenant_system_returns_422_not_a_leak.
+        var problem = await resp.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(ProblemTypes.InvalidSourceEntity, problem!.Type);
     }
 
     [TestMethod]
