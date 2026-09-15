@@ -133,9 +133,8 @@ export function useSetComponentSystem() {
         return unwrapData(data, response);
       }
       if (input.componentKind === "infrastructure") {
-        // NOT YET in the generated client — regen happens in Task 11 once the live API is
-        // reachable. Until then this path literal is expected to fail the TS check (see
-        // Task 6 brief's ordering note); left uncast/unworked-around on purpose.
+        // PUT /api/v1/catalog/infrastructure/{id}/system is in the generated client
+        // (web/openapi-snapshot.json includes this operation) — no pending regen.
         const { data, error, response } = await apiClient.PUT("/api/v1/catalog/infrastructure/{id}/system", {
           params: { path: { id: input.componentId } },
           body,

@@ -567,6 +567,21 @@ describe("ApplicationDetailPage — Deploy on VM action", () => {
     expect(screen.queryByRole("button", { name: /deploy on vm/i })).not.toBeInTheDocument();
   });
 
+  it("hides the Deploy on VM action for a non-owning-team member with CatalogRelationshipsWrite (not OrgAdmin)", async () => {
+    // Has the write permission, but isn't a member of the app's owning team ("team-1") nor
+    // OrgAdmin — isOwningTeamMemberOrAdmin must gate on team membership, not permission alone.
+    mockPermissions([KartovaPermissions.CatalogRelationshipsWrite], { role: "Member", teamIds: ["team-2"] });
+
+    const get = vi.fn().mockResolvedValue({ data: appWithTeam, error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: get, POST: vi.fn() } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(harness(qc, `/catalog/applications/${appWithTeam.id}?tab=dependencies`));
+
+    await waitFor(() => expect(screen.getByRole("tab", { name: "Dependencies" })).toHaveAttribute("aria-selected", "true"));
+    expect(screen.queryByRole("button", { name: /deploy on vm/i })).not.toBeInTheDocument();
+  });
+
   it("shows the Deploy on VM action for a team member with CatalogRelationshipsWrite and opens the dialog", async () => {
     mockPermissions([KartovaPermissions.CatalogRelationshipsWrite], { role: "Member", teamIds: ["team-1"] });
 

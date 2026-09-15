@@ -1216,8 +1216,9 @@ internal static class CatalogEndpointDelegates
         // Placed after the exact-duplicate check so an identical re-POST keeps its own conflict
         // type. Scoped via RelationshipTypeRules.IsPartOfSourceKind (Application/Service/
         // Infrastructure) AND a System target: the message is component-specific, and if nested
-        // Systems (System→System PartOf, disallowed today by RelationshipTypeRules.cs:21-22) are
-        // ever enabled for S-02 this guard must not silently impose at-most-one-parent on them.
+        // Systems (System→System PartOf, disallowed today by RelationshipTypeRules.IsAllowedPair's
+        // PartOf case, which excludes System as a source) are ever enabled for S-02 this guard
+        // must not silently impose at-most-one-parent on them.
         // The target.Kind == EntityKind.System scoping matters independently of the source
         // scoping: without it, a malformed PartOf from an already-assigned component to a
         // NON-System target (disallowed by RelationshipTypeRules.IsAllowedPair, which only runs

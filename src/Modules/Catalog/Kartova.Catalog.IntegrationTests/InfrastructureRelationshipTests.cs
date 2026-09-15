@@ -208,4 +208,56 @@ public sealed class InfrastructureRelationshipTests : CatalogIntegrationTestBase
         var problem = await second.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
         Assert.AreEqual(ProblemTypes.ComponentAlreadyInSystem, problem!.Type);
     }
+
+    /// <summary>
+    /// Gate-7 fix (catalog-vm-linking): cross-tenant isolation for a DeployedOn TARGET. Tenant
+    /// B's service cannot see tenant A's VM under RLS, so the target lookup misses and the POST
+    /// 422s (InvalidTargetEntity) rather than leaking existence or succeeding cross-tenant.
+    /// Mirrors Infrastructure_system_membership_is_tenant_isolated above, but exercises the
+    /// TARGET side of POST /relationships (that test covers the SOURCE side of
+    /// PUT /infrastructure/{id}/system).
+    /// </summary>
+    [TestMethod]
+    public async Task POST_deployedOn_cross_tenant_target_returns_422_invalid_target()
+    {
+        var clientA = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamA = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Team DeployedOn CrossTenant A");
+        var vmId = await SeedVmAsync(clientA, teamA, "vm-deployedon-crosstenant");
+
+        var clientB = await Fx.CreateAuthenticatedClientAsync(OrgBUser);
+        var teamB = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgBUser), "Rel Team DeployedOn CrossTenant B");
+        var serviceId = await SeedServiceAsync(clientB, teamB, "svc-deployedon-crosstenant");
+
+        var resp = await PostRelAsync(clientB, EntityKind.Service, serviceId, RelationshipType.DeployedOn, EntityKind.Infrastructure, vmId);
+
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode,
+            $"expected 422 InvalidTargetEntity, got {resp.StatusCode}: {await resp.Content.ReadAsStringAsync()}");
+        // Discriminative: source resolves fine (own tenant), only the target lookup should miss.
+        var problem = await resp.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(ProblemTypes.InvalidTargetEntity, problem!.Type);
+    }
+
+    /// <summary>
+    /// Gate-7 fix (catalog-vm-linking): exact-duplicate DeployedOn Service→VM POST returns 409
+    /// RelationshipAlreadyExists via the pre-check at CatalogEndpointDelegates' duplicate guard
+    /// (ux_relationships_edge backstop covers the concurrent-race case).
+    /// </summary>
+    [TestMethod]
+    public async Task POST_deployedOn_exact_duplicate_returns_409()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Team DeployedOn Dup");
+        var serviceId = await SeedServiceAsync(client, teamId, "svc-deployedon-dup");
+        var vmId = await SeedVmAsync(client, teamId, "vm-deployedon-dup");
+
+        var first = await PostRelAsync(client, EntityKind.Service, serviceId, RelationshipType.DeployedOn, EntityKind.Infrastructure, vmId);
+        Assert.AreEqual(HttpStatusCode.Created, first.StatusCode, $"first POST failed: {await first.Content.ReadAsStringAsync()}");
+
+        var second = await PostRelAsync(client, EntityKind.Service, serviceId, RelationshipType.DeployedOn, EntityKind.Infrastructure, vmId);
+
+        Assert.AreEqual(HttpStatusCode.Conflict, second.StatusCode,
+            $"expected 409 RelationshipAlreadyExists, got {second.StatusCode}: {await second.Content.ReadAsStringAsync()}");
+        var problem = await second.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(ProblemTypes.RelationshipAlreadyExists, problem!.Type);
+    }
 }
