@@ -1212,21 +1212,21 @@ internal static class CatalogEndpointDelegates
 
         // At-most-one System (ADR-0111 amended): a component may hold only one PartOf edge.
         // Placed after the exact-duplicate check so an identical re-POST keeps its own conflict
-        // type. Scoped to Application/Service sources AND a System target: the message is
-        // component-specific, and if nested Systems (System→System PartOf, disallowed today by
-        // RelationshipTypeRules.cs:21-22) are ever enabled for S-02 this guard must not silently
-        // impose at-most-one-parent on them. The target.Kind == EntityKind.System scoping matters
-        // independently of the source scoping: without it, a malformed PartOf from an
-        // already-assigned Application/Service to a NON-System target (disallowed by
-        // RelationshipTypeRules.IsAllowedPair, which only runs further down inside
-        // Relationship.CreateManual) would be misreported as 409 ComponentAlreadyInSystem instead
-        // of the 400 every other disallowed-pair case gets — two different error classes for the
-        // same malformed request, and a 409 detail that dangles an edge ("move it") that can never
-        // exist for that target kind.
+        // type. Scoped via RelationshipTypeRules.IsPartOfSourceKind (Application/Service/
+        // Infrastructure) AND a System target: the message is component-specific, and if nested
+        // Systems (System→System PartOf, disallowed today by RelationshipTypeRules.cs:21-22) are
+        // ever enabled for S-02 this guard must not silently impose at-most-one-parent on them.
+        // The target.Kind == EntityKind.System scoping matters independently of the source
+        // scoping: without it, a malformed PartOf from an already-assigned component to a
+        // NON-System target (disallowed by RelationshipTypeRules.IsAllowedPair, which only runs
+        // further down inside Relationship.CreateManual) would be misreported as 409
+        // ComponentAlreadyInSystem instead of the 400 every other disallowed-pair case gets — two
+        // different error classes for the same malformed request, and a 409 detail that dangles an
+        // edge ("move it") that can never exist for that target kind.
         // Nullable projection, not a Guid.Empty sentinel — Guid.Empty is a legal-if-absurd value
         // and conflating it with "no membership" is a gate-6 mutation blind spot.
         if (req.Type == RelationshipType.PartOf
-            && source.Kind is EntityKind.Application or EntityKind.Service
+            && Kartova.Catalog.Domain.RelationshipTypeRules.IsPartOfSourceKind(source.Kind)
             && target.Kind == EntityKind.System)
         {
             var currentSystemId = await CurrentMembershipQueries.FindCurrentSystemIdAsync(db, source.Kind, source.Id, ct);
@@ -1274,17 +1274,20 @@ internal static class CatalogEndpointDelegates
         }
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException pg
             && pg.SqlState == "23505" && pg.ConstraintName == "ux_relationships_one_system"
-            && source.Kind is EntityKind.Application or EntityKind.Service
+            && Kartova.Catalog.Domain.RelationshipTypeRules.IsPartOfSourceKind(source.Kind)
             && target.Kind == EntityKind.System)
         {
             // Lost a concurrent membership race between the pre-check above and this SaveChanges —
             // constraint-name-scoped so an exact-duplicate-edge race (ux_relationships_edge) keeps
             // surfacing through its own, unmapped path rather than being misreported as this problem.
-            // Source/target-kind-scoped for symmetry with the pre-check above: today
-            // ux_relationships_one_system's own partial WHERE (type = 'PartOf') plus
-            // RelationshipTypeRules.IsAllowedPair already prevent this constraint from firing for
-            // any other kind pair, so this is defense-in-depth against the index's WHERE clause
-            // ever changing, not a currently-reachable branch.
+            // Source/target-kind-scoped via the same IsPartOfSourceKind predicate as the pre-check
+            // above (final-review fix, catalog-vm-linking: this branch IS reachable for an
+            // Infrastructure source today — RelationshipTypeRules.IsAllowedPair(PartOf,
+            // Infrastructure, System) is true, so a duplicate infra PartOf POST that loses this
+            // exact race must land here too, not just the Application/Service case). Kept
+            // kind-scoped rather than dropping the condition entirely as defense-in-depth against
+            // ux_relationships_one_system's partial WHERE (type = 'PartOf') ever widening to a
+            // kind pair this predicate doesn't cover.
             // EF Core savepoints the ambient tenant-scope transaction around SaveChanges, so this
             // follow-up SELECT still runs inside a live transaction — re-query rather than assume
             // req.TargetId won the race, since the winner may have been a third, unrelated writer.

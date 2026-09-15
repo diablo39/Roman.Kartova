@@ -176,4 +176,36 @@ public sealed class InfrastructureRelationshipTests : CatalogIntegrationTestBase
         Assert.AreEqual(appId, body.Source.Id);
         Assert.AreEqual("vm-deployedon-app-201", body.Target.DisplayName);
     }
+
+    /// <summary>
+    /// Final-review fix (catalog-vm-linking): POST /relationships duplicate-PartOf path for an
+    /// Infrastructure source. RelationshipTypeRules.IsAllowedPair(PartOf, Infrastructure, System)
+    /// is true, so a second infra PartOf POST (VM already in a System, naming a different one)
+    /// reaches CreateRelationshipAsync's at-most-one handling. Before this fix that handling was
+    /// scoped to Application/Service sources only, so the pre-check skipped an infra source, the
+    /// write hit the DB's ux_relationships_one_system unique index, and the 23505 catch's `when`
+    /// filter ALSO excluded infra — leaving an uncaught DbUpdateException (HTTP 500) instead of
+    /// the 409 ComponentAlreadyInSystem the App/Service paths return. This is specifically the
+    /// POST /relationships duplicate path — PUT /infrastructure/{id}/system's own at-most-one
+    /// replace-semantics are already covered by Infrastructure_partOf_system_is_atmost_one above.
+    /// </summary>
+    [TestMethod]
+    public async Task POST_partOf_infra_duplicate_returns_409_not_500()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Team Infra PartOf Dup");
+        var vmId = await SeedVmAsync(client, teamId, "vm-partof-dup");
+        var sysA = await SeedSystemAsync(client, teamId, "system-infra-partof-dup-a");
+        var sysB = await SeedSystemAsync(client, teamId, "system-infra-partof-dup-b");
+
+        var first = await PostRelAsync(client, EntityKind.Infrastructure, vmId, RelationshipType.PartOf, EntityKind.System, sysA);
+        Assert.AreEqual(HttpStatusCode.Created, first.StatusCode, $"first PartOf POST failed: {await first.Content.ReadAsStringAsync()}");
+
+        var second = await PostRelAsync(client, EntityKind.Infrastructure, vmId, RelationshipType.PartOf, EntityKind.System, sysB);
+
+        Assert.AreEqual(HttpStatusCode.Conflict, second.StatusCode,
+            $"expected 409 ComponentAlreadyInSystem, got {second.StatusCode}: {await second.Content.ReadAsStringAsync()}");
+        var problem = await second.Content.ReadFromJsonAsync<ProblemDetails>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(ProblemTypes.ComponentAlreadyInSystem, problem!.Type);
+    }
 }
