@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
+using Kartova.SharedKernel.Pagination;
 using Kartova.Testing.Auth;
 
 namespace Kartova.Catalog.IntegrationTests;
@@ -19,6 +20,7 @@ namespace Kartova.Catalog.IntegrationTests;
 public sealed class InfrastructureRelationshipTests : CatalogIntegrationTestBase
 {
     private const string OrgAUser = "admin@orga.kartova.local";
+    private const string OrgBUser = "admin@orgb.kartova.local";   // cf. SetComponentSystemTests
 
     private static Task<HttpResponseMessage> PostRelAsync(
         HttpClient client, EntityKind sk, Guid sid, RelationshipType t, EntityKind tk, Guid tid)
@@ -58,6 +60,70 @@ public sealed class InfrastructureRelationshipTests : CatalogIntegrationTestBase
         Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode, $"SeedVm '{name}' failed: {await resp.Content.ReadAsStringAsync()}");
         var body = await resp.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson);
         return body!.Id;
+    }
+
+    private static async Task<Guid> SeedSystemAsync(HttpClient client, Guid teamId, string name)
+    {
+        var resp = await client.PostAsJsonAsync("/api/v1/catalog/systems", new { displayName = name, description = "x", teamId });
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode, $"SeedSystem '{name}' failed: {resp.StatusCode}");
+        return (await resp.Content.ReadFromJsonAsync<SystemResponse>(KartovaApiFixtureBase.WireJson))!.Id;
+    }
+
+    private static Task<HttpResponseMessage> PutSystemAsync(HttpClient client, Guid vmId, Guid? systemId)
+        => client.PutAsJsonAsync($"/api/v1/catalog/infrastructure/{vmId}/system", new { systemId }, KartovaApiFixtureBase.WireJson);
+
+    /// <summary>PartOf edges whose source is the given infrastructure component, read back
+    /// through the public list endpoint — mirrors SetComponentSystemTests.PartOfEdgesAsync.</summary>
+    private static async Task<List<RelationshipResponse>> PartOfEdgesAsync(HttpClient client, Guid vmId)
+    {
+        var resp = await client.GetAsync(
+            $"/api/v1/catalog/relationships?entityKind={EntityKind.Infrastructure}&entityId={vmId}&direction=outgoing&limit=50");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var page = await resp.Content.ReadFromJsonAsync<CursorPage<RelationshipResponse>>(KartovaApiFixtureBase.WireJson);
+        return [.. page!.Items.Where(r => r.Type == RelationshipType.PartOf)];
+    }
+
+    /// <summary>
+    /// Task 4 (catalog-vm-linking): PUT /infrastructure/{id}/system enforces the same
+    /// at-most-one PartOf invariant as the application/service routes — a second PUT naming a
+    /// different System replaces, rather than adds to, the VM's membership.
+    /// </summary>
+    [TestMethod]
+    public async Task Infrastructure_partOf_system_is_atmost_one()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Infra SetSystem Team AtMostOne");
+        var vmId = await SeedVmAsync(client, teamId, "vm-setsystem-atmostone");
+        var sysA = await SeedSystemAsync(client, teamId, "system-infra-atmostone-a");
+        var sysB = await SeedSystemAsync(client, teamId, "system-infra-atmostone-b");
+
+        var r1 = await PutSystemAsync(client, vmId, sysA);
+        Assert.AreEqual(HttpStatusCode.OK, r1.StatusCode, $"first PUT failed: {await r1.Content.ReadAsStringAsync()}");
+        var r2 = await PutSystemAsync(client, vmId, sysB);
+        Assert.AreEqual(HttpStatusCode.OK, r2.StatusCode, $"second PUT failed: {await r2.Content.ReadAsStringAsync()}");
+
+        // Only one PartOf edge remains, pointing at sysB.
+        var edges = await PartOfEdgesAsync(client, vmId);
+        Assert.AreEqual(1, edges.Count);
+        Assert.AreEqual(sysB, edges[0].Target.Id);
+    }
+
+    /// <summary>
+    /// Task 4 (catalog-vm-linking): a caller in a different tenant cannot see the VM at all —
+    /// the component lookup misses under RLS, so the write 422s (InvalidSourceEntity) rather
+    /// than leaking existence or succeeding cross-tenant.
+    /// </summary>
+    [TestMethod]
+    public async Task Infrastructure_system_membership_is_tenant_isolated()
+    {
+        var clientA = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamA = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Infra SetSystem Team TenantIso");
+        var vmId = await SeedVmAsync(clientA, teamA, "vm-setsystem-tenantiso");
+        var clientB = await Fx.CreateAuthenticatedClientAsync(OrgBUser);
+
+        var resp = await PutSystemAsync(clientB, vmId, Guid.NewGuid());
+
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, resp.StatusCode); // component not found in tenant B
     }
 
     [TestMethod]

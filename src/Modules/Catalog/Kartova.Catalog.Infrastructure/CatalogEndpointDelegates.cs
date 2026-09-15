@@ -1302,7 +1302,7 @@ internal static class CatalogEndpointDelegates
         return Results.Problem(
             type: ProblemTypes.ComponentAlreadyInSystem,
             title: "Component already belongs to a System",
-            detail: $"This component is already part of System '{occupiedName}'. Use PUT /api/v1/catalog/{{applications|services}}/{{id}}/system to move it.",
+            detail: $"This component is already part of System '{occupiedName}'. Use PUT /api/v1/catalog/{{applications|services|infrastructure}}/{{id}}/system to move it.",
             statusCode: StatusCodes.Status409Conflict);
     }
 
@@ -1436,6 +1436,20 @@ internal static class CatalogEndpointDelegates
         IAuditWriter audit,
         CancellationToken ct)
         => SetComponentSystemAsync(EntityKind.Service, id, request, lookup, handler, db, tenant, currentUser, caller, auth, audit, ct);
+
+    internal static Task<IResult> SetInfrastructureSystemAsync(
+        Guid id,
+        [FromBody] SetSystemRequest request,
+        ICatalogEntityLookup lookup,
+        SetComponentSystemHandler handler,
+        CatalogDbContext db,
+        ITenantContext tenant,
+        ICurrentUser currentUser,
+        ClaimsPrincipal caller,
+        IAuthorizationService auth,
+        IAuditWriter audit,
+        CancellationToken ct)
+        => SetComponentSystemAsync(EntityKind.Infrastructure, id, request, lookup, handler, db, tenant, currentUser, caller, auth, audit, ct);
 
     internal static async Task<IResult> DeleteRelationshipAsync(
         Guid id,
