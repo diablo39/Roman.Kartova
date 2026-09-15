@@ -3,12 +3,17 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "@/components/base/card/card";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
 import { Button } from "@/components/base/buttons/button";
+import { Badge } from "@/components/base/badges/badges";
+import { Table } from "@/components/application/table/table";
 import { useVm } from "@/features/catalog/api/infrastructure";
 import { useTeamsList } from "@/features/teams/api/teams";
+import { useRelationshipsList } from "@/features/catalog/api/relationships";
+import { entityDetailPath, ENTITY_KIND_LABEL } from "@/features/catalog/relationships/graphModel";
 import { PowerStateBadge } from "@/features/catalog/components/PowerStateBadge";
 import { InfraTypeBadge } from "@/features/catalog/components/InfraTypeBadge";
 import { EditVmDialog } from "@/features/catalog/components/EditVmDialog";
 import { DeleteVmConfirm } from "@/features/catalog/components/DeleteVmConfirm";
+import { SystemMembershipRow } from "@/features/catalog/components/SystemMembershipRow";
 import { isPowerState } from "@/features/catalog/powerState";
 import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
@@ -22,6 +27,14 @@ export function VmDetailPage() {
     () => new Map<string, string>((teamsList.items ?? []).map((t) => [t.id, t.displayName])),
     [teamsList.items],
   );
+  // Incoming `deployedOn` edges: DeployedOn points component→VM (T5/T7), so from the VM's
+  // side these arrive as incoming relationships. Read-only here — created via
+  // DeployOnVmDialog from the component's own detail page, not from this page.
+  const hosted = useRelationshipsList(
+    { entityKind: "infrastructure", entityId: id ?? "", direction: "incoming" },
+    { enabled: !!id },
+  );
+  const hostedEdges = hosted.items.filter((r) => r.type === "deployedOn");
 
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -121,6 +134,12 @@ export function VmDetailPage() {
             </div>
             <Field label="Created" value={vm.createdAt ? new Date(vm.createdAt).toLocaleString() : "—"} />
           </section>
+          <SystemMembershipRow
+            componentKind="infrastructure"
+            componentId={vm.id}
+            componentDisplayName={vm.displayName}
+            componentTeamId={vm.teamId}
+          />
           <hr className="border-secondary" />
           <section>
             <h3 className="text-sm font-medium text-tertiary">Attributes</h3>
@@ -148,6 +167,42 @@ export function VmDetailPage() {
                   </li>
                 ))}
               </ul>
+            )}
+          </section>
+          <hr className="border-secondary" />
+          <section>
+            <h3 className="text-sm font-medium text-tertiary">Hosted components</h3>
+            {hosted.isLoading ? (
+              <Skeleton className="mt-2 h-12 w-full" />
+            ) : hosted.isError ? (
+              <p className="mt-1 text-sm text-error-primary">Couldn&apos;t load hosted components.</p>
+            ) : hostedEdges.length === 0 ? (
+              <p className="mt-1 text-sm text-tertiary italic">No components are deployed on this VM.</p>
+            ) : (
+              <div className="mt-2 overflow-hidden rounded-lg ring-1 ring-secondary">
+                <Table aria-label="Hosted components">
+                  <Table.Header>
+                    <Table.Head id="component" isRowHeader>Component</Table.Head>
+                    <Table.Head id="kind">Kind</Table.Head>
+                  </Table.Header>
+                  <Table.Body>
+                    {hostedEdges.map((r) => (
+                      <Table.Row key={r.id} id={r.id}>
+                        <Table.Cell>
+                          <Link to={entityDetailPath(r.source.kind, r.source.id)} className="text-primary hover:underline">
+                            {r.source.displayName}
+                          </Link>
+                        </Table.Cell>
+                        <Table.Cell>
+                          <Badge type="pill-color" size="sm" color="gray">
+                            {ENTITY_KIND_LABEL[r.source.kind] ?? r.source.kind}
+                          </Badge>
+                        </Table.Cell>
+                      </Table.Row>
+                    ))}
+                  </Table.Body>
+                </Table>
+              </div>
             )}
           </section>
         </CardContent>
