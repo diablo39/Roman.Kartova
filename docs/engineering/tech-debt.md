@@ -145,3 +145,20 @@ Convention: one `### TD-NNN` heading per item. Keep `Status: open` until done; o
 **Why deferred.** Belongs to the VM list surface (E-02.F-04), not the linking slice; the picker works without it.
 
 **Acceptance.** Typing in the DeployOnVm VM picker narrows results server-side; existing VM list behavior unchanged.
+
+---
+
+### TD-008 — Frontend vitest suite flakes on timeout under full-suite load
+
+**Status:** open
+**Origin:** Observed during E-02.F-04.S-01 slice 2b (VM linking) gate-8 + terminal re-verify (2026-09-15). Not caused by the slice — the flaking tests are in untouched files.
+
+**Problem.** Running the full web suite (`npx vitest run`, ~1126 tests) intermittently fails 1-3 tests with 5000-10000ms timeouts — seen in `ServiceDetailPage.test.tsx` ("renders a not-found card on error") and `ApplicationDetailPage.test.tsx`. Each passes green + fast (~5s) when the file is run in isolation. The full run reports very high cumulative import/setup/environment time (import ~980s, setup ~107s, environment ~820s across workers), pointing at heavy per-file module-import/setup cost that starves individual tests of their timeout budget under parallel load. This is a CI-stability risk for the Frontend job (gate 10).
+
+**Affected files.** Suite-wide (jsdom env + import cost), surfacing in `web/src/features/catalog/pages/__tests__/{ServiceDetailPage,ApplicationDetailPage}.test.tsx`. Root cause is shared test setup/import weight, not these tests specifically.
+
+**Proposed fix.** Investigate the import/setup cost (heavy barrel imports? per-file MSW/provider setup?); options: raise `testTimeout` for the affected suites, reduce shared-setup cost, cap vitest worker concurrency (`--poolOptions`/`maxWorkers`) to trade wall-clock for stability, or split the heaviest files. Confirm against a CI run.
+
+**Why deferred.** Pre-existing, suite-wide infrastructure concern unrelated to the VM-linking feature; fixing it inside the slice would over-broaden scope.
+
+**Acceptance.** The full web suite passes deterministically under CI load without per-test timeout flakes; isolated and full-run results agree.
