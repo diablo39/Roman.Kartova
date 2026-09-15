@@ -1236,15 +1236,25 @@ internal static class CatalogEndpointDelegates
 
         // VM-only restriction (Task 3, catalog-vm-linking): RelationshipTypeRules.IsAllowedPair
         // only knows EntityKind, not InfrastructureType, so a DeployedOn edge into a non-VM
-        // Infrastructure target is rejected here instead. Unreachable via today's API surface
-        // (VirtualMachine is the only InfrastructureType) but guards the invariant once a second
-        // type is added — see the unit test on DeployedOnTargetRules for the negative case.
-        if (req.Type == RelationshipType.DeployedOn && target.Kind == EntityKind.Infrastructure)
+        // Infrastructure target is rejected here instead. Gated on IsAllowedPair (not just
+        // type == DeployedOn && target.Kind == Infrastructure) so an already-invalid pair (e.g.
+        // Api -> Infrastructure) falls through to the handler's IsAllowedPair rejection instead
+        // of being misreported as "not a VM" — this guard only runs for a pair that is otherwise
+        // valid (source Application/Service -> target Infrastructure). Unreachable via today's
+        // API surface (VirtualMachine is the only InfrastructureType) but guards the invariant
+        // once a second type is added — see the unit test on DeployedOnTargetRules for the
+        // negative case.
+        if (req.Type == RelationshipType.DeployedOn
+            && Kartova.Catalog.Domain.RelationshipTypeRules.IsAllowedPair(req.Type, source.Kind, target.Kind))
         {
+            // targetInfo (from lookup.Find above) already confirms this row exists in-tenant, so
+            // a missing row here is a should-never-happen inconsistency, not a normal miss —
+            // SingleAsync fails loud instead of SingleOrDefaultAsync silently defaulting to
+            // VirtualMachine (enum value 0) and passing the guard on absent data.
             var infraType = await db.Infrastructure
                 .Where(i => EF.Property<Guid>(i, EfInfrastructureConfiguration.IdFieldName) == target.Id)
                 .Select(i => i.Type)
-                .SingleOrDefaultAsync(ct);
+                .SingleAsync(ct);
             if (!Kartova.Catalog.Domain.DeployedOnTargetRules.IsAllowedInfrastructureType(infraType))
                 return Results.Problem(
                     type: ProblemTypes.InvalidTargetEntity,
