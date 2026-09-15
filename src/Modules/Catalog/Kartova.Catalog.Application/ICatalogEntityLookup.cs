@@ -7,4 +7,4 @@ public interface ICatalogEntityLookup
     Task<EntityLookupResult?> Find(EntityKind kind, Guid id, CancellationToken ct);
 }
 
-public sealed record EntityLookupResult(Guid TeamId, string DisplayName);
+public sealed record EntityLookupResult(Guid TeamId, string DisplayName, InfrastructureType? Type = null);

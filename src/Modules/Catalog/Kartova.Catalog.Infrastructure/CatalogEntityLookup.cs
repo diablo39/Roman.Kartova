@@ -26,7 +26,7 @@ public sealed class CatalogEntityLookup(CatalogDbContext db) : ICatalogEntityLoo
             .SingleOrDefaultAsync(ct),
         EntityKind.Infrastructure => await db.Infrastructure
             .Where(i => EF.Property<Guid>(i, EfInfrastructureConfiguration.IdFieldName) == id)
-            .Select(i => new EntityLookupResult(i.TeamId, i.DisplayName))
+            .Select(i => new EntityLookupResult(i.TeamId, i.DisplayName, i.Type))
             .SingleOrDefaultAsync(ct),
         _ => null,
     };

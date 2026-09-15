@@ -1,8 +1,7 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "@/components/base/card/card";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
-import { Button } from "@/components/base/buttons/button";
 import { Table } from "@/components/application/table/table";
 import { DetailTabs } from "@/components/application/tabs/detail-tabs";
 import { HealthBadge } from "@/features/catalog/components/HealthBadge";
@@ -14,7 +13,8 @@ import { RelationshipsSection } from "@/features/catalog/components/Relationship
 import { ApiSurfaceSection } from "@/features/catalog/components/ApiSurfaceSection";
 import { DerivedDependenciesSection } from "@/features/catalog/components/DerivedDependenciesSection";
 import { SystemMembershipRow } from "@/features/catalog/components/SystemMembershipRow";
-import { DeployOnVmDialog } from "@/features/catalog/components/DeployOnVmDialog";
+import { DeployOnVmAction } from "@/features/catalog/components/DeployOnVmAction";
+import { isOwningTeamMemberOrAdmin } from "@/features/catalog/teamOwnership";
 import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
 
@@ -30,7 +30,6 @@ export function ServiceDetailPage() {
     () => new Map<string, string>((teamsList.items ?? []).map((t) => [t.id, t.displayName])),
     [teamsList.items],
   );
-  const [deployOnVmOpen, setDeployOnVmOpen] = useState(false);
   const { hasPermission, role, teamIds } = usePermissions();
 
   if (query.isLoading) {
@@ -63,8 +62,7 @@ export function ServiceDetailPage() {
 
   const svc = query.data;
   const canDeployOnVm =
-    hasPermission(KartovaPermissions.CatalogRelationshipsWrite) &&
-    (role === "OrgAdmin" || teamIds.includes(svc.teamId));
+    hasPermission(KartovaPermissions.CatalogRelationshipsWrite) && isOwningTeamMemberOrAdmin(role, teamIds, svc.teamId);
 
   return (
     <>
@@ -141,16 +139,7 @@ export function ServiceDetailPage() {
                 </Suspense>
                 <hr className="border-secondary" />
                 <ApiSurfaceSection entityKind="service" entityId={svc.id} entityTeamId={svc.teamId} entityDisplayName={svc.displayName} />
-                {canDeployOnVm && (
-                  <>
-                    <hr className="border-secondary" />
-                    <div className="flex justify-end">
-                      <Button color="secondary" size="sm" onClick={() => setDeployOnVmOpen(true)}>
-                        Deploy on VM
-                      </Button>
-                    </div>
-                  </>
-                )}
+                <DeployOnVmAction kind="service" id={svc.id} displayName={svc.displayName} canDeploy={canDeployOnVm} />
                 <hr className="border-secondary" />
                 <RelationshipsSection
                   entityKind="service"
@@ -165,13 +154,6 @@ export function ServiceDetailPage() {
           </DetailTabs>
         </Card>
       </div>
-      {deployOnVmOpen && (
-        <DeployOnVmDialog
-          open
-          onOpenChange={setDeployOnVmOpen}
-          component={{ kind: "service", id: svc.id, displayName: svc.displayName }}
-        />
-      )}
     </>
   );
 }

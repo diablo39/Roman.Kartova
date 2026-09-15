@@ -15,7 +15,8 @@ import { KartovaPermissions } from "@/shared/auth/permissions";
 import { RelationshipsSection } from "@/features/catalog/components/RelationshipsSection";
 import { ApiSurfaceSection } from "@/features/catalog/components/ApiSurfaceSection";
 import { SystemMembershipRow } from "@/features/catalog/components/SystemMembershipRow";
-import { DeployOnVmDialog } from "@/features/catalog/components/DeployOnVmDialog";
+import { DeployOnVmAction } from "@/features/catalog/components/DeployOnVmAction";
+import { isOwningTeamMemberOrAdmin } from "@/features/catalog/teamOwnership";
 
 const DependencyMiniGraph = lazy(() =>
   import("@/features/catalog/components/DependencyMiniGraph").then((m) => ({ default: m.DependencyMiniGraph })),
@@ -26,7 +27,6 @@ export function ApplicationDetailPage() {
   const query = useApplication(id ?? "");
   const [editOpen, setEditOpen] = useState(false);
   const [successorDialogOpen, setSuccessorDialogOpen] = useState(false);
-  const [deployOnVmOpen, setDeployOnVmOpen] = useState(false);
 
   const { hasPermission, isLoading: permissionsLoading, role, teamIds } = usePermissions();
   const canEditMetadata = hasPermission(KartovaPermissions.CatalogApplicationsEditMetadata);
@@ -73,8 +73,7 @@ export function ApplicationDetailPage() {
     canForwardLifecycle &&
     (role === "OrgAdmin" || (app.teamId !== null && teamIds.includes(app.teamId)));
   const showSuccessorAction = app.lifecycle === "deprecated" && canManageSuccessor;
-  const canDeployOnVm =
-    canWriteRelationships && (role === "OrgAdmin" || (app.teamId !== null && teamIds.includes(app.teamId)));
+  const canDeployOnVm = canWriteRelationships && isOwningTeamMemberOrAdmin(role, teamIds, app.teamId);
 
   return (
     <>
@@ -157,16 +156,7 @@ export function ApplicationDetailPage() {
                 </Suspense>
                 <hr className="border-secondary" />
                 <ApiSurfaceSection entityKind="application" entityId={app.id} entityTeamId={app.teamId} entityDisplayName={app.displayName} />
-                {canDeployOnVm && (
-                  <>
-                    <hr className="border-secondary" />
-                    <div className="flex justify-end">
-                      <Button color="secondary" size="sm" onClick={() => setDeployOnVmOpen(true)}>
-                        Deploy on VM
-                      </Button>
-                    </div>
-                  </>
-                )}
+                <DeployOnVmAction kind="application" id={app.id} displayName={app.displayName} canDeploy={canDeployOnVm} />
                 <hr className="border-secondary" />
                 <RelationshipsSection
                   entityKind="application"
@@ -186,14 +176,6 @@ export function ApplicationDetailPage() {
 
       {successorDialogOpen && (
         <SetSuccessorDialog application={app} open onOpenChange={setSuccessorDialogOpen} />
-      )}
-
-      {deployOnVmOpen && (
-        <DeployOnVmDialog
-          open
-          onOpenChange={setDeployOnVmOpen}
-          component={{ kind: "application", id: app.id, displayName: app.displayName }}
-        />
       )}
     </>
   );

@@ -34,7 +34,7 @@ export function VmDetailPage() {
     { entityKind: "infrastructure", entityId: id ?? "", direction: "incoming" },
     { enabled: !!id },
   );
-  const hostedEdges = hosted.items.filter((r) => r.type === "deployedOn");
+  const hostedEdges = useMemo(() => hosted.items.filter((r) => r.type === "deployedOn"), [hosted.items]);
 
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);

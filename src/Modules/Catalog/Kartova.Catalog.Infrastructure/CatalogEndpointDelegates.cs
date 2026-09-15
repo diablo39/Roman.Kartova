@@ -31,6 +31,8 @@ using ComponentAlreadyInSystemException = Kartova.Catalog.Domain.ComponentAlread
 using RelationshipType = Kartova.Catalog.Domain.RelationshipType;
 using RelationshipDirection = Kartova.Catalog.Application.RelationshipDirection;
 using SortOrder = Kartova.SharedKernel.Pagination.SortOrder;
+using RelationshipTypeRules = Kartova.Catalog.Domain.RelationshipTypeRules;
+using DeployedOnTargetRules = Kartova.Catalog.Domain.DeployedOnTargetRules;
 
 namespace Kartova.Catalog.Infrastructure;
 
@@ -1226,7 +1228,7 @@ internal static class CatalogEndpointDelegates
         // Nullable projection, not a Guid.Empty sentinel — Guid.Empty is a legal-if-absurd value
         // and conflating it with "no membership" is a gate-6 mutation blind spot.
         if (req.Type == RelationshipType.PartOf
-            && Kartova.Catalog.Domain.RelationshipTypeRules.IsPartOfSourceKind(source.Kind)
+            && RelationshipTypeRules.IsPartOfSourceKind(source.Kind)
             && target.Kind == EntityKind.System)
         {
             var currentSystemId = await CurrentMembershipQueries.FindCurrentSystemIdAsync(db, source.Kind, source.Id, ct);
@@ -1245,17 +1247,16 @@ internal static class CatalogEndpointDelegates
         // once a second type is added — see the unit test on DeployedOnTargetRules for the
         // negative case.
         if (req.Type == RelationshipType.DeployedOn
-            && Kartova.Catalog.Domain.RelationshipTypeRules.IsAllowedPair(req.Type, source.Kind, target.Kind))
+            && RelationshipTypeRules.IsAllowedPair(req.Type, source.Kind, target.Kind))
         {
-            // targetInfo (from lookup.Find above) already confirms this row exists in-tenant, so
-            // a missing row here is a should-never-happen inconsistency, not a normal miss —
-            // SingleAsync fails loud instead of SingleOrDefaultAsync silently defaulting to
-            // VirtualMachine (enum value 0) and passing the guard on absent data.
-            var infraType = await db.Infrastructure
-                .Where(i => EF.Property<Guid>(i, EfInfrastructureConfiguration.IdFieldName) == target.Id)
-                .Select(i => i.Type)
-                .SingleAsync(ct);
-            if (!Kartova.Catalog.Domain.DeployedOnTargetRules.IsAllowedInfrastructureType(infraType))
+            // targetInfo (from lookup.Find above) already carries the Infrastructure row's Type —
+            // reuse it instead of re-querying db.Infrastructure by the same id. A null Type here
+            // would mean an Infrastructure target came back from lookup.Find without one, which
+            // should never happen (CatalogEntityLookup always projects i.Type for this kind); treat
+            // it as fail-closed rather than defaulting to VirtualMachine (enum value 0) and passing
+            // the guard on absent data.
+            if (targetInfo.Type is not { } infraType
+                || !DeployedOnTargetRules.IsAllowedInfrastructureType(infraType))
                 return Results.Problem(
                     type: ProblemTypes.InvalidTargetEntity,
                     title: "Invalid deployment target",
@@ -1274,7 +1275,7 @@ internal static class CatalogEndpointDelegates
         }
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException pg
             && pg.SqlState == "23505" && pg.ConstraintName == "ux_relationships_one_system"
-            && Kartova.Catalog.Domain.RelationshipTypeRules.IsPartOfSourceKind(source.Kind)
+            && RelationshipTypeRules.IsPartOfSourceKind(source.Kind)
             && target.Kind == EntityKind.System)
         {
             // Lost a concurrent membership race between the pre-check above and this SaveChanges —
