@@ -31,10 +31,10 @@ public class RelationshipTests
     public void IsCreatable_is_dependsOn_instanceOf_provides_consumes()
     {
         foreach (var t in new[] { RelationshipType.DependsOn, RelationshipType.InstanceOf,
-                     RelationshipType.ProvidesApiFor, RelationshipType.ConsumesApiFrom })
+                     RelationshipType.ProvidesApiFor, RelationshipType.ConsumesApiFrom, RelationshipType.DeployedOn })
             Assert.IsTrue(RelationshipTypeRules.IsCreatable(t), $"{t} must be creatable");
 
-        foreach (var t in new[] { RelationshipType.PublishesTo, RelationshipType.SubscribesFrom, RelationshipType.DeployedOn })
+        foreach (var t in new[] { RelationshipType.PublishesTo, RelationshipType.SubscribesFrom })
             Assert.IsFalse(RelationshipTypeRules.IsCreatable(t), $"{t} must not be creatable yet");
     }
 
@@ -64,6 +64,33 @@ public class RelationshipTests
     [DataRow(RelationshipType.PublishesTo, EntityKind.Service, EntityKind.Service, false)]
     public void IsAllowedPair_matrix(RelationshipType type, EntityKind source, EntityKind target, bool expected)
         => Assert.AreEqual(expected, RelationshipTypeRules.IsAllowedPair(type, source, target));
+
+    [TestMethod]
+    public void IsCreatable_includes_deployedOn()
+    {
+        Assert.IsTrue(RelationshipTypeRules.IsCreatable(RelationshipType.DeployedOn));
+    }
+
+    [TestMethod]
+    public void DeployedOn_allows_component_to_infrastructure()
+    {
+        Assert.IsTrue(RelationshipTypeRules.IsAllowedPair(RelationshipType.DeployedOn, EntityKind.Service, EntityKind.Infrastructure));
+        Assert.IsTrue(RelationshipTypeRules.IsAllowedPair(RelationshipType.DeployedOn, EntityKind.Application, EntityKind.Infrastructure));
+    }
+
+    [TestMethod]
+    public void DeployedOn_rejects_non_component_source_or_non_infra_target()
+    {
+        Assert.IsFalse(RelationshipTypeRules.IsAllowedPair(RelationshipType.DeployedOn, EntityKind.Api, EntityKind.Infrastructure));
+        Assert.IsFalse(RelationshipTypeRules.IsAllowedPair(RelationshipType.DeployedOn, EntityKind.Service, EntityKind.System));
+        Assert.IsFalse(RelationshipTypeRules.IsAllowedPair(RelationshipType.DeployedOn, EntityKind.Infrastructure, EntityKind.Service));
+    }
+
+    [TestMethod]
+    public void PartOf_allows_infrastructure_to_system()
+    {
+        Assert.IsTrue(RelationshipTypeRules.IsAllowedPair(RelationshipType.PartOf, EntityKind.Infrastructure, EntityKind.System));
+    }
 
     [TestMethod]
     public void CreateManual_dependsOn_sets_fields_and_manual_origin()
