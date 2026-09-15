@@ -1234,6 +1234,25 @@ internal static class CatalogEndpointDelegates
                 return await ComponentAlreadyInSystemProblemAsync(lookup, occupied, ct);
         }
 
+        // VM-only restriction (Task 3, catalog-vm-linking): RelationshipTypeRules.IsAllowedPair
+        // only knows EntityKind, not InfrastructureType, so a DeployedOn edge into a non-VM
+        // Infrastructure target is rejected here instead. Unreachable via today's API surface
+        // (VirtualMachine is the only InfrastructureType) but guards the invariant once a second
+        // type is added — see the unit test on DeployedOnTargetRules for the negative case.
+        if (req.Type == RelationshipType.DeployedOn && target.Kind == EntityKind.Infrastructure)
+        {
+            var infraType = await db.Infrastructure
+                .Where(i => EF.Property<Guid>(i, EfInfrastructureConfiguration.IdFieldName) == target.Id)
+                .Select(i => i.Type)
+                .SingleOrDefaultAsync(ct);
+            if (!Kartova.Catalog.Domain.DeployedOnTargetRules.IsAllowedInfrastructureType(infraType))
+                return Results.Problem(
+                    type: ProblemTypes.InvalidTargetEntity,
+                    title: "Invalid deployment target",
+                    detail: "DeployedOn requires a virtual-machine infrastructure target.",
+                    statusCode: StatusCodes.Status422UnprocessableEntity);
+        }
+
         var srcDto = new EntityRefDto(source.Kind, source.Id, sourceInfo.DisplayName);
         var tgtDto = new EntityRefDto(target.Kind, target.Id, targetInfo.DisplayName);
         var cmd = new CreateRelationshipCommand(source, target, req.Type);

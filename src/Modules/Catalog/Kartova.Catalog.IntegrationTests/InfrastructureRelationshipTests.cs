@@ -36,6 +36,15 @@ public sealed class InfrastructureRelationshipTests : CatalogIntegrationTestBase
         return body!.Id;
     }
 
+    private static async Task<Guid> SeedApplicationAsync(HttpClient client, Guid teamId, string name)
+    {
+        var resp = await client.PostAsJsonAsync("/api/v1/catalog/applications",
+            new { displayName = name, description = "x", teamId });
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode, $"SeedApplication '{name}' failed: {resp.StatusCode}");
+        var body = await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson);
+        return body!.Id;
+    }
+
     private static async Task<Guid> SeedVmAsync(HttpClient client, Guid teamId, string name)
     {
         var request = new RegisterVmRequest(
@@ -66,5 +75,30 @@ public sealed class InfrastructureRelationshipTests : CatalogIntegrationTestBase
         Assert.AreEqual(RelationshipType.DeployedOn, body!.Type);
         Assert.AreEqual(serviceId, body.Source.Id);
         Assert.AreEqual("vm-deployedon-201", body.Target.DisplayName);
+    }
+
+    /// <summary>
+    /// Task 3 (catalog-vm-linking): happy-path DeployedOn from an Application (not just a
+    /// Service) to a VM, proving the VM-only guard in
+    /// <see cref="Kartova.Catalog.Infrastructure.CatalogEndpointDelegates.CreateRelationshipAsync"/>
+    /// does not block a legitimate VirtualMachine target. The negative (non-VM target) case is
+    /// covered by a pure unit test on <see cref="DeployedOnTargetRules"/> — today VirtualMachine
+    /// is the only <see cref="InfrastructureType"/>, so the reject branch is unreachable via the API.
+    /// </summary>
+    [TestMethod]
+    public async Task POST_deployedOn_application_to_vm_returns_201()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Rel Team DeployedOn App-VM");
+        var appId = await SeedApplicationAsync(client, teamId, "app-deployedon-201");
+        var vmId = await SeedVmAsync(client, teamId, "vm-deployedon-app-201");
+
+        var resp = await PostRelAsync(client, EntityKind.Application, appId, RelationshipType.DeployedOn, EntityKind.Infrastructure, vmId);
+
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode, $"CreateRelationship failed: {await resp.Content.ReadAsStringAsync()}");
+        var body = await resp.Content.ReadFromJsonAsync<RelationshipResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(RelationshipType.DeployedOn, body!.Type);
+        Assert.AreEqual(appId, body.Source.Id);
+        Assert.AreEqual("vm-deployedon-app-201", body.Target.DisplayName);
     }
 }

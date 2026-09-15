@@ -87,6 +87,13 @@ public class RelationshipTests
     }
 
     [TestMethod]
+    public void DeployedOn_infra_target_must_be_vm()
+    {
+        Assert.IsTrue(DeployedOnTargetRules.IsAllowedInfrastructureType(InfrastructureType.VirtualMachine));
+        Assert.IsFalse(DeployedOnTargetRules.IsAllowedInfrastructureType((InfrastructureType)999));
+    }
+
+    [TestMethod]
     public void PartOf_allows_infrastructure_to_system()
     {
         Assert.IsTrue(RelationshipTypeRules.IsAllowedPair(RelationshipType.PartOf, EntityKind.Infrastructure, EntityKind.System));
