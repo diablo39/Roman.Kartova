@@ -1,5 +1,5 @@
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
-import { ChevronLeft, ChevronRight, Minus } from "@untitledui/icons";
+import { ChevronLeft, ChevronRight, HardDrive, Minus } from "@untitledui/icons";
 import { Dropdown } from "@/components/base/dropdown/dropdown";
 import type { GraphNodeData } from "@/features/catalog/relationships/graphModel";
 import { ENTITY_KIND_LABEL } from "@/features/catalog/relationships/graphModel";
@@ -84,11 +84,17 @@ export function EntityGraphNode({ data }: NodeProps<Node<GraphNodeData>>) {
   };
 
   return (
-    <div className={`${base} ${variant} ${dim} ${impact} ${outside} relative`}>
+    <div data-kind={data.kind} className={`${base} ${variant} ${dim} ${impact} ${outside} relative`}>
       <Handle type="target" position={Position.Left} className="!border-0 !bg-transparent" />
       {canExpand && chevron("in")}
       {canExpand && chevron("out")}
       <div className="flex items-start gap-2">
+        {/* Infrastructure is the only kind with a distinct icon today — it otherwise renders
+            identically to a bare label like application/service/api/system, so without this it
+            would be visually indistinguishable from them on the graph. */}
+        {data.kind === "infrastructure" && (
+          <HardDrive className="mt-0.5 size-4 shrink-0 text-brand-secondary" aria-hidden />
+        )}
         <div className="min-w-0">
           <div className={`text-sm ${labelColor}`}>{data.displayName}</div>
           <div className="text-xs text-tertiary">{ENTITY_KIND_LABEL[data.kind] ?? data.kind}</div>

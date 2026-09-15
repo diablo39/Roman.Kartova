@@ -95,6 +95,21 @@ it("renders the service kind label", () => {
   expect(screen.getByText("Service")).toBeInTheDocument();
 });
 
+it("renders the infrastructure kind label with a distinct icon, not falling back to another kind's styling", () => {
+  renderNode({ kind: "infrastructure", entityId: "i", displayName: "I", side: "dependency" });
+  expect(screen.getByText("Infrastructure")).toBeInTheDocument();
+  const infraRoot = screen.getByText("I").closest("div[data-kind='infrastructure']");
+  expect(infraRoot).toBeInTheDocument();
+  expect(infraRoot?.querySelector("svg.text-brand-secondary")).toBeInTheDocument();
+});
+
+it("does not render the infrastructure-only icon on a service node", () => {
+  renderNode({ kind: "service", entityId: "s", displayName: "S", side: "dependency" });
+  const serviceRoot = screen.getByText("S").closest("div[data-kind='service']");
+  expect(serviceRoot).toBeInTheDocument();
+  expect(serviceRoot?.querySelector("svg.text-brand-secondary")).toBeNull();
+});
+
 it("emphasizes a focused node with font-semibold", () => {
   renderNode({ kind: "service", entityId: "s", displayName: "S", side: "focused" });
   expect(screen.getByText("S").closest("div[class*='font-semibold']")).toBeInTheDocument();
