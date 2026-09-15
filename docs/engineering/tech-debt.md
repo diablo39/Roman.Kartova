@@ -87,3 +87,61 @@ Convention: one `### TD-NNN` heading per item. Keep `Status: open` until done; o
 **Why deferred.** Pre-existing (not introduced by TD-001); touches the shared cursor codec + every cursor list + ADR-0095 — too broad to fold into the VM null-safety slice. Low real-world incidence today (clients don't normally flip `sortBy` mid-scroll), but it's a latent skip/repeat identical in class to the already-guarded filter-mismatch case.
 
 **Acceptance.** A cursor issued under one `sortBy` and replayed under a different `sortBy` (same `sortOrder`) returns a 400, not silently mis-paged rows; existing single-field pagination is unchanged; covered by a shared-mechanism test seeding a sort-field switch across a page boundary.
+
+---
+
+### TD-005 — Infrastructure absent from the Catalog Hierarchy read model
+
+**Status:** open
+**Origin:** E-02.F-04.S-01 slice 2b (VM linking) — review-pr (gate 7) code-reviewer Important finding. Ruled a deferred follow-up (design scoped VM System membership to the VM side + `/graph`; infrastructure is render-only in the FE relationship model).
+
+**Problem.** This slice makes `PartOf: Infrastructure → System` a real writable edge (via `POST /relationships` and `PUT /infrastructure/{id}/system`). But `GET /catalog/hierarchy` builds its component set only from Applications + Services, so a VM assigned to a System is silently dropped from the hierarchy tree — visible on the System detail page (generic `/relationships` read) and `/graph`, but missing from the hierarchy read model. No crash; a silent omission / read-model inconsistency.
+
+**Affected files.**
+- `src/Modules/Catalog/Kartova.Catalog.Infrastructure/GetCatalogHierarchyHandler.cs` — builds `ComponentRow`s from `db.Applications` + `db.Services` only.
+- `src/Modules/Catalog/Kartova.Catalog.Application/HierarchyAssembler.cs` — `KindWire` throws for anything but Application/Service.
+- Frontend Catalog Hierarchy page (renders the hierarchy DTO).
+
+**Proposed fix.** Add an Infrastructure `ComponentRow` source in the handler + an `"infrastructure"` case in `KindWire` (wire-contract addition), and render infra members in the hierarchy page. Decide the surface treatment (icon/label) consistently with the `/graph` infra node.
+
+**Why deferred.** A read model the slice never intended to touch; requires a hierarchy wire-contract change + FE rendering decision. Membership is still manageable + visible elsewhere.
+
+**Acceptance.** A VM assigned to a System appears under that System in `GET /catalog/hierarchy` and the Hierarchy page, covered by a test; existing hierarchy behavior unchanged.
+
+---
+
+### TD-006 — SystemMembersSection doesn't handle Infrastructure members
+
+**Status:** open
+**Origin:** E-02.F-04.S-01 slice 2b (VM linking) — review-pr (gate 7) type-design Important finding. Ruled a deferred follow-up (same scope boundary as TD-005).
+
+**Problem.** A VM assigned to a System (now possible) appears in that System's Members table (read path applies no type filter), but `SystemMembersSection.asComponentKind` returns `null` for `"infrastructure"`, and `isRelationshipKind` excludes it — so the VM member renders as a plain unlinked `<span>` with no Remove button. The membership is only removable from the VM's own detail page. `asComponentKind` is a third stale copy of the "which kinds can be PartOf" list (the backend unified this via `RelationshipTypeRules.IsPartOfSourceKind`).
+
+**Affected files.**
+- `web/src/features/catalog/components/SystemMembersSection.tsx` — `asComponentKind` (line ~27), the member row rendering (link via `isRelationshipKind`, Remove gated on `asComponentKind`).
+- `web/src/features/catalog/relationships/relationshipTypeRules.ts` — `isRelationshipKind` (render-only exclusion of infrastructure is deliberate; revisit if infra links are wanted here).
+
+**Proposed fix.** Include `"infrastructure"` in `asComponentKind` (so Remove works — `useSetComponentSystem` already supports it), render infra members with a link via `entityDetailPath` (which supports infrastructure), and add a test. Consider a single shared source for the PartOf-eligible kind list across `ComponentKind`/`asComponentKind`/`IsPartOfSourceKind`.
+
+**Why deferred.** Touches a pre-existing shared component outside the slice diff; the design kept infrastructure render-only in the relationship model. Not a defect — a UX-parity limitation; membership is manageable from VM detail.
+
+**Acceptance.** A VM member in a System's Members table renders as a link and has a working Remove; covered by a test; the PartOf-eligible kind list has one source of truth.
+
+---
+
+### TD-007 — VM entity-search is not text-filtered (ListVms lacks displayNameContains)
+
+**Status:** open
+**Origin:** E-02.F-04.S-01 slice 2b (VM linking) — controller ruling during SDD (Task 6).
+
+**Problem.** `useEntitySearch("infrastructure", q)` (used by the DeployOnVm VM picker) hits `GET /catalog/infrastructure/vms`, which has no `displayNameContains` parameter, so the typeahead shows the first N VMs by displayName regardless of typed text. Fine at small VM counts; poor UX at scale.
+
+**Affected files.**
+- `src/Modules/Catalog/Kartova.Catalog.Infrastructure/` — `ListVmsQuery` / VM list endpoint (add `displayNameContains`).
+- `web/src/features/catalog/api/relationships.ts` — `useEntitySearch` infrastructure branch (pass the param once available).
+
+**Proposed fix.** Add `displayNameContains` to the VM list query (mirroring Applications/Services/Apis/Systems list endpoints) and pass it from the infra entity-search branch.
+
+**Why deferred.** Belongs to the VM list surface (E-02.F-04), not the linking slice; the picker works without it.
+
+**Acceptance.** Typing in the DeployOnVm VM picker narrows results server-side; existing VM list behavior unchanged.
