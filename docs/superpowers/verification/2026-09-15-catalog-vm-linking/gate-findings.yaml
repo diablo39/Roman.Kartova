@@ -1,0 +1,29 @@
+slice: E-02.F-04.S-01-slice-2b-vm-linking
+branch: feat/catalog-vm-linking
+terminal_commit: 9c7f344
+findings:
+  - gate: task-review-3
+    severity: important
+    verdict: real
+    summary: "VM guard ran before IsAllowedPair; latent wrong-detail 422 once a 2nd InfrastructureType exists"
+    resolution: "fixed round 1 (6601adf) — guard gated on IsAllowedPair; SingleAsync fail-loud"
+  - gate: task-review-4
+    severity: important
+    verdict: real
+    summary: "Infra cross-tenant test asserted only status, not ProblemDetails.Type — non-discriminative"
+    resolution: "fixed round 1 (af3aff8) — asserts ProblemTypes.InvalidSourceEntity; stale doc fixed"
+  - gate: requesting-code-review-whole-branch
+    severity: important
+    verdict: real
+    summary: "POST /relationships PartOf Infrastructure->System duplicate returned 500 not 409 (at-most-one pre-check + 23505 catch excluded Infrastructure)"
+    resolution: "fixed (9c7f344) — shared RelationshipTypeRules.IsPartOfSourceKind at all 3 sites; regression test POST_partOf_infra_duplicate_returns_409_not_500; scoped re-review Approve"
+  - gate: requesting-code-review-whole-branch
+    severity: minor
+    verdict: real
+    summary: "VM Hosted-components reads one unfiltered page then filters deployedOn client-side (scaling caveat)"
+    resolution: "deferred follow-up (E-02.F-04 list surface)"
+deferred_minors:
+  - "T6 relationships.ts limit: String(10) hardcoded vs sibling param style"
+  - "T8 VmDetailPage client-side deployedOn filter (brief-specified; scaling follow-up)"
+  - "T9 ApplicationDetailPage gate-formula restatement; page tests mock DeployOnVmDialog"
+  - "T10 data-kind attr on all node roots (harmless; enabled control test)"
