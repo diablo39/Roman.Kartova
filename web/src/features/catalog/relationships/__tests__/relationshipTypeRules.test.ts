@@ -50,6 +50,10 @@ describe("relationshipTypeRules", () => {
     expect(relationshipTypeLabel.consumesApiFrom).toBe("Consumes API from");
   });
 
+  it("deployedOn has a label", () => {
+    expect(relationshipTypeLabel.deployedOn).toBe("Deployed on");
+  });
+
   it("isRelationshipKind accepts the three kinds and rejects others", () => {
     expect(isRelationshipKind("api")).toBe(true);
     expect(isRelationshipKind("application")).toBe(true);
@@ -69,5 +73,10 @@ describe("relationshipTypeRules", () => {
   it("never offers partOf as a creatable type (membership is written by PUT .../system)", () => {
     expect(offerableTypes("source", "application")).not.toContain("partOf");
     expect(offerableTypes("source", "service")).not.toContain("partOf");
+  });
+
+  it("never offers deployedOn as a creatable type (membership is written by dedicated UI)", () => {
+    expect(offerableTypes("source", "application")).not.toContain("deployedOn");
+    expect(offerableTypes("source", "service")).not.toContain("deployedOn");
   });
 });
