@@ -13,6 +13,10 @@ import { RelationshipsSection } from "@/features/catalog/components/Relationship
 import { ApiSurfaceSection } from "@/features/catalog/components/ApiSurfaceSection";
 import { DerivedDependenciesSection } from "@/features/catalog/components/DerivedDependenciesSection";
 import { SystemMembershipRow } from "@/features/catalog/components/SystemMembershipRow";
+import { DeployOnVmAction } from "@/features/catalog/components/DeployOnVmAction";
+import { isOwningTeamMemberOrAdmin } from "@/features/catalog/teamOwnership";
+import { usePermissions } from "@/shared/auth/usePermissions";
+import { KartovaPermissions } from "@/shared/auth/permissions";
 
 const DependencyMiniGraph = lazy(() =>
   import("@/features/catalog/components/DependencyMiniGraph").then((m) => ({ default: m.DependencyMiniGraph })),
@@ -26,6 +30,7 @@ export function ServiceDetailPage() {
     () => new Map<string, string>((teamsList.items ?? []).map((t) => [t.id, t.displayName])),
     [teamsList.items],
   );
+  const { hasPermission, role, teamIds } = usePermissions();
 
   if (query.isLoading) {
     return (
@@ -56,95 +61,100 @@ export function ServiceDetailPage() {
   }
 
   const svc = query.data;
+  const canDeployOnVm =
+    hasPermission(KartovaPermissions.CatalogRelationshipsWrite) && isOwningTeamMemberOrAdmin(role, teamIds, svc.teamId);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 className="text-2xl font-semibold text-primary">{svc.displayName}</h2>
-        <HealthBadge health={svc.health} size="md" />
-      </div>
-      <Card>
-        <DetailTabs aria-label={svc.displayName}>
-          <DetailTabs.Tab id="overview" label="Overview">
-            <div className="space-y-6">
-              <section>
-                <h3 className="text-sm font-medium text-tertiary">Description</h3>
-                <p className="mt-1 text-sm text-secondary">
-                  {svc.description ? svc.description : <span className="italic">No description</span>}
-                </p>
-              </section>
-              <hr className="border-secondary" />
-              <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <Field label="ID" value={svc.id} mono />
-                <div>
-                  <div className="text-xs uppercase tracking-wide text-tertiary">Team</div>
-                  <div className="mt-1 text-sm">
-                    <Link to={`/teams/${svc.teamId}`} className="text-primary hover:underline">
-                      {teamNameById.get(svc.teamId) ?? "View team"}
-                    </Link>
+    <>
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-2xl font-semibold text-primary">{svc.displayName}</h2>
+          <HealthBadge health={svc.health} size="md" />
+        </div>
+        <Card>
+          <DetailTabs aria-label={svc.displayName}>
+            <DetailTabs.Tab id="overview" label="Overview">
+              <div className="space-y-6">
+                <section>
+                  <h3 className="text-sm font-medium text-tertiary">Description</h3>
+                  <p className="mt-1 text-sm text-secondary">
+                    {svc.description ? svc.description : <span className="italic">No description</span>}
+                  </p>
+                </section>
+                <hr className="border-secondary" />
+                <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <Field label="ID" value={svc.id} mono />
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-tertiary">Team</div>
+                    <div className="mt-1 text-sm">
+                      <Link to={`/teams/${svc.teamId}`} className="text-primary hover:underline">
+                        {teamNameById.get(svc.teamId) ?? "View team"}
+                      </Link>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <div className="text-xs uppercase tracking-wide text-tertiary">Created by</div>
-                  <div className="mt-1 text-sm"><CreatedByLink user={svc.createdBy} /></div>
-                </div>
-                <Field label="Created" value={svc.createdAt ? new Date(svc.createdAt).toLocaleString() : "—"} />
-                <Field label="Version" value={svc.version} mono />
-              </section>
-              <SystemMembershipRow
-                componentKind="service"
-                componentId={svc.id}
-                componentDisplayName={svc.displayName}
-                componentTeamId={svc.teamId}
-              />
-              <hr className="border-secondary" />
-              <section>
-                <h3 className="text-sm font-medium text-tertiary">Endpoints</h3>
-                {svc.endpoints.length === 0 ? (
-                  <p className="mt-1 text-sm text-tertiary italic">No endpoints registered</p>
-                ) : (
-                  <div className="mt-2 overflow-hidden rounded-lg ring-1 ring-secondary">
-                    <Table aria-label="Service endpoints">
-                      <Table.Header>
-                        <Table.Head id="url" isRowHeader>URL</Table.Head>
-                        <Table.Head id="protocol">Protocol</Table.Head>
-                      </Table.Header>
-                      <Table.Body>
-                        {svc.endpoints.map((e, i) => (
-                          <Table.Row key={`${e.url}-${i}`} id={`${e.url}-${i}`}>
-                            <Table.Cell className="font-mono text-sm text-primary">{e.url}</Table.Cell>
-                            <Table.Cell className="text-sm">{PROTOCOL_LABEL[e.protocol]}</Table.Cell>
-                          </Table.Row>
-                        ))}
-                      </Table.Body>
-                    </Table>
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-tertiary">Created by</div>
+                    <div className="mt-1 text-sm"><CreatedByLink user={svc.createdBy} /></div>
                   </div>
-                )}
-              </section>
-            </div>
-          </DetailTabs.Tab>
+                  <Field label="Created" value={svc.createdAt ? new Date(svc.createdAt).toLocaleString() : "—"} />
+                  <Field label="Version" value={svc.version} mono />
+                </section>
+                <SystemMembershipRow
+                  componentKind="service"
+                  componentId={svc.id}
+                  componentDisplayName={svc.displayName}
+                  componentTeamId={svc.teamId}
+                />
+                <hr className="border-secondary" />
+                <section>
+                  <h3 className="text-sm font-medium text-tertiary">Endpoints</h3>
+                  {svc.endpoints.length === 0 ? (
+                    <p className="mt-1 text-sm text-tertiary italic">No endpoints registered</p>
+                  ) : (
+                    <div className="mt-2 overflow-hidden rounded-lg ring-1 ring-secondary">
+                      <Table aria-label="Service endpoints">
+                        <Table.Header>
+                          <Table.Head id="url" isRowHeader>URL</Table.Head>
+                          <Table.Head id="protocol">Protocol</Table.Head>
+                        </Table.Header>
+                        <Table.Body>
+                          {svc.endpoints.map((e, i) => (
+                            <Table.Row key={`${e.url}-${i}`} id={`${e.url}-${i}`}>
+                              <Table.Cell className="font-mono text-sm text-primary">{e.url}</Table.Cell>
+                              <Table.Cell className="text-sm">{PROTOCOL_LABEL[e.protocol]}</Table.Cell>
+                            </Table.Row>
+                          ))}
+                        </Table.Body>
+                      </Table>
+                    </div>
+                  )}
+                </section>
+              </div>
+            </DetailTabs.Tab>
 
-          <DetailTabs.Tab id="dependencies" label="Dependencies">
-            <div className="space-y-6">
-              <Suspense fallback={<Skeleton className="h-80 w-full" />}>
-                <DependencyMiniGraph entityKind="service" entityId={svc.id} displayName={svc.displayName} />
-              </Suspense>
-              <hr className="border-secondary" />
-              <ApiSurfaceSection entityKind="service" entityId={svc.id} entityTeamId={svc.teamId} entityDisplayName={svc.displayName} />
-              <hr className="border-secondary" />
-              <RelationshipsSection
-                entityKind="service"
-                entityId={svc.id}
-                entityTeamId={svc.teamId}
-                entityDisplayName={svc.displayName}
-              />
-              <hr className="border-secondary" />
-              <DerivedDependenciesSection entityId={svc.id} />
-            </div>
-          </DetailTabs.Tab>
-        </DetailTabs>
-      </Card>
-    </div>
+            <DetailTabs.Tab id="dependencies" label="Dependencies">
+              <div className="space-y-6">
+                <Suspense fallback={<Skeleton className="h-80 w-full" />}>
+                  <DependencyMiniGraph entityKind="service" entityId={svc.id} displayName={svc.displayName} />
+                </Suspense>
+                <hr className="border-secondary" />
+                <ApiSurfaceSection entityKind="service" entityId={svc.id} entityTeamId={svc.teamId} entityDisplayName={svc.displayName} />
+                <DeployOnVmAction kind="service" id={svc.id} displayName={svc.displayName} canDeploy={canDeployOnVm} />
+                <hr className="border-secondary" />
+                <RelationshipsSection
+                  entityKind="service"
+                  entityId={svc.id}
+                  entityTeamId={svc.teamId}
+                  entityDisplayName={svc.displayName}
+                />
+                <hr className="border-secondary" />
+                <DerivedDependenciesSection entityId={svc.id} />
+              </div>
+            </DetailTabs.Tab>
+          </DetailTabs>
+        </Card>
+      </div>
+    </>
   );
 }
 

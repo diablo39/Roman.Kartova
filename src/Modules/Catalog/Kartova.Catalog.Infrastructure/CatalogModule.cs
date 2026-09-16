@@ -135,6 +135,16 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .ProducesProblem(StatusCodes.Status403Forbidden)
               .ProducesProblem(StatusCodes.Status409Conflict)
               .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+        // PUT infrastructure→System membership — mirrors the application/service routes above
+        // (catalog-vm-linking Task 4).
+        tenant.MapPut("/infrastructure/{id:guid}/system", CatalogEndpointDelegates.SetInfrastructureSystemAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRelationshipsWrite)
+              .WithName("SetInfrastructureSystem")
+              .Produces<SystemMembershipResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
+              .ProducesProblem(StatusCodes.Status409Conflict)
+              .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         // POST reactivate — reverse lifecycle transition (Deprecated/Decommissioned → Active).
         // OrgAdmin only (CatalogApplicationsLifecycleReverse). Empty body, no If-Match —
         // same rationale as deprecate/decommission. The domain invariant inside

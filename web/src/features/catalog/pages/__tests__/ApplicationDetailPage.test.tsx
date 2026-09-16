@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
@@ -18,6 +18,17 @@ vi.mock("@/features/catalog/api/relationships", () => ({
 // Stub API surface (Dependencies tab) so ApiSurfaceSection renders without real API calls.
 vi.mock("@/features/catalog/api/apiSurface", () => ({
   useApiSurface: () => ({ data: { provides: [], consumes: [] }, isLoading: false, isError: false }),
+}));
+
+// Stub DeployOnVmDialog so the "Deploy on VM" action can be asserted without pulling in
+// EntitySearchCombobox/useEntitySearch/useCreateRelationship (out of scope for this page's tests).
+vi.mock("@/features/catalog/components/DeployOnVmDialog", () => ({
+  DeployOnVmDialog: (props: { open: boolean; component: { kind: string; id: string; displayName: string } }) =>
+    props.open ? (
+      <div data-testid="deploy-on-vm-dialog">
+        Deploy {props.component.displayName} on a VM ({props.component.kind})
+      </div>
+    ) : null,
 }));
 
 // Default: fully permissive — existing tests are unaffected.
@@ -531,6 +542,61 @@ describe("ApplicationDetailPage — successor link + manage button gating", () =
 
     await waitFor(() => expect(screen.getByText("Payment Gateway")).toBeInTheDocument());
     expect(screen.queryByRole("button", { name: /(change|set) successor/i })).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Deploy on VM action (Task 9)
+// ---------------------------------------------------------------------------
+
+const appWithTeam = { ...activeApp, teamId: "team-1" };
+
+describe("ApplicationDetailPage — Deploy on VM action", () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  it("hides the Deploy on VM action without CatalogRelationshipsWrite for the owning team", async () => {
+    mockPermissions([KartovaPermissions.CatalogRead], { role: "Member", teamIds: ["team-1"] });
+
+    const get = vi.fn().mockResolvedValue({ data: appWithTeam, error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: get, POST: vi.fn() } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(harness(qc, `/catalog/applications/${appWithTeam.id}?tab=dependencies`));
+
+    await waitFor(() => expect(screen.getByRole("tab", { name: "Dependencies" })).toHaveAttribute("aria-selected", "true"));
+    expect(screen.queryByRole("button", { name: /deploy on vm/i })).not.toBeInTheDocument();
+  });
+
+  it("hides the Deploy on VM action for a non-owning-team member with CatalogRelationshipsWrite (not OrgAdmin)", async () => {
+    // Has the write permission, but isn't a member of the app's owning team ("team-1") nor
+    // OrgAdmin — isOwningTeamMemberOrAdmin must gate on team membership, not permission alone.
+    mockPermissions([KartovaPermissions.CatalogRelationshipsWrite], { role: "Member", teamIds: ["team-2"] });
+
+    const get = vi.fn().mockResolvedValue({ data: appWithTeam, error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: get, POST: vi.fn() } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(harness(qc, `/catalog/applications/${appWithTeam.id}?tab=dependencies`));
+
+    await waitFor(() => expect(screen.getByRole("tab", { name: "Dependencies" })).toHaveAttribute("aria-selected", "true"));
+    expect(screen.queryByRole("button", { name: /deploy on vm/i })).not.toBeInTheDocument();
+  });
+
+  it("shows the Deploy on VM action for a team member with CatalogRelationshipsWrite and opens the dialog", async () => {
+    mockPermissions([KartovaPermissions.CatalogRelationshipsWrite], { role: "Member", teamIds: ["team-1"] });
+
+    const get = vi.fn().mockResolvedValue({ data: appWithTeam, error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET: get, POST: vi.fn() } as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(harness(qc, `/catalog/applications/${appWithTeam.id}?tab=dependencies`));
+
+    const button = await screen.findByRole("button", { name: /deploy on vm/i });
+    fireEvent.click(button);
+
+    expect(screen.getByTestId("deploy-on-vm-dialog")).toHaveTextContent(
+      `Deploy ${appWithTeam.displayName} on a VM (application)`,
+    );
   });
 });
 

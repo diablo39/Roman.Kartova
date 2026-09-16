@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
@@ -9,6 +9,7 @@ import { ServiceDetailPage } from "../ServiceDetailPage";
 import * as relationshipsApi from "@/features/catalog/api/relationships";
 import * as apiSurfaceApi from "@/features/catalog/api/apiSurface";
 import * as permsModule from "@/shared/auth/usePermissions";
+import { KartovaPermissions } from "@/shared/auth/permissions";
 
 // useTeamsList is only used to resolve the team name link — stub it out.
 vi.mock("@/features/teams/api/teams", () => ({
@@ -34,6 +35,17 @@ vi.mock("@/features/catalog/api/apiSurface", () => ({
 // Stub derived dependencies (Dependencies tab) so DerivedDependenciesSection + DependencyMiniGraph render without real API calls.
 vi.mock("@/features/catalog/api/derivedDependencies", () => ({
   useDerivedDependencies: () => ({ data: { dependencies: [], dependents: [] }, isLoading: false, isError: false }),
+}));
+
+// Stub DeployOnVmDialog so the "Deploy on VM" action can be asserted without pulling in
+// EntitySearchCombobox/useEntitySearch/useCreateRelationship (out of scope for this page's tests).
+vi.mock("@/features/catalog/components/DeployOnVmDialog", () => ({
+  DeployOnVmDialog: (props: { open: boolean; component: { kind: string; id: string; displayName: string } }) =>
+    props.open ? (
+      <div data-testid="deploy-on-vm-dialog">
+        Deploy {props.component.displayName} on a VM ({props.component.kind})
+      </div>
+    ) : null,
 }));
 
 function harness(qc: QueryClient, path: string) {
@@ -147,6 +159,39 @@ describe("ServiceDetailPage", () => {
 
     expect(screen.getByText(/not assigned/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /assign/i })).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Deploy on VM action (Task 9)
+// ---------------------------------------------------------------------------
+
+describe("ServiceDetailPage — Deploy on VM action", () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  it("hides the Deploy on VM action without CatalogRelationshipsWrite for the owning team", () => {
+    // File-level default mock: hasPermission always false.
+    renderPage("?tab=dependencies");
+    expect(screen.queryByRole("button", { name: /deploy on vm/i })).not.toBeInTheDocument();
+  });
+
+  it("shows the Deploy on VM action for a team member with CatalogRelationshipsWrite and opens the dialog", () => {
+    vi.spyOn(permsModule, "usePermissions").mockReturnValue({
+      hasPermission: (p: string) => p === KartovaPermissions.CatalogRelationshipsWrite,
+      role: "Member",
+      teamIds: [tabsSvc.teamId],
+      teamAdminTeamIds: [],
+      isLoading: false,
+      isError: false,
+    } as never);
+    renderPage("?tab=dependencies");
+
+    const button = screen.getByRole("button", { name: /deploy on vm/i });
+    fireEvent.click(button);
+
+    expect(screen.getByTestId("deploy-on-vm-dialog")).toHaveTextContent(
+      `Deploy ${tabsSvc.displayName} on a VM (service)`,
+    );
   });
 });
 

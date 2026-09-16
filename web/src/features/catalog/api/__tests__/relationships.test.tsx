@@ -100,6 +100,21 @@ describe("relationships api", () => {
     }));
   });
 
+  it("useEntitySearch hits the VM list endpoint for infrastructure kind", async () => {
+    const page = { items: [{ id: "vm9", displayName: "web-01" }], nextCursor: null, prevCursor: null };
+    const GET = vi.fn().mockResolvedValue({ data: page, error: undefined });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ GET } as never);
+    const qc = newQc();
+    const { result } = renderHook(() => useEntitySearch("infrastructure", "web", { enabled: true }), { wrapper: wrapper(qc) });
+    await waitFor(() => expect(result.current.data).toEqual([{ kind: "infrastructure", id: "vm9", displayName: "web-01" }]));
+    // ListVms has no displayNameContains param (backend gap, verified against ListVmsQuery.cs /
+    // CatalogEndpointDelegates.cs) — assert the real path + supported sort/limit shape, not the
+    // application/service/api/system displayNameContains shape which doesn't exist here.
+    expect(GET).toHaveBeenCalledWith("/api/v1/catalog/infrastructure/vms", expect.objectContaining({
+      params: { query: expect.objectContaining({ sortBy: "displayName", sortOrder: "asc", limit: "10" }) },
+    }));
+  });
+
   it("useEntitySearch hits the apis endpoint for Api kind", async () => {
     const page = { items: [{ id: "api9", displayName: "Orders API" }], nextCursor: null, prevCursor: null };
     const GET = vi.fn().mockResolvedValue({ data: page, error: undefined });

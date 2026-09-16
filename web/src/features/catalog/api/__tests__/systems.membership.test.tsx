@@ -89,6 +89,26 @@ it("useSetComponentSystem PUTs the service-system path for componentKind service
   });
 });
 
+it("useSetComponentSystem PUTs the infrastructure-system path for componentKind infrastructure", async () => {
+  const put = vi.fn().mockResolvedValue({
+    data: { systemId: "sys1", systemDisplayName: "Payments" },
+    error: undefined,
+    response: new Response(),
+  });
+  vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({ PUT: put } as never);
+  const qc = newQc();
+
+  const { result } = renderHook(() => useSetComponentSystem(), { wrapper: wrapper(qc) });
+  await result.current.mutateAsync({ componentKind: "infrastructure", componentId: "vm1", systemId: "sys1" });
+
+  // Assert the actual URL string and path id — a branch inversion would still "PUT something"
+  // but would hit the wrong resource, which only a URL-string assertion catches.
+  expect(put).toHaveBeenCalledWith("/api/v1/catalog/infrastructure/{id}/system", {
+    params: { path: { id: "vm1" } },
+    body: { systemId: "sys1" },
+  });
+});
+
 it("useSetComponentSystem invalidates relationships, catalog, and systems on success", async () => {
   const put = vi.fn().mockResolvedValue({
     data: { systemId: "sys1", systemDisplayName: "Payments" },

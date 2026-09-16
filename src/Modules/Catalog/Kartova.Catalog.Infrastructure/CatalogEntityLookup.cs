@@ -24,6 +24,10 @@ public sealed class CatalogEntityLookup(CatalogDbContext db) : ICatalogEntityLoo
             .Where(x => EF.Property<Guid>(x, EfSystemConfiguration.IdFieldName) == id)
             .Select(x => new EntityLookupResult(x.TeamId, x.DisplayName))
             .SingleOrDefaultAsync(ct),
+        EntityKind.Infrastructure => await db.Infrastructure
+            .Where(i => EF.Property<Guid>(i, EfInfrastructureConfiguration.IdFieldName) == id)
+            .Select(i => new EntityLookupResult(i.TeamId, i.DisplayName, i.Type))
+            .SingleOrDefaultAsync(ct),
         _ => null,
     };
 }

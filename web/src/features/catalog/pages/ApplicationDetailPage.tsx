@@ -15,6 +15,8 @@ import { KartovaPermissions } from "@/shared/auth/permissions";
 import { RelationshipsSection } from "@/features/catalog/components/RelationshipsSection";
 import { ApiSurfaceSection } from "@/features/catalog/components/ApiSurfaceSection";
 import { SystemMembershipRow } from "@/features/catalog/components/SystemMembershipRow";
+import { DeployOnVmAction } from "@/features/catalog/components/DeployOnVmAction";
+import { isOwningTeamMemberOrAdmin } from "@/features/catalog/teamOwnership";
 
 const DependencyMiniGraph = lazy(() =>
   import("@/features/catalog/components/DependencyMiniGraph").then((m) => ({ default: m.DependencyMiniGraph })),
@@ -31,6 +33,7 @@ export function ApplicationDetailPage() {
   const canForwardLifecycle = hasPermission(KartovaPermissions.CatalogApplicationsLifecycleForward);
   const canReverseLifecycle = hasPermission(KartovaPermissions.CatalogApplicationsLifecycleReverse);
   const canOverrideSunset = hasPermission(KartovaPermissions.CatalogApplicationsLifecycleOverride);
+  const canWriteRelationships = hasPermission(KartovaPermissions.CatalogRelationshipsWrite);
 
   if (query.isLoading) {
     return (
@@ -70,6 +73,7 @@ export function ApplicationDetailPage() {
     canForwardLifecycle &&
     (role === "OrgAdmin" || (app.teamId !== null && teamIds.includes(app.teamId)));
   const showSuccessorAction = app.lifecycle === "deprecated" && canManageSuccessor;
+  const canDeployOnVm = canWriteRelationships && isOwningTeamMemberOrAdmin(role, teamIds, app.teamId);
 
   return (
     <>
@@ -152,6 +156,7 @@ export function ApplicationDetailPage() {
                 </Suspense>
                 <hr className="border-secondary" />
                 <ApiSurfaceSection entityKind="application" entityId={app.id} entityTeamId={app.teamId} entityDisplayName={app.displayName} />
+                <DeployOnVmAction kind="application" id={app.id} displayName={app.displayName} canDeploy={canDeployOnVm} />
                 <hr className="border-secondary" />
                 <RelationshipsSection
                   entityKind="application"

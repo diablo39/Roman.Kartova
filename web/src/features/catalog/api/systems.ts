@@ -81,7 +81,7 @@ export function useRegisterSystem() {
 
 export type { SystemResponse, SystemMembership };
 
-export type ComponentKind = "application" | "service";
+export type ComponentKind = "application" | "service" | "infrastructure";
 
 /**
  * The System a component currently belongs to, read with a SERVER-side `type=partOf` filter
@@ -126,6 +126,16 @@ export function useSetComponentSystem() {
       const body = { systemId: input.systemId };
       if (input.componentKind === "application") {
         const { data, error, response } = await apiClient.PUT("/api/v1/catalog/applications/{id}/system", {
+          params: { path: { id: input.componentId } },
+          body,
+        });
+        if (error) throwWithStatus(error, response);
+        return unwrapData(data, response);
+      }
+      if (input.componentKind === "infrastructure") {
+        // PUT /api/v1/catalog/infrastructure/{id}/system is in the generated client
+        // (web/openapi-snapshot.json includes this operation) — no pending regen.
+        const { data, error, response } = await apiClient.PUT("/api/v1/catalog/infrastructure/{id}/system", {
           params: { path: { id: input.componentId } },
           body,
         });

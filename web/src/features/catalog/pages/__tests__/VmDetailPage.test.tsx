@@ -22,6 +22,30 @@ vi.mock("@/features/catalog/api/infrastructure", async () => {
 const useTeamsListMock = vi.fn();
 vi.mock("@/features/teams/api/teams", () => ({ useTeamsList: () => useTeamsListMock() }));
 
+const useComponentSystemMock = vi.fn();
+const useSetComponentSystemMock = vi.fn();
+vi.mock("@/features/catalog/api/systems", async () => {
+  const actual = await vi.importActual<typeof import("@/features/catalog/api/systems")>(
+    "@/features/catalog/api/systems",
+  );
+  return {
+    ...actual,
+    useComponentSystem: (...a: unknown[]) => useComponentSystemMock(...a),
+    useSetComponentSystem: (...a: unknown[]) => useSetComponentSystemMock(...a),
+  };
+});
+
+const useRelationshipsListMock = vi.fn();
+vi.mock("@/features/catalog/api/relationships", async () => {
+  const actual = await vi.importActual<typeof import("@/features/catalog/api/relationships")>(
+    "@/features/catalog/api/relationships",
+  );
+  return {
+    ...actual,
+    useRelationshipsList: (...a: unknown[]) => useRelationshipsListMock(...a),
+  };
+});
+
 import { VmDetailPage } from "../VmDetailPage";
 import { KartovaPermissions } from "@/shared/auth/permissions";
 
@@ -53,8 +77,19 @@ function baseVm(overrides: Partial<VmDetailResponse> = {}): VmDetailResponse {
   };
 }
 
-function setPerms(perms: string[]) {
-  usePermissionsMock.mockReturnValue({ role: "t", hasPermission: (p: string) => perms.includes(p), isLoading: false });
+function setPerms(perms: string[], opts?: { role?: string; teamIds?: string[] }) {
+  usePermissionsMock.mockReturnValue({
+    role: opts?.role ?? "Member",
+    teamIds: opts?.teamIds ?? [],
+    teamAdminTeamIds: [],
+    hasPermission: (p: string) => perms.includes(p),
+    isLoading: false,
+    isError: false,
+  });
+}
+
+function listResult(items: unknown[]) {
+  return { items, isLoading: false, isError: false, hasNext: false, hasPrev: false, goNext: vi.fn(), goPrev: vi.fn() };
 }
 
 function renderPage() {
@@ -76,6 +111,9 @@ describe("VmDetailPage", () => {
     vi.restoreAllMocks();
     useTeamsListMock.mockReturnValue({ items: [{ id: TEAM_ID, displayName: "Platform" }], isLoading: false });
     useVmMock.mockReturnValue({ isLoading: false, isError: false, data: baseVm() });
+    useComponentSystemMock.mockReturnValue({ systemId: null, systemDisplayName: null, isLoading: false, isError: false });
+    useSetComponentSystemMock.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
+    useRelationshipsListMock.mockReturnValue(listResult([]));
   });
 
   it("renders the provider field", () => {
@@ -146,5 +184,126 @@ describe("VmDetailPage", () => {
         headers: { "If-Match": '"v1"' },
       },
     );
+  });
+
+  describe("System membership", () => {
+    it("shows the System name and a Change affordance when assigned and permitted", () => {
+      useComponentSystemMock.mockReturnValue({
+        systemId: "sys1",
+        systemDisplayName: "Payments",
+        isLoading: false,
+        isError: false,
+      });
+      setPerms([KartovaPermissions.CatalogRelationshipsWrite], { role: "OrgAdmin" });
+
+      renderPage();
+
+      expect(screen.getByText("Payments").closest("a")).toHaveAttribute("href", "/catalog/systems/sys1");
+      expect(screen.getByRole("button", { name: /change/i })).toBeInTheDocument();
+    });
+
+    it("offers Assign when unassigned and permitted", () => {
+      setPerms([KartovaPermissions.CatalogRelationshipsWrite], { role: "OrgAdmin" });
+
+      renderPage();
+
+      expect(screen.getByText(/not assigned/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /assign/i })).toBeInTheDocument();
+    });
+
+    it("hides the assign/change affordance for a user without CatalogRelationshipsWrite", () => {
+      useComponentSystemMock.mockReturnValue({
+        systemId: "sys1",
+        systemDisplayName: "Payments",
+        isLoading: false,
+        isError: false,
+      });
+      setPerms([]);
+
+      renderPage();
+
+      expect(screen.getByText("Payments")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /change|assign/i })).toBeNull();
+    });
+  });
+
+  describe("Hosted components", () => {
+    it("lists an incoming deployedOn edge under 'Hosted components', linked to the component detail page", () => {
+      useRelationshipsListMock.mockReturnValue(
+        listResult([
+          {
+            id: "r1",
+            type: "deployedOn",
+            origin: "manual",
+            source: { kind: "service", id: "svc1", displayName: "Checkout" },
+            target: { kind: "infrastructure", id: VM_ID, displayName: "web-prod-01" },
+            createdByUserId: "u1",
+            createdAt: "2026-06-25T00:00:00Z",
+          },
+        ]),
+      );
+      setPerms([]);
+
+      renderPage();
+
+      expect(screen.getByText("Hosted components")).toBeInTheDocument();
+      expect(screen.getByText("Checkout").closest("a")).toHaveAttribute("href", "/catalog/services/svc1");
+      // Regression: the Table must designate an isRowHeader column, or react-aria throws
+      // "A table must have at least one Column with isRowHeader" and blanks the page on a
+      // heavier re-render (ADR-0084 / dialog-open regression).
+      expect(screen.getAllByRole("rowheader").length).toBeGreaterThan(0);
+    });
+
+    // gate-8 #1: the filter for `deployedOn` must happen server-side (via the `type` param),
+    // not client-side over a possibly-truncated page — a VM with >=20 mixed incoming edges would
+    // otherwise silently drop hosted components past the default page size.
+    it("requests hosted components with the deployedOn type filter applied server-side", () => {
+      setPerms([]);
+
+      renderPage();
+
+      expect(useRelationshipsListMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entityKind: "infrastructure",
+          entityId: VM_ID,
+          direction: "incoming",
+          type: "deployedOn",
+        }),
+        expect.anything(),
+      );
+    });
+
+    it("renders whatever the hook returns without re-filtering client-side", () => {
+      useRelationshipsListMock.mockReturnValue(
+        listResult([
+          {
+            id: "r2",
+            type: "dependsOn",
+            origin: "manual",
+            source: { kind: "service", id: "svc2", displayName: "Other" },
+            target: { kind: "infrastructure", id: VM_ID, displayName: "web-prod-01" },
+            createdByUserId: "u1",
+            createdAt: "2026-06-25T00:00:00Z",
+          },
+        ]),
+      );
+      setPerms([]);
+
+      renderPage();
+
+      // The hook is trusted to have already applied the deployedOn filter server-side, so a
+      // non-deployedOn item in the mocked response (which a real server call would never return)
+      // still renders here — this pins that the page no longer re-filters client-side.
+      expect(screen.getByText("Other")).toBeInTheDocument();
+    });
+
+    it("shows the empty state when the hook returns no items", () => {
+      useRelationshipsListMock.mockReturnValue(listResult([]));
+      setPerms([]);
+
+      renderPage();
+
+      expect(screen.getByText(/no components are deployed on this vm/i)).toBeInTheDocument();
+    });
   });
 });
