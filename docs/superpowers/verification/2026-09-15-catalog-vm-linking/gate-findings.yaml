@@ -1,6 +1,6 @@
 slice: E-02.F-04.S-01-slice-2b-vm-linking
 branch: feat/catalog-vm-linking
-terminal_commit: 9c7f344
+terminal_commit: 454a5f8
 findings:
   - gate: task-review-3
     severity: important
@@ -22,6 +22,63 @@ findings:
     verdict: real
     summary: "VM Hosted-components reads one unfiltered page then filters deployedOn client-side (scaling caveat)"
     resolution: "deferred follow-up (E-02.F-04 list surface)"
+  # --- gate 7 (/pr-review-toolkit:review-pr — 5 agents) ---
+  - gate: review-pr-comment-analyzer
+    severity: minor
+    verdict: real
+    summary: "Stale line-number citation RelationshipTypeRules.cs:21-22 in CatalogEndpointDelegates.cs — rotted within the slice (IsPartOfSourceKind insertion shifted lines)"
+    resolution: "fixed (e6259a1) — replaced with symbol reference, no line number"
+  - gate: review-pr-type-design
+    severity: important
+    verdict: real
+    summary: "SystemMembersSection.asComponentKind excludes infrastructure — a VM assigned to a System renders as unlinked span with no Remove button"
+    resolution: "deferred (ruling) -> TD-006; design kept infra render-only in FE relationship model; membership manageable from VM detail"
+  - gate: review-pr-type-design
+    severity: should-fix
+    verdict: real
+    summary: "EntityLookupResult.Type invariant (non-null iff Infrastructure; never default) lived only in a caller comment, not on the type"
+    resolution: "fixed (e6259a1) — <param> doc on the record stating null-unless-Infrastructure, do-not-default"
+  - gate: review-pr-pr-test-analyzer
+    severity: important
+    verdict: real
+    summary: "Missing tests: ownership-gate negative branch (wrong-team-but-permitted) + direct cross-tenant DeployedOn TARGET via POST /relationships"
+    resolution: "fixed (e6259a1) — teamOwnership.test.ts, ApplicationDetailPage negative Deploy-on-VM test, cross-tenant target 422 + exact-dup 409 integration tests"
+  - gate: review-pr-pr-test-analyzer
+    severity: minor
+    verdict: real
+    summary: "Stale 'expected to fail the TS check / Task 11' comment in systems.ts — false after the snapshot regen landed on-branch"
+    resolution: "fixed (e6259a1) — comment updated/removed"
+  - gate: review-pr-silent-failure-hunter
+    severity: none
+    verdict: real
+    summary: "No silent-failure findings — error handling sound; agent confirmed the diff itself fixes the prior 500->409 regression (negative confirmation)"
+    resolution: "n/a — 0 findings"
+  - gate: review-pr-silent-failure-hunter
+    severity: minor
+    verdict: real
+    summary: "ProblemTypes.InvalidTargetEntity reused for two 422s (missing target vs not-a-VM) — programmatic consumers can't discriminate without string-matching detail"
+    resolution: "deferred follow-up (consider ProblemTypes.InvalidDeploymentTarget)"
+  # --- gate 8 (/deep-review — opus) ---
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    summary: "VM Hosted-components filters deployedOn client-side over a default-20 mixed page -> silently under-counts on VMs with >=20 incoming edges (escalated from the gate-6 minor; hook already supports server-side type filter)"
+    resolution: "fixed (454a5f8) — server-side type=deployedOn filter, mirroring useComponentSystem"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    summary: "Missing end-to-end test that the graph endpoint returns an Infrastructure node + DeployedOn/PartOf edges (spec Goal #3, only claimed kind-agnostic)"
+    resolution: "fixed (454a5f8) — graph-endpoint integration test asserts infra node + both edges"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    summary: "Missing same-tenant non-owning-team 403 test for PUT /infrastructure/{id}/system (authz only implied by handler reuse)"
+    resolution: "fixed (454a5f8) — 403 integration test"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    summary: "relationships.ts limit: String(10) literal; infra graph-node icon hardcoded text-brand-secondary (not state-aware labelColor)"
+    resolution: "fixed (454a5f8) — limit \"10\"; icon uses labelColor"
 deferred_minors:
   - "T6 relationships.ts limit: String(10) hardcoded vs sibling param style"
   - "T8 VmDetailPage client-side deployedOn filter (brief-specified; scaling follow-up)"
