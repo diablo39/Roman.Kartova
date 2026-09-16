@@ -98,7 +98,7 @@ describe("CatalogHierarchyPage", () => {
     await userEvent.click(screen.getByRole("button", { name: /Team Alpha/ }));
     await userEvent.click(screen.getByRole("button", { name: /Billing/ }));
     const link = screen.getByRole("link", { name: /web-01/ });
-    expect(link).toHaveAttribute("href", "/catalog/infrastructure/vm1");
+    expect(link).toHaveAttribute("href", "/catalog/infrastructure/vms/vm1");
   });
 
   it("shows a breadcrumb reflecting the selected node", async () => {

@@ -13,13 +13,13 @@
 | Gate | Status | Updated |
 |------|--------|---------|
 | 1 Build (`TreatWarningsAsErrors`) | ✅ PASS | 2026-09-16 |
-| 2 Per-task subagent reviews | ⏳ PENDING | — |
+| 2 Per-task subagent reviews | ✅ PASS | 2026-09-16 |
 | 3 Full suite (+ real-seam) | ✅ PASS | 2026-09-16 |
 | 4 Container build (images CI) | N/A | 2026-09-16 |
-| 5 `/simplify` | ⏳ PENDING | — |
-| 6 `requesting-code-review` | ⏳ PENDING | — |
-| 7 `review-pr` | ⏳ PENDING | — |
-| 8 `deep-review` | ⏳ PENDING | — |
+| 5 `/simplify` | ✅ PASS | 2026-09-16 |
+| 6 `requesting-code-review` | ⏳ RUNNING | — |
+| 7 `review-pr` | ✅ PASS | 2026-09-16 |
+| 8 `deep-review` | ✅ PASS | 2026-09-16 |
 | Terminal re-verify (build + suite) | ⏳ PENDING | — |
 | 9 Visual / API verification (ADR-0084) | ⏳ PENDING | — |
 | 10 CI green on PR | ⏳ PENDING | — |
@@ -32,8 +32,9 @@
 **At:** bc3495b / 2026-09-16
 
 ### 2 — Per-task subagent reviews (spec + quality)
-**Status:** ⏳ PENDING
-**Evidence:** —
+**Status:** ✅ PASS
+**Evidence:** csharp-code-reviewer (pass-with-S2: contract doc-comment miss → fixed 451ff7b; 2 S3 advisory, 1 skipped w/ reason) + typescript-code-reviewer (pass-with-S1: buildHierarchyView unguarded cast → fixed 451ff7b). Independently re-ran build + targeted tests. See gate-findings.yaml.
+**At:** 451ff7b / 2026-09-16
 
 ### 3 — Full test suite (unit + arch + integration; real-seam)
 **Status:** ✅ PASS
@@ -46,16 +47,22 @@
 **At:** bc3495b / 2026-09-16
 
 ### 5 — `/simplify` against branch diff
-**Status:** ⏳ PENDING
+**Status:** ✅ PASS (advisory)
+**Evidence:** 4 agents (reuse/simplification/efficiency/altitude). Efficiency + simplification clean. Applied: altitude — `HierarchyNodeType` composes `PartOfSourceKind` (260492f). Skipped w/ reason: `SeedVmAsync` test-helper hoist (matches per-file suite convention, out-of-scope cross-cutting), FE↔BE list sync (owner-scoped/documented).
+**At:** 260492f / 2026-09-16
 
 ### 6 — `requesting-code-review` at slice boundary
 **Status:** ⏳ PENDING
 
 ### 7 — `review-pr` (pr-review-toolkit; standing set type-design + pr-test + code-reviewer)
-**Status:** ⏳ PENDING
+**Status:** ✅ PASS
+**Evidence:** type-design-analyzer (buildHierarchyView cast → fixed), pr-test-analyzer (RLS gap on new infra read path → fixed), code-reviewer (no findings ≥80; 1 nit → fixed). Silent-failure/comment agents not run (diff adds no error-handling/comments — conditional-agent rule). See gate-findings.yaml.
+**At:** 451ff7b / 2026-09-16
 
 ### 8 — `deep-review`
-**Status:** ⏳ PENDING
+**Status:** ✅ PASS
+**Evidence:** `./deep-review.md` — 0 blocking, 0 should-fix (earlier gate fixes cover), 2 nits (count-vs-render drift theoretical; kind-assertion spread) no-action. Cross-referenced ADR-0111/0109/0082.
+**At:** 451ff7b / 2026-09-16
 
 ### Terminal re-verify (build + full suite after gates 5–8)
 **Status:** ⏳ PENDING

@@ -113,7 +113,7 @@ export function useComponentSystem(componentKind: ComponentKind, componentId: st
 }
 
 /**
- * PUT /catalog/{applications|services}/{id}/system — atomic set / move / clear of the
+ * PUT /catalog/{applications|services|infrastructure}/{id}/system — atomic set / move / clear of the
  * component's System (`systemId: null` clears). Invalidates the relationship family and
  * every derived `["catalog", …]` read model (members list, mini-graph, graph, impact).
  */

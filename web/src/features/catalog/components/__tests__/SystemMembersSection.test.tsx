@@ -248,7 +248,7 @@ describe("SystemMembersSection", () => {
 
     expect(screen.getByRole("link", { name: "web-01" })).toHaveAttribute(
       "href",
-      "/catalog/infrastructure/vm1",
+      "/catalog/infrastructure/vms/vm1",
     );
     expect(screen.getByRole("button", { name: /remove/i })).toBeEnabled();
   });

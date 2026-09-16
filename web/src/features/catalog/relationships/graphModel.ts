@@ -149,7 +149,10 @@ const ENTITY_PATH_SEGMENT: Record<EntityKind, string> = {
   service: "services",
   api: "apis",
   system: "systems",
-  infrastructure: "infrastructure",
+  // Infrastructure detail lives under the nested VM route (/catalog/infrastructure/vms/:id);
+  // "/catalog/infrastructure" is the list page and has no :id, so a bare "infrastructure" segment
+  // would 404. The only InfrastructureType today is VirtualMachine (ADR-0115).
+  infrastructure: "infrastructure/vms",
 };
 
 export function parseEntityRef(token: string | null | undefined): { kind: EntityKind; id: string } | null {
