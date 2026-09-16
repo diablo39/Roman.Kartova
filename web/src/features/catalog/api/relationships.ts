@@ -129,9 +129,11 @@ export function useEntitySearch(
         return unwrapData(data).items.map((e) => ({ kind, id: e.id, displayName: e.displayName }));
       }
       if (kind === "infrastructure") {
-        // The VM list endpoint types `limit` as `string` (backend `[FromQuery] string? limit`),
-        // unlike the numeric `limit` on the other list endpoints, so this branch keeps its own
-        // query shape rather than reusing `q`. `displayNameContains` narrows server-side (TD-007).
+        // The VM route's OpenAPI schema types `limit` as `string` (all catalog list endpoints
+        // bind `[FromQuery] string? limit` — the difference is that CursorListQueryParameterTransformer,
+        // which normalizes `limit` to a bounded integer in the doc, is not applied to
+        // /infrastructure/vms). So this branch keeps its own query shape rather than reusing `q`.
+        // `displayNameContains` narrows server-side (TD-007).
         const { data, error } = await apiClient.GET("/api/v1/catalog/infrastructure/vms", {
           params: { query: { displayNameContains: query, sortBy: "displayName", sortOrder: "asc", limit: "10" } },
         });

@@ -450,19 +450,31 @@ public sealed class InfrastructureVmEndpointsTests : CatalogIntegrationTestBase
         var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team NameEscape");
         var unique = $"vm-esc-{Guid.NewGuid():N}";
 
-        var literal = await RegisterVmAsync(client, VmBody(teamId, $"{unique}-100%off"));
+        var literalPercent = await RegisterVmAsync(client, VmBody(teamId, $"{unique}-100%off"));
         var wouldMatchIfWildcard = await RegisterVmAsync(client, VmBody(teamId, $"{unique}-100XXoff"));
+        // Underscore is the more insidious LIKE wildcard (single char): "a_b" silently matching
+        // "axb" is easy to miss. Pair a literal "_" name against a would-collide sibling.
+        var literalUnderscore = await RegisterVmAsync(client, VmBody(teamId, $"{unique}-db_01"));
+        var wouldMatchIfUnderscoreWildcard = await RegisterVmAsync(client, VmBody(teamId, $"{unique}-dbX01"));
 
         // "100%off" must be treated literally. Unescaped, its pattern %100%off% would also match
         // "100XXoff" (the % as any-sequence wildcard); escaped, only the literal % row matches.
-        var term = Uri.EscapeDataString($"{unique}-100%off");
-        var resp = await client.GetAsync($"/api/v1/catalog/infrastructure/vms?teamId={teamId}&displayNameContains={term}&limit=200");
-        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
-        var page = await resp.Content.ReadFromJsonAsync<CursorPage<VmListItemResponse>>(KartovaApiFixtureBase.WireJson);
-        var ids = page!.Items.Select(i => i.Id).ToHashSet();
+        var percentTerm = Uri.EscapeDataString($"{unique}-100%off");
+        var percentResp = await client.GetAsync($"/api/v1/catalog/infrastructure/vms?teamId={teamId}&displayNameContains={percentTerm}&limit=200");
+        Assert.AreEqual(HttpStatusCode.OK, percentResp.StatusCode);
+        var percentIds = (await percentResp.Content.ReadFromJsonAsync<CursorPage<VmListItemResponse>>(KartovaApiFixtureBase.WireJson))!
+            .Items.Select(i => i.Id).ToHashSet();
+        Assert.IsTrue(percentIds.Contains(literalPercent.Id), "the VM with a literal % must match");
+        Assert.IsFalse(percentIds.Contains(wouldMatchIfWildcard.Id), "the % must be escaped, not treated as a wildcard");
 
-        Assert.IsTrue(ids.Contains(literal.Id), "the VM with a literal % must match");
-        Assert.IsFalse(ids.Contains(wouldMatchIfWildcard.Id), "the % must be escaped, not treated as a wildcard");
+        // "db_01" must match only the literal-underscore row, not "dbX01".
+        var underscoreTerm = Uri.EscapeDataString($"{unique}-db_01");
+        var underscoreResp = await client.GetAsync($"/api/v1/catalog/infrastructure/vms?teamId={teamId}&displayNameContains={underscoreTerm}&limit=200");
+        Assert.AreEqual(HttpStatusCode.OK, underscoreResp.StatusCode);
+        var underscoreIds = (await underscoreResp.Content.ReadFromJsonAsync<CursorPage<VmListItemResponse>>(KartovaApiFixtureBase.WireJson))!
+            .Items.Select(i => i.Id).ToHashSet();
+        Assert.IsTrue(underscoreIds.Contains(literalUnderscore.Id), "the VM with a literal _ must match");
+        Assert.IsFalse(underscoreIds.Contains(wouldMatchIfUnderscoreWildcard.Id), "the _ must be escaped, not treated as a single-char wildcard");
     }
 
     /// <summary>FW3-F8b: generic-list <c>type</c>-filtered pagination is cursor-stable — no

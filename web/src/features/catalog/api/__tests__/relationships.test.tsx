@@ -107,11 +107,12 @@ describe("relationships api", () => {
     const qc = newQc();
     const { result } = renderHook(() => useEntitySearch("infrastructure", "web", { enabled: true }), { wrapper: wrapper(qc) });
     await waitFor(() => expect(result.current.data).toEqual([{ kind: "infrastructure", id: "vm9", displayName: "web-01" }]));
-    // ListVms has no displayNameContains param (backend gap, verified against ListVmsQuery.cs /
-    // CatalogEndpointDelegates.cs) — assert the real path + supported sort/limit shape, not the
-    // application/service/api/system displayNameContains shape which doesn't exist here.
+    // TD-007: the VM list now supports displayNameContains — assert the search term is passed so
+    // server-side narrowing is locked in. `limit` stays a string here (the VM route's OpenAPI
+    // schema types it as string; the other list routes get a bounded-integer via
+    // CursorListQueryParameterTransformer, which is not applied to /infrastructure/vms).
     expect(GET).toHaveBeenCalledWith("/api/v1/catalog/infrastructure/vms", expect.objectContaining({
-      params: { query: expect.objectContaining({ sortBy: "displayName", sortOrder: "asc", limit: "10" }) },
+      params: { query: expect.objectContaining({ displayNameContains: "web", sortBy: "displayName", sortOrder: "asc", limit: "10" }) },
     }));
   });
 
