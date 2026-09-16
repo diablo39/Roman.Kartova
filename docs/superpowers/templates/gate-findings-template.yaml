@@ -12,7 +12,9 @@
 
 slice:  <date>-<topic>      # = the verification folder name (matches spec/plan slug)
 branch: <branch>
-head:   <short-sha>
+terminal_commit: <short-sha>   # the slice's final commit; MUST match dod.md's "Terminal commit".
+                               # .claude/hooks/dod-check.js blocks a completion claim whose
+                               # gate-findings.yaml has no terminal_commit or one that drifts from dod.md.
 
 # One entry per issue a gate raised.
 #
