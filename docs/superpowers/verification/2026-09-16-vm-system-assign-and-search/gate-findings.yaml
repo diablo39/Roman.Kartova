@@ -1,8 +1,18 @@
 slice:  2026-09-16-vm-system-assign-and-search
 branch: feat/catalog-vm-system-assign-search
-terminal_commit: <pending>
+terminal_commit: 7108c07
 
 findings:
+  - gate: ci-mirror
+    severity: should-fix
+    verdict: real
+    title: "ci-local frontend mirror flaked on the TD-008 vitest timeout (ServiceDetailPage/ApplicationDetailPage), reddening gate 10"
+    note: "TD-008 mitigation pulled into this branch (testTimeout 15000 + maxWorkers 50%); 3x full-suite green + mirror green."
+  - gate: ci-mirror
+    severity: blocking
+    verdict: real
+    title: "vitest.config poolOptions/minWorkers not in vitest 4 InlineConfig type — tsc (Release build) failed though runtime accepted them"
+    note: "switched to typed test.maxWorkers in 7108c07; tsc -b clean, mirror green. Gate 10 caught a real type error local per-file tsc missed (config edited after the tsc pass)."
   - gate: review-pr
     severity: should-fix
     verdict: real

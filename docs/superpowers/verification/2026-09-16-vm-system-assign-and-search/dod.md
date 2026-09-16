@@ -1,7 +1,8 @@
 # DoD Ledger — VM System-side assign + server-side VM name search (TD-009 + TD-007)
 
-**Slice:** `2026-09-16-vm-system-assign-and-search` · **Branch:** `feat/catalog-vm-system-assign-search` · **HEAD:** `<pending commit>`
-**PR:** <pending> · **Last updated:** 2026-09-16
+**Slice:** `2026-09-16-vm-system-assign-and-search` · **Branch:** `feat/catalog-vm-system-assign-search` · **Terminal commit:** `7108c07`
+**PR:** <pending push> · **Last updated:** 2026-09-16
+**Scope note:** TD-008 (FE vitest flake mitigation) was pulled into this branch from its planned separate branch when the flake reddened gate 10's frontend mirror.
 **Spec:** `docs/superpowers/specs/2026-09-16-vm-system-assign-and-search-design.md`
 **Plan:** `docs/superpowers/plans/2026-09-16-vm-system-assign-and-search-plan.md`
 **Findings telemetry:** `./gate-findings.yaml`
@@ -22,7 +23,7 @@
 | 8 `deep-review` | ✅ PASS | 2026-09-16 |
 | Terminal re-verify (build + suite) | ✅ PASS (2 TD-008 flakes, pass isolated) | 2026-09-16 |
 | 9 Visual / API verification (ADR-0084) | ✅ PASS | 2026-09-16 |
-| 10 CI green on PR | ⏳ PENDING | — |
+| 10 CI green on PR | ⏳ PENDING (ci-local mirror ✅; PR runner after push) | 2026-09-16 |
 
 ## Gate detail
 
@@ -60,4 +61,4 @@
 **At:** running stack, 2026-09-16
 
 ### 10 — CI green on the PR
-**Status:** ⏳ PENDING — `scripts/ci-local.sh` pre-push mirror, then PR runner.
+**Status:** ⏳ PENDING (PR runner) — pre-push mirror `scripts/ci-local.sh backend frontend images` = all **PASS** on terminal commit `7108c07`. First mirror run caught (a) the TD-008 frontend flake → mitigated (see gate-findings `ci-mirror`), and (b) a real `tsc` error — `poolOptions`/`minWorkers` are not in vitest 4's `InlineConfig` type though the runtime accepted them → switched to the typed `test.maxWorkers`. Both fixed; re-run mirror green. PR runner is the terminal source of truth after push.
