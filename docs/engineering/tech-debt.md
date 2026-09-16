@@ -131,7 +131,7 @@ Convention: one `### TD-NNN` heading per item. Keep `Status: open` until done; o
 
 ### TD-007 — VM entity-search is not text-filtered (ListVms lacks displayNameContains)
 
-**Status:** open
+**Status:** done (branch `feat/catalog-vm-system-assign-search`) — `DisplayNameContains` added to `ListVmsQuery`/`ListVmsHandler` (case-insensitive substring `ILIKE` over `DisplayName`, `LikeEscaping.EscapeLike` wildcards, encoded into the cursor f-map), `[FromQuery] displayNameContains` on `ListVmsAsync`, snapshot + client regenerated, `useEntitySearch` infra branch now passes the term. Mirrors `ListServices` exactly. Real-seam integ (case-insensitive match + wildcard-escaping) + `BuildFilterMap` unit test. Registry VM row updated.
 **Origin:** E-02.F-04.S-01 slice 2b (VM linking) — controller ruling during SDD (Task 6).
 
 **Problem.** `useEntitySearch("infrastructure", q)` (used by the DeployOnVm VM picker) hits `GET /catalog/infrastructure/vms`, which has no `displayNameContains` parameter, so the typeahead shows the first N VMs by displayName regardless of typed text. Fine at small VM counts; poor UX at scale.
@@ -150,7 +150,7 @@ Convention: one `### TD-NNN` heading per item. Keep `Status: open` until done; o
 
 ### TD-008 — Frontend vitest suite flakes on timeout under full-suite load
 
-**Status:** open
+**Status:** done — pragmatic mitigation (branch `feat/catalog-vm-system-assign-search`, pulled forward from the planned Branch B when the flake blocked this slice's gate 10): `web/vitest.config.ts` now sets `testTimeout`/`hookTimeout` = 15000ms and caps fork concurrency (`poolOptions.forks.maxForks = "50%"`, `minForks = 1`) so the per-file barrel-import + jsdom-environment storm is less severe and individual tests keep their budget. Verified deterministic: 3× consecutive full `npx vitest run` = 1134/1134 (was 1132/1134 with 2 intermittent timeouts in ServiceDetailPage/ApplicationDetailPage), wall-clock steady ~200s. **Root import-cost reduction (heavy barrels / per-file MSW/provider setup) is NOT done** — reopen a follow-up if the flake recurs under CI load despite the mitigation.
 **Origin:** Observed during E-02.F-04.S-01 slice 2b (VM linking) gate-8 + terminal re-verify (2026-09-15). Not caused by the slice — the flaking tests are in untouched files.
 
 **Problem.** Running the full web suite (`npx vitest run`, ~1126 tests) intermittently fails 1-3 tests with 5000-10000ms timeouts — seen in `ServiceDetailPage.test.tsx` ("renders a not-found card on error") and `ApplicationDetailPage.test.tsx`. Each passes green + fast (~5s) when the file is run in isolation. The full run reports very high cumulative import/setup/environment time (import ~980s, setup ~107s, environment ~820s across workers), pointing at heavy per-file module-import/setup cost that starves individual tests of their timeout budget under parallel load. This is a CI-stability risk for the Frontend job (gate 10).
@@ -167,7 +167,7 @@ Convention: one `### TD-NNN` heading per item. Keep `Status: open` until done; o
 
 ### TD-009 — System-side "Assign component" dialog can't assign an Infrastructure member
 
-**Status:** open
+**Status:** done (branch `feat/catalog-vm-system-assign-search`) — added an "Infrastructure" radio to `AddSystemMemberDialog.KINDS` (combobox + `useSetComponentSystem` were already generic over `ComponentKind`/`PartOfSourceKind`); infra placeholder reads "Search VMs…". Picker narrows server-side via TD-007. FE tests: Infrastructure radio searches `infrastructure`; selecting a VM drives `useSetComponentSystem({ componentKind: "infrastructure", ... })`. Verified live at gate 9.
 **Origin:** Discovered during TD-005/006 slice gate-9 visual verification (2026-09-16). Out of that slice's render scope.
 
 **Problem.** `AddSystemMemberDialog` (the System detail → Members → "Assign component" dialog) offers only **Application / Service** as component-kind radios, so a VM cannot be assigned to a System from the System side. Infrastructure membership is only settable from the VM detail → *Assign* system dialog (which works). Now that infra members render + are removable in the System Members table (TD-006) and appear in the hierarchy (TD-005), the missing System-side assign path is a UX-parity gap: a steward viewing a System cannot add a VM to it in place.
@@ -182,3 +182,22 @@ Convention: one `### TD-NNN` heading per item. Keep `Status: open` until done; o
 **Why deferred.** TD-005/006 scoped to *surfacing* already-assigned infrastructure (read model + members render). The System-side assign path is a distinct write-UI capability; folding it in would broaden the slice.
 
 **Acceptance.** A steward can assign a VM to a System from the System's "Assign component" dialog; the member then appears in the Members table + hierarchy; covered by a test.
+
+---
+
+### TD-010 — `/infrastructure/vms` `limit` param escapes `CursorListQueryParameterTransformer`
+
+**Status:** open
+**Origin:** TD-007 slice (2026-09-16) — type-design + altitude (gate 5/7) finding.
+
+**Problem.** Every catalog list endpoint binds `[FromQuery] string? limit`, but the OpenAPI doc normalizes `limit` to a bounded integer (`{type: integer, minimum: 1, maximum: 200}`) via `CursorListQueryParameterTransformer` (wired in `CatalogModule.cs` for Applications/Services/Apis/Systems/generic-Infrastructure). That transformer is **not** applied to the `GET /infrastructure/vms` route, so its `limit` stays `{type: string}` in the generated client. Consequence: `useEntitySearch`'s infra branch (`web/src/features/catalog/api/relationships.ts`) must special-case a string `limit: "10"` instead of reusing the shared numeric `q` object, and the VM endpoint's public contract loses the `1..200` bound the sibling endpoints express at the type level.
+
+**Affected files.**
+- `src/Modules/Catalog/Kartova.Catalog.Infrastructure/CatalogModule.cs` — the VM list `MapGet` (`~:320`) is missing the transformer the other list routes carry.
+- `web/src/features/catalog/api/relationships.ts` — the infra branch's `limit: "10"` string special-case can be removed once the schema matches.
+
+**Proposed fix.** Apply `CursorListQueryParameterTransformer` to the `/infrastructure/vms` route (mirror the other list-route registrations), regenerate the snapshot/client, and drop the `limit`-string special-case in `useEntitySearch`.
+
+**Why deferred.** Backend OpenAPI-transformer wiring is outside the TD-007 typeahead scope; the special-case works today at a hardcoded `"10"`. Latent contract-consistency gap, not a live bug.
+
+**Acceptance.** `/infrastructure/vms` `limit` is a bounded integer in the OpenAPI doc like the sibling lists; `useEntitySearch` reuses the shared query shape with no VM special-case.

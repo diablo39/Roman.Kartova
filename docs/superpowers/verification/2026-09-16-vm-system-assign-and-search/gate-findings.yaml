@@ -1,0 +1,60 @@
+slice:  2026-09-16-vm-system-assign-and-search
+branch: feat/catalog-vm-system-assign-search
+terminal_commit: 7108c07
+
+findings:
+  - gate: ci-mirror
+    severity: should-fix
+    verdict: real
+    title: "ci-local frontend mirror flaked on the TD-008 vitest timeout (ServiceDetailPage/ApplicationDetailPage), reddening gate 10"
+    note: "TD-008 mitigation pulled into this branch (testTimeout 15000 + maxWorkers 50%); 3x full-suite green + mirror green."
+  - gate: ci-mirror
+    severity: blocking
+    verdict: real
+    title: "vitest.config poolOptions/minWorkers not in vitest 4 InlineConfig type — tsc (Release build) failed though runtime accepted them"
+    note: "switched to typed test.maxWorkers in 7108c07; tsc -b clean, mirror green. Gate 10 caught a real type error local per-file tsc missed (config edited after the tsc pass)."
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "relationships.test.tsx VM search test used objectContaining partial-match + stale 'backend gap' comment — zero signal on the new displayNameContains param"
+    note: "fixed in c594817 (assert displayNameContains passed; comment corrected). Flagged by both pr-test-analyzer and typescript-code-reviewer."
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "relationships.ts limit-string comment misattributed the cause to the backend binding; real cause = CursorListQueryParameterTransformer not applied to /infrastructure/vms"
+    note: "fixed in c594817 (comment corrected). Root gap filed as TD-010."
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "wildcard-escaping integ test covered % but not _ (single-char wildcard)"
+    note: "fixed in c594817 (added a literal-underscore case)."
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "list-filter-registry overstated displayNameContains as a built VM list-screen FilterBar facet; it is typeahead-only"
+    note: "fixed in c594817 (scoped to typeahead; VM list-screen facet marked explicitly deferred per ADR-0107 field-addition trigger)."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "ListVmsHandler ILIKE block now byte-identical to ListServices/Apis/Systems handlers"
+    note: "skipped — established codebase convention, not introduced here; extraction not worth it."
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "KINDS is a hand-maintained subset of ComponentKind with no exhaustiveness pin"
+    note: "skipped — pre-existing, not introduced by this diff."
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "searchPlaceholder helper untested"
+    note: "skipped — cosmetic string, no functional risk."
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "no cross-tenant test with the name filter active"
+    note: "skipped — RLS applied uniformly; isolation tested elsewhere; filter-active path is not a distinct RLS branch."
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "VM limit escapes CursorListQueryParameterTransformer, forcing the useEntitySearch string special-case (altitude)"
+    note: "out of TD-007 scope (backend transformer wiring); filed as TD-010 rather than patched."

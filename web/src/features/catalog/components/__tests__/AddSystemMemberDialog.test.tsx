@@ -44,6 +44,33 @@ it("searches services when the kind is switched to Service", async () => {
   await waitFor(() => expect(search).toHaveBeenLastCalledWith("service", expect.anything(), expect.anything()));
 });
 
+it("searches infrastructure when the kind is switched to Infrastructure (TD-009)", async () => {
+  const search = vi.spyOn(rel, "useEntitySearch").mockReturnValue({ data: [], isLoading: false } as never);
+  render(<AddSystemMemberDialog open onOpenChange={vi.fn()} system={{ id: "sys1", displayName: "Payments" }} />);
+
+  fireEvent.click(screen.getByRole("radio", { name: /infrastructure/i }));
+
+  await waitFor(() =>
+    expect(search).toHaveBeenLastCalledWith("infrastructure", expect.anything(), expect.anything()),
+  );
+});
+
+it("assigns the selected VM to this System (TD-009)", async () => {
+  vi.spyOn(rel, "useEntitySearch").mockReturnValue({
+    data: [{ kind: "infrastructure", id: "vm1", displayName: "web-01" }], isLoading: false,
+  } as never);
+  render(<AddSystemMemberDialog open onOpenChange={vi.fn()} system={{ id: "sys1", displayName: "Payments" }} />);
+
+  fireEvent.click(screen.getByRole("radio", { name: /infrastructure/i }));
+  fireEvent.change(screen.getByRole("combobox"), { target: { value: "web" } });
+  await waitFor(() => expect(screen.getByText("web-01")).toBeInTheDocument());
+  fireEvent.click(screen.getByText("web-01"));
+
+  await waitFor(() =>
+    expect(mutateAsync).toHaveBeenCalledWith({ componentKind: "infrastructure", componentId: "vm1", systemId: "sys1" }),
+  );
+});
+
 it("toasts the ProblemDetails message and keeps the dialog open when assign fails", async () => {
   mutateAsync.mockRejectedValueOnce({
     title: "Conflict",

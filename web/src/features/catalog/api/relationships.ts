@@ -129,14 +129,13 @@ export function useEntitySearch(
         return unwrapData(data).items.map((e) => ({ kind, id: e.id, displayName: e.displayName }));
       }
       if (kind === "infrastructure") {
-        // ListVms has no displayNameContains param (verified against ListVmsQuery.cs /
-        // CatalogEndpointDelegates.cs — not a codegen lag like the infra system PUT endpoint,
-        // the backend genuinely has no VM name-substring filter yet). `limit` is also typed as
-        // `string` here, unlike the numeric `limit` on the other list endpoints above, so this
-        // branch cannot reuse the shared `q` object. Sorted by displayName only; the typed
-        // search text does not narrow VM results server-side until that filter exists.
+        // The VM route's OpenAPI schema types `limit` as `string` (all catalog list endpoints
+        // bind `[FromQuery] string? limit` — the difference is that CursorListQueryParameterTransformer,
+        // which normalizes `limit` to a bounded integer in the doc, is not applied to
+        // /infrastructure/vms). So this branch keeps its own query shape rather than reusing `q`.
+        // `displayNameContains` narrows server-side (TD-007).
         const { data, error } = await apiClient.GET("/api/v1/catalog/infrastructure/vms", {
-          params: { query: { sortBy: "displayName", sortOrder: "asc", limit: "10" } },
+          params: { query: { displayNameContains: query, sortBy: "displayName", sortOrder: "asc", limit: "10" } },
         });
         if (error) throw error;
         return unwrapData(data).items.map((e) => ({ kind, id: e.id, displayName: e.displayName }));

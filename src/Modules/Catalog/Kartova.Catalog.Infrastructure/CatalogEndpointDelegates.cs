@@ -755,6 +755,7 @@ internal static class CatalogEndpointDelegates
         [FromQuery] string? region,
         [FromQuery] string? hostname,
         [FromQuery] string? ipAddress,
+        [FromQuery] string? displayNameContains,
         ListVmsHandler handler,
         CatalogDbContext db,
         CancellationToken ct)
@@ -775,7 +776,8 @@ internal static class CatalogEndpointDelegates
             Os: string.IsNullOrWhiteSpace(os) ? null : os.Trim(),
             Region: string.IsNullOrWhiteSpace(region) ? null : region.Trim(),
             Hostname: string.IsNullOrWhiteSpace(hostname) ? null : hostname.Trim(),
-            IpAddress: string.IsNullOrWhiteSpace(ipAddress) ? null : ipAddress.Trim());
+            IpAddress: string.IsNullOrWhiteSpace(ipAddress) ? null : ipAddress.Trim(),
+            DisplayNameContains: string.IsNullOrWhiteSpace(displayNameContains) ? null : displayNameContains.Trim());
 
         var page = await handler.Handle(query, db, ct);
         return Results.Ok(page);

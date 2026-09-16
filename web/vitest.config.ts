@@ -12,6 +12,15 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
+    // TD-008: the full suite intermittently times out 1-3 tests (seen in ServiceDetailPage /
+    // ApplicationDetailPage "not-found" cases) under parallel load — heavy per-file barrel-import
+    // + jsdom-environment cost (cumulative import ~1900s / environment ~1300s across workers)
+    // starves individual tests of the default 5s budget. They pass fast in isolation. Mitigation:
+    // give each test more headroom AND cap fork concurrency so the import storm is less severe
+    // (trades some wall-clock for determinism). Root import-cost reduction is deferred.
+    testTimeout: 15000,
+    hookTimeout: 15000,
+    maxWorkers: "50%",
     coverage: {
       provider: "v8",
       include: [

@@ -45,6 +45,11 @@ public sealed class ListVmsHandler
             source = source.Where(x => EF.Functions.JsonContains(x.Attributes, Contains("hostname", h)));
         if (q.IpAddress is { } ip)
             source = source.Where(x => EF.Functions.JsonContains(x.Attributes, ContainsArray("ipAddresses", ip)));
+        if (q.DisplayNameContains is { } name)
+        {
+            var pattern = $"%{LikeEscaping.EscapeLike(name)}%";
+            source = source.Where(x => EF.Functions.ILike(x.DisplayName, pattern, "\\"));
+        }
 
         var filters = BuildFilterMap(q);   // unit-tested helper
 
@@ -78,7 +83,8 @@ public sealed class ListVmsHandler
     internal static Dictionary<string, string>? BuildFilterMap(ListVmsQuery q)
     {
         if (q.TeamId.Length == 0 && q.PowerState is null && q.Os is null
-            && q.Region is null && q.Hostname is null && q.IpAddress is null)
+            && q.Region is null && q.Hostname is null && q.IpAddress is null
+            && q.DisplayNameContains is null)
         {
             return null;
         }
@@ -96,6 +102,8 @@ public sealed class ListVmsHandler
             filters["hostname"] = h;
         if (q.IpAddress is { } ip)
             filters["ipAddresses"] = ip;
+        if (q.DisplayNameContains is { } dn)
+            filters["displayNameContains"] = dn;
         return filters;
     }
 }

@@ -22,10 +22,12 @@ public class ListVmsHandlerFilterTests
 
     private static ListVmsQuery Query(
         Guid[]? teamId = null, string? powerState = null, string? os = null,
-        string? region = null, string? hostname = null, string? ipAddress = null, int limit = 50) =>
+        string? region = null, string? hostname = null, string? ipAddress = null,
+        string? displayNameContains = null, int limit = 50) =>
         new(VmSortField.DisplayName, SortOrder.Asc, Cursor: null, Limit: limit,
             TeamId: teamId ?? [],
-            PowerState: powerState, Os: os, Region: region, Hostname: hostname, IpAddress: ipAddress);
+            PowerState: powerState, Os: os, Region: region, Hostname: hostname, IpAddress: ipAddress,
+            DisplayNameContains: displayNameContains);
 
     [TestMethod]
     public void Contains_builds_single_key_object_containment_json() =>
@@ -102,18 +104,28 @@ public class ListVmsHandlerFilterTests
     }
 
     [TestMethod]
+    public void BuildFilterMap_with_displayNameContains_sets_only_displayNameContains_key()
+    {
+        var map = ListVmsHandler.BuildFilterMap(Query(displayNameContains: "web"));
+        Assert.IsNotNull(map);
+        Assert.AreEqual(1, map!.Count);
+        Assert.AreEqual("web", map["displayNameContains"]);
+    }
+
+    [TestMethod]
     public void BuildFilterMap_with_every_dim_sets_all_keys()
     {
         var map = ListVmsHandler.BuildFilterMap(Query(
             teamId: [TeamA], powerState: "running", os: "linux",
-            region: "eu-west", hostname: "web-01", ipAddress: "10.0.0.1"));
+            region: "eu-west", hostname: "web-01", ipAddress: "10.0.0.1", displayNameContains: "web"));
         Assert.IsNotNull(map);
-        Assert.AreEqual(6, map!.Count);
+        Assert.AreEqual(7, map!.Count);
         Assert.AreEqual(TeamA.ToString("D"), map["teamId"]);
         Assert.AreEqual("running", map["powerState"]);
         Assert.AreEqual("linux", map["os"]);
         Assert.AreEqual("eu-west", map["region"]);
         Assert.AreEqual("web-01", map["hostname"]);
         Assert.AreEqual("10.0.0.1", map["ipAddresses"]);
+        Assert.AreEqual("web", map["displayNameContains"]);
     }
 }
