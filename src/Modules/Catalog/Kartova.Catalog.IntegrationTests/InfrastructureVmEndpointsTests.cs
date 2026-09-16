@@ -416,6 +416,55 @@ public sealed class InfrastructureVmEndpointsTests : CatalogIntegrationTestBase
         Assert.IsFalse(ids.Contains(windows.Id), "the windows VM must be excluded");
     }
 
+    /// <summary>TD-007: <c>displayNameContains=</c> is a case-insensitive substring (ILIKE)
+    /// match over the DisplayName column — distinct from the exact jsonb-containment attribute
+    /// filters. Proves EF translates the ILIKE against real Postgres and that the match is
+    /// case-insensitive (lowercase term matches a mixed-case name).</summary>
+    [TestMethod]
+    public async Task ListVms_filter_displayNameContains_case_insensitive_substring()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team NameFilter");
+        var unique = $"vm-name-{Guid.NewGuid():N}";
+
+        var web = await RegisterVmAsync(client, VmBody(teamId, $"{unique}-WebFrontend"));
+        var db = await RegisterVmAsync(client, VmBody(teamId, $"{unique}-database"));
+
+        // lowercase "webfront" must match the mixed-case "WebFrontend" (ILIKE), exclude "database".
+        var resp = await client.GetAsync($"/api/v1/catalog/infrastructure/vms?teamId={teamId}&displayNameContains=webfront&limit=200");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var page = await resp.Content.ReadFromJsonAsync<CursorPage<VmListItemResponse>>(KartovaApiFixtureBase.WireJson);
+        var ids = page!.Items.Select(i => i.Id).ToHashSet();
+
+        Assert.IsTrue(ids.Contains(web.Id), "the WebFrontend VM must match the lowercase substring");
+        Assert.IsFalse(ids.Contains(db.Id), "the database VM must be excluded");
+    }
+
+    /// <summary>TD-007: LIKE wildcards in the term are escaped, so a literal <c>%</c> in the
+    /// search text matches only a literal <c>%</c> in the name — not "any sequence". Guards the
+    /// LikeEscaping.EscapeLike wiring against a regression to an unescaped pattern.</summary>
+    [TestMethod]
+    public async Task ListVms_filter_displayNameContains_escapes_like_wildcards()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var teamId = await Fx.SeedTeamInOrganizationAsync(Fx.TenantIdForEmail(OrgAUser), "Vm Team NameEscape");
+        var unique = $"vm-esc-{Guid.NewGuid():N}";
+
+        var literal = await RegisterVmAsync(client, VmBody(teamId, $"{unique}-100%off"));
+        var wouldMatchIfWildcard = await RegisterVmAsync(client, VmBody(teamId, $"{unique}-100XXoff"));
+
+        // "100%off" must be treated literally. Unescaped, its pattern %100%off% would also match
+        // "100XXoff" (the % as any-sequence wildcard); escaped, only the literal % row matches.
+        var term = Uri.EscapeDataString($"{unique}-100%off");
+        var resp = await client.GetAsync($"/api/v1/catalog/infrastructure/vms?teamId={teamId}&displayNameContains={term}&limit=200");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var page = await resp.Content.ReadFromJsonAsync<CursorPage<VmListItemResponse>>(KartovaApiFixtureBase.WireJson);
+        var ids = page!.Items.Select(i => i.Id).ToHashSet();
+
+        Assert.IsTrue(ids.Contains(literal.Id), "the VM with a literal % must match");
+        Assert.IsFalse(ids.Contains(wouldMatchIfWildcard.Id), "the % must be escaped, not treated as a wildcard");
+    }
+
     /// <summary>FW3-F8b: generic-list <c>type</c>-filtered pagination is cursor-stable — no
     /// dup/skip across pages (mirrors <see cref="ListVms_cursor_is_stable_default_sort"/>).</summary>
     [TestMethod]

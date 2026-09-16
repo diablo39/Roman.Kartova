@@ -131,7 +131,7 @@ Convention: one `### TD-NNN` heading per item. Keep `Status: open` until done; o
 
 ### TD-007 — VM entity-search is not text-filtered (ListVms lacks displayNameContains)
 
-**Status:** open
+**Status:** done (branch `feat/catalog-vm-system-assign-search`) — `DisplayNameContains` added to `ListVmsQuery`/`ListVmsHandler` (case-insensitive substring `ILIKE` over `DisplayName`, `LikeEscaping.EscapeLike` wildcards, encoded into the cursor f-map), `[FromQuery] displayNameContains` on `ListVmsAsync`, snapshot + client regenerated, `useEntitySearch` infra branch now passes the term. Mirrors `ListServices` exactly. Real-seam integ (case-insensitive match + wildcard-escaping) + `BuildFilterMap` unit test. Registry VM row updated.
 **Origin:** E-02.F-04.S-01 slice 2b (VM linking) — controller ruling during SDD (Task 6).
 
 **Problem.** `useEntitySearch("infrastructure", q)` (used by the DeployOnVm VM picker) hits `GET /catalog/infrastructure/vms`, which has no `displayNameContains` parameter, so the typeahead shows the first N VMs by displayName regardless of typed text. Fine at small VM counts; poor UX at scale.
@@ -167,7 +167,7 @@ Convention: one `### TD-NNN` heading per item. Keep `Status: open` until done; o
 
 ### TD-009 — System-side "Assign component" dialog can't assign an Infrastructure member
 
-**Status:** open
+**Status:** done (branch `feat/catalog-vm-system-assign-search`) — added an "Infrastructure" radio to `AddSystemMemberDialog.KINDS` (combobox + `useSetComponentSystem` were already generic over `ComponentKind`/`PartOfSourceKind`); infra placeholder reads "Search VMs…". Picker narrows server-side via TD-007. FE tests: Infrastructure radio searches `infrastructure`; selecting a VM drives `useSetComponentSystem({ componentKind: "infrastructure", ... })`. Verified live at gate 9.
 **Origin:** Discovered during TD-005/006 slice gate-9 visual verification (2026-09-16). Out of that slice's render scope.
 
 **Problem.** `AddSystemMemberDialog` (the System detail → Members → "Assign component" dialog) offers only **Application / Service** as component-kind radios, so a VM cannot be assigned to a System from the System side. Infrastructure membership is only settable from the VM detail → *Assign* system dialog (which works). Now that infra members render + are removable in the System Members table (TD-006) and appear in the hierarchy (TD-005), the missing System-side assign path is a UX-parity gap: a steward viewing a System cannot add a VM to it in place.

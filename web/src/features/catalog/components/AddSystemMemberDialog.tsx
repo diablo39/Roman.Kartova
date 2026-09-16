@@ -17,7 +17,12 @@ interface Props {
 const KINDS: { value: ComponentKind; label: string }[] = [
   { value: "application", label: "Application" },
   { value: "service", label: "Service" },
+  { value: "infrastructure", label: "Infrastructure" },
 ];
+
+// "infrastructure" reads oddly in a picker placeholder (VMs are the only infra kind today).
+const searchPlaceholder = (kind: ComponentKind) =>
+  kind === "infrastructure" ? "Search VMs…" : `Search ${kind}s…`;
 
 /**
  * Add a component to this System from the System's Members tab. Writes through the same
@@ -76,7 +81,7 @@ export function AddSystemMemberDialog({ open, onOpenChange, system }: Props) {
               ))}
             </div>
 
-            <EntitySearchCombobox kind={kind} onSelect={assign} placeholder={`Search ${kind}s…`} />
+            <EntitySearchCombobox kind={kind} onSelect={assign} placeholder={searchPlaceholder(kind)} />
 
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" color="secondary" size="sm" onClick={() => onOpenChange(false)}>

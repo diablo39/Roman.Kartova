@@ -20,6 +20,13 @@ namespace Kartova.Catalog.Application;
 /// values are encoded into the cursor f-map under their own camelCase key so a mid-pagination
 /// change trips <c>CursorFilterMismatchException</c>.
 /// </para>
+/// <para>
+/// <paramref name="DisplayNameContains"/> — case-insensitive substring match over the
+/// <c>DisplayName</c> column (Postgres <c>ILIKE</c>, wildcards escaped), mirroring the name
+/// search on the Applications/Services/Apis/Systems lists. Distinct from the
+/// <c>Os</c>/<c>Region</c>/<c>Hostname</c>/<c>IpAddress</c> filters above, which are exact
+/// jsonb-containment matches over <c>VmAttributes</c>.
+/// </para>
 /// </summary>
 public sealed record ListVmsQuery(
     VmSortField SortBy,
@@ -31,4 +38,5 @@ public sealed record ListVmsQuery(
     string? Os = null,
     string? Region = null,
     string? Hostname = null,
-    string? IpAddress = null);
+    string? IpAddress = null,
+    string? DisplayNameContains = null);

@@ -2469,6 +2469,13 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "displayNameContains",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
