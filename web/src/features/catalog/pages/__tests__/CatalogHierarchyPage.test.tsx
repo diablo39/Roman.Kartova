@@ -74,6 +74,33 @@ describe("CatalogHierarchyPage", () => {
     expect(memberLink).toHaveAttribute("href", "/catalog/services/svc1");
   });
 
+  it("renders an infrastructure member linking to its detail page (TD-005)", async () => {
+    useCatalogHierarchyMock.mockReturnValue(
+      stubHierarchy({
+        data: {
+          totalComponentCount: 1,
+          truncated: false,
+          teams: [
+            {
+              teamId: "A",
+              componentCount: 1,
+              systems: [
+                { systemId: "S1", displayName: "Billing", componentCount: 1,
+                  members: [{ kind: "infrastructure", id: "vm1", displayName: "web-01" }] },
+              ],
+              ungrouped: { componentCount: 0, members: [] },
+            },
+          ],
+        },
+      }),
+    );
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: /Team Alpha/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Billing/ }));
+    const link = screen.getByRole("link", { name: /web-01/ });
+    expect(link).toHaveAttribute("href", "/catalog/infrastructure/vm1");
+  });
+
   it("shows a breadcrumb reflecting the selected node", async () => {
     renderPage();
     await userEvent.click(screen.getByRole("button", { name: /Team Alpha/ }));

@@ -5,6 +5,7 @@ import { useOrgProfile } from "@/features/organization/api/organization";
 import { buildHierarchyView, type HierarchyView, type MemberView } from "../hierarchy/buildHierarchyView";
 import { HierarchyTreeNode } from "../hierarchy/HierarchyTreeNode";
 import { HierarchyHelpCallout } from "../hierarchy/HierarchyHelpCallout";
+import { entityDetailPath } from "../relationships/graphModel";
 
 const EXPAND_KEY = "catalog-hierarchy-expanded";
 const ORG_NODE_KEY = "org";
@@ -84,7 +85,7 @@ export default function CatalogHierarchyPage() {
       count={0}
       expanded={false}
       hasChildren={false}
-      to={`/catalog/${member.kind === "application" ? "applications" : "services"}/${member.id}`}
+      to={entityDetailPath(member.kind, member.id)}
       onToggle={() => {}}
       onSelect={() => setSelectedPath(ancestry)}
       depth={3}

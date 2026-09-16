@@ -1,10 +1,11 @@
 import type { components } from "@/generated/openapi";
+import type { PartOfSourceKind } from "@/features/catalog/relationships/relationshipTypeRules";
 
 type CatalogHierarchyResponse = components["schemas"]["CatalogHierarchyResponse"];
 type TeamResponse = components["schemas"]["TeamResponse"];
 type HierarchyMemberDto = components["schemas"]["HierarchyMemberDto"];
 
-export type MemberView = { kind: "application" | "service"; id: string; name: string };
+export type MemberView = { kind: PartOfSourceKind; id: string; name: string };
 export type SystemView = { id: string; name: string; count: number; members: MemberView[] };
 export type BucketView = { count: number; members: MemberView[] };
 export type TeamView = {

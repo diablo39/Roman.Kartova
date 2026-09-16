@@ -1,7 +1,8 @@
 import type { FC } from "react";
-import { Building02, Users01, Package, Folder, Monitor01, Server01 } from "@untitledui/icons";
+import { Building02, Users01, Package, Folder, Monitor01, Server01, HardDrive } from "@untitledui/icons";
 
-export type HierarchyNodeType = "org" | "team" | "system" | "ungrouped" | "application" | "service";
+export type HierarchyNodeType =
+  | "org" | "team" | "system" | "ungrouped" | "application" | "service" | "infrastructure";
 
 /**
  * Per-row visual identity for the catalog hierarchy tree: a leading icon and a short kind label,
@@ -18,4 +19,5 @@ export const HIERARCHY_NODE_META: Record<HierarchyNodeType, { label: string; Ico
   ungrouped: { label: "Ungrouped", Icon: Folder },
   application: { label: "Application", Icon: Monitor01 },
   service: { label: "Service", Icon: Server01 },
+  infrastructure: { label: "Infrastructure", Icon: HardDrive },
 };
