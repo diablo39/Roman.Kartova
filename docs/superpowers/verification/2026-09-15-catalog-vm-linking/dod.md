@@ -7,7 +7,7 @@
 **Branch:** `feat/catalog-vm-linking` (from `master` @ 53578e8)
 **Terminal commit:** 454a5f8
 
-## Status: implementation staged, verification partial (gates 1-8 green; terminal re-verify running; 9/10 pending)
+## Status: gates 1-9 GREEN on 454a5f8. Only gate 10 (CI-on-PR) remains — held per user (not pushed).
 
 ## Summary table
 
@@ -21,7 +21,7 @@
 | 6 | `/superpowers:requesting-code-review` (whole-branch) | ✅ green | opus whole-branch review on 53578e8..e66d889 → 1 Important (infra PartOf POST 500→409) found, fixed (9c7f344), scoped re-review Approve; minors triaged as follow-ups |
 | 7 | `/pr-review-toolkit:review-pr` | ✅ green | 5 agents (code/tests/silent-failures/type-design/comments). No Critical. Fixed C/D/E/F (commit e6259a1): cross-tenant DeployedOn-target test, ownership tests, EntityLookupResult.Type doc, 2 stale comments. 2 Important read-surface gaps (hierarchy, System-members UI) ruled deferred → TD-005/006; minors → TD-007/follow-ups. |
 | 8 | `/deep-review` on branch diff | ✅ green | opus deep-review: 0 blocking, 1 should-fix + 2 missing-tests + 2 nits fixed (commit 454a5f8 — server-side hosted-components filter, graph-endpoint + non-owning-team-403 integration tests, icon/limit nits). Report: `deep-review.md`. |
-| 9 | Visual / API verification (running system) | ⛔ blocked → pending user | Playwright + chrome-devtools MCP failed to connect this session. Needs browser drive of `/graph` (infra node + DeployedOn/PartOf edges render), VM detail (System membership + Hosted components), Deploy-on-VM dialog. **E2E-impact:** Deploy-on-VM action lives on the Dependencies tab — check `e2e/` specs that traverse detail tabs/relationships. |
+| 9 | Visual / API verification (running system) | ✅ green | 2026-09-16 via **claude-in-chrome** on the live docker-compose stack (playwright/chrome-devtools plugins were the ones that failed). Verified: VM detail System-membership (Assign→Change) + Hosted-components (empty→populated); Deploy-on-VM action (app Dependencies tab) + dialog + toast + "Deployed on/Infrastructure" edge; VM→System assign (reused dialog + PUT /infrastructure/{id}/system, at-most-one); `/graph` infra node (hard-drive icon) + DeployedOn + PartOf edges. Live-confirmed TD-007 (VM search unfiltered). Evidence: `gate9-graph-infra-node-edges.jpg`. E2E-impact: Deploy-on-VM lives on the Dependencies tab — check `e2e/` specs at push time (gate 10). |
 | 10 | CI green on PR | ⏳ pending | needs push + PR (outward-facing — awaiting consent). Run `scripts/ci-local.sh` pre-push. |
 
 ## Rulings made (controller, during SDD)
