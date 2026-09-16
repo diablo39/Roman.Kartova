@@ -61,6 +61,32 @@ public sealed class KeycloakRealmSeedRules
             "additional web origins would silently widen CORS for kartova-web tokens.");
     }
 
+    /// <summary>
+    /// E-01.F-04.S-06a (ADR-0116 interim hardening): the realm must rotate refresh tokens
+    /// and revoke the whole session on refresh-token reuse. This is the cheap mitigation that
+    /// justifies deferring BFF (S-05) — a stolen refresh token self-destructs on first replay,
+    /// shrinking the exfiltration window. If anyone flips <c>revokeRefreshToken</c> off or
+    /// raises <c>refreshTokenMaxReuse</c> above 0, the reuse-detection guarantee is silently
+    /// lost — this test catches it at CI time.
+    /// </summary>
+    [TestMethod]
+    public void RealmSeed_RotatesRefreshTokens_AndRevokesOnReuse()
+    {
+        Assert.IsTrue(File.Exists(SeedPath), $"realm seed not found at {SeedPath}");
+
+        using var doc = JsonDocument.Parse(File.ReadAllText(SeedPath));
+        var root = doc.RootElement;
+
+        Assert.IsTrue(
+            root.GetProperty("revokeRefreshToken").GetBoolean(),
+            "realm must set revokeRefreshToken=true so refresh tokens are one-time-use (rotated on every refresh) — E-01.F-04.S-06a / ADR-0116.");
+
+        Assert.AreEqual(
+            0,
+            root.GetProperty("refreshTokenMaxReuse").GetInt32(),
+            "realm must set refreshTokenMaxReuse=0 so replaying a rotated refresh token revokes the whole session (reuse-detection) — E-01.F-04.S-06a / ADR-0116.");
+    }
+
     [TestMethod]
     public void KartovaWebClient_ProjectsAudienceMapperToKartovaApi()
     {
