@@ -1,7 +1,11 @@
 import type { FC } from "react";
-import { Building02, Users01, Package, Folder, Monitor01, Server01 } from "@untitledui/icons";
+import { Building02, Users01, Package, Folder, Monitor01, Server01, HardDrive } from "@untitledui/icons";
+import type { PartOfSourceKind } from "@/features/catalog/relationships/relationshipTypeRules";
 
-export type HierarchyNodeType = "org" | "team" | "system" | "ungrouped" | "application" | "service";
+// Leaf kinds compose the shared PartOfSourceKind (application/service/infrastructure) so a new
+// PartOf-source kind can't drift between here and PART_OF_SOURCE_KINDS; the tree-only pseudo-nodes
+// (org/team/system/ungrouped) are local to the hierarchy presentation.
+export type HierarchyNodeType = "org" | "team" | "system" | "ungrouped" | PartOfSourceKind;
 
 /**
  * Per-row visual identity for the catalog hierarchy tree: a leading icon and a short kind label,
@@ -18,4 +22,5 @@ export const HIERARCHY_NODE_META: Record<HierarchyNodeType, { label: string; Ico
   ungrouped: { label: "Ungrouped", Icon: Folder },
   application: { label: "Application", Icon: Monitor01 },
   service: { label: "Service", Icon: Server01 },
+  infrastructure: { label: "Infrastructure", Icon: HardDrive },
 };

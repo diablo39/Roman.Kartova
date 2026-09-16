@@ -239,7 +239,21 @@ describe("SystemMembersSection", () => {
     expect(screen.getByRole("button", { name: /remove/i })).toBeInTheDocument();
   });
 
-  it("does not offer Remove on a drift row whose kind is not Application/Service", () => {
+  it("renders an infrastructure member as a link with a working Remove (TD-006)", () => {
+    useRelationshipsListMock.mockReturnValue(
+      result({ items: [edge("infrastructure", "vm1", "web-01")] }),
+    );
+
+    render1(<SystemMembersSection systemId="sys1" systemTeamId="t1" systemDisplayName="Payments" />);
+
+    expect(screen.getByRole("link", { name: "web-01" })).toHaveAttribute(
+      "href",
+      "/catalog/infrastructure/vms/vm1",
+    );
+    expect(screen.getByRole("button", { name: /remove/i })).toBeEnabled();
+  });
+
+  it("does not offer Remove on a drift row whose kind is not a PartOf-source kind", () => {
     useRelationshipsListMock.mockReturnValue(
       result({
         items: [edge("application", "a1", "Billing App"), edge("api", "api1", "Orders API")],

@@ -174,6 +174,38 @@ public sealed class HierarchyAssemblerTests
     }
 
     [TestMethod]
+    public void Infrastructure_component_partof_a_system_lands_under_that_system()
+    {
+        // TD-005: a VM (EntityKind.Infrastructure) assigned to a System must appear under it,
+        // wired as "infrastructure" — not dropped or thrown on by KindWire.
+        var vm = Guid.NewGuid();
+        var systems = new[] { new SystemRow(SysX, "X", TeamA) };
+        var components = new[] { new ComponentRow(EntityKind.Infrastructure, vm, "web-01", TeamA) };
+        var partOf = new Dictionary<(EntityKind, Guid), Guid> { [(EntityKind.Infrastructure, vm)] = SysX };
+
+        var result = Build(systems, components, partOf, nodeCap: 200);
+
+        var member = result.Teams.Single().Systems.Single().Members.Single();
+        Assert.AreEqual(vm, member.Id);
+        Assert.AreEqual("infrastructure", member.Kind);
+    }
+
+    [TestMethod]
+    public void Infrastructure_component_without_partof_lands_in_owning_team_ungrouped()
+    {
+        var vm = Guid.NewGuid();
+        var components = new[] { new ComponentRow(EntityKind.Infrastructure, vm, "web-01", TeamB) };
+
+        var result = Build(Array.Empty<SystemRow>(), components,
+            new Dictionary<(EntityKind, Guid), Guid>(), nodeCap: 200);
+
+        var teamB = result.Teams.Single(t => t.TeamId == TeamB);
+        Assert.AreEqual(0, teamB.Systems.Count);
+        Assert.AreEqual(vm, teamB.Ungrouped.Members.Single().Id);
+        Assert.AreEqual("infrastructure", teamB.Ungrouped.Members.Single().Kind);
+    }
+
+    [TestMethod]
     public void Dangling_partof_falls_through_to_owning_team_ungrouped()
     {
         // partOf points at a systemId that does not exist in systems → must not vanish; falls back

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { Building02, Users01, Package, Folder, Monitor01, Server01 } from "@untitledui/icons";
+import { Building02, Users01, Package, Folder, Monitor01, Server01, HardDrive } from "@untitledui/icons";
 import { HIERARCHY_NODE_META, type HierarchyNodeType } from "../hierarchyNodeMeta";
 
-const ALL_TYPES: HierarchyNodeType[] = ["org", "team", "system", "ungrouped", "application", "service"];
+const ALL_TYPES: HierarchyNodeType[] = ["org", "team", "system", "ungrouped", "application", "service", "infrastructure"];
 
 const EXPECTED: Record<HierarchyNodeType, { label: string; Icon: unknown }> = {
   org: { label: "Organization", Icon: Building02 },
@@ -11,6 +11,7 @@ const EXPECTED: Record<HierarchyNodeType, { label: string; Icon: unknown }> = {
   ungrouped: { label: "Ungrouped", Icon: Folder },
   application: { label: "Application", Icon: Monitor01 },
   service: { label: "Service", Icon: Server01 },
+  infrastructure: { label: "Infrastructure", Icon: HardDrive },
 };
 
 describe("HIERARCHY_NODE_META", () => {

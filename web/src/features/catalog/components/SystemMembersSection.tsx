@@ -10,7 +10,7 @@ import { KartovaPermissions } from "@/shared/auth/permissions";
 import { useRelationshipsList } from "@/features/catalog/api/relationships";
 import { useSetComponentSystem, type ComponentKind } from "@/features/catalog/api/systems";
 import { entityDetailPath, ENTITY_KIND_LABEL } from "@/features/catalog/relationships/graphModel";
-import { isRelationshipKind } from "@/features/catalog/relationships/relationshipTypeRules";
+import { isEntityKind, isPartOfSourceKind } from "@/features/catalog/relationships/relationshipTypeRules";
 import { AddSystemMemberDialog } from "@/features/catalog/components/AddSystemMemberDialog";
 import { toastProblem } from "@/shared/forms/toastProblem";
 
@@ -20,12 +20,12 @@ interface Props {
   systemDisplayName: string;
 }
 
-// Only Application/Service can be PartOf a System (ADR-0111 amended) — Api never is, even
-// though the read path applies no type filter server-side (see the module docblock below).
-// Narrow before offering Remove so a client-side-visible drift edge never drives the setter
-// with a kind it does not accept.
+// Only PartOf-source kinds (Application/Service/Infrastructure) can be PartOf a System — Api never
+// is, even though the read path applies no type filter server-side (see the module docblock below).
+// Narrow before offering Remove so a client-side-visible drift edge never drives the setter with a
+// kind it does not accept. Uses the shared isPartOfSourceKind (mirrors backend IsPartOfSourceKind).
 function asComponentKind(kind: string): ComponentKind | null {
-  return kind === "application" || kind === "service" ? kind : null;
+  return isPartOfSourceKind(kind) ? kind : null;
 }
 
 // Members are the components PARTOF this System — the SOURCE side of every incoming
@@ -114,7 +114,7 @@ export function SystemMembersSection({ systemId, systemTeamId, systemDisplayName
                 return (
                   <Table.Row key={r.id} id={r.id}>
                     <Table.Cell>
-                      {isRelationshipKind(m.kind) ? (
+                      {isEntityKind(m.kind) ? (
                         <Link
                           to={entityDetailPath(m.kind, m.id)}
                           className="text-primary hover:underline"

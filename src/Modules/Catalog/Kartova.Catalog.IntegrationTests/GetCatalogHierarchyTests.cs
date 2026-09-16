@@ -28,6 +28,20 @@ public sealed class GetCatalogHierarchyTests : CatalogIntegrationTestBase
         return (await resp.Content.ReadFromJsonAsync<ApplicationResponse>(KartovaApiFixtureBase.WireJson))!.Id;
     }
 
+    private static async Task<Guid> SeedVmAsync(HttpClient client, Guid teamId, string name)
+    {
+        var request = new RegisterVmRequest(
+            DisplayName: name,
+            Description: "integration",
+            TeamId: teamId,
+            Provider: "AWS",
+            Attributes: new VmAttributesDto("running", "ubuntu-22.04", 4, 16, "host-1",
+                new[] { "10.0.0.1" }, "eu-west-1"));
+        var resp = await client.PostAsJsonAsync("/api/v1/catalog/infrastructure/vms", request, KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(HttpStatusCode.Created, resp.StatusCode, $"SeedVm '{name}': {await resp.Content.ReadAsStringAsync()}");
+        return (await resp.Content.ReadFromJsonAsync<VmDetailResponse>(KartovaApiFixtureBase.WireJson))!.Id;
+    }
+
     private static async Task<Guid> SeedSystemAsync(HttpClient client, Guid stewardTeamId, string name)
     {
         var resp = await client.PostAsJsonAsync("/api/v1/catalog/systems",
@@ -77,6 +91,33 @@ public sealed class GetCatalogHierarchyTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
+    public async Task Hierarchy_includes_infrastructure_member_under_its_system_and_ungrouped_vm()
+    {
+        // TD-005: a VM assigned to a System appears under it (kind "infrastructure"); an unassigned
+        // VM lands in its owning team's Ungrouped bucket — neither is dropped from the read model.
+        var client = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
+        var tenant = Fx.TenantIdForEmail(OrgAUser);
+        var team = await Fx.SeedTeamInOrganizationAsync(tenant, "Hier-Infra-" + Guid.NewGuid());
+
+        var sys = await SeedSystemAsync(client, team, "Sys-infra-" + Guid.NewGuid());
+        var assignedVm = await SeedVmAsync(client, team, "vm-assigned");
+        await AssignSystemAsync(client, "infrastructure", assignedVm, sys);
+        var freeVm = await SeedVmAsync(client, team, "vm-free");
+
+        var resp = await client.GetAsync("/api/v1/catalog/hierarchy");
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var tree = (await resp.Content.ReadFromJsonAsync<CatalogHierarchyResponse>(KartovaApiFixtureBase.WireJson))!;
+
+        var node = tree.Teams.Single(t => t.TeamId == team);
+        var sysNode = node.Systems.Single(s => s.SystemId == sys);
+        var assignedMember = sysNode.Members.Single(m => m.Id == assignedVm);
+        Assert.AreEqual("infrastructure", assignedMember.Kind);
+
+        var freeMember = node.Ungrouped.Members.Single(m => m.Id == freeVm);
+        Assert.AreEqual("infrastructure", freeMember.Kind);
+    }
+
+    [TestMethod]
     public async Task Unauthenticated_request_is_401()
     {
         var client = Fx.CreateClient();   // no bearer token
@@ -94,6 +135,10 @@ public sealed class GetCatalogHierarchyTests : CatalogIntegrationTestBase
         var bSys = await SeedSystemAsync(bClient, bTeam, "b-only-sys");
         var bSvc = await SeedServiceAsync(bClient, bTeam, "b-only-svc");
         await AssignSystemAsync(bClient, "services", bSvc, bSys);
+        // Also seed + assign an Org-B VM so the new db.Infrastructure read path in the handler is
+        // covered by cross-tenant isolation (TD-005 added infra to the hierarchy query surface).
+        var bVm = await SeedVmAsync(bClient, bTeam, "b-only-vm");
+        await AssignSystemAsync(bClient, "infrastructure", bVm, bSys);
 
         // Org A's hierarchy must not contain any Org B id.
         var aClient = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
@@ -102,9 +147,12 @@ public sealed class GetCatalogHierarchyTests : CatalogIntegrationTestBase
 
         Assert.IsFalse(tree.Teams.Any(t => t.TeamId == bTeam));
         Assert.IsFalse(tree.Teams.SelectMany(t => t.Systems).Any(s => s.SystemId == bSys));
-        Assert.IsFalse(tree.Teams
+        var allMemberIds = tree.Teams
             .SelectMany(t => t.Systems.SelectMany(s => s.Members).Concat(t.Ungrouped.Members))
-            .Any(m => m.Id == bSvc));
+            .Select(m => m.Id)
+            .ToList();
+        Assert.IsFalse(allMemberIds.Contains(bSvc));
+        Assert.IsFalse(allMemberIds.Contains(bVm), "Org-B VM leaked into Org-A hierarchy (infra RLS regression)");
     }
 
     [TestMethod]

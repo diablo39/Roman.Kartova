@@ -57,6 +57,29 @@ describe("buildHierarchyView", () => {
     expect(view.teams[0]?.name).toBe("A");
   });
 
+  it("drops a member whose kind is not a PartOf-source kind (wire drift guard)", () => {
+    const resp = {
+      totalComponentCount: 2,
+      truncated: false,
+      teams: [
+        {
+          teamId: "A",
+          componentCount: 2,
+          systems: [
+            { systemId: "S1", displayName: "Sys", componentCount: 2, members: [
+              { kind: "infrastructure", id: "vm1", displayName: "web-01" },
+              { kind: "api", id: "api1", displayName: "Orders API" }, // not a PartOf source → dropped
+            ] },
+          ],
+          ungrouped: { componentCount: 0, members: [] },
+        },
+      ],
+    } as never;
+    const view = buildHierarchyView(resp, [team("A", "Team Alpha")], "Acme");
+    const members = view.teams[0]?.systems[0]?.members ?? [];
+    expect(members.map((m) => m.name)).toEqual(["web-01"]); // "api" member dropped by the guard
+  });
+
   it("carries totalCount and truncated through", () => {
     const resp = { ...(baseResponse as object), truncated: true, totalComponentCount: 7 } as never;
     const view = buildHierarchyView(resp, [team("A", "Team Alpha")], "Acme");

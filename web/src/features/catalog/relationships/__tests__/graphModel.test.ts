@@ -103,6 +103,11 @@ describe("toGraphModel", () => {
     expect(ENTITY_KIND_LABEL.system).toBe("System");
     expect(entityDetailPath("system", "sys1")).toBe("/catalog/systems/sys1");
   });
+
+  it("routes infrastructure to the nested VM detail route (not the /catalog/infrastructure list)", () => {
+    expect(ENTITY_KIND_LABEL.infrastructure).toBe("Infrastructure");
+    expect(entityDetailPath("infrastructure", "vm1")).toBe("/catalog/infrastructure/vms/vm1");
+  });
 });
 
 describe("derivedViaLabel", () => {

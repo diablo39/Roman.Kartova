@@ -1,0 +1,65 @@
+slice:  2026-09-16-hierarchy-infra-members
+branch: chore/tech-debt-td-005-006
+terminal_commit: 69064cd
+
+findings:
+  - gate: suite
+    severity: should-fix
+    verdict: real
+    title: "SystemDetailPage 'Members tab empty state' times out (5000ms) under full-suite load"
+    note: "Pre-existing TD-008 flake class (heavy detail-page + tab; cumulative import ~1354s starves the per-test budget). Passes 6/6 in 5.75s in isolation. Not caused by this slice — SystemDetailPage renders the changed SystemMembersSection but the failure is a timeout, not an assertion, and all targeted SystemMembersSection tests pass."
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "buildHierarchyView cast wire kind to PartOfSourceKind without the new guard (type-design + TS-review S1)"
+    note: "fixed 451ff7b — filter via isPartOfSourceKind at the boundary + PART_OF_SOURCE_KINDS satisfies readonly EntityKind[] + drift-drop test."
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "HierarchyMemberDto.Kind doc comment (CatalogHierarchyResponse.cs) still said application/service only (spec-mandated update missed)"
+    note: "fixed 451ff7b — lists infrastructure; handler class comment also updated."
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "New db.Infrastructure read path lacked a cross-tenant/RLS test (pr-test-analyzer)"
+    note: "fixed 451ff7b — RLS isolation test seeds + asserts an Org-B VM absent from Org-A hierarchy."
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "Stale drift-test title 'not Application/Service' (code-reviewer + pr-test)"
+    note: "fixed 451ff7b — renamed to 'not a PartOf-source kind'."
+  - gate: reviews
+    severity: nit
+    verdict: delusion
+    title: "AsNoTracking() absent on hierarchy read queries (csharp-reviewer S3)"
+    note: "Skipped: pre-existing 3-instance pattern (Apps/Services/Infra), not introduced by this slice; changing all three is out of slice scope."
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "HierarchyNodeType re-listed leaf kinds instead of composing PartOfSourceKind (altitude)"
+    note: "applied 260492f — HierarchyNodeType = ... | PartOfSourceKind."
+  - gate: simplify
+    severity: nit
+    verdict: delusion
+    title: "SeedVmAsync duplicated across integration test files (reuse)"
+    note: "Skipped: matches existing per-file Seed*Async suite convention; hoisting to CatalogIntegrationTestBase is a separate cross-cutting cleanup, out of slice scope (gate-5 rejects out-of-scope extract-helper refactors)."
+  - gate: requesting-review
+    severity: blocking
+    verdict: real
+    title: "entityDetailPath('infrastructure') → /catalog/infrastructure/{id} is a dead route (VM detail is /catalog/infrastructure/vms/:id); infra member links 404"
+    note: "fixed 69064cd — ENTITY_PATH_SEGMENT.infrastructure = 'infrastructure/vms'; also repairs pre-existing dead links in RelationshipsSection/graph. Missed by gates 2/7/8 because the unit tests encoded the wrong href — gate 6 (different lens) caught it, validating the no-folding rule."
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "useSetComponentSystem docblock omitted infrastructure route (M1)"
+    note: "fixed 69064cd."
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "mapMembers drops off-set kind but componentCount not decremented (M2)"
+    note: "Accepted: theoretical only (KindWire emits app/service/infra); same nit as deep-review. No action."
+  - gate: manual
+    severity: should-fix
+    verdict: real
+    title: "AddSystemMemberDialog (System-side Assign) offers only Application/Service — cannot assign an Infrastructure member"
+    note: "Out of TD-005/006 render scope (both were about surfacing already-assigned infra). Infra membership settable from VM detail Assign dialog (verified working). Filed as TD-009 follow-up; not fixed in this slice to keep it scoped."
