@@ -1,8 +1,21 @@
 import { describe, it, expect } from "vitest";
 import {
   isAllowedPair, offerableTypes, allowedOtherKinds, relationshipTypeLabel,
-  isRelationshipKind, isEntityKind,
+  isRelationshipKind, isEntityKind, isPartOfSourceKind,
 } from "@/features/catalog/relationships/relationshipTypeRules";
+
+describe("isPartOfSourceKind", () => {
+  it("accepts application, service, infrastructure", () => {
+    expect(isPartOfSourceKind("application")).toBe(true);
+    expect(isPartOfSourceKind("service")).toBe(true);
+    expect(isPartOfSourceKind("infrastructure")).toBe(true);
+  });
+  it("rejects api, system, and unknown kinds", () => {
+    expect(isPartOfSourceKind("api")).toBe(false);
+    expect(isPartOfSourceKind("system")).toBe(false);
+    expect(isPartOfSourceKind("nope")).toBe(false);
+  });
+});
 
 describe("relationshipTypeRules", () => {
   it("dependsOn allows app/service pairs but never targets an api", () => {

@@ -4,6 +4,7 @@ import { useCursorList } from "@/lib/list/useCursorList";
 import { throwWithStatus, unwrapData } from "@/shared/api/openapi-fetch-helpers";
 import { invalidateAfterRelationshipChange, useRelationshipsList } from "./relationships";
 import type { RegisterSystemInput } from "../schemas/registerSystem";
+import type { PartOfSourceKind } from "@/features/catalog/relationships/relationshipTypeRules";
 import type { components, operations } from "@/generated/openapi";
 
 type SystemResponse = components["schemas"]["SystemResponse"];
@@ -81,7 +82,8 @@ export function useRegisterSystem() {
 
 export type { SystemResponse, SystemMembership };
 
-export type ComponentKind = "application" | "service" | "infrastructure";
+// One source of truth for the PartOf-eligible kinds (mirrors backend IsPartOfSourceKind).
+export type ComponentKind = PartOfSourceKind;
 
 /**
  * The System a component currently belongs to, read with a SERVER-side `type=partOf` filter

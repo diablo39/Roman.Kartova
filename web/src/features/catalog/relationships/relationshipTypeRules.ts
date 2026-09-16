@@ -53,6 +53,16 @@ export function isEntityKind(kind: string): kind is EntityKind {
   return isRelationshipKind(kind) || kind === "system" || kind === "infrastructure";
 }
 
+// Kinds that can be the SOURCE of a PartOf edge (a component assignable to a System).
+// Mirrors backend RelationshipTypeRules.IsPartOfSourceKind (Application | Service | Infrastructure)
+// — the source of truth; there is no automated C#<->TS sync gate, so keep these aligned by hand.
+export const PART_OF_SOURCE_KINDS = ["application", "service", "infrastructure"] as const;
+export type PartOfSourceKind = (typeof PART_OF_SOURCE_KINDS)[number];
+
+export function isPartOfSourceKind(kind: string): kind is PartOfSourceKind {
+  return (PART_OF_SOURCE_KINDS as readonly string[]).includes(kind);
+}
+
 // FE creatable subset of backend RelationshipTypeRules.IsAllowedPair (ADR-0068/ADR-0111).
 // Intentionally STRICTER than backend: `dependsOn` never targets `api` (backend allows any->any
 // incl. api; the UI steers API links through provides/consumes and never offers `api` as a
