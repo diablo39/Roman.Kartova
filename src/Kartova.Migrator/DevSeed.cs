@@ -363,6 +363,35 @@ internal static class DevSeed
         {
             await ExecAsync(conn, "ALTER TABLE catalog_infrastructure FORCE ROW LEVEL SECURITY;");
         }
+
+        // Seed a fixed-id System for Org A so the System detail page + its Members tab render in
+        // dev and the System-side "Assign component" dialog (incl. the Infrastructure/VM option,
+        // TD-009) has a real System to drive. Idempotent via ON CONFLICT (id) DO NOTHING; owned
+        // by the demo team, created by team-admin@orga. Members are left unassigned so the assign
+        // flow starts from an empty Members tab (assign from either the System or the component
+        // side). Mirrors the fixed-id fixture pattern above (runs every invocation).
+        try
+        {
+            await ExecAsync(conn, "ALTER TABLE catalog_systems NO FORCE ROW LEVEL SECURITY;");
+            await using var systemCmd = conn.CreateCommand();
+            systemCmd.CommandText = """
+                INSERT INTO catalog_systems (id, tenant_id, display_name, description, team_id, created_by_user_id, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, now())
+                ON CONFLICT (id) DO NOTHING;
+                """;
+            systemCmd.Parameters.AddWithValue(Guid.Parse("e2e00000-0000-0000-0000-000000000020"));
+            systemCmd.Parameters.AddWithValue(OrgATenantId);
+            systemCmd.Parameters.AddWithValue("Payments Platform");
+            systemCmd.Parameters.AddWithValue("Seeded demo System for Org A — group components (apps/services/VMs) under it from the Members tab.");
+            systemCmd.Parameters.AddWithValue(DemoTeamId);
+            systemCmd.Parameters.AddWithValue(TeamAdminUserId);
+            var systemRows = await systemCmd.ExecuteNonQueryAsync();
+            logger.LogInformation("Dev seed: demo System {Result}.", systemRows == 1 ? "inserted" : "already present");
+        }
+        finally
+        {
+            await ExecAsync(conn, "ALTER TABLE catalog_systems FORCE ROW LEVEL SECURITY;");
+        }
     }
 
     private static async Task ExecAsync(NpgsqlConnection conn, string sql)

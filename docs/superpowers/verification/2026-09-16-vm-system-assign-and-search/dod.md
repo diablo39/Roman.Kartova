@@ -14,14 +14,14 @@
 |------|--------|---------|
 | 1 Build (`TreatWarningsAsErrors`) | ✅ PASS | 2026-09-16 |
 | 2 Per-task subagent reviews | ✅ PASS | 2026-09-16 |
-| 3 Full suite (+ real-seam if wiring) | ⏳ PENDING (terminal re-verify) | 2026-09-16 |
+| 3 Full suite (+ real-seam if wiring) | ✅ PASS | 2026-09-16 |
 | 4 Container build (images CI) | N/A | 2026-09-16 |
 | 5 `/simplify` | ✅ PASS (advisory; 0 applied, TD-010 filed) | 2026-09-16 |
 | 6 `requesting-code-review` | ✅ PASS | 2026-09-16 |
 | 7 `review-pr` | ✅ PASS | 2026-09-16 |
 | 8 `deep-review` | ✅ PASS | 2026-09-16 |
-| Terminal re-verify (build + suite) | ⏳ PENDING | — |
-| 9 Visual / API verification (ADR-0084) | ⏳ PENDING | — |
+| Terminal re-verify (build + suite) | ✅ PASS (2 TD-008 flakes, pass isolated) | 2026-09-16 |
+| 9 Visual / API verification (ADR-0084) | ✅ PASS | 2026-09-16 |
 | 10 CI green on PR | ⏳ PENDING | — |
 
 ## Gate detail
@@ -55,7 +55,9 @@
 **Status:** ⏳ PENDING
 
 ### 9 — Visual / API verification (observe the running system)
-**Status:** ⏳ PENDING — drive System detail → Members → Assign component → Infrastructure radio → pick a VM on the running stack; confirm the picker narrows on typed text + the VM lands in Members. Screenshot under this folder.
+**Status:** ✅ PASS — drove the full flow on the running docker stack (web :4173, api :8080, admin@orga OrgAdmin). DevSeed extended with a fixed-id "Payments Platform" System (`e2e…0020`); the 3 seeded VMs already existed. Verified: Infrastructure radio present in the Assign-component dialog; placeholder reads "Search VMs…"; typing "sql" narrows server-side to **only** `sql-vm-02` (excludes web-vm-01/app-vm-03 → TD-007 confirmed live, live API openapi carries the new param); selecting it assigns the VM — it renders in the Members table as a link (→ `/catalog/infrastructure/vms/{id}`) with Kind "Infrastructure" + a working Remove button, and appears in the System diagram. **0 console errors.**
+**Evidence:** `gate9-assign-dialog-vm-search.png` (narrowed typeahead), `gate9-vm-assigned-member.png` (assigned member + diagram).
+**At:** running stack, 2026-09-16
 
 ### 10 — CI green on the PR
 **Status:** ⏳ PENDING — `scripts/ci-local.sh` pre-push mirror, then PR runner.
