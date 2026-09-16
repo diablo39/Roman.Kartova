@@ -1,7 +1,7 @@
 # DoD Ledger — Infrastructure in Catalog Hierarchy + System Members (TD-005/006)
 
 **Slice:** `2026-09-16-hierarchy-infra-members` · **Branch:** `chore/tech-debt-td-005-006` · **HEAD / Terminal commit:** `69064cd`
-**PR:** <pending> · **Last updated:** 2026-09-16
+**PR:** #93 (https://github.com/diablo39/Roman.Kartova/pull/93) · **Last updated:** 2026-09-16
 **Spec:** `docs/superpowers/specs/2026-09-16-hierarchy-infra-members-design.md`
 **Plan:** `docs/superpowers/plans/2026-09-16-hierarchy-infra-members.md` (gitignored scratch)
 **Findings telemetry:** `./gate-findings.yaml`
@@ -77,4 +77,5 @@
 **At:** 69064cd / 2026-09-16
 
 ### 10 — CI green on the PR (terminal; `scripts/ci-local.sh` = pre-push mirror)
-**Status:** ⏳ PENDING
+**Status:** ⏳ RUNNING (PR #93 pushed)
+**Evidence:** Pre-push mirror: `ci-local.sh backend` didn't execute (`cmd` not on PATH under Git Bash — host-script quirk, not a code issue); backend Release build run directly = 0/0 (audited restore clean, no NU1903); backend tests green; frontend build/tsc green, suite 1131/1132 (lone failure = TD-008 flake, isolation-green). PR #93 CI is the terminal arbiter — watching.
