@@ -12,14 +12,14 @@
 
 | Gate | Status | Updated |
 |------|--------|---------|
-| 1 Build (`TreatWarningsAsErrors`) | ⏳ PENDING | — |
-| 2 Per-task subagent reviews | ⏳ PENDING | — |
-| 3 Full suite (+ real-seam if wiring) | ⏳ PENDING | — |
+| 1 Build (`TreatWarningsAsErrors`) | ✅ PASS | 2026-09-16 |
+| 2 Per-task subagent reviews | ✅ PASS | 2026-09-16 |
+| 3 Full suite (+ real-seam if wiring) | ⏳ PENDING (terminal re-verify) | 2026-09-16 |
 | 4 Container build (images CI) | N/A | 2026-09-16 |
-| 5 `/simplify` | ⏳ PENDING | — |
-| 6 `requesting-code-review` | ⏳ PENDING | — |
-| 7 `review-pr` | ⏳ PENDING | — |
-| 8 `deep-review` | ⏳ PENDING | — |
+| 5 `/simplify` | ✅ PASS (advisory; 0 applied, TD-010 filed) | 2026-09-16 |
+| 6 `requesting-code-review` | ✅ PASS | 2026-09-16 |
+| 7 `review-pr` | ✅ PASS | 2026-09-16 |
+| 8 `deep-review` | ✅ PASS | 2026-09-16 |
 | Terminal re-verify (build + suite) | ⏳ PENDING | — |
 | 9 Visual / API verification (ADR-0084) | ⏳ PENDING | — |
 | 10 CI green on PR | ⏳ PENDING | — |

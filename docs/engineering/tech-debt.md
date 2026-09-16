@@ -182,3 +182,22 @@ Convention: one `### TD-NNN` heading per item. Keep `Status: open` until done; o
 **Why deferred.** TD-005/006 scoped to *surfacing* already-assigned infrastructure (read model + members render). The System-side assign path is a distinct write-UI capability; folding it in would broaden the slice.
 
 **Acceptance.** A steward can assign a VM to a System from the System's "Assign component" dialog; the member then appears in the Members table + hierarchy; covered by a test.
+
+---
+
+### TD-010 — `/infrastructure/vms` `limit` param escapes `CursorListQueryParameterTransformer`
+
+**Status:** open
+**Origin:** TD-007 slice (2026-09-16) — type-design + altitude (gate 5/7) finding.
+
+**Problem.** Every catalog list endpoint binds `[FromQuery] string? limit`, but the OpenAPI doc normalizes `limit` to a bounded integer (`{type: integer, minimum: 1, maximum: 200}`) via `CursorListQueryParameterTransformer` (wired in `CatalogModule.cs` for Applications/Services/Apis/Systems/generic-Infrastructure). That transformer is **not** applied to the `GET /infrastructure/vms` route, so its `limit` stays `{type: string}` in the generated client. Consequence: `useEntitySearch`'s infra branch (`web/src/features/catalog/api/relationships.ts`) must special-case a string `limit: "10"` instead of reusing the shared numeric `q` object, and the VM endpoint's public contract loses the `1..200` bound the sibling endpoints express at the type level.
+
+**Affected files.**
+- `src/Modules/Catalog/Kartova.Catalog.Infrastructure/CatalogModule.cs` — the VM list `MapGet` (`~:320`) is missing the transformer the other list routes carry.
+- `web/src/features/catalog/api/relationships.ts` — the infra branch's `limit: "10"` string special-case can be removed once the schema matches.
+
+**Proposed fix.** Apply `CursorListQueryParameterTransformer` to the `/infrastructure/vms` route (mirror the other list-route registrations), regenerate the snapshot/client, and drop the `limit`-string special-case in `useEntitySearch`.
+
+**Why deferred.** Backend OpenAPI-transformer wiring is outside the TD-007 typeahead scope; the special-case works today at a hardcoded `"10"`. Latent contract-consistency gap, not a live bug.
+
+**Acceptance.** `/infrastructure/vms` `limit` is a bounded integer in the OpenAPI doc like the sibling lists; `useEntitySearch` reuses the shared query shape with no VM special-case.
