@@ -20,7 +20,7 @@ export default defineConfig({
     // (trades some wall-clock for determinism). Root import-cost reduction is deferred.
     testTimeout: 15000,
     hookTimeout: 15000,
-    poolOptions: { forks: { maxForks: "50%", minForks: 1 } },
+    maxWorkers: "50%",
     coverage: {
       provider: "v8",
       include: [
