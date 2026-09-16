@@ -26,7 +26,11 @@ public sealed class GetCatalogHierarchyHandler
             .Select(a => new ComponentRow(EntityKind.Application, a.Id.Value, a.DisplayName, a.TeamId));
         var services = (await db.Services.ToListAsync(ct))
             .Select(s => new ComponentRow(EntityKind.Service, s.Id.Value, s.DisplayName, s.TeamId));
-        var components = apps.Concat(services).ToList();
+        // TD-005: infrastructure (VMs) can be PartOf a System too — include it so an assigned VM is
+        // not silently dropped from the hierarchy tree. partOf below already ingests infra edges.
+        var infra = (await db.Infrastructure.ToListAsync(ct))
+            .Select(i => new ComponentRow(EntityKind.Infrastructure, i.Id.Value, i.DisplayName, i.TeamId));
+        var components = apps.Concat(services).Concat(infra).ToList();
 
         // Array .Contains (not a lone `== PartOf`): a lone equality collapses to WHERE FALSE against the
         // KnownRelationshipTypes global query filter — see GetImpactAnalysisHandler / DerivedEdgeLoader.

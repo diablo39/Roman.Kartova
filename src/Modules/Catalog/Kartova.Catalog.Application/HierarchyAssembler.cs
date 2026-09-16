@@ -91,7 +91,8 @@ public static class HierarchyAssembler
         {
             EntityKind.Application => "application",
             EntityKind.Service => "service",
-            _ => throw new ArgumentOutOfRangeException(nameof(k), k, "hierarchy leaf must be application or service"),
+            EntityKind.Infrastructure => "infrastructure",
+            _ => throw new ArgumentOutOfRangeException(nameof(k), k, "hierarchy leaf must be application, service, or infrastructure"),
         };
     }
 }
