@@ -7,7 +7,7 @@ using static Kartova.Catalog.Application.HierarchyAssembler;
 namespace Kartova.Catalog.Infrastructure;
 
 /// <summary>Assembles the catalog hierarchy (E-03.F-03.S-02) from RLS-scoped Catalog-local data:
-/// systems (steward team), App/Service components (owning team), and PartOf membership edges. Returns
+/// systems (steward team), App/Service/Infrastructure components (owning team), and PartOf membership edges. Returns
 /// team IDs only — names are resolved frontend-side (ADR-0082). Node cap + Truncated mirror /graph
 /// and /impact. Value objects (Id.Value) and complex Source/Target are read in memory after
 /// materialization — EF cannot translate them in a projection (mirrors GraphTraversalHandler / GetImpactAnalysisHandler).</summary>

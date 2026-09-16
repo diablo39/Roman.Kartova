@@ -253,7 +253,7 @@ describe("SystemMembersSection", () => {
     expect(screen.getByRole("button", { name: /remove/i })).toBeEnabled();
   });
 
-  it("does not offer Remove on a drift row whose kind is not Application/Service", () => {
+  it("does not offer Remove on a drift row whose kind is not a PartOf-source kind", () => {
     useRelationshipsListMock.mockReturnValue(
       result({
         items: [edge("application", "a1", "Billing App"), edge("api", "api1", "Orders API")],

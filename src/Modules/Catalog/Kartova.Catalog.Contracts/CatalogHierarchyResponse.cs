@@ -39,7 +39,8 @@ public sealed record HierarchyBucketDto(
     int ComponentCount,
     IReadOnlyList<HierarchyMemberDto> Members);
 
-/// <summary>A leaf component. <see cref="Kind"/> is "application" or "service" (wire camelCase, ADR-0109).</summary>
+/// <summary>A leaf component. <see cref="Kind"/> is "application", "service", or "infrastructure"
+/// (wire camelCase, ADR-0109; the set mirrors HierarchyAssembler.KindWire).</summary>
 [ExcludeFromCodeCoverage]
 public sealed record HierarchyMemberDto(
     string Kind,

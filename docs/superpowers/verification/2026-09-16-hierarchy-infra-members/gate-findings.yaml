@@ -1,0 +1,10 @@
+slice:  2026-09-16-hierarchy-infra-members
+branch: chore/tech-debt-td-005-006
+terminal_commit: <pending>
+
+findings:
+  - gate: suite
+    severity: should-fix
+    verdict: real
+    title: "SystemDetailPage 'Members tab empty state' times out (5000ms) under full-suite load"
+    note: "Pre-existing TD-008 flake class (heavy detail-page + tab; cumulative import ~1354s starves the per-test budget). Passes 6/6 in 5.75s in isolation. Not caused by this slice — SystemDetailPage renders the changed SystemMembersSection but the failure is a timeout, not an assertion, and all targeted SystemMembersSection tests pass."

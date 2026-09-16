@@ -135,6 +135,10 @@ public sealed class GetCatalogHierarchyTests : CatalogIntegrationTestBase
         var bSys = await SeedSystemAsync(bClient, bTeam, "b-only-sys");
         var bSvc = await SeedServiceAsync(bClient, bTeam, "b-only-svc");
         await AssignSystemAsync(bClient, "services", bSvc, bSys);
+        // Also seed + assign an Org-B VM so the new db.Infrastructure read path in the handler is
+        // covered by cross-tenant isolation (TD-005 added infra to the hierarchy query surface).
+        var bVm = await SeedVmAsync(bClient, bTeam, "b-only-vm");
+        await AssignSystemAsync(bClient, "infrastructure", bVm, bSys);
 
         // Org A's hierarchy must not contain any Org B id.
         var aClient = await Fx.CreateAuthenticatedClientAsync(OrgAUser);
@@ -143,9 +147,12 @@ public sealed class GetCatalogHierarchyTests : CatalogIntegrationTestBase
 
         Assert.IsFalse(tree.Teams.Any(t => t.TeamId == bTeam));
         Assert.IsFalse(tree.Teams.SelectMany(t => t.Systems).Any(s => s.SystemId == bSys));
-        Assert.IsFalse(tree.Teams
+        var allMemberIds = tree.Teams
             .SelectMany(t => t.Systems.SelectMany(s => s.Members).Concat(t.Ungrouped.Members))
-            .Any(m => m.Id == bSvc));
+            .Select(m => m.Id)
+            .ToList();
+        Assert.IsFalse(allMemberIds.Contains(bSvc));
+        Assert.IsFalse(allMemberIds.Contains(bVm), "Org-B VM leaked into Org-A hierarchy (infra RLS regression)");
     }
 
     [TestMethod]

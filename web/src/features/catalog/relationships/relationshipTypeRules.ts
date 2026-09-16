@@ -56,7 +56,9 @@ export function isEntityKind(kind: string): kind is EntityKind {
 // Kinds that can be the SOURCE of a PartOf edge (a component assignable to a System).
 // Mirrors backend RelationshipTypeRules.IsPartOfSourceKind (Application | Service | Infrastructure)
 // — the source of truth; there is no automated C#<->TS sync gate, so keep these aligned by hand.
-export const PART_OF_SOURCE_KINDS = ["application", "service", "infrastructure"] as const;
+// `satisfies` pins PART_OF_SOURCE_KINDS ⊆ EntityKind at compile time — every source kind must have
+// an ENTITY_PATH_SEGMENT/ENTITY_KIND_LABEL entry so entityDetailPath resolves; a typo/new member fails the build.
+export const PART_OF_SOURCE_KINDS = ["application", "service", "infrastructure"] as const satisfies readonly EntityKind[];
 export type PartOfSourceKind = (typeof PART_OF_SOURCE_KINDS)[number];
 
 export function isPartOfSourceKind(kind: string): kind is PartOfSourceKind {

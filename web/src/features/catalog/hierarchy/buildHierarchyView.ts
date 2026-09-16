@@ -1,5 +1,5 @@
 import type { components } from "@/generated/openapi";
-import type { PartOfSourceKind } from "@/features/catalog/relationships/relationshipTypeRules";
+import { isPartOfSourceKind, type PartOfSourceKind } from "@/features/catalog/relationships/relationshipTypeRules";
 
 type CatalogHierarchyResponse = components["schemas"]["CatalogHierarchyResponse"];
 type TeamResponse = components["schemas"]["TeamResponse"];
@@ -25,9 +25,14 @@ export type HierarchyView = {
 const byName = (a: { name: string }, b: { name: string }) =>
   a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
 
+// HierarchyMemberDto.kind is a free wire string. Guard it at this trust boundary with the shared
+// isPartOfSourceKind (KindWire only emits PartOf-source kinds today) rather than casting blindly —
+// an unexpected/drifted kind would otherwise reach entityDetailPath and render /catalog/undefined/{id}.
+// A kind outside the set is dropped (it cannot route to a detail page anyway).
 const mapMembers = (members: readonly HierarchyMemberDto[]): MemberView[] =>
   members
-    .map((m) => ({ kind: m.kind as MemberView["kind"], id: m.id, name: m.displayName }))
+    .filter((m) => isPartOfSourceKind(m.kind))
+    .map((m) => ({ kind: m.kind as PartOfSourceKind, id: m.id, name: m.displayName }))
     .sort(byName);
 
 /**
