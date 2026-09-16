@@ -1,6 +1,6 @@
 # DoD Ledger — Infrastructure in Catalog Hierarchy + System Members (TD-005/006)
 
-**Slice:** `2026-09-16-hierarchy-infra-members` · **Branch:** `chore/tech-debt-td-005-006` · **HEAD:** `bc3495b`
+**Slice:** `2026-09-16-hierarchy-infra-members` · **Branch:** `chore/tech-debt-td-005-006` · **HEAD / Terminal commit:** `69064cd`
 **PR:** <pending> · **Last updated:** 2026-09-16
 **Spec:** `docs/superpowers/specs/2026-09-16-hierarchy-infra-members-design.md`
 **Plan:** `docs/superpowers/plans/2026-09-16-hierarchy-infra-members.md` (gitignored scratch)
@@ -17,11 +17,11 @@
 | 3 Full suite (+ real-seam) | ✅ PASS | 2026-09-16 |
 | 4 Container build (images CI) | N/A | 2026-09-16 |
 | 5 `/simplify` | ✅ PASS | 2026-09-16 |
-| 6 `requesting-code-review` | ⏳ RUNNING | — |
+| 6 `requesting-code-review` | ✅ PASS | 2026-09-16 |
 | 7 `review-pr` | ✅ PASS | 2026-09-16 |
 | 8 `deep-review` | ✅ PASS | 2026-09-16 |
-| Terminal re-verify (build + suite) | ⏳ PENDING | — |
-| 9 Visual / API verification (ADR-0084) | ⏳ PENDING | — |
+| Terminal re-verify (build + suite) | ✅ PASS | 2026-09-16 |
+| 9 Visual / API verification (ADR-0084) | ✅ PASS | 2026-09-16 |
 | 10 CI green on PR | ⏳ PENDING | — |
 
 ## Gate detail
@@ -52,7 +52,9 @@
 **At:** 260492f / 2026-09-16
 
 ### 6 — `requesting-code-review` at slice boundary
-**Status:** ⏳ PENDING
+**Status:** ✅ PASS (after fixing 1 Critical)
+**Evidence:** Fresh general-purpose reviewer caught a **Critical** the other review gates missed: `entityDetailPath("infrastructure")` produced a dead route → infra links 404, failing TD-006 acceptance. Fixed 69064cd (+ M1 docblock). Validates the no-folding rule (gates 2/7/8 trusted the resolver; the unit tests encoded the wrong href). See gate-findings.yaml.
+**At:** 69064cd / 2026-09-16
 
 ### 7 — `review-pr` (pr-review-toolkit; standing set type-design + pr-test + code-reviewer)
 **Status:** ✅ PASS
@@ -65,11 +67,14 @@
 **At:** 451ff7b / 2026-09-16
 
 ### Terminal re-verify (build + full suite after gates 5–8)
-**Status:** ⏳ PENDING
+**Status:** ✅ PASS
+**Evidence:** On final commit 69064cd: `dotnet build Kartova.slnx -p:TreatWarningsAsErrors=true` 0/0; catalog backend `Kartova.Catalog.Tests` 363/363 + `Kartova.Catalog.IntegrationTests` 477/477; full web `npx vitest run` **1132/1132** (153 files — TD-008 flake did not recur). Non-catalog backend assemblies unchanged since the bc3495b full-suite green (only a Contracts doc-string differs).
+**At:** 69064cd / 2026-09-16
 
 ### 9 — Visual / API verification (observe the running system)
-**Status:** ⏳ PENDING
-**Evidence:** Plan: cold-start web, register a VM + assign to a System, screenshot Hierarchy page (VM under System) + System detail Members table (VM linked + Remove). DevSeed has no VMs.
+**Status:** ✅ PASS
+**Evidence:** `./gate-9-verification.md` + `gate9-system-members-infra.png` + `gate9-hierarchy-infra-member.png`. Cold-started full docker stack, logged in as OrgAdmin. TD-006: infra member renders as a link to `/catalog/infrastructure/vms/{id}` with working Remove; **click-through navigates to VM detail (not 404)** — confirms the gate-6 route fix live. TD-005: registered + assigned a VM; it appears under its System in the hierarchy (Ungrouped 95→94). Console clean (only cosmetic vite.svg 404). Discovered out-of-scope gap → filed TD-009 (AddSystemMemberDialog has no Infrastructure kind).
+**At:** 69064cd / 2026-09-16
 
 ### 10 — CI green on the PR (terminal; `scripts/ci-local.sh` = pre-push mirror)
 **Status:** ⏳ PENDING

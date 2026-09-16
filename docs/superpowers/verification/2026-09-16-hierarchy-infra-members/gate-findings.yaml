@@ -1,6 +1,6 @@
 slice:  2026-09-16-hierarchy-infra-members
 branch: chore/tech-debt-td-005-006
-terminal_commit: <pending>
+terminal_commit: 69064cd
 
 findings:
   - gate: suite
@@ -43,3 +43,23 @@ findings:
     verdict: delusion
     title: "SeedVmAsync duplicated across integration test files (reuse)"
     note: "Skipped: matches existing per-file Seed*Async suite convention; hoisting to CatalogIntegrationTestBase is a separate cross-cutting cleanup, out of slice scope (gate-5 rejects out-of-scope extract-helper refactors)."
+  - gate: requesting-review
+    severity: blocking
+    verdict: real
+    title: "entityDetailPath('infrastructure') → /catalog/infrastructure/{id} is a dead route (VM detail is /catalog/infrastructure/vms/:id); infra member links 404"
+    note: "fixed 69064cd — ENTITY_PATH_SEGMENT.infrastructure = 'infrastructure/vms'; also repairs pre-existing dead links in RelationshipsSection/graph. Missed by gates 2/7/8 because the unit tests encoded the wrong href — gate 6 (different lens) caught it, validating the no-folding rule."
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "useSetComponentSystem docblock omitted infrastructure route (M1)"
+    note: "fixed 69064cd."
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "mapMembers drops off-set kind but componentCount not decremented (M2)"
+    note: "Accepted: theoretical only (KindWire emits app/service/infra); same nit as deep-review. No action."
+  - gate: manual
+    severity: should-fix
+    verdict: real
+    title: "AddSystemMemberDialog (System-side Assign) offers only Application/Service — cannot assign an Infrastructure member"
+    note: "Out of TD-005/006 render scope (both were about surfacing already-assigned infra). Infra membership settable from VM detail Assign dialog (verified working). Filed as TD-009 follow-up; not fixed in this slice to keep it scoped."

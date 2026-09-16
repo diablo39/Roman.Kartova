@@ -92,7 +92,7 @@ Convention: one `### TD-NNN` heading per item. Keep `Status: open` until done; o
 
 ### TD-005 — Infrastructure absent from the Catalog Hierarchy read model
 
-**Status:** open
+**Status:** done (branch `chore/tech-debt-td-005-006`) — `GetCatalogHierarchyHandler` sources `db.Infrastructure` as components; `HierarchyAssembler.KindWire` maps `EntityKind.Infrastructure → "infrastructure"`; hierarchy page renders infra members (HardDrive icon, `entityDetailPath` link). Verified live (gate 9): an assigned VM appears under its System in `GET /catalog/hierarchy` + the Hierarchy page. See `docs/superpowers/verification/2026-09-16-hierarchy-infra-members/`.
 **Origin:** E-02.F-04.S-01 slice 2b (VM linking) — review-pr (gate 7) code-reviewer Important finding. Ruled a deferred follow-up (design scoped VM System membership to the VM side + `/graph`; infrastructure is render-only in the FE relationship model).
 
 **Problem.** This slice makes `PartOf: Infrastructure → System` a real writable edge (via `POST /relationships` and `PUT /infrastructure/{id}/system`). But `GET /catalog/hierarchy` builds its component set only from Applications + Services, so a VM assigned to a System is silently dropped from the hierarchy tree — visible on the System detail page (generic `/relationships` read) and `/graph`, but missing from the hierarchy read model. No crash; a silent omission / read-model inconsistency.
@@ -112,7 +112,7 @@ Convention: one `### TD-NNN` heading per item. Keep `Status: open` until done; o
 
 ### TD-006 — SystemMembersSection doesn't handle Infrastructure members
 
-**Status:** open
+**Status:** done (branch `chore/tech-debt-td-005-006`) — `asComponentKind` uses the shared `isPartOfSourceKind` (accepts infrastructure → Remove works); member link gated on `isEntityKind` so infra links via `entityDetailPath`. Single FE source of truth `PART_OF_SOURCE_KINDS` mirrors backend `RelationshipTypeRules.IsPartOfSourceKind`. Also fixed a latent dead-link bug: `entityDetailPath("infrastructure")` now routes to `/catalog/infrastructure/vms/{id}` (was 404). Verified live (gate 9). See `docs/superpowers/verification/2026-09-16-hierarchy-infra-members/`.
 **Origin:** E-02.F-04.S-01 slice 2b (VM linking) — review-pr (gate 7) type-design Important finding. Ruled a deferred follow-up (same scope boundary as TD-005).
 
 **Problem.** A VM assigned to a System (now possible) appears in that System's Members table (read path applies no type filter), but `SystemMembersSection.asComponentKind` returns `null` for `"infrastructure"`, and `isRelationshipKind` excludes it — so the VM member renders as a plain unlinked `<span>` with no Remove button. The membership is only removable from the VM's own detail page. `asComponentKind` is a third stale copy of the "which kinds can be PartOf" list (the backend unified this via `RelationshipTypeRules.IsPartOfSourceKind`).
@@ -162,3 +162,23 @@ Convention: one `### TD-NNN` heading per item. Keep `Status: open` until done; o
 **Why deferred.** Pre-existing, suite-wide infrastructure concern unrelated to the VM-linking feature; fixing it inside the slice would over-broaden scope.
 
 **Acceptance.** The full web suite passes deterministically under CI load without per-test timeout flakes; isolated and full-run results agree.
+
+---
+
+### TD-009 — System-side "Assign component" dialog can't assign an Infrastructure member
+
+**Status:** open
+**Origin:** Discovered during TD-005/006 slice gate-9 visual verification (2026-09-16). Out of that slice's render scope.
+
+**Problem.** `AddSystemMemberDialog` (the System detail → Members → "Assign component" dialog) offers only **Application / Service** as component-kind radios, so a VM cannot be assigned to a System from the System side. Infrastructure membership is only settable from the VM detail → *Assign* system dialog (which works). Now that infra members render + are removable in the System Members table (TD-006) and appear in the hierarchy (TD-005), the missing System-side assign path is a UX-parity gap: a steward viewing a System cannot add a VM to it in place.
+
+**Affected files.**
+- `web/src/features/catalog/components/AddSystemMemberDialog.tsx` — the component-kind radio group (add `infrastructure`) + its entity-search branch.
+- `web/src/features/catalog/api/relationships.ts` — `useEntitySearch("infrastructure", …)` (already exists; note TD-007 — infra search is not text-filtered server-side).
+- Backend already supports it: `useSetComponentSystem` routes infrastructure to `PUT /catalog/infrastructure/{id}/system` (used by the VM-side dialog).
+
+**Proposed fix.** Add an "Infrastructure" radio to `AddSystemMemberDialog`, wire the infra entity-search branch, and drive the existing `useSetComponentSystem` mutation with `componentKind: "infrastructure"`. Add a test. Consider pairing with TD-007 (server-side VM text search) so the picker narrows at scale.
+
+**Why deferred.** TD-005/006 scoped to *surfacing* already-assigned infrastructure (read model + members render). The System-side assign path is a distinct write-UI capability; folding it in would broaden the slice.
+
+**Acceptance.** A steward can assign a VM to a System from the System's "Assign component" dialog; the member then appears in the Members table + hierarchy; covered by a test.
