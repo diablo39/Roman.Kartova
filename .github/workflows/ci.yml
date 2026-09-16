@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so the changed-line coverage gate can diff against origin/<base>
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -28,8 +30,30 @@ jobs:
       - name: Build
         run: dotnet build Kartova.slnx --configuration Release --no-restore
 
+      # -m:1 forces MSBuild to a single node so the per-project VSTest targets run
+      # sequentially. With intra-assembly [assembly: DoNotParallelize] already set, this
+      # bounds the suite to one integration Postgres container at a time — deterministic
+      # under memory pressure, killing the "Docker endpoint saturation" flakes.
       - name: Test (architecture + unit + integration, all modules)
-        run: dotnet test Kartova.slnx --configuration Release --no-build --verbosity normal
+        run: dotnet test Kartova.slnx --configuration Release --no-build --verbosity normal -m:1 --settings coverlet.runsettings
+
+      # Changed-line coverage gate (targets the recurring "missing test coverage on new code"
+      # theme without a repo-wide floor fight). WARN-ONLY for now — continue-on-error keeps the
+      # job green while we calibrate; flip to blocking by removing continue-on-error once the
+      # 80% changed-line bar holds across a slice or two. PR events only (needs a diff base).
+      - name: Changed-line coverage gate (warn-only)
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        run: |
+          python3 -m pip install --quiet diff-cover
+          reports=$(find . -path '*/TestResults/*/coverage.cobertura.xml')
+          if [ -z "$reports" ]; then
+            echo "No cobertura reports found — coverage not collected; skipping gate."
+            exit 0
+          fi
+          diff-cover $reports \
+            --compare-branch=origin/${{ github.base_ref }} \
+            --fail-under=80
 
   images:
     name: Container images (build — Dockerfile/restore gate)

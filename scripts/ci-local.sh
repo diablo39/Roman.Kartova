@@ -34,7 +34,7 @@ run_job() {  # run_job <name> <function>
 job_backend() {  # ci.yml: restore -> build Release -> test Release --no-build
   cmd //c "dotnet restore Kartova.slnx" \
   && cmd //c "dotnet build Kartova.slnx --configuration Release --no-restore" \
-  && cmd //c "dotnet test Kartova.slnx --configuration Release --no-build --verbosity normal"
+  && cmd //c "dotnet test Kartova.slnx --configuration Release --no-build --verbosity normal -m:1"
 }
 
 job_images() {  # ci.yml: compose build migrator+api, then web image
