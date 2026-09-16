@@ -23,7 +23,7 @@
 | 8 `deep-review` | ✅ PASS | 2026-09-16 |
 | Terminal re-verify (build + suite) | ✅ PASS (2 TD-008 flakes, pass isolated) | 2026-09-16 |
 | 9 Visual / API verification (ADR-0084) | ✅ PASS | 2026-09-16 |
-| 10 CI green on PR | ⏳ PENDING (ci-local mirror ✅; PR runner after push) | 2026-09-16 |
+| 10 CI green on PR | ✅ PASS (PR #94, all 5 jobs) | 2026-09-16 |
 
 ## Gate detail
 
@@ -61,4 +61,4 @@
 **At:** running stack, 2026-09-16
 
 ### 10 — CI green on the PR
-**Status:** ⏳ PENDING (PR runner) — pre-push mirror `scripts/ci-local.sh backend frontend images` = all **PASS** on terminal commit `7108c07`. First mirror run caught (a) the TD-008 frontend flake → mitigated (see gate-findings `ci-mirror`), and (b) a real `tsc` error — `poolOptions`/`minWorkers` are not in vitest 4's `InlineConfig` type though the runtime accepted them → switched to the typed `test.maxWorkers`. Both fixed; re-run mirror green. PR runner is the terminal source of truth after push.
+**Status:** ✅ PASS — PR **#94**, all 5 jobs green (Backend 5m9s · Container images 2m10s · Frontend 4m1s · Helm · Stryker config-drift). Run https://github.com/diablo39/Roman.Kartova/actions/runs/35135123320. Frontend passed on the real runner — the TD-008 mitigation held. Pre-push mirror `scripts/ci-local.sh backend frontend images` was all PASS on terminal commit `7108c07`; the first mirror run caught (a) the TD-008 frontend flake → mitigated, and (b) a real `tsc` error — `poolOptions`/`minWorkers` are not in vitest 4's `InlineConfig` type though the runtime accepted them → switched to the typed `test.maxWorkers`.
