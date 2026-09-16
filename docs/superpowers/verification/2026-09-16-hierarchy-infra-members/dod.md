@@ -22,7 +22,7 @@
 | 8 `deep-review` | ✅ PASS | 2026-09-16 |
 | Terminal re-verify (build + suite) | ✅ PASS | 2026-09-16 |
 | 9 Visual / API verification (ADR-0084) | ✅ PASS | 2026-09-16 |
-| 10 CI green on PR | ⏳ PENDING | — |
+| 10 CI green on PR | ✅ PASS | 2026-09-16 |
 
 ## Gate detail
 
@@ -77,5 +77,6 @@
 **At:** 69064cd / 2026-09-16
 
 ### 10 — CI green on the PR (terminal; `scripts/ci-local.sh` = pre-push mirror)
-**Status:** ⏳ RUNNING (PR #93 pushed)
-**Evidence:** Pre-push mirror: `ci-local.sh backend` didn't execute (`cmd` not on PATH under Git Bash — host-script quirk, not a code issue); backend Release build run directly = 0/0 (audited restore clean, no NU1903); backend tests green; frontend build/tsc green, suite 1131/1132 (lone failure = TD-008 flake, isolation-green). PR #93 CI is the terminal arbiter — watching.
+**Status:** ✅ PASS
+**Evidence:** PR #93 CI run 35121851908 = **success**. All jobs green: Backend (arch+unit+integration) 4m46s, Container images 1m57s, Frontend (test+typecheck+build) 3m47s, Helm 8s, Stryker config drift 5s. The TD-008 flake did not recur on the runner. Pre-push: backend Release build 0/0 (audited restore clean); frontend build/tsc green (the `ci-local.sh` backend job's `cmd not found` was a host-script quirk, not a code failure).
+**At:** dc94bd5 / 2026-09-16
