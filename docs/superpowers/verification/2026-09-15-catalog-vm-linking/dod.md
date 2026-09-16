@@ -7,7 +7,7 @@
 **Branch:** `feat/catalog-vm-linking` (from `master` @ 53578e8)
 **Terminal commit:** 454a5f8
 
-## Status: gates 1-9 GREEN on 454a5f8. Only gate 10 (CI-on-PR) remains — held per user (not pushed).
+## Status: ALL 10 DoD GATES GREEN. PR #91 CI green. Ready to merge (merge is the human's call).
 
 ## Summary table
 
@@ -22,7 +22,7 @@
 | 7 | `/pr-review-toolkit:review-pr` | ✅ green | 5 agents (code/tests/silent-failures/type-design/comments). No Critical. Fixed C/D/E/F (commit e6259a1): cross-tenant DeployedOn-target test, ownership tests, EntityLookupResult.Type doc, 2 stale comments. 2 Important read-surface gaps (hierarchy, System-members UI) ruled deferred → TD-005/006; minors → TD-007/follow-ups. |
 | 8 | `/deep-review` on branch diff | ✅ green | opus deep-review: 0 blocking, 1 should-fix + 2 missing-tests + 2 nits fixed (commit 454a5f8 — server-side hosted-components filter, graph-endpoint + non-owning-team-403 integration tests, icon/limit nits). Report: `deep-review.md`. |
 | 9 | Visual / API verification (running system) | ✅ green | 2026-09-16 via **claude-in-chrome** on the live docker-compose stack (playwright/chrome-devtools plugins were the ones that failed). Verified: VM detail System-membership (Assign→Change) + Hosted-components (empty→populated); Deploy-on-VM action (app Dependencies tab) + dialog + toast + "Deployed on/Infrastructure" edge; VM→System assign (reused dialog + PUT /infrastructure/{id}/system, at-most-one); `/graph` infra node (hard-drive icon) + DeployedOn + PartOf edges. Live-confirmed TD-007 (VM search unfiltered). Evidence: `gate9-graph-infra-node-edges.jpg`. E2E-impact: Deploy-on-VM lives on the Dependencies tab — check `e2e/` specs at push time (gate 10). |
-| 10 | CI green on PR | ⏳ pending | needs push + PR (outward-facing — awaiting consent). Run `scripts/ci-local.sh` pre-push. |
+| 10 | CI green on PR | ✅ green | PR #91 — all checks pass: Backend (arch+unit+integration) 2m48s, Container images 2m0s, Frontend 3m48s, Helm, Stryker-config. Pre-push: ci-local images+helm PASS, Release build 0/0, Catalog Release unit 361 + integ 476; TD-008 FE flakes did not recur on the runner. |
 
 ## Rulings made (controller, during SDD)
 
