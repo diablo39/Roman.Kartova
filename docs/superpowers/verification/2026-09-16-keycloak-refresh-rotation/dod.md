@@ -24,8 +24,8 @@ Interim auth hardening from ADR-0116 (defers BFF / E-01.F-04.S-05). Enable KeyCl
 | 3 Full suite (+ real-seam) | ✅ PASS | 2026-09-16 |
 | 4 Container build (images CI) | N/A | 2026-09-16 |
 | 5 `/simplify` | N/A | 2026-09-16 |
-| 6 `requesting-code-review` | ⏳ PROPOSED WAIVER | — |
-| 7 `review-pr` | ⏳ PROPOSED WAIVER | — |
+| 6 `requesting-code-review` | WAIVER (owner, 2026-09-17) | 2026-09-17 |
+| 7 `review-pr` | WAIVER (owner, 2026-09-17) | 2026-09-17 |
 | 8 `deep-review` | ✅ PASS | 2026-09-16 |
 | Terminal re-verify (build + suite) | ✅ PASS | 2026-09-16 |
 | 9 Visual / API verification (ADR-0084) | ⏳ PENDING (owner — running stack) | — |
@@ -52,10 +52,10 @@ Interim auth hardening from ADR-0116 (defers BFF / E-01.F-04.S-05). Enable KeyCl
 **Status:** N/A — no business logic to simplify; diff = 2 declarative JSON flags + one assertion-only arch test.
 
 ### 6 — `requesting-code-review`
-**Status:** PROPOSED WAIVER — no-logic config slice; gate 2 (`csharp-code-reviewer`) + gate 8 (`deep-review`) already lens the full 28-line diff. Owner to confirm waiver vs run.
+**Status:** WAIVER (owner, 2026-09-17) — no-logic config slice; gate 2 (`csharp-code-reviewer`) + gate 8 (`deep-review`) already lensed the full 28-line diff clean. Waiver, not green.
 
 ### 7 — `review-pr`
-**Status:** PROPOSED WAIVER — standing set (type-design / pr-test / code-reviewer) has near-zero surface on a declarative config + assertion diff (no new types, no error handling). Owner to confirm.
+**Status:** WAIVER (owner, 2026-09-17) — standing set (type-design / pr-test / code-reviewer) has near-zero surface on a declarative config + assertion diff (no new types, no error handling). Waiver, not green.
 
 ### 8 — `deep-review`
 **Status:** ✅ PASS — reviewed the full diff against ADR-0116 intent. No Blocking / Should-fix. Notes: (a) rotation flags are realm-level (correct — they are not per-client in the KeyCloak realm representation); (b) `refreshTokenMaxReuse=0` is the strict setting (any reuse → session revoked); (c) drift sentinel asserts both, catching silent relaxation. Nits: none actionable.
