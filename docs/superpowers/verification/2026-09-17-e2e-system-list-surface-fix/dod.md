@@ -25,8 +25,8 @@ The spec now **supplies its own membership**: new `assignApplicationToSystem(app
 | 3 Full suite (unit/arch/integration) | N/A | 2026-09-17 |
 | 4 Container build | N/A | 2026-09-17 |
 | 5 `/simplify` | N/A | 2026-09-17 |
-| 6 `requesting-code-review` | ⏳ PROPOSED WAIVER | — |
-| 7 `review-pr` | ⏳ PROPOSED WAIVER | — |
+| 6 `requesting-code-review` | WAIVER (owner, 2026-09-17) | 2026-09-17 |
+| 7 `review-pr` | WAIVER (owner, 2026-09-17) | 2026-09-17 |
 | 8 `deep-review` | ✅ PASS | 2026-09-17 |
 | 9 E2E on running stack (the fix's own gate) | ✅ PASS | 2026-09-17 |
 | 10 CI green (nightly / dispatch) | ⏳ PENDING (owner) | — |
@@ -40,7 +40,7 @@ Diff is **E2E test code only** (`e2e/**`): no C# (build/arch/integration unaffec
 **Status:** ✅ PASS — `typescript-code-reviewer`: **clean, no findings**. Cross-checked the SQL column order against `EfRelationshipConfiguration.cs`, the `source=Application/target=System` semantics against the production `SetComponentSystemHandler` (`Relationship.CreateManual(component, System, PartOf)`), the pre-delete scope against the `ux_relationships_one_system` partial-unique-index migration, and confirmed the read-side (`IsMemberOfAnySystem` / `SystemsForComponentsAsync` / filter EXISTS) keys off the same shape. Determinism confirmed: `displayName asc` default, `workers: 1`, no other spec registers apps; pre-delete self-heals stale edges. `try/finally` + `client.end()` resource handling correct.
 
 ### 6 / 7 — requesting-code-review / review-pr
-**Status:** PROPOSED WAIVER — E2E-test-only fix; gate 2 + gate 8 lens the diff. Owner to confirm.
+**Status:** WAIVER (owner, 2026-09-17) — E2E-test-only fix; gate 2 (thorough, cross-checked against production) + gate 8 lensed the diff. Waiver, not green.
 
 ### 8 — deep-review
 **Status:** ✅ PASS — reviewed the diff. `assignApplicationToSystem` matches the `insertDriftEdge` convention (RLS-bypass role, parameterized, `client.end()` in `finally`, cleanup deletes exactly the inserted id). Pre-delete of prior `PartOf` makes it deterministic and honors the at-most-one invariant (ADR-0111). "First application" is stable under the list's `displayName asc` default; assigning it then filtering keeps the test's real purpose (column render + `?systemId=` round-trip). `try/finally` runs cleanup even if an assertion throws. No Blocking/Should-fix.
