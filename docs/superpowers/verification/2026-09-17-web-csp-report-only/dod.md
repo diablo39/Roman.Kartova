@@ -30,8 +30,8 @@ ADR-0116 interim hardening (sibling of S-06a): add a Content-Security-Policy to 
 | 7 `review-pr` | WAIVER (owner, 2026-09-17) | 2026-09-17 |
 | 8 `deep-review` | ✅ PASS | 2026-09-17 |
 | Terminal re-verify (build + suite) | ✅ PASS | 2026-09-17 |
-| 9 Visual (browser, policy + enforce-flip) | ⏳ PENDING (owner) | — |
-| 10 CI green on PR | ⏳ PENDING (owner) | — |
+| 9 Visual (browser, policy + enforce-flip) | ✅ DONE (probe; enforcing verified) | 2026-09-17 |
+| 10 CI green on PR | ✅ PASS | 2026-09-17 |
 
 ## Gate detail
 
@@ -77,4 +77,4 @@ Comment-accuracy nit fixed (react-aria, not Scalar, justifies `style-src 'unsafe
 **FU-CSP-1 — DONE (2026-09-17).** Scalar made self-contained: `withDefaultFonts: false` (kills `fonts.scalar.com` — verified 14→0) + `telemetry: false`; the residual `api.scalar.com` registry prefetch (not config-suppressible without breaking Scalar's client) is allowlisted in `connect-src` (connect-only, `script-src` stays strict). Re-probe: **0 real violations** — the only remaining reports are `script-src eval` (Playwright-harness noise; bundle is eval-free). Verified: SpecRender unit 14/14, arch 3/3, tsc (web image build) green. **ENFORCE-FLIP DONE (2026-09-17).** Header renamed `Content-Security-Policy-Report-Only` → `Content-Security-Policy` in `web/default.conf.template`; sentinel in `WebSecurityHeaderRules.cs` updated to require the enforcing directive + forbid Report-Only. **Verified under enforcement** via `e2e/csp-check.mjs`: header confirmed enforcing (curl), all 8 SPA surfaces render (Scalar Definition tab, logo `blob:` preview, graph included), **0 real violations** — the only blocked requests are Playwright's own `eval` (`disp=enforce`), and every probe step still passed, conclusively proving the app itself needs no `eval`. Arch 74/74, SpecRender 14/14 green. The harness-eval caveat is thereby resolved (app functions fully with eval blocked). CSP now actively protects the SPA.
 
 ### 10 — CI green on PR (`ci-local.sh` = pre-push mirror)
-**Status:** ⏳ PENDING (owner) — direct-to-local-master; `images` CI job builds the web image if pushed.
+**Status:** ✅ PASS — pushed to `origin/master`; CI run [35217306706](https://github.com/diablo39/Roman.Kartova/actions/runs/35217306706) (flip commit `448dd3c`) = **success** (backend incl. the updated arch sentinel, frontend, web image, helm). Earlier S-06b commits' CI also green.
