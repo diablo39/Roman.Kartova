@@ -26,8 +26,8 @@ ADR-0116 interim hardening (sibling of S-06a): add a Content-Security-Policy to 
 | 3 Full suite (arch; real-seam N/A) | ✅ PASS | 2026-09-17 |
 | 4 Container build (images) | ✅ PASS | 2026-09-17 |
 | 5 `/simplify` | N/A | 2026-09-17 |
-| 6 `requesting-code-review` | ⏳ PROPOSED WAIVER | — |
-| 7 `review-pr` | ⏳ PROPOSED WAIVER | — |
+| 6 `requesting-code-review` | WAIVER (owner, 2026-09-17) | 2026-09-17 |
+| 7 `review-pr` | WAIVER (owner, 2026-09-17) | 2026-09-17 |
 | 8 `deep-review` | ✅ PASS | 2026-09-17 |
 | Terminal re-verify (build + suite) | ✅ PASS | 2026-09-17 |
 | 9 Visual (browser, policy + enforce-flip) | ⏳ PENDING (owner) | — |
@@ -54,10 +54,10 @@ Comment-accuracy nit fixed (react-aria, not Scalar, justifies `style-src 'unsafe
 **Status:** N/A — no business logic; diff = declarative nginx template + build/compose wiring + assertion-only arch test.
 
 ### 6 — `requesting-code-review`
-**Status:** PROPOSED WAIVER — infra/config slice; gate 2 + gate 8 lens the full diff. Owner to confirm (S-06a precedent).
+**Status:** WAIVER (owner, 2026-09-17) — infra/config slice; gate 2 + gate 8 lensed the full diff (gate 2 surfaced + fixed 2 real items). Waiver, not green.
 
 ### 7 — `review-pr`
-**Status:** PROPOSED WAIVER — standing set has little surface on nginx/docker/config + declarative test. Owner to confirm.
+**Status:** WAIVER (owner, 2026-09-17) — standing set has little surface on nginx/docker/config + declarative test. Waiver, not green.
 
 ### 8 — `deep-review`
 **Status:** ✅ PASS — reviewed against ADR-0116 intent. No Blocking/Should-fix. Confirmed: (a) Report-Only = non-breaking first step (correct given no browser verification this session); (b) CSP set only on the HTML document response (`location /`) — sub-resource CSP headers don't affect page policy, so the asset-location omission is correct; (c) `script-src 'self'` strict (XSS-critical), `style-src 'unsafe-inline'` scoped + justified (Scalar/react-aria); (d) origins env-injected → portable across environments. Note carried to follow-up: verify no `worker-src`/`unsafe-eval` need surfaces in the browser before the enforce-flip.
