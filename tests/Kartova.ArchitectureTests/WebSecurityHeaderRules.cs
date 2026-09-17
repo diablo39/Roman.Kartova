@@ -5,10 +5,11 @@ namespace Kartova.ArchitectureTests;
 /// <summary>
 /// E-01.F-04.S-06b (ADR-0116 interim hardening): the web container's nginx template must ship a
 /// Content-Security-Policy that shrinks the XSS surface behind the SPA's token-bearing session.
-/// Landed as <c>Content-Security-Policy-Report-Only</c> first (non-breaking — the browser reports
-/// violations without blocking) so the enforce-flip can follow a real-browser gate-9 pass. The
-/// XSS-critical guarantee is a strict <c>script-src 'self'</c> with no <c>unsafe-inline</c>/<c>unsafe-eval</c>.
-/// This drift sentinel fails loudly if the header disappears or <c>script-src</c> is weakened.
+/// Shipped as <c>Content-Security-Policy-Report-Only</c>, then flipped to ENFORCING
+/// (<c>Content-Security-Policy</c>) once gate-9 (<c>e2e/csp-check.mjs</c>) confirmed 0 real violations.
+/// The XSS-critical guarantee is a strict <c>script-src 'self'</c> with no <c>unsafe-inline</c>/<c>unsafe-eval</c>.
+/// This drift sentinel fails loudly if the header disappears, reverts to Report-Only, or <c>script-src</c>
+/// is weakened.
 /// </summary>
 [TestClass]
 public sealed class WebSecurityHeaderRules
@@ -29,8 +30,13 @@ public sealed class WebSecurityHeaderRules
         var t = ReadTemplate();
 
         StringAssert.Contains(
-            t, "Content-Security-Policy-Report-Only",
-            "web container must send a CSP (Report-Only first — E-01.F-04.S-06b / ADR-0116).");
+            t, "add_header Content-Security-Policy \"",
+            "web container must send an ENFORCING CSP (E-01.F-04.S-06b, flipped 2026-09-17 / FU-CSP-1).");
+        // Scope to the add_header DIRECTIVE, not the whole file — the comment block mentions
+        // "Report-Only" for rollback docs, which must not trip this guard.
+        Assert.IsFalse(
+            t.Contains("add_header Content-Security-Policy-Report-Only", StringComparison.Ordinal),
+            "the CSP add_header must be enforcing, not Report-Only — the flip happened after gate-9 confirmed 0 real violations.");
 
         // Dynamic API + KeyCloak origins are injected at container start via envsubst.
         StringAssert.Contains(

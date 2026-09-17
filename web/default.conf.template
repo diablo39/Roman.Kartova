@@ -5,14 +5,15 @@
 # substituted, so nginx's own $uri/$host runtime vars are left intact; ${CSP_EXTRA_ORIGINS} is
 # filled from the container env (space-separated API + KeyCloak origins the SPA must reach).
 #
-# CSP is E-01.F-04.S-06b (ADR-0116 interim hardening). It ships as Content-Security-Policy-Report-Only
-# first: the browser reports violations to the console without blocking, so an enforce-flip
-# (Report-Only -> Content-Security-Policy) can follow a real-browser gate-9 pass with zero risk of
-# breaking the running SPA. The XSS-critical directive is a strict `script-src 'self'` (no
+# CSP is E-01.F-04.S-06b (ADR-0116 interim hardening). It shipped as Content-Security-Policy-Report-Only
+# and was flipped to ENFORCING (2026-09-17, FU-CSP-1) after gate-9 (e2e/csp-check.mjs) confirmed 0 real
+# violations across the SPA. The XSS-critical directive is a strict `script-src 'self'` (no
 # unsafe-inline/unsafe-eval); style-src carries 'unsafe-inline' because react-aria writes inline
 # `style=` on positioned overlays. `img-src` allows blob: for the LogoUploader object-URL preview.
-# CSP is set only on the HTML document response (this location) — sub-resource responses' CSP
-# headers do not affect the page's policy.
+# connect-src allows https://api.scalar.com for the Scalar spec renderer's registry prefetch (its
+# external fonts + telemetry are disabled in SpecRender.tsx). CSP is set only on the HTML document
+# response (this location) — sub-resource responses' CSP headers do not affect the page's policy.
+# To roll back to observe-only, rename the header below to Content-Security-Policy-Report-Only.
 server {
   listen 8080;
   root /usr/share/nginx/html;
@@ -20,7 +21,7 @@ server {
 
   location / {
     try_files $uri /index.html;
-    add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://api.scalar.com ${CSP_EXTRA_ORIGINS}; frame-src ${CSP_EXTRA_ORIGINS}; form-action 'self' ${CSP_EXTRA_ORIGINS}; object-src 'none'; base-uri 'self'; frame-ancestors 'none'" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://api.scalar.com ${CSP_EXTRA_ORIGINS}; frame-src ${CSP_EXTRA_ORIGINS}; form-action 'self' ${CSP_EXTRA_ORIGINS}; object-src 'none'; base-uri 'self'; frame-ancestors 'none'" always;
   }
 
   location ~* \.(js|css|woff2?|svg|png|jpg|ico)$ {

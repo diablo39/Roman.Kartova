@@ -9,9 +9,9 @@ Operator guide for the web app's CSP. **Decision + rationale:** [ADR-0116](../ar
 - The **vite dev server (`:5173`) sends no CSP** — nginx isn't in that path. CSP is a container/prod concern; verify it against the built image (compose `:4173`), not the dev server.
 - Drift is guarded by arch tests: [`tests/Kartova.ArchitectureTests/WebSecurityHeaderRules.cs`](../../tests/Kartova.ArchitectureTests/WebSecurityHeaderRules.cs).
 
-## Current state: Report-Only
+## Current state: ENFORCING
 
-The header ships as **`Content-Security-Policy-Report-Only`**. The browser **reports** violations to its devtools console but **blocks nothing**. This is deliberate — it lets you observe what an enforcing policy *would* break, at zero risk, before turning it on. **Until the enforce-flip below, CSP provides no protection.**
+The header is **`Content-Security-Policy`** (enforcing) as of 2026-09-17. It shipped Report-Only, and was flipped after gate-9 (`e2e/csp-check.mjs`) confirmed 0 real violations under enforcement across every SPA surface (login, catalog lists/detail, the Scalar API Definition tab, logo upload, graph). Violations now **block**. To roll back to observe-only, rename the `add_header` in `web/default.conf.template` back to `Content-Security-Policy-Report-Only` (and revert the sentinel in `WebSecurityHeaderRules.cs`).
 
 ## 1. Set the per-environment origins (`CSP_EXTRA_ORIGINS`)
 
