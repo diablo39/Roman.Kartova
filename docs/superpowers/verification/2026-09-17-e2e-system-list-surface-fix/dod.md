@@ -29,7 +29,7 @@ The spec now **supplies its own membership**: new `assignApplicationToSystem(app
 | 7 `review-pr` | WAIVER (owner, 2026-09-17) | 2026-09-17 |
 | 8 `deep-review` | ✅ PASS | 2026-09-17 |
 | 9 E2E on running stack (the fix's own gate) | ✅ PASS | 2026-09-17 |
-| 10 CI green (nightly / dispatch) | ⏳ PENDING (owner) | — |
+| 10 CI green (nightly / dispatch) | ✅ PASS | 2026-09-17 |
 
 ## Gate detail
 
@@ -49,4 +49,4 @@ Diff is **E2E test code only** (`e2e/**`): no C# (build/arch/integration unaffec
 **Status:** ✅ PASS — `e2e/run.sh system-list-surface.spec.ts` against the freshly-built compose stack (real KeyCloak + API + web + Postgres): **1 passed (8.7s)**. Confirms the seeded `PartOf` edge surfaces the app under the System column + `systemId` filter, column↔filter agree (no em-dash rows), clean console. Also exercised the current web image (CSP Report-Only) end-to-end without issue.
 
 ### 10 — CI green (nightly)
-**Status:** ⏳ PENDING (owner) — the nightly/dispatch E2E job on GitHub re-runs on schedule or `workflow_dispatch`; owner triggers/observes after push.
+**Status:** ✅ PASS — pushed to `origin/master` (`6e9ab44`); E2E `workflow_dispatch` run [35202881345](https://github.com/diablo39/Roman.Kartova/actions/runs/35202881345) = **completed / success**, clearing the nightly-red from run 35178475298. (Push CI `ci.yml` also green on the same head: backend/frontend/images.)
