@@ -66,7 +66,15 @@ Comment-accuracy nit fixed (react-aria, not Scalar, justifies `style-src 'unsafe
 **Status:** ✅ PASS — no code-mutating gate applied changes; build + arch green on final diff.
 
 ### 9 — Visual / API verification (running system)
-**Status:** ⏳ PENDING (owner) — browser MCP unavailable this session. Load the app via the web container (`:4173`), exercise API calls + spec-render (Scalar) + OIDC silent-renew, and confirm **zero CSP violations** in the devtools console. On a clean pass, do the enforce-flip (Report-Only → `Content-Security-Policy`). HTTP-level header correctness already proven in gate 4.
+**Status:** ✅ DONE (findings surfaced; enforce-flip **blocked on Scalar** — FU below). Drove headless Chromium (Playwright, `e2e/csp-check.mjs`) against the running web container across login/apps/app-detail/APIs/**Scalar Definition tab**/systems/**logo uploader**/graph, capturing `securitypolicyviolation` events. HTTP header correctness already proven in gate 4.
+
+**Findings (54 Report-Only violations — nothing broke, `disp=report`):**
+- **`script-src` eval, ~9×, uniform on every surface = Playwright-harness noise, NOT the app.** The served bundle contains **zero** `eval(`/`new Function(` (verified `grep` inside `romangig2-web-1` `/usr/share/nginx/html/assets/`). So strict `script-src 'self'` (no `unsafe-eval`) will **not** break the real app. Confirm on the owner's non-instrumented browser for completeness.
+- **`font-src` ×14 → `https://fonts.scalar.com/*.woff2`** — Scalar loads external webfonts. **Definition tab only.**
+- **`connect-src` ×4 → `https://api.scalar.com/vector/registry/*`** — Scalar's registry/search phone-home. **Definition tab only.**
+- **0 violations** on all non-Scalar surfaces (apps, detail, systems, logo/`blob:`, graph); **0 other console errors**. `blob:`/`data:`/`unsafe-inline`-style all sufficient.
+
+**FU-CSP-1 (blocks enforce-flip):** make Scalar self-contained so the strict policy holds — prefer disabling its external fonts + registry phone-home in the `SpecRender` config (keeps CSP tight); fallback is allowlisting `https://fonts.scalar.com` (font-src) + `https://api.scalar.com` (connect-src). Then re-run `e2e/csp-check.mjs` → 0 real violations → flip Report-Only → enforcing. Until then, **Report-Only stays** (correctly protecting nothing yet, breaking nothing).
 
 ### 10 — CI green on PR (`ci-local.sh` = pre-push mirror)
 **Status:** ⏳ PENDING (owner) — direct-to-local-master; `images` CI job builds the web image if pushed.
