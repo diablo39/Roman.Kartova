@@ -28,3 +28,4 @@ Rationale:
 - The API keeps a single `JwtBearer` scheme; no cookie/CSRF machinery, no same-origin coupling, no shared ticket store. SPA and API stay separately deployable.
 - CLI / service-account auth is unaffected (JWT Bearer remains the model regardless of a future BFF).
 - Supersedes nothing; contextualizes ADR-0007 (short-lived tokens) as part of the accepted-risk posture. A future BFF adoption supersedes this ADR.
+- **Operator how-to for the interim CSP (S-06b):** [docs/engineering/csp-configuration.md](../../engineering/csp-configuration.md) — setting `CSP_EXTRA_ORIGINS` per environment, the Report-Only → enforcing flip, and adding a directive when the SPA needs a new source.
