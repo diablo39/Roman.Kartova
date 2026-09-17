@@ -58,6 +58,19 @@ export default class SpecRender extends Component<Props, State> {
             // it on any localhost URL (isLocalUrl) regardless of other flags — only
             // mcp.disabled suppresses it. We don't expose MCP generation from the spec view.
             mcp: { disabled: true },
+            // CSP self-containment (E-01.F-04.S-06b FU-CSP-1): keep Scalar off external
+            // origins so the strict CSP can enforce. withDefaultFonts:false stops loading
+            // webfonts from fonts.scalar.com (system font stack instead); hideSearch:true
+            // removes the registry search that phones home to api.scalar.com. Verified via
+            // e2e/csp-check.mjs (gate-9): these were the only real CSP violations.
+            withDefaultFonts: false,
+            hideSearch: true,
+            // Disable Scalar usage telemetry. Its "curated registry" prefetch to api.scalar.com
+            // still fires (not config-suppressible without blanking apiBaseUrl, which breaks the
+            // client), so that one vendor origin is allowlisted in the web container's CSP
+            // connect-src instead — connect-only, script-src stays strict. (FU-CSP-1; verified via
+            // e2e/csp-check.mjs.)
+            telemetry: false,
             theme: "default",
           }}
         />

@@ -71,10 +71,26 @@ script-src 'self';                         ← strict, XSS-critical (never weake
 style-src 'self' 'unsafe-inline';          ← react-aria inline styles
 img-src 'self' data: blob:;                ← blob: = LogoUploader preview
 font-src 'self';
-connect-src 'self' ${CSP_EXTRA_ORIGINS};   ← API + KeyCloak
+connect-src 'self' https://api.scalar.com ${CSP_EXTRA_ORIGINS};   ← API + KeyCloak + Scalar registry
 frame-src ${CSP_EXTRA_ORIGINS};            ← KeyCloak silent-renew iframe
 form-action 'self' ${CSP_EXTRA_ORIGINS};   ← login redirect
 object-src 'none'; base-uri 'self'; frame-ancestors 'none';
 ```
 
 No `report-uri`/`report-to` — Report-Only violations surface in the browser console only (sufficient for the interim gate-9 observation; add a collector later if server-side aggregation is wanted).
+
+## Scalar (API Definition tab) — external origins
+
+The Scalar spec renderer (`web/src/features/catalog/components/spec/SpecRender.tsx`) is the one component that reaches outside `'self'`. Gate-9 probing (`e2e/csp-check.mjs`) found three:
+
+| Scalar behavior | Handling |
+|-----------------|----------|
+| Loads webfonts from `fonts.scalar.com` | **Suppressed** — `withDefaultFonts: false` (uses the system font stack). No `font-src` allowance needed. |
+| Usage telemetry | **Suppressed** — `telemetry: false`. |
+| "Curated registry" prefetch to `api.scalar.com` | **Allowlisted** in `connect-src` (`https://api.scalar.com`). Not config-suppressible without blanking `externalUrls.apiBaseUrl`, which breaks Scalar's own client; connect-only, so `script-src` stays strict. |
+
+Re-run `e2e/csp-check.mjs` after any Scalar upgrade or config change — a new Scalar version may add or drop an external origin.
+
+## Verifying enforce-readiness with `e2e/csp-check.mjs`
+
+`e2e/csp-check.mjs` drives headless Chromium across the SPA surfaces and reports every CSP violation by directive and surface. **Caveat:** it runs under Playwright, which injects its own `eval` — so `script-src eval` reports from this probe are *harness noise, not the app* (the served bundle is `eval`-free; verify with `grep -rE 'eval\(|new Function\(' dist/assets`). Treat only non-`script-src`-eval violations as real. A run whose only violations are `script-src eval` = enforce-ready; confirm once in a normal (non-Playwright) browser's devtools before flipping.
