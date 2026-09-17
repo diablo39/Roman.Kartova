@@ -49,3 +49,47 @@ export async function insertDriftEdge(sourceId: string, targetId: string): Promi
     }
   };
 }
+
+/**
+ * Assign an Application to a System (a `PartOf` edge, source=Application → target=System),
+ * bypassing RLS, so the System-column / systemId-filter surface has a real member to render.
+ * Returns a cleanup fn that deletes exactly this row.
+ *
+ * The seeded demo System ("Payments Platform", DevSeed.cs) is deliberately memberless so the
+ * assign-flow demo starts from an empty Members tab, so system-list-surface.spec.ts must supply
+ * its own membership rather than depend on seed state. `PartOf` is at-most-one per component
+ * (ADR-0111, partial unique index `ux_relationships_one_system`), so any pre-existing PartOf for
+ * this application is cleared first — makes the fixture deterministic across local re-runs.
+ */
+export async function assignApplicationToSystem(
+  applicationId: string,
+  systemId: string,
+): Promise<() => Promise<void>> {
+  const client = new Client({ connectionString: CONN });
+  await client.connect();
+  const id = crypto.randomUUID();
+  try {
+    await client.query(
+      `DELETE FROM relationships
+        WHERE tenant_id = $1 AND source_kind = 'Application' AND source_id = $2 AND type = 'PartOf'`,
+      [ORG_A_TENANT, applicationId],
+    );
+    await client.query(
+      `INSERT INTO relationships
+         (id, tenant_id, source_kind, source_id, target_kind, target_id, type, origin, created_by_user_id, created_at)
+       VALUES ($1, $2, 'Application', $3, 'System', $4, 'PartOf', 'Manual', gen_random_uuid(), now())`,
+      [id, ORG_A_TENANT, applicationId, systemId],
+    );
+  } finally {
+    await client.end();
+  }
+  return async () => {
+    const c = new Client({ connectionString: CONN });
+    await c.connect();
+    try {
+      await c.query(`DELETE FROM relationships WHERE id = $1`, [id]);
+    } finally {
+      await c.end();
+    }
+  };
+}

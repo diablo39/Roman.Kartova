@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { login } from "../fixtures/auth";
+import { assignApplicationToSystem } from "../fixtures/db";
 
 /**
  * Gate-9 verification for the A2 System list surface (E-03.F-03.S-01).
@@ -49,14 +50,27 @@ test.describe("System list surface", () => {
     const firstRow = page.getByRole("row").nth(1);
     await expect(firstRow).toBeVisible();
 
+    // Capture a concrete application id from the first row's Name link — this is the component we
+    // assign to a System below so the filter has a member to surface.
+    const appHref = await page
+      .locator('a[href^="/catalog/applications/"]')
+      .first()
+      .getAttribute("href");
+    const applicationId = appHref?.split("/").pop();
+    expect(applicationId, "a seeded application is required to exercise the filter").toMatch(
+      /^[0-9a-f-]{36}$/i,
+    );
+
     await page.screenshot({
       path: "../docs/superpowers/verification/2026-07-30-catalog-system-membership/a2/gate9-applications-system-column.png",
       fullPage: false,
     });
 
     // --- the filter -------------------------------------------------------------------------
-    // Register a System so the facet has something to select, then assign an application to it
-    // through the product's own door (PUT /catalog/applications/{id}/system, the A1 setter).
+    // The seeded demo System ("Payments Platform") is intentionally memberless (DevSeed), so this
+    // spec supplies its own membership: it reads the seeded System below, then assigns the
+    // application captured above to it (assignApplicationToSystem seeds the PartOf edge and returns
+    // a cleanup fn), so the filtered list has exactly one member to surface.
     await page.goto("/catalog/systems");
     await expect(page.getByRole("heading", { name: "Systems" })).toBeVisible();
     await page.screenshot({
@@ -83,27 +97,33 @@ test.describe("System list surface", () => {
       await page.locator(`a[href="/catalog/systems/${systemId}"]`).first().innerText()
     ).trim();
 
-    // NOTE the canonical route: `/catalog` is an alias that redirects to `/catalog/applications`
-    // and DROPS the query string on the way, so a filter deep-link through the alias silently
-    // loses its filter. Pre-existing routing behaviour, not introduced by this slice, but it means
-    // any shared filter URL must use the canonical path.
-    await page.goto(`/catalog/applications?systemId=${systemId}`);
-    await expect(page.getByRole("heading", { name: "Applications" })).toBeVisible();
+    // Assign the captured application to the seeded System so the filtered list has a member.
+    const cleanup = await assignApplicationToSystem(applicationId!, systemId!);
+    try {
+      // NOTE the canonical route: `/catalog` is an alias that redirects to `/catalog/applications`
+      // and DROPS the query string on the way, so a filter deep-link through the alias silently
+      // loses its filter. Pre-existing routing behaviour, not introduced by this slice, but it means
+      // any shared filter URL must use the canonical path.
+      await page.goto(`/catalog/applications?systemId=${systemId}`);
+      await expect(page.getByRole("heading", { name: "Applications" })).toBeVisible();
 
-    // ADR-0107 wire format: a repeated `?systemId=<guid>` param survives the round trip, and there
-    // is never an `f=` map in the URL — that lives inside the opaque cursor, server-side only.
-    await expect(page).toHaveURL(/systemId=[0-9a-f-]{36}/i);
-    expect(page.url()).not.toContain("f=");
+      // ADR-0107 wire format: a repeated `?systemId=<guid>` param survives the round trip, and there
+      // is never an `f=` map in the URL — that lives inside the opaque cursor, server-side only.
+      await expect(page).toHaveURL(/systemId=[0-9a-f-]{36}/i);
+      expect(page.url()).not.toContain("f=");
 
-    // Filter and column must agree: every surviving row belongs to the filtered System, so no row
-    // may render the unassigned em dash.
-    await expect(page.getByRole("row").filter({ hasText: systemName }).first()).toBeVisible();
-    expect(await page.getByRole("row").getByText("—", { exact: true }).count()).toBe(0);
+      // Filter and column must agree: every surviving row belongs to the filtered System, so no row
+      // may render the unassigned em dash.
+      await expect(page.getByRole("row").filter({ hasText: systemName }).first()).toBeVisible();
+      expect(await page.getByRole("row").getByText("—", { exact: true }).count()).toBe(0);
 
-    await page.screenshot({
-      path: "../docs/superpowers/verification/2026-07-30-catalog-system-membership/a2/gate9-applications-system-filter.png",
-      fullPage: false,
-    });
+      await page.screenshot({
+        path: "../docs/superpowers/verification/2026-07-30-catalog-system-membership/a2/gate9-applications-system-filter.png",
+        fullPage: false,
+      });
+    } finally {
+      await cleanup();
+    }
 
     // ADR-0084: a clean console is part of the gate, not a nicety.
     expect(consoleErrors, `console errors: ${consoleErrors.join(" | ")}`).toEqual([]);
