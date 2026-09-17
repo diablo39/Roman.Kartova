@@ -130,6 +130,11 @@ services:
       context: web
       dockerfile: Dockerfile
     image: kartova/web:dev
+    environment:
+      # CSP (E-01.F-04.S-06b / ADR-0116) external origins the SPA must reach: API + KeyCloak.
+      # Injected into connect-src/frame-src/form-action by nginx envsubst at container start.
+      # Matches the VITE build defaults (API :8080, OIDC authority :8180). Report-Only for now.
+      CSP_EXTRA_ORIGINS: "http://localhost:8080 http://localhost:8180"
     depends_on:
       api:
         condition: service_started

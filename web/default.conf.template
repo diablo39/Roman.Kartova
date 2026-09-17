@@ -1,0 +1,30 @@
+# nginx template for the Kartova web container.
+#
+# `nginxinc/nginx-unprivileged` runs envsubst over /etc/nginx/templates/*.template at container
+# start, writing the result to /etc/nginx/conf.d/. Only ${VARS} present in the environment are
+# substituted, so nginx's own $uri/$host runtime vars are left intact; ${CSP_EXTRA_ORIGINS} is
+# filled from the container env (space-separated API + KeyCloak origins the SPA must reach).
+#
+# CSP is E-01.F-04.S-06b (ADR-0116 interim hardening). It ships as Content-Security-Policy-Report-Only
+# first: the browser reports violations to the console without blocking, so an enforce-flip
+# (Report-Only -> Content-Security-Policy) can follow a real-browser gate-9 pass with zero risk of
+# breaking the running SPA. The XSS-critical directive is a strict `script-src 'self'` (no
+# unsafe-inline/unsafe-eval); style-src carries 'unsafe-inline' because react-aria writes inline
+# `style=` on positioned overlays. `img-src` allows blob: for the LogoUploader object-URL preview.
+# CSP is set only on the HTML document response (this location) — sub-resource responses' CSP
+# headers do not affect the page's policy.
+server {
+  listen 8080;
+  root /usr/share/nginx/html;
+  index index.html;
+
+  location / {
+    try_files $uri /index.html;
+    add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' ${CSP_EXTRA_ORIGINS}; frame-src ${CSP_EXTRA_ORIGINS}; form-action 'self' ${CSP_EXTRA_ORIGINS}; object-src 'none'; base-uri 'self'; frame-ancestors 'none'" always;
+  }
+
+  location ~* \.(js|css|woff2?|svg|png|jpg|ico)$ {
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+  }
+}
