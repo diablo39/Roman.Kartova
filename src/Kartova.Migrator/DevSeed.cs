@@ -392,6 +392,73 @@ internal static class DevSeed
         {
             await ExecAsync(conn, "ALTER TABLE catalog_systems FORCE ROW LEVEL SECURITY;");
         }
+
+        // Seed 3 deployment Environments (Development/Staging/Production) for Org A so the new
+        // Environments list/detail screens render real data in dev (Task 16, E-02.F-05 slice 1).
+        // Entities are built via CatalogEnvironment.Create (domain factory) purely for its
+        // validation + a stable generated id — persistence itself stays raw SQL, mirroring every
+        // other block in this file (see the VM block above). Environments are tenant-owned but
+        // NOT team-owned (ADR-0117), so there is no team_id column here. Guarded by the same
+        // count-then-insert idempotency check as the VM/application blocks above.
+        try
+        {
+            await ExecAsync(conn, "ALTER TABLE catalog_environments NO FORCE ROW LEVEL SECURITY;");
+            await using var envCheckCmd = conn.CreateCommand();
+            envCheckCmd.CommandText = "SELECT COUNT(*) FROM catalog_environments WHERE tenant_id = $1;";
+            envCheckCmd.Parameters.AddWithValue(OrgATenantId);
+            var existingEnvironments = (long?)await envCheckCmd.ExecuteScalarAsync() ?? 0L;
+
+            if (existingEnvironments == 0L)
+            {
+                var origin = DateTimeOffset.UtcNow.AddMinutes(-30);
+                var environments = new[]
+                {
+                    Kartova.Catalog.Domain.CatalogEnvironment.Create(
+                        "Development", "Seeded environment: shared development deployment target.",
+                        Kartova.Catalog.Domain.EnvironmentType.Development, "eu-west-1", "k8s-dev",
+                        "{}", TeamAdminUserId, new TenantId(OrgATenantId), origin),
+                    Kartova.Catalog.Domain.CatalogEnvironment.Create(
+                        "Staging", "Seeded environment: pre-production staging deployment target.",
+                        Kartova.Catalog.Domain.EnvironmentType.Staging, "eu-west-1", "k8s-staging",
+                        "{}", TeamAdminUserId, new TenantId(OrgATenantId), origin.AddMinutes(1)),
+                    Kartova.Catalog.Domain.CatalogEnvironment.Create(
+                        "Production", "Seeded environment: customer-facing production deployment target.",
+                        Kartova.Catalog.Domain.EnvironmentType.Production, "eu-west-1", "k8s-prod",
+                        "{}", TeamAdminUserId, new TenantId(OrgATenantId), origin.AddMinutes(2)),
+                };
+
+                foreach (var environment in environments)
+                {
+                    await using var insertCmd = conn.CreateCommand();
+                    insertCmd.CommandText = """
+                        INSERT INTO catalog_environments
+                            (id, tenant_id, display_name, description, type, region, cluster, resource_details, created_by_user_id, created_at)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10);
+                        """;
+                    insertCmd.Parameters.AddWithValue(environment.Id.Value);
+                    insertCmd.Parameters.AddWithValue(environment.TenantId.Value);
+                    insertCmd.Parameters.AddWithValue(environment.DisplayName);
+                    insertCmd.Parameters.AddWithValue(environment.Description);
+                    insertCmd.Parameters.AddWithValue((short)environment.Type);
+                    insertCmd.Parameters.AddWithValue(environment.Region as object ?? DBNull.Value);
+                    insertCmd.Parameters.AddWithValue(environment.Cluster as object ?? DBNull.Value);
+                    insertCmd.Parameters.AddWithValue(environment.ResourceDetails);
+                    insertCmd.Parameters.AddWithValue(environment.CreatedByUserId);
+                    insertCmd.Parameters.AddWithValue(environment.CreatedAt);
+                    await insertCmd.ExecuteNonQueryAsync();
+                }
+
+                logger.LogInformation("Dev seed: inserted {Count} environments for Org A.", environments.Length);
+            }
+            else
+            {
+                logger.LogInformation("Dev seed: environments already present (Count={Count}).", existingEnvironments);
+            }
+        }
+        finally
+        {
+            await ExecAsync(conn, "ALTER TABLE catalog_environments FORCE ROW LEVEL SECURITY;");
+        }
     }
 
     private static async Task ExecAsync(NpgsqlConnection conn, string sql)
