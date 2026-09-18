@@ -1,4 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using Kartova.Catalog.Domain;
 
 namespace Kartova.ArchitectureTests;
@@ -15,13 +15,13 @@ namespace Kartova.ArchitectureTests;
 public class EnvironmentTypeEnumRules
 {
 #pragma warning disable MSTEST0032
-	[TestMethod]
-	public void EnvironmentType_has_exactly_three_members_with_explicit_values()
-	{
-		Assert.AreEqual(3, Enum.GetValues<EnvironmentType>().Length);
-		Assert.AreEqual(0, (int)EnvironmentType.Development);
-		Assert.AreEqual(1, (int)EnvironmentType.Staging);
-		Assert.AreEqual(2, (int)EnvironmentType.Production);
-	}
+    [TestMethod]
+    public void EnvironmentType_has_exactly_three_members_with_explicit_values()
+    {
+        Assert.AreEqual(3, Enum.GetValues<EnvironmentType>().Length);
+        Assert.AreEqual(0, (int)EnvironmentType.Development);
+        Assert.AreEqual(1, (int)EnvironmentType.Staging);
+        Assert.AreEqual(2, (int)EnvironmentType.Production);
+    }
 #pragma warning restore MSTEST0032
 }
