@@ -1,13 +1,13 @@
 # Configuring the Content-Security-Policy (CSP)
 
-Operator guide for the web app's CSP. **Decision + rationale:** [ADR-0116](../architecture/decisions/ADR-0116-spa-holds-tokens-bff-deferred.md) (interim XSS hardening; story E-01.F-04.S-06b). This file is the *how-to*.
+Operator guide for the web app's CSP. **Decision + rationale:** [ADR-0116](../docs/architecture/decisions/ADR-0116-spa-holds-tokens-bff-deferred.md) (interim XSS hardening; story E-01.F-04.S-06b). This file is the *how-to*.
 
 ## Where CSP lives
 
-- **Only the web container** (nginx image) sends CSP. Source: [`web/default.conf.template`](../../web/default.conf.template) — an envsubst template baked into the image (`web/Dockerfile` → `/etc/nginx/templates/`, rendered to `/etc/nginx/conf.d/default.conf` at container start).
+- **Only the web container** (nginx image) sends CSP. Source: [`web/default.conf.template`](../web/default.conf.template) — an envsubst template baked into the image (`web/Dockerfile` → `/etc/nginx/templates/`, rendered to `/etc/nginx/conf.d/default.conf` at container start).
 - The header is set **only on the HTML document response** (`location /`). Sub-resource (JS/CSS) responses don't need it — a page's policy comes from the document response.
 - The **vite dev server (`:5173`) sends no CSP** — nginx isn't in that path. CSP is a container/prod concern; verify it against the built image (compose `:4173`), not the dev server.
-- Drift is guarded by arch tests: [`tests/Kartova.ArchitectureTests/WebSecurityHeaderRules.cs`](../../tests/Kartova.ArchitectureTests/WebSecurityHeaderRules.cs).
+- Drift is guarded by arch tests: [`tests/Kartova.ArchitectureTests/WebSecurityHeaderRules.cs`](../tests/Kartova.ArchitectureTests/WebSecurityHeaderRules.cs).
 
 ## Current state: ENFORCING
 
