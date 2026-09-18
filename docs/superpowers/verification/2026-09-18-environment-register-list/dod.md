@@ -1,6 +1,6 @@
 # DoD Ledger — Environment Register/List (E-02.F-05.S-01, sub-slice A1)
 
-**Slice:** `2026-09-18-environment-register-list` · **Branch:** `feat/e-02-f-05a1-environment-crud` · **HEAD:** `9090470`
+**Slice:** `2026-09-18-environment-register-list` · **Branch:** `feat/e-02-f-05a-environment-crud` · **HEAD:** `9090470`
 **PR:** not yet opened · **Last updated:** 2026-09-18
 **Spec:** `docs/superpowers/specs/2026-09-18-environment-deployment-tracking-design.md`
 **Plan:** `docs/superpowers/plans/2026-09-18-e-02-f-05a1-environment-register-list.md` (local scratch, gitignored)
