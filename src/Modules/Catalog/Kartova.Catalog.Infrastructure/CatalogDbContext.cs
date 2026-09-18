@@ -31,6 +31,8 @@ public sealed class CatalogDbContext : DbContext
 
     public DbSet<Kartova.Catalog.Domain.InfrastructureResource> Infrastructure => Set<Kartova.Catalog.Domain.InfrastructureResource>();
 
+    public DbSet<Kartova.Catalog.Domain.CatalogEnvironment> Environments => Set<Kartova.Catalog.Domain.CatalogEnvironment>();
+
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -60,6 +62,7 @@ public sealed class CatalogDbContext : DbContext
         modelBuilder.ApplyConfiguration(new EfRelationshipConfiguration());
         modelBuilder.ApplyConfiguration(new EfSystemConfiguration());
         modelBuilder.ApplyConfiguration(new EfInfrastructureConfiguration());
+        modelBuilder.ApplyConfiguration(new EfEnvironmentConfiguration());
 
         // ADR-0115 slice 2a (Task 7): maps Postgres's builtin jsonb_extract_path_text so
         // VmSortSpecs' JSONB sort selectors translate to SQL byte-identical to the partial
