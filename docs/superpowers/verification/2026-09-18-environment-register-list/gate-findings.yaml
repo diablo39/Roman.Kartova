@@ -1,0 +1,48 @@
+# gate-findings.yaml — per-gate findings telemetry for one slice.
+#
+# Purpose: record every issue each DoD gate raised, with a real/delusion verdict,
+# so gate effectiveness is queryable across slices.
+#   Aggregate:  find docs/superpowers/verification -name gate-findings.yaml
+#   Rank gates by precision (real ÷ found) and by real issues caught.
+#
+# Sibling of dod.md in docs/superpowers/verification/<date>-<topic>/.
+# Copy this file there at slice start; append a finding the moment a gate raises one.
+# dod.md records each gate's PASS/FAIL/PENDING/N-A status; this file records what it FOUND.
+# A gate with status PASS and no entries here ⇒ it ran and found nothing.
+
+slice:  2026-09-18-environment-register-list
+branch: feat/e-02-f-05a-environment-crud
+terminal_commit: f401db5   # slice's final commit as of this ledger write; MUST match dod.md's HEAD.
+                            # Gates 5-10 have not yet run on this branch — this value will be
+                            # revisited once those gates land and the branch advances further.
+
+# One entry per issue a gate raised.
+#
+# gate     — the dod.md row this finding came from (slug, not number):
+#              build              (1  Build, TreatWarningsAsErrors)
+#              reviews            (2  per-task subagent reviews)
+#              suite              (3  full test suite incl. real-seam)
+#              container          (4  container build / images CI)
+#              simplify           (5  /simplify)
+#              requesting-review  (6  requesting-code-review)
+#              review-pr          (7  review-pr)
+#              deep-review        (8  deep-review)
+#              manual             (9  visual / API verification, ADR-0084)
+#              terminal-reverify  (terminal re-verify: build + suite)
+#              ci-mirror          (10 CI green on PR / pre-push mirror, ci-local.sh)
+# severity — blocking | should-fix | nit
+# verdict  — real     : a genuine issue that warranted a change
+#            delusion : a false positive the gate raised that was not a real issue
+# title    — one-line description of the finding
+# note     — optional: resolution (fix sha), or why it was a delusion
+#
+# NOTE (2026-09-18, Task 17): gates 5-8 (simplify / requesting-code-review / review-pr /
+# deep-review) have not run yet on this branch, so this file has no entries for them.
+# Gate 2 (per-task subagent reviews) DID run for all 16 implementation tasks and recorded
+# several deferred-minor findings per task, but the authoritative, itemized list of those
+# findings lives in the controller ledger at
+# .superpowers/sdd/2026-09-18-e-02-f-05a1-environment-register-list/progress.md
+# (one line per task, e.g. Task 1/6/10/12/14/15 "minor (deferred): ..."), not duplicated here.
+# Re-transcribe them into structured entries below once gates 5-8 run and this file is
+# revisited for the terminal DoD close-out.
+findings: []
