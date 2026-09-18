@@ -13,7 +13,7 @@ Interim auth hardening from ADR-0116 (defers BFF / E-01.F-04.S-05). Enable KeyCl
 
 **Diff:** 28 lines. `deploy/keycloak/kartova-realm.json` (+2 realm flags) · `tests/Kartova.ArchitectureTests/KeycloakRealmSeedRules.cs` (+1 drift-sentinel test). No C# production-logic change. No frontend change (`oidc-client-ts` stores rotated refresh token automatically). CSP = separate slice S-06b.
 
-**Prod action (owner, outside repo):** KeyCloak → Realm Settings → Tokens → *Revoke Refresh Token* ON, *Refresh Token Max Reuse* = 0. Realm import covers dev + fresh installs only.
+**Prod action (owner, outside repo):** KeyCloak → Realm Settings → Tokens → *Revoke Refresh Token* ON, *Refresh Token Max Reuse* = 0. Realm import covers dev + fresh installs only. Documented (settings, values, UI/`kcadm`/REST/IaC application, verify): [`deploy/README.md`](../../../../deploy/README.md) → "Production KeyCloak token hardening".
 
 ## Summary
 
