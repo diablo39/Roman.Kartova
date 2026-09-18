@@ -135,15 +135,19 @@ describe("Sidebar", () => {
     }
   });
 
-  it("renders a collapsible Infrastructure group: live Virtual Machines + All Objects, disabled Brokers", () => {
+  it("renders a collapsible Infrastructure group: live Virtual Machines + Environments + All Objects, disabled Brokers", () => {
     setPermissions();
     renderSidebar();
     const header = screen.getByRole("button", { name: /^Infrastructure$/i });
     expect(header).toHaveAttribute("aria-expanded", "true");
-    // Virtual Machines and All Objects are live links (the old "Components" disabled stub is gone).
+    // Virtual Machines, Environments and All Objects are live links (the old "Components" disabled stub is gone).
     expect(screen.getByRole("link", { name: "Virtual Machines" })).toHaveAttribute(
       "href",
       "/catalog/infrastructure/vms",
+    );
+    expect(screen.getByRole("link", { name: "Environments" })).toHaveAttribute(
+      "href",
+      "/catalog/environments",
     );
     expect(screen.getByRole("link", { name: "All Objects" })).toHaveAttribute(
       "href",

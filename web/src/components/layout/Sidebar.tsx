@@ -173,6 +173,9 @@ export function Sidebar() {
                 <NavItemLink to="/catalog/infrastructure/vms" label="Virtual Machines" />
               </li>
               <li>
+                <NavItemLink to="/catalog/environments" label="Environments" />
+              </li>
+              <li>
                 <DisabledItem label="Brokers" />
               </li>
               <li>
