@@ -23,6 +23,7 @@ public static class CatalogAuditActions
     public const string InfrastructureRegistered = "infrastructure.registered";
     public const string InfrastructureEdited = "infrastructure.edited";
     public const string InfrastructureDeleted = "infrastructure.deleted";
+    public const string EnvironmentRegistered = "environment.registered";
 }
 
 /// <summary>
@@ -37,4 +38,5 @@ public static class CatalogAuditTargetTypes
     public const string Relationship = "Relationship";
     public const string System = "System";
     public const string Infrastructure = "Infrastructure";
+    public const string Environment = "Environment";
 }
