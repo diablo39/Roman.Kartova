@@ -76,6 +76,7 @@ describe("usePermissions", () => {
           "catalog.systems.register",
           "catalog.infrastructure.register",
           "catalog.infrastructure.delete",
+          "catalog.environments.register",
           "catalog.relationships.write",
           "team.read",
           "team.create",

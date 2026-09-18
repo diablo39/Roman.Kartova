@@ -12,6 +12,7 @@ export const KartovaPermissions = {
   CatalogSystemsRegister: "catalog.systems.register",
   CatalogInfrastructureRegister: "catalog.infrastructure.register",
   CatalogInfrastructureDelete: "catalog.infrastructure.delete",
+  CatalogEnvironmentsRegister: "catalog.environments.register",
   CatalogRelationshipsWrite: "catalog.relationships.write",
   TeamRead: "team.read",
   TeamCreate: "team.create",
