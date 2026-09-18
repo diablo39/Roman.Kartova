@@ -46,11 +46,11 @@ export function isRelationshipKind(kind: string): kind is RelationshipKind {
 // appear as a relationship ENDPOINT (PartOf, ADR-0111), be searched, rendered as a graph node,
 // and used as a `/graph?focus=` URL token (`parseEntityRef` accepts it, FU-A) — but it is not a
 // creatable-edge kind, so it stays off RelationshipKind. `infrastructure` (VM/infra resources)
-// is likewise render-only here — not a creatable-edge kind.
-export type EntityKind = RelationshipKind | "system" | "infrastructure";
+// and `environment` (deployment target) are likewise render-only here — not creatable-edge kinds.
+export type EntityKind = RelationshipKind | "system" | "infrastructure" | "environment";
 
 export function isEntityKind(kind: string): kind is EntityKind {
-  return isRelationshipKind(kind) || kind === "system" || kind === "infrastructure";
+  return isRelationshipKind(kind) || kind === "system" || kind === "infrastructure" || kind === "environment";
 }
 
 // Kinds that can be the SOURCE of a PartOf edge (a component assignable to a System).

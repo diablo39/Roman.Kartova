@@ -33,10 +33,11 @@ export function GraphExplorerSidebar(props: {
   const svcQ = useService(selected.kind === "service" ? selected.id : "");
   const apiQ = useApi(selected.kind === "api" ? selected.id : "");
   const sysQ = useSystem(selected.kind === "system" ? selected.id : "");
-  // `infrastructure` nodes have no dedicated detail query wired here yet (no useVm-in-explorer
-  // hook) — the lookup covers it with `undefined` so a widened EntityKind still type-checks
-  // instead of throwing at runtime; `active?.` below tolerates the gap.
-  const active = { application: appQ, service: svcQ, api: apiQ, system: sysQ, infrastructure: undefined }[
+  // `infrastructure` and `environment` nodes have no dedicated detail query wired here yet
+  // (no useVm-in-explorer / useEnvironment-in-explorer hooks) — the lookup covers them with
+  // `undefined` so a widened EntityKind still type-checks instead of throwing at runtime;
+  // `active?.` below tolerates the gap.
+  const active = { application: appQ, service: svcQ, api: apiQ, system: sysQ, infrastructure: undefined, environment: undefined }[
     selected.kind
   ];
   const entity = active?.data as ApplicationResponse | ServiceResponse | ApiResponse | SystemResponse | undefined;
