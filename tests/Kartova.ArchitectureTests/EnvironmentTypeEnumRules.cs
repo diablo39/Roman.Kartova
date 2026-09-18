@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using Kartova.Catalog.Domain;
 
 namespace Kartova.ArchitectureTests;

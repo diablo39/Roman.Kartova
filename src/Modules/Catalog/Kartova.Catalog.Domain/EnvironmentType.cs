@@ -1,4 +1,4 @@
-﻿namespace Kartova.Catalog.Domain;
+namespace Kartova.Catalog.Domain;
 
 /// <summary>Deployment-environment tier (E-02.F-05, ADR-0117). One unified
 /// <see cref="CatalogEnvironment"/> aggregate keyed by this value. Persisted as
