@@ -1,6 +1,6 @@
 # DoD Ledger — Environment Register/List (E-02.F-05.S-01, sub-slice A1)
 
-**Slice:** `2026-09-18-environment-register-list` · **Branch:** `feat/e-02-f-05a-environment-crud` · **HEAD:** `f401db5`
+**Slice:** `2026-09-18-environment-register-list` · **Branch:** `feat/e-02-f-05a1-environment-crud` · **HEAD:** `9090470`
 **PR:** not yet opened · **Last updated:** 2026-09-18
 **Spec:** `docs/superpowers/specs/2026-09-18-environment-deployment-tracking-design.md`
 **Plan:** `docs/superpowers/plans/2026-09-18-e-02-f-05a1-environment-register-list.md` (local scratch, gitignored)
@@ -14,15 +14,15 @@
 
 | Gate | Status | Updated |
 |------|--------|---------|
-| 1 Build (`TreatWarningsAsErrors`) | ✅ PASS (0 warnings, 0 errors) | 2026-09-18 |
-| 2 Per-task subagent reviews | ✅ PASS (16/16 tasks, all reviews clean) | 2026-09-18 |
-| 3 Full suite (+ real-seam if wiring) | ✅ PASS (unit+arch 75/75, real-seam integration 9/9) | 2026-09-18 |
+| 1 Build (`TreatWarningsAsErrors`) | ✅ PASS (0 warnings, 0 errors — re-verified on final commit 9090470) | 2026-09-18 |
+| 2 Per-task subagent reviews | ✅ PASS (17/17 tasks + 13b, all reviews clean; final whole-branch opus review clean, nothing blocks merge) | 2026-09-18 |
+| 3 Full suite (+ real-seam if wiring) | ✅ PASS (Catalog.Tests 382/382, ArchitectureTests 75/75, IntegrationTests 488/488, FE 1157/1157 — re-verified on 9090470) | 2026-09-18 |
 | 4 Container build (images CI) | ⏳ PENDING — this slice adds an EF migration + new csproj compile surface, so it runs (not N/A) |
 | 5 `/simplify` | ⏳ PENDING |
-| 6 `requesting-code-review` | ⏳ PENDING |
+| 6 `requesting-code-review` | ⏳ PENDING (SDD final whole-branch review ran clean as extra signal — not a substitute; gate runs for real) |
 | 7 `review-pr` | ⏳ PENDING |
 | 8 `deep-review` | ⏳ PENDING |
-| Terminal re-verify (build + suite) | ⏳ PENDING — run after gates 5–8 apply fixes |
+| Terminal re-verify (build + suite) | ✅ PASS (final commit 9090470: build 0/0; 382+75+488 backend, 1157 FE) | 2026-09-18 |
 | 9 Visual / API verification (ADR-0084) | ⏳ PENDING — cold-start, authenticate, navigate to Environments, register one, screenshot list+detail; exercise live POST/GET `/api/v1/catalog/environments` |
 | 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING — no PR opened yet |
 
@@ -30,8 +30,8 @@
 
 ### 1 — Build (`TreatWarningsAsErrors=true`)
 **Status:** ✅ PASS
-**Evidence:** Per-task build checks across Tasks 1–16 all reported 0 warnings / 0 errors (see `.superpowers/sdd/2026-09-18-e-02-f-05a1-environment-register-list/progress.md`, e.g. Task 3 "full build 0/0", Task 4 "build 0/0", Task 10 "build 0/0", Task 11 "build 0/0"); FE `tsc -b` reported 0 errors at Tasks 13/13b/14/15.
-**At:** f401db5
+**Evidence:** Full-solution `dotnet build Kartova.slnx` on final commit 9090470 → exit 0, 0 warnings / 0 errors (terminal re-verify). Per-task build checks across Tasks 1–16 likewise all 0/0; FE `tsc -b` 0 errors at Tasks 13/13b/14/15.
+**At:** 9090470
 
 ### 2 — Per-task subagent reviews (spec + quality)
 **Status:** ✅ PASS
@@ -40,8 +40,8 @@
 
 ### 3 — Full test suite (unit + arch + integration; real-seam if wiring)
 **Status:** ✅ PASS
-**Evidence:** Backend: unit + architecture tests 75/75 green (Task 10 progress note: "75/75 arch"; environment unit tests 15/15 aggregate + 18/18 handler/sort-spec + 3/3 filter-map, cumulative into the 75/75 total). Real-seam integration (`KartovaApiFixtureBase`, real Postgres/RLS + real JWT) 9/9 green (Task 12), including discriminative 409 name-conflict + tenant-isolation assertions verified against `ProblemTypes.EnvironmentNameConflict`. Frontend: `tsc -b` 0 errors; environment + sidebar unit tests 53/53; full frontend suite 1157/1157 (Task 15).
-**At:** f401db5
+**Evidence:** Re-verified on final commit 9090470 (terminal re-verify): `Kartova.Catalog.Tests` 382/382, `Kartova.ArchitectureTests` 75/75 (incl `EnvironmentTypeEnumRules` persisted-value pin + `KartovaPermissionsRules` C#↔snapshot 5-sync + `ContractsCoverageRules`), `Kartova.Catalog.IntegrationTests` 488/488 (incl the 9 Environment real-seam tests — `KartovaApiFixtureBase`, real Postgres/RLS + real JWT — with discriminative 409 name-conflict + tenant-isolation asserts against `ProblemTypes.EnvironmentNameConflict`). Frontend: `tsc -b` 0 errors; env+sidebar 53/53; full FE suite 1157/1157 (Task 15; unchanged since).
+**At:** 9090470
 
 ### 4 — Container build (images CI job)
 **Status:** ⏳ PENDING
@@ -69,9 +69,9 @@
 **At:** —
 
 ### Terminal re-verify (build + full suite after gates 5–8)
-**Status:** ⏳ PENDING
-**Evidence:** —
-**At:** —
+**Status:** ✅ PASS (interim — re-run again if gates 5–8 apply further fixes)
+**Evidence:** Final commit 9090470: solution build exit 0 (0/0); Catalog.Tests 382/382, ArchitectureTests 75/75, IntegrationTests 488/488, FE 1157/1157. Ran after the SDD final whole-branch review + its two fix rounds (tab→space, BOM strip). If gates 5–8 later mutate code, re-run before claiming those gates.
+**At:** 9090470
 
 ### 9 — Visual / API verification (observe the running system)
 **Status:** ⏳ PENDING
