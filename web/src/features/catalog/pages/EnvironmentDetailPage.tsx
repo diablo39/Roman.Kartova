@@ -1,6 +1,8 @@
+import { useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "@/components/base/card/card";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
+import { Button } from "@/components/base/buttons/button";
 import { useEnvironment } from "@/features/catalog/api/environments";
 import { EnvironmentTypeBadge } from "@/features/catalog/components/EnvironmentTable";
 import { asProblemDetails } from "@/shared/forms/problemDetails";
@@ -10,10 +12,22 @@ import { asProblemDetails } from "@/shared/forms/problemDetails";
  * loading/not-found shape but has no edit/delete actions and no relationship
  * sections yet — Environments have neither a team nor system-membership /
  * hosted-component edges in this slice.
+ *
+ * Error branch distinguishes a real 404 (`ProblemDetails.status`, set by the
+ * server via `Results.Problem(statusCode:)` — see `EndpointResultExtensions.
+ * EnvironmentNotFound`) from any other failure (5xx, network, unknown): only
+ * a 404 gets the "not found / may have been deleted" framing. Anything else
+ * renders a distinct "Failed to load" card with a retry affordance and is
+ * logged via `console.error`, mirroring `EnvironmentsListPage`'s
+ * `list.isError` logging.
  */
 export function EnvironmentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const query = useEnvironment(id ?? "");
+
+  useEffect(() => {
+    if (query.isError) console.error("EnvironmentDetailPage load error", query.error);
+  }, [query.isError, query.error]);
 
   if (query.isLoading) {
     return (
@@ -32,15 +46,32 @@ export function EnvironmentDetailPage() {
 
   if (query.isError || !query.data) {
     const problem = asProblemDetails(query.error);
+
+    if (problem?.status === 404) {
+      return (
+        <Card className="mx-auto max-w-md">
+          <CardContent className="space-y-2 p-6 text-center">
+            <p className="text-base font-medium text-error-primary">Environment not found</p>
+            <p className="text-sm text-tertiary">
+              {problem?.detail ??
+                problem?.title ??
+                "It may have been deleted, or you may not have access in this tenant."}
+            </p>
+          </CardContent>
+        </Card>
+      );
+    }
+
     return (
       <Card className="mx-auto max-w-md">
-        <CardContent className="space-y-2 p-6 text-center">
-          <p className="text-base font-medium text-error-primary">Environment not found</p>
+        <CardContent className="space-y-3 p-6 text-center">
+          <p className="text-base font-medium text-error-primary">Failed to load environment</p>
           <p className="text-sm text-tertiary">
-            {problem?.detail ??
-              problem?.title ??
-              "It may have been deleted, or you may not have access in this tenant."}
+            {problem?.detail ?? problem?.title ?? "Try refreshing the page."}
           </p>
+          <Button size="sm" onClick={() => query.refetch()}>
+            Try again
+          </Button>
         </CardContent>
       </Card>
     );

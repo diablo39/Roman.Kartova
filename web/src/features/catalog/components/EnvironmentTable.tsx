@@ -105,7 +105,7 @@ export function EnvironmentTable({ list, sortBy, sortOrder, onSortChange }: Prop
               <Table.Cell className="text-sm">{env.region ?? "—"}</Table.Cell>
               <Table.Cell className="text-sm">{env.cluster ?? "—"}</Table.Cell>
               <Table.Cell className="text-sm text-tertiary">
-                {env.createdAt ? new Date(env.createdAt).toLocaleDateString() : ""}
+                {env.createdAt ? new Date(env.createdAt).toLocaleDateString() : "—"}
               </Table.Cell>
             </Table.Row>
           ))}

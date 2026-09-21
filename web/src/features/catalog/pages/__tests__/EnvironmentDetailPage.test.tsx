@@ -66,17 +66,39 @@ describe("EnvironmentDetailPage", () => {
     expect(screen.getByText(ENV_ID)).toBeInTheDocument();
   });
 
-  it("renders a not-found card on 404 / error", () => {
+  it("renders a not-found card on a real 404", () => {
     useEnvironmentMock.mockReturnValue({
       isLoading: false,
       isError: true,
-      error: { title: "Not Found", detail: "Environment not found." },
+      error: { status: 404, title: "Not Found", detail: "Environment not found." },
       data: undefined,
+      refetch: vi.fn(),
     });
     renderPage();
 
     expect(screen.getByText("Environment not found")).toBeInTheDocument();
     expect(screen.getByText("Environment not found.")).toBeInTheDocument();
+    expect(screen.queryByText("Failed to load environment")).not.toBeInTheDocument();
+  });
+
+  it("renders a distinct 'Failed to load' card and logs on a non-404 error (e.g. 500)", () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const error = { status: 500, title: "Internal Server Error" };
+    useEnvironmentMock.mockReturnValue({
+      isLoading: false,
+      isError: true,
+      error,
+      data: undefined,
+      refetch: vi.fn(),
+    });
+    renderPage();
+
+    expect(screen.getByText("Failed to load environment")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument();
+    // Must NOT be conflated with the not-found/deletion framing.
+    expect(screen.queryByText("Environment not found")).not.toBeInTheDocument();
+    expect(screen.queryByText(/may have been deleted/i)).not.toBeInTheDocument();
+    expect(consoleErrorSpy).toHaveBeenCalledWith("EnvironmentDetailPage load error", error);
   });
 
   it("renders a generic no-description placeholder when description is empty", () => {
