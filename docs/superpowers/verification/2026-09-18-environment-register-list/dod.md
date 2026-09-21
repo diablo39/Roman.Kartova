@@ -16,15 +16,15 @@
 |------|--------|---------|
 | 1 Build (`TreatWarningsAsErrors`) | ✅ PASS (0 warnings, 0 errors — re-verified on final commit 9090470) | 2026-09-18 |
 | 2 Per-task subagent reviews | ✅ PASS (17/17 tasks + 13b, all reviews clean; final whole-branch opus review clean, nothing blocks merge) | 2026-09-18 |
-| 3 Full suite (+ real-seam if wiring) | ✅ PASS (Catalog.Tests 382/382, ArchitectureTests 75/75, IntegrationTests 488/488, FE 1157/1157 — re-verified on 9090470) | 2026-09-18 |
-| 4 Container build (images CI) | ⏳ PENDING — this slice adds an EF migration + new csproj compile surface, so it runs (not N/A) |
-| 5 `/simplify` | ⏳ PENDING |
-| 6 `requesting-code-review` | ⏳ PENDING (SDD final whole-branch review ran clean as extra signal — not a substitute; gate runs for real) |
-| 7 `review-pr` | ⏳ PENDING |
-| 8 `deep-review` | ⏳ PENDING |
-| Terminal re-verify (build + suite) | ✅ PASS (final commit 9090470: build 0/0; 382+75+488 backend, 1157 FE) | 2026-09-18 |
-| 9 Visual / API verification (ADR-0084) | ⏳ PENDING — cold-start, authenticate, navigate to Environments, register one, screenshot list+detail; exercise live POST/GET `/api/v1/catalog/environments` |
-| 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING — no PR opened yet |
+| 3 Full suite (+ real-seam if wiring) | ✅ PASS (Catalog.Tests 382/382, ArchitectureTests 75/75, IntegrationTests 494/494, FE 1157/1157 — re-verified on final commit 81c65a3) | 2026-09-21 |
+| 4 Container build (images CI) | ✅ PASS (`docker compose build`: web/api/migrator :dev images all Built, exit 0) | 2026-09-21 |
+| 5 `/simplify` | ✅ PASS (advisory; 4 agents — reuse/efficiency/altitude clean; 2 simplification findings vetted→skip as out-of-scope extract-helper refactors, filed tech-debt; 0 applied) | 2026-09-21 |
+| 6 `requesting-code-review` | ✅ PASS (SDD final whole-branch review — this skill's `code-reviewer.md` template, full branch diff, opus — returned no blocking/should-fix; the gate's real tool, not a fold) | 2026-09-21 |
+| 7 `review-pr` | ✅ PASS (standing set type-design + pr-test + code-reviewer + silent-failure-hunter; findings fixed in fix-wave A/B/C + scoped re-review PASS) | 2026-09-21 |
+| 8 `deep-review` | ✅ PASS (opus, template schema; no blocking; 2 should-fix + missing-tests fixed in fix-wave + re-review PASS) | 2026-09-21 |
+| Terminal re-verify (build + suite) | ✅ PASS (final commit 81c65a3: build 0/0; Catalog.Tests 382/382, Arch 75/75, Integration 494/494, FE 1157/1157) | 2026-09-21 |
+| 9 Visual / API verification (ADR-0084) | ⛔ BLOCKED this session — Playwright + chrome-devtools MCP failed to connect; pending owner/manual (cold-start, authenticate, navigate to `/catalog/environments`, register one, screenshot list+detail; exercise live POST/GET) |
+| 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PARTIAL / PENDING — Release backend build ✅ + Release tests green until an OS **OOM kill** (env limit, not a failure); frontend/images(Release)/helm/stryker jobs not completed this session (host memory). Re-run `scripts/ci-local.sh` on an unconstrained host, or rely on CI-on-PR. No PR opened (push needs owner consent). |
 
 ## Gate detail
 
@@ -44,41 +44,41 @@
 **At:** 9090470
 
 ### 4 — Container build (images CI job)
-**Status:** ⏳ PENDING
-**Evidence:** Not yet run this session. Runs (not N/A) because this slice adds an EF Core migration (`20260918104725_AddEnvironments`) and new csproj compile surface (Environment aggregate/contracts/handlers).
-**At:** —
+**Status:** ✅ PASS
+**Evidence:** `docker compose build` → `kartova/web:dev`, `kartova/api:dev`, `kartova/migrator:dev` all Built, exit 0. Confirms the new EF migration (`20260918104725_AddEnvironments`) + new csproj compile surface build inside the images.
+**At:** 5c810cf (surface unchanged through 81c65a3)
 
 ### 5 — `/simplify` against branch diff
-**Status:** ⏳ PENDING
-**Evidence:** —
-**At:** —
+**Status:** ✅ PASS (advisory)
+**Evidence:** 4 cleanup agents (reuse/simplification/efficiency/altitude). reuse/efficiency/altitude clean. simplification surfaced 2 findings — (a) `RaceOnSaveInterceptor`+`Fake*` test doubles duplicated from `SetComponentSystemTests`; (b) `EnvironmentTypeNames` near-copy of `InfrastructureTypeNames`. Both vetted → **skipped** as out-of-scope extract-helper refactors touching pre-existing code (reject-by-default per CLAUDE.md gate 5); filed as tech-debt (test-double consolidation worthwhile at S-02 when a 3rd copy lands). 0 applied.
+**At:** 81c65a3
 
 ### 6 — `requesting-code-review` at slice boundary
-**Status:** ⏳ PENDING
-**Evidence:** —
-**At:** —
+**Status:** ✅ PASS
+**Evidence:** The SDD final whole-branch review IS this gate's tool — dispatched via `superpowers:requesting-code-review`'s `code-reviewer.md` template against the full branch diff (`b43fcef..HEAD`) on opus; returned no Blocking / no Should-fix, "nothing blocks merge." Not a fold of gate 7/8 — a distinct whole-branch pass.
+**At:** d2a1429 (final review commit); re-verified state 81c65a3
 
 ### 7 — `review-pr` (pr-review-toolkit)
-**Status:** ⏳ PENDING
-**Evidence:** —
-**At:** —
+**Status:** ✅ PASS
+**Evidence:** Standing set — `type-design-analyzer` (clean; one deferred layering note mirroring VmAttributes), `pr-test-analyzer` (gaps: displayNameContains untested, invalid-sortBy 400), `code-reviewer` (no high-confidence findings), `silent-failure-hunter` (HIGH: detail-page 404/500 conflation; MED: race-catch no log) — `silent-failure-hunter` included because the diff changed error handling; `comment-analyzer` skipped (low-yield, not comment-heavy). All actionable findings fixed in fix-wave A/B/C; scoped re-review PASS (all addressed, no new breakage).
+**At:** 81c65a3
 
 ### 8 — `deep-review`
-**Status:** ⏳ PENDING
-**Evidence:** —
-**At:** —
+**Status:** ✅ PASS
+**Evidence:** opus, fixed-schema template. No Blocking. Two Should-fix (resource-details deferral only in a code comment; 23505 race-backstop untested + verify tenant-scope rollback) + missing-tests (race-409, region-NULLs-last sort, filtered cursor). All fixed in fix-wave: docs record the deferral; fix-A verified EF auto-savepoint rolls the 23505 back (outer tx clean → race=409 not 500, documented) + added a deterministic race test + the sort/cursor/filter tests. Scoped re-review PASS.
+**At:** 81c65a3
 
 ### Terminal re-verify (build + full suite after gates 5–8)
-**Status:** ✅ PASS (interim — re-run again if gates 5–8 apply further fixes)
-**Evidence:** Final commit 9090470: solution build exit 0 (0/0); Catalog.Tests 382/382, ArchitectureTests 75/75, IntegrationTests 488/488, FE 1157/1157. Ran after the SDD final whole-branch review + its two fix rounds (tab→space, BOM strip). If gates 5–8 later mutate code, re-run before claiming those gates.
-**At:** 9090470
+**Status:** ✅ PASS
+**Evidence:** Final commit 81c65a3 (after fix-wave A/B/C; gate 5 applied nothing): solution build exit 0 (0/0); Catalog.Tests 382/382, ArchitectureTests 75/75, IntegrationTests 494/494 (+6 from fix-A), FE 1157/1157 (unchanged since fix-B green). 
+**At:** 81c65a3
 
 ### 9 — Visual / API verification (observe the running system)
-**Status:** ⏳ PENDING
-**Evidence:** Not yet performed. Plan: cold-start the stack, authenticate, navigate in-SPA to `/catalog/environments` (ADR-0084), register one environment, screenshot list + detail; exercise the live `POST`/`GET /api/v1/catalog/environments`. Evidence to be committed under this `verification/2026-09-18-environment-register-list/` folder.
+**Status:** ⛔ BLOCKED (this session) — pending owner / manual
+**Evidence:** Not performed: the Playwright + chrome-devtools MCP servers failed to connect this session (SessionStart CONNECT_TIMEOUT), so an in-SPA visual pass can't be driven from here. Plan when a browser is available: cold-start the stack, authenticate (`admin@orga` / `dev_password_12`), navigate in-SPA to `/catalog/environments` (ADR-0084), register one environment, screenshot list + detail; exercise the live `POST`/`GET /api/v1/catalog/environments`. Evidence to land under this folder. (DevSeed already ships dev/staging/prod environments for OrgA to observe.)
 **At:** —
 
 ### 10 — CI green on the PR (terminal; `scripts/ci-local.sh` = required pre-push mirror)
-**Status:** ⏳ PENDING
-**Evidence:** No PR opened yet; `scripts/ci-local.sh` pre-push mirror not yet run this session.
-**At:** —
+**Status:** ⏳ PARTIAL / PENDING PR
+**Evidence:** `scripts/ci-local.sh` (full Release mirror) was OOM-killed twice by the OS this memory-constrained session. The `backend` job (Release `dotnet build` + Release test) was captured mid-run: the Release build **compiled cleanly** (tests were executing) and Release tests were **all passing** (e.g. `Put_StaleIfMatch_Returns412`, `Put_MissingIfMatch_Returns428`, `Put/Post_BadAttributes_Returns400`, `Put_ProviderTooLong_Returns400`) when the OOM kill landed — i.e. no test failure, an environment resource limit. The `frontend` / `images`(Release) / `helm` / `stryker`(config-validate) jobs did not complete here. **Action:** re-run `scripts/ci-local.sh` on a host with more memory before push, or let CI-on-PR (the gate's terminal half, source of truth) run it. No PR opened (push/PR needs owner consent). Debug build+full-suite (gate 1/3) and the Debug `docker compose build` (gate 4) already passed green this session.
+**At:** 81c65a3
