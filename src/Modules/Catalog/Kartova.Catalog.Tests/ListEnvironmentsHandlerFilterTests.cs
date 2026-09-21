@@ -24,7 +24,12 @@ public class ListEnvironmentsHandlerFilterTests
         var map = ListEnvironmentsHandler.BuildFilterMap(
             Query(type: [EnvironmentType.Production, EnvironmentType.Staging], region: "eu-west-1", name: "prod"));
         Assert.IsNotNull(map);
-        Assert.IsTrue(map!.ContainsKey("type"));
+        // Must match CursorFilterValues.Join(types.Select(t => t.ToString())) exactly — sorted
+        // (ordinal), comma-joined enum names — not merely assert the key is present, which would
+        // stay green even if the encoding drifted onto an unsorted or culture-sensitive join.
+        Assert.AreEqual(
+            CursorFilterValues.Join(new[] { EnvironmentType.Production, EnvironmentType.Staging }.Select(t => t.ToString())),
+            map!["type"]);
         Assert.AreEqual("eu-west-1", map["region"]);
         Assert.AreEqual("prod", map["displayNameContains"]);
     }

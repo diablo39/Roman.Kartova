@@ -373,6 +373,9 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .WithName("RegisterEnvironment")
               .Produces<EnvironmentDetailResponse>(StatusCodes.Status201Created)
               .ProducesProblem(StatusCodes.Status400BadRequest)
+              // Claim-gated route (CatalogEnvironmentsRegister) — 403 is a real response for a
+              // caller lacking the claim, mirrors RegisterVm's declaration.
+              .ProducesProblem(StatusCodes.Status403Forbidden)
               .ProducesProblem(StatusCodes.Status409Conflict);
     }
 

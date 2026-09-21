@@ -827,6 +827,7 @@ internal static class CatalogEndpointDelegates
         ITenantContext tenant,
         ICurrentUser currentUser,
         IAuditWriter audit,
+        ILogger<RegisterEnvironmentHandler> logger,
         CancellationToken ct)
     {
         var resourceJson = EnvironmentResourceDetails.Validate(request.ResourceDetails).ToJson();
@@ -848,6 +849,22 @@ internal static class CatalogEndpointDelegates
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException pg
             && pg.SqlState == "23505" && pg.ConstraintName == "ux_catalog_environments_tenant_id_display_name")
         {
+            // Lost a concurrent registration race between the pre-check above and this
+            // SaveChangesAsync. Verified-by-equivalence to the proven System-membership
+            // backstop (SetComponentSystemHandler.cs ~122-130 / ux_relationships_one_system,
+            // exercised deterministically by SetComponentSystemTests' RaceOnSaveInterceptor
+            // tests) rather than a fresh derivation: nothing in this codebase uses
+            // EnableRetryOnFailure, so EF Core's automatic savepoints are active —
+            // SaveChangesAsync wraps itself in a SAVEPOINT over the ambient ITenantScope
+            // transaction and rolls back to that savepoint on failure, leaving the ambient
+            // transaction clean. TenantScopeCommitEndpointFilter's unconditional CommitAsync
+            // (it does not branch on the IResult's status code) after this catch returns
+            // therefore still succeeds, so this 409 cannot degrade into a 500. Reproduced
+            // deterministically for Environment specifically by
+            // EnvironmentEndpointsTests.RegisterEnvironment_race_backstop_returns_409_not_500.
+            logger.LogInformation(ex,
+                "Environment register race: name '{DisplayName}' collided on unique index.",
+                request.DisplayName);
             return EnvironmentNameConflict(request.DisplayName);
         }
     }
