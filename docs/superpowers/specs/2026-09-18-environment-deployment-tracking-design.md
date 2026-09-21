@@ -82,6 +82,7 @@ Each sub-slice is independently shippable and stays within the ~800-line ceiling
 
 ## Out of scope / deferred (tracked, not slice A/B/C)
 
+- **Resource-details capture UI** — the register endpoint accepts `resourceDetails`, but the A1 register dialog does not collect it (only name/type/region/cluster); deferred to a later slice. API + storage already support it.
 - **Elasticsearch search-indexing of Environment (E-05)** — Environment is an `EntityKind` but is not added to the shared search index in this feature. Follow-up when E-05 covers it (file as tech-debt / story reference).
 - **Relationship-graph edges to/from Environment** and **Environment ↔ System membership (`PartOf`)** — no write path in F-05; future work.
 - **Config-diff *rendering* sophistication** — S-03 returns config payloads and highlights that they differ; a full structured diff UI is a later enhancement.
