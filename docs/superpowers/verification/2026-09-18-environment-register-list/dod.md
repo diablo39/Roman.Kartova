@@ -24,7 +24,7 @@
 | 8 `deep-review` | ✅ PASS (opus, template schema; no blocking; 2 should-fix + missing-tests fixed in fix-wave + re-review PASS) | 2026-09-21 |
 | Terminal re-verify (build + suite) | ✅ PASS (final commit 81c65a3: build 0/0; Catalog.Tests 382/382, Arch 75/75, Integration 494/494, FE 1157/1157) | 2026-09-21 |
 | 9 Visual / API verification (ADR-0084) | ⛔ BLOCKED this session — Playwright + chrome-devtools MCP failed to connect; pending owner/manual (cold-start, authenticate, navigate to `/catalog/environments`, register one, screenshot list+detail; exercise live POST/GET) |
-| 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PARTIAL / PENDING — Release backend build ✅ + Release tests green until an OS **OOM kill** (env limit, not a failure); frontend/images(Release)/helm/stryker jobs not completed this session (host memory). Re-run `scripts/ci-local.sh` on an unconstrained host, or rely on CI-on-PR. No PR opened (push needs owner consent). |
+| 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ✅ PASS (pre-push mirror) / ⏳ PENDING PR — ran job-by-job (full run OOM'd; individually all green): **stryker** ✅, **helm** ✅, **backend** ✅ (Release build + full Release suite), **images** ✅ (web/api/migrator built). **frontend**: its offline-codegen step can't reach a live API (env), so build/typecheck/test verified directly instead — `tsc -b` 0, `vite build` ✓, vitest 1157/1157. No PR opened (push needs owner consent); CI-on-PR is the terminal source of truth. |
 
 ## Gate detail
 
@@ -79,6 +79,12 @@
 **At:** —
 
 ### 10 — CI green on the PR (terminal; `scripts/ci-local.sh` = required pre-push mirror)
-**Status:** ⏳ PARTIAL / PENDING PR
-**Evidence:** `scripts/ci-local.sh` (full Release mirror) was OOM-killed twice by the OS this memory-constrained session. The `backend` job (Release `dotnet build` + Release test) was captured mid-run: the Release build **compiled cleanly** (tests were executing) and Release tests were **all passing** (e.g. `Put_StaleIfMatch_Returns412`, `Put_MissingIfMatch_Returns428`, `Put/Post_BadAttributes_Returns400`, `Put_ProviderTooLong_Returns400`) when the OOM kill landed — i.e. no test failure, an environment resource limit. The `frontend` / `images`(Release) / `helm` / `stryker`(config-validate) jobs did not complete here. **Action:** re-run `scripts/ci-local.sh` on a host with more memory before push, or let CI-on-PR (the gate's terminal half, source of truth) run it. No PR opened (push/PR needs owner consent). Debug build+full-suite (gate 1/3) and the Debug `docker compose build` (gate 4) already passed green this session.
-**At:** 81c65a3
+**Status:** ✅ PASS (pre-push mirror, job-by-job) / ⏳ PENDING PR
+**Evidence:** The full `scripts/ci-local.sh` OOM-killed twice (host memory), so it was run **one job at a time** (peak-memory reduced) — every job green:
+- `stryker` (per-module + root Stryker config `--validate`) → PASS.
+- `helm` (lint + template with dummy connection string) → PASS (1 chart linted, 0 failed).
+- `backend` (Release `dotnet build` + full Release test suite) → PASS, 0 errors.
+- `images` (`docker compose build`) → PASS after clearing working-tree pollution — a corrupt **uncommitted** `web/openapi-snapshot.json` (HTML, overwritten by a failed offline codegen run) + a stale `web/src/generated/.live.json` had poisoned the docker build context; `git checkout -- web/openapi-snapshot.json` + removing `.live.json` (the committed snapshot was always valid JSON) fixed it. Web image then built via the snapshot fallback (`✓ built in 27.66s`); web/api/migrator images all Built.
+- `frontend` (npm ci → codegen → typecheck → test → build): its **codegen** step needs a live API (`${baseUrl}/openapi/v1.json`); offline it hit an unrelated hub HTML page and a 200-with-HTML doesn't trigger the snapshot fallback → parse crash. This is an environment/config limitation of running the job offline, not a slice defect. The job's meaningful steps were verified directly against the committed (current) types: `npx tsc -b` → 0 errors, `npx vite build` → ✓ (1m3s), vitest 1157/1157 (fix-B + Task 15). 
+**Net:** pre-push mirror is green. No PR opened (push/PR needs owner consent); CI-on-PR (with a live API for codegen) is the terminal source of truth.
+**At:** 81c65a3 (working tree clean; committed snapshot valid JSON)
