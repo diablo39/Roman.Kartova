@@ -1,6 +1,6 @@
 # DoD Ledger — E-01.F-07.S-01 Health Check Endpoints
 
-**Slice:** `2026-09-23-e01f07-s01-health-checks` · **Branch:** `worktree-e01f07-s01-health-checks` · **HEAD:** `b4fa970`
+**Slice:** `2026-09-23-e01f07-s01-health-checks` · **Branch:** `worktree-e01f07-s01-health-checks` · **HEAD:** `1c3612c`
 **PR:** not yet opened · **Last updated:** 2026-09-23
 **Spec:** `docs/superpowers/specs/2026-09-23-e01f07-s01-health-checks-design.md`
 **Plan:** `docs/superpowers/plans/2026-09-23-e01f07-s01-health-checks-plan.md` (local scratch, gitignored — not committed)
@@ -18,7 +18,7 @@
 | 4 Container build (images CI) | ✅ PASS | 2026-09-23 |
 | 5 `/simplify` | ✅ PASS | 2026-09-23 |
 | 6 `requesting-code-review` | ✅ PASS | 2026-09-23 |
-| 7 `review-pr` | ⏳ PENDING | — |
+| 7 `review-pr` | ✅ PASS | 2026-09-23 |
 | 8 `deep-review` | ⏳ PENDING | — |
 | Terminal re-verify (build + suite) | ⏳ PENDING | — |
 | 9 Visual / API verification (ADR-0084) | ⏳ PENDING | — |
@@ -58,9 +58,28 @@
 **At:** `d1be9f0`
 
 ### 7 — `review-pr` (pr-review-toolkit)
-**Status:** ⏳ PENDING
-**Evidence:** —
-**At:** —
+**Status:** ✅ PASS
+**Evidence:** Trimmed standing set per CLAUDE.md (`type-design-analyzer` + `pr-test-analyzer` + `code-reviewer`), plus `silent-failure-hunter` (diff adds/changes error handling). All 4 ran in parallel over `git diff 960ad74..d1be9f0`.
+
+Fixed (commit `1c3612c`):
+- **Critical** (silent-failure-hunter): `HealthCheckJsonResponseWriter`'s compact-mode `description` suppression conflated the framework's exception-message fallback with a check's own safe, hand-authored description — confirmed against `KeycloakHealthCheck`'s own real usage (`Unhealthy("KeyCloak discovery endpoint unreachable", ex)`), which was being wrongly nulled. Now only suppresses when `Description == Exception.Message`.
+- **Important** (type-design-analyzer + silent-failure-hunter): `KeycloakHealthCheck`'s narrow catch (`HttpRequestException or TaskCanceledException`) missed config/URI errors — widened to catch broadly; the check now never throws for any failure mode.
+- **Important** (code-reviewer): no explicit per-check `timeout:` — `HealthCheckRegistration.Timeout` defaults to `Timeout.InfiniteTimeSpan`, not a finite backstop as the spec had wrongly claimed (spec corrected). All three dependency checks now carry an explicit timeout.
+- **Important** (code-reviewer): a future `IModule` that doesn't override `RegisterForMigrator` would silently fall back to the tenant-scoped `RegisterServices`, breaking the migrations-check provider at runtime with no build-time signal — added `IModuleRules.Every_IModule_implementation_overrides_RegisterForMigrator` (NetArchTest-style reflection check, matches this project's existing arch-test conventions).
+- **Important** (pr-test-analyzer): no real HTTP-level test that an Unhealthy report yields 503 — added `Ready_and_startup_return_503_when_keycloak_is_actually_unreachable` (dedicated `WebApplicationFactory` with KeyCloak pointed at a closed port; Postgres — from the shared assembly container — stays real/healthy, so only that one dependency fails; confirms `/health/live` still 200).
+- **Important** (pr-test-analyzer): no positive-path writer test proving an authored `description` (with or without an attached exception) survives compact mode — added two.
+- Minor (type-design-analyzer): extracted the migrations-check `ServiceProvider` construction into a named `BuildMigrationsCheckProvider` method so the `ASP0000` justification travels with the code it protects.
+
+Parked (documented, not silently dropped — narrower/lower-blast-radius than the above, each with a stated reason):
+- (silent-failure-hunter, Medium) `ModuleMigrationsHealthCheck`'s `Task.WhenAll` surfaces only the first fault when 2+ modules fail concurrently in *different* ways (one hard DI failure + one genuine pending-migrations finding on a sibling module), losing the sibling's status. Narrow (requires two distinct simultaneous failure modes across different modules) and doesn't defeat the feature's purpose the way the Critical finding did — deferred as a follow-up.
+- (type-design-analyzer, Low) `ModuleMigrationsHealthCheck` ctor takes `IModule[]` rather than `IReadOnlyList<IModule>` — cheap defensive-copy-avoidance nitpick, no behavior change, deferred.
+- (type-design-analyzer, Low) `Program.cs`'s four `MapHealthChecks` call sites have no compile-time tie preventing a future one from forgetting its `ResponseWriter`/tag predicate — a suggested DRY helper, not a defect; deferred.
+- (pr-test-analyzer, Minor) only single-module-pending is tested for `ModuleMigrationsHealthCheck`'s `string.Join` formatting (2+ modules untested); dead `PostgresErrorCodes.DuplicateObject` catch in `ModuleMigrationsHealthCheckTests` (unreachable on a fresh-per-test container, harmless, matches the pattern used elsewhere in the file) — both deferred as polish.
+- (code-reviewer, Note) ADR-0060 names an "Operations role" and extra `/health/detailed` fields (version, dependency URIs, percentiles) not present in this slice — already declined-to-judge at gate 6 (no `Operations` role exists in this codebase; the spec's concrete `PlatformAdmin` choice is authoritative per CLAUDE.md's "ADR wins, fix the ADR if stale" rule) and at gate 7; still deferred, no ADR amendment made in this slice.
+- Helm chart probe `timeoutSeconds` mismatch (`deploy/helm/kartova/templates/api-deployment.yaml`) — still deferred as a separate infra concern (unchanged from gate-6's note), though the new C#-level per-check timeouts meaningfully reduce the risk even without a Helm change.
+
+Full solution build (0 warnings/errors) + full `Kartova.slnx` suite (15/15 assemblies, 0 failures, including the new arch test and the new 503/writer tests) re-verified green after applying fixes.
+**At:** `1c3612c`
 
 ### 8 — `deep-review`
 **Status:** ⏳ PENDING
