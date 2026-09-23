@@ -1,6 +1,6 @@
 # DoD Ledger — E-01.F-07.S-01 Health Check Endpoints
 
-**Slice:** `2026-09-23-e01f07-s01-health-checks` · **Branch:** `worktree-e01f07-s01-health-checks` · **HEAD:** `d2a04c7`
+**Slice:** `2026-09-23-e01f07-s01-health-checks` · **Branch:** `worktree-e01f07-s01-health-checks` · **HEAD:** `b4fa970`
 **PR:** not yet opened · **Last updated:** 2026-09-23
 **Spec:** `docs/superpowers/specs/2026-09-23-e01f07-s01-health-checks-design.md`
 **Plan:** `docs/superpowers/plans/2026-09-23-e01f07-s01-health-checks-plan.md` (local scratch, gitignored — not committed)
@@ -15,8 +15,8 @@
 | 1 Build (`TreatWarningsAsErrors`) | ✅ PASS | 2026-09-23 |
 | 2 Per-task subagent reviews | ✅ PASS | 2026-09-23 |
 | 3 Full suite (+ real-seam if wiring) | ✅ PASS | 2026-09-23 |
-| 4 Container build (images CI) | ⏳ PENDING | — |
-| 5 `/simplify` | ⏳ PENDING | — |
+| 4 Container build (images CI) | ✅ PASS | 2026-09-23 |
+| 5 `/simplify` | ✅ PASS | 2026-09-23 |
 | 6 `requesting-code-review` | ⏳ PENDING | — |
 | 7 `review-pr` | ⏳ PENDING | — |
 | 8 `deep-review` | ⏳ PENDING | — |
@@ -48,9 +48,9 @@
 **At:** —
 
 ### 5 — `/simplify` against branch diff
-**Status:** ⏳ PENDING
-**Evidence:** —
-**At:** —
+**Status:** ✅ PASS
+**Evidence:** 4 parallel review agents (reuse, simplification, efficiency, altitude) over `git diff 960ad74..8bf1ab1`. Applied: (1) altitude — `ModuleMigrationsHealthCheck` rebuilt to resolve module DbContexts via each module's existing `IModule.RegisterForMigrator` override (the tenant-scope-free path + resolution mechanism Kartova.Migrator already uses) instead of a hand-built `Dictionary<Type, Func<DbContext>>`; (2) efficiency — per-module migration checks now run via `Task.WhenAll`; per-call `DbContextOptions` rebuild eliminated as a side effect of (1); (3) simplification — `HealthCheckJsonResponseWriter`'s compact/detailed branches now share their common fields instead of duplicating them in two anonymous types; (4) reuse — `GetRealTokenAsync`/`EnvKey` test helpers moved onto `KeycloakContainerTestBase`, redundant private copies removed from `AuthSmokeTests`/`CorsTests`/`OpenApiTests`/`HealthCheckEndpointTests`. Skipped (documented, not silently dropped): reuse-finding re: `AuthSmokeTests`'s duplicated env-var-wiring block in `HealthCheckEndpointTests` (the two blocks aren't identical enough to collapse without touching more of the pre-existing `AuthSmokeTests.cs` than this pass's blast radius); reuse-finding re: `KeycloakHealthCheck`'s own named `HttpClient` vs `AddKeycloakAdminClient`'s typed client (correct intentional isolation — that client carries admin-token concerns the health check shouldn't touch). Full solution build (0 warnings/errors) + full `Kartova.slnx` test suite (15/15 assemblies, 0 failures) re-verified green after applying fixes. Commit `b4fa970`.
+**At:** `b4fa970`
 
 ### 6 — `requesting-code-review` at slice boundary
 **Status:** ⏳ PENDING
