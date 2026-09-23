@@ -1,7 +1,7 @@
 # DoD Ledger — E-01.F-07.S-01 Health Check Endpoints
 
 **Slice:** `2026-09-23-e01f07-s01-health-checks` · **Branch:** `worktree-e01f07-s01-health-checks` · **HEAD:** `bb50aa5`
-**PR:** not yet opened · **Last updated:** 2026-09-23
+**PR:** [#96](https://github.com/diablo39/Roman.Kartova/pull/96) · **Last updated:** 2026-09-23
 **Spec:** `docs/superpowers/specs/2026-09-23-e01f07-s01-health-checks-design.md`
 **Plan:** `docs/superpowers/plans/2026-09-23-e01f07-s01-health-checks-plan.md` (local scratch, gitignored — not committed)
 **Findings telemetry:** `./gate-findings.yaml` — backfilled 2026-09-23 (gate 8, a should-fix finding) from the SDD execution ledger (deleted per subagent-driven-development convention once the branch record lived in git) and this file's own prose history.
