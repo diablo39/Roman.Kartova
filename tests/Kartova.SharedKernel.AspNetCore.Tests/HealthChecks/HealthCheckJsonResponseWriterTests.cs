@@ -25,6 +25,23 @@ public class HealthCheckJsonResponseWriterTests
     }
 
     [TestMethod]
+    public async Task WriteCompactAsync_preserves_a_check_authored_description_carried_alongside_an_exception()
+    {
+        // Mirrors KeycloakHealthCheck's real usage: HealthCheckResult.Unhealthy(safeMessage, ex) —
+        // Description is a safe, hand-authored string, distinct from Exception.Message. Compact
+        // mode must NOT null this out; only the framework's own Description == Exception.Message
+        // fallback is suppressed (see WriteCompactAsync_nulls_description_when_framework_attached_an_exception).
+        var report = BuildReport();
+        var context = NewHttpContext(out var body);
+
+        await HealthCheckJsonResponseWriter.WriteCompactAsync(context, report);
+
+        var keycloak = ParseBody(body).RootElement.GetProperty("entries").GetProperty("keycloak");
+        Assert.AreEqual("unreachable", keycloak.GetProperty("description").GetString(),
+            "a check-authored description distinct from the exception's own message must survive compact mode");
+    }
+
+    [TestMethod]
     public async Task WriteDetailedAsync_includes_exception_message_when_present()
     {
         var report = BuildReport();
@@ -61,6 +78,24 @@ public class HealthCheckJsonResponseWriterTests
         var detailedPostgres = ParseBody(detailedBody).RootElement.GetProperty("entries").GetProperty("postgres");
         Assert.AreEqual(rawExceptionText, detailedPostgres.GetProperty("description").GetString(),
             "detailed mode must leave description unchanged");
+    }
+
+    [TestMethod]
+    public async Task WriteCompactAsync_preserves_a_healthy_checks_own_description_with_no_exception()
+    {
+        var entries = new Dictionary<string, HealthReportEntry>
+        {
+            ["keycloak"] = new HealthReportEntry(
+                HealthStatus.Healthy, description: "KeyCloak discovery endpoint reachable",
+                duration: TimeSpan.FromMilliseconds(4), exception: null, data: null, tags: ["ready"]),
+        };
+        var report = new HealthReport(entries, TimeSpan.FromMilliseconds(4));
+        var context = NewHttpContext(out var body);
+
+        await HealthCheckJsonResponseWriter.WriteCompactAsync(context, report);
+
+        var keycloak = ParseBody(body).RootElement.GetProperty("entries").GetProperty("keycloak");
+        Assert.AreEqual("KeyCloak discovery endpoint reachable", keycloak.GetProperty("description").GetString());
     }
 
     private static HealthReport BuildReport()

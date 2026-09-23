@@ -59,17 +59,7 @@ public class Program
         // module's IModule.RegisterForMigrator override — the same tenant-scope-free
         // registration (and Kartova.Migrator/Program.cs's own resolution mechanism) —
         // into a small dedicated provider instead of hand-building a separate one.
-        var migrationsCheckServices = new ServiceCollection();
-        foreach (var module in modules)
-        {
-            module.RegisterForMigrator(migrationsCheckServices, builder.Configuration);
-        }
-#pragma warning disable ASP0000 // Intentional: a separate, tiny container with only the
-        // 3 plain module DbContexts above — no overlap with builder.Services, so this
-        // does not create extra copies of any app singleton (the risk ASP0000 warns
-        // about). Disposed with the app: it's a singleton the root provider owns.
-        builder.Services.AddSingleton(migrationsCheckServices.BuildServiceProvider());
-#pragma warning restore ASP0000
+        builder.Services.AddSingleton(BuildMigrationsCheckProvider(modules, builder.Configuration));
 
         // NpgsqlDataSource — used by TenantScope to open pooled connections.
         builder.Services.AddNpgsqlDataSource(kartovaConnection);
@@ -242,12 +232,15 @@ public class Program
 
         // Health checks — ADR-0060. Kafka/Elasticsearch/MinIO checks are deferred
         // (TD-011) — those clients aren't wired into the repo yet.
+        // Per-check `timeout:` matters: HealthCheckRegistration.Timeout defaults to
+        // Timeout.InfiniteTimeSpan — without an explicit value a hung dependency call
+        // blocks the probe indefinitely rather than surfacing as a clean Unhealthy/503.
         builder.Services.AddHttpClient(KeycloakHealthCheck.ClientName, http => http.Timeout = TimeSpan.FromSeconds(3));
         builder.Services.AddHealthChecks()
             .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"])
-            .AddNpgSql(kartovaConnection, name: "postgres", tags: ["ready", "startup"])
-            .AddCheck<KeycloakHealthCheck>("keycloak", tags: ["ready", "startup"])
-            .AddCheck<ModuleMigrationsHealthCheck>("migrations", tags: ["startup"]);
+            .AddNpgSql(kartovaConnection, name: "postgres", tags: ["ready", "startup"], timeout: TimeSpan.FromSeconds(3))
+            .AddCheck<KeycloakHealthCheck>("keycloak", tags: ["ready", "startup"], timeout: TimeSpan.FromSeconds(3))
+            .AddCheck<ModuleMigrationsHealthCheck>("migrations", tags: ["startup"], timeout: TimeSpan.FromSeconds(5));
 
         var app = builder.Build();
 
@@ -312,6 +305,28 @@ public class Program
 
         return await app.RunJasperFxCommands(args);
     }
+
+    /// <summary>
+    /// Builds a small, separate provider holding only the plain (non-tenant-scoped)
+    /// module DbContexts registered via each module's <see cref="IModule.RegisterForMigrator"/>
+    /// override — the tenant-scope-free path <c>ModuleMigrationsHealthCheck</c> needs
+    /// (see the registration call site for the full rationale).
+    /// </summary>
+#pragma warning disable ASP0000 // Intentional: this container holds only the plain
+    // module DbContexts RegisterForMigrator registers — no overlap with builder.Services,
+    // so this does not create extra copies of any app singleton (the risk ASP0000 warns
+    // about). The returned instance is registered as an app singleton, so the root
+    // provider owns and disposes it with the app.
+    private static ServiceProvider BuildMigrationsCheckProvider(IModule[] modules, IConfiguration configuration)
+    {
+        var services = new ServiceCollection();
+        foreach (var module in modules)
+        {
+            module.RegisterForMigrator(services, configuration);
+        }
+        return services.BuildServiceProvider();
+    }
+#pragma warning restore ASP0000
 
     [ExcludeFromCodeCoverage]
     private static IResult GetVersion()

@@ -41,8 +41,9 @@ kubelet / ops client → `GET /health/{live,ready,startup,detailed}` → ASP.NET
 
 ## Error handling
 
-- Each custom `IHealthCheck` catches its own exceptions and returns `Unhealthy(description, exception)` — the framework's own per-check timeout (`HealthCheckOptions` default) still applies as a backstop.
-- A check throwing uncaught is a bug in that check, not expected behavior — no global try/catch added around the framework's own dispatch (it already isolates per-check failures into an `Unhealthy` result).
+- Each custom `IHealthCheck` catches its own exceptions and returns `Unhealthy(description, exception)`. `HealthCheckRegistration.Timeout` defaults to `Timeout.InfiniteTimeSpan`, not a finite backstop — every check registration below passes an explicit `timeout:` so a hung dependency call surfaces as Unhealthy/503 rather than blocking the probe indefinitely (gate-7 review finding, 2026-09-23; corrects an earlier version of this line that assumed a default timeout existed).
+- `KeycloakHealthCheck` catches broadly (`catch (Exception ex)`, not a narrower type filter) so a malformed `BaseUrl`/`Realm` (an invalid-URI error, not just a transport failure) still reports Unhealthy instead of escaping uncaught (gate-7 review finding).
+- A check throwing uncaught past its own catch is a bug in that check, not expected behavior for the checks in this slice — no global try/catch added around the framework's own dispatch (it already isolates per-check failures into an `Unhealthy` result) for the one check that intentionally relies on this (`ModuleMigrationsHealthCheck`, on an unregistered module — see its own doc comment).
 - `/health/detailed` reached without `PlatformAdmin` → existing auth pipeline returns 401 (anonymous) / 403 (wrong role), consistent with every other `RequireRole(PlatformAdmin)` route.
 
 ## Testing (per docs/TESTING-STRATEGY.md)

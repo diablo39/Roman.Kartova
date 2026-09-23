@@ -122,6 +122,28 @@ public class HealthCheckEndpointTests : KeycloakContainerTestBase
         CollectionAssert.AreEquivalent(new[] { "self", "postgres", "keycloak", "migrations" }, await EntryKeysAsync(resp, doc));
     }
 
+    [TestMethod]
+    public async Task Ready_and_startup_return_503_when_keycloak_is_actually_unreachable()
+    {
+        // Overrides only the KeyCloak BaseUrl for a fresh, dedicated factory — Postgres
+        // (already migrated by InitializeAsync) stays real/healthy, so only "keycloak"
+        // fails. Does not touch the shared assembly container other tests depend on;
+        // [TestInitialize] resets every env var (including this one) before each test.
+        Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__BaseUrl", "http://127.0.0.1:1");
+        using var unhealthyApp = new WebApplicationFactory<Program>().WithWebHostBuilder(b => b.UseEnvironment("Testing"));
+
+        var readyResp = await unhealthyApp.CreateClient().GetAsync("/health/ready");
+        Assert.AreEqual(HttpStatusCode.ServiceUnavailable, readyResp.StatusCode);
+        var readyDoc = await ParseAsync(readyResp);
+        Assert.AreEqual("Unhealthy", readyDoc.RootElement.GetProperty("status").GetString());
+
+        var startupResp = await unhealthyApp.CreateClient().GetAsync("/health/startup");
+        Assert.AreEqual(HttpStatusCode.ServiceUnavailable, startupResp.StatusCode);
+
+        var liveResp = await unhealthyApp.CreateClient().GetAsync("/health/live");
+        Assert.AreEqual(HttpStatusCode.OK, liveResp.StatusCode);
+    }
+
     private static async Task<JsonDocument> ParseAsync(HttpResponseMessage resp)
         => JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
 

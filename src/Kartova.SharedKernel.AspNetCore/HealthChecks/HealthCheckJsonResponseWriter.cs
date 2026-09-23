@@ -8,11 +8,17 @@ namespace Kartova.SharedKernel.AspNetCore.HealthChecks;
 /// ADR-0060 response shape (`status`/`totalDuration`/`entries[]`). The default
 /// ASP.NET Core MapHealthChecks writer emits a bare status string, not this
 /// JSON shape — this is the writer that produces it.
-/// Compact mode (public probes) omits `exception` and, when an entry's own
-/// `Exception` is non-null, nulls out `description` too (the framework's
-/// exception-message fallback would otherwise leak through it). Detailed mode
-/// (auth-gated /health/detailed) includes the exception message only (no stack
-/// trace) and leaves `description` untouched.
+/// Compact mode (public probes) omits `exception`. It also nulls out
+/// `description` — but ONLY when the entry's `Description` is literally the
+/// framework's own exception-message fallback (`Description == Exception.Message`,
+/// set when an uncaught IHealthCheck exception is converted to an Unhealthy
+/// entry) — that fallback can otherwise leak hostnames/connection details onto
+/// a public, unauthenticated probe (/health/live|ready|startup). A check's own
+/// deliberately authored Description passed alongside an Exception (the
+/// idiomatic `HealthCheckResult.Unhealthy(safeMessage, ex)` pattern — see
+/// KeycloakHealthCheck) is a different, already-safe string and survives
+/// compact mode unchanged. Detailed mode never suppresses `description` and
+/// always includes `exception`.
 /// </summary>
 public static class HealthCheckJsonResponseWriter
 {
@@ -31,13 +37,14 @@ public static class HealthCheckJsonResponseWriter
                 ["status"] = e.Value.Status.ToString(),
                 ["duration"] = e.Value.Duration.ToString(),
                 ["tags"] = e.Value.Tags,
-                // The framework catches an uncaught IHealthCheck exception and commonly
-                // sets Description to the exception's own message — suppress it in compact
-                // mode so a public, unauthenticated probe (/health/live|ready|startup) never
-                // leaks raw exception text (hostnames/connection details). A check's own
-                // deliberately authored Description (Exception is null) is left untouched
-                // either way, and detailed mode never suppresses it.
-                ["description"] = detailed || e.Value.Exception is null ? e.Value.Description : null,
+                // Suppress only the framework's own exception-message-as-description
+                // fallback (Description == Exception.Message) — a check's own safe,
+                // hand-authored description passed alongside an exception is left as-is.
+                ["description"] = detailed
+                    || e.Value.Exception is null
+                    || e.Value.Description != e.Value.Exception.Message
+                    ? e.Value.Description
+                    : null,
             };
             if (detailed)
             {

@@ -8,7 +8,9 @@ namespace Kartova.Api.HealthChecks;
 /// ADR-0060 dependency check for KeyCloak. No AspNetCore.HealthChecks.Keycloak
 /// package is pinned in Directory.Packages.props (existence unverified) — a
 /// hand-written check against the anonymous OIDC discovery endpoint avoids an
-/// unverified NuGet dependency.
+/// unverified NuGet dependency. Never throws — any failure (unreachable, a
+/// malformed BaseUrl/Realm producing an invalid URI, etc.) is reported as
+/// Unhealthy so a single misconfigured dependency never crashes the endpoint.
 /// </summary>
 public sealed class KeycloakHealthCheck(
     IHttpClientFactory httpClientFactory,
@@ -30,7 +32,7 @@ public sealed class KeycloakHealthCheck(
                 ? HealthCheckResult.Healthy("KeyCloak discovery endpoint reachable")
                 : HealthCheckResult.Unhealthy($"KeyCloak returned HTTP {(int)response.StatusCode}");
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        catch (Exception ex)
         {
             return HealthCheckResult.Unhealthy("KeyCloak discovery endpoint unreachable", ex);
         }
