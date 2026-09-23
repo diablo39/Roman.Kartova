@@ -14,6 +14,14 @@ internal static class DevSeed
     // this is dev-fixture data with no production meaning.
     private static readonly Guid OrgATenantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
+    // Org B tenant id is mirrored from deploy/keycloak/kartova-realm.json (admin@orgb's
+    // tenant_id claim). Duplicated by tests/Kartova.Testing.Auth/SeededOrgs.cs. Unlike Org A,
+    // Org B previously had NO Organization row seeded anywhere — admin@orgb's tenant_id claim
+    // was authenticated by Keycloak but SessionStartHandler's GetMyOrgAsync would throw
+    // ("Org row missing for tenant") on first login, since it requires an Organization row to
+    // already exist. Seeding it here closes that gap the same way Org A's row is seeded below.
+    private static readonly Guid OrgBTenantId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
     // Fixed Keycloak user id for team-admin@orga.kartova.local (ADR-0101: realm Member who is
     // team Admin). Mirrors the "id" field added to that user in kartova-realm.json so the
     // team_members FK aligns with Keycloak's imported user id.
@@ -51,6 +59,18 @@ internal static class DevSeed
             cmd.Parameters.AddWithValue("Org A");
             var rows = await cmd.ExecuteNonQueryAsync();
             logger.LogInformation("Dev seed: Org A {Result}.", rows == 1 ? "inserted" : "already present");
+
+            await using var cmdB = conn.CreateCommand();
+            cmdB.CommandText = """
+                INSERT INTO organizations (id, tenant_id, name, created_at)
+                VALUES ($1, $2, $3, now())
+                ON CONFLICT (id) DO NOTHING;
+                """;
+            cmdB.Parameters.AddWithValue(OrgBTenantId);
+            cmdB.Parameters.AddWithValue(OrgBTenantId);
+            cmdB.Parameters.AddWithValue("Org B");
+            var rowsB = await cmdB.ExecuteNonQueryAsync();
+            logger.LogInformation("Dev seed: Org B {Result}.", rowsB == 1 ? "inserted" : "already present");
         }
         finally
         {

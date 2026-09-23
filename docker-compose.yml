@@ -70,7 +70,7 @@ services:
       context: .
       dockerfile: src/Kartova.Migrator/Dockerfile
     image: kartova/migrator:dev
-    # --seed=dev inserts Org A so admin@orga.kartova.local has a tenant row to scope to.
+    # --seed=dev inserts Org A and Org B so admin@orga/admin@orgb.kartova.local have a tenant row to scope to.
     # Idempotent. Production runs (helm) do not pass this flag.
     command: ["--seed=dev"]
     environment:
