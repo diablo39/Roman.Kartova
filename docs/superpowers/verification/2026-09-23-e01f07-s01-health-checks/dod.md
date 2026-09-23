@@ -22,7 +22,7 @@
 | 8 `deep-review` | ✅ PASS | 2026-09-23 |
 | Terminal re-verify (build + suite) | ✅ PASS | 2026-09-23 |
 | 9 Visual / API verification (ADR-0084) | ✅ PASS | 2026-09-23 |
-| 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING | — |
+| 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING (pre-push mirror ✅, PR not yet opened) | 2026-09-23 |
 
 ## Gate detail
 
@@ -97,6 +97,6 @@ Full solution build (0 warnings/errors) + full `Kartova.slnx` suite (15/15 assem
 **At:** `bb50aa5`
 
 ### 10 — CI green on the PR (terminal; `scripts/ci-local.sh` = required pre-push mirror)
-**Status:** ⏳ PENDING
-**Evidence:** —
-**At:** —
+**Status:** ⏳ PENDING (pre-push mirror green; PR/CI still pending)
+**Evidence:** `scripts/ci-local.sh` (all 5 default jobs: `backend images stryker frontend helm`) — `SUMMARY: backend PASS, images PASS, stryker PASS, frontend PASS, helm PASS`, 0 build errors, 0 test failures across every `dotnet test` assembly in `--configuration Release` (mirrors CI's config, distinct from gates 1/3's Debug runs). This is the required pre-push step, not gate 10 itself — the terminal source of truth is the PR's actual CI run, which needs a push + PR first.
+**At:** `bb50aa5`
