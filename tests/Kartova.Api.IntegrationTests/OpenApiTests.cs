@@ -158,6 +158,4 @@ public class OpenApiTests : KeycloakContainerTestBase
         }
         throw new InvalidOperationException($"Parameter '{name}' not found.");
     }
-
-    private static string EnvKey(string configKey) => configKey.Replace(":", "__");
 }

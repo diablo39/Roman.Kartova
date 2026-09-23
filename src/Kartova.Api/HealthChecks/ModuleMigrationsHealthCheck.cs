@@ -1,5 +1,6 @@
 using Kartova.SharedKernel;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace Kartova.Api.HealthChecks;
@@ -7,37 +8,30 @@ namespace Kartova.Api.HealthChecks;
 /// <summary>
 /// ADR-0060 startup probe. Checks (never applies) pending migrations per module —
 /// actual migration application is Kartova.Migrator's job exclusively (ADR-0085).
-/// Constructs a plain, non-tenant-scoped DbContext per module via
-/// <paramref name="dbContextFactories"/> rather than resolving module.DbContextType
-/// from the app's DI container: production registers module DbContexts via
-/// AddModuleDbContext (ADR-0090), which sources its connection from the per-request
-/// ITenantScope — unavailable outside a request with an active tenant scope, and
-/// irrelevant anyway since __EFMigrationsHistory is a global, non-tenant table.
+/// Resolves each module's DbContext from <paramref name="migrationsCheckProvider"/>,
+/// a dedicated provider built (in Program.cs) via each module's
+/// <see cref="IModule.RegisterForMigrator"/> override — the same tenant-scope-free
+/// registration Kartova.Migrator itself uses, and the same GetService(module.DbContextType)
+/// resolution mechanism, since production's normal registration (AddModuleDbContext,
+/// ADR-0090) requires an active per-request ITenantScope that health checks never have.
+/// __EFMigrationsHistory is a global, non-tenant table, so none is needed here either.
 /// </summary>
 public sealed class ModuleMigrationsHealthCheck(
     IModule[] modules,
-    IReadOnlyDictionary<Type, Func<DbContext>> dbContextFactories) : IHealthCheck
+    ServiceProvider migrationsCheckProvider) : IHealthCheck
 {
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context, CancellationToken cancellationToken = default)
     {
-        var pendingModules = new List<string>();
-        foreach (var module in modules)
+        var results = await Task.WhenAll(modules.Select(async module =>
         {
-            if (!dbContextFactories.TryGetValue(module.DbContextType, out var factory))
-            {
-                throw new InvalidOperationException(
-                    $"No DbContext factory registered for module '{module.Name}' (DbContextType {module.DbContextType}).");
-            }
-
-            await using var db = factory();
+            using var scope = migrationsCheckProvider.CreateScope();
+            var db = (DbContext)scope.ServiceProvider.GetRequiredService(module.DbContextType);
             var pending = await db.Database.GetPendingMigrationsAsync(cancellationToken);
-            if (pending.Any())
-            {
-                pendingModules.Add(module.Name);
-            }
-        }
+            return pending.Any() ? module.Name : null;
+        }));
 
+        var pendingModules = results.Where(name => name is not null).ToList();
         return pendingModules.Count == 0
             ? HealthCheckResult.Healthy("All modules up to date")
             : HealthCheckResult.Unhealthy($"Pending migrations: {string.Join(", ", pendingModules)}");

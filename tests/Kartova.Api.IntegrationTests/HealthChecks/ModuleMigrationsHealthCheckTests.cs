@@ -5,6 +5,7 @@ using Kartova.Organization.Infrastructure;
 using Kartova.SharedKernel;
 using Kartova.Testing.Auth;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
@@ -87,26 +88,36 @@ public class ModuleMigrationsHealthCheckTests
     private async Task<HealthReport> RunCheckAsync(IModule[] modules)
     {
         var appConnString = PostgresTestBootstrap.ConnectionStringFor(_pg!.GetConnectionString(), PostgresTestBootstrap.AppRole);
-        IReadOnlyDictionary<Type, Func<DbContext>> factories = new Dictionary<Type, Func<DbContext>>
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [$"ConnectionStrings:{KartovaConnectionStrings.Main}"] = appConnString,
+            })
+            .Build();
+
+        // Mirrors Program.cs: build the migrations-check provider from each real
+        // module's RegisterForMigrator override (the same tenant-scope-free
+        // registration Kartova.Migrator uses), independent of the `modules` param
+        // below, which may include NSubstitute fakes (e.g. a bogus 4th module).
+        var migrationsCheckServices = new ServiceCollection();
+        foreach (var realModule in RealModules())
         {
-            [typeof(CatalogDbContext)] = () =>
-                new CatalogDbContext(new DbContextOptionsBuilder<CatalogDbContext>().UseNpgsql(appConnString).Options),
-            [typeof(OrganizationDbContext)] = () =>
-                new OrganizationDbContext(new DbContextOptionsBuilder<OrganizationDbContext>().UseNpgsql(appConnString).Options),
-            [typeof(AuditDbContext)] = () =>
-                new AuditDbContext(new DbContextOptionsBuilder<AuditDbContext>().UseNpgsql(appConnString).Options),
-        };
+            realModule.RegisterForMigrator(migrationsCheckServices, configuration);
+        }
 
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(modules);
-        services.AddSingleton(factories);
+        services.AddSingleton(migrationsCheckServices.BuildServiceProvider());
         services.AddHealthChecks().AddCheck<ModuleMigrationsHealthCheck>("migrations", tags: ["startup"]);
 
         await using var provider = services.BuildServiceProvider();
         var healthCheckService = provider.GetRequiredService<HealthCheckService>();
         return await healthCheckService.CheckHealthAsync();
     }
+
+    private static IModule[] RealModules() =>
+        [new CatalogModule(), new OrganizationModule(), new AuditModule()];
 
     private Task MigrateAllModulesAsync() => Task.WhenAll(
         MigrateAsync<CatalogDbContext>(o => new CatalogDbContext(o)),

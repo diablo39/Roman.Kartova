@@ -24,29 +24,27 @@ public static class HealthCheckJsonResponseWriter
     {
         context.Response.ContentType = "application/json";
 
-        var entries = report.Entries.ToDictionary(
-            e => e.Key,
-            object (e) => detailed
-                ? new
-                {
-                    status = e.Value.Status.ToString(),
-                    duration = e.Value.Duration.ToString(),
-                    tags = e.Value.Tags,
-                    description = e.Value.Description,
-                    exception = e.Value.Exception?.Message,
-                }
-                : new
-                {
-                    status = e.Value.Status.ToString(),
-                    duration = e.Value.Duration.ToString(),
-                    tags = e.Value.Tags,
-                    // The framework catches an uncaught IHealthCheck exception and commonly
-                    // sets Description to the exception's own message — suppress it here so a
-                    // public, unauthenticated probe (/health/live|ready|startup) never leaks raw
-                    // exception text (hostnames/connection details). A check's own deliberately
-                    // authored Description (Exception is null) is left untouched.
-                    description = e.Value.Exception is null ? e.Value.Description : null,
-                });
+        var entries = report.Entries.ToDictionary(e => e.Key, object (e) =>
+        {
+            var entry = new Dictionary<string, object?>
+            {
+                ["status"] = e.Value.Status.ToString(),
+                ["duration"] = e.Value.Duration.ToString(),
+                ["tags"] = e.Value.Tags,
+                // The framework catches an uncaught IHealthCheck exception and commonly
+                // sets Description to the exception's own message — suppress it in compact
+                // mode so a public, unauthenticated probe (/health/live|ready|startup) never
+                // leaks raw exception text (hostnames/connection details). A check's own
+                // deliberately authored Description (Exception is null) is left untouched
+                // either way, and detailed mode never suppresses it.
+                ["description"] = detailed || e.Value.Exception is null ? e.Value.Description : null,
+            };
+            if (detailed)
+            {
+                entry["exception"] = e.Value.Exception?.Message;
+            }
+            return entry;
+        });
 
         var payload = new
         {

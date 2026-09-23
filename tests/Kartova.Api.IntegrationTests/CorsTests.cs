@@ -80,6 +80,4 @@ public class CorsTests : KeycloakContainerTestBase
             resp.Headers.Contains("Access-Control-Allow-Origin"),
             "the API must not echo origins outside the configured allowlist.");
     }
-
-    private static string EnvKey(string configKey) => configKey.Replace(":", "__");
 }

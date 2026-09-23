@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Kartova.Audit.Infrastructure;
 using Kartova.Catalog.Infrastructure;
@@ -32,9 +31,10 @@ public class HealthCheckEndpointTests : KeycloakContainerTestBase
         }
 
         var migratorConn = PostgresTestBootstrap.ConnectionStringFor(Containers.Postgres.GetConnectionString(), PostgresTestBootstrap.MigratorRole);
-        await PostgresTestBootstrap.RunMigrationsAsync<CatalogDbContext>(migratorConn, o => new CatalogDbContext(o));
-        await PostgresTestBootstrap.RunMigrationsAsync<OrganizationDbContext>(migratorConn, o => new OrganizationDbContext(o));
-        await PostgresTestBootstrap.RunMigrationsAsync<AuditDbContext>(migratorConn, o => new AuditDbContext(o));
+        await Task.WhenAll(
+            PostgresTestBootstrap.RunMigrationsAsync<CatalogDbContext>(migratorConn, o => new CatalogDbContext(o)),
+            PostgresTestBootstrap.RunMigrationsAsync<OrganizationDbContext>(migratorConn, o => new OrganizationDbContext(o)),
+            PostgresTestBootstrap.RunMigrationsAsync<AuditDbContext>(migratorConn, o => new AuditDbContext(o)));
 
         Environment.SetEnvironmentVariable($"ConnectionStrings__{KartovaConnectionStrings.Main}",
             PostgresTestBootstrap.ConnectionStringFor(Containers.Postgres.GetConnectionString(), PostgresTestBootstrap.AppRole));
@@ -122,23 +122,6 @@ public class HealthCheckEndpointTests : KeycloakContainerTestBase
         CollectionAssert.AreEquivalent(new[] { "self", "postgres", "keycloak", "migrations" }, await EntryKeysAsync(resp, doc));
     }
 
-    private static async Task<string> GetRealTokenAsync(string username, string password)
-    {
-        using var oidc = new HttpClient();
-        var form = new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["grant_type"] = "password",
-            ["client_id"] = "kartova-api",
-            ["username"] = username,
-            ["password"] = password,
-            ["scope"] = "openid",
-        });
-        var tokenResp = await oidc.PostAsync($"{Containers.KeycloakAuthority}/protocol/openid-connect/token", form);
-        tokenResp.EnsureSuccessStatusCode();
-        var payload = await tokenResp.Content.ReadFromJsonAsync<Dictionary<string, object>>();
-        return payload!["access_token"].ToString()!;
-    }
-
     private static async Task<JsonDocument> ParseAsync(HttpResponseMessage resp)
         => JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
 
@@ -147,6 +130,4 @@ public class HealthCheckEndpointTests : KeycloakContainerTestBase
         var doc = parsed ?? await ParseAsync(resp);
         return doc.RootElement.GetProperty("entries").EnumerateObject().Select(p => p.Name).ToArray();
     }
-
-    private static string EnvKey(string configKey) => configKey.Replace(":", "__");
 }

@@ -41,11 +41,9 @@ public class Program
 
         var kartovaConnection = KartovaConnectionStrings.RequireMain(builder.Configuration);
 
-        // Exposes the module registry to health checks (ModuleMigrationsHealthCheck).
-        // Shares Kartova.Migrator's IModule.DbContextType lookup key, but not its
-        // resolution mechanism: Migrator resolves via DI (scope.ServiceProvider.GetService),
-        // while the health check below builds a plain dictionary of factories instead —
-        // see ModuleMigrationsHealthCheck.cs for why (no tenant scope available/needed here).
+        // Exposes the module registry to health checks (ModuleMigrationsHealthCheck) —
+        // shares Kartova.Migrator's IModule.DbContextType lookup key AND its
+        // GetService(module.DbContextType) resolution mechanism (see below).
         builder.Services.AddSingleton(modules);
 
         foreach (var module in modules)
@@ -54,22 +52,24 @@ public class Program
         }
 
         // ModuleMigrationsHealthCheck needs a plain (non-tenant-scoped) DbContext per
-        // module. Production registers module DbContexts via AddModuleDbContext (ADR-0090),
-        // which sources its connection from the per-request ITenantScope — unavailable to a
-        // health check (no HTTP request/tenant context) and unnecessary anyway, since
-        // __EFMigrationsHistory is a global, non-tenant table. Build separate, throwaway
-        // instances directly against the same AppRole connection instead of touching the
-        // modules' own tenant-scoped registrations.
-        builder.Services.AddSingleton<IReadOnlyDictionary<Type, Func<DbContext>>>(
-            new Dictionary<Type, Func<DbContext>>
-            {
-                [typeof(CatalogDbContext)] = () =>
-                    new CatalogDbContext(new DbContextOptionsBuilder<CatalogDbContext>().UseNpgsql(kartovaConnection).Options),
-                [typeof(OrganizationDbContext)] = () =>
-                    new OrganizationDbContext(new DbContextOptionsBuilder<OrganizationDbContext>().UseNpgsql(kartovaConnection).Options),
-                [typeof(AuditDbContext)] = () =>
-                    new AuditDbContext(new DbContextOptionsBuilder<AuditDbContext>().UseNpgsql(kartovaConnection).Options),
-            });
+        // module — production registers module DbContexts via AddModuleDbContext
+        // (ADR-0090), which sources its connection from the per-request ITenantScope,
+        // unavailable to a health check (no HTTP request/tenant context) and unnecessary
+        // anyway since __EFMigrationsHistory is a global, non-tenant table. Reuse each
+        // module's IModule.RegisterForMigrator override — the same tenant-scope-free
+        // registration (and Kartova.Migrator/Program.cs's own resolution mechanism) —
+        // into a small dedicated provider instead of hand-building a separate one.
+        var migrationsCheckServices = new ServiceCollection();
+        foreach (var module in modules)
+        {
+            module.RegisterForMigrator(migrationsCheckServices, builder.Configuration);
+        }
+#pragma warning disable ASP0000 // Intentional: a separate, tiny container with only the
+        // 3 plain module DbContexts above — no overlap with builder.Services, so this
+        // does not create extra copies of any app singleton (the risk ASP0000 warns
+        // about). Disposed with the app: it's a singleton the root provider owns.
+        builder.Services.AddSingleton(migrationsCheckServices.BuildServiceProvider());
+#pragma warning restore ASP0000
 
         // NpgsqlDataSource — used by TenantScope to open pooled connections.
         builder.Services.AddNpgsqlDataSource(kartovaConnection);
