@@ -17,7 +17,7 @@ public class HealthCheckJsonResponseWriterTests
         await HealthCheckJsonResponseWriter.WriteCompactAsync(context, report);
 
         var doc = ParseBody(body);
-        Assert.AreEqual("Healthy", doc.RootElement.GetProperty("status").GetString());
+        Assert.AreEqual("Unhealthy", doc.RootElement.GetProperty("status").GetString());
         var postgres = doc.RootElement.GetProperty("entries").GetProperty("postgres");
         Assert.AreEqual(JsonValueKind.Null, postgres.GetProperty("description").ValueKind);
         Assert.IsFalse(postgres.TryGetProperty("exception", out _), "compact writer must not include an exception field");
@@ -48,7 +48,7 @@ public class HealthCheckJsonResponseWriterTests
                 HealthStatus.Unhealthy, description: "unreachable", duration: TimeSpan.FromMilliseconds(3),
                 exception: new InvalidOperationException("boom"), data: null, tags: ["ready", "startup"]),
         };
-        return new HealthReport(entries, HealthStatus.Healthy, TimeSpan.FromMilliseconds(12.8));
+        return new HealthReport(entries, TimeSpan.FromMilliseconds(12.8));
     }
 
     private static DefaultHttpContext NewHttpContext(out MemoryStream body)
