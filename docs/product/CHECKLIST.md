@@ -146,9 +146,9 @@
 - [ ] E-02.F-04.S-02 — Register message brokers with queues/topics — deferred; reuses the ADR-0115 Infrastructure aggregate with `InfrastructureType.Broker`
 
 **E-02.F-05: Environment & Deployment Tracking**
-- [ ] E-02.F-05.S-01 — Register environments with infra details
-- [ ] E-02.F-05.S-02 — Record deployment events
-- [ ] E-02.F-05.S-03 — Version-per-environment matrix view
+- [x] E-02.F-05.S-01 — Register environments with infra details — **sub-slice A1 (register + list + get) merged 2026-09-18, [ADR-0117](../architecture/decisions/ADR-0117-environment-and-deployment-entities.md)**: `EntityKind.Environment`, tenant-global not team-owned (`ITenantOwned` only, deliberate ADR-0103 deviation), `catalog.environments.register` perm (Member+OrgAdmin, 5-sync), POST/GET-by-id/cursor-list at `/api/v1/catalog/environments`, list screen + detail + register dialog + nav. Sort allowlist `{displayName (default asc), createdAt, type, region}`; filters `type` (multi-select), `region` (exact), `displayNameContains` — registry row: `docs/design/list-filter-registry.md`. Real-seam integration 9/9 green, unit+arch 75/75 green; ledger `docs/superpowers/verification/2026-09-18-environment-register-list/dod.md`. Resource-details capture UI deferred (API/storage support it; register dialog collects name/type/region only in A1). `Cluster` field removed pre-merge (2026-09-23). **Edit/delete deferred to sub-slice A2.**
+- [ ] E-02.F-05.S-02 — Record deployment events — deferred to sub-slice B; append-only Deployment history aggregate per ADR-0117 (not a relationship edge)
+- [ ] E-02.F-05.S-03 — Version-per-environment matrix view — deferred to sub-slice C; derives from latest Deployment per (app, env) per ADR-0117, no `Application→Environment` edge
 
 ### E-03: Organization & Team Management
 

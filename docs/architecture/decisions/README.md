@@ -1,8 +1,8 @@
 ---
 platform: Kartova
 description: SaaS service catalog and developer portal platform (Backstage + Compass + Statuspage)
-adr_count: 108
-last_updated: 2026-07-07
+adr_count: 117
+last_updated: 2026-09-18
 architecture:
   backend: .NET 10 (LTS) / ASP.NET Core + EF Core (ADR-0027)
   backend_pattern: Modular monolith (ADR-0082) with Clean Architecture per module — Domain / Application / Infrastructure / Contracts (ADR-0028); inter-module via Wolverine mediator or Kafka events
@@ -245,6 +245,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 | [0114](ADR-0114-tabbed-entity-detail-layout.md) | Tabbed Entity-Detail Layout | Frontend Architecture | Accepted | 0094, 0084, 0040, 0112 | Shared `DetailTabs` primitive (react-aria `Tabs`) splits Application/Service detail into Overview · Dependencies and API detail into Overview · Dependencies · Definition (spec render); active tab in `?tab=` (default `overview`, invalid normalizes to default); only the active panel mounts, so the Definition Scalar chunk lazy-loads on open. |
 | [0115](ADR-0115-infrastructure-discriminated-entity-jsonb-variant.md) | Infrastructure Is a Discriminated Catalog Entity with Indexed-JSONB Variant Storage | Domain Model | Accepted | 0111 (precedent), 0112, 0064, 0095, 0107, 0090, 0109, 0085, 0068 | New `EntityKind.Infrastructure` keyed by an `InfrastructureType` discriminator (VM first) — **not** a dedicated `EntityKind.VirtualMachine`. Aggregate is kind-agnostic: typed shared columns + opaque `jsonb attributes`; variant (VM) typing lives only in the app-layer `VmAttributes`. Two endpoint tiers — generic resource-level (shared columns, never deserializes) + type-specific `/vms` (rehydrates, `@>` GIN-served filters). Bounded append-only enum, per-kind permission `catalog.infrastructure.register`, standard RLS. **Deferred:** JSONB-column sort (slice-1 sort = `displayName`/`type`/`createdAt` typed columns only; JSONB fields filter-only), relationships/edges (`PartOf`/`DeployedOn`), `provider` field, Broker. Follows ADR-0111's discriminated-entity precedent; matches Backstage `Resource`/Compass `CLOUD_RESOURCE`. |
 | [0116](ADR-0116-spa-holds-tokens-bff-deferred.md) | SPA Holds KeyCloak Tokens; BFF Deferred as Accepted Risk | Security | Accepted | 0007 (contextualizes) | SPA is a public OIDC client (PKCE); KeyCloak access+refresh+id tokens live in browser `sessionStorage` (`authConfig.ts`), JWT Bearer to a `JwtBearer`-only API. BFF (server-held tokens, HttpOnly+SameSite cookie — current IETF BCP) is **deferred, risk-accepted, not dropped**: it closes only token *exfiltration*, not the larger XSS-rides-live-session risk, at ~4–6 high-blast-radius slices (dual scheme, confidential KC client, multi-replica ticket store, same-origin/CORS, CSRF across mutations, FE cutover). Cheaper interim hardening (short access TTL + refresh rotation w/ reuse-revocation + CSP) = E-01.F-04.S-06. **Revisit trigger:** enterprise/compliance security review → re-open E-01.F-04.S-05 and supersede. |
+| [0117](ADR-0117-environment-and-deployment-entities.md) | Environment and Deployment Entities — Tenant-Global Environment, Append-Only Deployment History, Derived Matrix | Domain Model | Accepted | 0111, 0103 (deviates), 0090, 0095, 0107 | New `EntityKind.Environment`, **tenant-global not team-owned** (`ITenantOwned` only, `catalog.environments.register` gated Member+OrgAdmin — deliberate ADR-0103 deviation). Deployment (later slice) is an **append-only history aggregate**, not a relationship edge (edges are attribute-less/current-state; deployments need version/deployer/replicas/config history). "App in env" + the app×env matrix **derive** from the latest Deployment per (app, env) — no `Application→Environment` edge; `RelationshipType.DeployedOn` is unaffected (component→VM-infra). Deployer = free-text `DeployedBy` + JWT `CreatedByUserId`. Deferred: ES search-indexing (E-05), relationship-graph edges to/from Environment, System membership. |
 
 ## By category (quick navigation)
 
@@ -263,7 +264,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Scan / Import Architecture**: 0054, 0055, 0056, 0057
 - **Observability & Monitoring**: 0058, 0059, 0060
 - **Billing**: 0061, 0062, 0063
-- **Domain Model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073, 0103, 0110, 0111, 0112, 0115
+- **Domain Model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073, 0103, 0110, 0111, 0112, 0115, 0117
 - **Scale & Performance**: 0074, 0075, 0076
 - **Non-Functional / Cross-Cutting**: 0077, 0078, 0079
 - **Testing & Quality**: 0083, 0097
@@ -288,7 +289,7 @@ LLM agents and humans can scan the table below to identify ADRs relevant to a to
 - **Resource identifier / entity ID format**: 0092, 0098
 - **Retention / archival / deletion**: 0017, 0019, 0020, 0073, 0102
 - **Audit & logging**: 0018, 0050, 0058, 0102, 0105
-- **Domain model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073, 0103, 0110, 0111, 0112, 0115
+- **Domain model**: 0064, 0065, 0066, 0067, 0068, 0069, 0070, 0071, 0072, 0073, 0103, 0110, 0111, 0112, 0115, 0117
 - **Scale & performance**: 0013, 0031, 0074, 0075, 0076
 - **Availability & SLA**: 0005, 0023, 0053, 0076
 - **Billing & pricing**: 0061, 0062, 0063
@@ -353,6 +354,7 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Dead Letter Queue (DLQ)** → 0033
 - **Deep scan** → 0054, 0055
 - **Dependency graph** → 0040, 0067, 0068, 0111
+- **Deployment (append-only history aggregate, not an edge)** → 0117
 - **Detail page / entity-detail layout (tabbed)** → 0114
 - **DNS challenge / ACME** → 0052
 - **Docker Compose (local dev)** → 0024
@@ -363,6 +365,7 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Elasticsearch** → 0002, 0013
 - **Email / SMTP** → 0049, 0051
 - **Entity lifecycle (Active/Deprecated/Retired)** → 0073, 0110
+- **Environment (tenant-global `EntityKind`, not team-owned)** → 0117, 0103, 0090
 - **Successor reference (deprecation migration guidance)** → 0110, 0073
 - **Sunset date / admin override (decommission)** → 0073, 0110
 - **Entity types (9 fixed)** → 0064, 0111
@@ -418,6 +421,7 @@ Alphabetical keyword index for concept-based lookup. Each entry maps a keyword t
 - **Lifecycle states** → 0073
 - **Manual precedence (conflict queue)** → 0056
 - **MassTransit (NOT used)** → 0003, 0080, 0081
+- **Matrix (app × environment, derived read model)** → 0117
 - **Maturity model (5 levels)** → 0071
 - **MediatR (NOT used)** → 0027, 0080
 - **Mediator pattern** → 0028, 0080
@@ -592,3 +596,4 @@ _No ADRs have been deprecated or superseded yet. When an ADR is superseded by a 
 | 2026-07-30 | ADR-0111 amended (third amendment) — **`PartOf` cardinality, write path and authority**. A component (`Application`/`Service`) is `PartOf` **at most one** `System`, which **overrides the 2026-07-04 revision's "cardinality intentionally not capped"** for `PartOf` only. Enforced at the **database** by the partial unique index `ux_relationships_one_system (tenant_id, source_kind, source_id) WHERE type = 'PartOf'` — write-time checks alone left a real concurrent-double-assign race. `PUT /catalog/{applications|services}/{id}/system` is the canonical write path (idempotent replacement, ADR-0096; `null` clears); `POST /relationships` with `type=PartOf` is first-assign-only and returns `409 component-already-in-system`; `DELETE /relationships/{id}` still removes a membership. **Extends ADR-0108 to composite operations**: a move mutates two edges, so authority is required per mutated edge — a steward of the destination cannot strip a component out of a System they do not steward. Also fixes the S-02 hierarchy question: a System nests under its own steward team, so per-team counts in that tree will not match the Teams page. Landed with E-03.F-03.S-01 closeout (sub-slice A1). |
 | 2026-09-08 | ADR-0115 (Infrastructure is a discriminated catalog entity with indexed-JSONB variant storage) **accepted** — new `EntityKind.Infrastructure` keyed by `InfrastructureType` (VM first), not a dedicated per-device kind; kind-agnostic aggregate (typed shared columns + opaque `jsonb attributes`, variant typing app-layer only); generic vs type-specific `/vms` endpoint tiers; `EF.Functions.JsonContains` (`@>`) filters on a GIN `jsonb_path_ops` index; perm `catalog.infrastructure.register` (5-sync); standard RLS. Slice-1 sort = typed columns only, JSONB-column sort + relationships (`PartOf`/`DeployedOn`) + `provider` field + Broker deferred. Follows the ADR-0111 discriminated-entity precedent; matches Backstage `Resource`/Compass `CLOUD_RESOURCE`. Implements E-02.F-04.S-01 (slice 1). |
 | 2026-09-16 | ADR-0116 (SPA holds KeyCloak tokens; BFF deferred as accepted risk) **accepted** — keeps the public-OIDC-client model (access+refresh tokens in browser `sessionStorage`, JWT Bearer to a `JwtBearer`-only API); **defers BFF (E-01.F-04.S-05) as risk-accepted, not dropped** — BFF closes only token exfiltration (not XSS-rides-live-session) at ~4–6 high-blast-radius slices. Interim hardening = short access TTL + refresh rotation w/ reuse-revocation + CSP (new E-01.F-04.S-06). Revisit trigger = enterprise/compliance security review. Contextualizes ADR-0007. Docs-only; no code change. |
+| 2026-09-18 | ADR-0117 (Environment and deployment entities) **accepted** — new `EntityKind.Environment`, tenant-global not team-owned (`ITenantOwned` only, `catalog.environments.register` gated Member+OrgAdmin — deliberate ADR-0103 deviation); Deployment (later slice) is an append-only history aggregate, not a relationship edge; "app in env" + the app×env matrix derive from the latest Deployment per (app, env) — no `Application→Environment` edge; `RelationshipType.DeployedOn` unaffected. Deferred: ES search-indexing (E-05), relationship-graph edges to/from Environment, System membership. Landed with E-02.F-05.S-01 (sub-slice A1). |

@@ -1,3 +1,3 @@
 namespace Kartova.Catalog.Domain;
 
-public enum EntityKind { Application, Service, Api, System, Infrastructure }
+public enum EntityKind { Application, Service, Api, System, Infrastructure, Environment }

@@ -14,6 +14,8 @@ import CatalogHierarchyPage from "@/features/catalog/pages/CatalogHierarchyPage"
 import { AllInfrastructureListPage } from "@/features/catalog/pages/AllInfrastructureListPage";
 import { VirtualMachinesListPage } from "@/features/catalog/pages/VirtualMachinesListPage";
 import { VmDetailPage } from "@/features/catalog/pages/VmDetailPage";
+import { EnvironmentsListPage } from "@/features/catalog/pages/EnvironmentsListPage";
+import { EnvironmentDetailPage } from "@/features/catalog/pages/EnvironmentDetailPage";
 import { TeamsListPage } from "@/features/teams/pages/TeamsListPage";
 import { TeamDetailPage } from "@/features/teams/pages/TeamDetailPage";
 import { WelcomePage } from "@/features/auth/pages/WelcomePage";
@@ -68,6 +70,8 @@ export function AppRoutes() {
         <Route path="/catalog/infrastructure" element={<AllInfrastructureListPage />} />
         <Route path="/catalog/infrastructure/vms" element={<VirtualMachinesListPage />} />
         <Route path="/catalog/infrastructure/vms/:id" element={<VmDetailPage />} />
+        <Route path="/catalog/environments" element={<EnvironmentsListPage />} />
+        <Route path="/catalog/environments/:id" element={<EnvironmentDetailPage />} />
         <Route path="/catalog/hierarchy" element={<CatalogHierarchyPage />} />
         <Route path="/teams" element={<TeamsListPage />} />
         <Route path="/teams/:id" element={<TeamDetailPage />} />

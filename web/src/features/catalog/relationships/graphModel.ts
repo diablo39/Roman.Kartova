@@ -142,6 +142,7 @@ export const ENTITY_KIND_LABEL: Record<EntityKind, string> = {
   api: "API",
   system: "System",
   infrastructure: "Infrastructure",
+  environment: "Environment",
 };
 
 const ENTITY_PATH_SEGMENT: Record<EntityKind, string> = {
@@ -153,6 +154,7 @@ const ENTITY_PATH_SEGMENT: Record<EntityKind, string> = {
   // "/catalog/infrastructure" is the list page and has no :id, so a bare "infrastructure" segment
   // would 404. The only InfrastructureType today is VirtualMachine (ADR-0115).
   infrastructure: "infrastructure/vms",
+  environment: "environments",
 };
 
 export function parseEntityRef(token: string | null | undefined): { kind: EntityKind; id: string } | null {

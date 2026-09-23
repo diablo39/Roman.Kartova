@@ -1,0 +1,128 @@
+# gate-findings.yaml — per-gate findings telemetry for one slice.
+#
+# Purpose: record every issue each DoD gate raised, with a real/delusion verdict,
+# so gate effectiveness is queryable across slices.
+#   Aggregate:  find docs/superpowers/verification -name gate-findings.yaml
+#   Rank gates by precision (real ÷ found) and by real issues caught.
+#
+# Sibling of dod.md in docs/superpowers/verification/<date>-<topic>/.
+# Copy this file there at slice start; append a finding the moment a gate raises one.
+# dod.md records each gate's PASS/FAIL/PENDING/N-A status; this file records what it FOUND.
+# A gate with status PASS and no entries here ⇒ it ran and found nothing.
+
+slice:  2026-09-18-environment-register-list
+branch: feat/e-02-f-05a-environment-crud
+terminal_commit: 81c65a3   # final code commit (fix-wave); docs/ledger commits follow. Matches dod.md re-verify.
+                            # Gate 9 (visual) BLOCKED this session (browser MCP down); gate 10 (ci-local) recorded on completion.
+
+# One entry per issue a gate raised.
+#
+# gate     — the dod.md row this finding came from (slug, not number):
+#              build              (1  Build, TreatWarningsAsErrors)
+#              reviews            (2  per-task subagent reviews)
+#              suite              (3  full test suite incl. real-seam)
+#              container          (4  container build / images CI)
+#              simplify           (5  /simplify)
+#              requesting-review  (6  requesting-code-review)
+#              review-pr          (7  review-pr)
+#              deep-review        (8  deep-review)
+#              manual             (9  visual / API verification, ADR-0084)
+#              terminal-reverify  (terminal re-verify: build + suite)
+#              ci-mirror          (10 CI green on PR / pre-push mirror, ci-local.sh)
+# severity — blocking | should-fix | nit
+# verdict  — real     : a genuine issue that warranted a change
+#            delusion : a false positive the gate raised that was not a real issue
+# title    — one-line description of the finding
+# note     — optional: resolution (fix sha), or why it was a delusion
+#
+# NOTE (2026-09-18, Task 17): gates 5-8 (simplify / requesting-code-review / review-pr /
+# deep-review) have not run yet on this branch, so this file has no entries for them.
+# Gate 2 (per-task subagent reviews) DID run for all 16 implementation tasks and recorded
+# several deferred-minor findings per task, but the authoritative, itemized list of those
+# findings lives in the controller ledger at
+# .superpowers/sdd/2026-09-18-e-02-f-05a1-environment-register-list/progress.md
+# (one line per task, e.g. Task 1/6/10/12/14/15 "minor (deferred): ..."), not duplicated here.
+# Re-transcribe them into structured entries below once gates 5-8 run and this file is
+# revisited for the terminal DoD close-out.
+# Gate 2 per-task deferred-minors: authoritative itemized list in the controller ledger
+# .superpowers/sdd/2026-09-18-e-02-f-05a1-environment-register-list/progress.md (not duplicated).
+# Gates 4/5/6 raised no findings. Below: the verification-phase findings (gates 5/7/8).
+findings:
+  # --- Gate 7 (review-pr standing set) ---
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: displayNameContains list filter shipped but untested (ILIKE escaping regression would slip)
+    note: fixed 81c65a3 — integration test (substring match + literal %/_ escaping)
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: no 400 test for invalid sortBy on GET /catalog/environments
+    note: fixed 81c65a3 — added ListEnvironments_rejects_unknown_sortBy_with_400
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: EnvironmentDetailPage renders all errors (500/network) as "not found" with no logging
+    note: fixed e52330b — branch on status (404→not-found; else console.error + "Failed to load"); test split 404-vs-500
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: 409 race-backstop catch discards exception, no observability log
+    note: fixed 81c65a3 — ILogger + LogInformation on the race path
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: POST /environments route missing .ProducesProblem(403)
+    note: fixed 81c65a3 — added, mirrors RegisterVm
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: resource-details key/value caps enforced only at HTTP path, not in the aggregate
+    note: deferred — mirrors accepted VM/Infrastructure layering (domain stores opaque jsonb; app-layer validator enforces schema); same property holds for VmAttributes; cross-cutting, not an Environment regression
+  # --- Gate 8 (deep-review) ---
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: resource-details capture-UI deferral lived only in a code comment (not traceable in spec/registry/checklist)
+    note: fixed 27e6d07 — recorded in spec Out-of-scope + list-filter-registry + CHECKLIST
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: 23505 race backstop untested + tenant-scope-rollback-on-non-2xx unverified (risk race→500)
+    note: fixed 81c65a3 — verified EF auto-savepoint rolls the failed insert back (outer tx clean → race=409 not 500, documented in catch XML doc) + deterministic RaceOnSaveInterceptor test asserting 409. Residual (accepted, controller ruling) — the race test bypasses the ambient-tx+commit path (bare DbContext), same rigor as precedent SetComponentSystemTests; end-to-end proof argued-by-equivalence.
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: missing tests — region NULLs-last keyset sort (asc+desc) + filtered multi-page cursor round-trip
+    note: fixed 81c65a3 — both added
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: createdAt placeholder inconsistent ("" vs "—") between EnvironmentTable and EnvironmentDetailPage
+    note: fixed e52330b — aligned to "—"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: region list filter case-sensitivity undocumented
+    note: fixed 27e6d07 — noted case-sensitive exact-match in list-filter-registry
+  - gate: deep-review
+    severity: nit
+    verdict: delusion
+    title: BuildFilterMap encodes type f-map value as PascalCase vs camelCase wire convention
+    note: harmless — f-map is server-internal, ordinal-sorted by CursorFilterValues.Join; not client-facing. Not changed.
+  - gate: deep-review
+    severity: nit
+    verdict: delusion
+    title: dialog re-implements problem-type tail-match instead of reusing shared helper
+    note: skipped — the shared byProblemType/toastProblem helper is toast-only (no form.setError path); reuse would risk the working 409→field-error flow for a nit
+  # --- Gate 5 (/simplify) — advisory ---
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: RaceOnSaveInterceptor + Fake* test doubles duplicated from SetComponentSystemTests
+    note: deferred (tech-debt) — consolidation worthwhile at S-02 when a 3rd copy lands; extracting now touches unrelated SetComponentSystemTests (out-of-scope per CLAUDE.md gate 5). 0 applied.
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: EnvironmentTypeNames is a near-copy of InfrastructureTypeNames (differ only by enum type arg)
+    note: deferred (tech-debt) — a generic JoinEnumNames<T> would touch pre-existing InfrastructureTypeNames (out-of-scope extract-helper per CLAUDE.md gate 5). 0 applied.

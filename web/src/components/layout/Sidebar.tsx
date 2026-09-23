@@ -170,13 +170,16 @@ export function Sidebar() {
             </NavCollapsibleGroup>
             <NavCollapsibleGroup title="Infrastructure" storageKey="infrastructure">
               <li>
+                <NavItemLink to="/catalog/infrastructure" label="All Objects" end />
+              </li>
+              <li>
                 <NavItemLink to="/catalog/infrastructure/vms" label="Virtual Machines" />
               </li>
               <li>
-                <DisabledItem label="Brokers" />
+                <NavItemLink to="/catalog/environments" label="Environments" />
               </li>
               <li>
-                <NavItemLink to="/catalog/infrastructure" label="All Objects" end />
+                <DisabledItem label="Brokers" />
               </li>
             </NavCollapsibleGroup>
             <ul className="space-y-1">

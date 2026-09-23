@@ -27,6 +27,7 @@ using EntityRef = Kartova.Catalog.Domain.EntityRef;
 using EntityKind = Kartova.Catalog.Domain.EntityKind;
 using InfrastructureType = Kartova.Catalog.Domain.InfrastructureType;
 using InfrastructureId = Kartova.Catalog.Domain.InfrastructureId;
+using EnvironmentType = Kartova.Catalog.Domain.EnvironmentType;
 using ComponentAlreadyInSystemException = Kartova.Catalog.Domain.ComponentAlreadyInSystemException;
 using RelationshipType = Kartova.Catalog.Domain.RelationshipType;
 using RelationshipDirection = Kartova.Catalog.Application.RelationshipDirection;
@@ -56,6 +57,15 @@ internal static class CatalogEndpointDelegates
     private static readonly string InfrastructureTypeNames = string.Join(
         ", ",
         Enum.GetNames<InfrastructureType>().Select(JsonNamingPolicy.CamelCase.ConvertName));
+
+    /// <summary>
+    /// Comma-joined, camelCase names of every <see cref="EnvironmentType"/> member, computed
+    /// once from <see cref="Enum.GetNames{TEnum}"/> — mirrors <see cref="InfrastructureTypeNames"/>
+    /// for the <c>invalid-type-filter</c> 400 detail on <see cref="ListEnvironmentsAsync"/>.
+    /// </summary>
+    private static readonly string EnvironmentTypeNames = string.Join(
+        ", ",
+        Enum.GetNames<EnvironmentType>().Select(JsonNamingPolicy.CamelCase.ConvertName));
 
     /// <summary>
     /// Shared dedup-then-cap check for a multi-select Guid filter (ADR-0107). De-dups
@@ -729,6 +739,141 @@ internal static class CatalogEndpointDelegates
         var page = await handler.Handle(query, db, ct);
         return Results.Ok(page);
     }
+
+    /// <summary>
+    /// <c>sortBy</c>/<c>sortOrder</c>/<c>limit</c> follow the same raw-string binding as
+    /// <see cref="ListInfrastructureAsync"/> (ADR-0095). Tenant-global — no team filter
+    /// (Environment has no owning team, E-02.F-05.S-01).
+    /// <para>
+    /// <c>type</c> — multi-select tier filter. Repeated <c>?type=</c> tokens are parsed as
+    /// case-insensitive enum names; numeric tokens and unknown strings are rejected with 400
+    /// <c>invalid-type-filter</c> (mirrors <see cref="ListInfrastructureAsync"/>). Empty ⇒ no
+    /// predicate (show every tier).
+    /// </para>
+    /// <para>
+    /// <c>region</c> — exact-match column filter. <c>displayNameContains</c> — case-insensitive
+    /// substring (ILIKE). Both blank/whitespace ⇒ no filter.
+    /// </para>
+    /// </summary>
+    internal static async Task<IResult> ListEnvironmentsAsync(
+        [FromQuery] string? sortBy,
+        [FromQuery] string? sortOrder,
+        [FromQuery] string? cursor,
+        [FromQuery] string? limit,
+        [FromQuery] string[]? type,
+        [FromQuery] string? region,
+        [FromQuery] string? displayNameContains,
+        ListEnvironmentsHandler handler,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        var (parsedSortBy, parsedSortOrder, effectiveLimit) = CursorListBinding.Bind<EnvironmentSortField>(
+            sortBy, sortOrder, limit, EnvironmentSortSpecs.AllowedFieldNames);
+
+        var types = new HashSet<EnvironmentType>();
+        foreach (var raw in type ?? Array.Empty<string>())
+        {
+            if (int.TryParse(raw, out _)
+                || !Enum.TryParse<EnvironmentType>(raw, ignoreCase: true, out var parsed)
+                || !Enum.IsDefined(parsed))
+            {
+                return Results.Problem(
+                    type: ProblemTypes.InvalidTypeFilter,
+                    title: "Invalid type filter",
+                    detail: $"'{raw}' is not a valid environment type. Expected one of: {EnvironmentTypeNames}.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+            types.Add(parsed);
+        }
+
+        if (TryCapDistinctCount(types, "type") is { } tooManyTypes)
+            return tooManyTypes;
+
+        var query = new ListEnvironmentsQuery(
+            SortBy: parsedSortBy ?? EnvironmentSortField.DisplayName,
+            SortOrder: parsedSortOrder ?? SortOrder.Asc,
+            Cursor: cursor,
+            Limit: effectiveLimit,
+            Type: types.Count > 0 ? types.ToArray() : null,
+            Region: string.IsNullOrWhiteSpace(region) ? null : region.Trim(),
+            DisplayNameContains: string.IsNullOrWhiteSpace(displayNameContains) ? null : displayNameContains.Trim());
+
+        var page = await handler.Handle(query, db, ct);
+        return Results.Ok(page);
+    }
+
+    internal static async Task<IResult> GetEnvironmentByIdAsync(
+        Guid id,
+        GetEnvironmentByIdHandler handler,
+        CatalogDbContext db,
+        CancellationToken ct)
+    {
+        var resp = await handler.Handle(new GetEnvironmentByIdQuery(id), db, ct);
+        return resp is null ? EndpointResultExtensions.EnvironmentNotFound() : Results.Ok(resp).WithEtag(resp.Version);
+    }
+
+    /// <summary>
+    /// Registers a tenant-global environment (E-02.F-05.S-01). No owning team, so no team-existence
+    /// or team-membership gate — the CatalogEnvironmentsRegister claim on the route is the only
+    /// authZ gate. Display name is unique per tenant: a deterministic pre-check returns 409
+    /// EnvironmentNameConflict, and the DB unique-index violation (23505) is caught as the
+    /// race backstop and mapped to the same 409. ResourceDetails validation
+    /// (EnvironmentResourceDetails.Validate) throws ArgumentException → global 400 ValidationFailed.
+    /// </summary>
+    internal static async Task<IResult> RegisterEnvironmentAsync(
+        [FromBody] RegisterEnvironmentRequest request,
+        RegisterEnvironmentHandler handler,
+        CatalogDbContext db,
+        ITenantContext tenant,
+        ICurrentUser currentUser,
+        IAuditWriter audit,
+        ILogger<RegisterEnvironmentHandler> logger,
+        CancellationToken ct)
+    {
+        var resourceJson = EnvironmentResourceDetails.Validate(request.ResourceDetails).ToJson();
+
+        // Deterministic pre-check (RLS-scoped → only this tenant's rows).
+        var nameTaken = await db.Environments.AnyAsync(e => e.DisplayName == request.DisplayName, ct);
+        if (nameTaken)
+            return EnvironmentNameConflict(request.DisplayName);
+
+        try
+        {
+            var response = await handler.Handle(
+                new RegisterEnvironmentCommand(request.DisplayName, request.Description, request.Type,
+                    request.Region, resourceJson),
+                db, tenant, currentUser, audit, ct);
+
+            return Results.Created($"/api/v1/catalog/environments/{response.Id}", response).WithEtag(response.Version);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException pg
+            && pg.SqlState == "23505" && pg.ConstraintName == "ux_catalog_environments_tenant_id_display_name")
+        {
+            // Lost a concurrent registration race between the pre-check above and this
+            // SaveChangesAsync. Verified-by-equivalence to the proven System-membership
+            // backstop (SetComponentSystemHandler.cs ~122-130 / ux_relationships_one_system,
+            // exercised deterministically by SetComponentSystemTests' RaceOnSaveInterceptor
+            // tests) rather than a fresh derivation: nothing in this codebase uses
+            // EnableRetryOnFailure, so EF Core's automatic savepoints are active —
+            // SaveChangesAsync wraps itself in a SAVEPOINT over the ambient ITenantScope
+            // transaction and rolls back to that savepoint on failure, leaving the ambient
+            // transaction clean. TenantScopeCommitEndpointFilter's unconditional CommitAsync
+            // (it does not branch on the IResult's status code) after this catch returns
+            // therefore still succeeds, so this 409 cannot degrade into a 500. Reproduced
+            // deterministically for Environment specifically by
+            // EnvironmentEndpointsTests.RegisterEnvironment_race_backstop_returns_409_not_500.
+            logger.LogInformation(ex,
+                "Environment register race: name '{DisplayName}' collided on unique index.",
+                request.DisplayName);
+            return EnvironmentNameConflict(request.DisplayName);
+        }
+    }
+
+    private static IResult EnvironmentNameConflict(string displayName) => Results.Problem(
+        type: ProblemTypes.EnvironmentNameConflict,
+        title: "Environment name already in use",
+        detail: $"An environment named '{displayName}' already exists in this tenant.",
+        statusCode: StatusCodes.Status409Conflict);
 
     /// <summary>
     /// <c>sortBy</c>/<c>sortOrder</c>/<c>limit</c>/<c>teamId</c> follow the same binding as

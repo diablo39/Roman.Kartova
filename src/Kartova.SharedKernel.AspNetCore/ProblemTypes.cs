@@ -99,4 +99,7 @@ public static class ProblemTypes
 
     // Catalog ?type= multi-select filter — generic infrastructure list (ADR-0111 amendment).
     public const string InvalidTypeFilter        = Base + "invalid-type-filter";
+
+    // Environment registration — unique display name per tenant (E-02.F-05.S-01).
+    public const string EnvironmentNameConflict = Base + "environment-name-conflict"; // 409
 }

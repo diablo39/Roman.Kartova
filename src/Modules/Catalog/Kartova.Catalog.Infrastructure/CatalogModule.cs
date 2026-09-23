@@ -356,6 +356,27 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .ProducesProblem(StatusCodes.Status404NotFound)
               .ProducesProblem(StatusCodes.Status412PreconditionFailed)
               .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+        // Environment read + register surface (E-02.F-05.S-01). Tenant-global — no team gate;
+        // edit/delete land in slice A2.
+        tenant.MapGet("/environments", CatalogEndpointDelegates.ListEnvironmentsAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRead)
+              .WithName("ListEnvironments")
+              .Produces<CursorPage<EnvironmentListItemResponse>>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status400BadRequest);
+        tenant.MapGet("/environments/{id:guid}", CatalogEndpointDelegates.GetEnvironmentByIdAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogRead)
+              .WithName("GetEnvironmentById")
+              .Produces<EnvironmentDetailResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status404NotFound);
+        tenant.MapPost("/environments", CatalogEndpointDelegates.RegisterEnvironmentAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogEnvironmentsRegister)
+              .WithName("RegisterEnvironment")
+              .Produces<EnvironmentDetailResponse>(StatusCodes.Status201Created)
+              .ProducesProblem(StatusCodes.Status400BadRequest)
+              // Claim-gated route (CatalogEnvironmentsRegister) — 403 is a real response for a
+              // caller lacking the claim, mirrors RegisterVm's declaration.
+              .ProducesProblem(StatusCodes.Status403Forbidden)
+              .ProducesProblem(StatusCodes.Status409Conflict);
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
@@ -414,6 +435,9 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<RegisterVmHandler>();
         services.AddScoped<EditVmHandler>();
         services.AddScoped<DeleteVmHandler>();
+        services.AddScoped<ListEnvironmentsHandler>();
+        services.AddScoped<GetEnvironmentByIdHandler>();
+        services.AddScoped<RegisterEnvironmentHandler>();
 
         // TimeProvider is needed by Application.Deprecate / Decommission for the
         // "sunsetDate must be in the future" / "now >= sunsetDate" checks. TryAdd

@@ -39,6 +39,10 @@ internal static class EndpointResultExtensions
     internal static IResult VmNotFound() =>
         ResourceNotFound("VM", "No VM with that id is visible in the current tenant.");
 
+    /// <inheritdoc cref="ApplicationNotFound"/>
+    internal static IResult EnvironmentNotFound() =>
+        ResourceNotFound("Environment", "No environment with that id is visible in the current tenant.");
+
     private static IResult ResourceNotFound(string entity, string detail) => Results.Problem(
         type: ProblemTypes.ResourceNotFound,
         title: $"{entity} not found",
