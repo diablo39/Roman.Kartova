@@ -87,12 +87,20 @@ public class ModuleMigrationsHealthCheckTests
     private async Task<HealthReport> RunCheckAsync(IModule[] modules)
     {
         var appConnString = PostgresTestBootstrap.ConnectionStringFor(_pg!.GetConnectionString(), PostgresTestBootstrap.AppRole);
+        IReadOnlyDictionary<Type, Func<DbContext>> factories = new Dictionary<Type, Func<DbContext>>
+        {
+            [typeof(CatalogDbContext)] = () =>
+                new CatalogDbContext(new DbContextOptionsBuilder<CatalogDbContext>().UseNpgsql(appConnString).Options),
+            [typeof(OrganizationDbContext)] = () =>
+                new OrganizationDbContext(new DbContextOptionsBuilder<OrganizationDbContext>().UseNpgsql(appConnString).Options),
+            [typeof(AuditDbContext)] = () =>
+                new AuditDbContext(new DbContextOptionsBuilder<AuditDbContext>().UseNpgsql(appConnString).Options),
+        };
+
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddDbContext<CatalogDbContext>(o => o.UseNpgsql(appConnString));
-        services.AddDbContext<OrganizationDbContext>(o => o.UseNpgsql(appConnString));
-        services.AddDbContext<AuditDbContext>(o => o.UseNpgsql(appConnString));
         services.AddSingleton(modules);
+        services.AddSingleton(factories);
         services.AddHealthChecks().AddCheck<ModuleMigrationsHealthCheck>("migrations", tags: ["startup"]);
 
         await using var provider = services.BuildServiceProvider();

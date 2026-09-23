@@ -50,44 +50,23 @@ public class Program
             module.RegisterServices(builder.Services, builder.Configuration);
         }
 
-        // Health checks need DbContexts without requiring TenantScope to be active.
-        // The modules use AddModuleDbContext (which requires active TenantScope), but health
-        // checks run outside of a request context. We must remove the modules' registrations
-        // and replace them with plain DbContexts. MigrationsAssembly is configured so that
-        // GetPendingMigrationsAsync() can find migrations.
-        // This mirrors the test setup in ModuleMigrationsHealthCheckTests.
-
-        // Clear all DbContext-related registrations from the modules' AddModuleDbContext calls.
-        // We need to remove DbContext types and DbContextOptions types so we can replace them
-        // with plain versions that don't require TenantScope to be active.
-        var allDescriptors = builder.Services.ToList();
-        foreach (var descriptor in allDescriptors)
-        {
-            // Remove DbContext registrations
-            if (descriptor.ServiceType == typeof(CatalogDbContext) ||
-                descriptor.ServiceType == typeof(OrganizationDbContext) ||
-                descriptor.ServiceType == typeof(AuditDbContext) ||
-                // Remove DbContextOptions<T> registrations
-                (descriptor.ServiceType.IsGenericType &&
-                 descriptor.ServiceType.GetGenericTypeDefinition() == typeof(DbContextOptions<>) &&
-                 (descriptor.ServiceType == typeof(DbContextOptions<CatalogDbContext>) ||
-                  descriptor.ServiceType == typeof(DbContextOptions<OrganizationDbContext>) ||
-                  descriptor.ServiceType == typeof(DbContextOptions<AuditDbContext>))))
+        // ModuleMigrationsHealthCheck needs a plain (non-tenant-scoped) DbContext per
+        // module. Production registers module DbContexts via AddModuleDbContext (ADR-0090),
+        // which sources its connection from the per-request ITenantScope — unavailable to a
+        // health check (no HTTP request/tenant context) and unnecessary anyway, since
+        // __EFMigrationsHistory is a global, non-tenant table. Build separate, throwaway
+        // instances directly against the same AppRole connection instead of touching the
+        // modules' own tenant-scoped registrations.
+        builder.Services.AddSingleton<IReadOnlyDictionary<Type, Func<DbContext>>>(
+            new Dictionary<Type, Func<DbContext>>
             {
-                builder.Services.Remove(descriptor);
-            }
-        }
-
-        // Register plain DbContexts
-        builder.Services.AddDbContext<CatalogDbContext>(opts =>
-            opts.UseNpgsql(kartovaConnection, npg => npg.MigrationsAssembly(typeof(CatalogDbContext).Assembly.FullName)),
-            ServiceLifetime.Scoped);
-        builder.Services.AddDbContext<OrganizationDbContext>(opts =>
-            opts.UseNpgsql(kartovaConnection, npg => npg.MigrationsAssembly(typeof(OrganizationDbContext).Assembly.FullName)),
-            ServiceLifetime.Scoped);
-        builder.Services.AddDbContext<AuditDbContext>(opts =>
-            opts.UseNpgsql(kartovaConnection, npg => npg.MigrationsAssembly(typeof(AuditDbContext).Assembly.FullName)),
-            ServiceLifetime.Scoped);
+                [typeof(CatalogDbContext)] = () =>
+                    new CatalogDbContext(new DbContextOptionsBuilder<CatalogDbContext>().UseNpgsql(kartovaConnection).Options),
+                [typeof(OrganizationDbContext)] = () =>
+                    new OrganizationDbContext(new DbContextOptionsBuilder<OrganizationDbContext>().UseNpgsql(kartovaConnection).Options),
+                [typeof(AuditDbContext)] = () =>
+                    new AuditDbContext(new DbContextOptionsBuilder<AuditDbContext>().UseNpgsql(kartovaConnection).Options),
+            });
 
         // NpgsqlDataSource — used by TenantScope to open pooled connections.
         builder.Services.AddNpgsqlDataSource(kartovaConnection);
