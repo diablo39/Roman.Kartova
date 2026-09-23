@@ -1,6 +1,6 @@
 # Phase 0: Foundation
 
-**Version:** v1.0 | **Epics:** 2 | **Features:** 13 | **Stories:** 45
+**Version:** v1.0 | **Epics:** 3 | **Features:** 15 | **Stories:** 52
 **Dependencies:** None (first phase)
 
 ---
@@ -133,3 +133,24 @@
 | Story ID | User Story | Acceptance Criteria |
 |----------|-----------|-------------------|
 | E-01a.F-05.S-01 | As a user, I want in-app help affordances to deep-link the relevant portal article so that help is contextual | "?" icons on key screens link to the matching article/anchor; the existing relationship tooltips link to the glossary (F-03.S-02) |
+
+### Epic E-01b: Platform Admin Console
+
+> Platform-operator tooling to administer organizations across tenants. Covers a directory/CRUD over `Organization` aggregates plus provisioning that reconciles a KeyCloak-issued `tenant_id` with its app-side Organization row — closing the gap where a KC-authenticated user has no matching `Organization`/`Users` rows (today only Org A is dev-seeded per E-01.F-01.S-04; any other KC-configured tenant, e.g. a test fixture like Org B, is authenticated but unprovisioned).
+
+#### Feature E-01b.F-01: Organization Directory & CRUD
+
+| Story ID | User Story | Acceptance Criteria | ADRs |
+|----------|-----------|-------------------|------|
+| E-01b.F-01.S-01 | As a platform admin, I want a list of all organizations across tenants (search/filter/paginate) so that I can find and audit any tenant | Cursor-paginated list; search by name; `sortBy`/`sortOrder` per ADR-0095; PlatformAdmin-only auth | |
+| E-01b.F-01.S-02 | As a platform admin, I want to view an organization's detail (tenant id, created date, user/application/service counts) so that I can assess its state without querying the DB directly | Detail page/endpoint; counts sourced live, not cached | |
+| E-01b.F-01.S-03 | As a platform admin, I want to edit an organization's name so that I can correct or rebrand a tenant | PUT/PATCH endpoint; audit-logged | |
+| E-01b.F-01.S-04 | As a platform admin, I want to deactivate/delete an organization so that decommissioned tenants stop accepting logins | Soft-delete by default; guards against orphaning catalog data; audit-logged | |
+
+#### Feature E-01b.F-02: Tenant Provisioning & KC Linkage
+
+| Story ID | User Story | Acceptance Criteria | ADRs |
+|----------|-----------|-------------------|------|
+| E-01b.F-02.S-01 | As a platform admin, I want to create an organization with an explicit `tenant_id` (matching a KeyCloak-configured tenant) so that a new tenant's KC users resolve on first login | `tenant_id` accepted as input; rejects a value colliding with an existing Organization; replaces today's `AdminOrganizationCommands.CreateAsync` self-generated-id behavior | |
+| E-01b.F-02.S-02 | As a platform admin, I want to detect orphaned `tenant_id`s (a KC user attribute with no matching Organization row) so that I catch the "authenticated but unprovisioned" gap before a user hits it | Reconciliation report/endpoint comparing KC realm `tenant_id` attributes against `organizations` rows | |
+| E-01b.F-02.S-03 | As a platform admin, I want to provision an Organization row for an existing orphaned `tenant_id` so that I can fix the gap without a manual DB/SQL intervention | One-call reconciliation action; idempotent; audit-logged | |
