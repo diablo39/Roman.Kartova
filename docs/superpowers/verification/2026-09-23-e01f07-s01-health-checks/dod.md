@@ -17,7 +17,7 @@
 | 3 Full suite (+ real-seam if wiring) | ✅ PASS | 2026-09-23 |
 | 4 Container build (images CI) | ✅ PASS | 2026-09-23 |
 | 5 `/simplify` | ✅ PASS | 2026-09-23 |
-| 6 `requesting-code-review` | ⏳ PENDING | — |
+| 6 `requesting-code-review` | ✅ PASS | 2026-09-23 |
 | 7 `review-pr` | ⏳ PENDING | — |
 | 8 `deep-review` | ⏳ PENDING | — |
 | Terminal re-verify (build + suite) | ⏳ PENDING | — |
@@ -43,9 +43,9 @@
 **At:** `d2a04c7`
 
 ### 4 — Container build (images CI job)
-**Status:** ⏳ PENDING
-**Evidence:** —
-**At:** —
+**Status:** ✅ PASS
+**Evidence:** `docker compose build migrator api` — both images built clean (`kartova/migrator:dev`, `kartova/api:dev`). `docker build -f web/Dockerfile -t kartova/web:ci web` — built clean. This branch's only `*.csproj` change is `<PackageReference Include="NSubstitute" />` added to `tests/Kartova.Api.IntegrationTests.csproj` (a test project) — confirmed via `src/Kartova.Api/Dockerfile`'s `COPY` layer that it copies only `src/`, never `tests/`, so this restore-surface change cannot affect the runtime image's build graph. Ran anyway (not marked N/A) since the letter of the gate-4 rule triggers on any `*.csproj` package-ref change; all three images built green regardless.
+**At:** `d2a04c7`
 
 ### 5 — `/simplify` against branch diff
 **Status:** ✅ PASS
@@ -53,9 +53,9 @@
 **At:** `b4fa970`
 
 ### 6 — `requesting-code-review` at slice boundary
-**Status:** ⏳ PENDING
-**Evidence:** —
-**At:** —
+**Status:** ✅ PASS
+**Evidence:** Fresh reviewer (`superpowers:requesting-code-review`'s code-reviewer template) over the full branch diff `960ad74..d1be9f0`, working tree confirmed read-only-clean afterward. Verdict: "Ready to merge: With fixes" — 0 Critical, 1 Important (this ledger's own gate-4 summary/detail contradiction — fixed above, in the same pass), 2 Minor (both accepted trade-offs already reasoned about in the spec/design: compact-mode description suppression is a blunt-but-safe default; `Task.WhenAll` losing per-module diagnostic precision on a mixed real-failure is in-scope per spec's error-handling section). Independently re-verified the `IModule.RegisterForMigrator` reuse against each module's actual override and confirmed the `ASP0000` suppression is genuinely justified (the built `ServiceProvider` is registered as a root-owned singleton instance, so the analyzer's actual leak concern doesn't apply). 5 items explicitly declined-to-judge (documented, none silently dropped) — all pre-existing scope decisions (ADR-0060's "Operations role" phrasing vs. the spec's concrete `PlatformAdmin` choice; TD-011's Kafka/ES/MinIO deferral; writer's package placement; migrations-check unit-tier N/A).
+**At:** `d1be9f0`
 
 ### 7 — `review-pr` (pr-review-toolkit)
 **Status:** ⏳ PENDING
