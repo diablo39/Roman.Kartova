@@ -21,7 +21,7 @@
 | 7 `review-pr` | ✅ PASS | 2026-09-23 |
 | 8 `deep-review` | ✅ PASS | 2026-09-23 |
 | Terminal re-verify (build + suite) | ✅ PASS | 2026-09-23 |
-| 9 Visual / API verification (ADR-0084) | ⏳ PENDING | — |
+| 9 Visual / API verification (ADR-0084) | ✅ PASS | 2026-09-23 |
 | 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING | — |
 
 ## Gate detail
@@ -92,9 +92,9 @@ Full solution build (0 warnings/errors) + full `Kartova.slnx` suite (15/15 assem
 **At:** `bb50aa5`
 
 ### 9 — Visual / API verification (observe the running system)
-**Status:** ⏳ PENDING
-**Evidence:** —
-**At:** —
+**Status:** ✅ PASS
+**Evidence:** `docs/superpowers/verification/2026-09-23-e01f07-s01-health-checks/gate9-api-verification.md` — API slice, exercised the live endpoints via `docker compose up` (this branch's own rebuilt `kartova/migrator:dev`/`kartova/api:dev` images, remapped host ports to avoid colliding with an already-running dev stack on this host) against real Postgres + real KeyCloak. All 4 endpoints captured: `/health/live` → 200, exact `{self}` set; `/health/ready` → 200, real postgres+keycloak both Healthy; `/health/startup` → 200, real migrations check Healthy (confirms the real Migrator container's migrations + `RegisterForMigrator`-based provider genuinely resolve against the same live database); `/health/detailed` → 401 anonymous, 200 with a real password-grant platform-admin JWT, `exception` key present on every entry. API container logs confirm the real `DefaultHealthCheckService` pipeline ran per request. Stack torn down cleanly afterward; the host's separate `romangig2-*` project (unrelated, pre-existing, on the same default ports) was never touched.
+**At:** `bb50aa5`
 
 ### 10 — CI green on the PR (terminal; `scripts/ci-local.sh` = required pre-push mirror)
 **Status:** ⏳ PENDING

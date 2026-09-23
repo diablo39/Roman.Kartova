@@ -187,3 +187,10 @@ findings:
     verdict: delusion
     title: "JSON writer always emits a description key (often null) where ADR-0060's sample response omits it for healthy entries with no description"
     note: "harmless — ADR sample is illustrative, not a pinned schema; every consumer null-checks; no fix needed"
+
+  # Gate 9 — visual/API verification
+  - gate: manual
+    severity: nit
+    verdict: delusion
+    title: "Migrator container exited 139 (segfault) on first docker compose up attempt"
+    note: "transient Docker Desktop DNS-resolution flake for the 'postgres' hostname inside the compose network, not a code defect — retry succeeded cleanly (migrator exit 0); matches this repo's known Docker-under-load flakiness pattern"
