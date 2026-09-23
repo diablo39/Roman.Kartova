@@ -8,8 +8,11 @@ namespace Kartova.SharedKernel.AspNetCore.HealthChecks;
 /// ADR-0060 response shape (`status`/`totalDuration`/`entries[]`). The default
 /// ASP.NET Core MapHealthChecks writer emits a bare status string, not this
 /// JSON shape — this is the writer that produces it.
-/// Compact mode (public probes) omits `exception`; detailed mode (auth-gated
-/// /health/detailed) includes the exception message only (no stack trace).
+/// Compact mode (public probes) omits `exception` and, when an entry's own
+/// `Exception` is non-null, nulls out `description` too (the framework's
+/// exception-message fallback would otherwise leak through it). Detailed mode
+/// (auth-gated /health/detailed) includes the exception message only (no stack
+/// trace) and leaves `description` untouched.
 /// </summary>
 public static class HealthCheckJsonResponseWriter
 {
@@ -37,7 +40,12 @@ public static class HealthCheckJsonResponseWriter
                     status = e.Value.Status.ToString(),
                     duration = e.Value.Duration.ToString(),
                     tags = e.Value.Tags,
-                    description = e.Value.Description,
+                    // The framework catches an uncaught IHealthCheck exception and commonly
+                    // sets Description to the exception's own message — suppress it here so a
+                    // public, unauthenticated probe (/health/live|ready|startup) never leaks raw
+                    // exception text (hostnames/connection details). A check's own deliberately
+                    // authored Description (Exception is null) is left untouched.
+                    description = e.Value.Exception is null ? e.Value.Description : null,
                 });
 
         var payload = new

@@ -13,9 +13,9 @@ public class KeycloakHealthCheckTests : KeycloakContainerTestBase
     [TestMethod]
     public async Task Healthy_when_real_discovery_endpoint_responds()
     {
-        var check = BuildCheck(Containers.KeycloakBaseUrl, RealmSeedConstants.RealmName);
+        using var built = BuildCheck(Containers.KeycloakBaseUrl, RealmSeedConstants.RealmName);
 
-        var result = await check.CheckHealthAsync(new HealthCheckContext());
+        var result = await built.Check.CheckHealthAsync(new HealthCheckContext());
 
         Assert.AreEqual(HealthStatus.Healthy, result.Status);
     }
@@ -23,9 +23,22 @@ public class KeycloakHealthCheckTests : KeycloakContainerTestBase
     [TestMethod]
     public async Task Unhealthy_when_discovery_endpoint_unreachable()
     {
-        var check = BuildCheck("http://127.0.0.1:1", "kartova");
+        using var built = BuildCheck("http://127.0.0.1:1", "kartova");
 
-        var result = await check.CheckHealthAsync(new HealthCheckContext());
+        var result = await built.Check.CheckHealthAsync(new HealthCheckContext());
+
+        Assert.AreEqual(HealthStatus.Unhealthy, result.Status);
+    }
+
+    [TestMethod]
+    public async Task Unhealthy_when_discovery_endpoint_returns_non_success_status()
+    {
+        // Real KeyCloak container, but a realm that was never imported — its discovery
+        // endpoint returns 404. Exercises the `!response.IsSuccessStatusCode` branch of
+        // KeycloakHealthCheck.CheckHealthAsync, distinct from the connection-refused path above.
+        using var built = BuildCheck(Containers.KeycloakBaseUrl, "a-realm-name-that-does-not-exist");
+
+        var result = await built.Check.CheckHealthAsync(new HealthCheckContext());
 
         Assert.AreEqual(HealthStatus.Unhealthy, result.Status);
     }
@@ -55,7 +68,7 @@ public class KeycloakHealthCheckTests : KeycloakContainerTestBase
         Assert.IsFalse(result.Exception?.ToString().Contains(secret, StringComparison.Ordinal) ?? false);
     }
 
-    private static KeycloakHealthCheck BuildCheck(string baseUrl, string realm)
+    private static BuiltCheck BuildCheck(string baseUrl, string realm)
     {
         var services = new ServiceCollection();
         services.AddHttpClient(KeycloakHealthCheck.ClientName, http => http.Timeout = TimeSpan.FromSeconds(3));
@@ -67,8 +80,19 @@ public class KeycloakHealthCheckTests : KeycloakContainerTestBase
             AdminClientSecret = "unused",
         }));
         var provider = services.BuildServiceProvider();
-        return new KeycloakHealthCheck(
+        var check = new KeycloakHealthCheck(
             provider.GetRequiredService<IHttpClientFactory>(),
             provider.GetRequiredService<IOptions<KeycloakAdminOptions>>());
+        return new BuiltCheck(check, provider);
+    }
+
+    /// <summary>
+    /// Pairs a <see cref="KeycloakHealthCheck"/> with the <see cref="ServiceProvider"/> that
+    /// owns its dependencies, so callers can dispose the provider (and its HttpClientFactory)
+    /// deterministically via <c>using var built = BuildCheck(...)</c> instead of leaking it.
+    /// </summary>
+    private readonly record struct BuiltCheck(KeycloakHealthCheck Check, ServiceProvider Provider) : IDisposable
+    {
+        public void Dispose() => Provider.Dispose();
     }
 }

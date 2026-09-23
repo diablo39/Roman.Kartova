@@ -37,6 +37,32 @@ public class HealthCheckJsonResponseWriterTests
         Assert.AreEqual("boom", keycloak.GetProperty("exception").GetString());
     }
 
+    [TestMethod]
+    public async Task WriteCompactAsync_nulls_description_when_framework_attached_an_exception()
+    {
+        const string rawExceptionText = "raw exception text: connection refused to 10.0.0.5:5432";
+        var entries = new Dictionary<string, HealthReportEntry>
+        {
+            ["postgres"] = new HealthReportEntry(
+                HealthStatus.Unhealthy, description: rawExceptionText, duration: TimeSpan.FromMilliseconds(5),
+                exception: new InvalidOperationException(rawExceptionText), data: null, tags: ["ready"]),
+        };
+        var report = new HealthReport(entries, TimeSpan.FromMilliseconds(5));
+        var compactContext = NewHttpContext(out var compactBody);
+        var detailedContext = NewHttpContext(out var detailedBody);
+
+        await HealthCheckJsonResponseWriter.WriteCompactAsync(compactContext, report);
+        await HealthCheckJsonResponseWriter.WriteDetailedAsync(detailedContext, report);
+
+        var compactPostgres = ParseBody(compactBody).RootElement.GetProperty("entries").GetProperty("postgres");
+        Assert.AreEqual(JsonValueKind.Null, compactPostgres.GetProperty("description").ValueKind,
+            "compact mode must not leak the framework's exception-message-as-description fallback");
+
+        var detailedPostgres = ParseBody(detailedBody).RootElement.GetProperty("entries").GetProperty("postgres");
+        Assert.AreEqual(rawExceptionText, detailedPostgres.GetProperty("description").GetString(),
+            "detailed mode must leave description unchanged");
+    }
+
     private static HealthReport BuildReport()
     {
         var entries = new Dictionary<string, HealthReportEntry>

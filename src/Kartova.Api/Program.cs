@@ -41,8 +41,11 @@ public class Program
 
         var kartovaConnection = KartovaConnectionStrings.RequireMain(builder.Configuration);
 
-        // Exposes the module registry to health checks (ModuleMigrationsHealthCheck) —
-        // mirrors the same DbContextType-resolution pattern Kartova.Migrator uses.
+        // Exposes the module registry to health checks (ModuleMigrationsHealthCheck).
+        // Shares Kartova.Migrator's IModule.DbContextType lookup key, but not its
+        // resolution mechanism: Migrator resolves via DI (scope.ServiceProvider.GetService),
+        // while the health check below builds a plain dictionary of factories instead —
+        // see ModuleMigrationsHealthCheck.cs for why (no tenant scope available/needed here).
         builder.Services.AddSingleton(modules);
 
         foreach (var module in modules)

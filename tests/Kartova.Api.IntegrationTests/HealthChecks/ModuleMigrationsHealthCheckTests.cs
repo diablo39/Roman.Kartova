@@ -71,7 +71,7 @@ public class ModuleMigrationsHealthCheckTests
     }
 
     [TestMethod]
-    public async Task Unhealthy_not_throwing_when_a_module_DbContextType_is_not_registered_in_DI()
+    public async Task Unhealthy_not_throwing_when_a_module_DbContextType_has_no_factory_entry()
     {
         await MigrateAllModulesAsync();
         var bogusModule = Substitute.For<IModule>();

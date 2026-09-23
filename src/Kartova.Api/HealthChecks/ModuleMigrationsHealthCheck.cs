@@ -24,7 +24,13 @@ public sealed class ModuleMigrationsHealthCheck(
         var pendingModules = new List<string>();
         foreach (var module in modules)
         {
-            await using var db = dbContextFactories[module.DbContextType]();
+            if (!dbContextFactories.TryGetValue(module.DbContextType, out var factory))
+            {
+                throw new InvalidOperationException(
+                    $"No DbContext factory registered for module '{module.Name}' (DbContextType {module.DbContextType}).");
+            }
+
+            await using var db = factory();
             var pending = await db.Database.GetPendingMigrationsAsync(cancellationToken);
             if (pending.Any())
             {
