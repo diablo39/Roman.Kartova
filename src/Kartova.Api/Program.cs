@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using JasperFx;
+using Kartova.Api.HealthChecks;
 using Kartova.Audit.Infrastructure;
 using Kartova.Catalog.Infrastructure;
 using Kartova.Organization.Application;
@@ -11,6 +12,7 @@ using Kartova.Organization.Infrastructure;
 using Kartova.Organization.Infrastructure.Admin;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.AspNetCore.HealthChecks;
 using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Postgres;
@@ -37,12 +39,55 @@ public class Program
             new AuditModule(),
         ];
 
+        var kartovaConnection = KartovaConnectionStrings.RequireMain(builder.Configuration);
+
+        // Exposes the module registry to health checks (ModuleMigrationsHealthCheck) —
+        // mirrors the same DbContextType-resolution pattern Kartova.Migrator uses.
+        builder.Services.AddSingleton(modules);
+
         foreach (var module in modules)
         {
             module.RegisterServices(builder.Services, builder.Configuration);
         }
 
-        var kartovaConnection = KartovaConnectionStrings.RequireMain(builder.Configuration);
+        // Health checks need DbContexts without requiring TenantScope to be active.
+        // The modules use AddModuleDbContext (which requires active TenantScope), but health
+        // checks run outside of a request context. We must remove the modules' registrations
+        // and replace them with plain DbContexts. MigrationsAssembly is configured so that
+        // GetPendingMigrationsAsync() can find migrations.
+        // This mirrors the test setup in ModuleMigrationsHealthCheckTests.
+
+        // Clear all DbContext-related registrations from the modules' AddModuleDbContext calls.
+        // We need to remove DbContext types and DbContextOptions types so we can replace them
+        // with plain versions that don't require TenantScope to be active.
+        var allDescriptors = builder.Services.ToList();
+        foreach (var descriptor in allDescriptors)
+        {
+            // Remove DbContext registrations
+            if (descriptor.ServiceType == typeof(CatalogDbContext) ||
+                descriptor.ServiceType == typeof(OrganizationDbContext) ||
+                descriptor.ServiceType == typeof(AuditDbContext) ||
+                // Remove DbContextOptions<T> registrations
+                (descriptor.ServiceType.IsGenericType &&
+                 descriptor.ServiceType.GetGenericTypeDefinition() == typeof(DbContextOptions<>) &&
+                 (descriptor.ServiceType == typeof(DbContextOptions<CatalogDbContext>) ||
+                  descriptor.ServiceType == typeof(DbContextOptions<OrganizationDbContext>) ||
+                  descriptor.ServiceType == typeof(DbContextOptions<AuditDbContext>))))
+            {
+                builder.Services.Remove(descriptor);
+            }
+        }
+
+        // Register plain DbContexts
+        builder.Services.AddDbContext<CatalogDbContext>(opts =>
+            opts.UseNpgsql(kartovaConnection, npg => npg.MigrationsAssembly(typeof(CatalogDbContext).Assembly.FullName)),
+            ServiceLifetime.Scoped);
+        builder.Services.AddDbContext<OrganizationDbContext>(opts =>
+            opts.UseNpgsql(kartovaConnection, npg => npg.MigrationsAssembly(typeof(OrganizationDbContext).Assembly.FullName)),
+            ServiceLifetime.Scoped);
+        builder.Services.AddDbContext<AuditDbContext>(opts =>
+            opts.UseNpgsql(kartovaConnection, npg => npg.MigrationsAssembly(typeof(AuditDbContext).Assembly.FullName)),
+            ServiceLifetime.Scoped);
 
         // NpgsqlDataSource — used by TenantScope to open pooled connections.
         builder.Services.AddNpgsqlDataSource(kartovaConnection);
@@ -213,10 +258,14 @@ public class Program
                     }));
         });
 
-        // Health checks — ADR-0060.
+        // Health checks — ADR-0060. Kafka/Elasticsearch/MinIO checks are deferred
+        // (TD-011) — those clients aren't wired into the repo yet.
+        builder.Services.AddHttpClient(KeycloakHealthCheck.ClientName, http => http.Timeout = TimeSpan.FromSeconds(3));
         builder.Services.AddHealthChecks()
             .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"])
-            .AddNpgSql(kartovaConnection, name: "postgres", tags: ["ready"]);
+            .AddNpgSql(kartovaConnection, name: "postgres", tags: ["ready", "startup"])
+            .AddCheck<KeycloakHealthCheck>("keycloak", tags: ["ready", "startup"])
+            .AddCheck<ModuleMigrationsHealthCheck>("migrations", tags: ["startup"]);
 
         var app = builder.Build();
 
@@ -231,9 +280,25 @@ public class Program
         app.UseRateLimiter();
         app.UseMiddleware<TenantScopeBeginMiddleware>();
 
-        app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = c => c.Tags.Contains("live") });
-        app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready") });
-        app.MapHealthChecks("/health/startup", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready") });
+        app.MapHealthChecks("/health/live", new HealthCheckOptions
+        {
+            Predicate = c => c.Tags.Contains("live"),
+            ResponseWriter = HealthCheckJsonResponseWriter.WriteCompactAsync,
+        });
+        app.MapHealthChecks("/health/ready", new HealthCheckOptions
+        {
+            Predicate = c => c.Tags.Contains("ready"),
+            ResponseWriter = HealthCheckJsonResponseWriter.WriteCompactAsync,
+        });
+        app.MapHealthChecks("/health/startup", new HealthCheckOptions
+        {
+            Predicate = c => c.Tags.Contains("startup"),
+            ResponseWriter = HealthCheckJsonResponseWriter.WriteCompactAsync,
+        });
+        app.MapHealthChecks("/health/detailed", new HealthCheckOptions
+        {
+            ResponseWriter = HealthCheckJsonResponseWriter.WriteDetailedAsync,
+        }).RequireAuthorization(p => p.RequireRole(KartovaRoles.PlatformAdmin));
 
         // OpenAPI document endpoint — anonymous, no auth requirement (ADR-0029/0034).
         app.MapOpenApi("/openapi/{documentName}.json").AllowAnonymous();
