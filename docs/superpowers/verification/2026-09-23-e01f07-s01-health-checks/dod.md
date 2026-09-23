@@ -1,10 +1,10 @@
 # DoD Ledger — E-01.F-07.S-01 Health Check Endpoints
 
-**Slice:** `2026-09-23-e01f07-s01-health-checks` · **Branch:** `worktree-e01f07-s01-health-checks` · **HEAD:** `1c3612c`
+**Slice:** `2026-09-23-e01f07-s01-health-checks` · **Branch:** `worktree-e01f07-s01-health-checks` · **HEAD:** `bb50aa5`
 **PR:** not yet opened · **Last updated:** 2026-09-23
 **Spec:** `docs/superpowers/specs/2026-09-23-e01f07-s01-health-checks-design.md`
 **Plan:** `docs/superpowers/plans/2026-09-23-e01f07-s01-health-checks-plan.md` (local scratch, gitignored — not committed)
-**Findings telemetry:** none yet — no `gate-findings.yaml` created; SDD's own ledger (deleted per subagent-driven-development convention once the branch record lived in git) carried per-task findings during execution; see commit messages `8bf1ab1`/`da223b4` for the two Important findings from the final review and their fixes.
+**Findings telemetry:** `./gate-findings.yaml` — backfilled 2026-09-23 (gate 8, a should-fix finding) from the SDD execution ledger (deleted per subagent-driven-development convention once the branch record lived in git) and this file's own prose history.
 
 > Records the Definition of Done from `CLAUDE.md`. Update each row the moment its gate runs.
 
@@ -19,8 +19,8 @@
 | 5 `/simplify` | ✅ PASS | 2026-09-23 |
 | 6 `requesting-code-review` | ✅ PASS | 2026-09-23 |
 | 7 `review-pr` | ✅ PASS | 2026-09-23 |
-| 8 `deep-review` | ⏳ PENDING | — |
-| Terminal re-verify (build + suite) | ⏳ PENDING | — |
+| 8 `deep-review` | ✅ PASS | 2026-09-23 |
+| Terminal re-verify (build + suite) | ✅ PASS | 2026-09-23 |
 | 9 Visual / API verification (ADR-0084) | ⏳ PENDING | — |
 | 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING | — |
 
@@ -82,14 +82,14 @@ Full solution build (0 warnings/errors) + full `Kartova.slnx` suite (15/15 assem
 **At:** `1c3612c`
 
 ### 8 — `deep-review`
-**Status:** ⏳ PENDING
-**Evidence:** —
-**At:** —
+**Status:** ✅ PASS
+**Evidence:** `docs/superpowers/verification/2026-09-23-e01f07-s01-health-checks/deep-review.md` — fresh reviewer read the diff against the spec, the (gitignored, slice-local) plan, ADR-0060/0090/0085, ADR-0097's test taxonomy, and this ledger, then independently re-ran the evidence rather than trusting it (5/5 writer tests, 4/4 arch tests incl. the new `IModuleRules` rule, 16/16 filtered health-check tests, 22/22 full `Kartova.Api.IntegrationTests`, all against real Testcontainers Postgres/KeyCloak). **0 blocking, 2 should-fix (both fixed, commit `bb50aa5`), 4 nits (3 fixed alongside, 1 parked as harmless/delusion), 0 missing-test findings, 5 "what looks good" citations.** Fixed: `gate-findings.yaml` was missing (this folder's sibling file now exists, backfilled); the `ASP0000` suppression comment factually claimed the DI container disposes an `AddSingleton(instance)` registration, which it does not — verified empirically and corrected. Reviewer explicitly credited the plan's Task 4 divergence (hand-built dictionary → `IModule.RegisterForMigrator` reuse, discovered during `/simplify`) as "well justified and superior," not an undocumented deviation.
+**At:** `bb50aa5`
 
 ### Terminal re-verify (build + full suite after gates 5–8)
-**Status:** ⏳ PENDING
-**Evidence:** —
-**At:** —
+**Status:** ✅ PASS
+**Evidence:** `dotnet test Kartova.slnx` on the final commit after all gate 5-8 fixes — 15/15 assemblies green, 0 failures (same command/shape as gate 3's original run, now against the post-fix code).
+**At:** `bb50aa5`
 
 ### 9 — Visual / API verification (observe the running system)
 **Status:** ⏳ PENDING
