@@ -22,7 +22,7 @@
 | 8 `deep-review` | ✅ PASS | 2026-09-23 |
 | Terminal re-verify (build + suite) | ✅ PASS | 2026-09-23 |
 | 9 Visual / API verification (ADR-0084) | ✅ PASS | 2026-09-23 |
-| 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING (pre-push mirror ✅, PR not yet opened) | 2026-09-23 |
+| 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ✅ PASS | 2026-09-23 |
 
 ## Gate detail
 
@@ -97,6 +97,11 @@ Full solution build (0 warnings/errors) + full `Kartova.slnx` suite (15/15 assem
 **At:** `bb50aa5`
 
 ### 10 — CI green on the PR (terminal; `scripts/ci-local.sh` = required pre-push mirror)
-**Status:** ⏳ PENDING (pre-push mirror green; PR/CI still pending)
-**Evidence:** `scripts/ci-local.sh` (all 5 default jobs: `backend images stryker frontend helm`) — `SUMMARY: backend PASS, images PASS, stryker PASS, frontend PASS, helm PASS`, 0 build errors, 0 test failures across every `dotnet test` assembly in `--configuration Release` (mirrors CI's config, distinct from gates 1/3's Debug runs). This is the required pre-push step, not gate 10 itself — the terminal source of truth is the PR's actual CI run, which needs a push + PR first.
-**At:** `bb50aa5`
+**Status:** ✅ PASS
+**Evidence:** Pre-push mirror (`scripts/ci-local.sh`, all 5 default jobs) green first: `backend PASS, images PASS, stryker PASS, frontend PASS, helm PASS`, 0 build errors, 0 test failures in `--configuration Release`. Then pushed `worktree-e01f07-s01-health-checks` and opened [PR #96](https://github.com/diablo39/Roman.Kartova/pull/96) against `master`. The PR's own CI run (the terminal source of truth) is green on all 5 jobs:
+- Backend (arch + unit + integration) — pass, 5m38s
+- Container images (build — Dockerfile/restore gate) — pass, 2m15s
+- Frontend (test + typecheck + build) — pass, 2m35s
+- Helm (lint + template) — pass, 8s
+- Stryker config drift — pass, 5s
+**At:** `7a330ee` (run: https://github.com/diablo39/Roman.Kartova/actions/runs/35915268293)
