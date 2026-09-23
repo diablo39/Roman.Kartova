@@ -33,14 +33,13 @@ public sealed class EnvironmentEndpointsTests : CatalogIntegrationTestBase
     // ADR-0109: enums travel on the wire as camelCase strings.
     private static object Body(
         string displayName, EnvironmentType type = EnvironmentType.Production,
-        string description = "desc", string? region = "eu-west-1", string? cluster = "c1")
+        string description = "desc", string? region = "eu-west-1")
         => new
         {
             displayName,
             description,
             type = type.ToString().ToLowerInvariant(),
             region,
-            cluster,
             resourceDetails = new Dictionary<string, string>(),
         };
 
@@ -94,7 +93,6 @@ public sealed class EnvironmentEndpointsTests : CatalogIntegrationTestBase
             description = "d",
             type = "development",
             region = (string?)null,
-            cluster = (string?)null,
             resourceDetails = new Dictionary<string, string> { [new string('k', 200)] = "v" },
         };
         var post = await client.PostAsJsonAsync("/api/v1/catalog/environments", bad);
@@ -344,7 +342,7 @@ public sealed class EnvironmentEndpointsTests : CatalogIntegrationTestBase
         await using var db = new CatalogDbContext(options);
 
         var result = await CatalogEndpointDelegates.RegisterEnvironmentAsync(
-            new RegisterEnvironmentRequest(name, "desc", EnvironmentType.Production, null, null, new Dictionary<string, string>()),
+            new RegisterEnvironmentRequest(name, "desc", EnvironmentType.Production, null, new Dictionary<string, string>()),
             new RegisterEnvironmentHandler(TimeProvider.System),
             db, new FakeTenantContext(tenant), new FakeCurrentUser(), new NoOpAuditWriter(),
             NullLogger<RegisterEnvironmentHandler>.Instance, default);

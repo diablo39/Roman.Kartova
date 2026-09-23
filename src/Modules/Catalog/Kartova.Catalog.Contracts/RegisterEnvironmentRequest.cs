@@ -9,5 +9,4 @@ public sealed record RegisterEnvironmentRequest(
     string Description,
     EnvironmentType Type,
     string? Region,
-    string? Cluster,
     IReadOnlyDictionary<string, string>? ResourceDetails);

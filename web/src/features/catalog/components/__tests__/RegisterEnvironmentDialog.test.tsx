@@ -69,13 +69,12 @@ describe("RegisterEnvironmentDialog", () => {
     vi.clearAllMocks();
   });
 
-  it("renders displayName, description, type, region, cluster, and the Created by pill — no team select", () => {
+  it("renders displayName, description, type, region, and the Created by pill — no team select", () => {
     setup();
     expect(screen.getByLabelText(/display name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
     expect(screen.getByTestId("register-environment-type-select")).toBeInTheDocument();
     expect(screen.getByLabelText(/region/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/cluster/i)).toBeInTheDocument();
     expect(screen.getByText(/alice admin/i)).toBeInTheDocument();
     expect(screen.queryByTestId("register-environment-team-select")).toBeNull();
     expect(screen.queryByText(/team is required/i)).toBeNull();
@@ -108,7 +107,6 @@ describe("RegisterEnvironmentDialog", () => {
     await userEvent.type(screen.getByLabelText(/description/i), "Primary production environment");
     await userEvent.selectOptions(screen.getByTestId("register-environment-type-select"), "production");
     await userEvent.type(screen.getByLabelText(/region/i), "eu-west-1");
-    await userEvent.type(screen.getByLabelText(/cluster/i), "prod-eu-west-1");
 
     await userEvent.click(screen.getByRole("button", { name: /register environment/i }));
 
@@ -118,12 +116,11 @@ describe("RegisterEnvironmentDialog", () => {
       description: "Primary production environment",
       type: "production",
       region: "eu-west-1",
-      cluster: "prod-eu-west-1",
       resourceDetails: null,
     });
   });
 
-  it("submits region/cluster as null when left blank", async () => {
+  it("submits region as null when left blank", async () => {
     mutateAsync.mockResolvedValue({});
     setup();
 
@@ -134,7 +131,7 @@ describe("RegisterEnvironmentDialog", () => {
 
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
     expect(mutateAsync).toHaveBeenCalledWith(
-      expect.objectContaining({ region: null, cluster: null, resourceDetails: null }),
+      expect.objectContaining({ region: null, resourceDetails: null }),
     );
   });
 

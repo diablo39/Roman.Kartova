@@ -11,6 +11,5 @@ public sealed record EnvironmentListItemResponse(
     string Description,
     EnvironmentType Type,
     string? Region,
-    string? Cluster,
     Guid CreatedByUserId,
     DateTimeOffset CreatedAt);

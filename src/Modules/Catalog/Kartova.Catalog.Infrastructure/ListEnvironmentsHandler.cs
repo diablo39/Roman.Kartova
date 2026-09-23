@@ -37,7 +37,7 @@ public sealed class ListEnvironmentsHandler
             EnvironmentSortSpecs.IdSelector, IdExtractor, ct, expectedFilters: filters);
 
         var items = page.Items.Select(x => new EnvironmentListItemResponse(
-            x.Id.Value, x.TenantId.Value, x.DisplayName, x.Description, x.Type, x.Region, x.Cluster,
+            x.Id.Value, x.TenantId.Value, x.DisplayName, x.Description, x.Type, x.Region,
             x.CreatedByUserId, x.CreatedAt)).ToList();
 
         return new CursorPage<EnvironmentListItemResponse>(items, page.NextCursor, page.PrevCursor);

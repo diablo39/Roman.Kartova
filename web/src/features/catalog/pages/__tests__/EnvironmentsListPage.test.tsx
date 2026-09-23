@@ -52,7 +52,6 @@ function envItem(overrides: Record<string, unknown> = {}) {
     description: "Prod environment",
     type: "production",
     region: "eu-west-1",
-    cluster: "prod-eu-west-1",
     createdByUserId: "00000000-0000-0000-0000-0000000000aa",
     createdAt: "2026-04-30T00:00:00Z",
     ...overrides,

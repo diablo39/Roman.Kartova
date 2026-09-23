@@ -841,7 +841,7 @@ internal static class CatalogEndpointDelegates
         {
             var response = await handler.Handle(
                 new RegisterEnvironmentCommand(request.DisplayName, request.Description, request.Type,
-                    request.Region, request.Cluster, resourceJson),
+                    request.Region, resourceJson),
                 db, tenant, currentUser, audit, ct);
 
             return Results.Created($"/api/v1/catalog/environments/{response.Id}", response).WithEtag(response.Version);

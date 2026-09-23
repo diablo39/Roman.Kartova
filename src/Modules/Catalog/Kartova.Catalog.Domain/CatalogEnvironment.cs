@@ -22,7 +22,6 @@ public sealed class CatalogEnvironment : ITenantOwned
     public string Description { get; private set; } = string.Empty;
     public EnvironmentType Type { get; private set; }
     public string? Region { get; private set; }
-    public string? Cluster { get; private set; }
     public string ResourceDetails { get; private set; } = "{}";
     public Guid CreatedByUserId { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
@@ -32,7 +31,7 @@ public sealed class CatalogEnvironment : ITenantOwned
 
     private CatalogEnvironment(
         EnvironmentId id, TenantId tenantId, string displayName, string description, EnvironmentType type,
-        string? region, string? cluster, string resourceDetailsJson, Guid createdByUserId, DateTimeOffset createdAt)
+        string? region, string resourceDetailsJson, Guid createdByUserId, DateTimeOffset createdAt)
     {
         _id = id.Value;
         TenantId = tenantId;
@@ -40,23 +39,22 @@ public sealed class CatalogEnvironment : ITenantOwned
         Description = description;
         Type = type;
         Region = region;
-        Cluster = cluster;
         ResourceDetails = resourceDetailsJson;
         CreatedByUserId = createdByUserId;
         CreatedAt = createdAt;
     }
 
     public static CatalogEnvironment Create(
-        string displayName, string description, EnvironmentType type, string? region, string? cluster,
+        string displayName, string description, EnvironmentType type, string? region,
         string resourceDetailsJson, Guid createdByUserId, TenantId tenantId, TimeProvider clock)
     {
         ArgumentNullException.ThrowIfNull(clock);
-        return Create(displayName, description, type, region, cluster, resourceDetailsJson, createdByUserId, tenantId, clock.GetUtcNow());
+        return Create(displayName, description, type, region, resourceDetailsJson, createdByUserId, tenantId, clock.GetUtcNow());
     }
 
     /// <summary>Overload taking an explicit <paramref name="createdAt"/> — for seed/test fixtures.</summary>
     public static CatalogEnvironment Create(
-        string displayName, string description, EnvironmentType type, string? region, string? cluster,
+        string displayName, string description, EnvironmentType type, string? region,
         string resourceDetailsJson, Guid createdByUserId, TenantId tenantId, DateTimeOffset createdAt)
     {
         ValidateDisplayName(displayName);
@@ -64,14 +62,12 @@ public sealed class CatalogEnvironment : ITenantOwned
         if (!Enum.IsDefined(type))
             throw new ArgumentException("Unknown environment type.", nameof(type));
         region = Normalize(region);
-        cluster = Normalize(cluster);
         ValidateOptional(region, nameof(region));
-        ValidateOptional(cluster, nameof(cluster));
         ValidateResourceDetails(resourceDetailsJson);
         if (createdByUserId == Guid.Empty)
             throw new ArgumentException("createdByUserId is required.", nameof(createdByUserId));
 
-        return new CatalogEnvironment(EnvironmentId.New(), tenantId, displayName, description, type, region, cluster, resourceDetailsJson, createdByUserId, createdAt);
+        return new CatalogEnvironment(EnvironmentId.New(), tenantId, displayName, description, type, region, resourceDetailsJson, createdByUserId, createdAt);
     }
 
     private static void ValidateDisplayName(string displayName)

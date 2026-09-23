@@ -21,7 +21,6 @@ namespace Kartova.Catalog.Infrastructure.Migrations
                     description = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: false),
                     type = table.Column<short>(type: "smallint", nullable: false),
                     region = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
-                    cluster = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     resource_details = table.Column<string>(type: "jsonb", nullable: false),
                     created_by_user_id = table.Column<Guid>(type: "uuid", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),

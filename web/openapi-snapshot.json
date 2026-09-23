@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:18080/"
+      "url": "http://localhost:8080/"
     }
   ],
   "paths": {
@@ -2871,6 +2871,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "409": {
             "description": "Conflict",
             "content": {
@@ -5241,7 +5251,6 @@
           "description",
           "type",
           "region",
-          "cluster",
           "resourceDetails",
           "createdByUserId",
           "createdAt",
@@ -5267,12 +5276,6 @@
             "$ref": "#/components/schemas/EnvironmentType"
           },
           "region": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "cluster": {
             "type": [
               "null",
               "string"
@@ -5305,7 +5308,6 @@
           "description",
           "type",
           "region",
-          "cluster",
           "createdByUserId",
           "createdAt"
         ],
@@ -5329,12 +5331,6 @@
             "$ref": "#/components/schemas/EnvironmentType"
           },
           "region": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "cluster": {
             "type": [
               "null",
               "string"
@@ -6001,7 +5997,6 @@
           "description",
           "type",
           "region",
-          "cluster",
           "resourceDetails"
         ],
         "type": "object",
@@ -6016,12 +6011,6 @@
             "$ref": "#/components/schemas/EnvironmentType"
           },
           "region": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "cluster": {
             "type": [
               "null",
               "string"

@@ -17,7 +17,7 @@ public sealed class GetEnvironmentByIdHandler
         if (env is null) return null;
 
         return new EnvironmentDetailResponse(
-            env.Id.Value, env.TenantId.Value, env.DisplayName, env.Description, env.Type, env.Region, env.Cluster,
+            env.Id.Value, env.TenantId.Value, env.DisplayName, env.Description, env.Type, env.Region,
             EnvironmentResourceDetails.FromJson(env.ResourceDetails), env.CreatedByUserId, env.CreatedAt,
             VersionEncoding.Encode(env.Xmin));
     }

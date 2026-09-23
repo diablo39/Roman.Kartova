@@ -7,9 +7,6 @@ import type { CursorListResult, SortDirection } from "@/lib/list/types";
 import type { EnvironmentListItemResponse } from "@/features/catalog/api/environments";
 
 // Wire names per EnvironmentSortField (Kartova.Catalog.Contracts) — camelCase, ADR-0095.
-// `cluster` is NOT in the backend allowlist (no sortable column for it), so its
-// Table.Head below stays a plain (non-sortable) header — mirrors VmTable's
-// ipAddresses/team columns.
 const SORT_FIELDS = ["displayName", "createdAt", "type", "region"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
 
@@ -50,10 +47,9 @@ export function EnvironmentTable({ list, sortBy, sortOrder, onSortChange }: Prop
           <Table.Head id="displayName" isRowHeader>Name</Table.Head>
           <Table.Head id="type">Type</Table.Head>
           <Table.Head id="region">Region</Table.Head>
-          <Table.Head id="cluster">Cluster</Table.Head>
           <Table.Head id="createdAt">Created</Table.Head>
         </Table.Header>
-        <TableSkeleton rows={5} cells={5} />
+        <TableSkeleton rows={5} cells={4} />
       </Table>
     );
   }
@@ -85,7 +81,6 @@ export function EnvironmentTable({ list, sortBy, sortOrder, onSortChange }: Prop
           <SortableHead id="displayName" isRowHeader>Name</SortableHead>
           <SortableHead id="type">Type</SortableHead>
           <SortableHead id="region">Region</SortableHead>
-          <Table.Head id="cluster">Cluster</Table.Head>
           <SortableHead id="createdAt">Created</SortableHead>
         </Table.Header>
         <Table.Body>
@@ -103,7 +98,6 @@ export function EnvironmentTable({ list, sortBy, sortOrder, onSortChange }: Prop
                 <EnvironmentTypeBadge type={env.type} />
               </Table.Cell>
               <Table.Cell className="text-sm">{env.region ?? "—"}</Table.Cell>
-              <Table.Cell className="text-sm">{env.cluster ?? "—"}</Table.Cell>
               <Table.Cell className="text-sm text-tertiary">
                 {env.createdAt ? new Date(env.createdAt).toLocaleDateString() : "—"}
               </Table.Cell>

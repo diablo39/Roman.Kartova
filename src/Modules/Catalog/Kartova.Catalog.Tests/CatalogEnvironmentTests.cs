@@ -15,9 +15,8 @@ public class CatalogEnvironmentTests
         string description = "Primary prod cluster",
         EnvironmentType type = EnvironmentType.Production,
         string? region = "eu-west-1",
-        string? cluster = "prod-eu-1",
         string resourceDetailsJson = "{}")
-        => CatalogEnvironment.Create(displayName, description, type, region, cluster,
+        => CatalogEnvironment.Create(displayName, description, type, region,
             resourceDetailsJson, User, Tenant, new FakeTimeProvider());
 
     [TestMethod]
@@ -28,7 +27,6 @@ public class CatalogEnvironmentTests
         Assert.AreEqual("Primary prod cluster", env.Description);
         Assert.AreEqual(EnvironmentType.Production, env.Type);
         Assert.AreEqual("eu-west-1", env.Region);
-        Assert.AreEqual("prod-eu-1", env.Cluster);
         Assert.AreEqual("{}", env.ResourceDetails);
         Assert.AreEqual(User, env.CreatedByUserId);
         Assert.AreEqual(Tenant, env.TenantId);
@@ -63,15 +61,10 @@ public class CatalogEnvironmentTests
         => Assert.ThrowsExactly<ArgumentException>(() => Create(region: new string('x', 257)));
 
     [TestMethod]
-    public void Create_rejects_cluster_over_256()
-        => Assert.ThrowsExactly<ArgumentException>(() => Create(cluster: new string('x', 257)));
-
-    [TestMethod]
-    public void Create_normalizes_blank_region_and_cluster_to_null()
+    public void Create_normalizes_blank_region_to_null()
     {
-        var env = Create(region: "  ", cluster: "");
+        var env = Create(region: "  ");
         Assert.IsNull(env.Region);
-        Assert.IsNull(env.Cluster);
     }
 
     [DataRow("")]
@@ -84,6 +77,6 @@ public class CatalogEnvironmentTests
     [TestMethod]
     public void Create_rejects_empty_created_by()
         => Assert.ThrowsExactly<ArgumentException>(() =>
-            CatalogEnvironment.Create("n", "d", EnvironmentType.Development, null, null, "{}",
+            CatalogEnvironment.Create("n", "d", EnvironmentType.Development, null, "{}",
                 Guid.Empty, Tenant, new FakeTimeProvider()));
 }

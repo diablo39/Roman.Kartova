@@ -42,7 +42,6 @@ public sealed class EfEnvironmentConfiguration : IEntityTypeConfiguration<Catalo
             .IsRequired();
 
         b.Property(x => x.Region).HasColumnName("region").HasMaxLength(256);
-        b.Property(x => x.Cluster).HasColumnName("cluster").HasMaxLength(256);
 
         b.Property(x => x.ResourceDetails)
             .HasColumnName("resource_details")

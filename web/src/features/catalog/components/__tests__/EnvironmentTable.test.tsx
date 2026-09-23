@@ -15,7 +15,6 @@ function envItem(overrides: Partial<EnvironmentListItemResponse> = {}): Environm
     description: "Prod environment",
     type: "production",
     region: "eu-west-1",
-    cluster: "prod-eu-west-1",
     createdByUserId: "00000000-0000-0000-0000-0000000000aa",
     createdAt: "2026-04-30T00:00:00Z",
     ...overrides,
@@ -60,24 +59,23 @@ describe("EnvironmentTable", () => {
   it("renders the expected columns", () => {
     renderTable([envItem()]);
 
-    for (const name of ["Name", "Type", "Region", "Cluster", "Created"]) {
+    for (const name of ["Name", "Type", "Region", "Created"]) {
       expect(screen.getByRole("columnheader", { name })).toBeInTheDocument();
     }
   });
 
-  it("renders each row's displayName, type badge, region, and cluster", () => {
+  it("renders each row's displayName, type badge, and region", () => {
     renderTable([
-      envItem({ id: "env-1", displayName: "Production", type: "production", region: "eu-west-1", cluster: "prod-eu-west-1" }),
-      envItem({ id: "env-2", displayName: "Staging", type: "staging", region: null, cluster: null }),
+      envItem({ id: "env-1", displayName: "Production", type: "production", region: "eu-west-1" }),
+      envItem({ id: "env-2", displayName: "Staging", type: "staging", region: null }),
     ]);
 
     const prodRow = screen.getByRole("row", { name: /production/i });
     expect(prodRow).toHaveTextContent("Production");
     expect(prodRow).toHaveTextContent("eu-west-1");
-    expect(prodRow).toHaveTextContent("prod-eu-west-1");
 
     const stagingRow = screen.getByRole("row", { name: /staging/i });
-    // null region/cluster render as an em dash placeholder.
+    // null region renders as an em dash placeholder.
     expect(stagingRow).toHaveTextContent("—");
   });
 

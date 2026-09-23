@@ -26,7 +26,7 @@ public sealed class RegisterEnvironmentHandler
         CancellationToken ct)
     {
         var env = CatalogEnvironment.Create(
-            cmd.DisplayName, cmd.Description, cmd.Type, cmd.Region, cmd.Cluster, cmd.ResourceDetailsJson,
+            cmd.DisplayName, cmd.Description, cmd.Type, cmd.Region, cmd.ResourceDetailsJson,
             user.UserId, tenant.Id, _clock);
 
         db.Environments.Add(env);
@@ -43,7 +43,7 @@ public sealed class RegisterEnvironmentHandler
             }), ct);
 
         return new EnvironmentDetailResponse(
-            env.Id.Value, env.TenantId.Value, env.DisplayName, env.Description, env.Type, env.Region, env.Cluster,
+            env.Id.Value, env.TenantId.Value, env.DisplayName, env.Description, env.Type, env.Region,
             EnvironmentResourceDetails.FromJson(env.ResourceDetails), env.CreatedByUserId, env.CreatedAt,
             VersionEncoding.Encode(env.Xmin));
     }

@@ -32,7 +32,6 @@ const DEFAULT_VALUES: RegisterEnvironmentForm = {
   description: "",
   type: "development",
   region: "",
-  cluster: "",
 };
 
 // RFC 7807 `type` URI slug for Kartova.SharedKernel.AspNetCore.ProblemTypes.EnvironmentNameConflict
@@ -43,7 +42,7 @@ const ENVIRONMENT_NAME_CONFLICT_TAIL = "environment-name-conflict";
 /**
  * Register-Environment modal (E-02.F-05.S-01). Environments have no owning team (unlike
  * VM/Application/Service/API registration) — no team `<select>`, no "Team is required"
- * side-state. Fields: displayName, description, type, region, cluster.
+ * side-state. Fields: displayName, description, type, region.
  *
  * On submit, `resourceDetails` is always sent as `null` — `RegisterEnvironmentRequest.resourceDetails`
  * is required-but-nullable on the wire (per-type resource attributes) and this A1 form does not
@@ -76,7 +75,6 @@ export function RegisterEnvironmentDialog({ open, onOpenChange }: Props) {
       description: values.description,
       type: values.type,
       region: values.region || null,
-      cluster: values.cluster || null,
       resourceDetails: null,
     };
 
@@ -179,18 +177,6 @@ export function RegisterEnvironmentDialog({ open, onOpenChange }: Props) {
                   )}
                 </FormField>
               </div>
-
-              <FormField name="cluster" control={form.control}>
-                {({ field, fieldState }) => (
-                  <Input
-                    label="Cluster"
-                    placeholder="prod-eu-west-1"
-                    hint={fieldState.error?.message}
-                    isInvalid={!!fieldState.error}
-                    {...field}
-                  />
-                )}
-              </FormField>
 
               <div>
                 <p className="text-xs uppercase tracking-wide text-tertiary">Created by</p>

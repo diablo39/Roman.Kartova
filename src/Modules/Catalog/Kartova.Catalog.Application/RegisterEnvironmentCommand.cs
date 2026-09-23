@@ -10,5 +10,4 @@ public sealed record RegisterEnvironmentCommand(
     string Description,
     EnvironmentType Type,
     string? Region,
-    string? Cluster,
     string ResourceDetailsJson);

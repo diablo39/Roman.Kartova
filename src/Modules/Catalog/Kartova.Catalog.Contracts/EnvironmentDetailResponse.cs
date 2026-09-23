@@ -11,7 +11,6 @@ public sealed record EnvironmentDetailResponse(
     string Description,
     EnvironmentType Type,
     string? Region,
-    string? Cluster,
     IReadOnlyDictionary<string, string> ResourceDetails,
     Guid CreatedByUserId,
     DateTimeOffset CreatedAt,

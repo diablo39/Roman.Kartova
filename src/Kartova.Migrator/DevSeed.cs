@@ -415,15 +415,15 @@ internal static class DevSeed
                 {
                     Kartova.Catalog.Domain.CatalogEnvironment.Create(
                         "Development", "Seeded environment: shared development deployment target.",
-                        Kartova.Catalog.Domain.EnvironmentType.Development, "eu-west-1", "k8s-dev",
+                        Kartova.Catalog.Domain.EnvironmentType.Development, "eu-west-1",
                         "{}", TeamAdminUserId, new TenantId(OrgATenantId), origin),
                     Kartova.Catalog.Domain.CatalogEnvironment.Create(
                         "Staging", "Seeded environment: pre-production staging deployment target.",
-                        Kartova.Catalog.Domain.EnvironmentType.Staging, "eu-west-1", "k8s-staging",
+                        Kartova.Catalog.Domain.EnvironmentType.Staging, "eu-west-1",
                         "{}", TeamAdminUserId, new TenantId(OrgATenantId), origin.AddMinutes(1)),
                     Kartova.Catalog.Domain.CatalogEnvironment.Create(
                         "Production", "Seeded environment: customer-facing production deployment target.",
-                        Kartova.Catalog.Domain.EnvironmentType.Production, "eu-west-1", "k8s-prod",
+                        Kartova.Catalog.Domain.EnvironmentType.Production, "eu-west-1",
                         "{}", TeamAdminUserId, new TenantId(OrgATenantId), origin.AddMinutes(2)),
                 };
 
@@ -432,8 +432,8 @@ internal static class DevSeed
                     await using var insertCmd = conn.CreateCommand();
                     insertCmd.CommandText = """
                         INSERT INTO catalog_environments
-                            (id, tenant_id, display_name, description, type, region, cluster, resource_details, created_by_user_id, created_at)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10);
+                            (id, tenant_id, display_name, description, type, region, resource_details, created_by_user_id, created_at)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9);
                         """;
                     insertCmd.Parameters.AddWithValue(environment.Id.Value);
                     insertCmd.Parameters.AddWithValue(environment.TenantId.Value);
@@ -441,7 +441,6 @@ internal static class DevSeed
                     insertCmd.Parameters.AddWithValue(environment.Description);
                     insertCmd.Parameters.AddWithValue((short)environment.Type);
                     insertCmd.Parameters.AddWithValue(environment.Region as object ?? DBNull.Value);
-                    insertCmd.Parameters.AddWithValue(environment.Cluster as object ?? DBNull.Value);
                     insertCmd.Parameters.AddWithValue(environment.ResourceDetails);
                     insertCmd.Parameters.AddWithValue(environment.CreatedByUserId);
                     insertCmd.Parameters.AddWithValue(environment.CreatedAt);

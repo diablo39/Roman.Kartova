@@ -100,7 +100,6 @@ export function EnvironmentDetailPage() {
           <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Field label="ID" value={env.id} mono />
             <Field label="Region" value={env.region ?? "—"} />
-            <Field label="Cluster" value={env.cluster ?? "—"} />
             <div>
               <div className="text-xs uppercase tracking-wide text-tertiary">Created by</div>
               <div className="mt-1 text-sm">

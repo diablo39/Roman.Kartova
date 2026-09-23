@@ -7,7 +7,6 @@ export const registerEnvironmentSchema = z.object({
   description: z.string().trim().min(1, "Description is required").max(4096),
   type: z.enum(environmentTypes),
   region: z.string().trim().max(256).optional().or(z.literal("")),
-  cluster: z.string().trim().max(256).optional().or(z.literal("")),
 });
 
 export type RegisterEnvironmentForm = z.infer<typeof registerEnvironmentSchema>;

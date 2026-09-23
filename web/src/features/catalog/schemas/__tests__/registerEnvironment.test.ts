@@ -4,7 +4,7 @@ import { registerEnvironmentSchema } from "../registerEnvironment";
 describe("registerEnvironmentSchema", () => {
   it("accepts a valid environment", () => {
     const r = registerEnvironmentSchema.safeParse({
-      displayName: "Prod EU", description: "primary", type: "production", region: "eu", cluster: "c1",
+      displayName: "Prod EU", description: "primary", type: "production", region: "eu",
     });
     expect(r.success).toBe(true);
   });

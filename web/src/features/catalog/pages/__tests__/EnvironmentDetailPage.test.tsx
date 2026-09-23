@@ -22,7 +22,6 @@ function baseEnv(overrides: Record<string, unknown> = {}) {
     description: "Primary production environment",
     type: "production",
     region: "eu-west-1",
-    cluster: "prod-eu-west-1",
     resourceDetails: { clusterSize: "5" },
     createdByUserId: "00000000-0000-0000-0000-0000000000aa",
     createdAt: "2026-04-30T00:00:00Z",
@@ -52,15 +51,13 @@ describe("EnvironmentDetailPage", () => {
     expect(screen.getByTestId("environment-detail-skeleton")).toBeInTheDocument();
   });
 
-  it("renders name, type, region, cluster, resource details, and created info", () => {
+  it("renders name, type, region, resource details, and created info", () => {
     useEnvironmentMock.mockReturnValue({ isLoading: false, isError: false, data: baseEnv() });
     renderPage();
 
     expect(screen.getByText("Prod Environment")).toBeInTheDocument();
     expect(screen.getByText("Region")).toBeInTheDocument();
     expect(screen.getByText("eu-west-1")).toBeInTheDocument();
-    expect(screen.getByText("Cluster")).toBeInTheDocument();
-    expect(screen.getByText("prod-eu-west-1")).toBeInTheDocument();
     expect(screen.getByText("clusterSize")).toBeInTheDocument();
     expect(screen.getByText("5")).toBeInTheDocument();
     expect(screen.getByText(ENV_ID)).toBeInTheDocument();
@@ -112,11 +109,11 @@ describe("EnvironmentDetailPage", () => {
     expect(screen.getByText("No description")).toBeInTheDocument();
   });
 
-  it("renders em-dash placeholders when region/cluster are null and no resource details", () => {
+  it("renders em-dash placeholders when region is null and no resource details", () => {
     useEnvironmentMock.mockReturnValue({
       isLoading: false,
       isError: false,
-      data: baseEnv({ region: null, cluster: null, resourceDetails: {} }),
+      data: baseEnv({ region: null, resourceDetails: {} }),
     });
     renderPage();
 
