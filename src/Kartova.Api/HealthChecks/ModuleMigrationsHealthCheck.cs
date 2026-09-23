@@ -11,8 +11,9 @@ namespace Kartova.Api.HealthChecks;
 /// Resolves each module's DbContext from <paramref name="migrationsCheckProvider"/>,
 /// a dedicated provider built (in Program.cs) via each module's
 /// <see cref="IModule.RegisterForMigrator"/> override — the same tenant-scope-free
-/// registration Kartova.Migrator itself uses, and the same GetService(module.DbContextType)
-/// resolution mechanism, since production's normal registration (AddModuleDbContext,
+/// registration Kartova.Migrator itself uses, and the same DbContextType-keyed
+/// resolution (expressed here as GetRequiredService, Migrator's own GetService),
+/// since production's normal registration (AddModuleDbContext,
 /// ADR-0090) requires an active per-request ITenantScope that health checks never have.
 /// __EFMigrationsHistory is a global, non-tenant table, so none is needed here either.
 /// </summary>

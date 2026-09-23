@@ -315,8 +315,13 @@ public class Program
 #pragma warning disable ASP0000 // Intentional: this container holds only the plain
     // module DbContexts RegisterForMigrator registers — no overlap with builder.Services,
     // so this does not create extra copies of any app singleton (the risk ASP0000 warns
-    // about). The returned instance is registered as an app singleton, so the root
-    // provider owns and disposes it with the app.
+    // about). Accepted trade-off, not a false alarm: registering a pre-built instance via
+    // AddSingleton(instance) means the root container does NOT dispose it (the container
+    // only disposes services it constructs itself, via a type/factory registration) — this
+    // provider is intentionally never disposed, acceptable since it's process-lifetime-scoped
+    // and process exit reclaims the underlying connections regardless (gate-8 deep-review
+    // finding, 2026-09-23 — verified empirically, corrects an earlier version of this comment
+    // that wrongly claimed the container disposes it).
     private static ServiceProvider BuildMigrationsCheckProvider(IModule[] modules, IConfiguration configuration)
     {
         var services = new ServiceCollection();
