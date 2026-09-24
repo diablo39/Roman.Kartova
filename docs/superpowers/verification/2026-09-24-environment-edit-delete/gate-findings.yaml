@@ -1,6 +1,6 @@
 slice: 2026-09-24-environment-edit-delete
 branch: feat/catalog-environment-a2-edit-delete
-terminal_commit: PENDING  # update to the final commit sha before closing the slice
+terminal_commit: c7f95ee
 
 findings:
   - gate: reviews

@@ -1,6 +1,6 @@
 # DoD Ledger — Environment edit + delete (sub-slice A2)
 
-**Slice:** `2026-09-24-environment-edit-delete` · **Branch:** `feat/catalog-environment-a2-edit-delete` · **HEAD:** (pending final commit)
+**Slice:** `2026-09-24-environment-edit-delete` · **Branch:** `feat/catalog-environment-a2-edit-delete` · **HEAD:** `c7f95ee`
 **PR:** #97 · **Last updated:** 2026-09-24
 **Spec:** `docs/superpowers/specs/2026-09-18-environment-deployment-tracking-design.md` (feature-level; sub-slice A2 scope = the `Edit`/`PUT`/`DELETE` rows)
 **Plan:** none — classified **bounded** via `superpowers:brainstorming` (existing Environment CRUD flow, mirroring the existing VM edit/delete slice); no plan doc. Bounded classification excuses the plan/ledger *paperwork* default, not the gates themselves — this ledger was added retroactively after the omission was flagged.
