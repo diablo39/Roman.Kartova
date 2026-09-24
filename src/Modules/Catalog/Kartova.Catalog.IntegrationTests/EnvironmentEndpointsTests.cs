@@ -361,7 +361,6 @@ public sealed class EnvironmentEndpointsTests : CatalogIntegrationTestBase
     private static EditEnvironmentRequest EditFrom(EnvironmentDetailResponse created, string? displayName = null) => new(
         DisplayName: displayName ?? created.DisplayName,
         Description: created.Description,
-        Type: created.Type,
         Region: created.Region,
         ResourceDetails: created.ResourceDetails);
 
@@ -414,7 +413,88 @@ public sealed class EnvironmentEndpointsTests : CatalogIntegrationTestBase
         var resp = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "Put Conflict B")));
 
         Assert.AreEqual(HttpStatusCode.Conflict, resp.StatusCode);
-        StringAssert.Contains(await resp.Content.ReadAsStringAsync(), "environment-name-conflict");
+        var problem = await resp.Content.ReadFromJsonAsync<ProblemPayload>();
+        Assert.AreEqual(ProblemTypes.EnvironmentNameConflict, problem!.Type);
+    }
+
+    /// <summary>Design §"Domain": <c>Edit</c> — "<c>Type</c> immutable". A PUT body with a
+    /// different <c>type</c> is accepted (the request no longer carries a `type` field to
+    /// change), and the stored type is unaffected.</summary>
+    [TestMethod]
+    public async Task Put_TypeStaysUnchanged()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put-type-immutable.test");
+        var created = await RegisterEnvAsync(client, "Type Immutable Env");
+        Assert.AreEqual(EnvironmentType.Production, created.Type);
+
+        var resp = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "Type Immutable Env Renamed")));
+
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var body = await resp.Content.ReadFromJsonAsync<EnvironmentDetailResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(EnvironmentType.Production, body!.Type);
+    }
+
+    /// <summary>Deterministic (no threads) reproduction of the 23505-race backstop on the
+    /// UPDATE path — mirrors <see cref="RegisterEnvironment_race_backstop_returns_409_not_500"/>
+    /// but exercises <see cref="CatalogEndpointDelegates.EditEnvironmentAsync"/>'s shared
+    /// <c>IsEnvironmentNameConflictRace</c> catch instead of Register's. A concurrent writer's
+    /// raw-SQL rename lands between this request's own pre-check and its SaveChangesAsync.</summary>
+    [TestMethod]
+    public async Task EditEnvironment_race_backstop_returns_409_not_500()
+    {
+        var tenant = Fx.TenantIdForEmail("admin@env-edit-race.test");
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-edit-race.test");
+        var created = await RegisterEnvAsync(client, "Edit Race Env");
+        const string racingName = "Edit Race Winner";
+
+        var raced = false;
+        var interceptor = new RaceOnSaveInterceptor(
+            tracker => tracker.Entries<CatalogEnvironment>().Any(e => e.State == EntityState.Modified),
+            async () =>
+            {
+                raced = true;
+                await using var conn = new NpgsqlConnection(Fx.BypassConnectionString);
+                await conn.OpenAsync();
+                await using var cmd = conn.CreateCommand();
+                cmd.CommandText = """
+                    INSERT INTO catalog_environments
+                        (id, tenant_id, display_name, description, type, resource_details, created_by_user_id, created_at)
+                    VALUES ($1, $2, $3, 'race-winner', 0, '{}', $4, NOW())
+                    """;
+                cmd.Parameters.AddWithValue(Guid.NewGuid());
+                cmd.Parameters.AddWithValue(tenant.Value);
+                cmd.Parameters.AddWithValue(racingName);
+                cmd.Parameters.AddWithValue(Guid.NewGuid());
+                await cmd.ExecuteNonQueryAsync();
+            });
+        var options = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseNpgsql(Fx.BypassConnectionString)
+            .AddInterceptors(interceptor)
+            .Options;
+        await using var db = new CatalogDbContext(options);
+
+        var result = await CatalogEndpointDelegates.EditEnvironmentAsync(
+            created.Id,
+            new EditEnvironmentRequest(racingName, "renamed", created.Region, created.ResourceDetails),
+            new EditEnvironmentHandler(),
+            db,
+            FakeHttpContextWithIfMatch(created.Version),
+            new NoOpAuditWriter(),
+            NullLogger<EditEnvironmentHandler>.Instance, default);
+
+        Assert.IsTrue(raced, "the interceptor must actually have raced the rename for this test to be meaningful");
+        var problem = result as ProblemHttpResult;
+        Assert.IsNotNull(problem, $"expected a ProblemHttpResult (409), got {result.GetType().Name}");
+        Assert.AreEqual(StatusCodes.Status409Conflict, problem!.StatusCode);
+        Assert.AreEqual(ProblemTypes.EnvironmentNameConflict, problem.ProblemDetails.Type);
+    }
+
+    private static HttpContext FakeHttpContextWithIfMatch(string version)
+    {
+        Assert.IsTrue(VersionEncoding.TryDecode(version, out var expected), "test setup: version must decode");
+        var http = new DefaultHttpContext();
+        http.Items[IfMatchEndpointFilter.ExpectedVersionKey] = expected;
+        return http;
     }
 
     [TestMethod]
@@ -459,7 +539,7 @@ public sealed class EnvironmentEndpointsTests : CatalogIntegrationTestBase
     }
 
     [TestMethod]
-    public async Task Put_WithoutRegisterPerm_Returns403()
+    public async Task Put_WithoutEditPerm_Returns403()
     {
         var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put-noperm.test");
         var created = await RegisterEnvAsync(client, "NoPerm Env");
@@ -470,6 +550,37 @@ public sealed class EnvironmentEndpointsTests : CatalogIntegrationTestBase
         var resp = await viewer.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "Hijacked")));
 
         Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
+    }
+
+    /// <summary>Proves the edit gate is <c>CatalogEnvironmentsEdit</c>, granted to Member (not
+    /// just OrgAdmin) — a Member has no register-perm dependency here since Edit is its own
+    /// dedicated permission (design §"Permissions").</summary>
+    [TestMethod]
+    public async Task Put_AsMemberWithEditPerm_Returns200()
+    {
+        var admin = await Fx.CreateAuthenticatedClientAsync("admin@env-put-member.test");
+        var created = await RegisterEnvAsync(admin, "Member Edit Env");
+
+        var member = await Fx.CreateAuthenticatedClientAsync(
+            "member-env-edit@env-put-member.test", new[] { KartovaRoles.Member });
+
+        var resp = await member.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "Member Edit Env v2")));
+
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode, $"EditEnvironment failed: {await resp.Content.ReadAsStringAsync()}");
+    }
+
+    /// <summary>gate-7 C1 equivalent: a blank display name on PUT must surface the global 400
+    /// ValidationFailed mapping (mirrors <c>Put_BadAttributes_Returns400</c> in
+    /// InfrastructureVmWriteTests) — not previously exercised for the Environment PUT path.</summary>
+    [TestMethod]
+    public async Task Put_BlankDisplayName_Returns400()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put-blank-name.test");
+        var created = await RegisterEnvAsync(client, "Blank Name Base");
+
+        var resp = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "")));
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
     }
 
     [TestMethod]
@@ -568,9 +679,15 @@ public sealed class EnvironmentEndpointsTests : CatalogIntegrationTestBase
 
         var put = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "Delete Stale Env v2")));
         Assert.AreEqual(HttpStatusCode.OK, put.StatusCode);
+        var putBody = await put.Content.ReadFromJsonAsync<EnvironmentDetailResponse>(KartovaApiFixtureBase.WireJson);
 
         var del = await client.SendAsync(NewDelete(created.Id, created.Version));
         Assert.AreEqual(HttpStatusCode.PreconditionFailed, del.StatusCode);
+
+        // gate-7 T2 equivalent: currentVersion capture works end-to-end on the DELETE
+        // path too, not just PUT (Put_StaleIfMatch_Returns412 covers PUT).
+        var problem = await del.Content.ReadFromJsonAsync<ProblemPayload>();
+        Assert.AreEqual(putBody!.Version, problem!.CurrentVersion);
     }
 
     [TestMethod]

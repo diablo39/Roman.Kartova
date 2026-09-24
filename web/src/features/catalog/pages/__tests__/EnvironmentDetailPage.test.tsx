@@ -143,10 +143,10 @@ describe("EnvironmentDetailPage", () => {
     expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
   });
 
-  it("shows Edit when CatalogEnvironmentsRegister is granted", () => {
+  it("shows Edit when CatalogEnvironmentsEdit is granted", () => {
     usePermissionsMock.mockReturnValue({
       role: "Member",
-      hasPermission: (p: string) => p === "catalog.environments.register",
+      hasPermission: (p: string) => p === "catalog.environments.edit",
       isLoading: false,
       isError: false,
     });

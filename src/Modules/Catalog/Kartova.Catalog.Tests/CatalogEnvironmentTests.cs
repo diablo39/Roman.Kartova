@@ -81,23 +81,30 @@ public class CatalogEnvironmentTests
                 Guid.Empty, Tenant, new FakeTimeProvider()));
 
     [TestMethod]
-    public void Edit_replaces_all_fields()
+    public void Edit_replaces_mutable_fields()
     {
         var env = Create();
-        env.Edit("Staging APAC", "Secondary staging cluster", EnvironmentType.Staging, "ap-southeast-1", "{\"k\":\"v\"}");
+        env.Edit("Staging APAC", "Secondary staging cluster", "ap-southeast-1", "{\"k\":\"v\"}");
 
         Assert.AreEqual("Staging APAC", env.DisplayName);
         Assert.AreEqual("Secondary staging cluster", env.Description);
-        Assert.AreEqual(EnvironmentType.Staging, env.Type);
         Assert.AreEqual("ap-southeast-1", env.Region);
         Assert.AreEqual("{\"k\":\"v\"}", env.ResourceDetails);
+    }
+
+    [TestMethod]
+    public void Edit_leaves_type_unchanged()
+    {
+        var env = Create(type: EnvironmentType.Production);
+        env.Edit("Renamed", env.Description, env.Region, env.ResourceDetails);
+        Assert.AreEqual(EnvironmentType.Production, env.Type);
     }
 
     [TestMethod]
     public void Edit_normalizes_blank_region_to_null()
     {
         var env = Create();
-        env.Edit(env.DisplayName, env.Description, env.Type, "   ", env.ResourceDetails);
+        env.Edit(env.DisplayName, env.Description, "   ", env.ResourceDetails);
         Assert.IsNull(env.Region);
     }
 
@@ -107,7 +114,7 @@ public class CatalogEnvironmentTests
     public void Edit_rejects_blank_display_name(string name)
     {
         var env = Create();
-        Assert.ThrowsExactly<ArgumentException>(() => env.Edit(name, env.Description, env.Type, env.Region, env.ResourceDetails));
+        Assert.ThrowsExactly<ArgumentException>(() => env.Edit(name, env.Description, env.Region, env.ResourceDetails));
     }
 
     [TestMethod]
@@ -115,15 +122,7 @@ public class CatalogEnvironmentTests
     {
         var env = Create();
         Assert.ThrowsExactly<ArgumentException>(() =>
-            env.Edit(new string('x', 129), env.Description, env.Type, env.Region, env.ResourceDetails));
-    }
-
-    [TestMethod]
-    public void Edit_rejects_unknown_type()
-    {
-        var env = Create();
-        Assert.ThrowsExactly<ArgumentException>(() =>
-            env.Edit(env.DisplayName, env.Description, (EnvironmentType)99, env.Region, env.ResourceDetails));
+            env.Edit(new string('x', 129), env.Description, env.Region, env.ResourceDetails));
     }
 
     [DataRow("")]
@@ -132,6 +131,6 @@ public class CatalogEnvironmentTests
     public void Edit_rejects_invalid_resource_details_json(string json)
     {
         var env = Create();
-        Assert.ThrowsExactly<ArgumentException>(() => env.Edit(env.DisplayName, env.Description, env.Type, env.Region, json));
+        Assert.ThrowsExactly<ArgumentException>(() => env.Edit(env.DisplayName, env.Description, env.Region, json));
     }
 }

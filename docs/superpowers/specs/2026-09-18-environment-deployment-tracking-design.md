@@ -75,7 +75,7 @@ A new ADR — *"Environment & Deployment as catalog entities"* — records decis
 | # | Story | Scope | Notes |
 |---|-------|-------|-------|
 | A | S-01 | `EntityKind.Environment` + `EnvironmentType` + `Environment` aggregate + table/RLS/migration + CRUD endpoints + env permissions + list/detail/dialog FE + new ADR | walking skeleton for the subsystem |
-| B | S-02 | `Deployment` aggregate + table/RLS/migration + record endpoint + history list endpoint + `CatalogDeploymentsRecord` perm + FE history section + record dialog | depends on A (env must exist) |
+| B | S-02 | `Deployment` aggregate + table/RLS/migration + record endpoint + history list endpoint + `CatalogDeploymentsRecord` perm + FE history section + record dialog + **wire the `DELETE /catalog/environments/{id}` 409 `environment-has-deployments` guard** (unreachable in sub-slice A2 — no Deployment table exists yet, so A2's delete is unconditional; B must add the existence check before shipping, or the guard silently never fires) | depends on A (env must exist) |
 | C | S-03 | matrix read model + `/catalog/deployment-matrix` endpoint + matrix FE view (config-diff highlight) | depends on B (reads deployments) |
 
 Each sub-slice is independently shippable and stays within the ~800-line ceiling; if a plan projects over, decompose further at `brainstorming`/`writing-plans` time.

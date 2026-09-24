@@ -71,23 +71,22 @@ public sealed class CatalogEnvironment : ITenantOwned
     }
 
     /// <summary>
-    /// Full-replacement edit (A2). No field is immutable — Environment has no owning
-    /// team to protect (unlike <c>InfrastructureResource.Edit</c>, which keeps
-    /// <c>TeamId</c> fixed). Same invariants as <see cref="Create"/>.
+    /// Metadata edit (A2, design §"Domain": "<c>Edit</c> (metadata only — <c>Type</c>
+    /// immutable, mirrors <see cref="InfrastructureResource.Edit"/>)"). <c>Type</c> is
+    /// intentionally NOT a parameter here — unlike <c>InfrastructureResource.Edit</c>'s
+    /// immutable <c>TeamId</c>, Environment's immutable field is its type. Same
+    /// invariants as <see cref="Create"/> for the mutable fields.
     /// </summary>
-    public void Edit(string displayName, string description, EnvironmentType type, string? region, string resourceDetailsJson)
+    public void Edit(string displayName, string description, string? region, string resourceDetailsJson)
     {
         ValidateDisplayName(displayName);
         ValidateDescription(description);
-        if (!Enum.IsDefined(type))
-            throw new ArgumentException("Unknown environment type.", nameof(type));
         region = Normalize(region);
         ValidateOptional(region, nameof(region));
         ValidateResourceDetails(resourceDetailsJson);
 
         DisplayName = displayName;
         Description = description;
-        Type = type;
         Region = region;
         ResourceDetails = resourceDetailsJson;
     }

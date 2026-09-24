@@ -26,7 +26,7 @@ public sealed class EditEnvironmentHandler
 
         db.Entry(env).Property(x => x.Xmin).OriginalValue = cmd.ExpectedVersion;
 
-        env.Edit(cmd.DisplayName, cmd.Description, cmd.Type, cmd.Region, cmd.ResourceDetailsJson);
+        env.Edit(cmd.DisplayName, cmd.Description, cmd.Region, cmd.ResourceDetailsJson);
         try
         {
             await db.SaveChangesAsync(ct);

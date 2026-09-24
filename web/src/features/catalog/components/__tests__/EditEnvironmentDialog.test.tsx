@@ -58,7 +58,8 @@ describe("EditEnvironmentDialog", () => {
     expect(screen.getByLabelText(/display name/i)).toHaveValue("Prod EU");
     expect(screen.getByLabelText(/description/i)).toHaveValue("Primary prod");
     expect(screen.getByLabelText(/region/i)).toHaveValue("eu-west-1");
-    expect(screen.getByLabelText(/type/i)).toHaveValue("production");
+    // Type is immutable on edit — no Type control is rendered in this dialog.
+    expect(screen.queryByLabelText(/type/i)).not.toBeInTheDocument();
   });
 
   it("submits PUT with If-Match header derived from the version and closes on success", async () => {
@@ -84,7 +85,6 @@ describe("EditEnvironmentDialog", () => {
         headers: { "If-Match": '"v1"' },
         body: expect.objectContaining({
           displayName: "Prod EU Renamed",
-          type: "production",
           region: "eu-west-1",
         }),
       }),

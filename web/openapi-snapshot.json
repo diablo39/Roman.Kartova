@@ -5352,7 +5352,6 @@
         "required": [
           "displayName",
           "description",
-          "type",
           "region",
           "resourceDetails"
         ],
@@ -5363,9 +5362,6 @@
           },
           "description": {
             "type": "string"
-          },
-          "type": {
-            "$ref": "#/components/schemas/EnvironmentType"
           },
           "region": {
             "type": [

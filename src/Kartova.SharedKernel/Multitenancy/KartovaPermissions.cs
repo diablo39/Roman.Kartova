@@ -16,6 +16,7 @@ public static class KartovaPermissions
     public const string CatalogInfrastructureRegister = "catalog.infrastructure.register";
     public const string CatalogInfrastructureDelete = "catalog.infrastructure.delete";
     public const string CatalogEnvironmentsRegister = "catalog.environments.register";
+    public const string CatalogEnvironmentsEdit = "catalog.environments.edit";
     public const string CatalogEnvironmentsDelete = "catalog.environments.delete";
     public const string CatalogRelationshipsWrite = "catalog.relationships.write";
 
@@ -46,6 +47,7 @@ public static class KartovaPermissions
         CatalogInfrastructureRegister,
         CatalogInfrastructureDelete,
         CatalogEnvironmentsRegister,
+        CatalogEnvironmentsEdit,
         CatalogEnvironmentsDelete,
         CatalogRelationshipsWrite,
         TeamRead,

@@ -11,7 +11,7 @@ export const registerEnvironmentSchema = z.object({
 
 export type RegisterEnvironmentForm = z.infer<typeof registerEnvironmentSchema>;
 
-// A2: full-replacement edit shares the exact register field set — no field is immutable
-// (Environment has no owning team to protect, unlike editVmSchema's teamId omission).
-export const editEnvironmentSchema = registerEnvironmentSchema;
+// A2: `type` is immutable on edit (design §"Domain": "Edit (metadata only — Type
+// immutable)") — omitted here, mirroring editVmSchema's `teamId` omission.
+export const editEnvironmentSchema = registerEnvironmentSchema.omit({ type: true });
 export type EditEnvironmentForm = z.infer<typeof editEnvironmentSchema>;

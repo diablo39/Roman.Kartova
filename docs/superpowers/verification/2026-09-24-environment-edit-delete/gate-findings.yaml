@@ -1,0 +1,75 @@
+slice: 2026-09-24-environment-edit-delete
+branch: feat/catalog-environment-a2-edit-delete
+terminal_commit: PENDING  # update to the final commit sha before closing the slice
+
+findings:
+  - gate: reviews
+    severity: blocking
+    verdict: real
+    title: "Type editable on PUT, contradicting spec's 'Edit (metadata only — Type immutable)'"
+    note: "fixed: removed Type from CatalogEnvironment.Edit, EditEnvironmentCommand, EditEnvironmentRequest, FE schema/dialog"
+  - gate: reviews
+    severity: blocking
+    verdict: real
+    title: "Edit reused CatalogEnvironmentsRegister instead of the spec's dedicated CatalogEnvironmentsEdit permission"
+    note: "fixed: added CatalogEnvironmentsEdit as its own 5-sync permission (Member+OrgAdmin), PUT route + FE gate updated"
+  - gate: reviews
+    severity: blocking
+    verdict: real
+    title: "No DoD ledger existed for the A2 slice"
+    note: "fixed: this ledger, created retroactively"
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "No test for the PUT 23505 race backstop"
+    note: "fixed: added EditEnvironment_race_backstop_returns_409_not_500"
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "No PUT 400-validation test"
+    note: "fixed: added Put_BlankDisplayName_Returns400"
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "No positive Member-can-edit test"
+    note: "fixed: added Put_AsMemberWithEditPerm_Returns200"
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "DELETE 409 environment-has-deployments guard has no tracking entry for slice B"
+    note: "fixed: spec's slice-B row amended to require wiring the guard before B ships"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Put_RenameToExistingName_Returns409 used StringAssert.Contains instead of a typed ProblemTypes assert"
+    note: "fixed: now asserts ProblemTypes.EnvironmentNameConflict, matching the sibling Register test"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Delete_StaleIfMatch_Returns412 didn't assert currentVersion (Put's sibling test does)"
+    note: "fixed"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Doc typo 'of a Environment' should be 'an Environment'"
+    note: "fixed"
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "Register/Edit duplicate the 23505 name-uniqueness pre-check + race backstop verbatim"
+    note: "fixed: extracted shared CheckEnvironmentNameAvailableAsync + IsEnvironmentNameConflictRace helpers"
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "EditEnvironmentAsync/Handler double-fetch the same row per PUT"
+    note: "skipped: mirrors a pre-existing accepted convention in EditVmAsync/Handler; fixing only Environment would create cross-entity inconsistency"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "ProblemPayload 412-test-helper duplicated across 7 pre-existing files + this one"
+    note: "skipped, filed TD-013: touches files outside this PR's scope"
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "Concurrency-token write side still hard-codes Xmin/Version per entity (TD-002 was read-side only)"
+    note: "skipped, filed TD-012: touches 5 handlers across 3 entities, out of scope for an Environment-only slice"

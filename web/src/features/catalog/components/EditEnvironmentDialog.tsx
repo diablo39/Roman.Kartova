@@ -21,8 +21,9 @@ interface Props {
 const ENVIRONMENT_NAME_CONFLICT_TAIL = "environment-name-conflict";
 
 /**
- * Edit-Environment modal (A2) — mirrors `RegisterEnvironmentDialog`'s field set exactly
- * (no field is immutable, unlike `EditVmDialog`'s teamId omission) and `EditVmDialog`'s
+ * Edit-Environment modal (A2) — mirrors `RegisterEnvironmentDialog`'s field set minus
+ * `type` (immutable on edit — design §"Domain": "Edit (metadata only — Type immutable)",
+ * mirroring `EditVmDialog`'s `teamId` omission) and `EditVmDialog`'s
  * concurrency/error-handling shape.
  *
  * Pre-fills from the supplied `environment` via RHF `values` (re-syncs on every prop
@@ -45,7 +46,6 @@ export function EditEnvironmentDialog({ environment, open, onOpenChange }: Props
     values: {
       displayName: environment.displayName,
       description: environment.description,
-      type: environment.type,
       region: environment.region ?? "",
     },
   });
@@ -56,7 +56,6 @@ export function EditEnvironmentDialog({ environment, open, onOpenChange }: Props
         values: {
           displayName: values.displayName,
           description: values.description,
-          type: values.type,
           region: values.region || null,
           resourceDetails: environment.resourceDetails,
         },
@@ -104,7 +103,7 @@ export function EditEnvironmentDialog({ environment, open, onOpenChange }: Props
             </div>
 
             <HookForm form={form} onSubmit={onSubmit} className="space-y-5">
-              <EnvironmentFormFields control={form.control} idPrefix="edit-environment" disabled={mutation.isPending} />
+              <EnvironmentFormFields control={form.control} />
 
               <div className="flex justify-end gap-2 pt-2">
                 <Button type="button" color="secondary" size="sm" onClick={() => onOpenChange(false)}>

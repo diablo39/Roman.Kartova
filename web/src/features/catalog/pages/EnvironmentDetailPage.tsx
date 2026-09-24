@@ -34,10 +34,10 @@ export function EnvironmentDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const { hasPermission, isLoading: permissionsLoading } = usePermissions();
-  // Edit reuses the Register claim (mirrors EditVmDialog's gate on
-  // CatalogInfrastructureRegister); Delete is OrgAdmin-only via its own narrower
-  // permission (A2) — no lifecycle gate, Environment has no lifecycle state.
-  const canEdit = !permissionsLoading && hasPermission(KartovaPermissions.CatalogEnvironmentsRegister);
+  // Edit and Delete are each their own dedicated permission (design §"Permissions") —
+  // Edit is Member+OrgAdmin, Delete is OrgAdmin-only. No lifecycle gate, Environment has
+  // no lifecycle state.
+  const canEdit = !permissionsLoading && hasPermission(KartovaPermissions.CatalogEnvironmentsEdit);
   const canDelete = !permissionsLoading && hasPermission(KartovaPermissions.CatalogEnvironmentsDelete);
 
   useEffect(() => {

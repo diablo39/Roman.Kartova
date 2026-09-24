@@ -377,10 +377,10 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               // caller lacking the claim, mirrors RegisterVm's declaration.
               .ProducesProblem(StatusCodes.Status403Forbidden)
               .ProducesProblem(StatusCodes.Status409Conflict);
-        // Full-update edit — reuses the Register claim (mirrors EditVm), tenant-global so no
-        // team gate. A2.
+        // Metadata edit (Type immutable, per design) — dedicated CatalogEnvironmentsEdit
+        // claim (Member+OrgAdmin), tenant-global so no team gate. A2.
         tenant.MapPut("/environments/{id:guid}", CatalogEndpointDelegates.EditEnvironmentAsync)
-              .RequireAuthorization(KartovaPermissions.CatalogEnvironmentsRegister)
+              .RequireAuthorization(KartovaPermissions.CatalogEnvironmentsEdit)
               .AddEndpointFilter<IfMatchEndpointFilter>()
               .WithName("EditEnvironment")
               .Produces<EnvironmentDetailResponse>(StatusCodes.Status200OK)
