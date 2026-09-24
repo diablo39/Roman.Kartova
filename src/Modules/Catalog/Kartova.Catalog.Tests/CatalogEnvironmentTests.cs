@@ -126,6 +126,31 @@ public class CatalogEnvironmentTests
     }
 
     [DataRow("")]
+    [DataRow("   ")]
+    [TestMethod]
+    public void Edit_rejects_blank_description(string desc)
+    {
+        var env = Create();
+        Assert.ThrowsExactly<ArgumentException>(() => env.Edit(env.DisplayName, desc, env.Region, env.ResourceDetails));
+    }
+
+    [TestMethod]
+    public void Edit_rejects_description_over_4096()
+    {
+        var env = Create();
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            env.Edit(env.DisplayName, new string('x', 4097), env.Region, env.ResourceDetails));
+    }
+
+    [TestMethod]
+    public void Edit_rejects_region_over_256()
+    {
+        var env = Create();
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            env.Edit(env.DisplayName, env.Description, new string('x', 257), env.ResourceDetails));
+    }
+
+    [DataRow("")]
     [DataRow("not-json")]
     [TestMethod]
     public void Edit_rejects_invalid_resource_details_json(string json)

@@ -73,3 +73,58 @@ findings:
     verdict: real
     title: "Concurrency-token write side still hard-codes Xmin/Version per entity (TD-002 was read-side only)"
     note: "skipped, filed TD-012: touches 5 handlers across 3 entities, out of scope for an Environment-only slice"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "pr-test-analyzer: Edit() unit tests lack parity with Create() for blank/oversized description and oversized region"
+    note: "fixed: added Edit_rejects_blank_description, Edit_rejects_description_over_4096, Edit_rejects_region_over_256"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "pr-test-analyzer: no integration test round-trips non-displayName field changes (description/region/resourceDetails) through the real PUT/EF path"
+    note: "fixed: added Put_UpdatesDescriptionRegionAndResourceDetails_Returns200"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "pr-test-analyzer: no PUT invalid-resourceDetails 400 test mirroring Register's"
+    note: "fixed: added Put_InvalidResourceDetails_Returns400"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "pr-test-analyzer: EnvironmentDetailPage tests never click Edit/Delete to confirm dialogs open or that delete navigates away"
+    note: "fixed: added 2 click-wiring tests mirroring VmDetailPage.test.tsx's real-hook + mocked-apiClient pattern"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "code-reviewer: Put_TypeStaysUnchanged never actually sent a type field (EditFrom's typed request has none), so it didn't test what it claimed"
+    note: "fixed: rewrote to send raw JSON with an extraneous type field, asserting both the PUT response and a follow-up GET"
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "type-design-analyzer: CatalogEnvironment JSON validation is stricter than InfrastructureResource.Attributes' equivalent"
+    note: "not a defect in this diff — an observation about a pre-existing sibling type; not filed as a TD since nothing here regressed InfrastructureResource"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "code-reviewer: stale-412 delete doesn't invalidate the detail query; useDeleteEnvironment's list invalidation fires before navigation"
+    note: "not fixed: identical pre-existing shape in DeleteVmConfirm/useDeleteVm, not introduced by this PR; would be a cross-entity fix"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "CHECKLIST.md still described Edit as reusing CatalogEnvironmentsRegister, contradicting the shipped dedicated CatalogEnvironmentsEdit permission"
+    note: "fixed: CHECKLIST.md A2 entry corrected"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "dod.md labeled gate 4 as an unconditional PASS when the diff met CLAUDE.md's own N/A-with-reason criterion"
+    note: "fixed: dod.md gate 4 re-labeled to note it qualified for N/A but ran anyway"
+  - gate: deep-review
+    severity: nit
+    verdict: delusion
+    title: "CheckEnvironmentNameAvailableAsync doc comment is dense"
+    note: "no defect, readability-only, no action taken"
+  - gate: deep-review
+    severity: nit
+    verdict: delusion
+    title: "EnvironmentFormFields' name() helper double-casts through unknown"
+    note: "matches pre-existing VmFormFields convention, no action needed"

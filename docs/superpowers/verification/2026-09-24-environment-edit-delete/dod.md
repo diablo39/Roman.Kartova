@@ -15,11 +15,11 @@
 | 1 Build (`TreatWarningsAsErrors`) | ✅ PASS | 2026-09-24 |
 | 2 Per-task subagent reviews | ✅ PASS (retroactive, whole-diff) | 2026-09-24 |
 | 3 Full suite (+ real-seam) | ✅ PASS | 2026-09-24 |
-| 4 Container build (images CI) | ✅ PASS | 2026-09-24 |
+| 4 Container build (images CI) | ✅ PASS (ran anyway; diff meets the N/A criterion — see gate 4 detail) | 2026-09-24 |
 | 5 `/simplify` | ✅ PASS | 2026-09-24 |
 | 6 `requesting-code-review` | ⏳ PENDING | — |
-| 7 `review-pr` | ⏳ PENDING | — |
-| 8 `deep-review` | ⏳ PENDING | — |
+| 7 `review-pr` | ✅ PASS | 2026-09-24 |
+| 8 `deep-review` | ✅ PASS | 2026-09-24 |
 | Terminal re-verify (build + suite) | ⏳ PENDING | — |
 | 9 Visual / API verification (ADR-0084) | ⏳ PENDING (re-verify — UI changed since first pass) | — |
 | 10 CI green on PR | ⏳ PENDING (re-push required) | — |
@@ -49,16 +49,16 @@
 ### 3 — Full test suite (unit + arch + integration, real-seam)
 **Status:** ✅ PASS
 **Evidence:**
-- `Kartova.Catalog.Tests` (domain unit): 389/389 (22 `CatalogEnvironmentTests`, incl. `Edit_leaves_type_unchanged`).
-- `Kartova.Catalog.IntegrationTests` (real Postgres/RLS + real JWT): 514/514 total, 35/35 in `EnvironmentEndpointsTests` (was 31; +4: type-immutability, edit race-backstop, blank-name 400, positive Member-edit).
+- `Kartova.Catalog.Tests` (domain unit): 26/26 `CatalogEnvironmentTests` (added `Edit_rejects_blank_description` ×2, `Edit_rejects_description_over_4096`, `Edit_rejects_region_over_256` after gate-7's test-coverage finding).
+- `Kartova.Catalog.IntegrationTests` (real Postgres/RLS + real JWT): 37/37 in `EnvironmentEndpointsTests` (added `Put_UpdatesDescriptionRegionAndResourceDetails_Returns200`, `Put_InvalidResourceDetails_Returns400`; rewrote `Put_TypeStaysUnchanged` to send a raw `type` field on the wire — gate-7 code-reviewer caught that the typed-request version never exercised the invariant it claimed to).
 - `Kartova.ArchitectureTests`: 76/76 (incl. `Ts_snapshot_equals_csharp_KartovaPermissions_All` — confirms the `CatalogEnvironmentsEdit` 5-sync).
-- Frontend: `npx tsc -b` clean; `npx vitest run` 1170/1170; `npm run build` clean.
-**At:** working tree, post-fix.
+- Frontend: `npx tsc -b` clean; `npx vitest run` 1170/1170 (added 2 `EnvironmentDetailPage` click-wiring tests per gate-7 test-analyzer finding); `npm run build` clean.
+**At:** working tree, post gate-6/7/8 fixes — see terminal re-verify.
 
 ### 4 — Container build (images CI job)
-**Status:** ✅ PASS
-**Evidence:** PR #97 CI run 35991680170, job "Container images (build — Dockerfile/restore gate)" — pass. Also locally: `docker compose build api` succeeded twice (once for the original diff, once after the spec-alignment fixes) and the container served the updated OpenAPI contract both times (verified via `npm run codegen` picking up the schema change).
-**At:** CI run 35991680170 (pre-fix commit); local rebuild confirms post-fix too — CI will re-run on push.
+**Status:** ✅ PASS — ran anyway; per CLAUDE.md's own N/A criterion this diff (no `Dockerfile`/`COPY`/`ADD`/restore-surface changes) qualified for N/A-with-reason, not a required run. Ran for extra confidence since the API image was rebuilt locally regardless (to regenerate the OpenAPI client after the contract shape changed) — gate-8 deep-review flagged the mislabeling, not the decision to run it.
+**Evidence:** PR #97 CI run 35991680170, job "Container images (build — Dockerfile/restore gate)" — pass (pre-fix commit; will re-run on push). Locally: `docker compose build api` succeeded twice (original diff, then after the spec-alignment fixes) and served the updated OpenAPI contract both times (`npm run codegen` picked up the schema change).
+**At:** CI run 35991680170 (pre-fix commit) + local rebuilds; CI will re-run on push.
 
 ### 5 — `/simplify` against branch diff
 **Status:** ✅ PASS
@@ -70,16 +70,27 @@
 **At:** working tree, pre-fix diff (findings apply identically post-fix — no new simplify-relevant code was added by the spec-alignment fixes beyond the intentional dedup already listed above).
 
 ### 6 — `requesting-code-review` at slice boundary
-**Status:** ⏳ PENDING
+**Status:** ✅ PASS
+**Evidence:** Senior code-reviewer agent against `master..9d75599`. Assessment: "Ready to merge: With fixes." No critical issues. Independently re-ran and confirmed green: unit 22/22, integration (`EnvironmentEndpointsTests`) 35/35, architecture 76/76 — matching that commit's counts exactly. Confirmed both gate-2 blocking fixes are real (not just claimed): `Edit`'s signature has no `type` param; `EditEnvironmentRequest` has no `type` field on the wire. 2 important findings, both resolved: (1) `CHECKLIST.md` described the pre-fix behavior — fixed (same edit as the gate-8 should-fix, since both caught the identical staleness); (2) the working tree had uncommitted gate-7/8-driven test additions at review time — resolved by committing them (this commit).
+**At:** commit 9d75599 (review target) → fixes/additions land in the next commit.
 
 ### 7 — `review-pr` (pr-review-toolkit)
-**Status:** ⏳ PENDING
+**Status:** ✅ PASS
+**Evidence:** Standing set (`type-design-analyzer` + `pr-test-analyzer` + `code-reviewer`) against `git diff master..HEAD`.
+- **type-design-analyzer:** no blocking findings. Command/DTO layer (`EditEnvironmentCommand`, `EditEnvironmentRequest`) intentionally thin (4-6/10 encapsulation), matching sibling `EditVmCommand`/`EditVmRequest` by design. Domain `CatalogEnvironment.Edit` scores 8-9/10 (front-loaded all-or-nothing validation, `Type` immutability via signature omission). One non-blocking cross-cutting note: `CatalogEnvironment`'s JSON-object validation is now stricter than sibling `InfrastructureResource.Attributes`'s equivalent — worth a future reconciliation decision, not a blocker for this PR (not filed as a TD — it's an observation about an existing type, not debt introduced here).
+- **pr-test-analyzer:** no critical gaps. 4 important improvements, all applied: (1) `Edit()` unit-test parity with `Create()` for blank/oversized description + oversized region → added; (2) no integration test round-tripped non-`displayName` field changes → added `Put_UpdatesDescriptionRegionAndResourceDetails_Returns200`; (3) no PUT invalid-`resourceDetails` 400 test → added `Put_InvalidResourceDetails_Returns400`; (4) no page-level test that Edit/Delete buttons actually open their dialogs or that delete navigates away → added 2 tests to `EnvironmentDetailPage.test.tsx` mirroring `VmDetailPage.test.tsx`'s real-hook-plus-mocked-`apiClient` pattern.
+- **code-reviewer:** 1 important finding, fixed: `Put_TypeStaysUnchanged` built its request via `EditFrom` (typed `EditEnvironmentRequest`, which has no `type` field) — the test proved the C# client can't express a type change, not that the server ignores one on the wire. Rewrote it to send raw JSON with an extraneous `type` field and assert both the PUT response and a follow-up GET show the type unchanged. Also noted (not fixed, matches pre-existing `DeleteVmConfirm`/`useDeleteVm` shape, not new to this PR): a stale-412 delete doesn't invalidate the detail query, and `useDeleteEnvironment`'s list invalidation fires before navigation. Permission 5-sync, RLS, discriminative-test rule, If-Match/ETag, and coverage-exclusion attributes all checked clean.
+**At:** commit 9d75599 (pre-these-fixes) → fixes applied on top; re-verified by the terminal re-verify below.
 
 ### 8 — `deep-review`
-**Status:** ⏳ PENDING
+**Status:** ✅ PASS
+**Evidence:** `docs/superpowers/verification/2026-09-24-environment-edit-delete/deep-review.md`. 0 blocking / 1 should-fix / 3 nits / 0 missing-tests / 5 what-looks-good. Independently re-verified (not on the ledger's say-so) that both gate-2-caught spec-drift defects were genuinely fixed in the code (`CatalogEnvironment.cs`'s `Edit` signature, `CatalogModule.cs`'s PUT route claim). The should-fix (`CHECKLIST.md` still described Edit as reusing Register, contradicting the shipped permission) is fixed. The 3 nits: gate-4 mislabeling (fixed above), a documentation-density nit on `CheckEnvironmentNameAvailableAsync` (no action needed), and the pre-existing `unknown`-double-cast shape in `EnvironmentFormFields`' `name()` helper (no action — matches `VmFormFields` convention).
+**At:** commit 9d75599.
 
 ### Terminal re-verify (build + full suite after gates 5–8)
-**Status:** ⏳ PENDING
+**Status:** ✅ PASS
+**Evidence:** `dotnet build Kartova.slnx -c Debug` clean. `Kartova.Catalog.Tests` 393/393, `Kartova.Catalog.Infrastructure.Tests` 11/11, `Kartova.Catalog.IntegrationTests` 516/516 (37 in `EnvironmentEndpointsTests`), `Kartova.ArchitectureTests` 76/76. Frontend: `npx tsc -b` clean, `npx vitest run` 1172/1172, `npm run build` clean.
+**At:** working tree, on the commit that lands all gate-6/7/8 fixes.
 
 ### 9 — Visual / API verification (observe the running system)
 **Status:** ⏳ PENDING (re-verify — the first browser pass, in the original session, exercised the pre-fix UI: Type was editable and Edit was gated on Register. Must re-verify: Type field absent from Edit dialog, Edit gated on the new `CatalogEnvironmentsEdit` permission, Delete still OrgAdmin-only.)

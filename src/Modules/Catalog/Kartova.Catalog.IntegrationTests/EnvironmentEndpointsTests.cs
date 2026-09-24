@@ -403,6 +403,56 @@ public sealed class EnvironmentEndpointsTests : CatalogIntegrationTestBase
         Assert.AreEqual($"\"{body.Version}\"", resp.Headers.ETag?.Tag);
     }
 
+    /// <summary>Exercises the actual HTTP/EF write path for the non-displayName mutable
+    /// fields — every other PUT test in this file only varies <c>displayName</c> via
+    /// <see cref="EditFrom"/>, so a field-mapping slip in <see cref="EditEnvironmentCommand"/>
+    /// construction or <see cref="EditEnvironmentHandler.Handle"/> would only be caught by the
+    /// domain-level <c>Edit_replaces_mutable_fields</c> unit test, not by anything hitting the
+    /// endpoint.</summary>
+    [TestMethod]
+    public async Task Put_UpdatesDescriptionRegionAndResourceDetails_Returns200()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put-fields.test");
+        var created = await RegisterEnvAsync(client, "Put Fields Env");
+
+        var request = new EditEnvironmentRequest(
+            DisplayName: created.DisplayName,
+            Description: "Updated description",
+            Region: "ap-southeast-1",
+            ResourceDetails: new Dictionary<string, string> { ["k"] = "v" });
+        var resp = await client.SendAsync(NewPut(created.Id, created.Version, request));
+
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode, $"EditEnvironment failed: {await resp.Content.ReadAsStringAsync()}");
+        var body = await resp.Content.ReadFromJsonAsync<EnvironmentDetailResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual("Updated description", body!.Description);
+        Assert.AreEqual("ap-southeast-1", body.Region);
+        Assert.AreEqual("v", body.ResourceDetails["k"]);
+
+        var get = await client.GetFromJsonAsync<EnvironmentDetailResponse>(
+            $"/api/v1/catalog/environments/{created.Id}", KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual("Updated description", get!.Description);
+        Assert.AreEqual("ap-southeast-1", get.Region);
+        Assert.AreEqual("v", get.ResourceDetails["k"]);
+    }
+
+    /// <summary>Mirrors <c>RegisterEnvironment_invalid_resource_details_returns_400</c> — proves
+    /// the same <c>EnvironmentResourceDetails.Validate</c> wiring on the edit path.</summary>
+    [TestMethod]
+    public async Task Put_InvalidResourceDetails_Returns400()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put-bad-resource.test");
+        var created = await RegisterEnvAsync(client, "Put Bad Resource Env");
+
+        var request = new EditEnvironmentRequest(
+            DisplayName: created.DisplayName,
+            Description: created.Description,
+            Region: created.Region,
+            ResourceDetails: new Dictionary<string, string> { [new string('k', 200)] = "v" });
+        var resp = await client.SendAsync(NewPut(created.Id, created.Version, request));
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
     [TestMethod]
     public async Task Put_RenameToExistingName_Returns409()
     {
@@ -427,11 +477,34 @@ public sealed class EnvironmentEndpointsTests : CatalogIntegrationTestBase
         var created = await RegisterEnvAsync(client, "Type Immutable Env");
         Assert.AreEqual(EnvironmentType.Production, created.Type);
 
-        var resp = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "Type Immutable Env Renamed")));
+        // `EditEnvironmentRequest` has no `type` field, so a caller cannot express "change
+        // the type" through the typed contract — but a raw JSON body could still smuggle one
+        // in if System.Text.Json's default unmapped-member tolerance ever changed. Sending it
+        // over the wire directly (rather than through EditFrom, whose typed request has no
+        // slot for it) is what actually proves the server ignores it rather than merely proving
+        // the C# client can't construct it.
+        var raw = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/catalog/environments/{created.Id}")
+        {
+            Content = JsonContent.Create(new
+            {
+                displayName = "Type Immutable Env Renamed",
+                description = created.Description,
+                region = created.Region,
+                resourceDetails = created.ResourceDetails,
+                type = "development",
+            }),
+        };
+        raw.Headers.TryAddWithoutValidation("If-Match", $"\"{created.Version}\"");
 
-        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+        var resp = await client.SendAsync(raw);
+
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode, $"EditEnvironment failed: {await resp.Content.ReadAsStringAsync()}");
         var body = await resp.Content.ReadFromJsonAsync<EnvironmentDetailResponse>(KartovaApiFixtureBase.WireJson);
-        Assert.AreEqual(EnvironmentType.Production, body!.Type);
+        Assert.AreEqual(EnvironmentType.Production, body!.Type, "an extraneous 'type' field on the wire must be ignored, not applied");
+
+        var get = await client.GetFromJsonAsync<EnvironmentDetailResponse>(
+            $"/api/v1/catalog/environments/{created.Id}", KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(EnvironmentType.Production, get!.Type, "the persisted type must be unchanged too, not just the PUT response");
     }
 
     /// <summary>Deterministic (no threads) reproduction of the 23505-race backstop on the
