@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
 using Kartova.Catalog.Infrastructure;   // CatalogDbContext, CatalogEndpointDelegates, RegisterEnvironmentHandler
@@ -352,6 +354,266 @@ public sealed class EnvironmentEndpointsTests : CatalogIntegrationTestBase
         Assert.IsNotNull(problem, $"expected a ProblemHttpResult (409), got {result.GetType().Name}");
         Assert.AreEqual(StatusCodes.Status409Conflict, problem!.StatusCode);
         Assert.AreEqual(ProblemTypes.EnvironmentNameConflict, problem.ProblemDetails.Type);
+    }
+
+    // ---- A2: PUT /environments/{id} + DELETE /environments/{id} with If-Match --------
+
+    private static EditEnvironmentRequest EditFrom(EnvironmentDetailResponse created, string? displayName = null) => new(
+        DisplayName: displayName ?? created.DisplayName,
+        Description: created.Description,
+        Type: created.Type,
+        Region: created.Region,
+        ResourceDetails: created.ResourceDetails);
+
+    private static HttpRequestMessage NewPut(Guid id, string? ifMatch, EditEnvironmentRequest request)
+    {
+        var msg = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/catalog/environments/{id}")
+        {
+            Content = JsonContent.Create(request, options: KartovaApiFixtureBase.WireJson),
+        };
+        if (ifMatch is not null) msg.Headers.TryAddWithoutValidation("If-Match", $"\"{ifMatch}\"");
+        return msg;
+    }
+
+    private static HttpRequestMessage NewDelete(Guid id, string? ifMatch)
+    {
+        var msg = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/catalog/environments/{id}");
+        if (ifMatch is not null) msg.Headers.TryAddWithoutValidation("If-Match", $"\"{ifMatch}\"");
+        return msg;
+    }
+
+    private static async Task<EnvironmentDetailResponse> RegisterEnvAsync(HttpClient client, string displayName)
+    {
+        var post = await client.PostAsJsonAsync("/api/v1/catalog/environments", Body(displayName));
+        Assert.AreEqual(HttpStatusCode.Created, post.StatusCode, $"RegisterEnvironment failed: {await post.Content.ReadAsStringAsync()}");
+        return (await post.Content.ReadFromJsonAsync<EnvironmentDetailResponse>(KartovaApiFixtureBase.WireJson))!;
+    }
+
+    [TestMethod]
+    public async Task Put_UpdatesEnvironment_Returns200()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put.test");
+        var created = await RegisterEnvAsync(client, "Put Env");
+
+        var resp = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "Put Env Renamed")));
+
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode, $"EditEnvironment failed: {await resp.Content.ReadAsStringAsync()}");
+        var body = await resp.Content.ReadFromJsonAsync<EnvironmentDetailResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual("Put Env Renamed", body!.DisplayName);
+        Assert.AreNotEqual(created.Version, body.Version);
+        Assert.AreEqual($"\"{body.Version}\"", resp.Headers.ETag?.Tag);
+    }
+
+    [TestMethod]
+    public async Task Put_RenameToExistingName_Returns409()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put-conflict.test");
+        var created = await RegisterEnvAsync(client, "Put Conflict A");
+        await RegisterEnvAsync(client, "Put Conflict B");
+
+        var resp = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "Put Conflict B")));
+
+        Assert.AreEqual(HttpStatusCode.Conflict, resp.StatusCode);
+        StringAssert.Contains(await resp.Content.ReadAsStringAsync(), "environment-name-conflict");
+    }
+
+    [TestMethod]
+    public async Task Put_UnchangedName_Returns200()
+    {
+        // Renaming to its own current value must not trip the conflict pre-check
+        // (the delegate skips it when the name is unchanged).
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put-samename.test");
+        var created = await RegisterEnvAsync(client, "Same Name Env");
+
+        var resp = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created)));
+
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Put_StaleIfMatch_Returns412()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put-stale.test");
+        var created = await RegisterEnvAsync(client, "Stale Env");
+
+        var ok = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "Stale Env v2")));
+        Assert.AreEqual(HttpStatusCode.OK, ok.StatusCode);
+        var okBody = await ok.Content.ReadFromJsonAsync<EnvironmentDetailResponse>(KartovaApiFixtureBase.WireJson);
+
+        var stale = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "Stale Env v3")));
+        Assert.AreEqual(HttpStatusCode.PreconditionFailed, stale.StatusCode);
+
+        var problem = await stale.Content.ReadFromJsonAsync<ProblemPayload>();
+        Assert.AreEqual(okBody!.Version, problem!.CurrentVersion);
+    }
+
+    [TestMethod]
+    public async Task Put_MissingIfMatch_Returns428()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put-noifmatch.test");
+        var created = await RegisterEnvAsync(client, "NoIfMatch Env");
+
+        var resp = await client.SendAsync(NewPut(created.Id, ifMatch: null, EditFrom(created, displayName: "NoIfMatch Env v2")));
+
+        Assert.AreEqual(HttpStatusCode.PreconditionRequired, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Put_WithoutRegisterPerm_Returns403()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put-noperm.test");
+        var created = await RegisterEnvAsync(client, "NoPerm Env");
+
+        var viewer = await Fx.CreateAuthenticatedClientAsync(
+            "viewer-env-edit@env-put-noperm.test", new[] { KartovaRoles.Viewer });
+
+        var resp = await viewer.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "Hijacked")));
+
+        Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Put_UnknownId_Returns404()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put-unknown.test");
+        var created = await RegisterEnvAsync(client, "Unknown Base");
+
+        var resp = await client.SendAsync(NewPut(Guid.NewGuid(), created.Version, EditFrom(created)));
+
+        Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Put_CrossTenant_Returns404()
+    {
+        var orgA = await Fx.CreateAuthenticatedClientAsync("admin@env-put-tenant-a.test");
+        var created = await RegisterEnvAsync(orgA, "CrossTenant Env");
+
+        var orgB = await Fx.CreateAuthenticatedClientAsync("admin@env-put-tenant-b.test");
+        var resp = await orgB.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "Hijack")));
+
+        Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Put_WritesEnvironmentEditedAuditRow()
+    {
+        var tenantId = Fx.TenantIdForEmail("admin@env-put-audit.test");
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put-audit.test");
+        var created = await RegisterEnvAsync(client, "Audit Edit Env");
+
+        var resp = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "Audit Edit Env v2")));
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode, $"EditEnvironment failed: {await resp.Content.ReadAsStringAsync()}");
+
+        var rows = await Fx.ReadAuditLogAsync(tenantId.Value);
+        var row = rows.Single(r =>
+            r.Action == CatalogAuditActions.EnvironmentEdited &&
+            r.TargetId == created.Id.ToString());
+        Assert.AreEqual(CatalogAuditTargetTypes.Environment, row.TargetType);
+        using var data = JsonDocument.Parse(row.DataJson!);
+        Assert.AreEqual("Audit Edit Env v2", data.RootElement.GetProperty("displayName").GetString());
+    }
+
+    [TestMethod]
+    public async Task Delete_RemovesEnvironment_Returns204()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-delete.test");
+        var created = await RegisterEnvAsync(client, "Delete Env");
+
+        var del = await client.SendAsync(NewDelete(created.Id, created.Version));
+        Assert.AreEqual(HttpStatusCode.NoContent, del.StatusCode, $"DeleteEnvironment failed: {await del.Content.ReadAsStringAsync()}");
+
+        var get = await client.GetAsync($"/api/v1/catalog/environments/{created.Id}");
+        Assert.AreEqual(HttpStatusCode.NotFound, get.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Delete_WritesEnvironmentDeletedAuditRow()
+    {
+        var tenantId = Fx.TenantIdForEmail("admin@env-delete-audit.test");
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-delete-audit.test");
+        var created = await RegisterEnvAsync(client, "Audit Delete Env");
+
+        var del = await client.SendAsync(NewDelete(created.Id, created.Version));
+        Assert.AreEqual(HttpStatusCode.NoContent, del.StatusCode, $"DeleteEnvironment failed: {await del.Content.ReadAsStringAsync()}");
+
+        var rows = await Fx.ReadAuditLogAsync(tenantId.Value);
+        var row = rows.Single(r =>
+            r.Action == CatalogAuditActions.EnvironmentDeleted &&
+            r.TargetId == created.Id.ToString());
+        Assert.AreEqual(CatalogAuditTargetTypes.Environment, row.TargetType);
+    }
+
+    [TestMethod]
+    public async Task Delete_NonOrgAdmin_Returns403()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-delete-noperm.test");
+        var created = await RegisterEnvAsync(client, "Delete NoPerm Env");
+
+        // Member carries CatalogEnvironmentsRegister but NOT CatalogEnvironmentsDelete
+        // (OrgAdmin-only) — proves the delete gate is a distinct, narrower permission.
+        var member = await Fx.CreateAuthenticatedClientAsync(
+            "member-env-delete@env-delete-noperm.test", new[] { KartovaRoles.Member });
+
+        var resp = await member.SendAsync(NewDelete(created.Id, created.Version));
+
+        Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Delete_StaleIfMatch_Returns412()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-delete-stale.test");
+        var created = await RegisterEnvAsync(client, "Delete Stale Env");
+
+        var put = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "Delete Stale Env v2")));
+        Assert.AreEqual(HttpStatusCode.OK, put.StatusCode);
+
+        var del = await client.SendAsync(NewDelete(created.Id, created.Version));
+        Assert.AreEqual(HttpStatusCode.PreconditionFailed, del.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Delete_MissingIfMatch_Returns428()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-delete-noifmatch.test");
+        var created = await RegisterEnvAsync(client, "Delete NoIfMatch Env");
+
+        var resp = await client.SendAsync(NewDelete(created.Id, ifMatch: null));
+
+        Assert.AreEqual(HttpStatusCode.PreconditionRequired, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Delete_UnknownId_Returns404()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-delete-unknown.test");
+        var created = await RegisterEnvAsync(client, "Delete Unknown Base");
+
+        var resp = await client.SendAsync(NewDelete(Guid.NewGuid(), created.Version));
+
+        Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Delete_CrossTenant_Returns404()
+    {
+        var orgA = await Fx.CreateAuthenticatedClientAsync("admin@env-delete-tenant-a.test");
+        var created = await RegisterEnvAsync(orgA, "Delete CrossTenant Env");
+
+        var orgB = await Fx.CreateAuthenticatedClientAsync("admin@env-delete-tenant-b.test");
+        var resp = await orgB.SendAsync(NewDelete(created.Id, created.Version));
+
+        Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
+    }
+
+    // Minimal typed-extension helper for the 412 ProblemDetails body — mirrors
+    // InfrastructureVmWriteTests.ProblemPayload. System.Text.Json deserialises the flat
+    // RFC 7807 extension member `currentVersion` by name.
+    private sealed class ProblemPayload
+    {
+        public string Type { get; set; } = string.Empty;
+        public string? CurrentVersion { get; set; }
     }
 
     /// <summary>Fires <paramref name="raceAction"/> exactly once, the first time <paramref

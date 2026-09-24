@@ -49,6 +49,7 @@ public static class KartovaRolePermissions
                 KartovaPermissions.CatalogInfrastructureRegister,
                 KartovaPermissions.CatalogInfrastructureDelete,
                 KartovaPermissions.CatalogEnvironmentsRegister,
+                KartovaPermissions.CatalogEnvironmentsDelete,
                 KartovaPermissions.CatalogRelationshipsWrite,
                 KartovaPermissions.TeamRead,
                 KartovaPermissions.TeamCreate,

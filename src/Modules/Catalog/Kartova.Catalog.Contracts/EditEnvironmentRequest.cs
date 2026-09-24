@@ -1,0 +1,12 @@
+using System.Diagnostics.CodeAnalysis;
+using Kartova.Catalog.Domain;
+
+namespace Kartova.Catalog.Contracts;
+
+[ExcludeFromCodeCoverage]
+public sealed record EditEnvironmentRequest(
+    string DisplayName,
+    string Description,
+    EnvironmentType Type,
+    string? Region,
+    IReadOnlyDictionary<string, string>? ResourceDetails);

@@ -1,11 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const useEnvironmentMock = vi.fn();
 vi.mock("@/features/catalog/api/environments", () => ({
   useEnvironment: (...a: unknown[]) => useEnvironmentMock(...a),
+  useEditEnvironment: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+  useDeleteEnvironment: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
 }));
+
+const usePermissionsMock = vi.fn();
+vi.mock("@/shared/auth/usePermissions", () => ({ usePermissions: () => usePermissionsMock() }));
 
 import { EnvironmentDetailPage } from "../EnvironmentDetailPage";
 
@@ -31,18 +37,27 @@ function baseEnv(overrides: Record<string, unknown> = {}) {
 }
 
 function renderPage() {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MemoryRouter initialEntries={[`/catalog/environments/${ENV_ID}`]}>
-      <Routes>
-        <Route path="/catalog/environments/:id" element={<EnvironmentDetailPage />} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={qc}>
+      <MemoryRouter initialEntries={[`/catalog/environments/${ENV_ID}`]}>
+        <Routes>
+          <Route path="/catalog/environments/:id" element={<EnvironmentDetailPage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
 describe("EnvironmentDetailPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    usePermissionsMock.mockReturnValue({
+      role: "Member",
+      hasPermission: () => false,
+      isLoading: false,
+      isError: false,
+    });
   });
 
   it("shows a loading skeleton while the query is in flight", () => {
@@ -118,5 +133,41 @@ describe("EnvironmentDetailPage", () => {
     renderPage();
 
     expect(screen.getByText("No resource details recorded")).toBeInTheDocument();
+  });
+
+  it("hides Edit/Delete buttons without the corresponding permissions", () => {
+    useEnvironmentMock.mockReturnValue({ isLoading: false, isError: false, data: baseEnv() });
+    renderPage();
+
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+  });
+
+  it("shows Edit when CatalogEnvironmentsRegister is granted", () => {
+    usePermissionsMock.mockReturnValue({
+      role: "Member",
+      hasPermission: (p: string) => p === "catalog.environments.register",
+      isLoading: false,
+      isError: false,
+    });
+    useEnvironmentMock.mockReturnValue({ isLoading: false, isError: false, data: baseEnv() });
+    renderPage();
+
+    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+  });
+
+  it("shows Delete when CatalogEnvironmentsDelete is granted (OrgAdmin)", () => {
+    usePermissionsMock.mockReturnValue({
+      role: "OrgAdmin",
+      hasPermission: (p: string) => p === "catalog.environments.delete",
+      isLoading: false,
+      isError: false,
+    });
+    useEnvironmentMock.mockReturnValue({ isLoading: false, isError: false, data: baseEnv() });
+    renderPage();
+
+    expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
   });
 });

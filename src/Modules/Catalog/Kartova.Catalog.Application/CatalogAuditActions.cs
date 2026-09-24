@@ -24,6 +24,8 @@ public static class CatalogAuditActions
     public const string InfrastructureEdited = "infrastructure.edited";
     public const string InfrastructureDeleted = "infrastructure.deleted";
     public const string EnvironmentRegistered = "environment.registered";
+    public const string EnvironmentEdited = "environment.edited";
+    public const string EnvironmentDeleted = "environment.deleted";
 }
 
 /// <summary>

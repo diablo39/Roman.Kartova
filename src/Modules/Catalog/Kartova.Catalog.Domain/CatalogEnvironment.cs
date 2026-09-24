@@ -70,6 +70,28 @@ public sealed class CatalogEnvironment : ITenantOwned
         return new CatalogEnvironment(EnvironmentId.New(), tenantId, displayName, description, type, region, resourceDetailsJson, createdByUserId, createdAt);
     }
 
+    /// <summary>
+    /// Full-replacement edit (A2). No field is immutable — Environment has no owning
+    /// team to protect (unlike <c>InfrastructureResource.Edit</c>, which keeps
+    /// <c>TeamId</c> fixed). Same invariants as <see cref="Create"/>.
+    /// </summary>
+    public void Edit(string displayName, string description, EnvironmentType type, string? region, string resourceDetailsJson)
+    {
+        ValidateDisplayName(displayName);
+        ValidateDescription(description);
+        if (!Enum.IsDefined(type))
+            throw new ArgumentException("Unknown environment type.", nameof(type));
+        region = Normalize(region);
+        ValidateOptional(region, nameof(region));
+        ValidateResourceDetails(resourceDetailsJson);
+
+        DisplayName = displayName;
+        Description = description;
+        Type = type;
+        Region = region;
+        ResourceDetails = resourceDetailsJson;
+    }
+
     private static void ValidateDisplayName(string displayName)
     {
         if (string.IsNullOrWhiteSpace(displayName))
