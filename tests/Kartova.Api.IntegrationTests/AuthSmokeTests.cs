@@ -96,6 +96,4 @@ public class AuthSmokeTests : KeycloakContainerTestBase
         cmd.Parameters.AddWithValue(Guid.Parse("11111111-1111-1111-1111-111111111111"));
         await cmd.ExecuteNonQueryAsync();
     }
-
-    private static string EnvKey(string configKey) => configKey.Replace(":", "__");
 }

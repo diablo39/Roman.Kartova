@@ -18,6 +18,7 @@
     <PackageReference Include="SSH.NET" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Testcontainers.Keycloak" />
+    <PackageReference Include="NSubstitute" />
     <PackageReference Include="coverlet.collector" />
   </ItemGroup>
   <ItemGroup>
@@ -25,8 +26,10 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Kartova.Api\Kartova.Api.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Catalog\Kartova.Catalog.Infrastructure\Kartova.Catalog.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Modules\Organization\Kartova.Organization.Infrastructure\Kartova.Organization.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Modules\Organization\Kartova.Organization.Infrastructure.Admin\Kartova.Organization.Infrastructure.Admin.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Audit\Kartova.Audit.Infrastructure\Kartova.Audit.Infrastructure.csproj" />
     <ProjectReference Include="..\Kartova.Testing.Auth\Kartova.Testing.Auth.csproj" />
   </ItemGroup>
   <ItemGroup>

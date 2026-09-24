@@ -201,3 +201,20 @@ Convention: one `### TD-NNN` heading per item. Keep `Status: open` until done; o
 **Why deferred.** Backend OpenAPI-transformer wiring is outside the TD-007 typeahead scope; the special-case works today at a hardcoded `"10"`. Latent contract-consistency gap, not a live bug.
 
 **Acceptance.** `/infrastructure/vms` `limit` is a bounded integer in the OpenAPI doc like the sibling lists; `useEntitySearch` reuses the shared query shape with no VM special-case.
+
+---
+
+### TD-011 — Kafka/Elasticsearch/MinIO health checks not yet registered
+
+**Status:** open
+**Origin:** E-01.F-07.S-01 brainstorming (2026-09-23) — ADR-0060 specifies checks for all 5 external dependencies, but Kafka/Elasticsearch/MinIO have no client wiring anywhere in the repo yet (no `KafkaFlow`/`Elastic.Clients.Elasticsearch`/`Minio` package references). Scoped the slice down to Postgres + KeyCloak only rather than stubbing fake checks for integrations that don't exist.
+
+**Problem.** `/health/ready` and `/health/startup` only reflect Postgres + KeyCloak. Once auto-import (Kafka consumers), search (Elasticsearch), or asset storage (MinIO) land, a real outage in any of them won't be visible on the readiness probe or `/health/detailed` until this is revisited.
+
+**Affected files.** `src/Kartova.Api/Program.cs` (`AddHealthChecks()` registration) — add one `.Add*` call per dependency when its client is wired.
+
+**Proposed fix.** When each dependency's module lands: register its health check (community `AspNetCore.HealthChecks.*` package if one fits, custom `IHealthCheck` otherwise — mirrors `KeycloakHealthCheck`), tag `["ready","startup"]`, done as part of that module's own slice (not a standalone TD pickup).
+
+**Why deferred.** No real client exists to check yet; a stub check would be dead weight until then. This entry exists so the module slice that adds Kafka/ES/MinIO doesn't forget the health-check side of ADR-0060.
+
+**Acceptance.** Each of Kafka/Elasticsearch/MinIO gets a registered health check in the same slice that introduces its client wiring; `/health/ready` reflects a real outage in any of them.

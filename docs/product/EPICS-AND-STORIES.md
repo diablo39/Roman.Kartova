@@ -121,7 +121,7 @@ status:
 
 | Phase | File | Epics | Features | Stories | MVP |
 |-------|------|-------|----------|---------|-----|
-| 0 — Foundation | [phase-0-foundation.md](phases/phase-0-foundation.md) | 2 (E-01, E-01a) | 13 | 45 | ✅ |
+| 0 — Foundation | [phase-0-foundation.md](phases/phase-0-foundation.md) | 3 (E-01, E-01a, E-01b) | 15 | 52 | ✅ |
 | 1 — Core Catalog & Notifications | [phase-1-core-catalog.md](phases/phase-1-core-catalog.md) | 6 (E-02..E-06, E-06a) | 22 | 58 | ✅ |
 | 2 — Auto-Import | [phase-2-auto-import.md](phases/phase-2-auto-import.md) | 4 (E-07..E-10) | 11 | 36 | ✅ |
 | 3 — Documentation | [phase-3-documentation.md](phases/phase-3-documentation.md) | 1 (E-11) | 5 | 15 | ✅ |
@@ -143,6 +143,7 @@ Flat list of all 30 epics with phase, scope, and file pointer.
 |----|-------|-------|----------|---------|------|
 | E-01 | Project Foundation & Infrastructure | 0 | 8 | 33 | [phase-0](phases/phase-0-foundation.md) |
 | E-01a | Kartova Product Documentation Portal | 0 | 5 | 12 | [phase-0](phases/phase-0-foundation.md) |
+| E-01b | Platform Admin Console | 0 | 2 | 7 | [phase-0](phases/phase-0-foundation.md) |
 | E-02 | Entity Registry | 1 | 5 | — | [phase-1](phases/phase-1-core-catalog.md) |
 | E-03 | Organization & Team Management | 1 | 5 | — | [phase-1](phases/phase-1-core-catalog.md) |
 | E-04 | Entity Relationships | 1 | 2 | — | [phase-1](phases/phase-1-core-catalog.md) |
@@ -196,6 +197,8 @@ All 83 scoped features across phases 0–8. (Phase 9 epics are not yet feature-d
 | E-01a.F-03 | Catalog Concept & Data-Model Reference |
 | E-01a.F-04 | Feature How-Tos & FAQ |
 | E-01a.F-05 | Contextual In-App Help |
+| E-01b.F-01 | Organization Directory & CRUD |
+| E-01b.F-02 | Tenant Provisioning & KC Linkage |
 
 ### Phase 1 — Core Catalog & Notifications
 
@@ -359,6 +362,7 @@ Alphabetical concept → where to look. Use this when searching by topic rather 
 | Onboarding wizard | E-09 |
 | Organization management | E-03.F-01 |
 | Ownership | E-03 (all, esp. F-05) |
+| Platform admin console (org directory/CRUD, KC-tenant reconciliation) | E-01b (all) |
 | Plugin architecture | E-26 (Phase 9) |
 | Policy engine | E-14 (all) |
 | PostgreSQL foundation | E-01.F-03 |
@@ -384,6 +388,7 @@ Alphabetical concept → where to look. Use this when searching by topic rather 
 | Team management | E-03.F-02 |
 | Tech Radar | E-23 |
 | Tenancy isolation | E-01.F-08 (ADR-0012) |
+| Tenant provisioning / KC-tenant linkage | E-01b.F-02 |
 | Webhooks | E-01.F-06 (ADR-0033) |
 
 ---
@@ -463,3 +468,4 @@ Full library: [decisions/README.md](../architecture/decisions/README.md).
 - Added **E-01a** Kartova Product Documentation Portal (Phase 0; first-party user docs, standalone in-repo docs site, engine TBD; docs-as-you-go DoD rule to be implemented within the epic).
 - **S-04:** Updated E-04.F-01.S-04 with demotion warning semantics
 - **S-05:** Updated E-01.F-03.S-03 audit scope to explicitly include relationship changes
+- Added **E-01b** Platform Admin Console (Phase 0; org directory/CRUD for platform admins + KC-tenant `tenant_id` reconciliation — closes the gap where a KC-configured tenant has no matching Organization/Users rows, e.g. a KC test-fixture user authenticated but unprovisioned in the app DB).

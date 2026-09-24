@@ -11,7 +11,7 @@
 
 | Phase | Status | Progress |
 |-------|--------|----------|
-| Phase 0: Foundation | In Progress | 12/43 |
+| Phase 0: Foundation | In Progress | 12/50 |
 | Phase 1: Core Catalog & Notifications | In Progress | 29/60 |
 | Phase 2: Auto-Import | Not Started | 0/36 |
 | Phase 3: Documentation | Not Started | 0/15 |
@@ -21,11 +21,11 @@
 | Phase 7: Intelligence | Not Started | 0/13 |
 | Phase 8: Analytics | Not Started | 0/14 |
 | Phase 9: Advanced | Not Started | 0/0 |
-| **Total** | | **40/212** |
+| **Total** | | **40/219** |
 
 ---
 
-## Phase 0: Foundation (43 stories; 2 dropped — ADR-0106)
+## Phase 0: Foundation (50 stories; 2 dropped — ADR-0106)
 
 ### E-01: Project Foundation & Infrastructure
 
@@ -74,7 +74,7 @@
 - [ ] E-01.F-06.S-06 — Auto-generated OpenAPI spec (dogfooding)
 
 **E-01.F-07: Platform Observability**
-- [ ] E-01.F-07.S-01 — Health check endpoints for all services
+- [x] E-01.F-07.S-01 — Health check endpoints for all services
 - [ ] E-01.F-07.S-02 — Structured logging across components
 - [ ] E-01.F-07.S-03 — Platform metrics (latency, errors, queues)
 - [ ] E-01.F-07.S-04 — Alerting on failures and SLA breaches
@@ -114,6 +114,19 @@
 
 **E-01a.F-05: Contextual In-App Help**
 - [ ] E-01a.F-05.S-01 — Wire in-app "?" affordances + relationship tooltips to deep-link portal articles
+
+### E-01b: Platform Admin Console
+
+**E-01b.F-01: Organization Directory & CRUD**
+- [ ] E-01b.F-01.S-01 — List all organizations across tenants (search/filter/paginate), PlatformAdmin-only
+- [ ] E-01b.F-01.S-02 — Organization detail view (tenant id, created date, user/app/service counts)
+- [ ] E-01b.F-01.S-03 — Edit organization name
+- [ ] E-01b.F-01.S-04 — Deactivate/delete organization (soft-delete)
+
+**E-01b.F-02: Tenant Provisioning & KC Linkage**
+- [ ] E-01b.F-02.S-01 — Create organization with explicit `tenant_id` (replaces self-generated id in admin bypass endpoint)
+- [ ] E-01b.F-02.S-02 — Detect orphaned `tenant_id`s (KC attribute with no matching Organization row)
+- [ ] E-01b.F-02.S-03 — Provision an Organization row for an existing orphaned `tenant_id`
 
 ---
 
