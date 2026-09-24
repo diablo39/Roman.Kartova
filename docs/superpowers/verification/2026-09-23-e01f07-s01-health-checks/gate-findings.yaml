@@ -1,0 +1,196 @@
+# gate-findings.yaml — per-gate findings telemetry for E-01.F-07.S-01 health checks.
+# Sibling of dod.md in this folder. Backfilled 2026-09-23 (gate 8) from the SDD
+# execution ledger (deleted per subagent-driven-development convention once its
+# commits landed in git) and this slice's dod.md prose.
+
+slice:  2026-09-23-e01f07-s01-health-checks
+branch: worktree-e01f07-s01-health-checks
+terminal_commit: bb50aa5
+
+findings:
+  # Gate 2 — per-task subagent reviews (SDD)
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "KeycloakHealthCheck.cs no BaseUrl/Realm validation before GetAsync"
+    note: "deferred — non-functional, framework's own exception handling catches it anyway"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "KeycloakHealthCheck.cs broad TaskCanceledException catch conflates KC-down with unrelated cancellation"
+    note: "superseded — gate 7 widened the catch to Exception broadly, moot"
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "Task 3 implementer fabricated a false BCL API claim (HealthReport 2-arg ctor doesn't exist)"
+    note: "controller independently verified via reflection probe against installed SDK; fix round reverted to correct 2-arg ctor; fixed in a714d81"
+  - gate: reviews
+    severity: blocking
+    verdict: real
+    title: "Task 4: ModuleMigrationsHealthCheck couldn't resolve module DbContexts — tenant-scope requirement (ADR-0090) conflicts with health-check's no-request context"
+    note: "genuine architectural gap discovered mid-task; implementer's own workaround (reflecting over builder.Services to strip AddModuleDbContext registrations) was itself a severe bug (would've disabled tenant-scoped RLS/transaction sharing app-wide); discarded, replaced with tenant-scope-free factory-map design; fixed in da223b4"
+
+  # Gate 5 — /simplify (4 parallel angle reviews)
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "Altitude — ModuleMigrationsHealthCheck used a hand-built Dictionary<Type,Func<DbContext>> instead of reusing the existing IModule.RegisterForMigrator escape hatch"
+    note: "applied — rebuilt to resolve via RegisterForMigrator + a dedicated ServiceProvider, matching Kartova.Migrator's own mechanism; fixed in b4fa970"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "Efficiency — per-module migration checks ran sequentially instead of concurrently"
+    note: "applied — Task.WhenAll; fixed in b4fa970"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "Efficiency — DbContextOptions rebuilt from scratch on every health-check invocation"
+    note: "resolved as a side effect of the RegisterForMigrator redesign; fixed in b4fa970"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "Simplification — HealthCheckJsonResponseWriter compact/detailed branches duplicated status/duration/tags fields"
+    note: "applied — shared Dictionary<string,object?> base, branch only on description/exception; fixed in b4fa970"
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "Reuse — GetRealTokenAsync/EnvKey test helpers duplicated across AuthSmokeTests/CorsTests/OpenApiTests/HealthCheckEndpointTests"
+    note: "applied — moved onto shared KeycloakContainerTestBase, redundant private copies removed from all 4 files; fixed in b4fa970"
+  - gate: simplify
+    severity: nit
+    verdict: delusion
+    title: "Reuse — AuthSmokeTests' env-var-wiring block duplicated in HealthCheckEndpointTests"
+    note: "skipped — the two blocks aren't identical enough to collapse without touching more of pre-existing AuthSmokeTests.cs than this pass's blast radius; judged not worth the risk"
+  - gate: simplify
+    severity: nit
+    verdict: delusion
+    title: "Reuse — KeycloakHealthCheck's own named HttpClient vs AddKeycloakAdminClient's typed client looked duplicative"
+    note: "correct intentional isolation — that client carries admin-token concerns the health check shouldn't touch; not a real duplication"
+
+  # Gate 6 — requesting-code-review
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "DoD ledger self-contradiction: gate 4's Summary row flipped to PASS during a gate-5 edit while its own detail section still said PENDING"
+    note: "fixed same pass — gate 4 detail section backfilled with real evidence; fixed in 5849ede"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "Report's stylistic-consistency claim (matches sibling KeycloakHealthCheck) unverifiable from a diff-only review"
+    note: "not a defect — just an unverifiable claim, no fix needed"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "No explicit dotnet build (vs dotnet test) evidence shown for TreatWarningsAsErrors gate"
+    note: "inferred from a successful dotnet test build, not shown directly; low value to chase further"
+
+  # Gate 7 — review-pr (type-design-analyzer, pr-test-analyzer, code-reviewer, silent-failure-hunter)
+  - gate: review-pr
+    severity: blocking
+    verdict: real
+    title: "Critical — HealthCheckJsonResponseWriter compact mode nulled a check-authored safe description (KeycloakHealthCheck's real Unhealthy(safeMessage, ex) usage), not just the framework's exception-message fallback"
+    note: "fixed — only suppress when Description == Exception.Message; regression test added; fixed in 1c3612c"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "KeycloakHealthCheck's narrow catch (HttpRequestException or TaskCanceledException) missed config/URI errors, risking an uncaught exception"
+    note: "fixed — widened to catch (Exception ex) broadly; fixed in 1c3612c"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "No explicit per-check timeout — HealthCheckRegistration.Timeout defaults to Timeout.InfiniteTimeSpan, not a finite backstop as the spec wrongly claimed"
+    note: "fixed — explicit timeout: on postgres/keycloak/migrations checks; spec corrected; fixed in 1c3612c"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "A future IModule not overriding RegisterForMigrator would silently fall back to the tenant-scoped RegisterServices default, breaking the migrations-check provider with no build-time signal"
+    note: "fixed — added IModuleRules.Every_IModule_implementation_overrides_RegisterForMigrator (NetArchTest-style reflection check); fixed in 1c3612c"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "No real HTTP-level test proving an Unhealthy report yields 503 through the actual pipeline"
+    note: "fixed — added Ready_and_startup_return_503_when_keycloak_is_actually_unreachable; fixed in 1c3612c"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "No positive-path writer test proving an authored description (with or without an exception) survives compact mode — a mutant that always-nulled it would have passed the suite"
+    note: "fixed — two tests added; fixed in 1c3612c"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "Migrations-check ServiceProvider construction inlined in Program.cs, ASP0000 justification not co-located with the code it protects"
+    note: "fixed — extracted to named BuildMigrationsCheckProvider method; fixed in 1c3612c"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "ModuleMigrationsHealthCheck's Task.WhenAll surfaces only the first fault when 2+ modules fail concurrently in different ways, losing a sibling module's genuine pending-migrations finding"
+    note: "parked — narrow (requires two distinct simultaneous failure modes across different modules), doesn't defeat the feature's purpose the way the compact-writer Critical did; deferred as a follow-up"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "ModuleMigrationsHealthCheck ctor takes IModule[] rather than IReadOnlyList<IModule>"
+    note: "parked — cheap defensive-copy-avoidance nitpick, no behavior change, low value"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "Program.cs's 4 MapHealthChecks call sites have no compile-time tie preventing one from forgetting its ResponseWriter/predicate"
+    note: "parked — suggested DRY helper, not a defect"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "Only single-module-pending case tested for the string.Join formatting path (2+ pending modules untested)"
+    note: "parked — polish, low value"
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "Dead PostgresErrorCodes.DuplicateObject catch in ModuleMigrationsHealthCheckTests can't fire on a fresh-per-test container"
+    note: "harmless defensive code, matches the pattern used elsewhere in the file for consistency; not worth a fix cycle"
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "ADR-0060 names an 'Operations role' and extra /health/detailed fields (version, dependency URIs, percentiles) not present in this slice"
+    note: "already declined-to-judge at gate 6 and reconfirmed at gate 7 — no Operations role exists in this codebase; spec's concrete PlatformAdmin choice is authoritative per CLAUDE.md's ADR-wins rule"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "Helm chart probe timeoutSeconds mismatch (deploy/helm/kartova/templates/api-deployment.yaml) vs ADR-0060's recommended values"
+    note: "parked — separate infra concern outside this C#-slice's scope; new C#-level per-check timeouts meaningfully reduce the risk even without a Helm change"
+
+  # Gate 8 — deep-review
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "gate-findings.yaml (this file) was missing from the verification folder — findings existed only as prose in dod.md"
+    note: "fixed — this file created and backfilled"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "Program.cs ASP0000 suppression comment claimed the DI container disposes the migrations-check ServiceProvider singleton — factually wrong for AddSingleton(instance) registrations"
+    note: "fixed — verified empirically via a throwaway repro, comment corrected; fixed in bb50aa5"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "ModuleMigrationsHealthCheck doc comment overclaimed literal parity with Migrator's resolution call (GetRequiredService vs GetService)"
+    note: "fixed in bb50aa5"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "dod.md's HEAD field trailed the branch tip by one docs-only commit"
+    note: "fixed alongside this file's creation"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "Spec mislabeled KeycloakHealthCheck's named HttpClient registration as the typed-client overload (AddHttpClient<T> vs AddHttpClient(name, ...))"
+    note: "fixed in bb50aa5"
+  - gate: deep-review
+    severity: nit
+    verdict: delusion
+    title: "JSON writer always emits a description key (often null) where ADR-0060's sample response omits it for healthy entries with no description"
+    note: "harmless — ADR sample is illustrative, not a pinned schema; every consumer null-checks; no fix needed"
+
+  # Gate 9 — visual/API verification
+  - gate: manual
+    severity: nit
+    verdict: delusion
+    title: "Migrator container exited 139 (segfault) on first docker compose up attempt"
+    note: "transient Docker Desktop DNS-resolution flake for the 'postgres' hostname inside the compose network, not a code defect — retry succeeded cleanly (migrator exit 0); matches this repo's known Docker-under-load flakiness pattern"

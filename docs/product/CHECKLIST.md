@@ -74,7 +74,7 @@
 - [ ] E-01.F-06.S-06 — Auto-generated OpenAPI spec (dogfooding)
 
 **E-01.F-07: Platform Observability**
-- [ ] E-01.F-07.S-01 — Health check endpoints for all services
+- [x] E-01.F-07.S-01 — Health check endpoints for all services
 - [ ] E-01.F-07.S-02 — Structured logging across components
 - [ ] E-01.F-07.S-03 — Platform metrics (latency, errors, queues)
 - [ ] E-01.F-07.S-04 — Alerting on failures and SLA breaches

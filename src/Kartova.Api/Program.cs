@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using JasperFx;
+using Kartova.Api.HealthChecks;
 using Kartova.Audit.Infrastructure;
 using Kartova.Catalog.Infrastructure;
 using Kartova.Organization.Application;
@@ -11,6 +12,7 @@ using Kartova.Organization.Infrastructure;
 using Kartova.Organization.Infrastructure.Admin;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.AspNetCore;
+using Kartova.SharedKernel.AspNetCore.HealthChecks;
 using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Postgres;
@@ -37,12 +39,27 @@ public class Program
             new AuditModule(),
         ];
 
+        var kartovaConnection = KartovaConnectionStrings.RequireMain(builder.Configuration);
+
+        // Exposes the module registry to health checks (ModuleMigrationsHealthCheck) —
+        // shares Kartova.Migrator's IModule.DbContextType lookup key AND its
+        // GetService(module.DbContextType) resolution mechanism (see below).
+        builder.Services.AddSingleton(modules);
+
         foreach (var module in modules)
         {
             module.RegisterServices(builder.Services, builder.Configuration);
         }
 
-        var kartovaConnection = KartovaConnectionStrings.RequireMain(builder.Configuration);
+        // ModuleMigrationsHealthCheck needs a plain (non-tenant-scoped) DbContext per
+        // module — production registers module DbContexts via AddModuleDbContext
+        // (ADR-0090), which sources its connection from the per-request ITenantScope,
+        // unavailable to a health check (no HTTP request/tenant context) and unnecessary
+        // anyway since __EFMigrationsHistory is a global, non-tenant table. Reuse each
+        // module's IModule.RegisterForMigrator override — the same tenant-scope-free
+        // registration (and Kartova.Migrator/Program.cs's own resolution mechanism) —
+        // into a small dedicated provider instead of hand-building a separate one.
+        builder.Services.AddSingleton(BuildMigrationsCheckProvider(modules, builder.Configuration));
 
         // NpgsqlDataSource — used by TenantScope to open pooled connections.
         builder.Services.AddNpgsqlDataSource(kartovaConnection);
@@ -213,10 +230,17 @@ public class Program
                     }));
         });
 
-        // Health checks — ADR-0060.
+        // Health checks — ADR-0060. Kafka/Elasticsearch/MinIO checks are deferred
+        // (TD-011) — those clients aren't wired into the repo yet.
+        // Per-check `timeout:` matters: HealthCheckRegistration.Timeout defaults to
+        // Timeout.InfiniteTimeSpan — without an explicit value a hung dependency call
+        // blocks the probe indefinitely rather than surfacing as a clean Unhealthy/503.
+        builder.Services.AddHttpClient(KeycloakHealthCheck.ClientName, http => http.Timeout = TimeSpan.FromSeconds(3));
         builder.Services.AddHealthChecks()
             .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"])
-            .AddNpgSql(kartovaConnection, name: "postgres", tags: ["ready"]);
+            .AddNpgSql(kartovaConnection, name: "postgres", tags: ["ready", "startup"], timeout: TimeSpan.FromSeconds(3))
+            .AddCheck<KeycloakHealthCheck>("keycloak", tags: ["ready", "startup"], timeout: TimeSpan.FromSeconds(3))
+            .AddCheck<ModuleMigrationsHealthCheck>("migrations", tags: ["startup"], timeout: TimeSpan.FromSeconds(5));
 
         var app = builder.Build();
 
@@ -231,9 +255,25 @@ public class Program
         app.UseRateLimiter();
         app.UseMiddleware<TenantScopeBeginMiddleware>();
 
-        app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = c => c.Tags.Contains("live") });
-        app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready") });
-        app.MapHealthChecks("/health/startup", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready") });
+        app.MapHealthChecks("/health/live", new HealthCheckOptions
+        {
+            Predicate = c => c.Tags.Contains("live"),
+            ResponseWriter = HealthCheckJsonResponseWriter.WriteCompactAsync,
+        });
+        app.MapHealthChecks("/health/ready", new HealthCheckOptions
+        {
+            Predicate = c => c.Tags.Contains("ready"),
+            ResponseWriter = HealthCheckJsonResponseWriter.WriteCompactAsync,
+        });
+        app.MapHealthChecks("/health/startup", new HealthCheckOptions
+        {
+            Predicate = c => c.Tags.Contains("startup"),
+            ResponseWriter = HealthCheckJsonResponseWriter.WriteCompactAsync,
+        });
+        app.MapHealthChecks("/health/detailed", new HealthCheckOptions
+        {
+            ResponseWriter = HealthCheckJsonResponseWriter.WriteDetailedAsync,
+        }).RequireAuthorization(p => p.RequireRole(KartovaRoles.PlatformAdmin));
 
         // OpenAPI document endpoint — anonymous, no auth requirement (ADR-0029/0034).
         app.MapOpenApi("/openapi/{documentName}.json").AllowAnonymous();
@@ -265,6 +305,33 @@ public class Program
 
         return await app.RunJasperFxCommands(args);
     }
+
+    /// <summary>
+    /// Builds a small, separate provider holding only the plain (non-tenant-scoped)
+    /// module DbContexts registered via each module's <see cref="IModule.RegisterForMigrator"/>
+    /// override — the tenant-scope-free path <c>ModuleMigrationsHealthCheck</c> needs
+    /// (see the registration call site for the full rationale).
+    /// </summary>
+#pragma warning disable ASP0000 // Intentional: this container holds only the plain
+    // module DbContexts RegisterForMigrator registers — no overlap with builder.Services,
+    // so this does not create extra copies of any app singleton (the risk ASP0000 warns
+    // about). Accepted trade-off, not a false alarm: registering a pre-built instance via
+    // AddSingleton(instance) means the root container does NOT dispose it (the container
+    // only disposes services it constructs itself, via a type/factory registration) — this
+    // provider is intentionally never disposed, acceptable since it's process-lifetime-scoped
+    // and process exit reclaims the underlying connections regardless (gate-8 deep-review
+    // finding, 2026-09-23 — verified empirically, corrects an earlier version of this comment
+    // that wrongly claimed the container disposes it).
+    private static ServiceProvider BuildMigrationsCheckProvider(IModule[] modules, IConfiguration configuration)
+    {
+        var services = new ServiceCollection();
+        foreach (var module in modules)
+        {
+            module.RegisterForMigrator(services, configuration);
+        }
+        return services.BuildServiceProvider();
+    }
+#pragma warning restore ASP0000
 
     [ExcludeFromCodeCoverage]
     private static IResult GetVersion()
