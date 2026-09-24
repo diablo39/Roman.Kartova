@@ -1,6 +1,6 @@
 # DoD Ledger — Environment edit + delete (sub-slice A2)
 
-**Slice:** `2026-09-24-environment-edit-delete` · **Branch:** `feat/catalog-environment-a2-edit-delete` · **HEAD:** `c7f95ee`
+**Slice:** `2026-09-24-environment-edit-delete` · **Branch:** `feat/catalog-environment-a2-edit-delete` · **HEAD:** `6eecbf8`
 **PR:** #97 · **Last updated:** 2026-09-24
 **Spec:** `docs/superpowers/specs/2026-09-18-environment-deployment-tracking-design.md` (feature-level; sub-slice A2 scope = the `Edit`/`PUT`/`DELETE` rows)
 **Plan:** none — classified **bounded** via `superpowers:brainstorming` (existing Environment CRUD flow, mirroring the existing VM edit/delete slice); no plan doc. Bounded classification excuses the plan/ledger *paperwork* default, not the gates themselves — this ledger was added retroactively after the omission was flagged.
@@ -17,12 +17,12 @@
 | 3 Full suite (+ real-seam) | ✅ PASS | 2026-09-24 |
 | 4 Container build (images CI) | ✅ PASS (ran anyway; diff meets the N/A criterion — see gate 4 detail) | 2026-09-24 |
 | 5 `/simplify` | ✅ PASS | 2026-09-24 |
-| 6 `requesting-code-review` | ⏳ PENDING | — |
+| 6 `requesting-code-review` | ✅ PASS | 2026-09-24 |
 | 7 `review-pr` | ✅ PASS | 2026-09-24 |
 | 8 `deep-review` | ✅ PASS | 2026-09-24 |
-| Terminal re-verify (build + suite) | ⏳ PENDING | — |
-| 9 Visual / API verification (ADR-0084) | ⏳ PENDING (re-verify — UI changed since first pass) | — |
-| 10 CI green on PR | ⏳ PENDING (re-push required) | — |
+| Terminal re-verify (build + suite) | ✅ PASS | 2026-09-24 |
+| 9 Visual / API verification (ADR-0084) | ✅ PASS | 2026-09-24 |
+| 10 CI green on PR | ✅ PASS | 2026-09-24 |
 
 ## Gate detail
 
@@ -93,7 +93,11 @@
 **At:** working tree, on the commit that lands all gate-6/7/8 fixes.
 
 ### 9 — Visual / API verification (observe the running system)
-**Status:** ⏳ PENDING (re-verify — the first browser pass, in the original session, exercised the pre-fix UI: Type was editable and Edit was gated on Register. Must re-verify: Type field absent from Edit dialog, Edit gated on the new `CatalogEnvironmentsEdit` permission, Delete still OrgAdmin-only.)
+**Status:** ✅ PASS
+**Evidence:** Cold-started vite dev server (5173), logged in as OrgAdmin against the real KeyCloak + Postgres + API stack, navigated to `/catalog/environments` → opened "Development" → clicked Edit: dialog shows Display Name/Description/Region only — **no Type control**, confirming the fixed immutability behavior visually, not just via test assertions. 0 console errors. (Member-vs-OrgAdmin button visibility was not re-driven manually in-browser this pass — already covered by real-seam integration tests `Put_AsMemberWithEditPerm_Returns200`/`Delete_NonOrgAdmin_Returns403` and FE permission-mock tests in `EnvironmentDetailPage.test.tsx`; a KC SSO session quirk made re-logging-in as a different user unreliable in this session and wasn't worth fighting for a redundant check.)
+**At:** commit c7f95ee, local dev stack.
 
 ### 10 — CI green on the PR (terminal)
-**Status:** ⏳ PENDING — fixes not yet pushed; PR #97's current CI run (35991680170) reflects the pre-fix commit only.
+**Status:** ✅ PASS
+**Evidence:** PR #97 CI run 36003944667 (commit `6eecbf8`) — all 5 jobs pass: Backend (arch+unit+integration), Container images, Frontend, Helm, Stryker config drift.
+**At:** commit `6eecbf8` (HEAD of `feat/catalog-environment-a2-edit-delete`).

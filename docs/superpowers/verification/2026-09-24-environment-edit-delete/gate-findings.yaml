@@ -1,6 +1,6 @@
 slice: 2026-09-24-environment-edit-delete
 branch: feat/catalog-environment-a2-edit-delete
-terminal_commit: c7f95ee
+terminal_commit: 6eecbf8
 
 findings:
   - gate: reviews
