@@ -1,11 +1,11 @@
 ---
 name: python-debugging-expert
 description: >-
-  Diagnoses hard Python faults that ordinary development cannot resolve — cryptic tracebacks,
-  memory growth, CPU hotspots, and asyncio deadlocks or races. Use when a bug is intermittent,
-  performance-related, or concurrency-related, or when a defect has resisted ordinary
-  development. Delivers root cause with evidence and a minimal fix direction.
+  Diagnoses hard Python faults — memory growth, CPU hotspots, asyncio deadlocks/races. Use when a
+  Python bug is intermittent or resists ordinary development.
 model: sonnet
+tools: Read, Grep, Glob, Bash, Edit, Write
+omitClaudeMd: true
 ---
 Knowledge and oracle paths below are relative to `.claude/dev-hm/` in this repository — resolve them against it when you open a file.
 

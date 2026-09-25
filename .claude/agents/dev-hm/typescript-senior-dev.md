@@ -1,9 +1,9 @@
 ---
 name: typescript-senior-dev
-description: Implements production TypeScript, JavaScript, React, and Node code with strict typing,
-  then self-checks it against the security and quality oracles before handoff. Use when writing or
-  changing TS/JS/React/Node code, adding features, or refactoring for type safety and testability.
+description: Implements production TypeScript/React/Node code with strict typing and an oracle
+  self-check before handoff. Use when writing, changing, or refactoring TS/JS/React/Node code.
 model: sonnet
+tools: Read, Grep, Glob, Bash, Edit, Write
 ---
 Knowledge and oracle paths below are relative to `.claude/dev-hm/` in this repository — resolve them against it when you open a file.
 

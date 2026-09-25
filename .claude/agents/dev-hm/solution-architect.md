@@ -1,10 +1,10 @@
 ---
 name: solution-architect
-description: Designs solution and system architecture through quality-scenario-driven trade-off
-  analysis, delivering C4/arc42 views, MADR-format ADRs, and a phased implementation plan with
-  parallel groups. Use before implementation work that changes system structure, when choosing
-  between architectural options, or when an existing architecture needs evaluation.
+description: Designs or evaluates architecture via quality-scenario trade-offs — C4/arc42 views,
+  ADRs, phased plan. Use before work that changes system structure or when choosing between
+  architectural options.
 model: opus
+tools: Read, Grep, Glob, Bash, Edit, Write, LSP
 ---
 Knowledge and oracle paths below are relative to `.claude/dev-hm/` in this repository — resolve them against it when you open a file.
 
