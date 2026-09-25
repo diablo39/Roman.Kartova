@@ -25,6 +25,7 @@ public class OpenApiTests : KeycloakContainerTestBase
             $"{Containers.KeycloakAuthority}/.well-known/openid-configuration");
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Audience), "kartova-api");
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.RequireHttpsMetadata), "false");
+        SetPlatformAdminAuthEnv();
 
         // Slice 9 / H8: AddKeycloakAdminClient.ValidateOnStart rejects the
         // appsettings placeholder "OVERRIDE_VIA_ENV". Wire the four

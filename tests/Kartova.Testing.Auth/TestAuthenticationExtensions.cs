@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Kartova.SharedKernel.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
@@ -23,6 +24,23 @@ public static class TestAuthenticationExtensions
                 ValidIssuer = TestJwtSigner.Issuer,
                 ValidateAudience = true,
                 ValidAudience = TestJwtSigner.Audience,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = signer.PublicKey,
+                ClockSkew = TimeSpan.FromSeconds(5),
+            };
+            opts.MapInboundClaims = false;
+        });
+
+        services.PostConfigure<JwtBearerOptions>(PlatformAdminAuth.Scheme, opts =>
+        {
+            opts.RequireHttpsMetadata = false;
+            opts.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = TestJwtSigner.PlatformIssuer,
+                ValidateAudience = true,
+                ValidAudience = TestJwtSigner.PlatformAudience,
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = signer.PublicKey,

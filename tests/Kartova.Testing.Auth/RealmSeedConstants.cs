@@ -39,4 +39,13 @@ public static class RealmSeedConstants
     /// pins it so the Testcontainer boots predictably.
     /// </summary>
     public const string AdminClientSecret = "admin-dev-secret";
+
+    /// <summary>ADR-0118 operator realm — matches <c>realm</c> in <c>kartova-platform-realm.json</c>.</summary>
+    public const string PlatformRealmName = "kartova-platform";
+
+    /// <summary>Dev/test password-grant client in the operator realm.</summary>
+    public const string PlatformTestClientId = "kartova-admin-test";
+
+    /// <summary>Audience the operator realm stamps on admin tokens.</summary>
+    public const string PlatformApiAudience = "kartova-admin-api";
 }

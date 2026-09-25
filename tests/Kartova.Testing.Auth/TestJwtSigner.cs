@@ -13,6 +13,8 @@ public sealed class TestJwtSigner
 {
     public const string Issuer = "https://test-issuer.kartova.local";
     public const string Audience = "kartova-api";
+    public const string PlatformIssuer = "https://test-platform-issuer.kartova.local";
+    public const string PlatformAudience = "kartova-admin-api";
 
     private readonly RSA _rsa;
     private readonly RsaSecurityKey _key;
@@ -43,8 +45,18 @@ public sealed class TestJwtSigner
     public string IssueExpired(TenantId tenantId)
         => Build("test-user", tenantId, [KartovaRoles.OrgAdmin], TimeSpan.FromMinutes(15), expired: true, email: null);
 
+    /// <summary>ADR-0118: token as issued by the separate <c>kartova-platform</c> realm.</summary>
+    public string IssueForPlatformRealm(
+        string[] roles,
+        string subject = "platform-admin-user",
+        string? email = null,
+        string? name = null)
+        => Build(subject, tenantId: null, roles, TimeSpan.FromMinutes(15), expired: false,
+            email: email, name: name, issuer: PlatformIssuer, audience: PlatformAudience);
+
     private string Build(
-        string subject, TenantId? tenantId, string[] roles, TimeSpan lifetime, bool expired, string? email, string? name = null)
+        string subject, TenantId? tenantId, string[] roles, TimeSpan lifetime, bool expired, string? email,
+        string? name = null, string issuer = Issuer, string audience = Audience)
     {
         var now = expired ? DateTime.UtcNow.AddMinutes(-30) : DateTime.UtcNow;
         var expires = now.Add(lifetime);
@@ -75,8 +87,8 @@ public sealed class TestJwtSigner
         }
 
         var token = new JwtSecurityToken(
-            issuer: Issuer,
-            audience: Audience,
+            issuer: issuer,
+            audience: audience,
             claims: claims,
             notBefore: now,
             expires: expires,
