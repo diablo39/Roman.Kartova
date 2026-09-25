@@ -70,6 +70,27 @@ public sealed class CatalogEnvironment : ITenantOwned
         return new CatalogEnvironment(EnvironmentId.New(), tenantId, displayName, description, type, region, resourceDetailsJson, createdByUserId, createdAt);
     }
 
+    /// <summary>
+    /// Metadata edit (A2, design §"Domain": "<c>Edit</c> (metadata only — <c>Type</c>
+    /// immutable, mirrors <see cref="InfrastructureResource.Edit"/>)"). <c>Type</c> is
+    /// intentionally NOT a parameter here — unlike <c>InfrastructureResource.Edit</c>'s
+    /// immutable <c>TeamId</c>, Environment's immutable field is its type. Same
+    /// invariants as <see cref="Create"/> for the mutable fields.
+    /// </summary>
+    public void Edit(string displayName, string description, string? region, string resourceDetailsJson)
+    {
+        ValidateDisplayName(displayName);
+        ValidateDescription(description);
+        region = Normalize(region);
+        ValidateOptional(region, nameof(region));
+        ValidateResourceDetails(resourceDetailsJson);
+
+        DisplayName = displayName;
+        Description = description;
+        Region = region;
+        ResourceDetails = resourceDetailsJson;
+    }
+
     private static void ValidateDisplayName(string displayName)
     {
         if (string.IsNullOrWhiteSpace(displayName))

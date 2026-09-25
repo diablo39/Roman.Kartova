@@ -356,8 +356,8 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               .ProducesProblem(StatusCodes.Status404NotFound)
               .ProducesProblem(StatusCodes.Status412PreconditionFailed)
               .ProducesProblem(StatusCodes.Status428PreconditionRequired);
-        // Environment read + register surface (E-02.F-05.S-01). Tenant-global — no team gate;
-        // edit/delete land in slice A2.
+        // Environment read + register surface (E-02.F-05.S-01) + edit/delete (A2). Tenant-global —
+        // no team gate.
         tenant.MapGet("/environments", CatalogEndpointDelegates.ListEnvironmentsAsync)
               .RequireAuthorization(KartovaPermissions.CatalogRead)
               .WithName("ListEnvironments")
@@ -377,6 +377,31 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
               // caller lacking the claim, mirrors RegisterVm's declaration.
               .ProducesProblem(StatusCodes.Status403Forbidden)
               .ProducesProblem(StatusCodes.Status409Conflict);
+        // Metadata edit (Type immutable, per design) — dedicated CatalogEnvironmentsEdit
+        // claim (Member+OrgAdmin), tenant-global so no team gate. A2.
+        tenant.MapPut("/environments/{id:guid}", CatalogEndpointDelegates.EditEnvironmentAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogEnvironmentsEdit)
+              .AddEndpointFilter<IfMatchEndpointFilter>()
+              .WithName("EditEnvironment")
+              .Produces<EnvironmentDetailResponse>(StatusCodes.Status200OK)
+              .ProducesProblem(StatusCodes.Status400BadRequest)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
+              .ProducesProblem(StatusCodes.Status404NotFound)
+              .ProducesProblem(StatusCodes.Status409Conflict)
+              .ProducesProblem(StatusCodes.Status412PreconditionFailed)
+              .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+        // Hard delete — OrgAdmin-only (CatalogEnvironmentsDelete is mapped to OrgAdmin alone in
+        // KartovaRolePermissions). No lifecycle/soft-delete for Environment — a plain row
+        // removal, gated by If-Match like the PUT above. A2.
+        tenant.MapDelete("/environments/{id:guid}", CatalogEndpointDelegates.DeleteEnvironmentAsync)
+              .RequireAuthorization(KartovaPermissions.CatalogEnvironmentsDelete)
+              .AddEndpointFilter<IfMatchEndpointFilter>()
+              .WithName("DeleteEnvironment")
+              .Produces(StatusCodes.Status204NoContent)
+              .ProducesProblem(StatusCodes.Status403Forbidden)
+              .ProducesProblem(StatusCodes.Status404NotFound)
+              .ProducesProblem(StatusCodes.Status412PreconditionFailed)
+              .ProducesProblem(StatusCodes.Status428PreconditionRequired);
     }
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
@@ -438,6 +463,8 @@ public sealed class CatalogModule : IModule, IModuleEndpoints
         services.AddScoped<ListEnvironmentsHandler>();
         services.AddScoped<GetEnvironmentByIdHandler>();
         services.AddScoped<RegisterEnvironmentHandler>();
+        services.AddScoped<EditEnvironmentHandler>();
+        services.AddScoped<DeleteEnvironmentHandler>();
 
         // TimeProvider is needed by Application.Deprecate / Decommission for the
         // "sunsetDate must be in the future" / "now >= sunsetDate" checks. TryAdd

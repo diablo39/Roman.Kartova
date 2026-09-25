@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using Kartova.Catalog.Application;
 using Kartova.Catalog.Contracts;
 using Kartova.Catalog.Domain;
 using Kartova.Catalog.Infrastructure;   // CatalogDbContext, CatalogEndpointDelegates, RegisterEnvironmentHandler
@@ -352,6 +354,456 @@ public sealed class EnvironmentEndpointsTests : CatalogIntegrationTestBase
         Assert.IsNotNull(problem, $"expected a ProblemHttpResult (409), got {result.GetType().Name}");
         Assert.AreEqual(StatusCodes.Status409Conflict, problem!.StatusCode);
         Assert.AreEqual(ProblemTypes.EnvironmentNameConflict, problem.ProblemDetails.Type);
+    }
+
+    // ---- A2: PUT /environments/{id} + DELETE /environments/{id} with If-Match --------
+
+    private static EditEnvironmentRequest EditFrom(EnvironmentDetailResponse created, string? displayName = null) => new(
+        DisplayName: displayName ?? created.DisplayName,
+        Description: created.Description,
+        Region: created.Region,
+        ResourceDetails: created.ResourceDetails);
+
+    private static HttpRequestMessage NewPut(Guid id, string? ifMatch, EditEnvironmentRequest request)
+    {
+        var msg = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/catalog/environments/{id}")
+        {
+            Content = JsonContent.Create(request, options: KartovaApiFixtureBase.WireJson),
+        };
+        if (ifMatch is not null) msg.Headers.TryAddWithoutValidation("If-Match", $"\"{ifMatch}\"");
+        return msg;
+    }
+
+    private static HttpRequestMessage NewDelete(Guid id, string? ifMatch)
+    {
+        var msg = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/catalog/environments/{id}");
+        if (ifMatch is not null) msg.Headers.TryAddWithoutValidation("If-Match", $"\"{ifMatch}\"");
+        return msg;
+    }
+
+    private static async Task<EnvironmentDetailResponse> RegisterEnvAsync(HttpClient client, string displayName)
+    {
+        var post = await client.PostAsJsonAsync("/api/v1/catalog/environments", Body(displayName));
+        Assert.AreEqual(HttpStatusCode.Created, post.StatusCode, $"RegisterEnvironment failed: {await post.Content.ReadAsStringAsync()}");
+        return (await post.Content.ReadFromJsonAsync<EnvironmentDetailResponse>(KartovaApiFixtureBase.WireJson))!;
+    }
+
+    [TestMethod]
+    public async Task Put_UpdatesEnvironment_Returns200()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put.test");
+        var created = await RegisterEnvAsync(client, "Put Env");
+
+        var resp = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "Put Env Renamed")));
+
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode, $"EditEnvironment failed: {await resp.Content.ReadAsStringAsync()}");
+        var body = await resp.Content.ReadFromJsonAsync<EnvironmentDetailResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual("Put Env Renamed", body!.DisplayName);
+        Assert.AreNotEqual(created.Version, body.Version);
+        Assert.AreEqual($"\"{body.Version}\"", resp.Headers.ETag?.Tag);
+    }
+
+    /// <summary>Exercises the actual HTTP/EF write path for the non-displayName mutable
+    /// fields — every other PUT test in this file only varies <c>displayName</c> via
+    /// <see cref="EditFrom"/>, so a field-mapping slip in <see cref="EditEnvironmentCommand"/>
+    /// construction or <see cref="EditEnvironmentHandler.Handle"/> would only be caught by the
+    /// domain-level <c>Edit_replaces_mutable_fields</c> unit test, not by anything hitting the
+    /// endpoint.</summary>
+    [TestMethod]
+    public async Task Put_UpdatesDescriptionRegionAndResourceDetails_Returns200()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put-fields.test");
+        var created = await RegisterEnvAsync(client, "Put Fields Env");
+
+        var request = new EditEnvironmentRequest(
+            DisplayName: created.DisplayName,
+            Description: "Updated description",
+            Region: "ap-southeast-1",
+            ResourceDetails: new Dictionary<string, string> { ["k"] = "v" });
+        var resp = await client.SendAsync(NewPut(created.Id, created.Version, request));
+
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode, $"EditEnvironment failed: {await resp.Content.ReadAsStringAsync()}");
+        var body = await resp.Content.ReadFromJsonAsync<EnvironmentDetailResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual("Updated description", body!.Description);
+        Assert.AreEqual("ap-southeast-1", body.Region);
+        Assert.AreEqual("v", body.ResourceDetails["k"]);
+
+        var get = await client.GetFromJsonAsync<EnvironmentDetailResponse>(
+            $"/api/v1/catalog/environments/{created.Id}", KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual("Updated description", get!.Description);
+        Assert.AreEqual("ap-southeast-1", get.Region);
+        Assert.AreEqual("v", get.ResourceDetails["k"]);
+    }
+
+    /// <summary>Mirrors <c>RegisterEnvironment_invalid_resource_details_returns_400</c> — proves
+    /// the same <c>EnvironmentResourceDetails.Validate</c> wiring on the edit path.</summary>
+    [TestMethod]
+    public async Task Put_InvalidResourceDetails_Returns400()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put-bad-resource.test");
+        var created = await RegisterEnvAsync(client, "Put Bad Resource Env");
+
+        var request = new EditEnvironmentRequest(
+            DisplayName: created.DisplayName,
+            Description: created.Description,
+            Region: created.Region,
+            ResourceDetails: new Dictionary<string, string> { [new string('k', 200)] = "v" });
+        var resp = await client.SendAsync(NewPut(created.Id, created.Version, request));
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Put_RenameToExistingName_Returns409()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put-conflict.test");
+        var created = await RegisterEnvAsync(client, "Put Conflict A");
+        await RegisterEnvAsync(client, "Put Conflict B");
+
+        var resp = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "Put Conflict B")));
+
+        Assert.AreEqual(HttpStatusCode.Conflict, resp.StatusCode);
+        var problem = await resp.Content.ReadFromJsonAsync<ProblemPayload>();
+        Assert.AreEqual(ProblemTypes.EnvironmentNameConflict, problem!.Type);
+    }
+
+    /// <summary>Design §"Domain": <c>Edit</c> — "<c>Type</c> immutable". A PUT body with a
+    /// different <c>type</c> is accepted (the request no longer carries a `type` field to
+    /// change), and the stored type is unaffected.</summary>
+    [TestMethod]
+    public async Task Put_TypeStaysUnchanged()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put-type-immutable.test");
+        var created = await RegisterEnvAsync(client, "Type Immutable Env");
+        Assert.AreEqual(EnvironmentType.Production, created.Type);
+
+        // `EditEnvironmentRequest` has no `type` field, so a caller cannot express "change
+        // the type" through the typed contract — but a raw JSON body could still smuggle one
+        // in if System.Text.Json's default unmapped-member tolerance ever changed. Sending it
+        // over the wire directly (rather than through EditFrom, whose typed request has no
+        // slot for it) is what actually proves the server ignores it rather than merely proving
+        // the C# client can't construct it.
+        var raw = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/catalog/environments/{created.Id}")
+        {
+            Content = JsonContent.Create(new
+            {
+                displayName = "Type Immutable Env Renamed",
+                description = created.Description,
+                region = created.Region,
+                resourceDetails = created.ResourceDetails,
+                type = "development",
+            }),
+        };
+        raw.Headers.TryAddWithoutValidation("If-Match", $"\"{created.Version}\"");
+
+        var resp = await client.SendAsync(raw);
+
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode, $"EditEnvironment failed: {await resp.Content.ReadAsStringAsync()}");
+        var body = await resp.Content.ReadFromJsonAsync<EnvironmentDetailResponse>(KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(EnvironmentType.Production, body!.Type, "an extraneous 'type' field on the wire must be ignored, not applied");
+
+        var get = await client.GetFromJsonAsync<EnvironmentDetailResponse>(
+            $"/api/v1/catalog/environments/{created.Id}", KartovaApiFixtureBase.WireJson);
+        Assert.AreEqual(EnvironmentType.Production, get!.Type, "the persisted type must be unchanged too, not just the PUT response");
+    }
+
+    /// <summary>Deterministic (no threads) reproduction of the 23505-race backstop on the
+    /// UPDATE path — mirrors <see cref="RegisterEnvironment_race_backstop_returns_409_not_500"/>
+    /// but exercises <see cref="CatalogEndpointDelegates.EditEnvironmentAsync"/>'s shared
+    /// <c>IsEnvironmentNameConflictRace</c> catch instead of Register's. A concurrent writer's
+    /// raw-SQL rename lands between this request's own pre-check and its SaveChangesAsync.</summary>
+    [TestMethod]
+    public async Task EditEnvironment_race_backstop_returns_409_not_500()
+    {
+        var tenant = Fx.TenantIdForEmail("admin@env-edit-race.test");
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-edit-race.test");
+        var created = await RegisterEnvAsync(client, "Edit Race Env");
+        const string racingName = "Edit Race Winner";
+
+        var raced = false;
+        var interceptor = new RaceOnSaveInterceptor(
+            tracker => tracker.Entries<CatalogEnvironment>().Any(e => e.State == EntityState.Modified),
+            async () =>
+            {
+                raced = true;
+                await using var conn = new NpgsqlConnection(Fx.BypassConnectionString);
+                await conn.OpenAsync();
+                await using var cmd = conn.CreateCommand();
+                cmd.CommandText = """
+                    INSERT INTO catalog_environments
+                        (id, tenant_id, display_name, description, type, resource_details, created_by_user_id, created_at)
+                    VALUES ($1, $2, $3, 'race-winner', 0, '{}', $4, NOW())
+                    """;
+                cmd.Parameters.AddWithValue(Guid.NewGuid());
+                cmd.Parameters.AddWithValue(tenant.Value);
+                cmd.Parameters.AddWithValue(racingName);
+                cmd.Parameters.AddWithValue(Guid.NewGuid());
+                await cmd.ExecuteNonQueryAsync();
+            });
+        var options = new DbContextOptionsBuilder<CatalogDbContext>()
+            .UseNpgsql(Fx.BypassConnectionString)
+            .AddInterceptors(interceptor)
+            .Options;
+        await using var db = new CatalogDbContext(options);
+
+        var result = await CatalogEndpointDelegates.EditEnvironmentAsync(
+            created.Id,
+            new EditEnvironmentRequest(racingName, "renamed", created.Region, created.ResourceDetails),
+            new EditEnvironmentHandler(),
+            db,
+            FakeHttpContextWithIfMatch(created.Version),
+            new NoOpAuditWriter(),
+            NullLogger<EditEnvironmentHandler>.Instance, default);
+
+        Assert.IsTrue(raced, "the interceptor must actually have raced the rename for this test to be meaningful");
+        var problem = result as ProblemHttpResult;
+        Assert.IsNotNull(problem, $"expected a ProblemHttpResult (409), got {result.GetType().Name}");
+        Assert.AreEqual(StatusCodes.Status409Conflict, problem!.StatusCode);
+        Assert.AreEqual(ProblemTypes.EnvironmentNameConflict, problem.ProblemDetails.Type);
+    }
+
+    private static HttpContext FakeHttpContextWithIfMatch(string version)
+    {
+        Assert.IsTrue(VersionEncoding.TryDecode(version, out var expected), "test setup: version must decode");
+        var http = new DefaultHttpContext();
+        http.Items[IfMatchEndpointFilter.ExpectedVersionKey] = expected;
+        return http;
+    }
+
+    [TestMethod]
+    public async Task Put_UnchangedName_Returns200()
+    {
+        // Renaming to its own current value must not trip the conflict pre-check
+        // (the delegate skips it when the name is unchanged).
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put-samename.test");
+        var created = await RegisterEnvAsync(client, "Same Name Env");
+
+        var resp = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created)));
+
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Put_StaleIfMatch_Returns412()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put-stale.test");
+        var created = await RegisterEnvAsync(client, "Stale Env");
+
+        var ok = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "Stale Env v2")));
+        Assert.AreEqual(HttpStatusCode.OK, ok.StatusCode);
+        var okBody = await ok.Content.ReadFromJsonAsync<EnvironmentDetailResponse>(KartovaApiFixtureBase.WireJson);
+
+        var stale = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "Stale Env v3")));
+        Assert.AreEqual(HttpStatusCode.PreconditionFailed, stale.StatusCode);
+
+        var problem = await stale.Content.ReadFromJsonAsync<ProblemPayload>();
+        Assert.AreEqual(okBody!.Version, problem!.CurrentVersion);
+    }
+
+    [TestMethod]
+    public async Task Put_MissingIfMatch_Returns428()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put-noifmatch.test");
+        var created = await RegisterEnvAsync(client, "NoIfMatch Env");
+
+        var resp = await client.SendAsync(NewPut(created.Id, ifMatch: null, EditFrom(created, displayName: "NoIfMatch Env v2")));
+
+        Assert.AreEqual(HttpStatusCode.PreconditionRequired, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Put_WithoutEditPerm_Returns403()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put-noperm.test");
+        var created = await RegisterEnvAsync(client, "NoPerm Env");
+
+        var viewer = await Fx.CreateAuthenticatedClientAsync(
+            "viewer-env-edit@env-put-noperm.test", new[] { KartovaRoles.Viewer });
+
+        var resp = await viewer.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "Hijacked")));
+
+        Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
+    }
+
+    /// <summary>Proves the edit gate is <c>CatalogEnvironmentsEdit</c>, granted to Member (not
+    /// just OrgAdmin) — a Member has no register-perm dependency here since Edit is its own
+    /// dedicated permission (design §"Permissions").</summary>
+    [TestMethod]
+    public async Task Put_AsMemberWithEditPerm_Returns200()
+    {
+        var admin = await Fx.CreateAuthenticatedClientAsync("admin@env-put-member.test");
+        var created = await RegisterEnvAsync(admin, "Member Edit Env");
+
+        var member = await Fx.CreateAuthenticatedClientAsync(
+            "member-env-edit@env-put-member.test", new[] { KartovaRoles.Member });
+
+        var resp = await member.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "Member Edit Env v2")));
+
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode, $"EditEnvironment failed: {await resp.Content.ReadAsStringAsync()}");
+    }
+
+    /// <summary>gate-7 C1 equivalent: a blank display name on PUT must surface the global 400
+    /// ValidationFailed mapping (mirrors <c>Put_BadAttributes_Returns400</c> in
+    /// InfrastructureVmWriteTests) — not previously exercised for the Environment PUT path.</summary>
+    [TestMethod]
+    public async Task Put_BlankDisplayName_Returns400()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put-blank-name.test");
+        var created = await RegisterEnvAsync(client, "Blank Name Base");
+
+        var resp = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "")));
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Put_UnknownId_Returns404()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put-unknown.test");
+        var created = await RegisterEnvAsync(client, "Unknown Base");
+
+        var resp = await client.SendAsync(NewPut(Guid.NewGuid(), created.Version, EditFrom(created)));
+
+        Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Put_CrossTenant_Returns404()
+    {
+        var orgA = await Fx.CreateAuthenticatedClientAsync("admin@env-put-tenant-a.test");
+        var created = await RegisterEnvAsync(orgA, "CrossTenant Env");
+
+        var orgB = await Fx.CreateAuthenticatedClientAsync("admin@env-put-tenant-b.test");
+        var resp = await orgB.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "Hijack")));
+
+        Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Put_WritesEnvironmentEditedAuditRow()
+    {
+        var tenantId = Fx.TenantIdForEmail("admin@env-put-audit.test");
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-put-audit.test");
+        var created = await RegisterEnvAsync(client, "Audit Edit Env");
+
+        var resp = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "Audit Edit Env v2")));
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode, $"EditEnvironment failed: {await resp.Content.ReadAsStringAsync()}");
+
+        var rows = await Fx.ReadAuditLogAsync(tenantId.Value);
+        var row = rows.Single(r =>
+            r.Action == CatalogAuditActions.EnvironmentEdited &&
+            r.TargetId == created.Id.ToString());
+        Assert.AreEqual(CatalogAuditTargetTypes.Environment, row.TargetType);
+        using var data = JsonDocument.Parse(row.DataJson!);
+        Assert.AreEqual("Audit Edit Env v2", data.RootElement.GetProperty("displayName").GetString());
+    }
+
+    [TestMethod]
+    public async Task Delete_RemovesEnvironment_Returns204()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-delete.test");
+        var created = await RegisterEnvAsync(client, "Delete Env");
+
+        var del = await client.SendAsync(NewDelete(created.Id, created.Version));
+        Assert.AreEqual(HttpStatusCode.NoContent, del.StatusCode, $"DeleteEnvironment failed: {await del.Content.ReadAsStringAsync()}");
+
+        var get = await client.GetAsync($"/api/v1/catalog/environments/{created.Id}");
+        Assert.AreEqual(HttpStatusCode.NotFound, get.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Delete_WritesEnvironmentDeletedAuditRow()
+    {
+        var tenantId = Fx.TenantIdForEmail("admin@env-delete-audit.test");
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-delete-audit.test");
+        var created = await RegisterEnvAsync(client, "Audit Delete Env");
+
+        var del = await client.SendAsync(NewDelete(created.Id, created.Version));
+        Assert.AreEqual(HttpStatusCode.NoContent, del.StatusCode, $"DeleteEnvironment failed: {await del.Content.ReadAsStringAsync()}");
+
+        var rows = await Fx.ReadAuditLogAsync(tenantId.Value);
+        var row = rows.Single(r =>
+            r.Action == CatalogAuditActions.EnvironmentDeleted &&
+            r.TargetId == created.Id.ToString());
+        Assert.AreEqual(CatalogAuditTargetTypes.Environment, row.TargetType);
+    }
+
+    [TestMethod]
+    public async Task Delete_NonOrgAdmin_Returns403()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-delete-noperm.test");
+        var created = await RegisterEnvAsync(client, "Delete NoPerm Env");
+
+        // Member carries CatalogEnvironmentsRegister but NOT CatalogEnvironmentsDelete
+        // (OrgAdmin-only) — proves the delete gate is a distinct, narrower permission.
+        var member = await Fx.CreateAuthenticatedClientAsync(
+            "member-env-delete@env-delete-noperm.test", new[] { KartovaRoles.Member });
+
+        var resp = await member.SendAsync(NewDelete(created.Id, created.Version));
+
+        Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Delete_StaleIfMatch_Returns412()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-delete-stale.test");
+        var created = await RegisterEnvAsync(client, "Delete Stale Env");
+
+        var put = await client.SendAsync(NewPut(created.Id, created.Version, EditFrom(created, displayName: "Delete Stale Env v2")));
+        Assert.AreEqual(HttpStatusCode.OK, put.StatusCode);
+        var putBody = await put.Content.ReadFromJsonAsync<EnvironmentDetailResponse>(KartovaApiFixtureBase.WireJson);
+
+        var del = await client.SendAsync(NewDelete(created.Id, created.Version));
+        Assert.AreEqual(HttpStatusCode.PreconditionFailed, del.StatusCode);
+
+        // gate-7 T2 equivalent: currentVersion capture works end-to-end on the DELETE
+        // path too, not just PUT (Put_StaleIfMatch_Returns412 covers PUT).
+        var problem = await del.Content.ReadFromJsonAsync<ProblemPayload>();
+        Assert.AreEqual(putBody!.Version, problem!.CurrentVersion);
+    }
+
+    [TestMethod]
+    public async Task Delete_MissingIfMatch_Returns428()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-delete-noifmatch.test");
+        var created = await RegisterEnvAsync(client, "Delete NoIfMatch Env");
+
+        var resp = await client.SendAsync(NewDelete(created.Id, ifMatch: null));
+
+        Assert.AreEqual(HttpStatusCode.PreconditionRequired, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Delete_UnknownId_Returns404()
+    {
+        var client = await Fx.CreateAuthenticatedClientAsync("admin@env-delete-unknown.test");
+        var created = await RegisterEnvAsync(client, "Delete Unknown Base");
+
+        var resp = await client.SendAsync(NewDelete(Guid.NewGuid(), created.Version));
+
+        Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Delete_CrossTenant_Returns404()
+    {
+        var orgA = await Fx.CreateAuthenticatedClientAsync("admin@env-delete-tenant-a.test");
+        var created = await RegisterEnvAsync(orgA, "Delete CrossTenant Env");
+
+        var orgB = await Fx.CreateAuthenticatedClientAsync("admin@env-delete-tenant-b.test");
+        var resp = await orgB.SendAsync(NewDelete(created.Id, created.Version));
+
+        Assert.AreEqual(HttpStatusCode.NotFound, resp.StatusCode);
+    }
+
+    // Minimal typed-extension helper for the 412 ProblemDetails body — mirrors
+    // InfrastructureVmWriteTests.ProblemPayload. System.Text.Json deserialises the flat
+    // RFC 7807 extension member `currentVersion` by name.
+    private sealed class ProblemPayload
+    {
+        public string Type { get; set; } = string.Empty;
+        public string? CurrentVersion { get; set; }
     }
 
     /// <summary>Fires <paramref name="raceAction"/> exactly once, the first time <paramref

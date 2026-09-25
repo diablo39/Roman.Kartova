@@ -1,16 +1,20 @@
-import { useEffect } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "@/components/base/card/card";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
 import { Button } from "@/components/base/buttons/button";
 import { useEnvironment } from "@/features/catalog/api/environments";
 import { EnvironmentTypeBadge } from "@/features/catalog/components/EnvironmentTable";
+import { EditEnvironmentDialog } from "@/features/catalog/components/EditEnvironmentDialog";
+import { DeleteEnvironmentConfirm } from "@/features/catalog/components/DeleteEnvironmentConfirm";
 import { asProblemDetails } from "@/shared/forms/problemDetails";
+import { usePermissions } from "@/shared/auth/usePermissions";
+import { KartovaPermissions } from "@/shared/auth/permissions";
 
 /**
- * Read-only environment detail (E-02.F-05.S-01, A1). Mirrors VmDetailPage's
- * loading/not-found shape but has no edit/delete actions and no relationship
- * sections yet — Environments have neither a team nor system-membership /
+ * Environment detail (E-02.F-05.S-01 read surface; A2 adds edit/delete). Mirrors
+ * VmDetailPage's loading/not-found shape and Edit/Delete gating — no relationship
+ * sections yet, Environments have neither a team nor system-membership /
  * hosted-component edges in this slice.
  *
  * Error branch distinguishes a real 404 (`ProblemDetails.status`, set by the
@@ -23,7 +27,18 @@ import { asProblemDetails } from "@/shared/forms/problemDetails";
  */
 export function EnvironmentDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const query = useEnvironment(id ?? "");
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  const { hasPermission, isLoading: permissionsLoading } = usePermissions();
+  // Edit and Delete are each their own dedicated permission (design §"Permissions") —
+  // Edit is Member+OrgAdmin, Delete is OrgAdmin-only. No lifecycle gate, Environment has
+  // no lifecycle state.
+  const canEdit = !permissionsLoading && hasPermission(KartovaPermissions.CatalogEnvironmentsEdit);
+  const canDelete = !permissionsLoading && hasPermission(KartovaPermissions.CatalogEnvironmentsDelete);
 
   useEffect(() => {
     if (query.isError) console.error("EnvironmentDetailPage load error", query.error);
@@ -87,6 +102,18 @@ export function EnvironmentDetailPage() {
           <h2 className="text-2xl font-semibold text-primary">{env.displayName}</h2>
           <EnvironmentTypeBadge type={env.type} size="md" />
         </div>
+        <div className="flex items-center gap-2">
+          {canEdit && (
+            <Button color="secondary" size="sm" onClick={() => setEditOpen(true)}>
+              Edit
+            </Button>
+          )}
+          {canDelete && (
+            <Button color="secondary-destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+              Delete
+            </Button>
+          )}
+        </div>
       </div>
       <Card>
         <CardContent className="space-y-6 p-6">
@@ -128,6 +155,16 @@ export function EnvironmentDetailPage() {
           </section>
         </CardContent>
       </Card>
+
+      {canEdit && <EditEnvironmentDialog environment={env} open={editOpen} onOpenChange={setEditOpen} />}
+      {canDelete && (
+        <DeleteEnvironmentConfirm
+          environment={env}
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          onDeleted={() => navigate("/catalog/environments")}
+        />
+      )}
     </div>
   );
 }

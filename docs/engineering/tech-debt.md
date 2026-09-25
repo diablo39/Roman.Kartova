@@ -218,3 +218,39 @@ Convention: one `### TD-NNN` heading per item. Keep `Status: open` until done; o
 **Why deferred.** No real client exists to check yet; a stub check would be dead weight until then. This entry exists so the module slice that adds Kafka/ES/MinIO doesn't forget the health-check side of ADR-0060.
 
 **Acceptance.** Each of Kafka/Elasticsearch/MinIO gets a registered health check in the same slice that introduces its client wiring; `/health/ready` reflects a real outage in any of them.
+
+---
+
+### TD-012 — Concurrency-token write side still hard-codes the property name per entity
+
+**Status:** open
+**Origin:** E-02.F-05.S-01 sub-slice A2 (2026-09-24) — `/simplify` altitude finding on `EditEnvironmentHandler`/`DeleteEnvironmentHandler`. See PR #97.
+
+**Problem.** TD-002 generalized the *read* side of optimistic-concurrency handling (capturing the current row version on a 412, via `ConcurrencyTokenCapture.TryCaptureCurrentVersionAsync`, resolving the token property from EF metadata instead of a hard-coded `"Version"`/`"Xmin"` string). The *write* side — setting `OriginalValue` from the caller-supplied `If-Match` version before `SaveChangesAsync` — was never given the symmetric fix. Every Edit/Delete handler still writes `db.Entry(env).Property(x => x.Xmin).OriginalValue = cmd.ExpectedVersion` (or `.Property(a => a.Version)` for Application), naming the concurrency-token property directly. A2's `EditEnvironmentHandler`/`DeleteEnvironmentHandler` add a fourth and fifth hand-written copy of this exact pattern.
+
+**Affected files.**
+- `src/Kartova.SharedKernel.AspNetCore/ConcurrencyTokenCapture.cs` — where the symmetric setter would live.
+- `src/Modules/Catalog/Kartova.Catalog.Infrastructure/{EditVmHandler,DeleteVmHandler,EditApplicationHandler,EditEnvironmentHandler,DeleteEnvironmentHandler}.cs` — current call sites, each naming `Xmin`/`Version` directly.
+
+**Proposed fix.** Add a companion generic setter next to `ConcurrencyTokenCapture` (e.g. `ConcurrencyTokenCapture.SetExpectedVersion(EntityEntry entry, uint expected)`) that resolves the `IsConcurrencyToken` property from EF metadata and sets `OriginalValue`, mirroring the read-side fix. Migrate all five existing call sites to it.
+
+**Why deferred.** Touches five handlers across three entity types (Application/VM/Environment) — broader than any single entity's edit/delete slice, and out of scope for A2 per `/simplify`'s reject-by-default rule on cross-cutting extract-helper refactors done inside a narrow slice.
+
+**Acceptance.** One generic setter in `ConcurrencyTokenCapture`; zero hard-coded `Xmin`/`Version` property-name literals left in Edit/Delete handlers; a sixth entity's Edit/Delete handler needs zero new code for this concern.
+
+---
+
+### TD-013 — `ProblemPayload` 412-body test helper duplicated per integration-test file
+
+**Status:** open
+**Origin:** E-02.F-05.S-01 sub-slice A2 (2026-09-24) — `/simplify` simplification finding. See PR #97.
+
+**Problem.** A private `ProblemPayload` class (`{ Type, CurrentVersion }`, deserializing the RFC 7807 `currentVersion` extension member off a 412 body) is copy-pasted, near-identical, into `DecommissionApplicationTests`, `DeprecateApplicationTests`, `EditApplicationTests`, `InfrastructureVmWriteTests`, `ReactivateApplicationTests`, `SetApplicationSuccessorTests`, `UnDecommissionApplicationTests`, and now `EnvironmentEndpointsTests` — eight copies of the same type. Each new write-endpoint slice that tests the 412 path is likely to add a ninth.
+
+**Affected files.** The eight `*Tests.cs` files listed above (`src/Modules/Catalog/Kartova.Catalog.IntegrationTests/`).
+
+**Proposed fix.** Hoist a single shared `ProblemPayload` (or reuse a common integration-test utility, e.g. alongside `KartovaApiFixtureBase`) and have all eight files reference it instead of re-declaring the nested class.
+
+**Why deferred.** Touches seven pre-existing test files outside this slice's scope — out of scope per `/simplify`'s reject-by-default rule on cross-cutting extract-helper refactors done inside a narrow slice.
+
+**Acceptance.** One shared `ProblemPayload` type; the eight per-file nested classes are gone; a ninth 412-testing file reuses it with zero new code.

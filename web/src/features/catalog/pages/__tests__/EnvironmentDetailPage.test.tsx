@@ -1,11 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "sonner";
+
+import * as clientModule from "@/features/catalog/api/client";
 
 const useEnvironmentMock = vi.fn();
-vi.mock("@/features/catalog/api/environments", () => ({
-  useEnvironment: (...a: unknown[]) => useEnvironmentMock(...a),
-}));
+// useEditEnvironment/useDeleteEnvironment are left as the REAL hooks (importActual) so the
+// click tests below exercise real click → dialog-open → real PUT/DELETE-with-If-Match wiring
+// against a mocked apiClient, mirroring VmDetailPage.test.tsx's "Delete opens the confirm
+// dialog and issues DELETE with If-Match" pattern — a button-visibility assertion alone
+// can't catch a regression in the onClick handlers or the onDeleted → navigate wiring.
+vi.mock("@/features/catalog/api/environments", async () => {
+  const actual = await vi.importActual<typeof import("@/features/catalog/api/environments")>(
+    "@/features/catalog/api/environments",
+  );
+  return { ...actual, useEnvironment: (...a: unknown[]) => useEnvironmentMock(...a) };
+});
+
+const usePermissionsMock = vi.fn();
+vi.mock("@/shared/auth/usePermissions", () => ({ usePermissions: () => usePermissionsMock() }));
 
 import { EnvironmentDetailPage } from "../EnvironmentDetailPage";
 
@@ -31,18 +47,29 @@ function baseEnv(overrides: Record<string, unknown> = {}) {
 }
 
 function renderPage() {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MemoryRouter initialEntries={[`/catalog/environments/${ENV_ID}`]}>
-      <Routes>
-        <Route path="/catalog/environments/:id" element={<EnvironmentDetailPage />} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={qc}>
+      <Toaster />
+      <MemoryRouter initialEntries={[`/catalog/environments/${ENV_ID}`]}>
+        <Routes>
+          <Route path="/catalog/environments/:id" element={<EnvironmentDetailPage />} />
+          <Route path="/catalog/environments" element={<div>Environments List</div>} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
 describe("EnvironmentDetailPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    usePermissionsMock.mockReturnValue({
+      role: "Member",
+      hasPermission: () => false,
+      isLoading: false,
+      isError: false,
+    });
   });
 
   it("shows a loading skeleton while the query is in flight", () => {
@@ -118,5 +145,91 @@ describe("EnvironmentDetailPage", () => {
     renderPage();
 
     expect(screen.getByText("No resource details recorded")).toBeInTheDocument();
+  });
+
+  it("hides Edit/Delete buttons without the corresponding permissions", () => {
+    useEnvironmentMock.mockReturnValue({ isLoading: false, isError: false, data: baseEnv() });
+    renderPage();
+
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+  });
+
+  it("shows Edit when CatalogEnvironmentsEdit is granted", () => {
+    usePermissionsMock.mockReturnValue({
+      role: "Member",
+      hasPermission: (p: string) => p === "catalog.environments.edit",
+      isLoading: false,
+      isError: false,
+    });
+    useEnvironmentMock.mockReturnValue({ isLoading: false, isError: false, data: baseEnv() });
+    renderPage();
+
+    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+  });
+
+  it("shows Delete when CatalogEnvironmentsDelete is granted (OrgAdmin)", () => {
+    usePermissionsMock.mockReturnValue({
+      role: "OrgAdmin",
+      hasPermission: (p: string) => p === "catalog.environments.delete",
+      isLoading: false,
+      isError: false,
+    });
+    useEnvironmentMock.mockReturnValue({ isLoading: false, isError: false, data: baseEnv() });
+    renderPage();
+
+    expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+  });
+
+  it("Edit opens the edit dialog pre-filled from the loaded environment", async () => {
+    usePermissionsMock.mockReturnValue({
+      role: "Member",
+      hasPermission: (p: string) => p === "catalog.environments.edit",
+      isLoading: false,
+      isError: false,
+    });
+    useEnvironmentMock.mockReturnValue({ isLoading: false, isError: false, data: baseEnv() });
+    renderPage();
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+
+    expect(screen.getByRole("dialog", { name: /edit environment/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/display name/i)).toHaveValue("Prod Environment");
+  });
+
+  it("Delete opens the confirm dialog and issues DELETE with If-Match, then navigates to the list", async () => {
+    usePermissionsMock.mockReturnValue({
+      role: "OrgAdmin",
+      hasPermission: (p: string) => p === "catalog.environments.delete",
+      isLoading: false,
+      isError: false,
+    });
+    useEnvironmentMock.mockReturnValue({ isLoading: false, isError: false, data: baseEnv() });
+    const del = vi.fn().mockResolvedValue({ data: undefined, error: undefined, response: { status: 204 } });
+    vi.spyOn(clientModule, "apiClient", "get").mockReturnValue({
+      GET: vi.fn(),
+      POST: vi.fn(),
+      PUT: vi.fn(),
+      DELETE: del,
+    } as never);
+
+    renderPage();
+
+    await userEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(screen.getByRole("dialog", { name: /delete environment/i })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /delete environment/i }));
+
+    await waitFor(() => expect(del).toHaveBeenCalled());
+    expect(del).toHaveBeenCalledWith(
+      "/api/v1/catalog/environments/{id}",
+      {
+        params: { path: { id: ENV_ID } },
+        headers: { "If-Match": '"v1"' },
+      },
+    );
+    expect(await screen.findByText("Environments List")).toBeInTheDocument();
   });
 });

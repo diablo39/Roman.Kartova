@@ -1,0 +1,130 @@
+slice: 2026-09-24-environment-edit-delete
+branch: feat/catalog-environment-a2-edit-delete
+terminal_commit: 6eecbf8
+
+findings:
+  - gate: reviews
+    severity: blocking
+    verdict: real
+    title: "Type editable on PUT, contradicting spec's 'Edit (metadata only — Type immutable)'"
+    note: "fixed: removed Type from CatalogEnvironment.Edit, EditEnvironmentCommand, EditEnvironmentRequest, FE schema/dialog"
+  - gate: reviews
+    severity: blocking
+    verdict: real
+    title: "Edit reused CatalogEnvironmentsRegister instead of the spec's dedicated CatalogEnvironmentsEdit permission"
+    note: "fixed: added CatalogEnvironmentsEdit as its own 5-sync permission (Member+OrgAdmin), PUT route + FE gate updated"
+  - gate: reviews
+    severity: blocking
+    verdict: real
+    title: "No DoD ledger existed for the A2 slice"
+    note: "fixed: this ledger, created retroactively"
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "No test for the PUT 23505 race backstop"
+    note: "fixed: added EditEnvironment_race_backstop_returns_409_not_500"
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "No PUT 400-validation test"
+    note: "fixed: added Put_BlankDisplayName_Returns400"
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "No positive Member-can-edit test"
+    note: "fixed: added Put_AsMemberWithEditPerm_Returns200"
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "DELETE 409 environment-has-deployments guard has no tracking entry for slice B"
+    note: "fixed: spec's slice-B row amended to require wiring the guard before B ships"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Put_RenameToExistingName_Returns409 used StringAssert.Contains instead of a typed ProblemTypes assert"
+    note: "fixed: now asserts ProblemTypes.EnvironmentNameConflict, matching the sibling Register test"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Delete_StaleIfMatch_Returns412 didn't assert currentVersion (Put's sibling test does)"
+    note: "fixed"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Doc typo 'of a Environment' should be 'an Environment'"
+    note: "fixed"
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "Register/Edit duplicate the 23505 name-uniqueness pre-check + race backstop verbatim"
+    note: "fixed: extracted shared CheckEnvironmentNameAvailableAsync + IsEnvironmentNameConflictRace helpers"
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "EditEnvironmentAsync/Handler double-fetch the same row per PUT"
+    note: "skipped: mirrors a pre-existing accepted convention in EditVmAsync/Handler; fixing only Environment would create cross-entity inconsistency"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "ProblemPayload 412-test-helper duplicated across 7 pre-existing files + this one"
+    note: "skipped, filed TD-013: touches files outside this PR's scope"
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "Concurrency-token write side still hard-codes Xmin/Version per entity (TD-002 was read-side only)"
+    note: "skipped, filed TD-012: touches 5 handlers across 3 entities, out of scope for an Environment-only slice"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "pr-test-analyzer: Edit() unit tests lack parity with Create() for blank/oversized description and oversized region"
+    note: "fixed: added Edit_rejects_blank_description, Edit_rejects_description_over_4096, Edit_rejects_region_over_256"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "pr-test-analyzer: no integration test round-trips non-displayName field changes (description/region/resourceDetails) through the real PUT/EF path"
+    note: "fixed: added Put_UpdatesDescriptionRegionAndResourceDetails_Returns200"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "pr-test-analyzer: no PUT invalid-resourceDetails 400 test mirroring Register's"
+    note: "fixed: added Put_InvalidResourceDetails_Returns400"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "pr-test-analyzer: EnvironmentDetailPage tests never click Edit/Delete to confirm dialogs open or that delete navigates away"
+    note: "fixed: added 2 click-wiring tests mirroring VmDetailPage.test.tsx's real-hook + mocked-apiClient pattern"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "code-reviewer: Put_TypeStaysUnchanged never actually sent a type field (EditFrom's typed request has none), so it didn't test what it claimed"
+    note: "fixed: rewrote to send raw JSON with an extraneous type field, asserting both the PUT response and a follow-up GET"
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "type-design-analyzer: CatalogEnvironment JSON validation is stricter than InfrastructureResource.Attributes' equivalent"
+    note: "not a defect in this diff — an observation about a pre-existing sibling type; not filed as a TD since nothing here regressed InfrastructureResource"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "code-reviewer: stale-412 delete doesn't invalidate the detail query; useDeleteEnvironment's list invalidation fires before navigation"
+    note: "not fixed: identical pre-existing shape in DeleteVmConfirm/useDeleteVm, not introduced by this PR; would be a cross-entity fix"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "CHECKLIST.md still described Edit as reusing CatalogEnvironmentsRegister, contradicting the shipped dedicated CatalogEnvironmentsEdit permission"
+    note: "fixed: CHECKLIST.md A2 entry corrected"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "dod.md labeled gate 4 as an unconditional PASS when the diff met CLAUDE.md's own N/A-with-reason criterion"
+    note: "fixed: dod.md gate 4 re-labeled to note it qualified for N/A but ran anyway"
+  - gate: deep-review
+    severity: nit
+    verdict: delusion
+    title: "CheckEnvironmentNameAvailableAsync doc comment is dense"
+    note: "no defect, readability-only, no action taken"
+  - gate: deep-review
+    severity: nit
+    verdict: delusion
+    title: "EnvironmentFormFields' name() helper double-casts through unknown"
+    note: "matches pre-existing VmFormFields convention, no action needed"

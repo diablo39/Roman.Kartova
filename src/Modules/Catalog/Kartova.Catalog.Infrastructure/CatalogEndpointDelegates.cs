@@ -28,6 +28,7 @@ using EntityKind = Kartova.Catalog.Domain.EntityKind;
 using InfrastructureType = Kartova.Catalog.Domain.InfrastructureType;
 using InfrastructureId = Kartova.Catalog.Domain.InfrastructureId;
 using EnvironmentType = Kartova.Catalog.Domain.EnvironmentType;
+using EnvironmentId = Kartova.Catalog.Domain.EnvironmentId;
 using ComponentAlreadyInSystemException = Kartova.Catalog.Domain.ComponentAlreadyInSystemException;
 using RelationshipType = Kartova.Catalog.Domain.RelationshipType;
 using RelationshipDirection = Kartova.Catalog.Application.RelationshipDirection;
@@ -832,10 +833,8 @@ internal static class CatalogEndpointDelegates
     {
         var resourceJson = EnvironmentResourceDetails.Validate(request.ResourceDetails).ToJson();
 
-        // Deterministic pre-check (RLS-scoped → only this tenant's rows).
-        var nameTaken = await db.Environments.AnyAsync(e => e.DisplayName == request.DisplayName, ct);
-        if (nameTaken)
-            return EnvironmentNameConflict(request.DisplayName);
+        if (await CheckEnvironmentNameAvailableAsync(db, request.DisplayName, excludingId: null, ct) is { } conflict)
+            return conflict;
 
         try
         {
@@ -846,8 +845,7 @@ internal static class CatalogEndpointDelegates
 
             return Results.Created($"/api/v1/catalog/environments/{response.Id}", response).WithEtag(response.Version);
         }
-        catch (DbUpdateException ex) when (ex.InnerException is PostgresException pg
-            && pg.SqlState == "23505" && pg.ConstraintName == "ux_catalog_environments_tenant_id_display_name")
+        catch (DbUpdateException ex) when (IsEnvironmentNameConflictRace(ex))
         {
             // Lost a concurrent registration race between the pre-check above and this
             // SaveChangesAsync. Verified-by-equivalence to the proven System-membership
@@ -874,6 +872,113 @@ internal static class CatalogEndpointDelegates
         title: "Environment name already in use",
         detail: $"An environment named '{displayName}' already exists in this tenant.",
         statusCode: StatusCodes.Status409Conflict);
+
+    /// <summary>
+    /// Shared per-tenant display-name uniqueness pre-check for both
+    /// <see cref="RegisterEnvironmentAsync"/> and <see cref="EditEnvironmentAsync"/> (A2
+    /// dedup — both endpoints enforce the same <c>ux_catalog_environments_tenant_id_display_name</c>
+    /// index). <paramref name="excludingId"/> excludes the row being edited (via the raw Guid
+    /// column — <c>EF.Property</c> — rather than the computed <c>CatalogEnvironment.Id</c>
+    /// property, which is not a mapped member and fails LINQ-to-SQL translation); pass
+    /// <see langword="null"/> for register, where there is no existing row to exclude.
+    /// </summary>
+    private static async Task<IResult?> CheckEnvironmentNameAvailableAsync(
+        CatalogDbContext db, string displayName, Guid? excludingId, CancellationToken ct)
+    {
+        var query = db.Environments.Where(e => e.DisplayName == displayName);
+        if (excludingId is { } id)
+            query = query.Where(e => EF.Property<Guid>(e, EnvironmentSortSpecs.IdFieldName) != id);
+
+        return await query.AnyAsync(ct) ? EnvironmentNameConflict(displayName) : null;
+    }
+
+    /// <summary>The shared 23505 race-backstop predicate both Environment write endpoints
+    /// catch on — see <see cref="RegisterEnvironmentAsync"/>'s catch clause for the full
+    /// "why this can't degrade to 500" reasoning, which applies identically to the UPDATE
+    /// path in <see cref="EditEnvironmentAsync"/>.</summary>
+    private static bool IsEnvironmentNameConflictRace(DbUpdateException ex) =>
+        ex.InnerException is PostgresException pg
+            && pg.SqlState == "23505" && pg.ConstraintName == "ux_catalog_environments_tenant_id_display_name";
+
+    /// <summary>
+    /// Metadata edit of an Environment (A2, design §"API": "metadata edit; <c>Type</c>
+    /// immutable"). Tenant-global — no team gate, mirrors <see cref="RegisterEnvironmentAsync"/>.
+    /// DisplayName carries a per-tenant unique index, so a rename repeats Register's conflict
+    /// handling via the shared <see cref="CheckEnvironmentNameAvailableAsync"/> pre-check
+    /// (skipped when the name is unchanged) plus the shared <see cref="IsEnvironmentNameConflictRace"/>
+    /// backstop, both mapped to 409 <c>EnvironmentNameConflict</c>. <c>If-Match</c> is enforced
+    /// by <see cref="IfMatchEndpointFilter"/> upstream (428 missing / 412 stale via
+    /// <c>ConcurrencyConflictExceptionHandler</c> — never 409).
+    /// </summary>
+    internal static async Task<IResult> EditEnvironmentAsync(
+        Guid id,
+        [FromBody] EditEnvironmentRequest request,
+        EditEnvironmentHandler handler,
+        CatalogDbContext db,
+        HttpContext http,
+        IAuditWriter audit,
+        ILogger<EditEnvironmentHandler> logger,
+        CancellationToken ct)
+    {
+        var env = await db.Environments
+            .SingleOrDefaultAsync(EnvironmentSortSpecs.IdEquals(id), ct);
+        if (env is null) return EndpointResultExtensions.EnvironmentNotFound();
+
+        var resourceJson = EnvironmentResourceDetails.Validate(request.ResourceDetails).ToJson();
+
+        if (!string.Equals(env.DisplayName, request.DisplayName, StringComparison.Ordinal)
+            && await CheckEnvironmentNameAvailableAsync(db, request.DisplayName, excludingId: id, ct) is { } conflict)
+        {
+            return conflict;
+        }
+
+        var expected = (uint)http.Items[IfMatchEndpointFilter.ExpectedVersionKey]!;
+
+        try
+        {
+            var resp = await handler.Handle(
+                new EditEnvironmentCommand(new EnvironmentId(id), request.DisplayName, request.Description,
+                    request.Region, resourceJson, expected),
+                db, audit, logger, ct);
+
+            return resp is null ? EndpointResultExtensions.EnvironmentNotFound() : Results.Ok(resp).WithEtag(resp.Version);
+        }
+        catch (DbUpdateException ex) when (IsEnvironmentNameConflictRace(ex))
+        {
+            // Race backstop — lost a concurrent rename between the pre-check above and
+            // SaveChangesAsync. See IsEnvironmentNameConflictRace's doc for the shared
+            // "why this can't degrade to 500" reasoning.
+            logger.LogInformation(ex,
+                "Environment edit race: name '{DisplayName}' collided on unique index.",
+                request.DisplayName);
+            return EnvironmentNameConflict(request.DisplayName);
+        }
+    }
+
+    /// <summary>
+    /// Hard delete of an Environment (A2). OrgAdmin-only —
+    /// <c>KartovaPermissions.CatalogEnvironmentsDelete</c> is mapped to <c>OrgAdmin</c> alone
+    /// (<c>KartovaRolePermissions</c>), enforced entirely by the route's
+    /// <c>.RequireAuthorization</c> in <see cref="CatalogModule"/>. <c>If-Match</c> is enforced
+    /// by <see cref="IfMatchEndpointFilter"/> upstream (428 missing / 412 stale — never 409).
+    /// No lifecycle/soft-delete for Environment — a plain row removal.
+    /// </summary>
+    internal static async Task<IResult> DeleteEnvironmentAsync(
+        Guid id,
+        DeleteEnvironmentHandler handler,
+        CatalogDbContext db,
+        HttpContext http,
+        IAuditWriter audit,
+        ILogger<DeleteEnvironmentHandler> logger,
+        CancellationToken ct)
+    {
+        var expected = (uint)http.Items[IfMatchEndpointFilter.ExpectedVersionKey]!;
+
+        var deleted = await handler.Handle(
+            new DeleteEnvironmentCommand(new EnvironmentId(id), expected), db, audit, logger, ct);
+
+        return deleted ? Results.NoContent() : EndpointResultExtensions.EnvironmentNotFound();
+    }
 
     /// <summary>
     /// <c>sortBy</c>/<c>sortOrder</c>/<c>limit</c>/<c>teamId</c> follow the same binding as

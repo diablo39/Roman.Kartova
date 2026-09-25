@@ -7,6 +7,7 @@ import type { components, operations } from "@/generated/openapi";
 type EnvironmentListItemResponse = components["schemas"]["EnvironmentListItemResponse"];
 type EnvironmentDetailResponse = components["schemas"]["EnvironmentDetailResponse"];
 type RegisterEnvironmentRequest = components["schemas"]["RegisterEnvironmentRequest"];
+type EditEnvironmentRequest = components["schemas"]["EditEnvironmentRequest"];
 
 // NB: like ListVms/ListInfrastructure, the generated ListEnvironments query
 // types sortBy/sortOrder/limit as bare `string` (no backend enum annotation
@@ -88,4 +89,56 @@ export function useRegisterEnvironment() {
   });
 }
 
-export type { EnvironmentListItemResponse, EnvironmentDetailResponse, RegisterEnvironmentRequest };
+/**
+ * PUT /environments/{id} — full-replacement edit (A2). Mirrors `useEditVm`: the
+ * If-Match header carries the optimistic-concurrency token straight from the cached
+ * `version` field on `EnvironmentDetailResponse`. On 412 the hook invalidates the
+ * detail query so the dialog auto-refreshes.
+ */
+export function useEditEnvironment(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { values: EditEnvironmentRequest; expectedVersion: string }) => {
+      const { data, error, response } = await apiClient.PUT("/api/v1/catalog/environments/{id}", {
+        params: { path: { id } },
+        body: input.values,
+        headers: { "If-Match": `"${input.expectedVersion}"` },
+      });
+      if (error) throwWithStatus(error, response);
+      return unwrapData(data, response);
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(envKeys.detail(id), data);
+      qc.invalidateQueries({ queryKey: envKeys.list() });
+    },
+    onError: (err) => {
+      const status = (err as { __status?: number }).__status;
+      if (status === 412) {
+        qc.invalidateQueries({ queryKey: envKeys.detail(id) });
+      }
+    },
+  });
+}
+
+/**
+ * DELETE /environments/{id} — hard delete (A2). Same If-Match convention as
+ * `useEditEnvironment`; no `onSuccess` cache write since the resource is gone — the
+ * caller navigates away and the invalidated list queries refetch.
+ */
+export function useDeleteEnvironment(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (expectedVersion: string) => {
+      const { error, response } = await apiClient.DELETE("/api/v1/catalog/environments/{id}", {
+        params: { path: { id } },
+        headers: { "If-Match": `"${expectedVersion}"` },
+      });
+      if (error) throwWithStatus(error, response);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: envKeys.all });
+    },
+  });
+}
+
+export type { EnvironmentListItemResponse, EnvironmentDetailResponse, RegisterEnvironmentRequest, EditEnvironmentRequest };

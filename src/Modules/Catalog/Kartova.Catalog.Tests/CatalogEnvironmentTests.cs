@@ -79,4 +79,83 @@ public class CatalogEnvironmentTests
         => Assert.ThrowsExactly<ArgumentException>(() =>
             CatalogEnvironment.Create("n", "d", EnvironmentType.Development, null, "{}",
                 Guid.Empty, Tenant, new FakeTimeProvider()));
+
+    [TestMethod]
+    public void Edit_replaces_mutable_fields()
+    {
+        var env = Create();
+        env.Edit("Staging APAC", "Secondary staging cluster", "ap-southeast-1", "{\"k\":\"v\"}");
+
+        Assert.AreEqual("Staging APAC", env.DisplayName);
+        Assert.AreEqual("Secondary staging cluster", env.Description);
+        Assert.AreEqual("ap-southeast-1", env.Region);
+        Assert.AreEqual("{\"k\":\"v\"}", env.ResourceDetails);
+    }
+
+    [TestMethod]
+    public void Edit_leaves_type_unchanged()
+    {
+        var env = Create(type: EnvironmentType.Production);
+        env.Edit("Renamed", env.Description, env.Region, env.ResourceDetails);
+        Assert.AreEqual(EnvironmentType.Production, env.Type);
+    }
+
+    [TestMethod]
+    public void Edit_normalizes_blank_region_to_null()
+    {
+        var env = Create();
+        env.Edit(env.DisplayName, env.Description, "   ", env.ResourceDetails);
+        Assert.IsNull(env.Region);
+    }
+
+    [DataRow("")]
+    [DataRow("   ")]
+    [TestMethod]
+    public void Edit_rejects_blank_display_name(string name)
+    {
+        var env = Create();
+        Assert.ThrowsExactly<ArgumentException>(() => env.Edit(name, env.Description, env.Region, env.ResourceDetails));
+    }
+
+    [TestMethod]
+    public void Edit_rejects_display_name_over_128()
+    {
+        var env = Create();
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            env.Edit(new string('x', 129), env.Description, env.Region, env.ResourceDetails));
+    }
+
+    [DataRow("")]
+    [DataRow("   ")]
+    [TestMethod]
+    public void Edit_rejects_blank_description(string desc)
+    {
+        var env = Create();
+        Assert.ThrowsExactly<ArgumentException>(() => env.Edit(env.DisplayName, desc, env.Region, env.ResourceDetails));
+    }
+
+    [TestMethod]
+    public void Edit_rejects_description_over_4096()
+    {
+        var env = Create();
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            env.Edit(env.DisplayName, new string('x', 4097), env.Region, env.ResourceDetails));
+    }
+
+    [TestMethod]
+    public void Edit_rejects_region_over_256()
+    {
+        var env = Create();
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            env.Edit(env.DisplayName, env.Description, new string('x', 257), env.ResourceDetails));
+    }
+
+    [DataRow("")]
+    [DataRow("not-json")]
+    [TestMethod]
+    public void Edit_rejects_invalid_resource_details_json(string json)
+    {
+        var env = Create();
+        Assert.ThrowsExactly<ArgumentException>(() => env.Edit(env.DisplayName, env.Description, env.Region, json));
+    }
 }
