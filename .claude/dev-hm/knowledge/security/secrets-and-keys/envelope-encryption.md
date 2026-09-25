@@ -11,4 +11,4 @@ Properties this buys, each verifiable: the KEK never leaves the KMS/HSM (there i
 that could log or leak it); bulk data never transits the KMS (only DEK wrap/unwrap calls); KEK
 rotation re-wraps DEKs without touching the data; every key use is an auditable IAM event. Where
 this sits among the at-rest options — and when storage-level encryption is enough — is covered in
-`knowledge/security/cryptography-lifecycle.md#at-rest`.
+`knowledge/security/cryptography-lifecycle/at-rest.md`.

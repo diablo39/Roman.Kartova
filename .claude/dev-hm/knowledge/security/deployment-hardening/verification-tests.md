@@ -27,4 +27,4 @@ behavioral probes — same mandate and marker convention as
 
 Record the policy-engine and scanner outputs with the change (SEC-062's evidence rule); a
 deployment control asserted only in prose is an unverified control, reported per
-`knowledge/security/control-verification-tests.md#mandate`.
+`knowledge/security/control-verification-tests/mandate.md`.

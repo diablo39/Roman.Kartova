@@ -18,7 +18,7 @@ is precise: each test states exactly the shape it needs, no more.
 
 The carve-out, stated as checkable conditions: a production extract may feed a test environment
 only when (1) the transformation pipeline that produced it pre-exists the diff and is owned per
-the masking rules in `knowledge/security/data-classification.md#masking`,
+the masking rules in `knowledge/security/data-classification/masking.md`,
 (2) the output has been assessed as anonymized — not merely pseudonymized — under the
 identifiability tests referenced in the PII boundary section, and (3) the handoff records why
 synthetic data cannot expose the defect class under test (typically: a bug reproducible only on

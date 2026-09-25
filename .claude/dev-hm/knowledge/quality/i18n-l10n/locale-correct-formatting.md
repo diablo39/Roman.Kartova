@@ -21,5 +21,5 @@ Store canonical, format at the edge:
   Numeric input from users is parsed with their locale; numeric input from machines is parsed
   invariant. A parser that accepts both silently accepts wrong numbers.
 - Dates render per locale (order, separators, month names, calendar), and the edge-case classes
-  in `knowledge/quality/test-strategy.md#edge-cases` (DST transitions,
+  in `knowledge/quality/test-strategy/edge-cases.md` (DST transitions,
   timezone-naive/aware mixing) apply with extra force once multiple zones are in play.

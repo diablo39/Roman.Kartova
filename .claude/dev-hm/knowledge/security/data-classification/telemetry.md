@@ -23,7 +23,7 @@ crash reports. This extends the log-focused review rule (SEC-082 in
   line, not the first.
 - Caches count as sinks: responses carrying authenticated or Tier-3 content set
   `Cache-Control: no-store` so shared proxies and browser caches keep no copy
-  (`knowledge/security/browser-protections.md#response-cache-hygiene`).
+  (`knowledge/security/browser-protections/response-cache-hygiene.md`).
 
 Verification: the canary test — drive a request carrying synthetic Tier-3 markers (a fake email,
 a card-shaped number that passes checksum, a synthetic health code) end to end, then assert the

@@ -21,4 +21,4 @@ automation cannot judge: meaning, order, and experience.
 Record the pass in the handoff like any verification run: which flow was walked, on which stack,
 with which reader. Findings outside the automated subset are reported as interaction-capability
 findings with severities per `knowledge/shared/severity-tiers.md`, tagged as described in
-`knowledge/quality/quality-characteristics.md#using-the-characteristics-in-reports`.
+`knowledge/quality/quality-characteristics/using-the-characteristics-in-reports.md`.

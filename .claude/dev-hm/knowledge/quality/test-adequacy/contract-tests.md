@@ -26,4 +26,4 @@ test change means the contract either was never pinned or is no longer pinned â€
 findings. What makes a contract change breaking (the full taxonomy), versioning and deprecation
 policy, and compatibility testing against deployed N-1 clients are split out to
 `knowledge/quality/api-compatibility.md` (QUA-113 is its enforcement hook); fixtures that
-encode contract shapes follow `knowledge/quality/test-data-management.md#fixture-drift`.
+encode contract shapes follow `knowledge/quality/test-data-management/fixture-drift.md`.

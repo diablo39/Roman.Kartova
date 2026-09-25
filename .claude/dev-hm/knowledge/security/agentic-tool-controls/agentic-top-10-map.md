@@ -8,7 +8,7 @@ isolation and supply chain have their own files.
 
 | Risk | Control | Depth |
 |---|---|---|
-| ASI01 Agent goal hijack | A redirected goal cannot exceed the caller's authority or skip a gate: isolation upstream, binding and gating here | `knowledge/security/llm-feature-controls.md#content-isolation`; this file |
+| ASI01 Agent goal hijack | A redirected goal cannot exceed the caller's authority or skip a gate: isolation upstream, binding and gating here | `knowledge/security/llm-feature-controls/content-isolation.md`; this file |
 | ASI02 Tool misuse | Schema-validated, least-expressive tool inputs with per-tool caps | this file, tool inputs |
 | ASI03 Identity and privilege abuse | Tool authority bound to the requesting caller; no ambient service credentials | this file, authority binding |
 | ASI04 Agentic supply chain | Tools, MCP servers, models, and adapters are dependencies: pinned, reviewed, provenance-verified | `knowledge/security/supply-chain.md` |

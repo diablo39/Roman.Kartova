@@ -5,7 +5,7 @@ Section of `knowledge/quality/performance-capacity.md`.
 
 The control: profile before optimizing, because the guess about where time goes is usually
 wrong, and an optimization without a profile is a maintainability cost with an unverified
-benefit (`knowledge/quality/review-method.md#performance-review`). Sampling CPU profilers exist
+benefit (`knowledge/quality/review-method/performance-review.md`). Sampling CPU profilers exist
 for every stack we ship (async-profiler and JFR for the JVM, perf, py-spy, dotnet-trace, pprof,
 platform tools for mobile); allocation profiling matters as much as CPU in garbage-collected
 stacks, where allocation churn becomes tail latency. Read profiles as flame graphs; profile the

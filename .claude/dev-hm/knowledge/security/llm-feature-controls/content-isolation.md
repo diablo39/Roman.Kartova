@@ -25,7 +25,7 @@ Structural separation limits damage; it does not make the model injection-proof.
 still contain text that reads like a directive, and the model may follow it. The completion of
 this control is therefore downstream: whatever an embedded directive persuades the model to emit
 or invoke runs into output handling (below) and authority binding
-(`knowledge/security/agentic-tool-controls.md#authority-binding`), so the caller's permissions —
+(`knowledge/security/agentic-tool-controls/authority-binding.md`), so the caller's permissions —
 not the document's wording — bound the outcome. Labeling data blocks ("the following is a
 document") is worth doing for model quality, but we treat it as advisory, never as the control.
 

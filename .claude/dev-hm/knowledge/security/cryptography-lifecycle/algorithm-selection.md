@@ -12,7 +12,7 @@ makes the inventory and every later migration a one-file question.
 |---|---|---|
 | Symmetric encryption | AEAD only: AES-256-GCM or ChaCha20-Poly1305 | unique nonce per key and message; associated data binds context |
 | General-purpose hashing | SHA-256/SHA-384 or SHA-3 family | not for passwords |
-| Password verification | memory-hard password KDF: argon2id (preferred) or scrypt | bcrypt/PBKDF2 are legacy verify-only — `knowledge/security/authentication-sessions.md#credential-storage` |
+| Password verification | memory-hard password KDF: argon2id (preferred) or scrypt | bcrypt/PBKDF2 are legacy verify-only — `knowledge/security/authentication-sessions/credential-storage.md` |
 | Message authentication | HMAC-SHA-256 | constant-time comparison on verify |
 | Signatures | Ed25519 or ECDSA P-256 | algorithm-agile format for PQC readiness (see below) |
 | Key exchange | X25519; hybrid with ML-KEM where the platform offers it | prefer platform TLS defaults |

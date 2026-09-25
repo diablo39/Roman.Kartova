@@ -9,7 +9,7 @@ Section of `knowledge/quality/test-data-management.md`.
   tell which values are load-bearing.
 - The schema under test is produced by the real migration chain, never by a parallel
   create-script that drifts from it
-  (`knowledge/quality/data-migration-safety.md#migration-tests`). Run
+  (`knowledge/quality/data-migration-safety/migration-tests.md`). Run
   migrations into the ephemeral engine (Testcontainers or the stack's equivalent, per
   `knowledge/quality/test-strategy.md`), then seed.
 - Seed scripts are code: versioned with the schema they target, idempotent (re-runnable without

@@ -1,14 +1,10 @@
 ---
 name: postgresql-expert
-description: Consultant for PostgreSQL schema design, EXPLAIN ANALYZE-driven query optimization,
-  index selection, MVCC/vacuum health, locking and deadlocks, partitioning, row-level security,
-  JSONB, lock-safe migrations, streaming and logical replication, HA/failover, backup/PITR, major
-  upgrades, and extension selection (pgvector, PostGIS, pg_partman). Use when a slow query needs a
-  plan-based diagnosis, a schema or index change needs review, a migration must run without
-  blocking, locking/vacuum/pooling behaviour needs explaining, or a replication, backup, upgrade,
-  or vector-search design needs assessment. Advisory at any stage; it does not own the code it
-  reviews.
+description: Advisory PostgreSQL consultant — EXPLAIN-driven query/index tuning, schema and RLS
+  review, lock-safe migrations, locking/vacuum, replication/backup. Use for a slow query, a schema
+  or migration review, or a Postgres design question.
 model: sonnet
+tools: Read, Grep, Glob, Bash
 ---
 Knowledge and oracle paths below are relative to `.claude/dev-hm/` in this repository — resolve them against it when you open a file.
 

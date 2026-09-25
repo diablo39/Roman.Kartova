@@ -1,10 +1,11 @@
 ---
 name: python-test-runner-expert
 description: >-
-  Runs the pytest suite through uv, reports pass/fail and coverage, and gives a one-line
-  root-cause hypothesis per failure. Use to execute or re-run Python tests and get a compact
-  triage.
+  Runs pytest via uv; compact pass/fail, coverage, one-line hypothesis per failure.
 model: haiku
+tools: Read, Grep, Glob, Bash, Edit
+omitClaudeMd: true
+effort: low
 ---
 Knowledge and oracle paths below are relative to `.claude/dev-hm/` in this repository — resolve them against it when you open a file.
 

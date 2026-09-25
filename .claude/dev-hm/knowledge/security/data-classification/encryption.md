@@ -6,7 +6,7 @@ Section of `knowledge/security/data-classification.md`.
 Tier-3 data at rest is encrypted by a named mechanism — named, because "the platform encrypts
 everything" is a default, not a decision. The layer is chosen by who must not be able to read
 the data; the layer map and its verification tests are in
-`knowledge/security/cryptography-lifecycle.md#at-rest`, and the application-layer envelope shape
+`knowledge/security/cryptography-lifecycle/at-rest.md`, and the application-layer envelope shape
 is in `knowledge/security/secrets-and-keys.md`. The tier-specific decisions:
 
 - Payment data: the account number is unreadable wherever it is stored — strong encryption,

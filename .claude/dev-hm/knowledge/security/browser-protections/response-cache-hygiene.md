@@ -4,7 +4,7 @@ Section of `knowledge/security/browser-protections.md`.
 
 
 Responses carrying authenticated content or Tier-3 data
-(`knowledge/security/data-classification.md#tiers`) declare that no cache may keep a copy:
+(`knowledge/security/data-classification/tiers.md`) declare that no cache may keep a copy:
 `Cache-Control: no-store`. Without the directive, a shared proxy or CDN can serve one user's
 response to another, and browser caches retain readable copies on shared machines after logout.
 The split is by content, not by effort: authenticated and Tier-3 responses opt out of caching;

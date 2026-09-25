@@ -12,4 +12,4 @@ corpus test fails, and the fix lands turning it green. Three habits keep these t
   deserializer options, the real engine in a container — never a stand-in that encodes or
   quotes differently.
 - Treat probe softening, corpus shrinking, and assertion broadening as control-test weakening,
-  gated under `knowledge/security/control-verification-tests.md#durability`.
+  gated under `knowledge/security/control-verification-tests/durability.md`.

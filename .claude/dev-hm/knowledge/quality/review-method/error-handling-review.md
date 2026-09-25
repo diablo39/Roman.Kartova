@@ -17,4 +17,4 @@ retry, fallback, and propagate-with-context as handling (logging alone is not); 
 that rejection errors are typed. Whether a chosen recovery is the right one, or an error message
 specific enough, is judgment: report it as a `finding` with a severity, not as an oracle
 verdict. Security-path error handling has stricter rules (fail closed,
-SEC-070/071) — see `knowledge/security/secure-coding-review.md#exceptions-and-fail-closed-behavior`.
+SEC-070/071) — see `knowledge/security/secure-coding-review/exceptions-and-fail-closed-behavior.md`.

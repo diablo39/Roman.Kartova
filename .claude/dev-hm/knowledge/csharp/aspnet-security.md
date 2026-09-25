@@ -140,7 +140,7 @@ Secrets reach the app through configuration providers only: user-secrets in deve
 environment/managed vault (Key Vault + managed identity or equivalent) in deployment — never
 `appsettings.json` in the repo (SEC-CS-002). Bind through the options pattern with
 `ValidateOnStart` so a missing secret fails deployment, not the first request
-(`knowledge/csharp/platform.md#options-pattern-ioptions-family`); one access path, secret-typed
+(`knowledge/csharp/platform/options-pattern-ioptions-family.md`); one access path, secret-typed
 fields, redaction rules per `knowledge/security/secrets-and-keys/one-access-path.md`. Error
 responses use ProblemDetails without stack traces or internals
 (`knowledge/csharp/review-checklist/error-handling.md`); the developer exception page stays

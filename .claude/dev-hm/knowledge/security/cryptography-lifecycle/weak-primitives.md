@@ -8,7 +8,7 @@ The constructions our code refuses, and the two controls that make the refusal d
 - Refused: MD5 and SHA-1 in any security context, DES/3DES/RC4, ECB mode, CBC without
   authentication, RSA PKCS#1 v1.5 encryption, bcrypt or PBKDF2 as the KDF for a new credential
   store (neither is memory-hard; legacy verify-only per
-  `knowledge/security/authentication-sessions.md#credential-storage`), compressed-then-encrypted
+  `knowledge/security/authentication-sessions/credential-storage.md`), compressed-then-encrypted
   secrets, caller-supplied or reused AEAD nonces, security decisions on non-CSPRNG randomness,
   and homegrown token or envelope formats.
 - Structural control: the central module simply does not expose these; business code cannot reach

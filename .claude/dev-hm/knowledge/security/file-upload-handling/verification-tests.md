@@ -5,7 +5,7 @@ Section of `knowledge/security/file-upload-handling.md`.
 
 Control tests per `knowledge/security/control-verification-tests.md`, with the
 fails-when-removed lever named. Harness table:
-`knowledge/security/control-test-patterns-access.md#harness-per-ecosystem`.
+`knowledge/security/control-test-patterns-access/harness-per-ecosystem.md`.
 
 - Size gate: an upload one byte past the configured cap is refused with the limit status and no
   stored object; one at the cap succeeds. Lever: raising the cap in a scratch run flips the

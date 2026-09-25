@@ -18,4 +18,4 @@ delivery (or event) identifier the provider signs:
   work happens on a queue with its own retry policy. Slow synchronous handlers cause provider
   retries, which manufacture exactly the duplicates this section absorbs, and an unbounded
   burst of deliveries meets a bounded queue instead of unbounded threads
-  (`knowledge/security/resource-protection.md#bounded-queues-and-concurrency`).
+  (`knowledge/security/resource-protection/bounded-queues-and-concurrency.md`).

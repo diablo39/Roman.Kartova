@@ -10,5 +10,5 @@ Section of `knowledge/quality/test-data-management.md`.
 - Schema or contract diffs: fixtures and seed scripts updated in the same change; fixture
   validation present or a drift risk recorded.
 - Data setup honors isolation (QUA-013) and edge-case classes come from the enumerated table
-  in `knowledge/quality/test-strategy.md#edge-cases`, not from whatever
+  in `knowledge/quality/test-strategy/edge-cases.md`, not from whatever
   the generator happened to emit.

@@ -22,5 +22,4 @@ Read the section you need, not the file. Each row is a separate file.
 | Re-renders and memoization | `knowledge/typescript/review-checklist/re-renders-and-memoization.md` |
 | Error handling | `knowledge/typescript/review-checklist/error-handling.md` |
 | Async and concurrency | `knowledge/typescript/review-checklist/async-and-concurrency.md` |
-| Node backend | `knowledge/typescript/review-checklist/node-backend.md` |
 | Module and API hygiene | `knowledge/typescript/review-checklist/module-and-api-hygiene.md` |

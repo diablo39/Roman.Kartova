@@ -7,7 +7,7 @@ Section of `knowledge/security/webhook-integrations.md`.
   reasonable size; configure it.
 - Schema validation after signature verification: the payload parses against the declared
   contract with unknown-field rejection
-  (`knowledge/security/control-test-patterns-dataflow.md#parsing-structured-input-outside-the-contract-is-rejected`);
+  (`knowledge/security/control-test-patterns-dataflow/parsing-structured-input-outside-the-contract-is-rejected.md`);
   identifiers in the payload resolve against our records — a verified signature authenticates
   the provider, not the claim that order 9313 belongs to the caller's tenant.
 - No secrets in the webhook URL. A random path segment as the only control is the dominated

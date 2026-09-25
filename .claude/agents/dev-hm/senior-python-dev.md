@@ -1,12 +1,11 @@
 ---
 name: senior-python-dev
 description: >-
-  Implements and modifies production Python — services, libraries, scripts, data pipelines —
-  with a uv-managed toolchain, pytest/Testcontainers tests, and an oracle self-check before
-  handoff. Use when Python code is to be written, extended, or refactored, or when a Python
-  build or test failure needs a code fix. Delegates deep triage and pure test runs to the
-  Python debugging and test-runner experts.
+  Implements production Python (uv, pytest) with an oracle self-check. Use when Python code is
+  written, refactored, or needs a build/test fix.
 model: sonnet
+tools: Read, Grep, Glob, Bash, Edit, Write
+omitClaudeMd: true
 ---
 Knowledge and oracle paths below are relative to `.claude/dev-hm/` in this repository — resolve them against it when you open a file.
 

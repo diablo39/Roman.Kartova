@@ -22,4 +22,4 @@ Serving headers, whichever path serves the bytes: the response carries the conte
 validated and stored — never one derived from the request — plus `X-Content-Type-Options:
 nosniff`, and `Content-Disposition: attachment` with a sanitized filename for anything not
 explicitly meant to render inline. Authenticated downloads follow the cache rule in
-`knowledge/security/browser-protections.md#response-cache-hygiene`.
+`knowledge/security/browser-protections/response-cache-hygiene.md`.

@@ -14,6 +14,6 @@ product-state pins). The control our code provides is, again, restraint:
   post-quantum transition.
 
 Design depth — which data needs quantum-resistant protection first, signature readiness, and
-crypto agility — is in `knowledge/security/cryptography-lifecycle.md#post-quantum`. The
+crypto agility — is in `knowledge/security/cryptography-lifecycle/post-quantum.md`. The
 verification here is a configuration-fixture check: no named-group pin in the diff excludes the
 platform's hybrid defaults, or the configuration is absent and defaults apply.

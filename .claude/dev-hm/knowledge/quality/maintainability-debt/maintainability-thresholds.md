@@ -4,7 +4,7 @@ Section of `knowledge/quality/maintainability-debt.md`.
 
 
 The per-diff limits (duplication, function size and complexity, dead code, named constants,
-cycles) are defined once in `knowledge/quality/quality-characteristics.md#maintainability-thresholds`
+cycles) are defined once in `knowledge/quality/quality-characteristics/maintainability-thresholds.md`
 and are not restated here. Over time, the thresholds that matter are ratchets — values allowed to
 improve or hold, never to quietly worsen:
 

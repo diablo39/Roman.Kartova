@@ -14,4 +14,4 @@ support is built in on the major stacks (Android's `en-XA`/`ar-XB` pseudo-locale
 scheme option on iOS, library support on web and Flutter) — details live in the stack knowledge
 files. Run the UI test suite once under the pseudo-locale and once under the RTL pseudo-locale;
 that pass is the i18n equivalent of the accessibility automated check
-(`knowledge/quality/accessibility.md#automated-checks`).
+(`knowledge/quality/accessibility/automated-checks.md`).

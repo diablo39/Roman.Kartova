@@ -4,6 +4,10 @@ Test practices for TS/React/Node. Pinned tool versions are in `knowledge/shared/
 cross-language test strategy (pyramid, coverage policy, flakiness) is in `knowledge/quality/`. This
 file is the TS-specific how-to.
 
+**Repo note:** this repo uses no MSW and no RSC/Node server — the web app is a Vite SPA and tests
+mock the generated client via `vi.spyOn(clientModule, "apiClient", "get")`. Copy the harness from
+neighbouring `__tests__` files.
+
 ## Sections
 
 Read the section you need, not the file. Each row is a separate file.

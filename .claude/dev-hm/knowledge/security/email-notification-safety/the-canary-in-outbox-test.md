@@ -4,7 +4,7 @@ Section of `knowledge/security/email-notification-safety.md`.
 
 
 The messaging counterpart of the telemetry canary
-(`knowledge/security/control-test-patterns-dataflow.md#telemetry-planted-canaries-never-surface-in-captured-output`).
+(`knowledge/security/control-test-patterns-dataflow/telemetry-planted-canaries-never-surface-in-captured-output.md`).
 The test harness replaces the provider transport with a capturing outbox — the real mailer
 module runs, the wire call is recorded — and the suite asserts over everything captured:
 

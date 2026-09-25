@@ -16,8 +16,8 @@ with a mechanism, not a policy document:
   the stores that hold them. Where physical deletion is impractical — immutable backups,
   append-only stores — crypto-shredding stands in: destroy the per-subject or per-tenant key so
   the remaining ciphertext is unreadable (key design in
-  `knowledge/security/secrets-and-keys.md#key-separation`, derivation in
-  `knowledge/security/cryptography-lifecycle.md#key-derivation`).
+  `knowledge/security/secrets-and-keys/key-separation.md`, derivation in
+  `knowledge/security/cryptography-lifecycle/key-derivation.md`).
 - Purge jobs are idempotent, batched, and observable — a metric for records purged and for the
   age of the oldest record still held is the retention control's own health signal; an alert on
   its growth is the version of this control's test that runs in production.

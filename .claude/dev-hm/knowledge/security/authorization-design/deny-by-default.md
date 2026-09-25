@@ -14,7 +14,7 @@ authentication/authorization layer by construction:
   the handoff with its reason, so the gate reviews the exceptions, not the rule.
 - Every entry point counts, not only HTTP routes: message consumers, scheduled jobs, RPC
   handlers, and internal admin endpoints each resolve a principal (a user, a service identity
-  per `knowledge/security/transport-protection.md#peer-identity`, or a declared system context)
+  per `knowledge/security/transport-protection/peer-identity.md`, or a declared system context)
   before doing protected work.
 - The deny path is the error path too: when the policy check throws or times out, the outcome is
   refusal (SEC-071). An authorization layer that fails open under load is a control that removes
