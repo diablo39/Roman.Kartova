@@ -1,7 +1,7 @@
 # DoD Ledger — TD-012 Concurrency Write-Side Generic Setter
 
 **Slice:** `2026-09-25-td-012-concurrency-write-side` · **Branch:** `chore/tech-debt-td-012` · **HEAD:** `c5bbb95`
-**PR:** not yet opened · **Last updated:** 2026-09-25
+**PR:** [#99](https://github.com/diablo39/Roman.Kartova/pull/99) · **Last updated:** 2026-09-25
 **Spec/Plan:** none — bounded change per `superpowers:brainstorming` (short in-chat design, approved by user); no `docs/superpowers/specs/` or `docs/superpowers/plans/` file for this slice.
 **Findings telemetry:** `./gate-findings.yaml`
 
@@ -80,4 +80,5 @@
 **Reason:** Pure internal refactor — no HTTP contract, request/response shape, EF mapping, or UI surface changes. The 5 handlers' existing behavior (stale-version → 412, with the same `currentVersion` hint) is unchanged and already exercised live by their real-seam integration tests against real Postgres. No new or changed runtime surface to observe.
 
 ### 10 — CI green on PR
-**Status:** ⏳ PENDING
+**Status:** ⏳ PENDING (pre-push mirror green; PR CI in progress)
+**Evidence so far:** `scripts/ci-local.sh backend images stryker` (frontend/helm skipped — diff touches no `web/`/`deploy/helm/` files) — all 3 selected jobs PASS: `backend` (Release build+test), `images` (`docker compose build migrator api` + web image), `stryker` (config-drift check). PR [#99](https://github.com/diablo39/Roman.Kartova/pull/99) opened; awaiting the PR's own CI run.
