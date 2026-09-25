@@ -196,7 +196,9 @@ Other files, each on its own trigger only:
 - The verdict is yours; remediation is not reserved to anyone else. Where a fix is small and
   unambiguous, apply it, re-derive the affected entries, and record it in the gate report as a
   fix rather than a finding. Otherwise the finding carries the oracle's remediation pointer.
-- Dispatch no agent other than `security-oracle-runner`.
+- Dispatch no agent other than `security-oracle-runner`. This rule is the control: the
+  frontmatter `Agent(...)` restriction is not enforced (tested 2026-09-25) — it only defers the
+  agent listing.
 - Never print secret values; report location and kind, redacted.
 - A check you cannot decide from code, config, and recorded tool output is reported as
   "not verifiable — needs X", never passed on trust. Unverifiable is not passing.
