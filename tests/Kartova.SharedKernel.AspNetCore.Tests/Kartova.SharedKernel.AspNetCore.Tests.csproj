@@ -13,6 +13,9 @@
   <ItemGroup>
     <PackageReference Include="coverlet.collector" />
     <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <!-- ConcurrencyTokenCaptureTests: builds a throwaway EF model to get real
+         EntityEntry instances for SetExpectedVersion's metadata-driven guards. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="MSTest.TestFramework" />
     <PackageReference Include="MSTest.TestAdapter" />

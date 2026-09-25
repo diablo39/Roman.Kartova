@@ -11,8 +11,9 @@ namespace Kartova.Catalog.Infrastructure;
 /// Direct-dispatch handler for <see cref="DeleteEnvironmentCommand"/> — hard delete (A2).
 /// Returns <see langword="false"/> when no row is visible in the current tenant scope
 /// (RLS auto-filters cross-tenant rows, so an unknown id and a cross-tenant id both surface
-/// as "not found" — mirrors <see cref="EditEnvironmentHandler"/>). Concurrency: sets
-/// <c>OriginalValue(Xmin)</c> to the supplied <c>ExpectedVersion</c> so EF's generated
+/// as "not found" — mirrors <see cref="EditEnvironmentHandler"/>). Concurrency:
+/// <see cref="ConcurrencyTokenCapture.SetExpectedVersion"/> sets the token's
+/// <c>OriginalValue</c> to the supplied <c>ExpectedVersion</c> so EF's generated
 /// <c>DELETE ... WHERE xmin = :expected</c> raises <see cref="DbUpdateConcurrencyException"/>
 /// on a stale version (mapped to 412 upstream, never 409). No lifecycle and no relationship
 /// edges reference Environment yet, so this is a plain <c>db.Environments.Remove</c> — no
@@ -27,7 +28,7 @@ public sealed class DeleteEnvironmentHandler
             .SingleOrDefaultAsync(EnvironmentSortSpecs.IdEquals(cmd.Id.Value), ct);
         if (env is null) return false;
 
-        db.Entry(env).Property(x => x.Xmin).OriginalValue = cmd.ExpectedVersion;
+        ConcurrencyTokenCapture.SetExpectedVersion(db.Entry(env), cmd.ExpectedVersion);
         db.Environments.Remove(env);
 
         try

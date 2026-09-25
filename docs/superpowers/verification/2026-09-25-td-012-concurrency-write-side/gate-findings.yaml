@@ -1,0 +1,40 @@
+slice:  2026-09-25-td-012-concurrency-write-side
+branch: chore/tech-debt-td-012
+terminal_commit: c5bbb95
+
+findings:
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "SetExpectedVersion duplicated TryCaptureCurrentVersionAsync's EF-metadata token lookup"
+    note: "extracted shared private FindConcurrencyTokenProperty helper, fixed in 45a473e"
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "SetExpectedVersion had no uint-type guard on the resolved token property, unlike its documented sibling contract"
+    note: "added explicit throw on missing/non-uint token property, fixed in 45a473e"
+  - gate: simplify
+    severity: nit
+    verdict: delusion
+    title: "Single() vs SingleOrDefault() asymmetry between read/write side flagged by altitude agent"
+    note: "intentional: read-side must degrade silently inside an exception handler, write-side must fail loud pre-SaveChanges; not changed"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "SetExpectedVersion's two new throw branches (missing token, non-uint token) had no direct test"
+    note: "raised independently by pr-test-analyzer, code-reviewer, and silent-failure-hunter; added ConcurrencyTokenCaptureTests (3 tests, in-memory EF model), fixed in d182e96"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "TD-012 still marked open in docs/engineering/tech-debt.md after the fix shipped"
+    note: "marked resolved with ledger link, fixed in d182e96"
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "type-design-analyzer: no architecture test forbids .Property(...).OriginalValue= outside ConcurrencyTokenCapture.cs"
+    note: "reviewer's own recommendation says not worth it for 5 already-migrated call sites; not changed"
+  - gate: deep-review
+    severity: nit
+    verdict: delusion
+    title: "FindConcurrencyTokenProperty's SingleOrDefault gives a generic LINQ message on a hypothetical dual-token entity"
+    note: "pre-existing TD-002 code, unrelated to this diff's scope; not changed"
