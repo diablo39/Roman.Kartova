@@ -20,7 +20,7 @@ Existing admin-API consumers: `POST /api/v1/admin/organizations` (`OrganizationA
 - `PlatformAdmin` `JwtBearer` scheme + `PlatformAdminPolicy`.
 - `MapAdminModule` and `/health/detailed` bound to that policy.
 - `GET /api/v1/admin/session/me`.
-- Helm/compose/test-fixture wiring.
+- Compose/test-fixture wiring. Helm is unchanged, see Components.
 - Arch rules.
 - Production realm runbook in `deploy/README.md`.
 - Backlog entries.
@@ -63,7 +63,7 @@ Existing admin-API consumers: `POST /api/v1/admin/organizations` (`OrganizationA
 | `src/Modules/Organization/Kartova.Organization.Infrastructure.Admin/OrganizationAdminModule.cs` (modify) | `app.MapAdminModule("session").MapGet("/me", AdminSessionEndpointDelegates.GetMe).WithName("AdminGetSessionMe")`. |
 | `…/Infrastructure.Admin/AdminSessionEndpointDelegates.cs` (new) | Builds `AdminMeResponse` from claims `sub`, `email`, `name` (fallback: email). No DB, no tenant scope. A missing or non-GUID `sub` → 401 ProblemDetails. |
 | `src/Modules/Organization/Kartova.Organization.Contracts/AdminMeResponse.cs` (new) | `record AdminMeResponse(Guid UserId, string Email, string DisplayName)`, `[ExcludeFromCodeCoverage]`. |
-| `src/Kartova.Api/appsettings*.json`, `deploy/helm/kartova/values.yaml` + API deployment env (modify) | `Authentication:PlatformAdmin:*` wiring (dev → `http://keycloak:8080/realms/kartova-platform`, audience `kartova-admin-api`). |
+| `src/Kartova.Api/appsettings.Development.json`, `docker-compose.yml` api env (modify) | `Authentication:PlatformAdmin:*` wiring (issuer `http://localhost:8180/realms/kartova-platform`, in-container metadata via `http://keycloak:8080`, audience `kartova-admin-api`). Helm: the chart carries **no** `Authentication:*` env today, not even for the tenant scheme; production supplies both via external config. So the chart stays unchanged, and `deploy/README.md` documents the three new required keys. |
 | `web/openapi-snapshot.json` (regenerate) | New endpoint appears in the snapshot. No frontend consumer in S1. |
 
 `KartovaRoles.PlatformAdmin` stays (`"platform-admin"`) as the role name in the new realm. `TenantClaimsTransformation` is unchanged: an operator principal has no `tenant_id` → `TenantId.Empty`, and `platform-admin` maps to no tenant permissions.
@@ -86,7 +86,7 @@ This is a wiring slice (HTTP + auth), so tests use the real seam: `KartovaApiFix
 
 Gate-3 deliverables:
 - **`TestJwtSigner` extension:** a second issuer/audience + `IssueForPlatformAdmin(roles?)`. The fixture sets `Authentication__PlatformAdmin__*` to it.
-- **`AdminSchemeIsolationTests` (new, `Kartova.Api.IntegrationTests`):**
+- **`AdminSchemeIsolationTests` (new, `Kartova.Organization.IntegrationTests`, which owns the admin routes and has the `TestJwtSigner` fixture; live-KC variants in `Kartova.Api.IntegrationTests/PlatformRealmLiveTokenTests`):**
   - platform token → `/api/v1/admin/session/me` 200 + body shape;
   - **tenant token carrying `platform-admin` → `/api/v1/admin/session/me` 401** (key regression);
   - platform token → a tenant route (`/api/v1/catalog/applications`) 401;
