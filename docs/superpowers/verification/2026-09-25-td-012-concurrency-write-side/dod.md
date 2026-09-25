@@ -22,7 +22,7 @@
 | 8 `deep-review` | ✅ PASS — 0 blocking/should-fix, 2 nits (already declined at gate 7) | 2026-09-25 |
 | Terminal re-verify (build + suite) | ✅ PASS | 2026-09-25 |
 | 9 Visual / API verification (ADR-0084) | N/A — pure refactor, no runtime/wire-contract surface change | 2026-09-25 |
-| 10 CI green on PR | ⏳ PENDING | — |
+| 10 CI green on PR | ✅ PASS | 2026-09-25 |
 
 ## Gate detail
 
@@ -80,5 +80,8 @@
 **Reason:** Pure internal refactor — no HTTP contract, request/response shape, EF mapping, or UI surface changes. The 5 handlers' existing behavior (stale-version → 412, with the same `currentVersion` hint) is unchanged and already exercised live by their real-seam integration tests against real Postgres. No new or changed runtime surface to observe.
 
 ### 10 — CI green on PR
-**Status:** ⏳ PENDING (pre-push mirror green; PR CI in progress)
-**Evidence so far:** `scripts/ci-local.sh backend images stryker` (frontend/helm skipped — diff touches no `web/`/`deploy/helm/` files) — all 3 selected jobs PASS: `backend` (Release build+test), `images` (`docker compose build migrator api` + web image), `stryker` (config-drift check). PR [#99](https://github.com/diablo39/Roman.Kartova/pull/99) opened; awaiting the PR's own CI run.
+**Status:** ✅ PASS
+**Evidence:** Pre-push mirror (`scripts/ci-local.sh backend images stryker`) all green before push. PR [#99](https://github.com/diablo39/Roman.Kartova/pull/99)'s own CI run — all 5 jobs pass: `Backend (arch + unit + integration)` 5m19s, `Container images` 2m17s, `Frontend (test + typecheck + build)` 3m29s, `Helm (lint + template)` 5s, `Stryker config drift` 7s.
+**At:** `6f84e9c`
+
+## All ten gates green — TD-012 complete, verification evidence above.
