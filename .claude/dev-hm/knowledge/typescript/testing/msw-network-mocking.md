@@ -2,6 +2,9 @@
 
 Section of `knowledge/typescript/testing.md`.
 
+**Repo note:** not used in this repo — tests mock the generated client via
+`vi.spyOn(clientModule, "apiClient", "get")`. Don't introduce MSW.
+
 
 Mock at the network layer with request handlers, not by stubbing `fetch`/`axios`. The same handlers
 serve unit tests (`setupServer`) and the browser (`setupWorker`), so tests exercise the real client

@@ -79,11 +79,13 @@ code cannot leak across tenants.
 ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invoices FORCE ROW LEVEL SECURITY;   -- also apply to the table owner
 CREATE POLICY tenant_isolation ON invoices
-  USING (tenant_id = current_setting('app.tenant_id')::bigint);
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
 ```
 
-- The app sets `SET LOCAL app.tenant_id = '...'` per transaction (session-scoped setting), or uses
-  a distinct DB role per tenant. `SET LOCAL` is preferred with transaction-pooled connections.
+- The app sets `SET LOCAL app.current_tenant_id = '...'` per transaction (transaction-scoped —
+  reset at commit/rollback), or uses a distinct DB role per tenant. `SET LOCAL` is preferred with
+  transaction-pooled connections. (This repo: `ITenantScope.Begin` issues it, ADR-0090.)
 - `USING` filters reads and the pre-image of writes; add `WITH CHECK` to constrain inserted/updated
   rows so a tenant cannot write another tenant's id.
 - `FORCE ROW LEVEL SECURITY` closes the gap that table owners and superusers bypass policies by

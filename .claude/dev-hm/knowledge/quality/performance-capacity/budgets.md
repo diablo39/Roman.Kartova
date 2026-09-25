@@ -16,7 +16,7 @@ recollections living in someone's head. A budget names a path, a metric, and a l
 
 Two kinds of numbers, kept distinct: target budgets derive from user need and the SLO (set the
 budget tighter than the SLO so normal variance doesn't eat the error budget —
-`knowledge/quality/observability.md#sli-slo`); regression baselines derive from current measured
+`knowledge/quality/observability/sli-slo.md`); regression baselines derive from current measured
 behavior and exist to catch accidental slowdowns. Both are legitimate; confusing them ratchets
 yesterday's accident into tomorrow's requirement.
 
@@ -29,7 +29,7 @@ Budget regression (QUA-074): when a declared budget covers a path a diff touches
 benchmark or load check runs and the measured value is recorded against the budget in the
 handoff. Loosening a budget is its own reviewed change with a stated reason — never slipped into
 the same diff that would breach it, exactly as lint configuration is handled in
-`knowledge/quality/review-method.md#lint-and-type-gates`.
+`knowledge/quality/review-method/lint-and-type-gates.md`.
 
 Verification: the budget exists as a checked-in executable check; the check runs on the paths it
 names in CI; the handoff cites the measured number and the budget it was compared against.

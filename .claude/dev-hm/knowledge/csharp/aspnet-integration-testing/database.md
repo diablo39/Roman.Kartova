@@ -4,7 +4,7 @@ Section of `knowledge/csharp/aspnet-integration-testing.md`.
 
 
 Pair the factory with a Testcontainers fixture and point the app's connection string at the
-container (`knowledge/csharp/testing.md#testcontainers` for lifecycle and reuse rules; apply real
+container (`knowledge/csharp/testing/testcontainers.md` for lifecycle and reuse rules; apply real
 migrations, reset state between tests):
 
 ```csharp
@@ -28,4 +28,4 @@ public sealed class IntegrationTestAssemblySetup
 Wire the container's connection string into the factory before the first client is created (start
 the container in the fixture's async initializer, then set `DbConnectionString`). Do not
 swap the provider for `Microsoft.EntityFrameworkCore.InMemory` — different engine, no constraints,
-no transactions; see `knowledge/csharp/efcore.md#testing`.
+no transactions; see `knowledge/csharp/efcore/testing.md`.

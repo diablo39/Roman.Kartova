@@ -15,6 +15,6 @@ Tokens carried in links follow `knowledge/security/authentication-sessions.md`: 
 (SEC-033), expiring, single-use for reset and verification flows, and stored hashed — the link
 is a credential in transit. Messages never carry passwords, session identifiers, or Tier-3
 values beyond the notification's recorded purpose
-(`knowledge/security/data-classification.md#minimization`); a mailbox is long-term plaintext
+(`knowledge/security/data-classification/minimization.md`); a mailbox is long-term plaintext
 storage we do not control, so the message says something happened and links back into the
 application, which authenticates and then shows the detail.

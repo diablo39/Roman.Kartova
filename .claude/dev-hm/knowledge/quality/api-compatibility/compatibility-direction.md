@@ -13,6 +13,6 @@ Section of `knowledge/quality/api-compatibility.md`.
   run side by side, reading the same database and queues. Every contract change must therefore
   be compatible with the immediately previous release even when both sides are yours — the same
   reasoning as expand-contract for schemas
-  (`knowledge/quality/data-migration-safety.md#expand-contract`), and the
+  (`knowledge/quality/data-migration-safety/expand-contract.md`), and the
   reason rollback stays possible
   (`knowledge/quality/release-readiness.md#rollback`).

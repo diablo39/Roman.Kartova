@@ -21,10 +21,10 @@ parsing the body, since a parser is itself attack surface.
   constant-time equality (SEC-034); ordinary `==` on MAC material is the timing-leak pattern
   the oracle flags.
 - Key handling: the signing secret comes through the project's secret path
-  (`knowledge/security/secrets-and-keys.md#one-access-path`), one secret per provider per
+  (`knowledge/security/secrets-and-keys/one-access-path.md`), one secret per provider per
   environment. Verification accepts a keyset — current plus previous — so provider-side
   rotation is a config change, not an outage
-  (`knowledge/security/secrets-and-keys.md#rotation`).
+  (`knowledge/security/secrets-and-keys/rotation.md`).
 - Failure is refusal: absent, malformed, or non-verifying signatures get the project's refusal
   status with no body detail, and the handler never runs (SEC-071 fail closed). The refusal
   emits its security event with a stable code

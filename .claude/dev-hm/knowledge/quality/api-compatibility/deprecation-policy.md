@@ -20,4 +20,4 @@ Removal is a process with evidence, not an event:
    with matching test change" from a formality into a reviewed decision.
 
 Deprecations that linger past their window are debt and are tracked as such
-(`knowledge/quality/maintainability-debt.md#deprecation-hygiene`).
+(`knowledge/quality/maintainability-debt/deprecation-hygiene.md`).

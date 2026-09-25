@@ -10,7 +10,7 @@ Agility is the control that makes every other choice replaceable before it is br
   explicit table (a minimal cryptographic bill of materials), not tribal knowledge.
 - Self-describing artifacts: every ciphertext, signature, and token carries its algorithm
   identifier and key ID, the same design that makes key rotation routine in
-  `knowledge/security/secrets-and-keys.md#rotation`.
+  `knowledge/security/secrets-and-keys/rotation.md`.
 - Readers hold an allowlist: verification and decryption accept the configured set of expected
   algorithms — never "whatever the artifact's header claims".
 - Migration is the rotation playbook at the algorithm level: add the new algorithm to the accept

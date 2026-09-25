@@ -3,7 +3,7 @@
 Contract-first RPC with `Grpc.AspNetCore` (server) and the gRPC client factory (versions in
 `knowledge/shared/versions.md`). gRPC fits service-to-service APIs with strong contracts,
 streaming, or polyglot consumers; JSON minimal APIs fit public/browser-facing surfaces — the
-selection criteria extend `knowledge/csharp/platform.md#api-surface-minimal-apis-vs-controllers`.
+selection criteria extend `knowledge/csharp/platform/api-surface-minimal-apis-vs-controllers.md`.
 Committing a service boundary to gRPC (vs REST/JSON or messaging) shapes every consumer and is
 hard to reverse — for a load-bearing boundary, run the choice through
 `knowledge/shared/three-framing-analysis.md` and record the ADR. Browser or REST consumers of an
@@ -89,7 +89,7 @@ orchestrators consume natively — same liveness/readiness split as
 gRPC services are a supported ASP.NET Core Native AOT workload (see the AOT row in
 `knowledge/shared/versions.md`): protobuf serialization is generated code, no reflection at the
 contract boundary. `<PublishAot>true</PublishAot>` (or `dotnet new grpc --aot`), keep dependencies
-AOT-clean per `knowledge/csharp/platform.md#native-aot-and-trimming`, and publish frequently so
+AOT-clean per `knowledge/csharp/platform/native-aot-and-trimming.md`, and publish frequently so
 trim warnings surface early.
 
 ## Testing {#testing}

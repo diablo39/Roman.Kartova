@@ -20,5 +20,5 @@ Control tests with the fails-when-removed lever named:
 - Flooding bound: sends past the per-recipient cap are refused and the outbox count stays at
   the cap.
 - Inbound callbacks: unsigned, tampered, stale, and duplicate provider callbacks are refused or
-  deduplicated per the tests in `knowledge/security/webhook-integrations.md#verification-tests`;
+  deduplicated per the tests in `knowledge/security/webhook-integrations/verification-tests.md`;
   a forged bounce for a message identifier we never sent changes no delivery state.

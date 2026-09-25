@@ -39,9 +39,7 @@ sections your diff activates. Never cite a file you did not open.
 |---|---|
 | Strict tsconfig, type-safety patterns, current React API surface, Node/ESM, tooling | `knowledge/typescript/platform.md` |
 | Boundary validation, XSS sinks, token storage, secrets/env exposure | `knowledge/typescript/security.md` |
-| Node service structure, graceful shutdown, pino, env config, streams/backpressure, workers, concurrency limits | `knowledge/typescript/node-backend.md` |
 | TanStack Query, client-state choice, react-hook-form + Zod | `knowledge/typescript/react-data-and-state.md` |
-| RSC boundaries, server actions, caching and streaming | `knowledge/typescript/rsc-and-server-actions.md` |
 | pnpm workspaces, project references, library packaging or publish checks | `knowledge/typescript/build-and-monorepo.md` |
 | Choosing OpenAPI vs tRPC, Problem Details, end-to-end response typing | `knowledge/typescript/api-contracts.md` |
 | A **measured** Core Web Vitals / INP problem, transitions, virtualization, bundle budgets | `knowledge/typescript/performance.md` |

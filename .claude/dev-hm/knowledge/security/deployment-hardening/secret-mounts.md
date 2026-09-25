@@ -16,6 +16,6 @@ file (SEC-020). Preference order for delivery into the process:
   the platform layer owning it is named in the handoff.
 
 Service-account tokens and cloud credentials follow workload identity
-(`knowledge/security/secrets-and-keys.md#workload-identity`): the platform issues short-lived
+(`knowledge/security/secrets-and-keys/workload-identity.md`): the platform issues short-lived
 identity to the workload; static cloud keys in manifests are the dominated option, carved out
 only for platforms without federation, recorded in the handoff.

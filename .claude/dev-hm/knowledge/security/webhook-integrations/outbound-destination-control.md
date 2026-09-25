@@ -14,5 +14,5 @@ which is the SSRF shape (SEC-090):
 - TLS verification stays on (SEC-031) — a consumer with a broken certificate is a failed
   delivery, never a `verify=false` special case.
 - Deliveries run from an egress-restricted worker where the platform offers it
-  (`knowledge/security/deployment-hardening.md#identity-and-network-least-privilege`), so the
+  (`knowledge/security/deployment-hardening/identity-and-network-least-privilege.md`), so the
   network enforces what the code validates.

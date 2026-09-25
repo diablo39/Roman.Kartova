@@ -40,7 +40,7 @@ their trigger. Never cite a file you did not open.
 Always read:
 
 - `knowledge/typescript/testing.md` — Vitest config, RTL query priority,
-  browser mode, MSW setup/overrides, RSC/server-action testing, Playwright POM, anti-patterns,
+  browser mode, Playwright POM, anti-patterns,
   failure diagnosis
 
 Read on their trigger:

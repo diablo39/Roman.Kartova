@@ -13,7 +13,7 @@ touching old wiring; do not start new work on them.
 ## Standard resilience handler for HttpClient {#standard-handler}
 
 The default outbound-HTTP posture is one call on the typed client
-(`knowledge/csharp/platform.md#http-clients`):
+(`knowledge/csharp/platform/http-clients.md`):
 
 ```csharp
 builder.Services.AddHttpClient<InventoryClient>(c => c.BaseAddress = new Uri(baseUrl))

@@ -13,7 +13,7 @@ the data — not by what is cheapest to declare:
 | Column/field-level | database operators, shared-database neighbors, exported backups | compromise of the application holding the key |
 | Application-layer envelope | store compromise entirely; enables per-tenant and per-subject shredding | compromise inside the application process |
 
-The tier of the data picks the minimum (`knowledge/security/data-classification.md#encryption`):
+The tier of the data picks the minimum (`knowledge/security/data-classification/encryption.md`):
 Tier 3 requires a named mechanism decision, and the highest-sensitivity fields (credentials,
 payment data) take field-level or envelope encryption — the envelope shape and its KMS properties
 are in `knowledge/security/secrets-and-keys.md`. Backups, replicas, and search indexes inherit

@@ -18,4 +18,4 @@ instead of re-running everything (QUA-002 evidence comes from these runs):
   under ten minutes as a rule of thumb; slower integration/E2E tiers run as separate stages.
   A suite nobody runs locally catches defects one stage too late (P3).
 - The order of gates within the pipeline and the non-test gates (lint, type, dependency) are
-  defined in `knowledge/quality/review-method.md#gate-order`.
+  defined in `knowledge/quality/review-method/gate-order.md`.

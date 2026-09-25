@@ -23,7 +23,7 @@ public sealed class HealthEndpointTests
 - Minimal-API apps with top-level statements need the entry point visible to the test project: add
   `public partial class Program;` at the end of `Program.cs` (or `InternalsVisibleTo`).
 - MSTest has no fixture injection: hold the factory in a static, assembly-scoped `[TestClass]` with
-  `[AssemblyInitialize]`/`[AssemblyCleanup]` (see `knowledge/csharp/testing.md#testcontainers`) and
+  `[AssemblyInitialize]`/`[AssemblyCleanup]` (see `knowledge/csharp/testing/testcontainers.md`) and
   pair it with `[assembly: DoNotParallelize]`. Each `CreateClient` call is cheap; booting the host
   is not — boot once per assembly.
 - `factory.Services` exposes the app's container — resolve services inside a created scope to seed

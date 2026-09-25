@@ -8,10 +8,10 @@ The cheapest refusals come first, before the body is buffered:
 - Size: a per-request byte cap enforced by the streaming layer, so an oversized upload is cut
   off mid-transfer rather than assembled and then measured. The cap is configuration, and the
   control test derives its probe from the same configuration value
-  (`knowledge/security/resource-protection.md#input-size-limits`).
+  (`knowledge/security/resource-protection/input-size-limits.md`).
 - Count and rate: a cap on files per request and uploads per principal per window, so the
   storage bill and the scan queue are not one loop away from exhaustion
-  (`knowledge/security/resource-protection.md#per-principal-fairness`).
+  (`knowledge/security/resource-protection/per-principal-fairness.md`).
 - Type allowlist: the accepted set is a short, closed list of types the feature needs — never a
   denylist of known-bad extensions, which loses to every extension it did not anticipate. The
   claimed type must agree three ways: the file extension, the declared `Content-Type`, and the

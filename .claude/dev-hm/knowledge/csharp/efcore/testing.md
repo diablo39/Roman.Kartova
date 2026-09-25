@@ -4,7 +4,7 @@ Section of `knowledge/csharp/efcore.md`.
 
 
 Test repositories and query logic against the real database engine in a Testcontainers container —
-`knowledge/csharp/testing.md#testcontainers` has the fixture pattern. Apply the real migrations to
+`knowledge/csharp/testing/testcontainers.md` has the fixture pattern. Apply the real migrations to
 the container, not `EnsureCreated`, so the tests also validate the migration chain.
 
 The `Microsoft.EntityFrameworkCore.InMemory` provider is not a relational database: no

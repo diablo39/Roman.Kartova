@@ -4,7 +4,7 @@ Section of `knowledge/security/secrets-and-keys.md`.
 
 
 Supports SEC-021, SEC-022. The review cues are in
-`knowledge/security/secure-coding-review.md#secrets`; the durable in-code controls are:
+`knowledge/security/secure-coding-review/secrets.md`; the durable in-code controls are:
 
 - Secret-typed wrappers whose string representation redacts — `SecretStr`, a Rust newtype with a
   redacting `Debug` impl, a C# type overriding `ToString`. Accidental logging then prints a mask,
@@ -15,5 +15,5 @@ Supports SEC-021, SEC-022. The review cues are in
 
 The control test drives a request carrying a known synthetic token through the system and asserts
 the marker appears in no log line, span, or error payload — the same canary pattern as
-`knowledge/security/data-classification.md#telemetry`, with secrets as the payload. Pattern
+`knowledge/security/data-classification/telemetry.md`, with secrets as the payload. Pattern
 details: `knowledge/security/control-test-patterns-dataflow.md`.

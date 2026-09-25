@@ -24,7 +24,7 @@ The line between what security owns and what this file asks of tests:
 - Synthetic markers are a feature: fixtures built from card-shaped numbers that pass checksum,
   fake-domain emails, and known-fake identifiers double as the canary values the telemetry and
   masking tests look for
-  (`knowledge/security/data-classification.md#verification-tests`).
+  (`knowledge/security/data-classification/verification-tests.md`).
 - Incident reproduction is the tempting exception: copying the production record that broke
   things into a fixture is fast and usually unlawful. Reproduce by shape — rebuild the record's
   structure with synthetic values, confirm it still triggers the defect — and the regression

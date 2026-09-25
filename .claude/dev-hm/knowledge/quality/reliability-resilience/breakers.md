@@ -17,7 +17,7 @@ Bulkheads bound the blast radius the breaker can't: give each dependency its own
 concurrency — separate connection pools, bounded worker or semaphore limits — so one slow
 dependency saturates its own compartment instead of every shared thread and connection in the
 process. Sizing those bounds and the backpressure that keeps them honest is capacity work:
-`knowledge/quality/performance-capacity.md#capacity`.
+`knowledge/quality/performance-capacity/capacity.md`.
 
 Join the repository's convention rather than inventing one (QUA-082): the same library, the
 same configuration shape, the same metric names, so one dashboard shows every breaker. Breaker

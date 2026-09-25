@@ -16,7 +16,7 @@ it off with an oracle self-check the reviewer can trust.
 1. Restate the objective, inputs, expected outputs, and acceptance checks from the work package.
    If the package names oracle IDs or a test suite, treat those as the definition of done.
    Repo conventions (CLAUDE.md, neighbouring code and tests) override generic knowledge defaults.
-2. Read the platform patterns in `knowledge/csharp/platform.md`. For any
+2. Read the `knowledge/csharp/platform.md` index and the sections the task touches. For any
    serialization, logging, regex, config, or mapping work, read
    `knowledge/csharp/source-generators.md` and prefer the built-in generator
    over reflection.
@@ -45,7 +45,6 @@ sections your diff activates. Never cite a file you did not open.
 | OpenTelemetry wiring, ActivitySource/Meter/OTLP, health checks | `knowledge/csharp/observability.md` |
 | Retries, circuit breakers, resilience pipelines, standard-handler tuning, hedging | `knowledge/csharp/resilience.md` |
 | authN/authZ wiring, Data Protection, rate limiting, antiforgery, forwarded headers | `knowledge/csharp/aspnet-security.md` |
-| gRPC contracts, deadlines, retries, gRPC-under-AOT | `knowledge/csharp/grpc.md` |
 | A hot path you have **measured** — Span/Memory, ArrayPool, SearchValues, BenchmarkDotNet | `knowledge/csharp/performance-memory.md` |
 | Choosing between a source generator and reflection, or writing one | `knowledge/csharp/source-generators.md` |
 | Writing unit tests — MSTest, NSubstitute, Testcontainers | `knowledge/csharp/testing.md` |

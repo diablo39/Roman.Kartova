@@ -27,7 +27,7 @@ include the tenant explicitly, and the consumer re-establishes the scoped contex
 touching data — a worker processing tenant A's job with an unscoped connection is a cross-tenant
 path with no request anywhere in sight. Cross-tenant administrative surfaces are their own
 declared, audited exception, gated by step-up verification
-(`knowledge/security/authentication-sessions.md#step-up`).
+(`knowledge/security/authentication-sessions/step-up.md`).
 
 The control test fixture holds two tenants and asserts that no operation — including list
 endpoints, search, exports, and error responses — ever surfaces the other tenant's rows.

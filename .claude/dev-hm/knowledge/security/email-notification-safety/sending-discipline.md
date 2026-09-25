@@ -5,10 +5,10 @@ Section of `knowledge/security/email-notification-safety.md`.
 
 - One sending path: a single mailer module owns provider credentials, template rendering, and
   the controls above — the messaging counterpart of
-  `knowledge/security/secrets-and-keys.md#one-access-path`. Handlers request "send template X
+  `knowledge/security/secrets-and-keys/one-access-path.md`. Handlers request "send template X
   to principal Y with fields Z"; they never assemble messages.
 - Rate and recipient bounds: per-principal and per-recipient send caps
-  (`knowledge/security/resource-protection.md#per-principal-fairness`), so a triggerable
+  (`knowledge/security/resource-protection/per-principal-fairness.md`), so a triggerable
   notification cannot be turned into a flooding or bombing primitive against a victim's
   mailbox; triggered sends to addresses the actor does not own (invites, shares) get the
   tightest caps.

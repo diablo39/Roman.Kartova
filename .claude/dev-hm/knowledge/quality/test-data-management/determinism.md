@@ -4,10 +4,10 @@ Section of `knowledge/quality/test-data-management.md`.
 
 
 Test data is a nondeterminism source alongside time and scheduling
-(`knowledge/quality/test-strategy.md#flakiness-control`):
+(`knowledge/quality/test-strategy/flakiness-control.md`):
 
 - Seed every generator and log the seed, so a failure replays exactly
-  (`knowledge/quality/test-adequacy.md#two-run-determinism`).
+  (`knowledge/quality/test-adequacy/two-run-determinism.md`).
 - Generated values must respect the assertion: a random string that occasionally collides with
   a uniqueness constraint, or a random date that occasionally lands on a DST boundary, is a
   flake generator. Constrain generation ranges deliberately — and cover the boundary cases as

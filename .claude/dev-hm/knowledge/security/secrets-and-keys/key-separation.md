@@ -11,7 +11,7 @@ One key, one purpose, one environment:
   appear outside production config.
 - Per purpose: a signing key is not an encryption key is not a KDF master. Shared-purpose keys
   cannot be rotated independently and invite cross-protocol confusion. Derive purpose-bound
-  subkeys instead — `knowledge/security/cryptography-lifecycle.md#key-derivation`.
+  subkeys instead — `knowledge/security/cryptography-lifecycle/key-derivation.md`.
 - Per tenant, where the isolation model warrants it: per-tenant data keys bound the blast radius
   of a key compromise to one tenant and make crypto-shredding per tenant possible
-  (`knowledge/security/data-classification.md#retention`).
+  (`knowledge/security/data-classification/retention.md`).

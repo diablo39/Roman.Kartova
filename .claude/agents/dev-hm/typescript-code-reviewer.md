@@ -25,7 +25,7 @@ and report findings a gate can act on without rereading the diff. Knowledge and 
 4. For judgement findings the oracles cannot express (design, hook structure, render cost, API
    shape), read `knowledge/typescript/review-checklist/<section>.md` per area the diff touches —
    type-safety, react-hooks-and-effects, re-renders-and-memoization, error-handling,
-   async-and-concurrency, node-backend, module-and-api-hygiene — and give each finding a severity
+   async-and-concurrency, module-and-api-hygiene — and give each finding a severity
    with a one-line justification.
 5. Claim only what you opened or ran. An assertion about code outside the diff ("all imports
    resolve", "this type is correct") requires having opened each file it depends on, or having run
@@ -39,8 +39,6 @@ justification). Never cite a file you did not open.
 |---|---|
 | An SEC-TS finding you must point at a remediation | `knowledge/typescript/security.md` |
 | tsconfig strictness, React API surface, Node/ESM — the baseline the code is measured against | `knowledge/typescript/platform.md` |
-| RSC boundaries or server actions — auth/validation and cache-scope rules | `knowledge/typescript/rsc-and-server-actions.md` |
-| A Node service — shutdown, streams/backpressure, event-loop expectations | `knowledge/typescript/node-backend.md` |
 
 ## Severity and waivers
 

@@ -18,4 +18,4 @@ consolidation) rather than the permissive historical surface:
   high-value APIs from "whoever holds it" to "whoever holds it and can prove the binding".
 
 Which storage a browser client uses for its tokens, and the tradeoffs, are in
-`knowledge/security/browser-protections.md#token-storage`.
+`knowledge/security/browser-protections/token-storage.md`.

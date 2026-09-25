@@ -4,7 +4,7 @@ Section of `knowledge/security/secrets-and-keys.md`.
 
 
 Crypto-shredding — destroying a key to render its ciphertext unreadable — is the deletion
-mechanism `knowledge/security/data-classification.md#retention` names for stores where physical
+mechanism `knowledge/security/data-classification/retention.md` names for stores where physical
 purge is impractical (backups, immutable storage, replicas). It pulls in exactly the opposite
 direction from the two sections above: every backup, replica, and escrow share of a key is a
 path by which "deleted" data comes back. Both promises can be kept, but only by design:
