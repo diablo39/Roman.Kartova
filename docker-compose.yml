@@ -55,6 +55,7 @@ services:
       - "8180:8080"
     volumes:
       - ./deploy/keycloak/kartova-realm.json:/opt/keycloak/data/import/kartova-realm.json:ro
+      - ./deploy/keycloak/kartova-platform-realm.json:/opt/keycloak/data/import/kartova-platform-realm.json:ro
     depends_on:
       keycloak-db:
         condition: service_healthy
