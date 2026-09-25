@@ -128,6 +128,10 @@
 - [ ] E-01b.F-02.S-02 — Detect orphaned `tenant_id`s (KC attribute with no matching Organization row)
 - [ ] E-01b.F-02.S-03 — Provision an Organization row for an existing orphaned `tenant_id`
 
+**E-01b.F-03: Platform Admin Isolation (ADR-0118)**
+- [ ] E-01b.F-03.S-01 — Platform admin identity & API isolation (separate realm + `PlatformAdmin` scheme + `/api/v1/admin/session/me`)
+- [ ] E-01b.F-03.S-02 — `web-admin` app shell (own origin, same visual shell)
+
 ---
 
 ## Phase 1: Core Catalog & Notifications (54 stories)

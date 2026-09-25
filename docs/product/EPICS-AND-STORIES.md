@@ -121,7 +121,7 @@ status:
 
 | Phase | File | Epics | Features | Stories | MVP |
 |-------|------|-------|----------|---------|-----|
-| 0 — Foundation | [phase-0-foundation.md](phases/phase-0-foundation.md) | 3 (E-01, E-01a, E-01b) | 15 | 52 | ✅ |
+| 0 — Foundation | [phase-0-foundation.md](phases/phase-0-foundation.md) | 3 (E-01, E-01a, E-01b) | 16 | 54 | ✅ |
 | 1 — Core Catalog & Notifications | [phase-1-core-catalog.md](phases/phase-1-core-catalog.md) | 6 (E-02..E-06, E-06a) | 22 | 58 | ✅ |
 | 2 — Auto-Import | [phase-2-auto-import.md](phases/phase-2-auto-import.md) | 4 (E-07..E-10) | 11 | 36 | ✅ |
 | 3 — Documentation | [phase-3-documentation.md](phases/phase-3-documentation.md) | 1 (E-11) | 5 | 15 | ✅ |
@@ -131,7 +131,7 @@ status:
 | 7 — Intelligence | [phase-7-intelligence.md](phases/phase-7-intelligence.md) | 4 (E-17..E-20) | 5 | 13 | — |
 | 8 — Analytics | [phase-8-analytics.md](phases/phase-8-analytics.md) | 4 (E-21..E-24) | 5 | 14 | — |
 | 9 — Advanced | [phase-9-advanced.md](phases/phase-9-advanced.md) | 4 (E-25..E-28) | — | — | — |
-| **Total** |  | **31** | **83** | **224** | **17 / 73 / 200** |
+| **Total** |  | **31** | **84** | **226** | **17 / 74 / 202** |
 
 ---
 
@@ -143,7 +143,7 @@ Flat list of all 30 epics with phase, scope, and file pointer.
 |----|-------|-------|----------|---------|------|
 | E-01 | Project Foundation & Infrastructure | 0 | 8 | 33 | [phase-0](phases/phase-0-foundation.md) |
 | E-01a | Kartova Product Documentation Portal | 0 | 5 | 12 | [phase-0](phases/phase-0-foundation.md) |
-| E-01b | Platform Admin Console | 0 | 2 | 7 | [phase-0](phases/phase-0-foundation.md) |
+| E-01b | Platform Admin Console | 0 | 3 | 9 | [phase-0](phases/phase-0-foundation.md) |
 | E-02 | Entity Registry | 1 | 5 | — | [phase-1](phases/phase-1-core-catalog.md) |
 | E-03 | Organization & Team Management | 1 | 5 | — | [phase-1](phases/phase-1-core-catalog.md) |
 | E-04 | Entity Relationships | 1 | 2 | — | [phase-1](phases/phase-1-core-catalog.md) |
@@ -178,7 +178,7 @@ Flat list of all 30 epics with phase, scope, and file pointer.
 
 ## Feature Index
 
-All 83 scoped features across phases 0–8. (Phase 9 epics are not yet feature-decomposed.)
+All 84 scoped features across phases 0–8. (Phase 9 epics are not yet feature-decomposed.)
 
 ### Phase 0 — Foundation
 
@@ -199,6 +199,7 @@ All 83 scoped features across phases 0–8. (Phase 9 epics are not yet feature-d
 | E-01a.F-05 | Contextual In-App Help |
 | E-01b.F-01 | Organization Directory & CRUD |
 | E-01b.F-02 | Tenant Provisioning & KC Linkage |
+| E-01b.F-03 | Platform Admin Isolation |
 
 ### Phase 1 — Core Catalog & Notifications
 
@@ -441,6 +442,7 @@ Full library: [decisions/README.md](../architecture/decisions/README.md).
 | 2026-04-21 | ADR-0064 accepted — Phase 2 adds Custom Entity (10th type); MVP adds `custom_attributes` JSONB to all nine fixed types |
 | 2026-04-21 | Document restructured for LLM-friendly navigation (YAML front-matter, Epic Index, Feature Index, Keyword Index, Cross-References) |
 | 2026-06-10 | Added E-03.F-01.S-05/S-06/S-07 (member lifecycle management — directory, role change, offboard); Phase 1 stories 55 → 58; Total 209 → 212 (slice 10) |
+| 2026-09-25 | Added **E-01b.F-03** Platform Admin Isolation (2 stories) per ADR-0118; features 83 → 84, stories 224 → 226 |
 
 ### Key changes from Critic audit
 
