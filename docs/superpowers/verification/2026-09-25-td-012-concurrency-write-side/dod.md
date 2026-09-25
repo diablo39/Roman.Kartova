@@ -1,6 +1,6 @@
 # DoD Ledger — TD-012 Concurrency Write-Side Generic Setter
 
-**Slice:** `2026-09-25-td-012-concurrency-write-side` · **Branch:** `chore/tech-debt-td-012` · **HEAD:** `d182e96`
+**Slice:** `2026-09-25-td-012-concurrency-write-side` · **Branch:** `chore/tech-debt-td-012` · **HEAD:** `c5bbb95`
 **PR:** not yet opened · **Last updated:** 2026-09-25
 **Spec/Plan:** none — bounded change per `superpowers:brainstorming` (short in-chat design, approved by user); no `docs/superpowers/specs/` or `docs/superpowers/plans/` file for this slice.
 **Findings telemetry:** `./gate-findings.yaml`
@@ -19,9 +19,9 @@
 | 5 `/simplify` | ✅ PASS — 2 findings applied | 2026-09-25 |
 | 6 `requesting-code-review` | ✅ PASS | 2026-09-25 |
 | 7 `review-pr` | ✅ PASS — 1 finding applied (unit tests), 1 finding applied (tech-debt.md) | 2026-09-25 |
-| 8 `deep-review` | ⏳ PENDING | — |
-| Terminal re-verify (build + suite) | ⏳ PENDING | — |
-| 9 Visual / API verification (ADR-0084) | ⏳ PENDING (likely N/A — pure refactor, no runtime-surface change; will confirm at closeout) | — |
+| 8 `deep-review` | ✅ PASS — 0 blocking/should-fix, 2 nits (already declined at gate 7) | 2026-09-25 |
+| Terminal re-verify (build + suite) | ✅ PASS | 2026-09-25 |
+| 9 Visual / API verification (ADR-0084) | N/A — pure refactor, no runtime/wire-contract surface change | 2026-09-25 |
 | 10 CI green on PR | ⏳ PENDING | — |
 
 ## Gate detail
@@ -66,13 +66,18 @@
 **At:** `d182e96`
 
 ### 8 — `deep-review`
-**Status:** ⏳ PENDING
+**Status:** ✅ PASS
+**Evidence:** General-purpose subagent, deep-review template adapted for a bounded slice (no spec/plan — read against the TD-012 tech-debt entry and ADR-0096's If-Match/ExpectedVersion contract instead). 0 Blocking, 0 Should-fix, 2 Nits — both already recorded in `gate-findings.yaml` as declined at gate 7 (`SingleOrDefault`'s generic exception message on a hypothetical dual-token entity; no arch test forbidding the old pattern outside this file). "Missing tests: None." Independently spot-checked 4 ledger claims rather than trusting the self-report: re-ran `dotnet build Kartova.slnx` (0 warnings/errors, matches); re-ran `dotnet test tests/Kartova.SharedKernel.AspNetCore.Tests --no-build` (109/109, matches); grepped `src/` for the old write-side `Property(x => x.Xmin/Version).OriginalValue` pattern outside `ConcurrencyTokenCapture.cs` (none found, all 5 call sites confirmed migrated); confirmed `Kartova.Api`'s Dockerfile copies only `src/`, substantiating the gate-4 reasoning. No self-claim failed independent verification.
+**At:** `c5bbb95`
 
 ### Terminal re-verify (build + full suite)
-**Status:** ⏳ PENDING
+**Status:** ✅ PASS
+**Evidence:** No code/test/csproj file changed between `d182e96` (last full-suite green run: all 20 assemblies, 0 failures, exit 0) and `c5bbb95` (`git diff --stat d182e96..c5bbb95` — 2 files, both under `docs/superpowers/verification/`, 0 code). The `d182e96` full-suite run stands as the terminal-commit verification; gate 8's independent spot-check re-build + re-run of the affected unit-test assembly at `c5bbb95` (see above) confirms nothing regressed after the docs-only commit.
+**At:** `c5bbb95`
 
 ### 9 — Visual / API verification (ADR-0084)
-**Status:** ⏳ PENDING
+**Status:** N/A
+**Reason:** Pure internal refactor — no HTTP contract, request/response shape, EF mapping, or UI surface changes. The 5 handlers' existing behavior (stale-version → 412, with the same `currentVersion` hint) is unchanged and already exercised live by their real-seam integration tests against real Postgres. No new or changed runtime surface to observe.
 
 ### 10 — CI green on PR
 **Status:** ⏳ PENDING

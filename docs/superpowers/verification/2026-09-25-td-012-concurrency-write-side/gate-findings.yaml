@@ -1,6 +1,6 @@
 slice:  2026-09-25-td-012-concurrency-write-side
 branch: chore/tech-debt-td-012
-terminal_commit: d182e96
+terminal_commit: c5bbb95
 
 findings:
   - gate: simplify
@@ -33,3 +33,8 @@ findings:
     verdict: delusion
     title: "type-design-analyzer: no architecture test forbids .Property(...).OriginalValue= outside ConcurrencyTokenCapture.cs"
     note: "reviewer's own recommendation says not worth it for 5 already-migrated call sites; not changed"
+  - gate: deep-review
+    severity: nit
+    verdict: delusion
+    title: "FindConcurrencyTokenProperty's SingleOrDefault gives a generic LINQ message on a hypothetical dual-token entity"
+    note: "pre-existing TD-002 code, unrelated to this diff's scope; not changed"
