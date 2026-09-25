@@ -12,7 +12,8 @@ namespace Kartova.Catalog.Infrastructure;
 /// amendment, slice 2a Task 6). Returns <see langword="false"/> when no VM-kind row is visible
 /// in the current tenant scope (RLS auto-filters cross-tenant rows, so an unknown id and a
 /// cross-tenant id both surface as "not found" here — mirrors <see cref="EditVmHandler"/>).
-/// Concurrency: sets <c>OriginalValue(Xmin)</c> to the supplied <c>ExpectedVersion</c> so EF's
+/// Concurrency: <see cref="ConcurrencyTokenCapture.SetExpectedVersion"/> sets the token's
+/// <c>OriginalValue</c> to the supplied <c>ExpectedVersion</c> so EF's
 /// generated <c>DELETE ... WHERE xmin = :expected</c> raises
 /// <see cref="DbUpdateConcurrencyException"/> on a stale version (mapped to 412 upstream, never
 /// 409). VM has no lifecycle and no relationship edges exist yet in slice 2a, so this is a plain
@@ -27,7 +28,7 @@ public sealed class DeleteVmHandler
             .SingleOrDefaultAsync(VmSortSpecs.IdEquals(cmd.Id.Value), ct);
         if (vm is null) return false;
 
-        db.Entry(vm).Property(x => x.Xmin).OriginalValue = cmd.ExpectedVersion;
+        ConcurrencyTokenCapture.SetExpectedVersion(db.Entry(vm), cmd.ExpectedVersion);
         db.Infrastructure.Remove(vm);
 
         try
@@ -36,7 +37,7 @@ public sealed class DeleteVmHandler
         }
         catch (DbUpdateConcurrencyException ex)
         {
-            // Shared metadata-driven capture (TD-002) — resolves the concurrency-token
+            // Shared metadata-driven capture (TD-002/TD-012) — resolves the concurrency-token
             // property from EF metadata, no hard-coded "Xmin".
             await ConcurrencyTokenCapture.TryCaptureCurrentVersionAsync(ex, logger, ct);
             throw;

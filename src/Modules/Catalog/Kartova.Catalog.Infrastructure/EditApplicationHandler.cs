@@ -11,9 +11,10 @@ namespace Kartova.Catalog.Infrastructure;
 /// Direct-dispatch handler for <see cref="EditApplicationCommand"/>. Returns
 /// <c>null</c> when no row is visible in the current tenant scope (RLS
 /// auto-filters cross-tenant rows — handler does not need an explicit tenant
-/// id). Concurrency: sets <c>OriginalValue(Version)</c> to the supplied
-/// <c>ExpectedVersion</c> so EF's UPDATE includes <c>WHERE xmin = :expected</c>;
-/// mismatch raises <see cref="DbUpdateConcurrencyException"/> → 412.
+/// id). Concurrency: <see cref="ConcurrencyTokenCapture.SetExpectedVersion"/> sets
+/// the token's <c>OriginalValue</c> to the supplied <c>ExpectedVersion</c> so EF's UPDATE
+/// includes <c>WHERE xmin = :expected</c>; mismatch raises
+/// <see cref="DbUpdateConcurrencyException"/> → 412.
 /// </summary>
 public sealed class EditApplicationHandler
 {
@@ -28,7 +29,7 @@ public sealed class EditApplicationHandler
             .FirstOrDefaultAsync(ApplicationSortSpecs.IdEquals(cmd.Id.Value), ct);
         if (app is null) return null;
 
-        db.Entry(app).Property(a => a.Version).OriginalValue = cmd.ExpectedVersion;
+        ConcurrencyTokenCapture.SetExpectedVersion(db.Entry(app), cmd.ExpectedVersion);
 
         app.EditMetadata(cmd.DisplayName, cmd.Description);
         try

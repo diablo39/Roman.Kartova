@@ -11,7 +11,8 @@ namespace Kartova.Catalog.Infrastructure;
 /// <summary>
 /// Direct-dispatch handler for <see cref="EditEnvironmentCommand"/> (A2). Returns
 /// <c>null</c> when no row is visible in the current tenant scope (RLS auto-filters
-/// cross-tenant rows). Concurrency: sets <c>OriginalValue(Xmin)</c> to the supplied
+/// cross-tenant rows). Concurrency: <see cref="ConcurrencyTokenCapture.SetExpectedVersion"/>
+/// sets the token's <c>OriginalValue</c> to the supplied
 /// <c>ExpectedVersion</c> so EF's UPDATE includes <c>WHERE xmin = :expected</c>; mismatch
 /// raises <see cref="DbUpdateConcurrencyException"/> → 412. Mirrors <see cref="EditVmHandler"/>.
 /// </summary>
@@ -24,7 +25,7 @@ public sealed class EditEnvironmentHandler
             .SingleOrDefaultAsync(EnvironmentSortSpecs.IdEquals(cmd.Id.Value), ct);
         if (env is null) return null;
 
-        db.Entry(env).Property(x => x.Xmin).OriginalValue = cmd.ExpectedVersion;
+        ConcurrencyTokenCapture.SetExpectedVersion(db.Entry(env), cmd.ExpectedVersion);
 
         env.Edit(cmd.DisplayName, cmd.Description, cmd.Region, cmd.ResourceDetailsJson);
         try
@@ -33,7 +34,7 @@ public sealed class EditEnvironmentHandler
         }
         catch (DbUpdateConcurrencyException ex)
         {
-            // Shared metadata-driven capture (TD-002) — resolves the concurrency-token
+            // Shared metadata-driven capture (TD-002/TD-012) — resolves the concurrency-token
             // property from EF metadata, no hard-coded "Xmin".
             await ConcurrencyTokenCapture.TryCaptureCurrentVersionAsync(ex, logger, ct);
             throw;

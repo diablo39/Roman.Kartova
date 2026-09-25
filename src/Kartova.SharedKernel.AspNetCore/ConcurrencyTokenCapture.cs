@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
 
 namespace Kartova.SharedKernel.AspNetCore;
@@ -82,5 +83,17 @@ public static class ConcurrencyTokenCapture
                 captureEx,
                 "Failed to capture current concurrency token after a concurrency conflict.");
         }
+    }
+
+    /// <summary>
+    /// Write-side counterpart to <see cref="TryCaptureCurrentVersionAsync"/> (TD-012): sets the
+    /// concurrency-token <c>OriginalValue</c> to the caller-supplied version, resolved from EF
+    /// metadata instead of a hard-coded property name.
+    /// </summary>
+    public static void SetExpectedVersion(EntityEntry entry, uint expected)
+    {
+        var tokenProperty = entry.Metadata.GetProperties()
+            .Single(p => p.IsConcurrencyToken);
+        entry.Property(tokenProperty.Name).OriginalValue = expected;
     }
 }

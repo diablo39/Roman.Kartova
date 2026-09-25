@@ -11,12 +11,14 @@ namespace Kartova.Catalog.Infrastructure;
 /// <summary>
 /// Direct-dispatch handler for <see cref="EditVmCommand"/>. Returns <c>null</c> when no
 /// VM-kind row is visible in the current tenant scope (RLS auto-filters cross-tenant
-/// rows — handler does not need an explicit tenant id). Concurrency: sets
-/// <c>OriginalValue(Xmin)</c> to the supplied <c>ExpectedVersion</c> so EF's UPDATE
+/// rows — handler does not need an explicit tenant id). Concurrency:
+/// <see cref="ConcurrencyTokenCapture.SetExpectedVersion"/> sets the token's
+/// <c>OriginalValue</c> to the supplied <c>ExpectedVersion</c> so EF's UPDATE
 /// includes <c>WHERE xmin = :expected</c>; mismatch raises
 /// <see cref="DbUpdateConcurrencyException"/> → 412. Infrastructure's concurrency property is
-/// <see cref="InfrastructureResource.Xmin"/>; the current-version capture on conflict is the
-/// shared metadata-driven <see cref="ConcurrencyTokenCapture"/> (TD-002).
+/// <see cref="InfrastructureResource.Xmin"/>; both the write-side set and the current-version
+/// capture on conflict go through the shared metadata-driven <see cref="ConcurrencyTokenCapture"/>
+/// (TD-002, TD-012).
 /// </summary>
 public sealed class EditVmHandler
 {
@@ -27,7 +29,7 @@ public sealed class EditVmHandler
             .SingleOrDefaultAsync(VmSortSpecs.IdEquals(cmd.Id.Value), ct);
         if (vm is null) return null;
 
-        db.Entry(vm).Property(x => x.Xmin).OriginalValue = cmd.ExpectedVersion;
+        ConcurrencyTokenCapture.SetExpectedVersion(db.Entry(vm), cmd.ExpectedVersion);
 
         vm.Edit(cmd.DisplayName, cmd.Description, cmd.Provider, cmd.Attributes.ToJson());
         try
