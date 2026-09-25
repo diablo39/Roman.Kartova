@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Logging;
 
 namespace Kartova.SharedKernel.AspNetCore;
@@ -54,8 +55,7 @@ public static class ConcurrencyTokenCapture
             var entry = ex.Entries.FirstOrDefault();
             if (entry is null) return;
 
-            var tokenProperty = entry.Metadata.GetProperties()
-                .SingleOrDefault(p => p.IsConcurrencyToken);
+            var tokenProperty = FindConcurrencyTokenProperty(entry);
             if (tokenProperty is null) return;
 
             var dbValues = await entry.GetDatabaseValuesAsync(ct);
@@ -88,12 +88,26 @@ public static class ConcurrencyTokenCapture
     /// <summary>
     /// Write-side counterpart to <see cref="TryCaptureCurrentVersionAsync"/> (TD-012): sets the
     /// concurrency-token <c>OriginalValue</c> to the caller-supplied version, resolved from EF
-    /// metadata instead of a hard-coded property name.
+    /// metadata instead of a hard-coded property name. Unlike the read side (best-effort), a
+    /// missing or non-<see cref="uint"/> token property throws — this call is load-bearing for the
+    /// optimistic-concurrency guard, so silently skipping it would disable that guard instead of
+    /// just losing a diagnostic hint.
     /// </summary>
     public static void SetExpectedVersion(EntityEntry entry, uint expected)
     {
-        var tokenProperty = entry.Metadata.GetProperties()
-            .Single(p => p.IsConcurrencyToken);
+        var tokenProperty = FindConcurrencyTokenProperty(entry)
+            ?? throw new InvalidOperationException(
+                $"'{entry.Metadata.DisplayName()}' has no concurrency-token property.");
+        if (tokenProperty.ClrType != typeof(uint))
+        {
+            throw new InvalidOperationException(
+                $"Concurrency token '{tokenProperty.Name}' on '{entry.Metadata.DisplayName()}' " +
+                $"is {tokenProperty.ClrType.Name}, not uint.");
+        }
+
         entry.Property(tokenProperty.Name).OriginalValue = expected;
     }
+
+    private static IProperty? FindConcurrencyTokenProperty(EntityEntry entry) =>
+        entry.Metadata.GetProperties().SingleOrDefault(p => p.IsConcurrencyToken);
 }
