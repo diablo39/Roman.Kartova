@@ -8,6 +8,7 @@ What lives here and the manual configuration a production environment needs beyo
 |------|---------|
 | `helm/kartova/` | Helm chart — API `Deployment` + `Migrator` pre-upgrade `Job` (ADR-0085, ADR-0086). No web `Deployment` yet (served separately; see CSP note below). |
 | `keycloak/kartova-realm.json` | KeyCloak realm **import** — seeds a *new*/dev realm on first boot. It does **not** retroactively update an already-existing realm (see below). |
+| `keycloak/kartova-platform-realm.json` | KeyCloak platform-realm import — **dev/CI only, never import outside dev** (see ADR-0118 section below for why). |
 
 ## KeyCloak realm: import vs. running realm
 
@@ -40,29 +41,83 @@ Apply by one of:
 
 ## Platform operator realm `kartova-platform` (ADR-0118)
 
-Operators authenticate against a **separate** realm. `kartova-platform-realm.json` seeds it only on fresh installs, the same as the tenant realm. A running production KeyCloak needs these steps once:
+Operators authenticate against a **separate** realm.
 
-1. **Create realm `kartova-platform`** with:
+**`kartova-platform-realm.json` is dev/CI only — never import it outside dev.** It contains a
+known-password operator (`platform-admin@kartova.local` / `dev_password_12`), no MFA, the
+password-grant client `kartova-admin-test`, and `sslRequired: none`. Production realm setup below
+is manual (UI / `kcadm` / IaC), never a fresh-install import of this file.
+
+**Order and blast radius — follow this sequence.** Step 2 (API config keys) must land *before*
+step 3 (deploy): the API refuses to start without `Authentication__PlatformAdmin__Authority` /
+`__Audience` — a missing/wrong key is a **whole-API outage, tenants included**, not just an
+operator-surface gap. Don't jump to step 5 (removing `platform-admin` from the tenant realm) until
+step 4 (verify) is green.
+
+1. **Create realm `kartova-platform`, its clients, and operator accounts:**
    - realm role `platform-admin`;
-   - bearer-only client `kartova-admin-api`;
-   - public PKCE client `kartova-admin-web`: redirect URIs = the web-admin origin (S2), and an audience mapper → `kartova-admin-api`.
+   - bearer-only client `kartova-admin-api` (see "No bearer-only toggle" below — KeyCloak 26's
+     admin console has no such checkbox);
+   - public PKCE client `kartova-admin-web`: redirect URIs = the web-admin origin (S2), and an
+     audience mapper → `kartova-admin-api`.
    **Do not** create `kartova-admin-test`: it is a dev/test password-grant client.
-2. **MFA:** Authentication → required actions → enable *Configure OTP* as a default action. Set the browser flow so OTP is **required**, not conditional.
-3. **Token hardening parity:** access token 5 min; `revokeRefreshToken=true`; `refreshTokenMaxReuse=0`; brute-force detection on.
-4. **No service accounts.** The tenant realm's `kartova-admin` service account has no role in `kartova-platform`, and no client in `kartova-platform` enables service accounts.
-5. **Remove `platform-admin` from the tenant realm** (`kartova`): delete the realm role and any users holding it. The API no longer honors it there, but its presence would suggest otherwise.
+   - **MFA:** Authentication → required actions → enable *Configure OTP* as a default action. Set
+     the browser flow so OTP is **required**, not conditional.
+   - **Token hardening parity:** access token 5 min; `revokeRefreshToken=true`;
+     `refreshTokenMaxReuse=0`; brute-force detection on.
+   - **No service accounts.** The tenant realm's `kartova-admin` service account has no role in
+     `kartova-platform`, and no client in `kartova-platform` enables service accounts.
+   - **Operator accounts:** create one user account per operator in `kartova-platform`, grant each
+     the `platform-admin` role, and have each operator enrol OTP on first login (required action
+     above forces this).
 
-   ```bash
-   kcadm.sh delete roles/platform-admin -r kartova
-   ```
-
-6. **API configuration (required — the API refuses to start without the first two):**
+2. **API configuration (required — the API refuses to start without the first two; set this
+   BEFORE deploying the new image):**
 
    | Key | Value |
    |---|---|
    | `Authentication__PlatformAdmin__Authority` | `https://<kc-host>/realms/kartova-platform` |
    | `Authentication__PlatformAdmin__Audience` | `kartova-admin-api` |
    | `Authentication__PlatformAdmin__MetadataAddress` | optional; in-cluster discovery URL |
+
+3. **Deploy** the image carrying ADR-0118 (PlatformAdmin scheme + `/api/v1/admin/**` +
+   `/health/detailed`).
+
+4. **Verify** (expected results):
+
+   | Check | Expected |
+   |---|---|
+   | Tenant-realm token → `GET /api/v1/admin/session/me` | 401 |
+   | Operator token → `GET /api/v1/admin/session/me` | 200 |
+   | Operator token → `GET /api/v1/organizations/me` | 401 |
+
+5. **Only then remove `platform-admin` from the tenant realm** (`kartova`). First find who still
+   holds it and deal with those accounts — deleting the role first would silently strand them:
+
+   ```bash
+   kcadm.sh get roles/platform-admin/users -r kartova
+   ```
+
+   Remove the role from each listed user, or reassign — any operator among them gets a
+   `kartova-platform` account instead (step 1). Then delete the role itself:
+
+   ```bash
+   kcadm.sh delete roles/platform-admin -r kartova
+   ```
+
+   The API no longer honors `platform-admin` on tenant tokens after ADR-0118, but its presence in
+   the tenant realm would suggest otherwise.
+
+### No bearer-only toggle (KeyCloak 26)
+
+KeyCloak 26's admin console dropped the "Bearer-only" checkbox from client settings. Create
+`kartova-admin-api` as a confidential client with **every** flow disabled — standard flow, direct
+access grants, and service accounts all off — which is equivalent. Alternatively, set `bearerOnly`
+directly via `kcadm`/the admin REST API:
+
+```bash
+kcadm.sh update clients/<id> -r kartova-platform -s bearerOnly=true
+```
 
 ## Web container CSP origins (E-01.F-04.S-06b)
 

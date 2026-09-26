@@ -36,4 +36,4 @@ Isolate the platform operator at three independent layers.
 - Amends ADR-0006 ("one realm for all tenants" holds for tenants; operators live in a separate realm).
 - Amends ADR-0092 (`/api/v1/admin/*` is bound to the `PlatformAdmin` scheme, not just the role).
 - Contextualized by ADR-0116 (token-in-browser risk motivates the separate origin).
-- Rollout: sub-slice S1 (realm + scheme + `/api/v1/admin/me` + migration of existing admin endpoints + arch test that every `/api/v1/admin/*` endpoint binds the `PlatformAdmin` scheme), S2 (`web-admin` scaffold), then E-01b features.
+- Rollout: sub-slice S1 (realm + scheme + `/api/v1/admin/session/me` + migration of existing admin endpoints + arch test that every `/api/v1/admin/*` endpoint binds the `PlatformAdmin` scheme), S2 (`web-admin` scaffold), then E-01b features.
