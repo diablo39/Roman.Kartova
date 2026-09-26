@@ -155,7 +155,7 @@ public sealed class KeycloakRealmSeedRules
     }
 
     [TestMethod]
-    public void Every_KartovaRoles_constant_except_ServiceAccount_appears_in_realm_seed()
+    public void Every_tenant_KartovaRoles_constant_appears_in_tenant_realm_seed()
     {
         Assert.IsTrue(File.Exists(SeedPath), $"realm seed not found at {SeedPath}");
         using var doc = JsonDocument.Parse(File.ReadAllText(SeedPath));
@@ -165,11 +165,12 @@ public sealed class KeycloakRealmSeedRules
             .Select(r => r.GetProperty("name").GetString()!)
             .ToHashSet(StringComparer.Ordinal);
 
+        // PlatformAdmin lives in kartova-platform-realm.json (ADR-0118) — see KeycloakPlatformRealmSeedRules.
         var constantValues = typeof(KartovaRoles)
             .GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)
             .Where(f => f.IsLiteral && f.FieldType == typeof(string))
             .Select(f => (Name: f.Name, Value: (string)f.GetRawConstantValue()!))
-            .Where(t => t.Name != nameof(KartovaRoles.ServiceAccount))
+            .Where(t => t.Name != nameof(KartovaRoles.ServiceAccount) && t.Name != nameof(KartovaRoles.PlatformAdmin))
             .ToArray();
 
         foreach (var (name, value) in constantValues)
@@ -177,6 +178,25 @@ public sealed class KeycloakRealmSeedRules
             Assert.IsTrue(realmRoles.Contains(value),
                 $"KartovaRoles.{name} = '{value}' has no matching entry in kartova-realm.json roles.realm.");
         }
+    }
+
+    [TestMethod]
+    public void Tenant_realm_has_no_platform_admin_role_and_no_operator_user()
+    {
+        Assert.IsTrue(File.Exists(SeedPath), $"realm seed not found at {SeedPath}");
+        using var doc = JsonDocument.Parse(File.ReadAllText(SeedPath));
+
+        var roles = doc.RootElement.GetProperty("roles").GetProperty("realm").EnumerateArray()
+            .Select(r => r.GetProperty("name").GetString());
+        CollectionAssert.DoesNotContain(roles.ToList(), KartovaRoles.PlatformAdmin,
+            "ADR-0118: platform-admin must not exist in the tenant realm — the tenant service account could grant it.");
+
+        var holders = doc.RootElement.GetProperty("users").EnumerateArray()
+            .Where(u => u.TryGetProperty("realmRoles", out var r)
+                        && r.EnumerateArray().Any(x => x.GetString() == KartovaRoles.PlatformAdmin))
+            .Select(u => u.GetProperty("username").GetString())
+            .ToArray();
+        Assert.AreEqual(0, holders.Length, "tenant realm users holding platform-admin: " + string.Join(", ", holders));
     }
 
     [TestMethod]

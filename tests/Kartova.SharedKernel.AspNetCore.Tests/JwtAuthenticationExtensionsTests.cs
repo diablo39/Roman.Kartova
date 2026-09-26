@@ -41,7 +41,9 @@ public class JwtAuthenticationExtensionsTests
     {
         ["Authentication:Authority"] = HttpAuthority,
         ["Authentication:Audience"] = ValidAudience,
-        ["Authentication:RequireHttpsMetadata"] = "false"
+        ["Authentication:RequireHttpsMetadata"] = "false",
+        ["Authentication:PlatformAdmin:Authority"] = "http://keycloak:8080/realms/kartova-platform",
+        ["Authentication:PlatformAdmin:Audience"] = "kartova-admin-api",
     };
 
     [TestMethod]
@@ -169,7 +171,9 @@ public class JwtAuthenticationExtensionsTests
         var config = new Dictionary<string, string?>
         {
             ["Authentication:Authority"] = HttpsAuthority,
-            ["Authentication:Audience"] = ValidAudience
+            ["Authentication:Audience"] = ValidAudience,
+            ["Authentication:PlatformAdmin:Authority"] = "https://keycloak.example.com/realms/kartova-platform",
+            ["Authentication:PlatformAdmin:Audience"] = "kartova-admin-api",
         };
 
         // Act
@@ -189,7 +193,9 @@ public class JwtAuthenticationExtensionsTests
         {
             ["Authentication:Authority"] = HttpAuthority,
             ["Authentication:Audience"] = ValidAudience,
-            ["Authentication:RequireHttpsMetadata"] = "false"
+            ["Authentication:RequireHttpsMetadata"] = "false",
+            ["Authentication:PlatformAdmin:Authority"] = "http://keycloak:8080/realms/kartova-platform",
+            ["Authentication:PlatformAdmin:Audience"] = "kartova-admin-api",
         };
 
         // Act
@@ -273,5 +279,83 @@ public class JwtAuthenticationExtensionsTests
 
         // Assert
         Assert.AreSame(services, result);
+    }
+
+    [TestMethod]
+    [DataRow("Authentication:PlatformAdmin:Authority", "PlatformAdmin:Authority not configured")]
+    [DataRow("Authentication:PlatformAdmin:Audience", "PlatformAdmin:Audience not configured")]
+    public void AddKartovaJwtAuth_WhenPlatformAdminKeyMissing_ThrowsAtRegistration(string key, string expected)
+    {
+        var config = MinimalValidConfig();
+        config.Remove(key);
+        var cfg = new ConfigurationBuilder().AddInMemoryCollection(config).Build();
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(() => services.AddKartovaJwtAuth(cfg));
+        StringAssert.Contains(ex.Message, expected);
+    }
+
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("   ")]
+    public void AddKartovaJwtAuth_WhenPlatformAdminAuthorityBlank_ThrowsAtRegistration(string blank)
+    {
+        var config = MinimalValidConfig();
+        config["Authentication:PlatformAdmin:Authority"] = blank;
+        var cfg = new ConfigurationBuilder().AddInMemoryCollection(config).Build();
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(() => services.AddKartovaJwtAuth(cfg));
+        StringAssert.Contains(ex.Message, "PlatformAdmin:Authority not configured");
+    }
+
+    [TestMethod]
+    public void AddKartovaJwtAuth_RegistersPlatformAdminScheme_WithSameValidationAsTenantScheme()
+    {
+        var cfg = new ConfigurationBuilder().AddInMemoryCollection(MinimalValidConfig()).Build();
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddKartovaJwtAuth(cfg);
+        var opts = services.BuildServiceProvider()
+            .GetRequiredService<IOptionsMonitor<JwtBearerOptions>>()
+            .Get(PlatformAdminAuth.Scheme);
+
+        Assert.AreEqual("http://keycloak:8080/realms/kartova-platform", opts.Authority);
+        Assert.AreEqual("kartova-admin-api", opts.Audience);
+        Assert.IsFalse(opts.RequireHttpsMetadata, "RequireHttpsMetadata is shared with the tenant scheme.");
+        Assert.IsTrue(opts.TokenValidationParameters.ValidateIssuer);
+        Assert.IsTrue(opts.TokenValidationParameters.ValidateAudience);
+        Assert.IsTrue(opts.TokenValidationParameters.ValidateLifetime);
+        Assert.AreEqual(TimeSpan.FromSeconds(30), opts.TokenValidationParameters.ClockSkew);
+        Assert.IsFalse(opts.MapInboundClaims);
+    }
+
+    [TestMethod]
+    public void AddKartovaJwtAuth_TenantSchemeDoesNotPickUpPlatformAuthority()
+    {
+        var opts = BuildAndGetOptions(MinimalValidConfig());
+        Assert.AreEqual(HttpAuthority, opts.Authority);
+        Assert.AreEqual(ValidAudience, opts.Audience);
+    }
+
+    [TestMethod]
+    public async Task AddKartovaJwtAuth_RegistersPlatformAdminOnlyPolicy_BoundToPlatformSchemeAndRole()
+    {
+        var cfg = new ConfigurationBuilder().AddInMemoryCollection(MinimalValidConfig()).Build();
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddKartovaJwtAuth(cfg);
+        var provider = services.BuildServiceProvider().GetRequiredService<IAuthorizationPolicyProvider>();
+
+        var policy = await provider.GetPolicyAsync(PlatformAdminAuth.Policy);
+
+        Assert.IsNotNull(policy);
+        CollectionAssert.AreEqual(new[] { PlatformAdminAuth.Scheme }, policy.AuthenticationSchemes.ToArray(),
+            "the policy must authenticate ONLY with the PlatformAdmin scheme — a tenant token must never satisfy it.");
+        Assert.IsTrue(policy.Requirements.OfType<Microsoft.AspNetCore.Authorization.Infrastructure.DenyAnonymousAuthorizationRequirement>().Any());
+        var roles = policy.Requirements.OfType<Microsoft.AspNetCore.Authorization.Infrastructure.RolesAuthorizationRequirement>().Single();
+        CollectionAssert.AreEqual(new[] { KartovaRoles.PlatformAdmin }, roles.AllowedRoles.ToArray());
     }
 }

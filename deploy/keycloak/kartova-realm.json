@@ -20,9 +20,6 @@
       },
       {
         "name": "Viewer"
-      },
-      {
-        "name": "platform-admin"
       }
     ]
   },
@@ -254,24 +251,6 @@
       ],
       "realmRoles": [
         "Viewer"
-      ]
-    },
-    {
-      "username": "platform-admin@kartova.local",
-      "enabled": true,
-      "emailVerified": true,
-      "email": "platform-admin@kartova.local",
-      "firstName": "Platform",
-      "lastName": "Admin",
-      "credentials": [
-        {
-          "type": "password",
-          "value": "dev_password_12",
-          "temporary": false
-        }
-      ],
-      "realmRoles": [
-        "platform-admin"
       ]
     },
     {

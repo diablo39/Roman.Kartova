@@ -14,7 +14,6 @@ using Kartova.SharedKernel;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.AspNetCore.HealthChecks;
 using Kartova.SharedKernel.Identity;
-using Kartova.SharedKernel.Multitenancy;
 using Kartova.SharedKernel.Postgres;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -273,7 +272,7 @@ public class Program
         app.MapHealthChecks("/health/detailed", new HealthCheckOptions
         {
             ResponseWriter = HealthCheckJsonResponseWriter.WriteDetailedAsync,
-        }).RequireAuthorization(p => p.RequireRole(KartovaRoles.PlatformAdmin));
+        }).RequireAuthorization(PlatformAdminAuth.Policy);
 
         // OpenAPI document endpoint — anonymous, no auth requirement (ADR-0029/0034).
         app.MapOpenApi("/openapi/{documentName}.json").AllowAnonymous();

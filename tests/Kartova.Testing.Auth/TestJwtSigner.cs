@@ -37,10 +37,7 @@ public sealed class TestJwtSigner
         => Build(subject, tenantId, roles, lifetime ?? TimeSpan.FromMinutes(15), expired: false, email: email, name: name);
 
     public string IssueForPlatformAdmin(string[]? extraRoles = null, string subject = "platform-admin-user")
-    {
-        var roles = new[] { KartovaRoles.PlatformAdmin }.Concat(extraRoles ?? []).ToArray();
-        return Build(subject, tenantId: null, roles, TimeSpan.FromMinutes(15), expired: false, email: null);
-    }
+        => IssueForPlatformRealm(new[] { KartovaRoles.PlatformAdmin }.Concat(extraRoles ?? []).ToArray(), subject);
 
     public string IssueExpired(TenantId tenantId)
         => Build("test-user", tenantId, [KartovaRoles.OrgAdmin], TimeSpan.FromMinutes(15), expired: true, email: null);

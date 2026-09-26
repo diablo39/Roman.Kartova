@@ -32,4 +32,15 @@ public static class AuthorizationExtensions
             p.Requirements.Add(new TeamAdminOfThisRequirement()));
         return builder;
     }
+
+    /// <summary>
+    /// ADR-0118: the only authorization on the operator surface. Authenticates exclusively with the
+    /// <see cref="PlatformAdminAuth.Scheme"/> scheme, so a tenant-realm token never reaches the role
+    /// check, whatever roles it claims.
+    /// </summary>
+    public static AuthorizationBuilder AddPlatformAdminPolicy(this AuthorizationBuilder builder) =>
+        builder.AddPolicy(PlatformAdminAuth.Policy, p => p
+            .AddAuthenticationSchemes(PlatformAdminAuth.Scheme)
+            .RequireAuthenticatedUser()
+            .RequireRole(KartovaRoles.PlatformAdmin));
 }

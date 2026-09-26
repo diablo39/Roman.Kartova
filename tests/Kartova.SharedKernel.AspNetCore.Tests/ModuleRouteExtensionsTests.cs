@@ -54,6 +54,22 @@ public class ModuleRouteExtensionsTests
         Assert.AreEqual(System.Net.HttpStatusCode.OK, resp.StatusCode);
     }
 
+    [TestMethod]
+    public async Task MapAdminModule_requires_the_PlatformAdminOnly_policy()
+    {
+        using var host = await CreateHostAsync(app =>
+            app.MapAdminModule("catalog").MapGet("/applications", () => Results.Ok("ok")));
+
+        var endpoint = ((IEndpointRouteBuilder)host).DataSources
+            .SelectMany(d => d.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Single(e => e.RoutePattern.RawText == "/api/v1/admin/catalog/applications");
+        var policies = endpoint.Metadata.GetOrderedMetadata<Microsoft.AspNetCore.Authorization.IAuthorizeData>()
+            .Select(a => a.Policy)
+            .ToArray();
+        CollectionAssert.Contains(policies, PlatformAdminAuth.Policy);
+    }
+
     private static async Task<IHost> CreateHostAsync(Action<WebApplication> configure)
     {
         var builder = WebApplication.CreateBuilder();
@@ -61,8 +77,13 @@ public class ModuleRouteExtensionsTests
         builder.Services.AddRouting();
         // Authorization services + middleware must be present because RequireTenantScope /
         // MapAdminModule attach authorization metadata. Inner endpoints use .AllowAnonymous()
-        // so the policy doesn't actually run — real auth is exercised at the integration layer.
-        builder.Services.AddAuthorization();
+        // so the policy's role check doesn't actually run — real auth is exercised at the
+        // integration layer. But PlatformAdminOnly names the PlatformAdmin scheme explicitly, so
+        // ASP.NET Core's AuthorizationMiddleware still calls AuthenticateAsync(scheme) for it —
+        // authentication always runs before AllowAnonymous is checked — hence the scheme must be
+        // registered even though no request in this file presents a token.
+        builder.Services.AddAuthentication().AddJwtBearer(PlatformAdminAuth.Scheme, _ => { });
+        builder.Services.AddAuthorizationBuilder().AddPlatformAdminPolicy();
         // RequireTenantScope wires TenantScopeBeginMiddleware + the commit endpoint filter,
         // which need ITenantContext / ITenantScope in DI. Stub both so the unit test can
         // assert URL routing without dragging in EF / Postgres.

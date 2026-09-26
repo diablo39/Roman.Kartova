@@ -1,4 +1,3 @@
-using Kartova.SharedKernel.Multitenancy;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 
@@ -23,14 +22,15 @@ public static class ModuleRouteExtensions
     }
 
     /// <summary>
-    /// Admin (platform-admin) module routes at <c>/api/v1/admin/{slug}</c>.
-    /// The whole admin URL space is gated by the platform-admin role.
-    /// See ADR-0092.
+    /// Admin (platform-operator) module routes at <c>/api/v1/admin/{slug}</c>.
+    /// The whole admin URL space requires <see cref="PlatformAdminAuth.Policy"/>: the operator-realm
+    /// scheme plus the platform-admin role. Tenant tokens are rejected by scheme, not by role
+    /// (ADR-0092 as amended by ADR-0118).
     /// </summary>
     public static RouteGroupBuilder MapAdminModule(this IEndpointRouteBuilder app, string slug)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(slug);
         return app.MapGroup($"/api/v1/admin/{slug}")
-            .RequireAuthorization(p => p.RequireRole(KartovaRoles.PlatformAdmin));
+            .RequireAuthorization(PlatformAdminAuth.Policy);
     }
 }
