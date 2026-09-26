@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.SharedKernel.Multitenancy;
 using Microsoft.AspNetCore.Authentication;
@@ -49,13 +48,12 @@ public class JwtAuthenticationExtensionsTests
     [TestMethod]
     public void AddKartovaJwtAuth_WhenAuthorityMissing_ThrowsInvalidOperationException()
     {
-        // Arrange
-        var cfg = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Authentication:Audience"] = ValidAudience
-            })
-            .Build();
+        // Arrange — start from a fully valid config (tenant + PlatformAdmin) and remove ONLY the
+        // tenant Authority key, so the exact-message assert below can't accidentally pass because
+        // a DIFFERENT (PlatformAdmin) required key was the one actually missing.
+        var config = MinimalValidConfig();
+        config.Remove("Authentication:Authority");
+        var cfg = new ConfigurationBuilder().AddInMemoryCollection(config).Build();
         var services = new ServiceCollection();
         services.AddLogging();
 
@@ -65,24 +63,21 @@ public class JwtAuthenticationExtensionsTests
         // Should().Throw<>() — but the ThrowsExactly idiom is preferred per the migration's spec §4
         // to keep all exception assertions strictly typed.
         var ex = Assert.ThrowsExactly<InvalidOperationException>(() => services.AddKartovaJwtAuth(cfg));
-        StringAssert.Matches(ex.Message, new Regex(".*Authority not configured.*"));
+        Assert.AreEqual("Authentication:Authority not configured", ex.Message);
     }
 
     [TestMethod]
     public void AddKartovaJwtAuth_WhenAudienceMissing_ThrowsInvalidOperationException()
     {
-        // Arrange
-        var cfg = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Authentication:Authority"] = HttpAuthority
-            })
-            .Build();
+        // Arrange — same precision rationale as the Authority-missing test above.
+        var config = MinimalValidConfig();
+        config.Remove("Authentication:Audience");
+        var cfg = new ConfigurationBuilder().AddInMemoryCollection(config).Build();
         var services = new ServiceCollection();
         services.AddLogging();
 
         var ex = Assert.ThrowsExactly<InvalidOperationException>(() => services.AddKartovaJwtAuth(cfg));
-        StringAssert.Matches(ex.Message, new Regex(".*Audience not configured.*"));
+        Assert.AreEqual("Authentication:Audience not configured", ex.Message);
     }
 
     [TestMethod]
@@ -90,18 +85,14 @@ public class JwtAuthenticationExtensionsTests
     [DataRow("   ")]
     public void AddKartovaJwtAuth_WhenAuthorityBlank_ThrowsInvalidOperationException(string blank)
     {
-        var cfg = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Authentication:Authority"] = blank,
-                ["Authentication:Audience"] = ValidAudience
-            })
-            .Build();
+        var config = MinimalValidConfig();
+        config["Authentication:Authority"] = blank;
+        var cfg = new ConfigurationBuilder().AddInMemoryCollection(config).Build();
         var services = new ServiceCollection();
         services.AddLogging();
 
         var ex = Assert.ThrowsExactly<InvalidOperationException>(() => services.AddKartovaJwtAuth(cfg));
-        StringAssert.Matches(ex.Message, new Regex(".*Authority not configured.*"));
+        Assert.AreEqual("Authentication:Authority not configured", ex.Message);
     }
 
     [TestMethod]
@@ -309,6 +300,91 @@ public class JwtAuthenticationExtensionsTests
 
         var ex = Assert.ThrowsExactly<InvalidOperationException>(() => services.AddKartovaJwtAuth(cfg));
         StringAssert.Contains(ex.Message, "PlatformAdmin:Authority not configured");
+    }
+
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("   ")]
+    public void AddKartovaJwtAuth_WhenPlatformAdminAudienceBlank_ThrowsAtRegistration(string blank)
+    {
+        var config = MinimalValidConfig();
+        config["Authentication:PlatformAdmin:Audience"] = blank;
+        var cfg = new ConfigurationBuilder().AddInMemoryCollection(config).Build();
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(() => services.AddKartovaJwtAuth(cfg));
+        StringAssert.Contains(ex.Message, "PlatformAdmin:Audience not configured");
+    }
+
+    [TestMethod]
+    public void AddKartovaJwtAuth_WhenRequireHttpsMetadataAbsent_PlatformAdminSchemeDefaultsToTrue()
+    {
+        // Arrange — HTTPS authorities on BOTH schemes so JwtBearer's PostConfigure guard is
+        // satisfied when RequireHttpsMetadata is left at its default (true) for either scheme.
+        var config = new Dictionary<string, string?>
+        {
+            ["Authentication:Authority"] = HttpsAuthority,
+            ["Authentication:Audience"] = ValidAudience,
+            ["Authentication:PlatformAdmin:Authority"] = "https://keycloak.example.com/realms/kartova-platform",
+            ["Authentication:PlatformAdmin:Audience"] = "kartova-admin-api",
+        };
+        var cfg = new ConfigurationBuilder().AddInMemoryCollection(config).Build();
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        // Act
+        services.AddKartovaJwtAuth(cfg);
+        var opts = services.BuildServiceProvider()
+            .GetRequiredService<IOptionsMonitor<JwtBearerOptions>>()
+            .Get(PlatformAdminAuth.Scheme);
+
+        // Assert — secure-by-default extends to the operator scheme, not just the tenant one.
+        Assert.IsTrue(opts.RequireHttpsMetadata);
+    }
+
+    [TestMethod]
+    public void AddKartovaJwtAuth_WhenPlatformAdminMetadataAddressProvided_PropagatesToPlatformOptionsOnly()
+    {
+        // Arrange
+        const string explicitMetadata = "http://keycloak:8080/realms/kartova-platform/some-other-discovery-path";
+        var config = MinimalValidConfig();
+        config["Authentication:PlatformAdmin:MetadataAddress"] = explicitMetadata;
+        var cfg = new ConfigurationBuilder().AddInMemoryCollection(config).Build();
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        // Act
+        services.AddKartovaJwtAuth(cfg);
+        var monitor = services.BuildServiceProvider().GetRequiredService<IOptionsMonitor<JwtBearerOptions>>();
+        var platformOptions = monitor.Get(PlatformAdminAuth.Scheme);
+        var tenantOptions = monitor.Get(JwtBearerDefaults.AuthenticationScheme);
+
+        // Assert
+        Assert.AreEqual(explicitMetadata, platformOptions.MetadataAddress);
+        Assert.AreNotEqual(explicitMetadata, tenantOptions.MetadataAddress,
+            "PlatformAdmin:MetadataAddress must not leak onto the tenant scheme's options.");
+    }
+
+    [TestMethod]
+    public void AddKartovaJwtAuth_WhenPlatformAdminMetadataAddressAbsent_DerivesFromPlatformAuthority()
+    {
+        // Arrange
+        var config = MinimalValidConfig();
+        var cfg = new ConfigurationBuilder().AddInMemoryCollection(config).Build();
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        // Act
+        services.AddKartovaJwtAuth(cfg);
+        var platformOptions = services.BuildServiceProvider()
+            .GetRequiredService<IOptionsMonitor<JwtBearerOptions>>()
+            .Get(PlatformAdminAuth.Scheme);
+
+        // Assert — same derivation rule as the tenant scheme, applied to PlatformAdmin:Authority.
+        Assert.AreEqual(
+            config["Authentication:PlatformAdmin:Authority"]!.TrimEnd('/') + "/.well-known/openid-configuration",
+            platformOptions.MetadataAddress);
     }
 
     [TestMethod]

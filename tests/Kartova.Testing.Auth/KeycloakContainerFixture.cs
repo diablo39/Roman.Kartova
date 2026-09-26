@@ -54,6 +54,8 @@ public sealed class KeycloakContainerFixture : IAsyncDisposable
         .WithResourceMapping(
             Path.Combine(AppContext.BaseDirectory, "kartova-platform-realm.json"),
             "/opt/keycloak/data/import")
+        // Liveness check only — each discovery doc proves its realm imported, not that every
+        // client/user inside it did too; downstream live tests (e.g. PlatformRealmLiveTokenTests) cover that.
         .WithWaitStrategy(Wait.ForUnixContainer()
             .UntilHttpRequestIsSucceeded(r => r.ForPort(8080).ForPath($"/realms/{RealmSeedConstants.RealmName}/.well-known/openid-configuration"))
             .UntilHttpRequestIsSucceeded(r => r.ForPort(8080).ForPath($"/realms/{RealmSeedConstants.PlatformRealmName}/.well-known/openid-configuration")))

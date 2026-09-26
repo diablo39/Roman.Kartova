@@ -51,6 +51,7 @@ public sealed class TestJwtSigner
         => Build(subject, tenantId: null, roles, TimeSpan.FromMinutes(15), expired: false,
             email: email, name: name, issuer: PlatformIssuer, audience: PlatformAudience);
 
+    // issuer/audience default to the tenant realm (Issuer/Audience) — pass them explicitly for any other realm.
     private string Build(
         string subject, TenantId? tenantId, string[] roles, TimeSpan lifetime, bool expired, string? email,
         string? name = null, string issuer = Issuer, string audience = Audience)
