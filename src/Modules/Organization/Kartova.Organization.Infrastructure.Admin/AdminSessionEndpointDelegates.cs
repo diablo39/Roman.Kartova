@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Kartova.Organization.Contracts;
 using Kartova.SharedKernel.AspNetCore;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 
 namespace Kartova.Organization.Infrastructure.Admin;
 
@@ -12,10 +13,18 @@ namespace Kartova.Organization.Infrastructure.Admin;
 /// </summary>
 internal static class AdminSessionEndpointDelegates
 {
-    internal static IResult GetMe(ClaimsPrincipal user)
+    private const string LoggerCategory = "Kartova.Organization.Admin.AdminSession";
+
+    internal static IResult GetMe(ClaimsPrincipal user, ILoggerFactory loggerFactory)
     {
-        if (!Guid.TryParse(user.FindFirst("sub")?.Value, out var userId))
+        var sub = user.FindFirst("sub")?.Value;
+        if (!Guid.TryParse(sub, out var userId))
         {
+            // Never log the raw claim value — only whether it was missing or present-but-unparsable.
+            loggerFactory.CreateLogger(LoggerCategory).LogWarning(
+                "Operator token without a usable 'sub' claim reached /api/v1/admin/session/me. Sub claim was {SubState}.",
+                sub is null ? "missing" : "unparsable");
+
             return Results.Problem(
                 type: ProblemTypes.InvalidToken,
                 title: "Invalid token",

@@ -83,4 +83,43 @@ public class AdminSchemeIsolationTests : OrganizationIntegrationTestBase
         Assert.IsFalse(resp.Headers.WwwAuthenticate.ToString().Contains("invalid_token"),
             "anonymous 401 is the no-token branch; invalid_token would mean a token was presented.");
     }
+
+    /// <summary>ADR-0118 spec item: /health/detailed shares the PlatformAdminOnly gate — pin it here too.</summary>
+    [TestMethod]
+    public async Task Tenant_token_claiming_platform_admin_gets_401_on_health_detailed()
+    {
+        var client = ClientWith(Fx.Signer.IssueForTenant(
+            SeededOrgs.OrgA, new[] { KartovaRoles.PlatformAdmin }, subject: Guid.NewGuid().ToString()));
+
+        var resp = await client.GetAsync("/health/detailed");
+
+        Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
+        StringAssert.Contains(resp.Headers.WwwAuthenticate.ToString(), "invalid_token");
+    }
+
+    [TestMethod]
+    public async Task Platform_token_without_role_gets_403_on_health_detailed()
+    {
+        var client = ClientWith(Fx.Signer.IssueForPlatformRealm(Array.Empty<string>()));
+
+        var resp = await client.GetAsync("/health/detailed");
+
+        Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
+    }
+
+    /// <summary>
+    /// A platform-realm-shaped token signed by a DIFFERENT key (not the fixture's shared
+    /// <see cref="TestJwtSigner"/>) must be rejected by signature, independent of issuer/audience
+    /// string matches — the fixture-level analogue of the live-KeyCloak forged-key test.
+    /// </summary>
+    [TestMethod]
+    public async Task Platform_token_signed_by_a_foreign_key_gets_401()
+    {
+        var client = ClientWith(new TestJwtSigner().IssueForPlatformAdmin(subject: Guid.NewGuid().ToString()));
+
+        var resp = await client.GetAsync(SessionMe);
+
+        Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
+        StringAssert.Contains(resp.Headers.WwwAuthenticate.ToString(), "invalid_token");
+    }
 }

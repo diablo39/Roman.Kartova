@@ -4,6 +4,7 @@ using Kartova.Organization.Infrastructure.Admin;
 using Kartova.SharedKernel.AspNetCore;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Kartova.Organization.Infrastructure.Tests;
 
@@ -18,7 +19,8 @@ public sealed class AdminSessionEndpointDelegatesTests
     {
         var id = Guid.NewGuid();
         var result = AdminSessionEndpointDelegates.GetMe(
-            Principal(("sub", id.ToString()), ("email", "op@kartova.local"), ("name", "Op Erator")));
+            Principal(("sub", id.ToString()), ("email", "op@kartova.local"), ("name", "Op Erator")),
+            NullLoggerFactory.Instance);
 
         var ok = result as Ok<AdminMeResponse>;
         Assert.IsNotNull(ok, $"expected 200 Ok<AdminMeResponse>, got {result.GetType().Name}");
@@ -29,7 +31,8 @@ public sealed class AdminSessionEndpointDelegatesTests
     public void GetMe_falls_back_to_email_when_name_absent()
     {
         var id = Guid.NewGuid();
-        var result = AdminSessionEndpointDelegates.GetMe(Principal(("sub", id.ToString()), ("email", "op@kartova.local")));
+        var result = AdminSessionEndpointDelegates.GetMe(
+            Principal(("sub", id.ToString()), ("email", "op@kartova.local")), NullLoggerFactory.Instance);
 
         Assert.AreEqual("op@kartova.local", ((Ok<AdminMeResponse>)result).Value!.DisplayName);
     }
@@ -38,7 +41,8 @@ public sealed class AdminSessionEndpointDelegatesTests
     public void GetMe_returns_empty_email_and_display_name_when_both_absent()
     {
         // A realm without the email scope must not 500; the console shows an empty label.
-        var result = AdminSessionEndpointDelegates.GetMe(Principal(("sub", Guid.NewGuid().ToString())));
+        var result = AdminSessionEndpointDelegates.GetMe(
+            Principal(("sub", Guid.NewGuid().ToString())), NullLoggerFactory.Instance);
 
         var value = ((Ok<AdminMeResponse>)result).Value!;
         Assert.AreEqual(string.Empty, value.Email);
@@ -53,7 +57,7 @@ public sealed class AdminSessionEndpointDelegatesTests
     {
         var principal = sub is null ? Principal(("email", "op@kartova.local")) : Principal(("sub", sub));
 
-        var result = AdminSessionEndpointDelegates.GetMe(principal);
+        var result = AdminSessionEndpointDelegates.GetMe(principal, NullLoggerFactory.Instance);
 
         var problem = result as ProblemHttpResult;
         Assert.IsNotNull(problem, $"expected ProblemHttpResult, got {result.GetType().Name}");
