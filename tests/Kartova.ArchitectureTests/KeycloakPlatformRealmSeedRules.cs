@@ -95,6 +95,19 @@ public sealed class KeycloakPlatformRealmSeedRules
     }
 
     [TestMethod]
+    public void Platform_realm_hardening_parity_with_tenant_realm()
+    {
+        using var doc = Load();
+        Assert.IsTrue(doc.RootElement.GetProperty("accessTokenLifespan").GetInt32() <= 300,
+            "operator access tokens must be at least as short-lived as the tenant realm's — ADR-0118.");
+        Assert.IsTrue(doc.RootElement.GetProperty("bruteForceProtected").GetBoolean(),
+            "brute-force detection must be enabled on the operator realm — ADR-0118.");
+        Assert.IsTrue(
+            doc.RootElement.GetProperty("passwordPolicy").GetString()?.Contains("length(12)") == true,
+            "operator password policy must enforce a minimum length of 12 — ADR-0118.");
+    }
+
+    [TestMethod]
     public void Platform_realm_has_a_dev_user_holding_platform_admin()
     {
         using var doc = Load();

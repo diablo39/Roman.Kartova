@@ -119,18 +119,23 @@ public class EndpointRouteRules
     /// ADR-0118: every route under /api/v1/admin/ must require the PlatformAdminOnly policy (operator
     /// realm scheme + role). A route mapped there without it would silently fall back to the tenant
     /// scheme — exactly the cross-realm hole the ADR closes.
+    /// An endpoint carrying <see cref="Microsoft.AspNetCore.Authorization.IAllowAnonymous"/> is also
+    /// an offender even if the policy metadata is present: <c>AuthorizationMiddleware</c> skips
+    /// authorization entirely for such endpoints, so <c>MapAdminModule(...).AllowAnonymous()</c> would
+    /// keep the PlatformAdminOnly metadata but accept anonymous callers.
     /// </summary>
     [TestMethod]
     public void Every_admin_route_requires_PlatformAdminOnly()
     {
         var offenders = MapEndpointAuthForArchTest()
-            .Where(e => e.Template.StartsWith("/api/v1/admin/", StringComparison.Ordinal))
-            .Where(e => !e.Policies.Contains(PlatformAdminAuth.Policy))
+            .Where(e => e.Template.StartsWith("/api/v1/admin/", StringComparison.OrdinalIgnoreCase))
+            .Where(e => !e.Policies.Contains(PlatformAdminAuth.Policy) || e.AllowsAnonymous)
             .Select(e => $"{e.Name} {e.Template}")
             .ToArray();
 
         Assert.AreEqual(0, offenders.Length,
-            "admin routes missing PlatformAdminOnly (map them via MapAdminModule): " + string.Join(", ", offenders));
+            "admin routes missing PlatformAdminOnly or marked AllowAnonymous (map via MapAdminModule; " +
+            "AllowAnonymous is forbidden on admin routes): " + string.Join(", ", offenders));
     }
 
     [TestMethod]
@@ -138,7 +143,7 @@ public class EndpointRouteRules
     {
         var offenders = MapEndpointAuthForArchTest()
             .Where(e => e.Policies.Contains(PlatformAdminAuth.Policy))
-            .Where(e => !e.Template.StartsWith("/api/v1/admin/", StringComparison.Ordinal))
+            .Where(e => !e.Template.StartsWith("/api/v1/admin/", StringComparison.OrdinalIgnoreCase))
             .Select(e => $"{e.Name} {e.Template}")
             .ToArray();
 
@@ -151,7 +156,7 @@ public class EndpointRouteRules
     {
         // Guards the two rules above against passing vacuously (e.g. discovery found no admin module).
         var adminRoutes = MapEndpointAuthForArchTest()
-            .Count(e => e.Template.StartsWith("/api/v1/admin/", StringComparison.Ordinal));
+            .Count(e => e.Template.StartsWith("/api/v1/admin/", StringComparison.OrdinalIgnoreCase));
         Assert.IsTrue(adminRoutes >= 2, $"expected ≥ 2 admin routes (organizations POST, session/me), found {adminRoutes}.");
     }
 
@@ -223,7 +228,8 @@ public class EndpointRouteRules
                     .Select(a => a.Policy)
                     .Where(p => p is not null)
                     .Select(p => p!)
-                    .ToArray()))
+                    .ToArray(),
+                AllowsAnonymous: e.Metadata.GetMetadata<Microsoft.AspNetCore.Authorization.IAllowAnonymous>() is not null))
             .ToList();
 
     private static IEnumerable<Type> DiscoverModuleEndpointsTypes() =>
@@ -268,5 +274,5 @@ public class EndpointRouteRules
 
     private sealed record EndpointFingerprint(string Name, string HttpMethod, string Template);
 
-    private sealed record EndpointAuth(string Name, string Template, string[] Policies);
+    private sealed record EndpointAuth(string Name, string Template, string[] Policies, bool AllowsAnonymous);
 }

@@ -269,6 +269,9 @@ public class Program
             Predicate = c => c.Tags.Contains("startup"),
             ResponseWriter = HealthCheckJsonResponseWriter.WriteCompactAsync,
         });
+        // Mapped outside MapAdminModule (not under /api/v1/admin/), so EndpointRouteRules'
+        // admin arch tests don't see this route; its PlatformAdminOnly binding is pinned
+        // instead by HealthCheckEndpointTests.Detailed_returns_401_for_a_tenant_realm_user.
         app.MapHealthChecks("/health/detailed", new HealthCheckOptions
         {
             ResponseWriter = HealthCheckJsonResponseWriter.WriteDetailedAsync,
