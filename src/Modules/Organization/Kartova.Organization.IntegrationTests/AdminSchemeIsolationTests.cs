@@ -41,7 +41,11 @@ public class AdminSchemeIsolationTests : OrganizationIntegrationTestBase
     [TestMethod]
     public async Task Tenant_token_claiming_platform_admin_gets_401_on_admin_session()
     {
-        var client = ClientWith(Fx.Signer.IssueForTenant(SeededOrgs.OrgA, new[] { KartovaRoles.PlatformAdmin }));
+        // GUID subject (not the default "test-user"): if scheme isolation regresses, the request
+        // reaches GetMe and — with a parseable sub — returns 200, so the status assertion below
+        // fails on its own instead of the regression hiding behind GetMe's invalid-sub 401 branch.
+        var client = ClientWith(Fx.Signer.IssueForTenant(
+            SeededOrgs.OrgA, new[] { KartovaRoles.PlatformAdmin }, subject: Guid.NewGuid().ToString()));
 
         var resp = await client.GetAsync(SessionMe);
 
