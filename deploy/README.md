@@ -38,6 +38,32 @@ Apply by one of:
 
 **Verify:** log in, let the SPA's silent renew run (or wait past 15 min), confirm no forced re-login; optionally confirm a replayed old refresh token is rejected. Drift on the *import* side is guarded by the arch test `KeycloakRealmSeedRules.RealmSeed_RotatesRefreshTokens_AndRevokesOnReuse`.
 
+## Platform operator realm `kartova-platform` (ADR-0118)
+
+Operators authenticate against a **separate** realm. `kartova-platform-realm.json` seeds it only on fresh installs, the same as the tenant realm. A running production KeyCloak needs these steps once:
+
+1. **Create realm `kartova-platform`** with:
+   - realm role `platform-admin`;
+   - bearer-only client `kartova-admin-api`;
+   - public PKCE client `kartova-admin-web`: redirect URIs = the web-admin origin (S2), and an audience mapper → `kartova-admin-api`.
+   **Do not** create `kartova-admin-test`: it is a dev/test password-grant client.
+2. **MFA:** Authentication → required actions → enable *Configure OTP* as a default action. Set the browser flow so OTP is **required**, not conditional.
+3. **Token hardening parity:** access token 5 min; `revokeRefreshToken=true`; `refreshTokenMaxReuse=0`; brute-force detection on.
+4. **No service accounts.** The tenant realm's `kartova-admin` service account has no role in `kartova-platform`, and no client in `kartova-platform` enables service accounts.
+5. **Remove `platform-admin` from the tenant realm** (`kartova`): delete the realm role and any users holding it. The API no longer honors it there, but its presence would suggest otherwise.
+
+   ```bash
+   kcadm.sh delete roles/platform-admin -r kartova
+   ```
+
+6. **API configuration (required — the API refuses to start without the first two):**
+
+   | Key | Value |
+   |---|---|
+   | `Authentication__PlatformAdmin__Authority` | `https://<kc-host>/realms/kartova-platform` |
+   | `Authentication__PlatformAdmin__Audience` | `kartova-admin-api` |
+   | `Authentication__PlatformAdmin__MetadataAddress` | optional; in-cluster discovery URL |
+
 ## Web container CSP origins (E-01.F-04.S-06b)
 
 The web (nginx) container enforces a Content-Security-Policy whose cross-origin allowances (API + KeyCloak) are injected at start via the `CSP_EXTRA_ORIGINS` env var (space-separated, browser-facing origins). The Dockerfile defaults it to `""`; **every deployment must set it explicitly** or the SPA cannot reach the API/KeyCloak once CSP is enforced. There is no web `Deployment` in the Helm chart today — when one is added, it must set `CSP_EXTRA_ORIGINS` (e.g. `"https://api.<env> https://auth.<env>"`). Full guide: [csp-configuration.md](csp-configuration.md).
