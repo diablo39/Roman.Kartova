@@ -1,13 +1,16 @@
 using System.Diagnostics.CodeAnalysis;
+using Kartova.Organization.Contracts;
 using Kartova.SharedKernel.AspNetCore;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
 namespace Kartova.Organization.Infrastructure.Admin;
 
 /// <summary>
 /// Endpoint-only module for the Organization admin (BYPASSRLS) routes at
-/// <c>/api/v1/admin/organizations</c>. Lives in Infrastructure.Admin so that
+/// <c>/api/v1/admin/organizations</c> and the operator session at
+/// <c>/api/v1/admin/session</c>. Lives in Infrastructure.Admin so that
 /// Infrastructure.Admin → Infrastructure remains the only direction in the
 /// reference graph (Infrastructure cannot depend on Infrastructure.Admin).
 /// Per ADR-0092 the slug ("organizations") matches the tenant-scoped module's
@@ -29,5 +32,13 @@ public sealed class OrganizationAdminModule : IModuleEndpoints
             .WithName("AdminCreateOrganization");
 
         InvitationAcceptRoutes.MapTo(app);
+
+        // Operator identity (ADR-0118). Non-slug group, same precedent as /api/v1/auth/session.
+        var session = app.MapAdminModule("session");      // /api/v1/admin/session
+        session.MapGet("/me", AdminSessionEndpointDelegates.GetMe)
+            .WithName("AdminGetSessionMe")
+            .Produces<AdminMeResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
     }
 }

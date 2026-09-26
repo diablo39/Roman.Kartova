@@ -49,6 +49,7 @@ public class EndpointRouteRules
 
         // Organization admin (BYPASSRLS, separate auth surface, same slug)
         new("AdminCreateOrganization",     Post, "/api/v1/admin/organizations/"),
+        new("AdminGetSessionMe",           Get,  "/api/v1/admin/session/me"),
 
         // Invitation accept — anonymous, tenant-less (slice 9, task 8)
         new("GetInvitationAcceptContext",  Get,  "/api/v1/invitations/accept"),
