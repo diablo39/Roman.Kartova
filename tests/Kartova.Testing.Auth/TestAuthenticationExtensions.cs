@@ -15,39 +15,28 @@ public static class TestAuthenticationExtensions
     /// </summary>
     public static IServiceCollection UseTestJwtSigner(this IServiceCollection services, TestJwtSigner signer)
     {
-        services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, opts =>
-        {
-            opts.RequireHttpsMetadata = false;
-            opts.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidIssuer = TestJwtSigner.Issuer,
-                ValidateAudience = true,
-                ValidAudience = TestJwtSigner.Audience,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = signer.PublicKey,
-                ClockSkew = TimeSpan.FromSeconds(5),
-            };
-            opts.MapInboundClaims = false;
-        });
-
-        services.PostConfigure<JwtBearerOptions>(PlatformAdminAuth.Scheme, opts =>
-        {
-            opts.RequireHttpsMetadata = false;
-            opts.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidIssuer = TestJwtSigner.PlatformIssuer,
-                ValidateAudience = true,
-                ValidAudience = TestJwtSigner.PlatformAudience,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = signer.PublicKey,
-                ClockSkew = TimeSpan.FromSeconds(5),
-            };
-            opts.MapInboundClaims = false;
-        });
+        TrustSigner(services, JwtBearerDefaults.AuthenticationScheme, TestJwtSigner.Issuer, TestJwtSigner.Audience, signer);
+        TrustSigner(services, PlatformAdminAuth.Scheme, TestJwtSigner.PlatformIssuer, TestJwtSigner.PlatformAudience, signer);
         return services;
+    }
+
+    private static void TrustSigner(IServiceCollection services, string scheme, string issuer, string audience, TestJwtSigner signer)
+    {
+        services.PostConfigure<JwtBearerOptions>(scheme, opts =>
+        {
+            opts.RequireHttpsMetadata = false;
+            opts.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = issuer,
+                ValidateAudience = true,
+                ValidAudience = audience,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = signer.PublicKey,
+                ClockSkew = TimeSpan.FromSeconds(5),
+            };
+            opts.MapInboundClaims = false;
+        });
     }
 }

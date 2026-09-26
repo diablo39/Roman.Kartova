@@ -14,7 +14,7 @@ public sealed class TestJwtSigner
     public const string Issuer = "https://test-issuer.kartova.local";
     public const string Audience = "kartova-api";
     public const string PlatformIssuer = "https://test-platform-issuer.kartova.local";
-    public const string PlatformAudience = "kartova-admin-api";
+    public const string PlatformAudience = RealmSeedConstants.PlatformApiAudience;
 
     private readonly RSA _rsa;
     private readonly RsaSecurityKey _key;
