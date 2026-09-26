@@ -42,7 +42,13 @@ public abstract class KeycloakContainerTestBase
             ["scope"] = "openid",
         });
         var tokenResp = await oidc.PostAsync($"{authority}/protocol/openid-connect/token", form);
-        tokenResp.EnsureSuccessStatusCode();
+        if (!tokenResp.IsSuccessStatusCode)
+        {
+            var body = await tokenResp.Content.ReadAsStringAsync();
+            throw new InvalidOperationException(
+                $"Password grant failed against authority '{authority}' (client_id '{clientId}', username '{username}'): " +
+                $"{(int)tokenResp.StatusCode} {tokenResp.StatusCode}. Response body: {body}");
+        }
         var payload = await tokenResp.Content.ReadFromJsonAsync<Dictionary<string, object>>();
         return payload!["access_token"].ToString()!;
     }

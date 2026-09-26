@@ -1,6 +1,10 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text.Json;
 using Kartova.Organization.Contracts;
 using Kartova.Organization.Infrastructure;
 using Kartova.SharedKernel;
@@ -8,6 +12,7 @@ using Kartova.SharedKernel.AspNetCore;
 using Kartova.Testing.Auth;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 
 namespace Kartova.Api.IntegrationTests;
@@ -96,6 +101,44 @@ public class PlatformRealmLiveTokenTests : KeycloakContainerTestBase
         var token = await GetRealPlatformTokenAsync("platform-admin@kartova.local", "dev_password_12");
 
         var resp = await ClientWith(token).GetAsync("/api/v1/organizations/me");
+
+        Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
+        StringAssert.Contains(resp.Headers.WwwAuthenticate.ToString(), "invalid_token");
+    }
+
+    /// <summary>
+    /// ADR-0118 gate 7 fix: a forged token that copies the real platform realm's <c>iss</c> and
+    /// stamps the right <c>aud</c> and role claim, but is signed with an attacker-controlled key,
+    /// must still be rejected. This is the discriminating case that proves the live host validates
+    /// signatures against the realm's JWKS rather than trusting issuer/audience string matches alone.
+    /// </summary>
+    [TestMethod]
+    public async Task Forged_token_with_platform_issuer_and_audience_but_wrong_signing_key_is_rejected()
+    {
+        var realToken = await GetRealPlatformTokenAsync("platform-admin@kartova.local", "dev_password_12");
+        var issuer = new JwtSecurityTokenHandler().ReadJwtToken(realToken).Issuer;
+
+        using var forgedRsa = RSA.Create(2048);
+        var forgedKey = new RsaSecurityKey(forgedRsa) { KeyId = "forged" };
+
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()),
+            new("realm_access", JsonSerializer.Serialize(new { roles = new[] { "platform-admin" } }), JsonClaimValueTypes.Json),
+        };
+
+        var now = DateTime.UtcNow;
+        var forgedToken = new JwtSecurityToken(
+            issuer: issuer,
+            audience: "kartova-admin-api",
+            claims: claims,
+            notBefore: now,
+            expires: now.AddMinutes(5),
+            signingCredentials: new SigningCredentials(forgedKey, SecurityAlgorithms.RsaSha256));
+
+        var token = new JwtSecurityTokenHandler().WriteToken(forgedToken);
+
+        var resp = await ClientWith(token).GetAsync("/api/v1/admin/session/me");
 
         Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
         StringAssert.Contains(resp.Headers.WwwAuthenticate.ToString(), "invalid_token");
