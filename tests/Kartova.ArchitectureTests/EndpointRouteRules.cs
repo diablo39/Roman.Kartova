@@ -116,6 +116,46 @@ public class EndpointRouteRules
     }
 
     /// <summary>
+    /// ADR-0118: every route under /api/v1/admin/ must require the PlatformAdminOnly policy (operator
+    /// realm scheme + role). A route mapped there without it would silently fall back to the tenant
+    /// scheme — exactly the cross-realm hole the ADR closes.
+    /// </summary>
+    [TestMethod]
+    public void Every_admin_route_requires_PlatformAdminOnly()
+    {
+        var offenders = MapEndpointAuthForArchTest()
+            .Where(e => e.Template.StartsWith("/api/v1/admin/", StringComparison.Ordinal))
+            .Where(e => !e.Policies.Contains(PlatformAdminAuth.Policy))
+            .Select(e => $"{e.Name} {e.Template}")
+            .ToArray();
+
+        Assert.AreEqual(0, offenders.Length,
+            "admin routes missing PlatformAdminOnly (map them via MapAdminModule): " + string.Join(", ", offenders));
+    }
+
+    [TestMethod]
+    public void PlatformAdminOnly_is_used_only_under_the_admin_prefix()
+    {
+        var offenders = MapEndpointAuthForArchTest()
+            .Where(e => e.Policies.Contains(PlatformAdminAuth.Policy))
+            .Where(e => !e.Template.StartsWith("/api/v1/admin/", StringComparison.Ordinal))
+            .Select(e => $"{e.Name} {e.Template}")
+            .ToArray();
+
+        Assert.AreEqual(0, offenders.Length,
+            "PlatformAdminOnly outside /api/v1/admin/ mixes operator and tenant surfaces: " + string.Join(", ", offenders));
+    }
+
+    [TestMethod]
+    public void Admin_route_snapshot_is_not_empty()
+    {
+        // Guards the two rules above against passing vacuously (e.g. discovery found no admin module).
+        var adminRoutes = MapEndpointAuthForArchTest()
+            .Count(e => e.Template.StartsWith("/api/v1/admin/", StringComparison.Ordinal));
+        Assert.IsTrue(adminRoutes >= 2, $"expected ≥ 2 admin routes (organizations POST, session/me), found {adminRoutes}.");
+    }
+
+    /// <summary>
     /// Boots a minimal <see cref="WebApplication"/> with just enough services
     /// to make <see cref="IEndpointRouteBuilder"/>-based mapping succeed
     /// (auth/authz are required by <see cref="ModuleRouteExtensions.MapAdminModule"/>),
@@ -123,7 +163,7 @@ public class EndpointRouteRules
     /// in production assemblies via parameterless ctor, calls <c>MapEndpoints</c>,
     /// and snapshots the resulting <see cref="EndpointDataSource"/>.
     /// </summary>
-    private static List<EndpointFingerprint> MapEndpointsForArchTest()
+    private static List<RouteEndpoint> BuildArchTestEndpoints()
     {
         var builder = WebApplication.CreateBuilder();
         // Auth / authz must be present because MapAdminModule calls RequireAuthorization;
@@ -163,12 +203,28 @@ public class EndpointRouteRules
         return ((IEndpointRouteBuilder)app).DataSources
             .SelectMany(ds => ds.Endpoints)
             .OfType<RouteEndpoint>()
+            .ToList();
+    }
+
+    private static List<EndpointFingerprint> MapEndpointsForArchTest() =>
+        BuildArchTestEndpoints()
             .Select(e => new EndpointFingerprint(
                 Name: e.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName ?? string.Empty,
                 HttpMethod: e.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods.SingleOrDefault() ?? string.Empty,
                 Template: e.RoutePattern.RawText ?? string.Empty))
             .ToList();
-    }
+
+    private static List<EndpointAuth> MapEndpointAuthForArchTest() =>
+        BuildArchTestEndpoints()
+            .Select(e => new EndpointAuth(
+                Name: e.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName ?? string.Empty,
+                Template: e.RoutePattern.RawText ?? string.Empty,
+                Policies: e.Metadata.GetOrderedMetadata<Microsoft.AspNetCore.Authorization.IAuthorizeData>()
+                    .Select(a => a.Policy)
+                    .Where(p => p is not null)
+                    .Select(p => p!)
+                    .ToArray()))
+            .ToList();
 
     private static IEnumerable<Type> DiscoverModuleEndpointsTypes() =>
         AssemblyRegistry.AllProduction()
@@ -211,4 +267,6 @@ public class EndpointRouteRules
     }
 
     private sealed record EndpointFingerprint(string Name, string HttpMethod, string Template);
+
+    private sealed record EndpointAuth(string Name, string Template, string[] Policies);
 }
