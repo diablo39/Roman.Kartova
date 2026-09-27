@@ -23,7 +23,7 @@
 | 8 `deep-review` | ✅ PASS (after fix wave) | 2026-09-27 |
 | Terminal re-verify (build + suite) | ✅ PASS | 2026-09-27 |
 | 9 Visual / API verification (ADR-0084) | ✅ PASS | 2026-09-27 |
-| 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING | — |
+| 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ✅ PASS | 2026-09-27 |
 
 ## Gate detail
 
@@ -124,9 +124,20 @@
 **At:** 4eaea99 · 2026-09-27
 
 ### 10 — CI green on the PR (terminal; `scripts/ci-local.sh` = required pre-push mirror)
-**Status:** ⏳ PENDING
-**Evidence:** pre-push `scripts/ci-local.sh`, then the PR CI run.
-**At:** —
+**Status:** ✅ PASS
+**Evidence:**
+- **Pre-push:** `scripts/ci-local.sh` (all jobs) → `All selected CI jobs passed.`, `CI_LOCAL_EXIT=0`. Jobs: backend Release, 15 test assemblies green, images, stryker, frontend, helm.
+- **PR #100** https://github.com/diablo39/Roman.Kartova/pull/100, run https://github.com/diablo39/Roman.Kartova/actions/runs/36303366027:
+
+| Job | Result | Time |
+|---|---|---|
+| Backend | pass | 5m13s |
+| Container images | pass | 2m15s |
+| Frontend | pass | 3m36s |
+| Helm | pass | 7s |
+| Stryker config drift | pass | 4s |
+
+**At:** 32af04c (PR head) · 2026-09-27
 
 ## Deviations from spec (recorded)
 - **Helm:** unchanged. The chart carries no `Authentication:*` env even for tenants; the runbook documents the keys (spec updated).
