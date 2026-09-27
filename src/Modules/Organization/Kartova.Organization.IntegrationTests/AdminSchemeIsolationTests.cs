@@ -122,4 +122,37 @@ public class AdminSchemeIsolationTests : OrganizationIntegrationTestBase
         Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
         StringAssert.Contains(resp.Headers.WwwAuthenticate.ToString(), "invalid_token");
     }
+
+    /// <summary>
+    /// Every other cross-realm fixture token differs in BOTH issuer and audience, so a regression
+    /// that dropped one of the two validation flags on the PlatformAdmin scheme (e.g. ValidateIssuer
+    /// alone regressing) would still be masked by the other. This pins issuer and audience as each
+    /// independently sufficient to reject the token.
+    /// </summary>
+    [TestMethod]
+    public async Task Token_with_platform_issuer_but_tenant_audience_gets_401()
+    {
+        var client = ClientWith(Fx.Signer.IssueWith(
+            TestJwtSigner.PlatformIssuer, TestJwtSigner.Audience,
+            new[] { KartovaRoles.PlatformAdmin }, subject: Guid.NewGuid().ToString()));
+
+        var resp = await client.GetAsync(SessionMe);
+
+        Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
+        StringAssert.Contains(resp.Headers.WwwAuthenticate.ToString(), "invalid_token");
+    }
+
+    /// <summary>Mirror of the above with issuer/audience swapped — see remarks there.</summary>
+    [TestMethod]
+    public async Task Token_with_tenant_issuer_but_platform_audience_gets_401()
+    {
+        var client = ClientWith(Fx.Signer.IssueWith(
+            TestJwtSigner.Issuer, TestJwtSigner.PlatformAudience,
+            new[] { KartovaRoles.PlatformAdmin }, subject: Guid.NewGuid().ToString()));
+
+        var resp = await client.GetAsync(SessionMe);
+
+        Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
+        StringAssert.Contains(resp.Headers.WwwAuthenticate.ToString(), "invalid_token");
+    }
 }

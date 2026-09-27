@@ -51,6 +51,21 @@ public sealed class TestJwtSigner
         => Build(subject, tenantId: null, roles, TimeSpan.FromMinutes(15), expired: false,
             email: email, name: name, issuer: PlatformIssuer, audience: PlatformAudience);
 
+    /// <summary>
+    /// ADR-0118 isolation testing: mint a token with an explicit issuer/audience pairing that
+    /// does not have to match either realm's real combination — e.g. the platform issuer with
+    /// the tenant audience, or vice versa — so a test can prove issuer and audience are each
+    /// enforced independently, not just as a matched pair.
+    /// </summary>
+    public string IssueWith(
+        string issuer,
+        string audience,
+        string[] roles,
+        string subject,
+        TenantId? tenantId = null)
+        => Build(subject, tenantId, roles, TimeSpan.FromMinutes(15), expired: false,
+            email: null, name: null, issuer: issuer, audience: audience);
+
     // issuer/audience default to the tenant realm (Issuer/Audience) — pass them explicitly for any other realm.
     private string Build(
         string subject, TenantId? tenantId, string[] roles, TimeSpan lifetime, bool expired, string? email,

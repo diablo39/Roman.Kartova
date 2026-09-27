@@ -108,6 +108,19 @@ public sealed class KeycloakPlatformRealmSeedRules
     }
 
     [TestMethod]
+    public void Only_kartova_admin_test_enables_direct_access_grants()
+    {
+        using var doc = Load();
+        var passwordGrantClients = doc.RootElement.GetProperty("clients").EnumerateArray()
+            .Where(c => c.TryGetProperty("directAccessGrantsEnabled", out var d) && d.GetBoolean())
+            .Select(c => c.GetProperty("clientId").GetString())
+            .ToArray();
+        CollectionAssert.AreEquivalent(new[] { "kartova-admin-test" }, passwordGrantClients,
+            "only the dev/test client may enable the password grant — ADR-0118. A missing " +
+            "directAccessGrantsEnabled property is treated as false, matching KeyCloak's default.");
+    }
+
+    [TestMethod]
     public void Platform_realm_has_a_dev_user_holding_platform_admin()
     {
         using var doc = Load();
