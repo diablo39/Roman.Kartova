@@ -14,6 +14,8 @@ What lives here and the manual configuration a production environment needs beyo
 
 `kartova-realm.json` is applied only when KeyCloak imports a realm that does not yet exist (fresh install, local docker-compose, CI). **Changing a setting in that file does not change an already-running production realm** — KeyCloak ignores the import for a realm that already exists. Any realm change therefore has to be made twice: in `kartova-realm.json` (so fresh installs get it) **and** on the live realm (UI / `kcadm` / IaC).
 
+**Local dev applies the same rule.** The `keycloak-db` volume keeps the realm that was imported first. After ADR-0118, a volume created before it still has `platform-admin` and `platform-admin@kartova.local` in `kartova`. The API rejects those tokens by scheme (verified in gate 9 of E-01b.F-03.S-01), but the stale realm no longer matches the seed. Run `docker compose down -v` once to re-import `kartova` and `kartova-platform`. Note that `-v` also wipes the local Postgres data.
+
 ## Production KeyCloak token hardening (E-01.F-04.S-06a · ADR-0116)
 
 Refresh-token rotation with reuse-revocation. Already in `kartova-realm.json` for fresh installs; **must be applied to any pre-existing production realm** or a stolen refresh token stays valid for its full lifetime.
