@@ -56,6 +56,8 @@ public class DiLifetimeRules
                 [AuthenticationConfigKeys.Authority] = "https://keycloak.example.com/realms/kartova",
                 [AuthenticationConfigKeys.Audience] = "kartova-api",
                 [AuthenticationConfigKeys.RequireHttpsMetadata] = "false",
+                [AuthenticationConfigKeys.PlatformAdminAuthority] = "https://keycloak.example.com/realms/kartova-platform",
+                [AuthenticationConfigKeys.PlatformAdminAudience] = "kartova-admin-api",
                 ["ConnectionStrings:Main"] = "Host=localhost;Database=test;Username=test;Password=test",
                 ["ConnectionStrings:Bypass"] = "Host=localhost;Database=test;Username=test;Password=test",
             })

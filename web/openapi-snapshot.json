@@ -4429,6 +4429,46 @@
           }
         }
       }
+    },
+    "/api/v1/admin/session/me": {
+      "get": {
+        "tags": [
+          "AdminSessionEndpointDelegates"
+        ],
+        "operationId": "AdminGetSessionMe",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4500,6 +4540,26 @@
             "format": "uuid"
           },
           "role": {
+            "type": "string"
+          }
+        }
+      },
+      "AdminMeResponse": {
+        "required": [
+          "userId",
+          "email",
+          "displayName"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "displayName": {
             "type": "string"
           }
         }
@@ -7131,6 +7191,9 @@
     },
     {
       "name": "InvitationAcceptRoutes"
+    },
+    {
+      "name": "AdminSessionEndpointDelegates"
     }
   ]
 }

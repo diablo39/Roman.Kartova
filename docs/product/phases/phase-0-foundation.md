@@ -154,3 +154,10 @@
 | E-01b.F-02.S-01 | As a platform admin, I want to create an organization with an explicit `tenant_id` (matching a KeyCloak-configured tenant) so that a new tenant's KC users resolve on first login | `tenant_id` accepted as input; rejects a value colliding with an existing Organization; replaces today's `AdminOrganizationCommands.CreateAsync` self-generated-id behavior | |
 | E-01b.F-02.S-02 | As a platform admin, I want to detect orphaned `tenant_id`s (a KC user attribute with no matching Organization row) so that I catch the "authenticated but unprovisioned" gap before a user hits it | Reconciliation report/endpoint comparing KC realm `tenant_id` attributes against `organizations` rows | |
 | E-01b.F-02.S-03 | As a platform admin, I want to provision an Organization row for an existing orphaned `tenant_id` so that I can fix the gap without a manual DB/SQL intervention | One-call reconciliation action; idempotent; audit-logged | |
+
+#### Feature E-01b.F-03: Platform Admin Isolation (ADR-0118)
+
+| Story ID | User Story | Acceptance Criteria | ADRs |
+|----------|-----------|-------------------|------|
+| E-01b.F-03.S-01 | As a platform operator, I want my identity and the admin API isolated from tenant identities so that no tenant user or tenant flow can act in operator context | Separate `kartova-platform` KC realm (no tenant service-account rights); `/api/v1/admin/*` + `/health/detailed` accept only the `PlatformAdmin` JWT scheme; tenant token → 401 on admin routes and vice versa; `GET /api/v1/admin/session/me` | 0118, 0092, 0006 |
+| E-01b.F-03.S-02 | As a platform operator, I want a dedicated admin web app with the same visual shell as the product so that I can sign in to the console on its own origin | `web-admin/` on its own origin with own PKCE client; master-shell visuals; access-denied surface; landing; image + Helm + CI; CORS for `/api/v1/admin/*` admits only its origin | 0118, 0094 |

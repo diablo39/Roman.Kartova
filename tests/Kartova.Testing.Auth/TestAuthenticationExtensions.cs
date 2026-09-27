@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Kartova.SharedKernel.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
@@ -14,15 +15,22 @@ public static class TestAuthenticationExtensions
     /// </summary>
     public static IServiceCollection UseTestJwtSigner(this IServiceCollection services, TestJwtSigner signer)
     {
-        services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, opts =>
+        TrustSigner(services, JwtBearerDefaults.AuthenticationScheme, TestJwtSigner.Issuer, TestJwtSigner.Audience, signer);
+        TrustSigner(services, PlatformAdminAuth.Scheme, TestJwtSigner.PlatformIssuer, TestJwtSigner.PlatformAudience, signer);
+        return services;
+    }
+
+    private static void TrustSigner(IServiceCollection services, string scheme, string issuer, string audience, TestJwtSigner signer)
+    {
+        services.PostConfigure<JwtBearerOptions>(scheme, opts =>
         {
             opts.RequireHttpsMetadata = false;
             opts.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuer = true,
-                ValidIssuer = TestJwtSigner.Issuer,
+                ValidIssuer = issuer,
                 ValidateAudience = true,
-                ValidAudience = TestJwtSigner.Audience,
+                ValidAudience = audience,
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = signer.PublicKey,
@@ -30,6 +38,5 @@ public static class TestAuthenticationExtensions
             };
             opts.MapInboundClaims = false;
         });
-        return services;
     }
 }

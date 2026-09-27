@@ -6,9 +6,11 @@ namespace Kartova.Testing.Auth;
 
 /// <summary>
 /// Shared Keycloak Testcontainer — boots a <c>quay.io/keycloak/keycloak:26.1</c>
-/// container with <c>--import-realm</c> mounting <c>kartova-realm.json</c> so the
-/// realm seed (clients, roles, service accounts) is in place by the time the wait
-/// strategy observes <c>/realms/kartova/.well-known/openid-configuration</c>.
+/// container with <c>--import-realm</c> mounting both <c>kartova-realm.json</c>
+/// (tenant realm) and <c>kartova-platform-realm.json</c> (ADR-0118 operator realm)
+/// so the realm seeds (clients, roles, service accounts) are in place by the time
+/// the wait strategy observes both realms' <c>/.well-known/openid-configuration</c>
+/// discovery documents.
 /// <para>
 /// Originally lived in <c>Kartova.Api.IntegrationTests</c> (where the auth-smoke
 /// tests were the only consumer). Slice 9 / H1-prereq promoted it to
@@ -49,8 +51,14 @@ public sealed class KeycloakContainerFixture : IAsyncDisposable
         .WithResourceMapping(
             Path.Combine(AppContext.BaseDirectory, "kartova-realm.json"),
             "/opt/keycloak/data/import")
+        .WithResourceMapping(
+            Path.Combine(AppContext.BaseDirectory, "kartova-platform-realm.json"),
+            "/opt/keycloak/data/import")
+        // Liveness check only — each discovery doc proves its realm imported, not that every
+        // client/user inside it did too; downstream live tests (e.g. PlatformRealmLiveTokenTests) cover that.
         .WithWaitStrategy(Wait.ForUnixContainer()
-            .UntilHttpRequestIsSucceeded(r => r.ForPort(8080).ForPath($"/realms/{RealmSeedConstants.RealmName}/.well-known/openid-configuration")))
+            .UntilHttpRequestIsSucceeded(r => r.ForPort(8080).ForPath($"/realms/{RealmSeedConstants.RealmName}/.well-known/openid-configuration"))
+            .UntilHttpRequestIsSucceeded(r => r.ForPort(8080).ForPath($"/realms/{RealmSeedConstants.PlatformRealmName}/.well-known/openid-configuration")))
         .Build();
 
     public Task InitializeAsync() => Keycloak.StartAsync();
@@ -65,6 +73,9 @@ public sealed class KeycloakContainerFixture : IAsyncDisposable
     /// <c>http://host:port/realms/kartova</c> (no double slash).
     /// </summary>
     public string KeycloakAuthority => $"{Keycloak.GetBaseAddress()}realms/{RealmSeedConstants.RealmName}";
+
+    /// <summary>OIDC authority for the ADR-0118 operator realm.</summary>
+    public string PlatformKeycloakAuthority => $"{Keycloak.GetBaseAddress()}realms/{RealmSeedConstants.PlatformRealmName}";
 
     /// <summary>
     /// Base URL of the Keycloak admin REST API, without a trailing slash so

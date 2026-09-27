@@ -254,3 +254,43 @@ Convention: one `### TD-NNN` heading per item. Keep `Status: open` until done; o
 **Why deferred.** Touches seven pre-existing test files outside this slice's scope — out of scope per `/simplify`'s reject-by-default rule on cross-cutting extract-helper refactors done inside a narrow slice.
 
 **Acceptance.** One shared `ProblemPayload` type; the eight per-file nested classes are gone; a ninth 412-testing file reuses it with zero new code.
+
+---
+
+### TD-014 — `SeedRolesAndSchemaAsync` is not idempotent; callers each wrap it in a `DuplicateObject` guard
+
+**Status:** open
+**Origin:** E-01b.F-03.S-01 (2026-09-26) — `/simplify` altitude finding (gate 5) and T5 task review.
+
+**Problem.** `PostgresTestBootstrap.SeedRolesAndSchemaAsync` issues unconditional `CREATE ROLE`. Every test class that shares an assembly-scoped Postgres container catches `PostgresException` with `DuplicateObject` itself. That is four copies today: `AuthSmokeTests`, `HealthCheckEndpointTests`, `ModuleMigrationsHealthCheckTests` and `PlatformRealmLiveTokenTests`. A new class that forgets the guard makes the suite order-dependent.
+
+**Affected files.**
+- `tests/Kartova.Testing.Auth/PostgresTestBootstrap.cs` (or wherever the helper lives).
+- The four callers above.
+
+**Proposed fix.** Make the helper idempotent. Either guard the SQL (`DO $$ ... EXCEPTION WHEN duplicate_object THEN NULL; END $$;`) or swallow `DuplicateObject` inside the helper. Then delete the per-caller try/catch blocks.
+
+**Why deferred.** It touches a shared helper and pre-existing callers outside this slice's diff. `/simplify`'s reject-by-default rule on cross-cutting refactors applies. S1 kept the local-guard ruling.
+
+**Acceptance.** Callers use a plain `await SeedRolesAndSchemaAsync(...)` with zero try/catch, and the suite passes in any class order.
+
+---
+
+### TD-015 — Endpoints mapped directly in `Program.cs` are invisible to the `EndpointRouteRules` arch sweep
+
+**Status:** open
+**Origin:** E-01b.F-03.S-01 (2026-09-26) — `/simplify` altitude finding (gate 5) and gate-6 review minor.
+
+**Problem.** `BuildArchTestEndpoints()` maps only `IModuleEndpoints` types. `/health/detailed` requires `PlatformAdminOnly` (ADR-0118) but is mapped in `Program.cs`, so the admin-route rules (`Every_admin_route_requires_PlatformAdminOnly`, `PlatformAdminOnly_is_used_only_under_the_admin_prefix`) never see it. Today its binding is pinned only by `HealthCheckEndpointTests.Detailed_returns_401_for_a_tenant_realm_user` and a comment in `Program.cs`.
+
+**Affected files.**
+- `tests/Kartova.ArchitectureTests/EndpointRouteRules.cs`
+- `src/Kartova.Api/Program.cs`
+
+**Proposed fix.** Pick one:
+- drive the arch sweep off the real `Program` host's `EndpointDataSource`; or
+- move the top-level system endpoints (health, version, openapi) into an `IModuleEndpoints`-style registration the sweep already enumerates.
+
+**Why deferred.** It reworks the arch-test composition root, which is larger than this slice.
+
+**Acceptance.** `/health/detailed` (and any future `Program.cs`-mapped route) is covered by the same policy sweep, with no per-route comment or pinned test needed.

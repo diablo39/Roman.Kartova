@@ -1,0 +1,95 @@
+{
+  "realm": "kartova-platform",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 900,
+  "ssoSessionMaxLifespan": 28800,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "passwordPolicy": "length(12)",
+  "bruteForceProtected": true,
+  "roles": {
+    "realm": [
+      { "name": "platform-admin" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "kartova-admin-api",
+      "name": "Kartova Admin API (audience target, ADR-0118)",
+      "enabled": true,
+      "bearerOnly": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false
+    },
+    {
+      "clientId": "kartova-admin-web",
+      "name": "Kartova Admin Console SPA (ADR-0118, S2)",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://localhost:5174/callback", "http://localhost:5174/silent-callback"],
+      "webOrigins": ["http://localhost:5174"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5174/*",
+        "access.token.lifespan": "300"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-kartova-admin-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "kartova-admin-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "kartova-admin-test",
+      "name": "Dev/test password-grant client — NEVER create in production (deploy/README.md)",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "protocolMappers": [
+        {
+          "name": "audience-kartova-admin-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "kartova-admin-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "platform-admin@kartova.local",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "platform-admin@kartova.local",
+      "firstName": "Platform",
+      "lastName": "Admin",
+      "credentials": [
+        { "type": "password", "value": "dev_password_12", "temporary": false }
+      ],
+      "realmRoles": ["platform-admin"]
+    }
+  ]
+}

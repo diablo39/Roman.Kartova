@@ -185,6 +185,8 @@ public abstract class KartovaApiFixtureBase
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Authority), TestJwtSigner.Issuer);
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Audience), TestJwtSigner.Audience);
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.RequireHttpsMetadata), "false");
+        Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.PlatformAdminAuthority), TestJwtSigner.PlatformIssuer);
+        Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.PlatformAdminAudience), TestJwtSigner.PlatformAudience);
 
         if (UsesKeycloakContainer)
         {

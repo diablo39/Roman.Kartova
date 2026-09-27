@@ -173,9 +173,11 @@ public sealed class KeycloakAdminClientIntegrationTests
     public async Task AssignRealmRole_to_user_succeeds_when_role_exists()
     {
         // "Member" is one of the realm roles seeded in deploy/keycloak/kartova-realm.json
-        // (alongside OrgAdmin, TeamAdmin, Viewer, platform-admin). RealmSeedConstants does
-        // not hold role names — they're a per-test concern — but the realm seed must continue
-        // to define this role; if it disappears, this test fails with KeycloakAdminError.NotFound.
+        // (alongside OrgAdmin, Viewer — ADR-0101 removed the TeamAdmin realm role in favor of
+        // per-team membership, and ADR-0118 moved platform-admin out of this realm into the
+        // separate kartova-platform realm). RealmSeedConstants does not hold role names —
+        // they're a per-test concern — but the realm seed must continue to define this role;
+        // if it disappears, this test fails with KeycloakAdminError.NotFound.
         var client = GetClient();
         var email = FreshEmail("assignrole");
         Guid? createdId = null;

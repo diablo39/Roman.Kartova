@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Kartova.SharedKernel.AspNetCore;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
@@ -49,6 +50,7 @@ public class EndpointRouteRules
 
         // Organization admin (BYPASSRLS, separate auth surface, same slug)
         new("AdminCreateOrganization",     Post, "/api/v1/admin/organizations/"),
+        new("AdminGetSessionMe",           Get,  "/api/v1/admin/session/me"),
 
         // Invitation accept — anonymous, tenant-less (slice 9, task 8)
         new("GetInvitationAcceptContext",  Get,  "/api/v1/invitations/accept"),
@@ -115,20 +117,108 @@ public class EndpointRouteRules
     }
 
     /// <summary>
+    /// ADR-0118: every route under /api/v1/admin/ must require the PlatformAdminOnly policy (operator
+    /// realm scheme + role). A route mapped there without it would silently fall back to the tenant
+    /// scheme — exactly the cross-realm hole the ADR closes.
+    /// An endpoint carrying <see cref="Microsoft.AspNetCore.Authorization.IAllowAnonymous"/> is also
+    /// an offender even if the policy metadata is present: <c>AuthorizationMiddleware</c> skips
+    /// authorization entirely for such endpoints, so <c>MapAdminModule(...).AllowAnonymous()</c> would
+    /// keep the PlatformAdminOnly metadata but accept anonymous callers.
+    /// </summary>
+    [TestMethod]
+    public void Every_admin_route_requires_PlatformAdminOnly()
+    {
+        var offenders = MapEndpointAuthForArchTest()
+            .Where(e => e.Template.StartsWith("/api/v1/admin/", StringComparison.OrdinalIgnoreCase))
+            .Where(e => !e.Policies.Contains(PlatformAdminAuth.Policy) || e.AllowsAnonymous)
+            .Select(e => $"{e.Name} {e.Template}")
+            .ToArray();
+
+        Assert.AreEqual(0, offenders.Length,
+            "admin routes missing PlatformAdminOnly or marked AllowAnonymous (map via MapAdminModule; " +
+            "AllowAnonymous is forbidden on admin routes): " + string.Join(", ", offenders));
+    }
+
+    [TestMethod]
+    public void PlatformAdminOnly_is_used_only_under_the_admin_prefix()
+    {
+        var offenders = MapEndpointAuthForArchTest()
+            .Where(e => e.Policies.Contains(PlatformAdminAuth.Policy) || e.Schemes.Contains(PlatformAdminAuth.Scheme))
+            .Where(e => !e.Template.StartsWith("/api/v1/admin/", StringComparison.OrdinalIgnoreCase))
+            .Select(e => $"{e.Name} {e.Template}")
+            .ToArray();
+
+        Assert.AreEqual(0, offenders.Length,
+            "PlatformAdminOnly (or the PlatformAdmin scheme named directly) outside /api/v1/admin/ mixes operator and tenant surfaces: " +
+            string.Join(", ", offenders));
+    }
+
+    [TestMethod]
+    public void Admin_route_snapshot_is_not_empty()
+    {
+        // Guards the two rules above against passing vacuously (e.g. discovery found no admin module).
+        var adminRoutes = MapEndpointAuthForArchTest()
+            .Count(e => e.Template.StartsWith("/api/v1/admin/", StringComparison.OrdinalIgnoreCase));
+        Assert.IsTrue(adminRoutes >= 2, $"expected ≥ 2 admin routes (organizations POST, session/me), found {adminRoutes}.");
+    }
+
+    /// <summary>
+    /// ADR-0118 gate 7 fix: the two rules above only look at whether the <c>PlatformAdminOnly</c>
+    /// policy NAME is attached. ASP.NET Core <em>combines</em> every <see cref="IAuthorizeData"/>
+    /// and <see cref="AuthorizationPolicy"/> metadata item on an endpoint — including their
+    /// authentication schemes — via <see cref="AuthorizationPolicy.CombineAsync(IAuthorizationPolicyProvider,IEnumerable{IAuthorizeData},IEnumerable{AuthorizationPolicy})"/>.
+    /// An admin route additionally carrying e.g. <c>[Authorize(AuthenticationSchemes = "Bearer")]</c>
+    /// would keep the policy-name check green while still authenticating tenant-realm tokens. This
+    /// test resolves the real combined policy the runtime would use and pins its
+    /// <see cref="AuthorizationPolicy.AuthenticationSchemes"/> down to exactly the operator scheme.
+    /// </summary>
+    [TestMethod]
+    public async Task Every_admin_route_combines_to_exactly_the_PlatformAdmin_scheme()
+    {
+        var app = BuildArchTestApp();
+        var provider = app.Services.GetRequiredService<IAuthorizationPolicyProvider>();
+
+        var adminEndpoints = RouteEndpointsOf(app)
+            .Where(e => (e.RoutePattern.RawText ?? string.Empty).StartsWith("/api/v1/admin/", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        Assert.IsTrue(adminEndpoints.Count >= 2, $"expected ≥ 2 admin routes, found {adminEndpoints.Count}.");
+
+        foreach (var endpoint in adminEndpoints)
+        {
+            var combined = await AuthorizationPolicy.CombineAsync(
+                provider,
+                endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>(),
+                endpoint.Metadata.GetOrderedMetadata<AuthorizationPolicy>());
+
+            Assert.IsNotNull(combined, $"{endpoint.RoutePattern.RawText}: combined authorization policy must not be null");
+            CollectionAssert.AreEqual(
+                new[] { PlatformAdminAuth.Scheme },
+                combined!.AuthenticationSchemes.ToArray(),
+                $"{endpoint.RoutePattern.RawText}: combined AuthenticationSchemes must be exactly [{PlatformAdminAuth.Scheme}] — " +
+                $"found [{string.Join(", ", combined.AuthenticationSchemes)}]");
+        }
+    }
+
+    /// <summary>
     /// Boots a minimal <see cref="WebApplication"/> with just enough services
     /// to make <see cref="IEndpointRouteBuilder"/>-based mapping succeed
     /// (auth/authz are required by <see cref="ModuleRouteExtensions.MapAdminModule"/>),
     /// instantiates every <see cref="IModuleEndpoints"/> implementation found
-    /// in production assemblies via parameterless ctor, calls <c>MapEndpoints</c>,
-    /// and snapshots the resulting <see cref="EndpointDataSource"/>.
+    /// in production assemblies via parameterless ctor, and calls <c>MapEndpoints</c>.
+    /// The real <see cref="PlatformAdminAuth.Policy"/> policy is registered (not just
+    /// a placeholder scheme) so <see cref="IAuthorizationPolicyProvider.GetPolicyAsync"/>
+    /// resolves it the same way the production host does.
     /// </summary>
-    private static List<EndpointFingerprint> MapEndpointsForArchTest()
+    private static WebApplication BuildArchTestApp()
     {
         var builder = WebApplication.CreateBuilder();
         // Auth / authz must be present because MapAdminModule calls RequireAuthorization;
         // we don't need a working JWT pipeline, just a valid scheme registration.
         builder.Services.AddAuthentication("Test").AddJwtBearer("Test", _ => { });
         builder.Services.AddAuthorization();
+        builder.Services.AddAuthorizationBuilder()
+            .AddPlatformAdminPolicy();
         builder.Services.AddRouting();
         // Rate limiter must be present because InvitationAcceptRoutes calls RequireRateLimiting.
         builder.Services.AddRateLimiter(_ => { });
@@ -146,8 +236,17 @@ public class EndpointRouteRules
         // Without registrations the binder treats handler/DbContext parameters as bodies
         // and fails on "multiple bodies". Stubbing them as null factories makes the
         // service-marker positive without requiring real DI graphs.
+        // Skip types the host already registers for real (e.g. ILoggerFactory, added by
+        // WebApplication.CreateBuilder()'s default logging setup): WebApplicationBuilder.Build()
+        // itself resolves ILoggerFactory to construct its internal Logger<T>s, so shadowing it
+        // with a null-factory stub — added AFTER the builder's own registration and therefore
+        // winning on resolution — throws ArgumentNullException("factory") inside Build(), before
+        // any endpoint ever runs. Task 5 / AdminSessionEndpointDelegates.GetMe(ILoggerFactory)
+        // surfaced this the first time a discovered delegate parameter collided with a
+        // framework-registered service.
         foreach (var type in DiscoverEndpointDelegateServiceTypes())
         {
+            if (builder.Services.Any(sd => sd.ServiceType == type)) continue;
             builder.Services.AddTransient(type, _ => null!);
         }
 
@@ -159,15 +258,41 @@ public class EndpointRouteRules
             module.MapEndpoints(app);
         }
 
-        return ((IEndpointRouteBuilder)app).DataSources
+        return app;
+    }
+
+    private static List<RouteEndpoint> RouteEndpointsOf(WebApplication app) =>
+        ((IEndpointRouteBuilder)app).DataSources
             .SelectMany(ds => ds.Endpoints)
             .OfType<RouteEndpoint>()
+            .ToList();
+
+    private static List<RouteEndpoint> BuildArchTestEndpoints() => RouteEndpointsOf(BuildArchTestApp());
+
+    private static List<EndpointFingerprint> MapEndpointsForArchTest() =>
+        BuildArchTestEndpoints()
             .Select(e => new EndpointFingerprint(
                 Name: e.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName ?? string.Empty,
                 HttpMethod: e.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods.SingleOrDefault() ?? string.Empty,
                 Template: e.RoutePattern.RawText ?? string.Empty))
             .ToList();
-    }
+
+    private static List<EndpointAuth> MapEndpointAuthForArchTest() =>
+        BuildArchTestEndpoints()
+            .Select(e => new EndpointAuth(
+                Name: e.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName ?? string.Empty,
+                Template: e.RoutePattern.RawText ?? string.Empty,
+                Policies: e.Metadata.GetOrderedMetadata<IAuthorizeData>()
+                    .Select(a => a.Policy)
+                    .Where(p => p is not null)
+                    .Select(p => p!)
+                    .ToArray(),
+                AllowsAnonymous: e.Metadata.GetMetadata<Microsoft.AspNetCore.Authorization.IAllowAnonymous>() is not null,
+                Schemes: e.Metadata.GetOrderedMetadata<IAuthorizeData>()
+                    .SelectMany(a => (a.AuthenticationSchemes ?? string.Empty)
+                        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                    .ToArray()))
+            .ToList();
 
     private static IEnumerable<Type> DiscoverModuleEndpointsTypes() =>
         AssemblyRegistry.AllProduction()
@@ -210,4 +335,6 @@ public class EndpointRouteRules
     }
 
     private sealed record EndpointFingerprint(string Name, string HttpMethod, string Template);
+
+    private sealed record EndpointAuth(string Name, string Template, string[] Policies, bool AllowsAnonymous, string[] Schemes);
 }

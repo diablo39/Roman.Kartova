@@ -35,5 +35,8 @@
     <None Include="..\..\deploy\keycloak\kartova-realm.json" Link="kartova-realm.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\deploy\keycloak\kartova-platform-realm.json" Link="kartova-platform-realm.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>

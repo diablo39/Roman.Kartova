@@ -1,0 +1,198 @@
+# gate-findings.yaml — per-gate findings telemetry for one slice.
+#
+# Purpose: record every issue each DoD gate raised, with a real/delusion verdict,
+# so gate effectiveness is queryable across slices.
+#   Aggregate:  find docs/superpowers/verification -name gate-findings.yaml
+#   Rank gates by precision (real ÷ found) and by real issues caught.
+#
+# Sibling of dod.md in docs/superpowers/verification/<date>-<topic>/.
+# Copy this file there at slice start; append a finding the moment a gate raises one.
+# dod.md records each gate's PASS/FAIL/PENDING/N-A status; this file records what it FOUND.
+# A gate with status PASS and no entries here ⇒ it ran and found nothing.
+
+slice:  2026-09-25-e01b-s1-platform-admin-isolation      # = the verification folder name (matches spec/plan slug)
+branch: feat/e01b-s1-admin-isolation
+terminal_commit: 4eaea99   # code-terminal commit; must match dod.md "Terminal commit"
+                               # .claude/hooks/dod-check.js blocks a completion claim whose
+                               # gate-findings.yaml has no terminal_commit or one that drifts from dod.md.
+
+# One entry per issue a gate raised.
+#
+# gate     — the dod.md row this finding came from (slug, not number):
+#              build              (1  Build, TreatWarningsAsErrors)
+#              reviews            (2  per-task subagent reviews)
+#              suite              (3  full test suite incl. real-seam)
+#              container          (4  container build / images CI)
+#              simplify           (5  /simplify)
+#              requesting-review  (6  requesting-code-review)
+#              review-pr          (7  review-pr)
+#              deep-review        (8  deep-review)
+#              manual             (9  visual / API verification, ADR-0084)
+#              terminal-reverify  (terminal re-verify: build + suite)
+#              ci-mirror          (10 CI green on PR / pre-push mirror, ci-local.sh)
+# severity — blocking | should-fix | nit
+# verdict  — real     : a genuine issue that warranted a change
+#            delusion : a false positive the gate raised that was not a real issue
+# title    — one-line description of the finding
+# note     — optional: resolution (fix sha), or why it was a delusion
+findings:
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "T4: tenant-claims-platform-admin regression test used non-GUID sub (regression hidden behind handler 401)"
+    note: "fixed 42bcf1f"
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "T5: AuthSmokeTests SeedRolesAndSchemaAsync unguarded (order-fragile)"
+    note: "fixed f0dc461"
+  - gate: reviews
+    severity: should-fix
+    verdict: delusion
+    title: "T7: OpenAPI entry lacks security requirement"
+    note: "snapshot models no securitySchemes anywhere; enforcement proven by tests"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "T3: operator requests log tenant-scheme auth failure at Information"
+    note: "deferred; gate 6: ForwardDefaultSelector fix would be unsafe; Microsoft.AspNetCore at Warning by default"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "T3: MapAdminModule metadata test lacks IAllowAnonymous assert"
+    note: "upgraded by gate 6 → fixed 7fc93f6"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "duplicated PostConfigure blocks in TestAuthenticationExtensions"
+    note: "applied fe1520d"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "PlatformAudience literal duplicated vs RealmSeedConstants"
+    note: "applied fe1520d"
+  - gate: simplify
+    severity: nit
+    verdict: delusion
+    title: "ClientWith helper in AdminBypassTests"
+    note: "file keeps own inline convention; cosmetic"
+  - gate: simplify
+    severity: nit
+    verdict: delusion
+    title: "reuse HttpContextCurrentUser claim mapping in GetMe"
+    note: "ICurrentUser tenant-coupled; out-of-scope extraction"
+  - gate: simplify
+    severity: nit
+    verdict: delusion
+    title: "sequential two-realm KC wait"
+    note: "realms import together; second poll immediate"
+  - gate: simplify
+    severity: nit
+    verdict: delusion
+    title: "ClassInitialize instead of TestInitialize in live tests"
+    note: "process-wide env vars need per-test reset"
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "SeedRolesAndSchemaAsync not idempotent (4 caller guards)"
+    note: "deferred TD-014"
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "/health/detailed invisible to EndpointRouteRules sweep"
+    note: "deferred TD-015"
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "admin arch rule accepted AllowAnonymous + case-sensitive prefix"
+    note: "fixed 7fc93f6"
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "prod runbook incomplete (operator accounts, dev-only import warning, ordering, role-holder removal, verify)"
+    note: "fixed bb0c3f3"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "ADR-0118 cited /api/v1/admin/me"
+    note: "fixed bb0c3f3"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "platform realm seed rules lacked lifespan/brute-force/password parity"
+    note: "fixed 7fc93f6"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "arch rule did not pin combined scheme set to exactly [PlatformAdmin]"
+    note: "fixed f6227dc"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "forged operator token (right iss/aud, wrong key) untested"
+    note: "fixed 64a087e + 2966069"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "tenant fail-fast regex also matched PlatformAdmin message"
+    note: "fixed 9c5605a"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "/health/detailed tenant+platform-admin and role-less cases missing"
+    note: "fixed 2966069"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "platform RequireHttpsMetadata default + MetadataAddress pass-through untested"
+    note: "fixed 9c5605a"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "invalid-sub 401 on operator endpoint not logged"
+    note: "fixed 2966069"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "PasswordGrantAsync dropped KeyCloak error body"
+    note: "fixed 64a087e"
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "EndpointAuth string[] breaks record equality"
+    note: "no equality use"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "ADR-0092/ADR-0006 not annotated with ADR-0118 amendment (ADR-0092 still role-only gate)"
+    note: "fixed 84b2067"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "spec status draft; tenant-route substitution unrecorded"
+    note: "fixed 84b2067"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "stale comments describing tenant-realm platform-admin"
+    note: "fixed 84b2067"
+  - gate: deep-review
+    severity: nit
+    verdict: delusion
+    title: "ForwardDefaultSelector by iss to cut log noise"
+    note: "would authenticate operator tokens on tenant routes (gate 6 analysis)"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "issuer-only / audience-only rejection untested at real seam"
+    note: "fixed 4eaea99"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "no rule that only kartova-admin-test enables direct grants"
+    note: "fixed 4eaea99"
+  - gate: manual
+    severity: should-fix
+    verdict: real
+    title: "local keycloak-db volume keeps pre-slice tenant realm with platform-admin user+role (data drift)"
+    note: "API fails closed (401) — verified; deploy/README local-dev down -v note added"

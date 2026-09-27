@@ -114,8 +114,11 @@ public sealed class SessionStartHandler
         // Use ForRole (not Map[role]) — Map only contains entries for the three
         // tenant-scoped roles (Viewer/Member/OrgAdmin). PlatformAdmin
         // and ServiceAccount are deliberately absent because they're orthogonal
-        // to tenants; if such a principal ever reaches this endpoint, ForRole
-        // returns an empty set instead of throwing KeyNotFoundException.
+        // to tenants. Since ADR-0118, an operator token cannot reach this endpoint
+        // at all — it is rejected at the scheme layer (tenant routes only accept the
+        // default scheme, not PlatformAdmin). The empty-set fallback below is
+        // defensive-only: it guards a principal shape this handler should never see,
+        // rather than throwing KeyNotFoundException if it somehow did.
         var permissions = KartovaRolePermissions.ForRole(role).ToArray();
 
         // TeamMembershipInfo.Role is TeamRoleKind ("Admin" / "Member"). The wire

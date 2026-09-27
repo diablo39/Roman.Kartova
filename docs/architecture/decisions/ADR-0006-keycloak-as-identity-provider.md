@@ -1,10 +1,10 @@
 # ADR-0006: KeyCloak as Identity Provider
 
-**Status:** Accepted
+**Status:** Accepted · **amended 2026-09-25** (see note under Decision)
 **Date:** 2026-04-17
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** Authentication & Authorization
-**Related:** ADR-0007 (JWT), ADR-0008 (RBAC roles), ADR-0009 (service accounts), ADR-0010 (status page auth)
+**Related:** ADR-0007 (JWT), ADR-0008 (RBAC roles), ADR-0009 (service accounts), ADR-0010 (status page auth), ADR-0118 (amends this ADR — separate `kartova-platform` operator realm)
 
 ## Context
 
@@ -13,6 +13,8 @@ Kartova requires OIDC-compliant authentication for web UI, REST API, and CLI acr
 ## Decision
 
 Use KeyCloak, self-hosted on Kubernetes, as the identity provider. KeyCloak issues OIDC JWTs, handles user registration/invites, password policies, MFA, SSO federation (SAML/LDAP/social), and realm-per-deployment. One realm covers all Kartova tenants; tenant assignment is a JWT claim (ADR-0014).
+
+> **Amended by ADR-0118 (2026-09-25):** "one realm for all Kartova tenants" continues to hold for tenants. Platform operators no longer share that realm — they live in a separate `kartova-platform` realm, with its own `PlatformAdmin` `JwtBearer` scheme and no service-account rights granted to the tenant realm's `kartova-admin` client. An operator who is also a tenant product user holds two distinct accounts, one per realm.
 
 ## Rationale
 

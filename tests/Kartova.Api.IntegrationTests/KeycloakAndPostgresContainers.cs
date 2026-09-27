@@ -59,6 +59,9 @@ public sealed class KeycloakAndPostgresContainers : IAsyncDisposable
     /// </summary>
     public string KeycloakAuthority => _keycloakFixture.KeycloakAuthority;
 
+    /// <summary>Operator-realm authority. Forwards to <see cref="KeycloakContainerFixture.PlatformKeycloakAuthority"/>.</summary>
+    public string PlatformKeycloakAuthority => _keycloakFixture.PlatformKeycloakAuthority;
+
     /// <summary>
     /// Admin REST base URL. Forwards to
     /// <see cref="KeycloakContainerFixture.KeycloakBaseUrl"/>.

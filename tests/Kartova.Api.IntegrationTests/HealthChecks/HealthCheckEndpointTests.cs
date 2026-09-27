@@ -45,6 +45,7 @@ public class HealthCheckEndpointTests : KeycloakContainerTestBase
             $"{Containers.KeycloakAuthority}/.well-known/openid-configuration");
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Audience), "kartova-api");
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.RequireHttpsMetadata), "false");
+        SetPlatformAdminAuthEnv();
         Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__BaseUrl", Containers.KeycloakBaseUrl);
         Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__Realm", RealmSeedConstants.RealmName);
         Environment.SetEnvironmentVariable("KartovaIdentity__Keycloak__AdminClientId", RealmSeedConstants.AdminClientId);
@@ -96,20 +97,22 @@ public class HealthCheckEndpointTests : KeycloakContainerTestBase
     }
 
     [TestMethod]
-    public async Task Detailed_returns_403_for_a_non_platform_admin_user()
+    public async Task Detailed_returns_401_for_a_tenant_realm_user()
     {
         var token = await GetRealTokenAsync("admin@orga.kartova.local", "dev_password_12");
         var client = _app!.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var resp = await client.GetAsync("/health/detailed");
-        Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode);
+
+        Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
+        StringAssert.Contains(resp.Headers.WwwAuthenticate.ToString(), "invalid_token");
     }
 
     [TestMethod]
     public async Task Detailed_returns_200_with_exception_field_for_a_platform_admin_user()
     {
-        var token = await GetRealTokenAsync("platform-admin@kartova.local", "dev_password_12");
+        var token = await GetRealPlatformTokenAsync("platform-admin@kartova.local", "dev_password_12");
         var client = _app!.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 

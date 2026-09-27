@@ -64,9 +64,11 @@ public class RestVerbPolicyRules
         // Stub every reference type referenced by an endpoint delegate parameter so
         // RequestDelegateFactory's IServiceProviderIsService check classifies them as
         // [FromServices] rather than [FromBody]. See EndpointRouteRules for the long-form
-        // rationale.
+        // rationale, including why already-registered types (e.g. ILoggerFactory) must be
+        // skipped rather than shadowed — WebApplicationBuilder.Build() itself resolves it.
         foreach (var type in DiscoverEndpointDelegateServiceTypes())
         {
+            if (builder.Services.Any(sd => sd.ServiceType == type)) continue;
             builder.Services.AddTransient(type, _ => null!);
         }
 

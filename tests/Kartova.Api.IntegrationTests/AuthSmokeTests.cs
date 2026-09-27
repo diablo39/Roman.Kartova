@@ -19,7 +19,14 @@ public class AuthSmokeTests : KeycloakContainerTestBase
     [TestInitialize]
     public async Task InitializeAsync()
     {
-        await PostgresTestBootstrap.SeedRolesAndSchemaAsync(Containers.Postgres.GetConnectionString());
+        try
+        {
+            await PostgresTestBootstrap.SeedRolesAndSchemaAsync(Containers.Postgres.GetConnectionString());
+        }
+        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.DuplicateObject)
+        {
+            // Seeded by another test class sharing this assembly's Postgres container.
+        }
 
         // Env vars must be set BEFORE the WebApplicationFactory boots the host.
         // Program.Main reads ConnectionStrings:* and Authentication:* before the
@@ -33,6 +40,7 @@ public class AuthSmokeTests : KeycloakContainerTestBase
             $"{Containers.KeycloakAuthority}/.well-known/openid-configuration");
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.Audience), "kartova-api");
         Environment.SetEnvironmentVariable(EnvKey(AuthenticationConfigKeys.RequireHttpsMetadata), "false");
+        SetPlatformAdminAuthEnv();
 
         // Slice 9 / H8: AddKeycloakAdminClient.ValidateOnStart rejects the
         // appsettings placeholder "OVERRIDE_VIA_ENV". Wire the four
