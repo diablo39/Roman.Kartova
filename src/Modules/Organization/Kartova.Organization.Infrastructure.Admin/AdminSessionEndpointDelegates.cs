@@ -20,6 +20,12 @@ internal static class AdminSessionEndpointDelegates
         var sub = user.FindFirst("sub")?.Value;
         if (!Guid.TryParse(sub, out var userId))
         {
+            // This 401 is ProblemDetails-only — no `WWW-Authenticate` challenge is issued, because
+            // the request already passed scheme authentication (a valid PlatformAdmin-scheme token);
+            // this is a claim-shape failure, not a scheme rejection. It is reachable only by an
+            // authenticated operator token that lacks a GUID `sub`, which real KeyCloak never issues.
+            // Isolation tests tell this branch apart from a scheme rejection by the absence of the
+            // `invalid_token` value in `WWW-Authenticate` (scheme rejections carry it; this does not).
             // Never log the raw claim value — only whether it was missing or present-but-unparsable.
             loggerFactory.CreateLogger(LoggerCategory).LogWarning(
                 "Operator token without a usable 'sub' claim reached /api/v1/admin/session/me. Sub claim was {SubState}.",

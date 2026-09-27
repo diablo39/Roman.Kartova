@@ -3,7 +3,7 @@
 **Story:** E-01b.F-03.S-01 (new — added by this slice to `docs/product/phases/phase-0-foundation.md`, `EPICS-AND-STORIES.md`, `CHECKLIST.md`, together with E-01b.F-03.S-02 `web-admin` app shell)
 **ADRs:** [ADR-0118](../../architecture/decisions/ADR-0118-platform-admin-isolation.md) (realized by this slice), [ADR-0092](../../architecture/decisions/ADR-0092-rest-api-url-convention.md) (amended), [ADR-0006](../../architecture/decisions/ADR-0006-keycloak-as-identity-provider.md) (amended), [ADR-0116](../../architecture/decisions/ADR-0116-spa-holds-tokens-bff-deferred.md)
 **Date:** 2026-09-25
-**Status:** draft
+**Status:** implemented
 
 ## Context
 
@@ -89,7 +89,7 @@ Gate-3 deliverables:
 - **`AdminSchemeIsolationTests` (new, `Kartova.Organization.IntegrationTests`, which owns the admin routes and has the `TestJwtSigner` fixture; live-KC variants in `Kartova.Api.IntegrationTests/PlatformRealmLiveTokenTests`):**
   - platform token → `/api/v1/admin/session/me` 200 + body shape;
   - **tenant token carrying `platform-admin` → `/api/v1/admin/session/me` 401** (key regression);
-  - platform token → a tenant route (`/api/v1/catalog/applications`) 401;
+  - platform token → a tenant route (`/api/v1/catalog/applications`) 401 — the tests use the equivalent tenant-scoped route `/api/v1/organizations/me` instead (`AdminSchemeIsolationTests.cs`, `PlatformRealmLiveTokenTests.cs`, `AuthErrorTests.cs`);
   - platform token without the role → 403;
   - anonymous → 401.
   - 401 cases are multi-cause, so assert the response discriminator (`WWW-Authenticate` error / ProblemDetails type), not the status alone.

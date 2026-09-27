@@ -297,9 +297,12 @@ public sealed class SessionStartHandlerTests
     public async Task HandleAsync_returns_empty_permissions_when_role_outside_tenant_map()
     {
         // PlatformAdmin is deliberately absent from KartovaRolePermissions.Map
-        // (orthogonal to tenants). ForRole returns EmptySet rather than throwing,
-        // so a PlatformAdmin who somehow reaches the tenant-scoped endpoint
-        // surfaces as a Role string + empty Permissions list — never a 500.
+        // (orthogonal to tenants). Since ADR-0118, an operator token is rejected at
+        // the scheme layer before it can reach this tenant-scoped endpoint at all;
+        // this test exercises ForRole's fallback defensively, at the handler level,
+        // decoupled from the scheme boundary. ForRole returns EmptySet rather than
+        // throwing, so an out-of-map role surfaces as a Role string + empty
+        // Permissions list — never a 500.
         await using var db = NewInMemory(out var tenant);
         SeedOrg(db);
 

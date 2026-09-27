@@ -1,10 +1,10 @@
 # ADR-0092: REST API URL Convention — Module-Prefixed with Admin-First and Skip Rule
 
-**Status:** Accepted
+**Status:** Accepted · **amended 2026-09-25** (see note under Rule 2)
 **Date:** 2026-04-29
 **Deciders:** Roman Głogowski (solo developer)
 **Category:** API & Integration Architecture
-**Related:** ADR-0029 (REST), ADR-0034 (OpenAPI), ADR-0082 (modular monolith), ADR-0090 (tenant scope)
+**Related:** ADR-0029 (REST), ADR-0034 (OpenAPI), ADR-0082 (modular monolith), ADR-0090 (tenant scope), ADR-0118 (amends this ADR — separate `PlatformAdmin` scheme)
 
 ## Context
 
@@ -50,6 +50,8 @@ Examples:
 ### Rule 2 — Admin-first prefix
 
 Endpoints scoped to **platform-admin only** live under `/api/v1/admin/<module-slug>/`. Admin comes before module so a single auth gate (`/api/v1/admin/*` requires `platform-admin` role) covers the entire admin URL space.
+
+> **Amended by ADR-0118 (2026-09-25):** the single auth gate is the `PlatformAdminOnly` policy, not the role alone — it requires both the operator-realm `PlatformAdmin` `JwtBearer` scheme **and** the `platform-admin` role. A tenant-realm token carrying the role is still rejected (401) because it never authenticates against the `PlatformAdmin` scheme. Separately, non-module identity groups are allowed under `/api/v1/admin/` — `/api/v1/admin/session` (mapped via `MapAdminModule("session")`) follows the same non-slug precedent as `/api/v1/auth/session`.
 
 Examples:
 
