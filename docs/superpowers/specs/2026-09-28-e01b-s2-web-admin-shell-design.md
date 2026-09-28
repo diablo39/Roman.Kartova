@@ -73,16 +73,17 @@ web/src/admin/
 | File | Change |
 |---|---|
 | `web/src/components/layout/sidebar-nav.tsx` (new) | `NavGroup`, `NavItemLink`, `DisabledItem` moved out of `Sidebar.tsx`. Pure move. |
-| `web/src/components/layout/SidebarFrame.tsx` (new) | Logo, collapse toggle, localStorage persistence (moved from `Sidebar.tsx`). Nav passed as `children`. |
+| `web/src/components/layout/SidebarFrame.tsx` (new) | `<aside>` chrome + "Kartova" logo header + `<nav>` wrapper (moved from `Sidebar.tsx`). Nav passed as `children`. `NavCollapsibleGroup` moves to `sidebar-nav.tsx` with the other primitives. |
+| `web/src/lib/utils/initials.ts` (moved from `shared/auth/initials.ts`) | `initialsOf` is generic and `TopBarFrame` needs it; keeps `src/shared/auth/**` out of the admin import closure. |
 | `web/src/components/layout/TopBarFrame.tsx` (new) | Header chrome with slots `identity`, `center`, and `user: { displayName, email } \| null` + `onSignOut`. Owns the avatar dropdown. |
 | `web/src/components/layout/ShellLayout.tsx` (new) | `sidebar` + `topBar` + `<main><Outlet/></main>`. No hooks. |
 | `Sidebar.tsx`, `TopBar.tsx`, `AppLayout.tsx` (modify) | Tenant compositions over the frames. Rendered DOM and behavior unchanged. Existing tests stay green without assertion changes. |
-| `web/src/shared/oidc/` (new; moved from `shared/auth`) | `buildOidcConfig`, `RequireAuth`, `resolveReturnTo`. Tenant imports updated. `AuthProvider` takes `authority`/`clientId` as props. |
+| `web/src/shared/oidc/` (new; moved from `shared/auth`) | `buildOidcConfig`, `RequireAuth`, `resolveReturnTo`. Tenant imports updated. The tenant `AuthProvider` stays in `shared/auth` (its env defaults are tenant-specific). The admin app builds its own config with `buildOidcConfig` and mounts `react-oidc-context`'s `AuthProvider` directly. |
 | `web/src/shared/api/createAuthedApiClient.ts` (new) | `createAuthedApiClient(baseUrl, getToken, onUnauthorized)`: openapi-fetch + bearer middleware + 401 hook + deferred fetch. `features/catalog/api/client.ts` delegates to it. Its exported API (`setAccessTokenProvider`, `setUnauthorizedHandler`, `apiClient`, `API_BASE_URL`) is unchanged. |
 | `web/package.json` (modify) | Scripts `dev:admin` (codegen + `vite --config vite.admin.config.ts`), `build:admin` (`tsc -b && vite build --config vite.admin.config.ts`), `preview:admin` (port 4174). |
 
 **Import boundary (`importBoundary.test.ts`, vitest):**
-- Files under `src/admin/**` must not import `@/features/**`, `@/app/**` or `@/shared/auth/**`.
+- The **transitive import closure** of `src/admin/main.tsx` (resolving `@/…` and relative specifiers) must contain no file under `src/features/**`, `src/app/**` or `src/shared/auth/**`.
 - Allowed from admin: `@/components/**`, `@/lib/**`, `@/hooks/**`, `@/styles/**`, `@/shared/oidc/**`, `@/shared/api/**`, `@/shared/forms/**`, `@/generated/**`.
 - Files outside `src/admin/**` must not import `@/admin/**`.
 - The test scans source text (static and dynamic `import(...)`) and fails listing each offending file + specifier.
@@ -126,7 +127,7 @@ web/src/admin/
 |---|---|
 | `src/Kartova.SharedKernel.AspNetCore/CorsPolicies.cs` (new) | `const TenantWeb = "KartovaWeb"`, `const AdminWeb = "KartovaAdminWeb"`. |
 | `CorsConfigKeys.cs` (modify) | `AdminAllowedOrigins = "Cors:AdminAllowedOrigins"`. |
-| `CorsOriginLists.cs` (new, SharedKernel.AspNetCore) | `Validate(string[] tenant, string[] admin)`: throws `InvalidOperationException` if an origin is in both lists (ordinal, case-insensitive, trailing `/` ignored) or the admin list contains `*`. |
+| `CorsOriginLists.cs` (new, SharedKernel.AspNetCore) | `Normalize(string[])`: trims whitespace and a trailing `/`, drops empty entries (a browser `Origin` never carries a trailing slash, so `https://admin.example/` in config would otherwise never match). `Validate(tenant, admin)`: throws `InvalidOperationException` if an origin is in both normalized lists (case-insensitive) or the admin list contains `*`. Program.cs passes the normalized lists to `WithOrigins`. |
 | `src/Kartova.Api/Program.cs` (modify) | Read both lists → `CorsOriginLists.Validate` → register `TenantWeb` (unchanged) + `AdminWeb` (`WithOrigins(admin).AllowAnyHeader().AllowAnyMethod()`, no credentials; empty list → no origins). Empty admin list outside Development → warning log. `app.UseCors(CorsPolicies.TenantWeb)` stays as the default. |
 | `ModuleRouteExtensions.MapAdminModule` (modify) | `.RequireAuthorization(PlatformAdminAuth.Policy).RequireCors(CorsPolicies.AdminWeb)`. Endpoint CORS metadata overrides the middleware default and makes the endpoint accept `OPTIONS` preflight. |
 | `appsettings.json` / `appsettings.Development.json` | `Cors:AdminAllowedOrigins`: `[]` / `["http://localhost:5174"]`. |
@@ -157,7 +158,7 @@ web/src/admin/
   - `KeycloakPlatformRealmSeedRules` is updated where it asserts users/redirects. The "dev user holding platform-admin" rule still holds.
   - Local apply needs `docker compose down -v`.
 - **Helm (`deploy/helm/kartova`):**
-  - `web-deployment.yaml`, `web-service.yaml`, `web-admin-deployment.yaml`, `web-admin-service.yaml`;
+  - `web.yaml`, `web-admin.yaml` (each a Deployment + Service rendered from shared `_helpers.tpl` templates `kartova.spa.deployment` / `kartova.spa.service`);
   - values `web.{enabled, image.name: web, port, cspExtraOrigins, origin, resources}` and the same for `webAdmin` (`image.name: web-admin`), `enabled: true` by default;
   - probes `GET /`; ClusterIP services; no ingress (the chart has none today);
   - api env `Cors__AllowedOrigins__0` / `Cors__AdminAllowedOrigins__0` rendered only when `web.origin` / `webAdmin.origin` is set (`with`), so existing installs keep their behavior.
