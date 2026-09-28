@@ -67,8 +67,9 @@ web/src/admin/
   pages/AdminLandingPage.tsx
   pages/AdminNoAccessPage.tsx
   pages/AdminCallbackPage.tsx
-  __tests__/importBoundary.test.ts
 ```
+
+`web/arch/adminImportBoundary.test.ts` (outside `src/`, typechecked by `tsconfig.node.json`, which has Node types) holds the import-boundary test.
 
 | File | Change |
 |---|---|
@@ -82,7 +83,7 @@ web/src/admin/
 | `web/src/shared/api/createAuthedApiClient.ts` (new) | `createAuthedApiClient(baseUrl, getToken, onUnauthorized)`: openapi-fetch + bearer middleware + 401 hook + deferred fetch. `features/catalog/api/client.ts` delegates to it. Its exported API (`setAccessTokenProvider`, `setUnauthorizedHandler`, `apiClient`, `API_BASE_URL`) is unchanged. |
 | `web/package.json` (modify) | Scripts `dev:admin` (codegen + `vite --config vite.admin.config.ts`), `build:admin` (`tsc -b && vite build --config vite.admin.config.ts`), `preview:admin` (port 4174). |
 
-**Import boundary (`importBoundary.test.ts`, vitest):**
+**Import boundary (`web/arch/adminImportBoundary.test.ts`, vitest):**
 - The **transitive import closure** of `src/admin/main.tsx` (resolving `@/…` and relative specifiers) must contain no file under `src/features/**`, `src/app/**` or `src/shared/auth/**`.
 - Allowed from admin: `@/components/**`, `@/lib/**`, `@/hooks/**`, `@/styles/**`, `@/shared/oidc/**`, `@/shared/api/**`, `@/shared/forms/**`, `@/generated/**`.
 - Files outside `src/admin/**` must not import `@/admin/**`.
