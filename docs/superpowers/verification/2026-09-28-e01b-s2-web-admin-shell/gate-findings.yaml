@@ -12,7 +12,7 @@
 
 slice:  2026-09-28-e01b-s2-web-admin-shell      # = the verification folder name (matches spec/plan slug)
 branch: feat/e01b-s2-web-admin-shell
-terminal_commit: e3d6f1e   # the slice's final commit; MUST match dod.md's "Terminal commit".
+terminal_commit: 4fca365   # the slice's final commit; MUST match dod.md's "Terminal commit".
                                # .claude/hooks/dod-check.js blocks a completion claim whose
                                # gate-findings.yaml has no terminal_commit or one that drifts from dod.md.
 
@@ -35,7 +35,22 @@ terminal_commit: e3d6f1e   # the slice's final commit; MUST match dod.md's "Term
 #            delusion : a false positive the gate raised that was not a real issue
 # title    — one-line description of the finding
 # note     — optional: resolution (fix sha), or why it was a delusion
-findings: []
+findings:
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "Task 5: admin dev/preview HTML fallback was Accept-based — non-browser clients got the tenant index.html on :5174/:4174"
+    note: "fixed 64510a3 (path-based adminHtmlTarget + unit tests)"
+  - gate: container
+    severity: should-fix
+    verdict: real
+    title: "nginx base image stock index.html survived next to admin.html in the web-admin image"
+    note: "fixed in bec75c1 (clear /usr/share/nginx/html before COPY); caught by the gate-4 image listing check"
+  - gate: reviews
+    severity: should-fix
+    verdict: delusion
+    title: "Task 1: dod.md gates 1/3 still PENDING after targeted per-task runs"
+    note: "gates are slice-level (full build + suite on final commit); ruled not a defect"
 
 # Example entries (delete when filling in real data):
 #

@@ -1,0 +1,39 @@
+# Gates 1 + 3 evidence — HEAD 4fca365 — 2026-09-28
+
+## Gate 1 — cmd //c "dotnet build Kartova.slnx"
+    0 Warning(s)
+    0 Error(s)
+BUILD_EXIT=0
+
+## Gate 1 (web) — npm run typecheck / build / build:admin
+TSC_EXIT=0
+✓ built in 40.30s
+BUILD_EXIT=0
+✓ built in 4.19s
+BUILDADMIN_EXIT=0
+
+## Gate 3 — cmd //c "dotnet test Kartova.slnx --no-build -m:1" (compose stopped; Testcontainers real Postgres/RLS + live KeyCloak)
+Passed!  - Failed:     0, Passed:    66, Skipped:     0, Total:    66, Duration: 1 s - Kartova.Audit.Domain.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    35, Skipped:     0, Total:    35, Duration: 12 s - Kartova.Audit.Infrastructure.IntegrationTests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    11, Skipped:     0, Total:    11, Duration: 3 s - Kartova.Catalog.Infrastructure.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   516, Skipped:     0, Total:   516, Duration: 1 m 2 s - Kartova.Catalog.IntegrationTests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   393, Skipped:     0, Total:   393, Duration: 2 s - Kartova.Catalog.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   110, Skipped:     0, Total:   110, Duration: 3 s - Kartova.Organization.Infrastructure.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   154, Skipped:     0, Total:   154, Duration: 1 m 10 s - Kartova.Organization.IntegrationTests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    83, Skipped:     0, Total:    83, Duration: 757 ms - Kartova.Organization.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    32, Skipped:     0, Total:    32, Duration: 1 m 8 s - Kartova.Api.IntegrationTests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    93, Skipped:     0, Total:    93, Duration: 11 s - Kartova.ArchitectureTests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   129, Skipped:     0, Total:   129, Duration: 1 s - Kartova.SharedKernel.AspNetCore.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:     8, Skipped:     0, Total:     8, Duration: 27 s - Kartova.SharedKernel.Identity.IntegrationTests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    27, Skipped:     0, Total:    27, Duration: 424 ms - Kartova.SharedKernel.Identity.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:     8, Skipped:     0, Total:     8, Duration: 4 s - Kartova.SharedKernel.Postgres.IntegrationTests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   146, Skipped:     0, Total:   146, Duration: 2 s - Kartova.SharedKernel.Tests.dll (net10.0)
+TEST_EXIT=0
+Total: 1811 passed, 0 failed, 15 assemblies
+
+## Gate 3 (web) — npm test
+(node:37172) Warning: `--localstorage-file` was provided without a valid path
+ Test Files  169 passed (169)
+      Tests  1208 passed (1208)
+WEBTEST_EXIT=0
+(the node '--localstorage-file' warning is environment-level, emitted before any test file runs)

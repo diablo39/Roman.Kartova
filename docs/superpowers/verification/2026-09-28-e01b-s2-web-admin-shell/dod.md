@@ -1,6 +1,6 @@
 # DoD Ledger — E-01b.F-03.S-02 web-admin app shell
 
-**Slice:** `2026-09-28-e01b-s2-web-admin-shell` · **Branch:** `feat/e01b-s2-web-admin-shell` · **HEAD:** `e3d6f1e`
+**Slice:** `2026-09-28-e01b-s2-web-admin-shell` · **Branch:** `feat/e01b-s2-web-admin-shell` · **HEAD:** `4fca365`
 **PR:** <#NN / url> · **Last updated:** 2026-09-28
 **Spec:** `docs/superpowers/specs/2026-09-28-e01b-s2-web-admin-shell-design.md`
 **Plan:** `docs/superpowers/plans/2026-09-28-e01b-s2-web-admin-shell-plan.md`
@@ -14,10 +14,10 @@
 
 | Gate | Status | Updated |
 |------|--------|---------|
-| 1 Build (`TreatWarningsAsErrors`) | ⏳ PENDING | — |
-| 2 Per-task subagent reviews | ⏳ PENDING | — |
-| 3 Full suite (+ real-seam if wiring) | ⏳ PENDING | — |
-| 4 Container build (images CI) | ⏳ PENDING | — |
+| 1 Build (`TreatWarningsAsErrors`) | ✅ PASS | 2026-09-28 |
+| 2 Per-task subagent reviews | ✅ PASS | 2026-09-28 |
+| 3 Full suite (+ real-seam if wiring) | ✅ PASS | 2026-09-28 |
+| 4 Container build (images CI) | ✅ PASS | 2026-09-28 |
 | 5 `/simplify` | ⏳ PENDING | — |
 | 6 `requesting-code-review` | ⏳ PENDING | — |
 | 7 `review-pr` | ⏳ PENDING | — |
@@ -29,24 +29,24 @@
 ## Gate detail
 
 ### 1 — Build (`TreatWarningsAsErrors=true`)
-**Status:** ⏳ PENDING
-**Evidence:** <command + output excerpt, or CI run URL>
-**At:** <commit / date>
+**Status:** ✅ PASS
+**Evidence:** `cmd //c "dotnet build Kartova.slnx"` → 0 Warning(s), 0 Error(s); web `npm run typecheck` (tsc -b) exit 0, `npm run build` + `npm run build:admin` OK. See `gate1-3-build-suite.txt`.
+**At:** 4fca365 / 2026-09-28
 
 ### 2 — Per-task subagent reviews (spec + quality)
-**Status:** ⏳ PENDING
-**Evidence:** <subagent ids / linked report files>
-**At:** <commit / date>
+**Status:** ✅ PASS
+**Evidence:** subagent-driven-development — fresh implementer + task reviewer (spec ✅ + quality) per task, Tasks 0–10, all Approved. Task 5 went through 1 fix round (admin dev/preview HTML fallback was Accept-based → path-based, 64510a3; scoped re-review: addressed). Deferred minors + rulings are listed in the SDD ledger and handed to gate 6.
+**At:** 3e654cb..4fca365 / 2026-09-28
 
 ### 3 — Full test suite (unit + arch + integration; real-seam if wiring)
-**Status:** ⏳ PENDING
-**Evidence:** <command + counts, or CI run URL. Note real-seam N/A with reason if frontend-only>
-**At:** <commit / date>
+**Status:** ✅ PASS
+**Evidence:** `dotnet test Kartova.slnx --no-build -m:1` (compose stopped) → 1811 passed / 0 failed across 15 assemblies. Real seam: `CorsTests` (live KeyCloak token, real JwtBearer, 7 tests) + `PlatformRealmLiveTokenTests` (no-role operator → 403). Web `npm test` → 169 files / 1208 tests passed. E2E-impact trigger: full `e2e/` suite 11/11 (incl. 2 new admin specs) — `e2e-run.txt`. See `gate1-3-build-suite.txt`.
+**At:** 4fca365 / 2026-09-28
 
 ### 4 — Container build (images CI job)
-**Status:** ⏳ PENDING
-**Evidence:** <CI "Container images" check URL>
-**At:** <commit / date>
+**Status:** ✅ PASS (local; CI `images` job confirms at gate 10)
+**Evidence:** applies — `web/Dockerfile` + new `admin.conf.template` + compose service. `docker build` web / `APP=admin` / `APP=bogus` → 0 / 0 / non-zero; admin image contains only `admin.html`; container CSP + deep-link title verified — `gate4-images.txt`. Found + fixed: nginx stock `index.html` survived next to `admin.html` (bec75c1).
+**At:** bec75c1 (no web/Docker input changed after) / 2026-09-28
 
 ### 5 — `/simplify` against branch diff
 **Status:** ⏳ PENDING
