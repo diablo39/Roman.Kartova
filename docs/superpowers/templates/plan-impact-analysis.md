@@ -1,5 +1,5 @@
 <!--
-  Plan section template — C# impact analysis (LSP).
+  Plan section template — C# impact analysis (grep).
   Copy the "## Impact Analysis" block below into the plan document, immediately
   after "## Global Constraints" and before the first "### Task N".
 
@@ -11,35 +11,31 @@
   a single line: "N/A — no existing C# symbol changed." Never delete the heading
   silently — an absent heading reads as "forgot", a present N/A reads as "decided".
 
-  RULE: each changed symbol's blast radius MUST come from the built-in LSP tool
-  (findReferences / incomingCalls; goToImplementation for interface or base-type
-  changes) — NOT a grep guess. Cite counts and the notable call sites, and
-  confirm every caller is covered by a task in this plan.
+  RULE: each changed symbol's blast radius comes from Grep over EVERY access form,
+  with each hit read (a hit in a comment or an unrelated same-named member is not a
+  caller). Cite the patterns you ran and the hit counts, so a reviewer can re-run them.
 
-  POSITION DISCIPLINE: LSP resolves whatever symbol sits at the given
-  line:character (both 1-based). Land the offset INSIDE the symbol's own name —
-  a near-miss silently resolves the wrong symbol and returns almost nothing,
-  which reads exactly like "no callers". Grep the declaration line first, count
-  to the name, then query. Record the offset you used, so a reviewer can tell a
-  real empty result from a mis-aimed one. If a count looks implausibly small,
-  suspect the offset before the codebase.
-
-  CONST EXCEPTION: `public const` values are inlined at compile time, so
-  reference queries materially under-report them. Grep const / permission-string
-  / enum-literal symbols and write "grep (const — inlined)" in the Tool run
-  column. This is the documented exception, not a shortcut.
+  ACCESS FORMS to grep (pick the ones that apply to the symbol kind):
+    - method / member call ........ `Name\(`
+    - extension method ............ `\.Name\(`
+    - method group / delegate ..... `\bName\b` without `(` (e.g. `.Select(Name)`, `MapGet(..., Name)`)
+    - nameof / reflection ......... `nameof\(Name\)`, `"Name"`
+    - type (ctor, generic arg, DI)  `\bTypeName\b`, `new TypeName\(`, `<TypeName>`
+    - interface / base type ....... `: .*\bIName\b` for implementors, then grep each implementor's members
+    - const / enum / string value . the const name AND its literal value (the value may be duplicated in
+                                     tests, JSON, TS, SQL, or realm files)
+  Cross-stack couplings (TS/JSON/SQL/Helm, e.g. the permission 5-sync) are part of the
+  blast radius: grep those trees too.
 -->
 
-## Impact Analysis (LSP)
+## Impact Analysis
 
-**Method:** built-in `LSP` (`findReferences` / `incomingCalls` / `goToImplementation`), queried at a cited `file:line:char`. Grep is not sufficient here, except for the const case noted below.
+**Method:** Grep over all access forms (see the template header), with every hit read. Cite each pattern + scope so a reviewer can re-run it.
 
-> **If `LSP` is unavailable or its results cannot be corroborated** (no server for the file type, workspace not indexed, or a result that contradicts a known call site): say so explicitly in the `Tool run` column (`grep — LSP <reason>`), ground the table with grep as a stopgap, and add to Blast-radius notes: "**Re-run `findReferences` at execution time before editing; add a task for any caller not in this table.**" Record the failure in the DoD ledger too. Honest degradation — never present grep as if it were tool-grounded.
+| Changed symbol | Change | Grep patterns (scope) | Callers / refs | Notable call sites | Covered by task |
+|----------------|--------|-----------------------|----------------|--------------------|-----------------|
+| `Namespace.Type.Member` | signature \| behavior | `Member\(`, `\.Member\(`, `nameof\(Member\)` (`*.cs`) | N | `File.cs:line` (module) … | Task N |
 
-| Changed symbol | Change | Tool run (file:line:char) | Callers / refs | Notable call sites | Covered by task |
-|----------------|--------|---------------------------|----------------|--------------------|-----------------|
-| `Namespace.Type.Member` | signature \| behavior | `findReferences` @ `File.cs:25:44` | N | `File.cs:line` (module) … | Task N |
-
-**Blast-radius notes:** <cross-module reach, interface implementors, event/handler fan-out, anything the counts above under-state. Note explicitly that the language server is blind to the non-C# stack — TS/JSON couplings such as the permission 5-sync need grep + domain knowledge.>
+**Blast-radius notes:** <cross-module reach, interface implementors, event/handler fan-out, cross-stack (TS/JSON/SQL) couplings, anything the counts above under-state — e.g. reflection- or convention-based discovery that no textual pattern finds.>
 
 **Coverage check:** every caller/reference listed above is handled by a task in this plan — <yes, or list the gaps and the tasks added to close them>.

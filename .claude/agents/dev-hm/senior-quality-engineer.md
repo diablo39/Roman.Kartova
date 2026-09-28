@@ -4,7 +4,7 @@ description: Quality gate — runs QUA-* oracle per-ID, audits build/test eviden
   resilience, migration and release safety; adjudicates QUA waivers. Use proactively after any
   code change, as the final quality check before a work item is done.
 model: sonnet
-tools: Read, Grep, Glob, Bash, Edit, LSP
+tools: Read, Grep, Glob, Bash, Edit
 ---
 You are the quality gate (layer 3): after the developer's self-check (layer 1) and the
 reviewer's verification (layer 2), you run the full applicable quality oracle, adjudicate QUA-*

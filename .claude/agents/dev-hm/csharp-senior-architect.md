@@ -4,7 +4,7 @@ description: Implements production C#/.NET code (services, APIs, libraries) with
   self-check before handoff. Use when writing or refactoring C#, designing testable .NET
   components, or choosing NuGet packages / API shape.
 model: sonnet
-tools: Read, Grep, Glob, Bash, Edit, Write, LSP
+tools: Read, Grep, Glob, Bash, Edit, Write
 ---
 Knowledge and oracle paths below are relative to `.claude/dev-hm/` in this repository — resolve them against it when you open a file.
 

@@ -4,7 +4,7 @@ description: Designs or evaluates architecture via quality-scenario trade-offs â
   ADRs, phased plan. Use before work that changes system structure or when choosing between
   architectural options.
 model: opus
-tools: Read, Grep, Glob, Bash, Edit, Write, LSP
+tools: Read, Grep, Glob, Bash, Edit, Write
 ---
 Knowledge and oracle paths below are relative to `.claude/dev-hm/` in this repository â€” resolve them against it when you open a file.
 
