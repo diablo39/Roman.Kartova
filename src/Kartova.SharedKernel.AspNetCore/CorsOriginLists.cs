@@ -32,7 +32,15 @@ public static class CorsOriginLists
                 $"{CorsConfigKeys.AdminAllowedOrigins} must not contain '*': the operator console must run on its own origin (ADR-0118).");
         }
 
-        var tenant = Normalize(tenantOrigins).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var tenantNormalized = Normalize(tenantOrigins);
+        if (admin.Length > 0 && tenantNormalized.Contains("*", StringComparer.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"{CorsConfigKeys.AllowedOrigins} must not contain '*' while {CorsConfigKeys.AdminAllowedOrigins} is non-empty: " +
+                $"a tenant wildcard would let the admin origin read tenant routes too (ADR-0118).");
+        }
+
+        var tenant = tenantNormalized.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var shared = admin.Where(tenant.Contains).ToArray();
         if (shared.Length > 0)
         {

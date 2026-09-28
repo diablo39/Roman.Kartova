@@ -66,6 +66,11 @@ describe("AdminLayout", () => {
     fetchSpy.mockImplementation(async () => json(200, { ...operator, email: "", displayName: " " }));
     renderLayout();
     expect(await screen.findByText("Signed in as — · —")).toBeInTheDocument();
+
+    await userEvent.setup().click(screen.getByTestId("user-menu"));
+    await screen.findByRole("menu"); // wait for the popover to open before querying its content
+    expect(document.querySelector(".font-medium.text-primary")).toHaveTextContent("—"); // displayName line
+    expect(document.querySelector(".text-xs.text-tertiary")).toHaveTextContent("—"); // email line
   });
 
   it("403 → No access page without the shell, and Sign out works", async () => {

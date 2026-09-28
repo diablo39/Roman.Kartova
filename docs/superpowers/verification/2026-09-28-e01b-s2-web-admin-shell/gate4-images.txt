@@ -123,3 +123,34 @@ $ curl -s http://localhost:4173/catalog | grep -o "<title>[^<]*</title>"
 $ docker compose stop
 (all services stopped; no -v — postgres-data / keycloak-db-data volumes preserved)
 
+--- Re-run after gate 6 (VITE_* build args) ---
+
+Gate-6 finding I1: the build stage declared no ARG for VITE_* — a `--build-arg
+VITE_ADMIN_OIDC_AUTHORITY=...` was silently dropped and every image kept pointing at localhost.
+Fixed by adding `ARG VITE_OIDC_AUTHORITY` / `ARG VITE_OIDC_CLIENT_ID` / `ARG VITE_API_BASE_URL` /
+`ARG VITE_ADMIN_OIDC_AUTHORITY` / `ARG VITE_ADMIN_OIDC_CLIENT_ID` / `ARG VITE_ADMIN_API_BASE_URL`
+to the build stage, before the `RUN case ...` build line. Verified both directions: no arg keeps
+the code default, and a passed arg overrides the bundle.
+
+$ docker build -f web/Dockerfile --build-arg APP=admin -t kartova/web-admin:ci web
+exit=0
+
+$ docker run --rm kartova/web-admin:ci sh -c "grep -rl 'localhost:8180/realms/kartova-platform' /usr/share/nginx/app | head -1"
+/usr/share/nginx/app/assets/admin-CKnuMaAD.js
+(no --build-arg passed → code's localhost default survives in the bundle, as expected)
+
+$ docker build -f web/Dockerfile --build-arg APP=admin --build-arg VITE_ADMIN_OIDC_AUTHORITY=https://kc.example/realms/kartova-platform -t kartova/web-admin:argcheck web
+exit=0
+
+$ docker run --rm kartova/web-admin:argcheck sh -c "grep -rl 'kc.example' /usr/share/nginx/app | head -1"
+/usr/share/nginx/app/assets/admin-BRJk3Emd.js
+(--build-arg VITE_ADMIN_OIDC_AUTHORITY=https://kc.example/... → the value reaches the built bundle)
+
+$ docker build -f web/Dockerfile --build-arg APP=admin -t kartova/web-admin:ci web
+exit=0
+(rebuilt kartova/web-admin:ci with no args again, so the tag reflects defaults)
+
+$ docker image rm kartova/web-admin:argcheck
+Untagged: kartova/web-admin:argcheck
+Deleted: sha256:0ab8574fac00b4b41979e23594d17fa5904262a2c0413e27074b93afa77eda3a
+

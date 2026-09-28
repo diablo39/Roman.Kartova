@@ -1,7 +1,5 @@
 import { useAdminSession } from "../api/useAdminSession";
-
-// An operator record may lack a name or email (KC profile gaps); never render a blank.
-const orDash = (value: string | undefined) => (value && value.trim() ? value : "—");
+import { orDash } from "../format";
 
 export function AdminLandingPage() {
   const { data } = useAdminSession();

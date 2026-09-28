@@ -52,4 +52,10 @@ describe("AdminCallbackPage", () => {
     renderAt();
     expect(screen.getByText("Completing sign-in…")).toBeInTheDocument();
   });
+
+  it("redirects home on a direct visit with no auth params and no session (never hangs)", async () => {
+    useAuthMock.mockReturnValue({ isLoading: false, isAuthenticated: false });
+    renderAt();
+    expect(await screen.findByText("home")).toBeInTheDocument();
+  });
 });

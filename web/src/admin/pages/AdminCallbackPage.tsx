@@ -23,6 +23,15 @@ export function AdminCallbackPage() {
     }
   }, [auth.error, auth.isLoading, auth.isAuthenticated, auth.user, navigate]);
 
+  useEffect(() => {
+    // A direct visit to /callback with no in-flight code exchange and no session — nothing will ever
+    // resolve this page's isLoading/isAuthenticated, so it would otherwise hang on "Completing sign-in…"
+    // forever. Bounce home; RequireAuth there starts a fresh login.
+    if (!auth.error && !auth.isLoading && !auth.isAuthenticated) {
+      navigate("/", { replace: true });
+    }
+  }, [auth.error, auth.isLoading, auth.isAuthenticated, navigate]);
+
   if (auth.error) {
     return (
       <CenteredMessage

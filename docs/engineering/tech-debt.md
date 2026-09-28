@@ -315,3 +315,23 @@ Convention: one `### TD-NNN` heading per item. Keep `Status: open` until done; o
 **Why deferred.** Touches shared auth setup and both SPA entry points; out of scope for the S2 scaffold slice. Requires design + implementation of a config fallback (inlining on build, fetch + await on init) across both apps + their tests.
 
 **Acceptance.** One image (`web-admin` and `web`) is promoted across environments without per-environment builds; config changes take effect at pod start without a new image.
+
+---
+
+### TD-017 — Persistent-401 redirect loop has no circuit breaker (tenant + admin SPA)
+
+**Status:** open
+**Origin:** E-01b.F-03.S-02 (2026-09-28), gate-6 review minor.
+
+**Problem.** A session/me 401 triggers `signinRedirect()`; if the SSO round-trip returns and the API answers 401 again (e.g. a stale/rejected token, clock skew, or a misconfigured realm), the SPA re-triggers `signinRedirect()` and loops indefinitely with no user-visible way out. Same pattern in both `web` (tenant session bootstrap) and `web-admin` (`AdminLayout`'s `session/me` 401 handling).
+
+**Affected files.**
+- `web/src/shared/auth/AuthProvider.tsx`
+- `web/src/admin/layout/AdminLayout.tsx`
+- `web/src/admin/api/useAdminSession.ts`
+
+**Proposed fix.** A one-shot `sessionStorage` marker set right before `signinRedirect()` and cleared on a successful (non-401) response; a second 401 within N seconds of the marker being set shows a retry/sign-in-failed panel instead of redirecting again.
+
+**Why deferred.** Not exercised by this slice's happy-path scaffold; needs a shared helper across both SPAs plus a timing-based test, which is more than a gate-6 fix warrants.
+
+**Acceptance.** A persistent 401 (SSO returns but the API keeps rejecting) surfaces a retry/sign-in-failed panel within N seconds instead of looping `signinRedirect()` forever, in both `web` and `web-admin`.

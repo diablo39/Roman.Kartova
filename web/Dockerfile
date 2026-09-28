@@ -14,6 +14,16 @@ COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 
 COPY . .
+# Build-time Vite config (ADR-0118 web-admin doc; TD-016 tracks the config.json follow-up). Left
+# undeclared, an ARG has no value and is NOT exported into the RUN env below, so `import.meta.env.X`
+# is undefined at build time and the code's `?? default` fallback applies — verified by building once
+# with no --build-arg (bundle keeps the localhost default) and once with one set (bundle picks it up).
+ARG VITE_OIDC_AUTHORITY
+ARG VITE_OIDC_CLIENT_ID
+ARG VITE_API_BASE_URL
+ARG VITE_ADMIN_OIDC_AUTHORITY
+ARG VITE_ADMIN_OIDC_CLIENT_ID
+ARG VITE_ADMIN_API_BASE_URL
 RUN case "$APP" in \
       web)   npm run build       && mv dist /out       && cp default.conf.template /out.conf.template ;; \
       admin) npm run build:admin && mv dist-admin /out && cp admin.conf.template /out.conf.template ;; \

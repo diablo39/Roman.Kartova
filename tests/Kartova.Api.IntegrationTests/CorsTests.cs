@@ -155,4 +155,59 @@ public class CorsTests : KeycloakContainerTestBase
         // The API may still answer 200 (CORS is enforced by the browser); the missing ACAO is what blocks the read.
         Assert.IsNull(AllowOrigin(resp), "the tenant origin must not be able to read admin responses (ADR-0118).");
     }
+
+    /// <summary>
+    /// M5 (gate-6 finding): nothing pinned that Program.cs actually calls CorsOriginLists.Validate — a
+    /// regression there would only surface as a security bug in a running system, not a red test. Boots a
+    /// SEPARATE factory with an overlapping allow-list and asserts the host refuses to start.
+    /// Cors__AdminAllowedOrigins__0 is process-wide env, shared with every other test in this class (which
+    /// expect it to be the disjoint AdminOrigin) — override it only for this test and restore it in `finally`.
+    /// </summary>
+    [TestMethod]
+    public async Task Startup_throws_when_AdminAllowedOrigins_overlaps_AllowedOrigins()
+    {
+        var adminOriginsKey = $"{CorsConfigKeys.AdminAllowedOrigins.Replace(":", "__")}__0";
+        var previous = Environment.GetEnvironmentVariable(adminOriginsKey);
+        try
+        {
+            Environment.SetEnvironmentVariable(adminOriginsKey, TenantOrigin); // overlap: same as Cors:AllowedOrigins:0
+            using var overlapApp = new WebApplicationFactory<Program>().WithWebHostBuilder(b => b.UseEnvironment("Testing"));
+
+            Exception? thrown = null;
+            try
+            {
+                using var client = overlapApp.CreateClient();
+                await client.GetAsync("/api/v1/version");
+            }
+            catch (Exception ex)
+            {
+                thrown = ex;
+            }
+
+            Assert.IsNotNull(thrown, "Expected the host to fail to start because the two CORS allow-lists overlap.");
+            var invalidOperation = InnermostInvalidOperationException(thrown)
+                ?? throw new AssertFailedException(
+                    $"Expected an InvalidOperationException somewhere in the exception chain; got: {thrown}");
+            StringAssert.Contains(invalidOperation.Message, CorsConfigKeys.AdminAllowedOrigins);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(adminOriginsKey, previous);
+        }
+    }
+
+    /// <summary>Host-startup failures surface wrapped (TargetInvocationException / AggregateException,
+    /// depending on how the test host's entry-point invocation faults) — walk InnerException to the
+    /// innermost InvalidOperationException instead of asserting on the outer wrapper's type/message.</summary>
+    private static InvalidOperationException? InnermostInvalidOperationException(Exception? ex)
+    {
+        for (var current = ex; current is not null; current = current.InnerException)
+        {
+            if (current is InvalidOperationException invalidOperation)
+            {
+                return invalidOperation;
+            }
+        }
+        return null;
+    }
 }

@@ -51,4 +51,20 @@ public class CorsOriginListsTests
 
         StringAssert.Contains(ex.Message, "*");
     }
+
+    [TestMethod]
+    public void Validate_rejects_wildcard_tenant_list_when_admin_list_is_non_empty()
+    {
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            CorsOriginLists.Validate(new[] { "*" }, new[] { "http://localhost:5174" }));
+
+        StringAssert.Contains(ex.Message, CorsConfigKeys.AllowedOrigins);
+        StringAssert.Contains(ex.Message, "ADR-0118");
+    }
+
+    [TestMethod]
+    public void Validate_accepts_wildcard_tenant_list_when_admin_list_is_empty()
+    {
+        CorsOriginLists.Validate(new[] { "*" }, Array.Empty<string>());
+    }
 }

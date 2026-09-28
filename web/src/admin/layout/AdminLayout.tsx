@@ -7,6 +7,7 @@ import { SidebarFrame } from "@/components/layout/SidebarFrame";
 import { TopBarFrame } from "@/components/layout/TopBarFrame";
 import { statusOf } from "@/shared/api/openapi-fetch-helpers";
 import { useAdminSession } from "../api/useAdminSession";
+import { orDash } from "../format";
 import { AdminNoAccessPage } from "../pages/AdminNoAccessPage";
 import { AdminSidebarNav } from "./AdminSidebarNav";
 
@@ -56,7 +57,7 @@ export function AdminLayout() {
               Platform Admin
             </Badge>
           }
-          user={{ displayName: session.data.displayName, email: session.data.email }}
+          user={{ displayName: orDash(session.data.displayName), email: orDash(session.data.email) }}
           onSignOut={signOut}
         />
       }
