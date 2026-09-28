@@ -60,7 +60,8 @@ job_frontend() {  # ci.yml: npm ci -> codegen -> typecheck -> test -> build -> b
 job_helm() {  # ci.yml: lint + template with a dummy connection string
   local cs="Host=x;Database=x;Username=x;Password=x"
   helm lint deploy/helm/kartova/ --set database.connectionString="$cs" \
-  && helm template deploy/helm/kartova/ --set database.connectionString="$cs" > /tmp/kartova-rendered.yaml
+  && helm template deploy/helm/kartova/ --set database.connectionString="$cs" > /tmp/kartova-rendered.yaml \
+  && bash deploy/helm/render-check.sh
 }
 
 job_e2e() {  # e2e.yml (nightly, opt-in): full stack + playwright

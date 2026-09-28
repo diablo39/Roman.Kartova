@@ -35,3 +35,77 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/name: {{ include "kartova.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
+
+{{/*
+SPA workload (nginx-unprivileged serving a Vite build) — shared by the tenant SPA (web) and the
+platform-operator console (web-admin, ADR-0118). Call with (dict "root" $ "component" "web" "values" .Values.web).
+*/}}
+{{- define "kartova.spa.deployment" -}}
+{{- $root := .root -}}
+{{- $v := .values -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kartova.fullname" $root }}-{{ .component }}
+  labels:
+    {{- include "kartova.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ .component }}
+spec:
+  replicas: {{ $v.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "kartova.selectorLabels" $root | nindent 6 }}
+      app.kubernetes.io/component: {{ .component }}
+  template:
+    metadata:
+      labels:
+        {{- include "kartova.selectorLabels" $root | nindent 8 }}
+        app.kubernetes.io/component: {{ .component }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: {{ .component }}
+          image: "{{ $root.Values.image.repository }}-{{ $v.image.name }}:{{ $root.Values.image.tag | default $root.Chart.AppVersion }}"
+          imagePullPolicy: {{ $root.Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ $v.port }}
+              protocol: TCP
+          env:
+            - name: CSP_EXTRA_ORIGINS
+              value: {{ $v.cspExtraOrigins | quote }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 5
+          resources:
+            {{- toYaml $v.resources | nindent 12 }}
+{{- end }}
+
+{{- define "kartova.spa.service" -}}
+{{- $root := .root -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kartova.fullname" $root }}-{{ .component }}
+  labels:
+    {{- include "kartova.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ .component }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "kartova.selectorLabels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ .component }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+{{- end }}

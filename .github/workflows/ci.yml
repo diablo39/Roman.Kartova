@@ -133,3 +133,6 @@ jobs:
 
       - name: Template
         run: helm template deploy/helm/kartova/ --set database.connectionString="Host=x;Database=x;Username=x;Password=x" > /tmp/rendered.yaml
+
+      - name: Render check (web + web-admin, CORS env)
+        run: bash deploy/helm/render-check.sh
