@@ -6,7 +6,7 @@
 # the SPA fallback. CSP is set only on the HTML document response (this location).
 server {
   listen 8080;
-  root /usr/share/nginx/html;
+  root /usr/share/nginx/app;
   index admin.html;
 
   location / {

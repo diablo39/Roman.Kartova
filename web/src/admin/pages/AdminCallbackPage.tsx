@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "react-oidc-context";
 import { Button } from "@/components/base/buttons/button";
+import { CenteredMessage } from "@/components/layout/CenteredMessage";
 import { resolveReturnTo } from "@/shared/oidc/returnTo";
 
 /**
@@ -24,15 +25,15 @@ export function AdminCallbackPage() {
 
   if (auth.error) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="max-w-md space-y-3 text-center">
-          <h1 className="text-2xl font-semibold text-primary">Sign-in failed</h1>
-          <p className="text-sm text-tertiary">The sign-in could not be completed.</p>
+      <CenteredMessage
+        heading="Sign-in failed"
+        body="The sign-in could not be completed."
+        action={
           <Button color="secondary" size="md" onClick={() => void auth.signinRedirect()}>
             Try again
           </Button>
-        </div>
-      </div>
+        }
+      />
     );
   }
   return <div className="p-8 text-sm text-tertiary">Completing sign-in…</div>;

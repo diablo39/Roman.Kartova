@@ -73,3 +73,53 @@ nginx's stock default page)
 $ docker compose stop
 (all services stopped; no -v — postgres-data / keycloak-db-data volumes preserved)
 
+--- Re-run after gate 5 (dedicated nginx root) ---
+
+Gate-5 finding G replaced the `USER root` / `rm -rf /usr/share/nginx/html/*` / `USER 101` toggle
+above with a dedicated runtime dir the base image never populates: build output now copies to
+/usr/share/nginx/app (both default.conf.template and admin.conf.template point `root` there), so
+there is nothing to clear. Rebuilt both images from the updated web/Dockerfile and re-ran the full
+smoke pass.
+
+$ docker build -f web/Dockerfile -t kartova/web:ci web
+web exit=0
+
+$ docker build -f web/Dockerfile --build-arg APP=admin -t kartova/web-admin:ci web
+admin exit=0
+
+$ MSYS_NO_PATHCONV=1 docker run --rm kartova/web-admin:ci ls /usr/share/nginx/app
+admin.html
+assets
+favicon.svg
+icons.svg
+
+$ MSYS_NO_PATHCONV=1 docker run --rm kartova/web:ci ls /usr/share/nginx/app
+assets
+favicon.svg
+icons.svg
+index.html
+
+$ docker run --rm kartova/web-admin:ci id
+uid=101(nginx) gid=101(nginx) groups=101(nginx),101(nginx)
+
+$ docker compose up -d --build web-admin
+ Container romangig2-web-admin-1 Started
+
+$ curl -sf http://localhost:4174/
+OK 200
+
+$ curl -s http://localhost:4174/some/deep | grep -o "<title>[^<]*</title>"
+<title>Kartova Admin</title>
+
+$ curl -sI http://localhost:4174/ | grep -i content-security-policy
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' http://localhost:8080 http://localhost:8180; frame-src http://localhost:8080 http://localhost:8180; form-action 'self' http://localhost:8080 http://localhost:8180; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
+
+$ docker compose up -d --build web
+ Container romangig2-web-1 Started
+
+$ curl -s http://localhost:4173/catalog | grep -o "<title>[^<]*</title>"
+<title>Kartova</title>
+
+$ docker compose stop
+(all services stopped; no -v — postgres-data / keycloak-db-data volumes preserved)
+

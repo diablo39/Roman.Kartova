@@ -1,24 +1,26 @@
 import { useAuth } from "react-oidc-context";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
+import { CenteredMessage } from "@/components/layout/CenteredMessage";
 import { ShellLayout } from "@/components/layout/ShellLayout";
 import { SidebarFrame } from "@/components/layout/SidebarFrame";
 import { TopBarFrame } from "@/components/layout/TopBarFrame";
-import { statusOf, useAdminSession } from "../api/useAdminSession";
+import { statusOf } from "@/shared/api/openapi-fetch-helpers";
+import { useAdminSession } from "../api/useAdminSession";
 import { AdminNoAccessPage } from "../pages/AdminNoAccessPage";
 import { AdminSidebarNav } from "./AdminSidebarNav";
 
 function SessionErrorPanel({ onRetry }: { onRetry: () => void }) {
   return (
-    <div className="flex h-full items-center justify-center">
-      <div className="max-w-md space-y-3 text-center">
-        <h1 className="text-2xl font-semibold text-primary">Couldn't verify admin access</h1>
-        <p className="text-sm text-tertiary">The access check failed. Try again; if it keeps failing, check the API.</p>
+    <CenteredMessage
+      heading="Couldn't verify admin access"
+      body="The access check failed. Try again; if it keeps failing, check the API."
+      action={
         <Button color="secondary" size="md" onClick={onRetry}>
           Retry
         </Button>
-      </div>
-    </div>
+      }
+    />
   );
 }
 

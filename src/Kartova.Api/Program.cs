@@ -16,6 +16,7 @@ using Kartova.SharedKernel.AspNetCore.HealthChecks;
 using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Postgres;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -135,27 +136,25 @@ public class Program
         }
         builder.Services.AddCors(options =>
         {
-            options.AddPolicy(CorsPolicies.TenantWeb, policy =>
-            {
-                if (corsOrigins.Length == 0)
-                {
-                    return;
-                }
-                policy.WithOrigins(corsOrigins)
-                    .AllowAnyHeader()
-                    .AllowAnyMethod();
-            });
-            options.AddPolicy(CorsPolicies.AdminWeb, policy =>
-            {
-                if (adminCorsOrigins.Length == 0)
-                {
-                    return;
-                }
-                policy.WithOrigins(adminCorsOrigins)
-                    .AllowAnyHeader()
-                    .AllowAnyMethod();
-            });
+            AddOriginPolicy(options, CorsPolicies.TenantWeb, corsOrigins);
+            AddOriginPolicy(options, CorsPolicies.AdminWeb, adminCorsOrigins);
         });
+
+        // Registers a CORS policy that allows the given origins, or — when the list is empty — a
+        // no-origins policy (blocks every browser request; see the empty-array note above).
+        static void AddOriginPolicy(CorsOptions options, string name, string[] origins)
+        {
+            options.AddPolicy(name, policy =>
+            {
+                if (origins.Length == 0)
+                {
+                    return;
+                }
+                policy.WithOrigins(origins)
+                    .AllowAnyHeader()
+                    .AllowAnyMethod();
+            });
+        }
 
         // Precondition-required → 428 mapping — slice 5 (ADR-0096 + spec §7).
         // Maps PreconditionRequiredException (thrown by IfMatchEndpointFilter when
