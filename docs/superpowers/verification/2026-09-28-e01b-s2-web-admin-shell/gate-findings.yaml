@@ -12,7 +12,7 @@
 
 slice:  2026-09-28-e01b-s2-web-admin-shell      # = the verification folder name (matches spec/plan slug)
 branch: feat/e01b-s2-web-admin-shell
-terminal_commit: 5e7b770   # the slice's final commit; MUST match dod.md's "Terminal commit".
+terminal_commit: 453193d   # the slice's final commit; MUST match dod.md's "Terminal commit".
                                # .claude/hooks/dod-check.js blocks a completion claim whose
                                # gate-findings.yaml has no terminal_commit or one that drifts from dod.md.
 
@@ -136,6 +136,51 @@ findings:
     verdict: real
     title: "Unrelated LSP/CLAUDE.md commits in branch"
     note: "PR description"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "signinRedirect/signoutRedirect promises discarded — silent hang if KeyCloak unreachable during redirect"
+    note: "fixed 453193d"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "401 handler lacked re-entrancy guard — concurrent 401s fire signinRedirect repeatedly"
+    note: "fixed 453193d"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "Blank-identity fallback at one call site; avatar showed — initials"
+    note: "fixed 453193d"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "session/me 5xx/network errors never logged"
+    note: "fixed 453193d"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "5 test gaps (post-logout URIs, fallback branches, boundary positive control, unknown-origin preflight, web.enabled=false)"
+    note: "fixed 453193d"
+  - gate: review-pr
+    severity: should-fix
+    verdict: delusion
+    title: "ValidatedCorsOrigins wrapper type for a single composition root"
+    note: "skipped — YAGNI; wiring pinned by host test"
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "Speculative type suggestions (policy-name inequality, AdminMeResponse nullability, branded __status, bridge double-registration)"
+    note: "skipped"
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "Wildcard-admin host-boot test"
+    note: "redundant with overlap host test + unit test"
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "Move CORS startup warning onto app.Logger"
+    note: "pre-existing pattern, out of scope"
   - gate: reviews
     severity: should-fix
     verdict: delusion

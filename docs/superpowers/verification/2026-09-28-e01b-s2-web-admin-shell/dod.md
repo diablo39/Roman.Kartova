@@ -1,6 +1,6 @@
 # DoD Ledger — E-01b.F-03.S-02 web-admin app shell
 
-**Slice:** `2026-09-28-e01b-s2-web-admin-shell` · **Branch:** `feat/e01b-s2-web-admin-shell` · **HEAD:** `5e7b770`
+**Slice:** `2026-09-28-e01b-s2-web-admin-shell` · **Branch:** `feat/e01b-s2-web-admin-shell` · **HEAD:** `453193d`
 **PR:** <#NN / url> · **Last updated:** 2026-09-28
 **Spec:** `docs/superpowers/specs/2026-09-28-e01b-s2-web-admin-shell-design.md`
 **Plan:** `docs/superpowers/plans/2026-09-28-e01b-s2-web-admin-shell-plan.md`
@@ -20,7 +20,7 @@
 | 4 Container build (images CI) | ✅ PASS | 2026-09-28 |
 | 5 `/simplify` | ✅ PASS | 2026-09-28 |
 | 6 `requesting-code-review` | ✅ PASS | 2026-09-28 |
-| 7 `review-pr` | ⏳ PENDING | — |
+| 7 `review-pr` | ✅ PASS | 2026-09-28 |
 | 8 `deep-review` | ⏳ PENDING | — |
 | Terminal re-verify (build + suite) | ⏳ PENDING | — |
 | 9 Visual / API verification (ADR-0084) | ⏳ PENDING | — |
@@ -59,9 +59,9 @@
 **At:** 5e7b770 / 2026-09-28
 
 ### 7 — `review-pr` (pr-review-toolkit)
-**Status:** ⏳ PENDING
-**Evidence:** <link to review-pr.md / PR review>
-**At:** <commit / date>
+**Status:** ✅ PASS
+**Evidence:** `review-pr.md` — standing set (type-design-analyzer, pr-test-analyzer, code-reviewer) + silent-failure-hunter (error-handling diff); comment-analyzer skipped (code-heavy diff). code-reviewer 0 findings; fixed in 453193d: redirect-promise rejection handling + 401 re-entrancy guard (shared hook, direct test), TopBarFrame blank-identity fallback with raw initials, session-error logging, 5 test gaps (post-logout URIs, fallback branches, boundary positive control, unknown-origin→admin preflight, symmetric Helm disable). Skips with rulings in `review-pr.md`. Scoped re-review: all addressed; 1 Low latent nit (sync-throw guard stick — `signinRedirect` is async, non-blocking).
+**At:** 453193d / 2026-09-28
 
 ### 8 — `deep-review`
 **Status:** ⏳ PENDING
