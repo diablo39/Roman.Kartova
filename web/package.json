@@ -12,6 +12,11 @@
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint .",
     "preview": "vite preview",
+    "predev:admin": "node scripts/codegen.mjs",
+    "dev:admin": "vite --config vite.admin.config.ts",
+    "prebuild:admin": "node scripts/codegen.mjs",
+    "build:admin": "tsc -b && vite build --config vite.admin.config.ts",
+    "preview:admin": "vite preview --config vite.admin.config.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
