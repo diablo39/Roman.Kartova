@@ -1,9 +1,9 @@
-import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { usePermissions } from "@/shared/auth/usePermissions";
 import { KartovaPermissions } from "@/shared/auth/permissions";
 import { NoAccessPage } from "./NoAccessPage";
+import { ShellLayout } from "./ShellLayout";
 
 function SkeletonShell() {
   return <div className="p-8 text-sm text-tertiary">Loading…</div>;
@@ -23,17 +23,7 @@ function PermissionsErrorShell() {
 }
 
 function ProtectedShell() {
-  return (
-    <div className="flex h-full">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar />
-        <main className="flex-1 overflow-auto p-6">
-          <Outlet />
-        </main>
-      </div>
-    </div>
-  );
+  return <ShellLayout sidebar={<Sidebar />} topBar={<TopBar />} />;
 }
 
 export function AppLayout() {

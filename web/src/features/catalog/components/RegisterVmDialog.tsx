@@ -15,7 +15,7 @@ import { useTeamsList } from "@/features/teams/api/teams";
 import { applyProblemDetailsToForm, type ProblemDetails } from "@/shared/forms/problemDetails";
 import { zodFieldPaths } from "@/shared/forms/zodFieldPaths";
 import { useCurrentUser } from "@/shared/auth/useCurrentUser";
-import { initialsOf } from "@/shared/auth/initials";
+import { initialsOf } from "@/lib/utils/initials";
 import { VmFormFields } from "@/features/catalog/components/VmFormFields";
 
 // VM-attribute schema (displayName/description/provider/attributes.*) used by RHF/zod.
