@@ -12,7 +12,7 @@
 
 slice:  2026-09-28-e01b-s2-web-admin-shell      # = the verification folder name (matches spec/plan slug)
 branch: feat/e01b-s2-web-admin-shell
-terminal_commit: 4fca365   # the slice's final commit; MUST match dod.md's "Terminal commit".
+terminal_commit: d337205   # the slice's final commit; MUST match dod.md's "Terminal commit".
                                # .claude/hooks/dod-check.js blocks a completion claim whose
                                # gate-findings.yaml has no terminal_commit or one that drifts from dod.md.
 
@@ -46,6 +46,36 @@ findings:
     verdict: real
     title: "nginx base image stock index.html survived next to admin.html in the web-admin image"
     note: "fixed in bec75c1 (clear /usr/share/nginx/html before COPY); caught by the gate-4 image listing check"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "AdminApiAuthBridge duplicated the tenant ApiAuthBridge (PR #47 race fix in two copies)"
+    note: "applied d337205 — shared useApiAuthBridge"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "Centered message card markup repeated in 5 surfaces"
+    note: "applied d337205 — CenteredMessage"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "statusOf re-read the __status envelope outside openapi-fetch-helpers"
+    note: "applied d337205"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "Program.cs duplicated AddPolicy blocks for the two CORS policies"
+    note: "applied d337205 — AddOriginPolicy"
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "Dockerfile USER root + rm -rf of nginx stock html was a symptom patch"
+    note: "applied d337205 — dedicated /usr/share/nginx/app root"
+  - gate: simplify
+    severity: nit
+    verdict: delusion
+    title: "8 further suggestions (token-slot factory, double normalize, vite base config, multi-page/own-root Vite, single nginx template, prebuild:admin, arch-test host caching, realm JSON caching)"
+    note: "skipped with reasons in simplify.md (bundle separation, per-app CSP decision, gitignored codegen, pre-existing patterns)"
   - gate: reviews
     severity: should-fix
     verdict: delusion

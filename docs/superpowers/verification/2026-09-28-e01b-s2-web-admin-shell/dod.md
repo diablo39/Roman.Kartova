@@ -1,6 +1,6 @@
 # DoD Ledger — E-01b.F-03.S-02 web-admin app shell
 
-**Slice:** `2026-09-28-e01b-s2-web-admin-shell` · **Branch:** `feat/e01b-s2-web-admin-shell` · **HEAD:** `4fca365`
+**Slice:** `2026-09-28-e01b-s2-web-admin-shell` · **Branch:** `feat/e01b-s2-web-admin-shell` · **HEAD:** `d337205`
 **PR:** <#NN / url> · **Last updated:** 2026-09-28
 **Spec:** `docs/superpowers/specs/2026-09-28-e01b-s2-web-admin-shell-design.md`
 **Plan:** `docs/superpowers/plans/2026-09-28-e01b-s2-web-admin-shell-plan.md`
@@ -18,7 +18,7 @@
 | 2 Per-task subagent reviews | ✅ PASS | 2026-09-28 |
 | 3 Full suite (+ real-seam if wiring) | ✅ PASS | 2026-09-28 |
 | 4 Container build (images CI) | ✅ PASS | 2026-09-28 |
-| 5 `/simplify` | ⏳ PENDING | — |
+| 5 `/simplify` | ✅ PASS | 2026-09-28 |
 | 6 `requesting-code-review` | ⏳ PENDING | — |
 | 7 `review-pr` | ⏳ PENDING | — |
 | 8 `deep-review` | ⏳ PENDING | — |
@@ -49,9 +49,9 @@
 **At:** bec75c1 (no web/Docker input changed after) / 2026-09-28
 
 ### 5 — `/simplify` against branch diff
-**Status:** ⏳ PENDING
-**Evidence:** <link to simplify.md / findings summary>
-**At:** <commit / date>
+**Status:** ✅ PASS (advisory)
+**Evidence:** `simplify.md` — 4 angles (reuse/simplification/efficiency/altitude), 13 findings vetted: 5 applied in d337205 (shared `useApiAuthBridge`, `CenteredMessage`, `statusOf` → openapi-fetch-helpers, CORS `AddOriginPolicy`, dedicated nginx root `/usr/share/nginx/app` — no root build step), 8 skipped with reasons. Fix commit reviewed (Approved); re-verified: web 1213 tests + tsc + both builds, backend build 0w, CorsTests 7/7, both images rebuilt + compose smoke (`gate4-images.txt`, re-run section).
+**At:** d337205 / 2026-09-28
 
 ### 6 — `requesting-code-review` at slice boundary
 **Status:** ⏳ PENDING
