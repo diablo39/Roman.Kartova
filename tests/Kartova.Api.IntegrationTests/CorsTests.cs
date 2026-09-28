@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Http.Headers;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.AspNetCore;
 using Kartova.Testing.Auth;
@@ -9,6 +11,11 @@ namespace Kartova.Api.IntegrationTests;
 [TestClass]
 public class CorsTests : KeycloakContainerTestBase
 {
+    private const string TenantOrigin = "http://localhost:5173";
+    private const string AdminOrigin = "http://localhost:5174";
+    private const string AdminRoute = "/api/v1/admin/session/me";
+    private const string TenantRoute = "/api/v1/organizations/me";
+
     private WebApplicationFactory<Program>? _app;
 
     [TestInitialize]
@@ -38,6 +45,9 @@ public class CorsTests : KeycloakContainerTestBase
 
         // CORS allowlist — set before WAF boots so the policy builder sees the value.
         Environment.SetEnvironmentVariable($"{CorsConfigKeys.AllowedOrigins.Replace(":", "__")}__0", "http://localhost:5173");
+        // Admin allowlist (ADR-0118) — deliberately slash-suffixed: Program.cs must normalize it so the
+        // browser's slash-less Origin header still matches (Review Focus #1).
+        Environment.SetEnvironmentVariable($"{CorsConfigKeys.AdminAllowedOrigins.Replace(":", "__")}__0", AdminOrigin + "/");
 
         _app = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
         {
@@ -80,5 +90,69 @@ public class CorsTests : KeycloakContainerTestBase
         Assert.IsFalse(
             resp.Headers.Contains("Access-Control-Allow-Origin"),
             "the API must not echo origins outside the configured allowlist.");
+    }
+
+    private static HttpRequestMessage Preflight(string path, string origin)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Options, path);
+        req.Headers.Add("Origin", origin);
+        req.Headers.Add("Access-Control-Request-Method", "GET");
+        req.Headers.Add("Access-Control-Request-Headers", "authorization");
+        return req;
+    }
+
+    private static string? AllowOrigin(HttpResponseMessage resp) =>
+        resp.Headers.TryGetValues("Access-Control-Allow-Origin", out var v) ? v.Single() : null;
+
+    [TestMethod]
+    public async Task Preflight_from_admin_origin_to_admin_route_allows_admin_origin()
+    {
+        var resp = await _app!.CreateClient().SendAsync(Preflight(AdminRoute, AdminOrigin));
+
+        Assert.AreEqual(AdminOrigin, AllowOrigin(resp));
+    }
+
+    [TestMethod]
+    public async Task Preflight_from_tenant_origin_to_admin_route_does_not_echo_origin()
+    {
+        var resp = await _app!.CreateClient().SendAsync(Preflight(AdminRoute, TenantOrigin));
+
+        Assert.IsNull(AllowOrigin(resp), "the tenant origin must not be able to read admin responses (ADR-0118).");
+    }
+
+    [TestMethod]
+    public async Task Preflight_from_admin_origin_to_tenant_route_does_not_echo_origin()
+    {
+        var resp = await _app!.CreateClient().SendAsync(Preflight(TenantRoute, AdminOrigin));
+
+        Assert.IsNull(AllowOrigin(resp), "the operator origin must not be able to read tenant responses (ADR-0118).");
+    }
+
+    [TestMethod]
+    public async Task Get_from_admin_origin_with_live_operator_token_returns_200_with_admin_origin()
+    {
+        var token = await GetRealPlatformTokenAsync("platform-admin@kartova.local", "dev_password_12");
+        var req = new HttpRequestMessage(HttpMethod.Get, AdminRoute);
+        req.Headers.Add("Origin", AdminOrigin);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var resp = await _app!.CreateClient().SendAsync(req);
+
+        Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode, await resp.Content.ReadAsStringAsync());
+        Assert.AreEqual(AdminOrigin, AllowOrigin(resp));
+    }
+
+    [TestMethod]
+    public async Task Get_from_tenant_origin_to_admin_route_does_not_echo_origin()
+    {
+        var token = await GetRealPlatformTokenAsync("platform-admin@kartova.local", "dev_password_12");
+        var req = new HttpRequestMessage(HttpMethod.Get, AdminRoute);
+        req.Headers.Add("Origin", TenantOrigin);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var resp = await _app!.CreateClient().SendAsync(req);
+
+        // The API may still answer 200 (CORS is enforced by the browser); the missing ACAO is what blocks the read.
+        Assert.IsNull(AllowOrigin(resp), "the tenant origin must not be able to read admin responses (ADR-0118).");
     }
 }
