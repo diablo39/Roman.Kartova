@@ -4,7 +4,7 @@ import { useAuth } from "react-oidc-context";
 
 import { OidcCallbackHandler } from "@/features/auth/components/OidcCallbackHandler";
 import { CenteredSpinner } from "@/features/auth/components/CenteredSpinner";
-import { resolveReturnTo } from "@/shared/auth/returnTo";
+import { resolveReturnTo } from "@/shared/oidc/returnTo";
 
 /**
  * `/callback` — OIDC return URL. Has a two-phase lifecycle:

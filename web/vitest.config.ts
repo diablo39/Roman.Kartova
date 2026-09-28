@@ -27,6 +27,8 @@ export default defineConfig({
         "src/features/**/api/**",
         "src/features/**/schemas/**",
         "src/shared/auth/**",
+        "src/shared/oidc/**",
+        "src/shared/api/**",
         "src/shared/forms/**",
       ],
       exclude: [
