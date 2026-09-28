@@ -209,8 +209,15 @@ public class EndpointRouteRules
     [TestMethod]
     public void Every_admin_route_binds_the_admin_web_cors_policy()
     {
-        var offenders = BuildArchTestEndpoints()
+        var adminEndpoints = BuildArchTestEndpoints()
             .Where(e => (e.RoutePattern.RawText ?? string.Empty).StartsWith("/api/v1/admin/", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        // Anti-vacuity: an empty set (broken endpoint discovery) would pass the offender check below.
+        CollectionAssert.Contains(adminEndpoints.Select(e => e.RoutePattern.RawText).ToArray(), "/api/v1/admin/session/me",
+            "endpoint discovery lost the known admin route — the CORS check below would pass vacuously.");
+
+        var offenders = adminEndpoints
             .Where(e => e.Metadata.GetMetadata<ICorsMetadata>() is not IEnableCorsAttribute { PolicyName: CorsPolicies.AdminWeb })
             .Select(e => e.RoutePattern.RawText)
             .ToArray();

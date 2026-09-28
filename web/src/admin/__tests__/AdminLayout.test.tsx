@@ -5,8 +5,10 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const signoutRedirect = vi.fn();
+const signinRedirect = vi.fn();
+let authError: { source: string; message: string } | undefined;
 vi.mock("react-oidc-context", () => ({
-  useAuth: () => ({ isAuthenticated: true, isLoading: false, signoutRedirect }),
+  useAuth: () => ({ isAuthenticated: true, isLoading: false, signoutRedirect, signinRedirect, error: authError }),
 }));
 
 import { AdminLayout } from "../layout/AdminLayout";
@@ -21,11 +23,11 @@ const operator = { userId: "3f0c1a8e-0000-4000-8000-000000000001", email: "olga@
 // Response body can be read only once) and wait up to 5 s.
 const WAIT = { timeout: 5000 };
 
-function renderLayout() {
+function renderLayout(entry = "/") {
   const qc = new QueryClient();
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={["/"]}>
+      <MemoryRouter initialEntries={[entry]}>
         <Routes>
           <Route element={<AdminLayout />}>
             <Route index element={<AdminLandingPage />} />
@@ -40,6 +42,8 @@ let fetchSpy: MockInstance<typeof fetch>;
 let consoleErrorSpy: MockInstance<typeof console.error>;
 beforeEach(() => {
   signoutRedirect.mockClear();
+  signinRedirect.mockClear();
+  authError = undefined;
   fetchSpy = vi.spyOn(globalThis, "fetch");
   consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -95,6 +99,29 @@ describe("AdminLayout", () => {
     expect(await screen.findByText("Signing in…")).toBeInTheDocument();
     expect(fetchSpy).toHaveBeenCalledTimes(1); // 401 is terminal — never retried
     expect(screen.queryByRole("heading", { name: "No access" })).toBeNull();
+  });
+
+  it("401 + failed re-auth redirect (auth.error from signinRedirect) → Sign-in unavailable, Try again re-redirects", async () => {
+    authError = { source: "signinRedirect", message: "Failed to fetch" };
+    fetchSpy.mockImplementation(async () => json(401, { title: "Unauthorized", status: 401 }));
+    renderLayout("/?q=acme#top");
+
+    expect(await screen.findByRole("heading", { name: "Sign-in unavailable" })).toBeInTheDocument();
+    expect(screen.getByText("The sign-in service could not be reached.")).toBeInTheDocument();
+    expect(screen.queryByText("Signing in…")).toBeNull();
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Try again" }));
+    expect(signinRedirect).toHaveBeenCalledTimes(1);
+    expect(signinRedirect).toHaveBeenCalledWith({ state: { returnTo: "/?q=acme#top" } });
+  });
+
+  it("401 + an auth.error from another source (renewSilent) → still Signing in…", async () => {
+    authError = { source: "renewSilent", message: "x" };
+    fetchSpy.mockImplementation(async () => json(401, { title: "Unauthorized", status: 401 }));
+    renderLayout();
+
+    expect(await screen.findByText("Signing in…")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Sign-in unavailable" })).toBeNull();
   });
 
   it("500 → retry panel (never No access), and Retry re-checks; logs once", async () => {

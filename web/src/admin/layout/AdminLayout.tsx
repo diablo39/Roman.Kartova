@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "react-oidc-context";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
@@ -28,13 +29,14 @@ function SessionErrorPanel({ onRetry }: { onRetry: () => void }) {
 /**
  * Access gate for the whole console (ADR-0118): GET /api/v1/admin/session/me decides.
  * 403 is the only "no access" answer; 401 is a re-auth in progress (the API client's 401 handler has
- * already called signinRedirect); anything else — 5xx or a network failure — is retryable, never "no access".
+ * already called signinRedirect) — or, if that redirect failed (auth.error from signinRedirect), a
+ * "Sign-in unavailable" panel; anything else — 5xx or a network failure — is retryable, never "no access".
  */
 export function AdminLayout() {
   const session = useAdminSession();
   const auth = useAuth();
-  const signOut = () =>
-    void Promise.resolve(auth.signoutRedirect()).catch((e) => console.error("Sign-out failed:", e));
+  const { pathname, search, hash } = useLocation();
+  const signOut = () => void auth.signoutRedirect();
   const status = session.isError ? statusOf(session.error) : undefined;
 
   // 401/403 are expected, handled outcomes (re-auth in progress / no access) — never logged as
@@ -50,7 +52,26 @@ export function AdminLayout() {
   if (session.isPending) return <div className="p-8 text-sm text-tertiary">Loading…</div>;
   if (session.isError) {
     if (status === 403) return <AdminNoAccessPage onSignOut={signOut} />;
-    if (status === 401) return <div className="p-8 text-sm text-tertiary">Signing in…</div>;
+    if (status === 401) {
+      if (auth.error?.source === "signinRedirect") {
+        return (
+          <CenteredMessage
+            heading="Sign-in unavailable"
+            body="The sign-in service could not be reached."
+            action={
+              <Button
+                color="secondary"
+                size="md"
+                onClick={() => void auth.signinRedirect({ state: { returnTo: pathname + search + hash } })}
+              >
+                Try again
+              </Button>
+            }
+          />
+        );
+      }
+      return <div className="p-8 text-sm text-tertiary">Signing in…</div>;
+    }
     return <SessionErrorPanel onRetry={() => void session.refetch()} />;
   }
 

@@ -9,6 +9,7 @@ let authValue: {
   isLoading: boolean;
   user?: { access_token: string };
   signinRedirect: typeof signinRedirect;
+  error?: { source: string; message: string };
 };
 vi.mock("react-oidc-context", () => ({
   useAuth: () => authValue,
@@ -56,26 +57,47 @@ describe("useApiAuthBridge", () => {
     expect(signinRedirect).toHaveBeenCalledTimes(1);
   });
 
-  it("logs and releases the guard when signinRedirect rejects, so a later 401 retries", async () => {
+  // react-oidc-context navigator methods never reject: a failed redirect resolves null and surfaces as
+  // auth.error with source "signinRedirect" on the next render (react-oidc-context.js:170-190).
+  it("failed redirect (resolves null + auth.error) releases the guard and logs, so a later 401 retries", () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
-    const failure = new Error("redirect failed");
-    signinRedirect.mockRejectedValueOnce(failure);
+    signinRedirect.mockResolvedValue(null);
     const setTokenProvider = vi.fn();
     const setUnauthorizedHandler = vi.fn();
     authValue = authedAuth();
-    render(<TestHost setTokenProvider={setTokenProvider} setUnauthorizedHandler={setUnauthorizedHandler} />);
+    const { rerender } = render(
+      <TestHost setTokenProvider={setTokenProvider} setUnauthorizedHandler={setUnauthorizedHandler} />,
+    );
 
-    const handler = setUnauthorizedHandler.mock.calls.at(-1)![0];
-    handler();
+    setUnauthorizedHandler.mock.calls.at(-1)![0]();
+    expect(signinRedirect).toHaveBeenCalledTimes(1);
 
-    // Let the rejected promise's .catch handler run before asserting.
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(consoleError).toHaveBeenCalledWith("Re-authentication redirect failed:", failure);
+    const error = { source: "signinRedirect", message: "x" };
+    authValue = { ...authedAuth(), error };
+    rerender(<TestHost setTokenProvider={setTokenProvider} setUnauthorizedHandler={setUnauthorizedHandler} />);
+    expect(consoleError).toHaveBeenCalledWith("Re-authentication redirect failed:", error);
 
-    signinRedirect.mockResolvedValueOnce(undefined);
-    handler();
+    setUnauthorizedHandler.mock.calls.at(-1)![0]();
     expect(signinRedirect).toHaveBeenCalledTimes(2);
+  });
+
+  it("an auth.error from another source (e.g. renewSilent) neither releases the guard nor logs", () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    signinRedirect.mockReturnValue(new Promise(() => {}));
+    const setTokenProvider = vi.fn();
+    const setUnauthorizedHandler = vi.fn();
+    authValue = authedAuth();
+    const { rerender } = render(
+      <TestHost setTokenProvider={setTokenProvider} setUnauthorizedHandler={setUnauthorizedHandler} />,
+    );
+    setUnauthorizedHandler.mock.calls.at(-1)![0]();
+
+    authValue = { ...authedAuth(), error: { source: "renewSilent", message: "x" } };
+    rerender(<TestHost setTokenProvider={setTokenProvider} setUnauthorizedHandler={setUnauthorizedHandler} />);
+    setUnauthorizedHandler.mock.calls.at(-1)![0]();
+
+    expect(signinRedirect).toHaveBeenCalledTimes(1);
+    expect(consoleError).not.toHaveBeenCalled();
   });
 
   it("the token provider yields the live token after an auth transition (loading → authenticated)", () => {

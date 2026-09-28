@@ -30,8 +30,17 @@ export function useApiAuthBridge(
   signinRedirectRef.current = auth.signinRedirect;
   // Re-entrancy guard: several concurrent 401s (e.g. a burst of in-flight requests racing the same
   // expired token) must not each fire their own signinRedirect — the browser would be handed
-  // multiple overlapping navigations. Cleared on rejection so a genuinely failed redirect can retry.
+  // multiple overlapping navigations. Released when the redirect fails so a later 401 can retry.
   const redirectingRef = useRef(false);
+  // react-oidc-context navigator methods never reject: a failed signinRedirect resolves null and
+  // surfaces as auth.error with source "signinRedirect" (react-oidc-context 3.3.1). That is the
+  // failure signal — release the guard and log, otherwise every later 401 is silently ignored.
+  useEffect(() => {
+    if (auth.error?.source === "signinRedirect") {
+      redirectingRef.current = false;
+      console.error("Re-authentication redirect failed:", auth.error);
+    }
+  }, [auth.error]);
   useEffect(() => {
     setTokenProvider(() => tokenRef.current);
     setUnauthorizedHandler(() => {
@@ -40,18 +49,11 @@ export function useApiAuthBridge(
       // Round-trip the current deep link through OIDC `state` (mirrors
       // RequireAuth) so a 401-triggered re-auth returns the user to where they
       // were instead of dumping them on /catalog (resolveReturnTo validates it).
-      // Promise.resolve(...) wraps the call so a mock/adapter that doesn't return a thenable
-      // (any signinRedirect not typed strictly as Promise-returning) still lets .catch attach safely.
-      Promise.resolve(
-        signinRedirectRef.current({
-          state: {
-            returnTo:
-              window.location.pathname + window.location.search + window.location.hash,
-          },
-        }),
-      ).catch((e) => {
-        redirectingRef.current = false;
-        console.error("Re-authentication redirect failed:", e);
+      void signinRedirectRef.current({
+        state: {
+          returnTo:
+            window.location.pathname + window.location.search + window.location.hash,
+        },
       });
     });
   }, [auth]);

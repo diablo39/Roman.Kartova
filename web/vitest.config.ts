@@ -30,6 +30,7 @@ export default defineConfig({
         "src/shared/oidc/**",
         "src/shared/api/**",
         "src/shared/forms/**",
+        "src/admin/api/**",
       ],
       exclude: [
         // Composition-root wiring (analogous to Program.cs); behavior covered via authConfig.

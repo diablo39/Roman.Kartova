@@ -78,7 +78,7 @@ web/src/admin/
 | `web/src/lib/utils/initials.ts` (moved from `shared/auth/initials.ts`) | `initialsOf` is generic and `TopBarFrame` needs it; keeps `src/shared/auth/**` out of the admin import closure. |
 | `web/src/components/layout/TopBarFrame.tsx` (new) | Header chrome with slots `identity`, `center`, and `user: { displayName, email } \| null` + `onSignOut`. Owns the avatar dropdown. |
 | `web/src/components/layout/ShellLayout.tsx` (new) | `sidebar` + `topBar` + `<main><Outlet/></main>`. No hooks. |
-| `Sidebar.tsx`, `TopBar.tsx`, `AppLayout.tsx` (modify) | Tenant compositions over the frames. Rendered DOM and behavior unchanged. Existing tests stay green without assertion changes. |
+| `Sidebar.tsx`, `TopBar.tsx`, `AppLayout.tsx` (modify) | Tenant compositions over the frames. Rendered DOM and behavior unchanged. Existing tests stay green without assertion changes. Exception: an empty user name/email renders "—" in the menu of both apps (gate-6 M4). |
 | `web/src/shared/oidc/` (new; moved from `shared/auth`) | `buildOidcConfig`, `RequireAuth`, `resolveReturnTo`. Tenant imports updated. The tenant `AuthProvider` stays in `shared/auth` (its env defaults are tenant-specific). The admin app builds its own config with `buildOidcConfig` and mounts `react-oidc-context`'s `AuthProvider` directly. |
 | `web/src/shared/api/createAuthedApiClient.ts` (new) | `createAuthedApiClient(baseUrl, getToken, onUnauthorized)`: openapi-fetch + bearer middleware + 401 hook + deferred fetch. `features/catalog/api/client.ts` delegates to it. Its exported API (`setAccessTokenProvider`, `setUnauthorizedHandler`, `apiClient`, `API_BASE_URL`) is unchanged. |
 | `web/package.json` (modify) | Scripts `dev:admin` (codegen + `vite --config vite.admin.config.ts`), `build:admin` (`tsc -b && vite build --config vite.admin.config.ts`), `preview:admin` (port 4174). |
@@ -175,6 +175,7 @@ web/src/admin/
 - OIDC callback error → inline sign-in-failed panel with retry. The error is logged to the console, as in `CallbackPage`.
 - Startup: overlapping tenant/admin origins or `*` in the admin list → `InvalidOperationException` (fail fast).
 - A tenant token cannot be obtained by the admin app (different realm + client). A mis-issued one is rejected 401 by the S1 scheme.
+- Sign-in service unreachable (auth.error) → 'Sign-in unavailable' panel with Try again, never a redirect loop (RequireAuth + session 401) — gate 8.
 
 ## Testing (per docs/TESTING-STRATEGY.md)
 
@@ -206,12 +207,12 @@ Wiring slice (HTTP + auth + CORS middleware) → real seam.
 **Gate 9:** cold-start `dev:admin` (:5174) against the compose stack → login → landing + no-access, screenshots → `verification/2026-09-28-e01b-s2-web-admin-shell/`. Also check the browser console for CSP violations on the `:4174` container. Playwright MCP failed to connect in the brainstorming session and must be reconnected before gate 9, otherwise the gate stays *pending*.
 **E2E-impact trigger:** the shell refactor touches the nav and top bar traversed by tenant specs → update if needed and run locally `smoke`, `detail-tabs`, `system-list-surface` (re-check the full `e2e/tests` list in the plan). Record in the DoD ledger.
 
-## Impact Analysis (LSP)
+## Impact Analysis
 
 To be grounded in the plan:
-- **`MapAdminModule`** (C#, behavior change): `findReferences` for every admin route group.
+- **`MapAdminModule`** (C#, behavior change): grep `MapAdminModule\(` (all call sites).
 - **`CorsConfigKeys.*`, `CorsPolicies.*`, policy name `"KartovaWeb"`:** `const`/string → grep.
-- **TS moves** (`buildOidcConfig`, `RequireAuth`, `resolveReturnTo`, `NavGroup`, `NavItemLink`, `DisabledItem`, `createApiClient`): no TS language server → grep consumers.
+- **TS moves** (`buildOidcConfig`, `RequireAuth`, `resolveReturnTo`, `NavGroup`, `NavItemLink`, `DisabledItem`, `createApiClient`): grep consumers.
 
 ## Size
 

@@ -150,6 +150,36 @@ public class CorsTests : KeycloakContainerTestBase
         Assert.AreEqual(AdminOrigin, AllowOrigin(resp));
     }
 
+    /// <summary>
+    /// Gate-8 MT1: a 401 on an admin route must carry the admin ACAO, otherwise the browser reports a CORS
+    /// failure, fetch rejects, and the console shows the retry panel instead of re-authenticating.
+    /// </summary>
+    [TestMethod]
+    public async Task Get_from_admin_origin_without_token_returns_401_with_admin_origin()
+    {
+        var req = new HttpRequestMessage(HttpMethod.Get, AdminRoute);
+        req.Headers.Add("Origin", AdminOrigin);
+
+        var resp = await _app!.CreateClient().SendAsync(req);
+
+        Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
+        Assert.AreEqual(AdminOrigin, AllowOrigin(resp));
+    }
+
+    [TestMethod]
+    public async Task Get_from_admin_origin_with_tenant_token_returns_401_with_admin_origin()
+    {
+        var token = await GetRealTokenAsync("admin@orga.kartova.local", "dev_password_12");
+        var req = new HttpRequestMessage(HttpMethod.Get, AdminRoute);
+        req.Headers.Add("Origin", AdminOrigin);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var resp = await _app!.CreateClient().SendAsync(req);
+
+        Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
+        Assert.AreEqual(AdminOrigin, AllowOrigin(resp));
+    }
+
     [TestMethod]
     public async Task Get_from_tenant_origin_to_admin_route_does_not_echo_origin()
     {
