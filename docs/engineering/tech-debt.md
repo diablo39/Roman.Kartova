@@ -294,3 +294,24 @@ Convention: one `### TD-NNN` heading per item. Keep `Status: open` until done; o
 **Why deferred.** It reworks the arch-test composition root, which is larger than this slice.
 
 **Acceptance.** `/health/detailed` (and any future `Program.cs`-mapped route) is covered by the same policy sweep, with no per-route comment or pinned test needed.
+
+---
+
+### TD-016 — Frontend config is build-time (`VITE_*`), forcing per-environment images for `web` and `web-admin`
+
+**Status:** open
+**Origin:** E-01b.F-03.S-02 (2026-09-28), deferred in brainstorming.
+
+**Problem.** OIDC authority/client and API base URL are inlined at `vite build`, so one image cannot be promoted across environments. It bites harder for `web-admin`, which by ADR-0118 is always cross-origin to the API.
+
+**Affected files.**
+- `web/src/shared/auth/AuthProvider.tsx`
+- `web/src/features/catalog/api/client.ts`
+- `web/src/admin/providers.tsx`
+- `web/src/admin/api/client.ts`
+
+**Proposed fix.** Serve a `/config.json` rendered by nginx envsubst at container start (same mechanism as `CSP_EXTRA_ORIGINS`) and read it before mounting the OIDC provider; keep `VITE_*` as dev defaults.
+
+**Why deferred.** Touches shared auth setup and both SPA entry points; out of scope for the S2 scaffold slice. Requires design + implementation of a config fallback (inlining on build, fetch + await on init) across both apps + their tests.
+
+**Acceptance.** One image (`web-admin` and `web`) is promoted across environments without per-environment builds; config changes take effect at pod start without a new image.

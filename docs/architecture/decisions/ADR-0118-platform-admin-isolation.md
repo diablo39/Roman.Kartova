@@ -1,6 +1,6 @@
 # ADR-0118 — Platform admin isolation: separate realm, separate auth scheme, separate app
 
-Status: Accepted
+Status: Accepted (amended 2026-09-28)
 Date: 2026-09-25
 
 ## Context
@@ -37,3 +37,7 @@ Isolate the platform operator at three independent layers.
 - Amends ADR-0092 (`/api/v1/admin/*` is bound to the `PlatformAdmin` scheme, not just the role).
 - Contextualized by ADR-0116 (token-in-browser risk motivates the separate origin).
 - Rollout: sub-slice S1 (realm + scheme + `/api/v1/admin/session/me` + migration of existing admin endpoints + arch test that every `/api/v1/admin/*` endpoint binds the `PlatformAdmin` scheme), S2 (`web-admin` scaffold), then E-01b features.
+
+## Amendment 2026-09-28 — S2 realization of layer 3
+
+Layer 3 "separate app `web-admin/`" is realized as a **second Vite entry inside `web/`** (`web/admin.html` → `src/admin/**`, own `vite.admin.config.ts`, own build output, own image `kartova/web-admin`, own nginx CSP, own origin). Isolation is a runtime property of the origin (storage, token, CSP), not of source layout; shared UI kit source is permitted. A vitest import-boundary test forbids `src/admin/**` from importing tenant code (`@/features/**`, `@/app/**`, `@/shared/auth/**`) and vice versa. CORS is per route: `/api/v1/admin/*` binds policy `KartovaAdminWeb` (`Cors:AdminAllowedOrigins`); startup fails if an origin appears in both allow-lists or the admin list contains `*`. Migration to a workspace package remains possible if the admin app needs an independent dependency lifecycle.

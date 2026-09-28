@@ -121,6 +121,16 @@ directly via `kcadm`/the admin REST API:
 kcadm.sh update clients/<id> -r kartova-platform -s bearerOnly=true
 ```
 
+## Platform-operator console (web-admin, ADR-0118)
+
+- **Image:** `docker build -f web/Dockerfile --build-arg APP=admin web` → serves `admin.html` with its own CSP (`web/admin.conf.template`).
+- **Build-time config** (baked into the image — per-environment builds until TD-016): `VITE_ADMIN_OIDC_AUTHORITY` (`https://<kc>/realms/kartova-platform`), `VITE_ADMIN_OIDC_CLIENT_ID` (`kartova-admin-web`), `VITE_ADMIN_API_BASE_URL` (API origin — always cross-origin for the console).
+- **Runtime:** `CSP_EXTRA_ORIGINS` = API + KeyCloak origins (space-separated).
+- **API:** `Cors:AdminAllowedOrigins` = the console origin(s). It must be disjoint from `Cors:AllowedOrigins` and must not be `*`, or the API refuses to start. Helm: `webAdmin.origin` → `Cors__AdminAllowedOrigins__0`; `web.origin` → `Cors__AllowedOrigins__0`.
+- **KeyCloak:** register the console's exact `https://<admin-origin>/callback` redirect, web origin, and post-logout URI on the `kartova-admin-web` client in `kartova-platform`.
+- **Helm:** `web.enabled` / `webAdmin.enabled` (default `true`); ClusterIP services only — expose them through your ingress on **different** hosts.
+- **Local:** `npm run dev:admin` (5174) or compose `web-admin` (4174). After editing `deploy/keycloak/*.json`, run `docker compose down -v`: the `keycloak-db` volume survives `down`. This also wipes local Postgres; DevSeed repopulates it. Dev operators: `platform-admin@kartova.local` and `operator-norole@kartova.local` (no role → "No access"), password `dev_password_12`.
+
 ## Web container CSP origins (E-01.F-04.S-06b)
 
 The web (nginx) container enforces a Content-Security-Policy whose cross-origin allowances (API + KeyCloak) are injected at start via the `CSP_EXTRA_ORIGINS` env var (space-separated, browser-facing origins). The Dockerfile defaults it to `""`; **every deployment must set it explicitly** or the SPA cannot reach the API/KeyCloak once CSP is enforced. There is no web `Deployment` in the Helm chart today — when one is added, it must set `CSP_EXTRA_ORIGINS` (e.g. `"https://api.<env> https://auth.<env>"`). Full guide: [csp-configuration.md](csp-configuration.md).
