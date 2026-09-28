@@ -12,7 +12,7 @@
 
 slice:  2026-09-28-e01b-s2-web-admin-shell      # = the verification folder name (matches spec/plan slug)
 branch: feat/e01b-s2-web-admin-shell
-terminal_commit: 453193d   # the slice's final commit; MUST match dod.md's "Terminal commit".
+terminal_commit: 11553e7   # the slice's final commit; MUST match dod.md's "Terminal commit".
                                # .claude/hooks/dod-check.js blocks a completion claim whose
                                # gate-findings.yaml has no terminal_commit or one that drifts from dod.md.
 
@@ -140,7 +140,7 @@ findings:
     severity: should-fix
     verdict: real
     title: "signinRedirect/signoutRedirect promises discarded — silent hang if KeyCloak unreachable during redirect"
-    note: "fixed 453193d"
+    note: "453193d fix was dead code (library never rejects) — caught by gate 8 SF1, re-fixed at gate 8"
   - gate: review-pr
     severity: should-fix
     verdict: real
@@ -181,6 +181,51 @@ findings:
     verdict: delusion
     title: "Move CORS startup warning onto app.Logger"
     note: "pre-existing pattern, out of scope"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "Gate-7 redirect-rejection handling was dead code — react-oidc-context navigators never reject (resolve null + auth.error)"
+    note: "fixed 11553e7 — auth.error-driven guard reset + Sign-in unavailable panel"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "Shared RequireAuth looped signinRedirect when KeyCloak unreachable, never showed an error"
+    note: "fixed 11553e7"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "ADR-0118 body/phase criteria still said own Helm release / web-admin/ directory"
+    note: "fixed 11553e7"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "README 0118 row dropped the tenant↔admin 401 and rejected-in-SPA clauses"
+    note: "fixed 11553e7"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "No coverage include for src/admin/api/**"
+    note: "fixed 11553e7"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "Spec Impact heading still said LSP"
+    note: "fixed 11553e7"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "Spec claimed tenant DOM unchanged despite gate-6 M4 dash fallback"
+    note: "fixed 11553e7 (spec note)"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "Missing test: admin-origin 401 must carry ACAO or the SPA sees a CORS error instead of 401"
+    note: "fixed 11553e7 (passes — ACAO present)"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "Arch CORS-policy rule had no anti-vacuity guard"
+    note: "fixed 11553e7"
   - gate: reviews
     severity: should-fix
     verdict: delusion

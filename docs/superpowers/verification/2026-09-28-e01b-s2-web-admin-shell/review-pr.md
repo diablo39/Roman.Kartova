@@ -21,7 +21,7 @@
 
 | Source | Sev | Finding | Disposition |
 |---|---|---|---|
-| silent-failure | High | `signinRedirect` / `signoutRedirect` promises are discarded with `void`. If KeyCloak is unreachable during the redirect, the UI hangs silently on "Signing in…". | **fixed:** `.catch` + `console.error`; the 401 guard resets on rejection |
+| silent-failure | High | `signinRedirect` / `signoutRedirect` promises are discarded with `void`. If KeyCloak is unreachable during the redirect, the UI hangs silently on "Signing in…". | ~~fixed: `.catch` + `console.error`~~ **correction (gate 8):** the `.catch` was dead code, because react-oidc-context 3.3.1 navigators never reject: they set `auth.error` and resolve `null`. Re-done in the gate-8 fix: guard reset + log driven by `auth.error`, and a "Sign-in unavailable" panel. |
 | silent-failure + type-design | High | No re-entrancy guard on the 401 handler: concurrent 401s fire `signinRedirect` several times, and the state/PKCE writes can race | **fixed:** `redirectingRef` guard in the shared `useApiAuthBridge` + a direct hook test |
 | type-design | Important | "Never render a blank identity" is enforced at one call site, and the avatar showed "—" as initials | **fixed:** `orDash` moved to `lib/utils/format`; `TopBarFrame` applies it to the menu lines and computes initials from the raw name |
 | silent-failure | Medium | `session/me` 5xx, network and contract-violation errors are never logged | **fixed:** one `console.error` per error, via an effect |
@@ -38,3 +38,5 @@
 | silent-failure | Low | The retry panel gives no hint about the default API base URL; no Development-mode CORS debug log | **skipped:** covered by TD-016 / dev only |
 
 Fix commit and scoped re-review: see `dod.md`, gate 7.
+
+**Correction 2026-09-28 (gate 8 deep-review, SF1):** the scoped re-review missed that the rejection path cannot occur with the installed library. The test mocked a rejecting `signinRedirect`, which the real library never produces. It was re-fixed at gate 8 against the real `auth.error` contract.

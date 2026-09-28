@@ -1,6 +1,6 @@
 # DoD Ledger — E-01b.F-03.S-02 web-admin app shell
 
-**Slice:** `2026-09-28-e01b-s2-web-admin-shell` · **Branch:** `feat/e01b-s2-web-admin-shell` · **HEAD:** `453193d`
+**Slice:** `2026-09-28-e01b-s2-web-admin-shell` · **Branch:** `feat/e01b-s2-web-admin-shell` · **HEAD:** `11553e7`
 **PR:** <#NN / url> · **Last updated:** 2026-09-28
 **Spec:** `docs/superpowers/specs/2026-09-28-e01b-s2-web-admin-shell-design.md`
 **Plan:** `docs/superpowers/plans/2026-09-28-e01b-s2-web-admin-shell-plan.md`
@@ -21,7 +21,7 @@
 | 5 `/simplify` | ✅ PASS | 2026-09-28 |
 | 6 `requesting-code-review` | ✅ PASS | 2026-09-28 |
 | 7 `review-pr` | ✅ PASS | 2026-09-28 |
-| 8 `deep-review` | ⏳ PENDING | — |
+| 8 `deep-review` | ✅ PASS | 2026-09-28 |
 | Terminal re-verify (build + suite) | ⏳ PENDING | — |
 | 9 Visual / API verification (ADR-0084) | ⏳ PENDING | — |
 | 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING | — |
@@ -60,13 +60,13 @@
 
 ### 7 — `review-pr` (pr-review-toolkit)
 **Status:** ✅ PASS
-**Evidence:** `review-pr.md` — standing set (type-design-analyzer, pr-test-analyzer, code-reviewer) + silent-failure-hunter (error-handling diff); comment-analyzer skipped (code-heavy diff). code-reviewer 0 findings; fixed in 453193d: redirect-promise rejection handling + 401 re-entrancy guard (shared hook, direct test), TopBarFrame blank-identity fallback with raw initials, session-error logging, 5 test gaps (post-logout URIs, fallback branches, boundary positive control, unknown-origin→admin preflight, symmetric Helm disable). Skips with rulings in `review-pr.md`. Scoped re-review: all addressed; 1 Low latent nit (sync-throw guard stick — `signinRedirect` is async, non-blocking).
+**Evidence:** `review-pr.md` — standing set (type-design-analyzer, pr-test-analyzer, code-reviewer) + silent-failure-hunter (error-handling diff); comment-analyzer skipped (code-heavy diff). code-reviewer 0 findings; fixed in 453193d: redirect-promise rejection handling + 401 re-entrancy guard (shared hook, direct test), TopBarFrame blank-identity fallback with raw initials, session-error logging, 5 test gaps (post-logout URIs, fallback branches, boundary positive control, unknown-origin→admin preflight, symmetric Helm disable). Skips with rulings in `review-pr.md`. Scoped re-review: all addressed; 1 Low latent nit (sync-throw guard stick — `signinRedirect` is async, non-blocking). **Correction (gate 8 SF1):** the redirect-rejection `.catch` was dead code (library never rejects); re-fixed at gate 8 (11553e7).
 **At:** 453193d / 2026-09-28
 
 ### 8 — `deep-review`
-**Status:** ⏳ PENDING
-**Evidence:** <link to deep-review.md>
-**At:** <commit / date>
+**Status:** ✅ PASS
+**Evidence:** `deep-review.md` — 0 blocking · 2 should-fix · 5 nits · 4 missing tests. SF1 (controller-verified in node_modules): gate-7's redirect `.catch` was dead code — react-oidc-context 3.3.1 navigators resolve `null` + set `auth.error`, never reject → re-fixed with `auth.error`-driven guard reset + log and a "Sign-in unavailable" panel on the session-401 path. SF2: shared `RequireAuth` no longer loops `signinRedirect` when KeyCloak is unreachable (panel + Try again; `source === "signinRedirect"`). Nits (ADR amendment/phase wording, README row, coverage include, spec Impact heading + notes) and tests (admin-origin 401 carries ACAO — no token + tenant token; arch anti-vacuity) done. Fix 11553e7; scoped re-review: all addressed, no new Critical/Important.
+**At:** 11553e7 / 2026-09-28
 
 ### Terminal re-verify (build + full suite after gates 5–8)
 **Status:** ⏳ PENDING
