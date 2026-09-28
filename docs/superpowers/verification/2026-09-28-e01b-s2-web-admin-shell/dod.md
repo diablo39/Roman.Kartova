@@ -1,6 +1,6 @@
 # DoD Ledger — E-01b.F-03.S-02 web-admin app shell
 
-**Slice:** `2026-09-28-e01b-s2-web-admin-shell` · **Branch:** `feat/e01b-s2-web-admin-shell` · **HEAD:** `d337205`
+**Slice:** `2026-09-28-e01b-s2-web-admin-shell` · **Branch:** `feat/e01b-s2-web-admin-shell` · **HEAD:** `5e7b770`
 **PR:** <#NN / url> · **Last updated:** 2026-09-28
 **Spec:** `docs/superpowers/specs/2026-09-28-e01b-s2-web-admin-shell-design.md`
 **Plan:** `docs/superpowers/plans/2026-09-28-e01b-s2-web-admin-shell-plan.md`
@@ -19,7 +19,7 @@
 | 3 Full suite (+ real-seam if wiring) | ✅ PASS | 2026-09-28 |
 | 4 Container build (images CI) | ✅ PASS | 2026-09-28 |
 | 5 `/simplify` | ✅ PASS | 2026-09-28 |
-| 6 `requesting-code-review` | ⏳ PENDING | — |
+| 6 `requesting-code-review` | ✅ PASS | 2026-09-28 |
 | 7 `review-pr` | ⏳ PENDING | — |
 | 8 `deep-review` | ⏳ PENDING | — |
 | Terminal re-verify (build + suite) | ⏳ PENDING | — |
@@ -54,9 +54,9 @@
 **At:** d337205 / 2026-09-28
 
 ### 6 — `requesting-code-review` at slice boundary
-**Status:** ⏳ PENDING
-**Evidence:** <link to requesting-code-review.md / findings>
-**At:** <commit / date>
+**Status:** ✅ PASS
+**Evidence:** `requesting-code-review.md` — whole branch 2c03a2b..5fdd094, most-capable-model reviewer: With fixes — 0 Critical · 3 Important · 9 Minor. Fixed in 5e7b770 (VITE_* build ARGs + runbook, stale Helm/CSP docs, tenant-`*` guard, `/callback` no-param redirect, top-bar dashes, startup-guard host test, ADR row, favicon); TD-017 (persistent-401 loop, both SPAs); M6 accepted; M9 → PR description; I3 → terminal re-verify incl. full dotnet test + e2e. Scoped re-review: all addressed, no new breakage.
+**At:** 5e7b770 / 2026-09-28
 
 ### 7 — `review-pr` (pr-review-toolkit)
 **Status:** ⏳ PENDING

@@ -12,7 +12,7 @@
 
 slice:  2026-09-28-e01b-s2-web-admin-shell      # = the verification folder name (matches spec/plan slug)
 branch: feat/e01b-s2-web-admin-shell
-terminal_commit: d337205   # the slice's final commit; MUST match dod.md's "Terminal commit".
+terminal_commit: 5e7b770   # the slice's final commit; MUST match dod.md's "Terminal commit".
                                # .claude/hooks/dod-check.js blocks a completion claim whose
                                # gate-findings.yaml has no terminal_commit or one that drifts from dod.md.
 
@@ -76,6 +76,66 @@ findings:
     verdict: delusion
     title: "8 further suggestions (token-slot factory, double normalize, vite base config, multi-page/own-root Vite, single nginx template, prebuild:admin, arch-test host caching, realm JSON caching)"
     note: "skipped with reasons in simplify.md (bundle separation, per-app CSP decision, gitignored codegen, pre-existing patterns)"
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "VITE_* build-time config documented but Dockerfile declared no ARG — silently dropped"
+    note: "fixed 5e7b770"
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "Deploy docs still said the chart has no web Deployment; empty cspExtraOrigins breaks the SPA under enforcing CSP"
+    note: "fixed 5e7b770"
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "Terminal re-verify must include full dotnet test + e2e after gate-5 d337205"
+    note: "process — terminal re-verify"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "Tenant Cors:AllowedOrigins * lets the admin origin read tenant routes"
+    note: "fixed 5e7b770"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "Persistent 401 → endless signinRedirect loop (both SPAs)"
+    note: "TD-017"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "Direct /callback visit with no auth params hangs"
+    note: "fixed 5e7b770"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "Top-bar menu showed blank name/email while landing showed —"
+    note: "fixed 5e7b770"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "No test proves Program.cs calls CorsOriginLists.Validate"
+    note: "fixed 5e7b770"
+  - gate: requesting-review
+    severity: nit
+    verdict: delusion
+    title: "Empty admin-origin warning when webAdmin disabled"
+    note: "accepted — warning is truthful"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "ADR index row said own Helm release"
+    note: "fixed 5e7b770"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "admin.html favicon /vite.svg missing"
+    note: "fixed 5e7b770"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "Unrelated LSP/CLAUDE.md commits in branch"
+    note: "PR description"
   - gate: reviews
     severity: should-fix
     verdict: delusion
