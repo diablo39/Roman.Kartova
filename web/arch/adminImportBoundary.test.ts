@@ -80,4 +80,27 @@ describe("admin import boundary (ADR-0118)", () => {
       );
     expect(offenders).toEqual([]);
   });
+
+  // Positive controls: the two guards above are only meaningful if the machinery behind them
+  // actually works — an over-eager resolver (or a regex that misses a form) would let both
+  // pass vacuously with zero offenders. Prove each piece directly.
+  it("the specifier regex extracts every import/export/dynamic-import form", () => {
+    const sample = [
+      'import x from "a";',
+      'export { y } from "b";',
+      'import("c");',
+      'import "d";',
+    ].join("\n");
+
+    const specifiers = [...sample.matchAll(SPECIFIER)].map((m) => m[1] ?? m[2] ?? m[3]);
+
+    expect(specifiers).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("resolveSpecifier resolves an @/ alias to a real file under the forbidden features dir (path-separator handling on this OS)", () => {
+    const resolved = resolveSpecifier(ENTRY, "@/features/catalog/api/client");
+
+    expect(resolved).not.toBeNull();
+    expect(resolved!.startsWith(FORBIDDEN[0]!)).toBe(true);
+  });
 });

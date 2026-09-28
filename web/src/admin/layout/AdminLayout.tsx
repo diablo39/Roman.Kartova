@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useAuth } from "react-oidc-context";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
@@ -7,7 +8,6 @@ import { SidebarFrame } from "@/components/layout/SidebarFrame";
 import { TopBarFrame } from "@/components/layout/TopBarFrame";
 import { statusOf } from "@/shared/api/openapi-fetch-helpers";
 import { useAdminSession } from "../api/useAdminSession";
-import { orDash } from "../format";
 import { AdminNoAccessPage } from "../pages/AdminNoAccessPage";
 import { AdminSidebarNav } from "./AdminSidebarNav";
 
@@ -33,11 +33,22 @@ function SessionErrorPanel({ onRetry }: { onRetry: () => void }) {
 export function AdminLayout() {
   const session = useAdminSession();
   const auth = useAuth();
-  const signOut = () => void auth.signoutRedirect();
+  const signOut = () =>
+    void Promise.resolve(auth.signoutRedirect()).catch((e) => console.error("Sign-out failed:", e));
+  const status = session.isError ? statusOf(session.error) : undefined;
+
+  // 401/403 are expected, handled outcomes (re-auth in progress / no access) — never logged as
+  // failures. Everything else (5xx, network failure, a contract-violating body) is unexpected and
+  // would otherwise fail silently behind the retry panel.
+  useEffect(() => {
+    if (session.isError && status !== 401 && status !== 403) {
+      console.error("Admin access check failed:", session.error);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- status is derived from session.error; re-deriving it in the dep array would re-run on every session object identity change.
+  }, [session.isError, session.error]);
 
   if (session.isPending) return <div className="p-8 text-sm text-tertiary">Loading…</div>;
   if (session.isError) {
-    const status = statusOf(session.error);
     if (status === 403) return <AdminNoAccessPage onSignOut={signOut} />;
     if (status === 401) return <div className="p-8 text-sm text-tertiary">Signing in…</div>;
     return <SessionErrorPanel onRetry={() => void session.refetch()} />;
@@ -57,7 +68,7 @@ export function AdminLayout() {
               Platform Admin
             </Badge>
           }
-          user={{ displayName: orDash(session.data.displayName), email: orDash(session.data.email) }}
+          user={{ displayName: session.data.displayName, email: session.data.email }}
           onSignOut={signOut}
         />
       }

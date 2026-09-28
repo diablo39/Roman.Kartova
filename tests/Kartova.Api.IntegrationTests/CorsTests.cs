@@ -105,6 +105,14 @@ public class CorsTests : KeycloakContainerTestBase
         resp.Headers.TryGetValues("Access-Control-Allow-Origin", out var v) ? v.Single() : null;
 
     [TestMethod]
+    public async Task Preflight_from_unknown_origin_to_admin_route_does_not_echo_origin()
+    {
+        var resp = await _app!.CreateClient().SendAsync(Preflight(AdminRoute, "https://evil.example"));
+
+        Assert.IsNull(AllowOrigin(resp), "an origin outside both allowlists must not be able to read admin responses.");
+    }
+
+    [TestMethod]
     public async Task Preflight_from_admin_origin_to_admin_route_allows_admin_origin()
     {
         var resp = await _app!.CreateClient().SendAsync(Preflight(AdminRoute, AdminOrigin));

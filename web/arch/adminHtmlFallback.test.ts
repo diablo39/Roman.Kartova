@@ -41,4 +41,24 @@ describe("adminHtmlTarget (ADR-0118)", () => {
   it("does not rewrite a non-GET/HEAD request", () => {
     expect(adminHtmlTarget("POST", "/")).toBeUndefined();
   });
+
+  it("treats an undefined method (e.g. Vite's own internal calls) as GET", () => {
+    expect(adminHtmlTarget(undefined, "/")).toBe("/admin.html");
+  });
+
+  it("rewrites a HEAD request the same as GET", () => {
+    expect(adminHtmlTarget("HEAD", "/x")).toBe("/admin.html");
+  });
+
+  it("does not rewrite when the url is undefined", () => {
+    expect(adminHtmlTarget("GET", undefined)).toBeUndefined();
+  });
+
+  it("does not rewrite a /__ -prefixed Vite-internal request", () => {
+    expect(adminHtmlTarget("GET", "/__vite_ping")).toBeUndefined();
+  });
+
+  it("strips the hash but keeps the query string on rewrite", () => {
+    expect(adminHtmlTarget("GET", "/callback?code=a#frag")).toBe("/admin.html?code=a");
+  });
 });

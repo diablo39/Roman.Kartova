@@ -20,4 +20,8 @@ grep -A1 "name: Cors__AdminAllowedOrigins__0" "$out" | grep -q "https://admin.ex
 helm template "$chart" --set database.connectionString="$cs" --set webAdmin.enabled=false > "$out"
 grep -q "app.kubernetes.io/component: web-admin$" "$out" && fail "web-admin rendered while disabled"
 
+helm template "$chart" --set database.connectionString="$cs" --set web.enabled=false > "$out"
+grep -q "app.kubernetes.io/component: web$" "$out" && fail "web rendered while disabled"
+grep -q "app.kubernetes.io/component: web-admin$" "$out" || fail "web-admin missing while only web is disabled"
+
 echo "render-check: OK"

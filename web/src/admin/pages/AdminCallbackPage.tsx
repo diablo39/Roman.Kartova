@@ -38,7 +38,15 @@ export function AdminCallbackPage() {
         heading="Sign-in failed"
         body="The sign-in could not be completed."
         action={
-          <Button color="secondary" size="md" onClick={() => void auth.signinRedirect()}>
+          <Button
+            color="secondary"
+            size="md"
+            onClick={() =>
+              void Promise.resolve(auth.signinRedirect()).catch((e) =>
+                console.error("Sign-in retry failed:", e),
+              )
+            }
+          >
             Try again
           </Button>
         }

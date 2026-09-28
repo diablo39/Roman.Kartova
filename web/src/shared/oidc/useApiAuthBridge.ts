@@ -28,17 +28,30 @@ export function useApiAuthBridge(
   const signinRedirectRef = useRef(auth.signinRedirect);
   // eslint-disable-next-line react-hooks/refs -- intentional: live refs must be set during render before child effects (PR #47); effect-based assignment reintroduces the stale-token 401 race.
   signinRedirectRef.current = auth.signinRedirect;
+  // Re-entrancy guard: several concurrent 401s (e.g. a burst of in-flight requests racing the same
+  // expired token) must not each fire their own signinRedirect — the browser would be handed
+  // multiple overlapping navigations. Cleared on rejection so a genuinely failed redirect can retry.
+  const redirectingRef = useRef(false);
   useEffect(() => {
     setTokenProvider(() => tokenRef.current);
     setUnauthorizedHandler(() => {
+      if (redirectingRef.current) return;
+      redirectingRef.current = true;
       // Round-trip the current deep link through OIDC `state` (mirrors
       // RequireAuth) so a 401-triggered re-auth returns the user to where they
       // were instead of dumping them on /catalog (resolveReturnTo validates it).
-      void signinRedirectRef.current({
-        state: {
-          returnTo:
-            window.location.pathname + window.location.search + window.location.hash,
-        },
+      // Promise.resolve(...) wraps the call so a mock/adapter that doesn't return a thenable
+      // (any signinRedirect not typed strictly as Promise-returning) still lets .catch attach safely.
+      Promise.resolve(
+        signinRedirectRef.current({
+          state: {
+            returnTo:
+              window.location.pathname + window.location.search + window.location.hash,
+          },
+        }),
+      ).catch((e) => {
+        redirectingRef.current = false;
+        console.error("Re-authentication redirect failed:", e);
       });
     });
   }, [auth]);

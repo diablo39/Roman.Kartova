@@ -1,5 +1,5 @@
 import { useAdminSession } from "../api/useAdminSession";
-import { orDash } from "../format";
+import { orDash } from "@/lib/utils/format";
 
 export function AdminLandingPage() {
   const { data } = useAdminSession();

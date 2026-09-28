@@ -37,9 +37,11 @@ function renderLayout() {
 }
 
 let fetchSpy: MockInstance<typeof fetch>;
+let consoleErrorSpy: MockInstance<typeof console.error>;
 beforeEach(() => {
   signoutRedirect.mockClear();
   fetchSpy = vi.spyOn(globalThis, "fetch");
+  consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 });
 afterEach(() => vi.restoreAllMocks());
 
@@ -95,23 +97,25 @@ describe("AdminLayout", () => {
     expect(screen.queryByRole("heading", { name: "No access" })).toBeNull();
   });
 
-  it("500 → retry panel (never No access), and Retry re-checks", async () => {
+  it("500 → retry panel (never No access), and Retry re-checks; logs once", async () => {
     fetchSpy.mockImplementation(async () => json(500, { title: "boom", status: 500 }));
     renderLayout();
 
     expect(await screen.findByRole("heading", { name: "Couldn't verify admin access" }, WAIT)).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "No access" })).toBeNull();
+    expect(consoleErrorSpy).toHaveBeenCalledWith("Admin access check failed:", expect.anything());
 
     fetchSpy.mockImplementation(async () => json(200, operator));
     await userEvent.setup().click(screen.getByRole("button", { name: "Retry" }));
     await waitFor(() => expect(screen.getByRole("link", { name: "Overview" })).toBeInTheDocument(), WAIT);
   });
 
-  it("network failure (fetch rejects) → retry panel, never No access", async () => {
+  it("network failure (fetch rejects) → retry panel, never No access; logs once", async () => {
     fetchSpy.mockImplementation(async () => { throw new TypeError("Failed to fetch"); });
     renderLayout();
 
     expect(await screen.findByRole("heading", { name: "Couldn't verify admin access" }, WAIT)).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "No access" })).toBeNull();
+    expect(consoleErrorSpy).toHaveBeenCalledWith("Admin access check failed:", expect.anything());
   });
 });

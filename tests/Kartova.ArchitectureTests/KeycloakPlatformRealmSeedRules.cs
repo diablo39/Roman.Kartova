@@ -146,6 +146,10 @@ public sealed class KeycloakPlatformRealmSeedRules
 
         var origins = web.GetProperty("webOrigins").EnumerateArray().Select(x => x.GetString()).ToArray();
         CollectionAssert.AreEquivalent(new[] { "http://localhost:5174", "http://localhost:4174" }, origins);
+
+        Assert.AreEqual("http://localhost:5174/*##http://localhost:4174/*",
+            web.GetProperty("attributes").GetProperty("post.logout.redirect.uris").GetString(),
+            "post-logout redirects must be pinned exactly like the sign-in redirects — no wildcard host, dev + container origins only (ADR-0118).");
     }
 
     [TestMethod]

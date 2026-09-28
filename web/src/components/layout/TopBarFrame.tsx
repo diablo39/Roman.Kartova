@@ -2,6 +2,7 @@ import { ChevronDown, LogOut01 } from "@untitledui/icons";
 import { Button as AriaButton } from "react-aria-components";
 import { Avatar } from "@/components/base/avatar/avatar";
 import { Dropdown } from "@/components/base/dropdown/dropdown";
+import { orDash } from "@/lib/utils/format";
 import { initialsOf } from "@/lib/utils/initials";
 
 export interface TopBarUser {
@@ -42,8 +43,8 @@ export function TopBarFrame({
         <Dropdown.Popover className="w-56" placement="bottom right">
           {user && (
             <div className="px-3 py-2 text-sm">
-              <div className="font-medium text-primary">{user.displayName}</div>
-              <div className="text-xs text-tertiary">{user.email}</div>
+              <div className="font-medium text-primary">{orDash(user.displayName)}</div>
+              <div className="text-xs text-tertiary">{orDash(user.email)}</div>
             </div>
           )}
           <Dropdown.Menu>
