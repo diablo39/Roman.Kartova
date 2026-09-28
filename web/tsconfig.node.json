@@ -15,5 +15,5 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["vite.config.ts", "vite.admin.config.ts", "vitest.config.ts", "arch/**/*.ts"]
+  "include": ["vite.config.ts", "vite.admin.config.ts", "vite-admin-html-fallback.ts", "vitest.config.ts", "arch/**/*.ts"]
 }
