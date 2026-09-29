@@ -1,5 +1,7 @@
-import { render } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { markReauthAttempt } from "@/shared/oidc/reauthMarker";
 
 const { setAdminAccessTokenProvider, setAdminUnauthorizedHandler } = vi.hoisted(() => ({
   setAdminAccessTokenProvider: vi.fn<(p: () => string | null) => void>(),
@@ -11,11 +13,13 @@ vi.mock("@/admin/api/client", async (orig) => {
 });
 
 const signinRedirect = vi.fn();
+const signoutRedirect = vi.fn();
 let authValue: {
   isAuthenticated: boolean;
   isLoading: boolean;
   user?: { access_token: string };
   signinRedirect: typeof signinRedirect;
+  signoutRedirect?: typeof signoutRedirect;
 };
 vi.mock("react-oidc-context", () => ({
   useAuth: () => authValue,
@@ -25,9 +29,11 @@ vi.mock("react-oidc-context", () => ({
 import { AdminApiAuthBridge } from "@/admin/providers";
 
 beforeEach(() => {
+  window.sessionStorage.clear();
   setAdminAccessTokenProvider.mockClear();
   setAdminUnauthorizedHandler.mockClear();
   signinRedirect.mockClear();
+  signoutRedirect.mockClear();
 });
 afterEach(() => window.history.pushState({}, "", "/"));
 
@@ -51,5 +57,20 @@ describe("AdminApiAuthBridge", () => {
     rerender(<AdminApiAuthBridge>x</AdminApiAuthBridge>);
 
     expect(provider()).toBe("tok-live");
+  });
+
+  it("renders the session-rejected panel instead of the console when the breaker trips", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    markReauthAttempt();
+    authValue = { isAuthenticated: true, isLoading: false, user: { access_token: "t" }, signinRedirect, signoutRedirect };
+    render(<AdminApiAuthBridge>console-content</AdminApiAuthBridge>);
+
+    act(() => setAdminUnauthorizedHandler.mock.calls.at(-1)![0]());
+
+    expect(screen.getByRole("heading", { name: "Signed in, but the session was rejected" })).toBeInTheDocument();
+    expect(screen.queryByText("console-content")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    expect(signoutRedirect).toHaveBeenCalledTimes(1);
   });
 });

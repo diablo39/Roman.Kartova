@@ -1,8 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
+import { useAuth } from "react-oidc-context";
 import { Toaster } from "sonner";
 
 import { AuthProvider } from "@/shared/auth/AuthProvider";
+import { ReauthFailedPanel } from "@/shared/oidc/ReauthFailedPanel";
 import { useApiAuthBridge } from "@/shared/oidc/useApiAuthBridge";
 import {
   setAccessTokenProvider,
@@ -20,7 +22,9 @@ const queryClient = new QueryClient({
 });
 
 export function ApiAuthBridge({ children }: { children: React.ReactNode }) {
-  useApiAuthBridge(setAccessTokenProvider, setUnauthorizedHandler);
+  const auth = useAuth();
+  const { reauthFailed, retry } = useApiAuthBridge(setAccessTokenProvider, setUnauthorizedHandler);
+  if (reauthFailed) return <ReauthFailedPanel onRetry={retry} onSignOut={() => void auth.signoutRedirect()} />;
   return <>{children}</>;
 }
 

@@ -1,5 +1,7 @@
-import { render } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { markReauthAttempt } from "@/shared/oidc/reauthMarker";
 
 // Capture the provider/handler the bridge installs on the API client.
 // vi.hoisted so the spies exist when the (hoisted) vi.mock factory runs.
@@ -14,11 +16,13 @@ vi.mock("@/features/catalog/api/client", async (orig) => {
 
 // Drive react-oidc-context's useAuth from a mutable test value.
 const signinRedirect = vi.fn();
+const signoutRedirect = vi.fn();
 let authValue: {
   isAuthenticated: boolean;
   isLoading: boolean;
   user?: { access_token: string };
   signinRedirect: typeof signinRedirect;
+  signoutRedirect?: typeof signoutRedirect;
 };
 vi.mock("react-oidc-context", () => ({
   useAuth: () => authValue,
@@ -32,9 +36,11 @@ function authedAuth(token = "tok-live") {
 }
 
 beforeEach(() => {
+  window.sessionStorage.clear();
   setAccessTokenProvider.mockClear();
   setUnauthorizedHandler.mockClear();
   signinRedirect.mockClear();
+  signoutRedirect.mockClear();
 });
 
 afterEach(() => {
@@ -88,5 +94,25 @@ describe("ApiAuthBridge", () => {
     handlerInstalledWhileLoading();
     expect(signinRedirectNew).toHaveBeenCalledTimes(1);
     expect(signinRedirectOld).not.toHaveBeenCalled();
+  });
+
+  it("renders the session-rejected panel instead of the app when the breaker trips, with working actions", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    markReauthAttempt();
+    authValue = { ...authedAuth(), signoutRedirect };
+    render(<ApiAuthBridge>app-content</ApiAuthBridge>);
+
+    act(() => setUnauthorizedHandler.mock.calls.at(-1)![0]());
+
+    expect(screen.getByRole("heading", { name: "Signed in, but the session was rejected" })).toBeInTheDocument();
+    expect(screen.queryByText("app-content")).not.toBeInTheDocument();
+    expect(signinRedirect).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    expect(signoutRedirect).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(signinRedirect).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("app-content")).toBeInTheDocument();
   });
 });

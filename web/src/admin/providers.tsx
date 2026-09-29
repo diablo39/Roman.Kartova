@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { AuthProvider } from "react-oidc-context";
+import { AuthProvider, useAuth } from "react-oidc-context";
 import { ThemeProvider } from "next-themes";
 import { buildOidcConfig } from "@/shared/oidc/authConfig";
+import { ReauthFailedPanel } from "@/shared/oidc/ReauthFailedPanel";
 import { useApiAuthBridge } from "@/shared/oidc/useApiAuthBridge";
 import { setAdminAccessTokenProvider, setAdminUnauthorizedHandler } from "./api/client";
 import { resolveConfigValue } from "@/shared/config/runtimeConfig";
@@ -25,7 +26,9 @@ const queryClient = new QueryClient({
 });
 
 export function AdminApiAuthBridge({ children }: { children: React.ReactNode }) {
-  useApiAuthBridge(setAdminAccessTokenProvider, setAdminUnauthorizedHandler);
+  const auth = useAuth();
+  const { reauthFailed, retry } = useApiAuthBridge(setAdminAccessTokenProvider, setAdminUnauthorizedHandler);
+  if (reauthFailed) return <ReauthFailedPanel onRetry={retry} onSignOut={() => void auth.signoutRedirect()} />;
   return <>{children}</>;
 }
 
