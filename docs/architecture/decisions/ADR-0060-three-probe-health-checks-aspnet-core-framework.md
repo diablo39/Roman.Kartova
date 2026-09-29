@@ -75,6 +75,8 @@ HTTP status mapping: `Healthy` → 200, `Degraded` → 200 (pod stays in Service
 | `/health/live`, `/health/ready`, `/health/startup` | Public (K8s probes from kubelet, no auth context) | No |
 | `/health/detailed` | Public URL but auth-gated (Bearer JWT, Operations role) | Yes |
 
+> **Amended by ADR-0118:** `/health/detailed` requires `PlatformAdminOnly` (operator-realm `PlatformAdmin` scheme + role), not a tenant-realm Operations role.
+
 Public probe endpoints return per-check status but no secrets (no connection strings, no hostnames exceeding what's already in config). The detailed endpoint adds version info, full dependency URIs, timing percentiles, and recent error samples for operations debugging.
 
 **Out of scope:** ASP.NET Core HealthChecks UI is not exposed publicly. Operations use the auth-gated `/health/detailed` endpoint or internal dashboards backed by ADR-0059 Prometheus metrics.
