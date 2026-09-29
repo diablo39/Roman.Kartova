@@ -210,7 +210,12 @@ public class EndpointRouteRules
         Assert.IsTrue(source.Contains("new SystemEndpoints()", StringComparison.Ordinal),
             "Program.cs no longer adds SystemEndpoints — the file layout changed; update this guard.");
 
-        var direct = Regex.Matches(source, @"\.Map(Get|Post|Put|Patch|Delete|Methods|HealthChecks|OpenApi|Group|Fallback)\w*\(")
+        // Matches any `.Map…(` call except `.MapEndpoints(` (the one call this composition root
+        // is allowed to make — it grafts each IModuleEndpoints in, it does not map routes itself).
+        // A narrower allowlist of verb-specific method names (MapGet/MapPost/…) missed this repo's
+        // own route-mapping helpers (MapAdminModule/MapTenantScopedModule in
+        // ModuleRouteExtensions.cs) along with plain .Map(...), MapControllers, MapHub, etc.
+        var direct = Regex.Matches(source, @"\.Map(?!Endpoints\()\w*\(")
             .Select(m => m.Value)
             .ToArray();
 

@@ -10,7 +10,6 @@ using Kartova.Organization.Infrastructure;
 using Kartova.Organization.Infrastructure.Admin;
 using Kartova.SharedKernel;
 using Kartova.SharedKernel.AspNetCore;
-using Kartova.SharedKernel.AspNetCore.HealthChecks;
 using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Postgres;
 using Microsoft.AspNetCore.Authentication;

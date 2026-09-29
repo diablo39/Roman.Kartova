@@ -17,7 +17,9 @@ server {
 
   # Runtime SPA config (TD-016): rendered from KARTOVA_* env at container start by the same envsubst pass
   # as ${CSP_EXTRA_ORIGINS}. Exact match beats the *.js immutable-cache rule below; no-store so a changed
-  # env takes effect on the next page load. Values are trusted operator input and must not contain quotes.
+  # env takes effect on the next page load. Values are trusted operator input and must be plain absolute
+  # URLs / client ids — no quotes ('/"), $, or backslashes: nginx's `return` directive treats $ as a
+  # variable reference, and a \ breaks the JS string literal below.
   location = /config.js {
     default_type application/javascript;
     add_header Cache-Control "no-store" always;
