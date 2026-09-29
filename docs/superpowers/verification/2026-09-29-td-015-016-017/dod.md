@@ -1,6 +1,6 @@
 # DoD Ledger — TD-015 / TD-016 / TD-017
 
-**Slice:** `2026-09-29-td-015-016-017` · **Branch:** `chore/tech-debt-td-015-016-017` · **HEAD:** `65d0c10`
+**Slice:** `2026-09-29-td-015-016-017` · **Branch:** `chore/tech-debt-td-015-016-017` · **HEAD:** `1e954d8`
 **PR:** <#NN / url> · **Last updated:** 2026-09-29
 **Spec:** `docs/superpowers/specs/2026-09-29-td-015-016-017-design.md`
 **Plan:** `docs/superpowers/plans/2026-09-29-td-015-016-017-plan.md`
@@ -19,7 +19,7 @@
 | 3 Full suite (+ real-seam if wiring) | ⏳ PENDING | — |
 | 4 Container build (images CI) | ✅ PASS | 2026-09-29 |
 | 5 `/simplify` | ✅ PASS (advisory; 3 applied, 8 skipped) | 2026-09-29 |
-| 6 `requesting-code-review` | ⏳ PENDING | — |
+| 6 `requesting-code-review` | ✅ PASS (with fixes) | 2026-09-29 |
 | 7 `review-pr` | ⏳ PENDING | — |
 | 8 `deep-review` | ⏳ PENDING | — |
 | Terminal re-verify (build + suite) | ⏳ PENDING | — |
@@ -59,9 +59,13 @@
 **At:** 65d0c10 / 2026-09-29
 
 ### 6 — `requesting-code-review` at slice boundary
-**Status:** ⏳ PENDING
-**Evidence:** <link to requesting-code-review.md / findings>
-**At:** <commit / date>
+**Status:** ✅ PASS (with fixes)
+**Evidence:** `requesting-code-review.md` — whole branch f0a62b1..18c6178, most-capable-model reviewer: With fixes — 0 Critical · 1 Important · 7 Minor.
+- **Fixed in 1e954d8:** I1 — the `Program_maps_no_routes_directly` regex missed `.Map(` and `MapAdminModule(`; widened to `\.Map(?!Endpoints\()\w*\(` and proven by planted `MapAdminModule` + `.Map(` violations. Also removed the last dead `using` and documented the unsafe config chars (`'` `"` `$` `\`) plus a `VITE_*` upgrade note.
+- **Ruled, not fixed:** retry briefly flashes the app (kept, so the existing "Sign-in unavailable" panels still handle a failed retry redirect); ops rule vacuous when the allowlist is empty (the prefix rule catches that); combined scheme on `/health/detailed` (pinned by the real-seam integration test).
+- **Deferred:** T2, T3, T6b–e and T7 minors, each marked can-defer.
+- Scoped re-review: all addressed, no new breakage.
+**At:** 1e954d8 / 2026-09-29
 
 ### 7 — `review-pr` (pr-review-toolkit)
 **Status:** ⏳ PENDING
