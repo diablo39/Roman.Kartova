@@ -24,7 +24,7 @@ They flow into `connect-src` (XHR/fetch + OIDC token/userinfo/silent-renew), `fr
 | Local compose | `docker-compose.yml` → `web.environment` (already set) | `http://localhost:8080 http://localhost:8180` |
 | k8s / Helm | `values.yaml` → `web.cspExtraOrigins` / `webAdmin.cspExtraOrigins` (chart renders both `web` and `web-admin` Deployments, default enabled) — empty → enforcing CSP `connect-src 'self'` blocks the SPA from reaching the API/KC | `https://api.example.com https://auth.example.com` |
 
-These must match the SPA's build-time `VITE_API_BASE_URL` and `VITE_OIDC_AUTHORITY` (browser-facing origins).
+These must cover the origins of the runtime `KARTOVA_API_BASE_URL` and `KARTOVA_OIDC_AUTHORITY` (browser-facing; see TD-016 runtime config).
 
 **Footgun:** nginx envsubst only substitutes *defined* env vars and has no `${VAR:-default}` syntax. The Dockerfile defines `ENV CSP_EXTRA_ORIGINS=""` so an unset var renders cleanly (`connect-src 'self' ;`) instead of leaking a literal `${CSP_EXTRA_ORIGINS}`. **Always set the var explicitly in every deployment** — an empty/omitted var means the SPA can't reach the API or KeyCloak once enforced.
 

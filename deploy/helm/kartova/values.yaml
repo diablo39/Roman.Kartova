@@ -30,7 +30,7 @@ migrator:
       cpu: 500m
       memory: 256Mi
 
-# Tenant SPA (nginx). Build-time VITE_* config is baked into the image (per-environment images; TD-016).
+# Tenant SPA (nginx). OIDC/API config is injected at pod start via /config.js (TD-016) — one image for all environments.
 web:
   enabled: true
   replicaCount: 1
@@ -42,6 +42,11 @@ web:
   origin: ""
   # Space-separated API + KeyCloak origins injected into the nginx CSP (connect-src/frame-src/form-action).
   cspExtraOrigins: ""
+  # Runtime SPA config → /config.js (TD-016). Empty → the SPA's built-in localhost defaults. Absolute URLs, no quotes.
+  config:
+    oidcAuthority: ""   # e.g. https://kc.example.com/realms/kartova
+    oidcClientId: ""    # e.g. kartova-web
+    apiBaseUrl: ""      # e.g. https://api.example.com
   resources:
     requests:
       cpu: 10m
@@ -60,6 +65,11 @@ webAdmin:
   port: 8080
   origin: ""          # → Cors__AdminAllowedOrigins__0 on the API
   cspExtraOrigins: ""
+  # Runtime console config → /config.js (TD-016). The API is always cross-origin for the console (ADR-0118).
+  config:
+    oidcAuthority: ""   # e.g. https://kc.example.com/realms/kartova-platform
+    oidcClientId: ""    # e.g. kartova-admin-web
+    apiBaseUrl: ""      # e.g. https://api.example.com
   resources:
     requests:
       cpu: 10m
