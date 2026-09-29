@@ -134,6 +134,10 @@
 **At:** e8213be code / 2026-09-29
 
 ### 10 — CI green on the PR (terminal; `scripts/ci-local.sh` = required pre-push mirror)
-**Status:** ⏳ PENDING
-**Evidence:** <PR CI run URL (all jobs green — the runner is the source of truth) + pre-push `ci-local.sh` result. A CI-only failure → fix determinism, don't re-push blindly.>
-**At:** <commit / date>
+**Status:** ⏳ PENDING — pre-push mirror green; PR CI run pending push
+**Evidence:** pre-push `scripts/ci-local.sh` on 481e635 (2026-09-29):
+- `gate10-ci-local-a.txt`: stryker PASS; helm PASS (lint 0 failed, `render-check: OK`); images PASS (incl. both `check-runtime-config` OK).
+- `gate10-ci-local-b.txt`: frontend PASS (173 files / 1261 tests, typecheck, both builds).
+- `gate10-ci-local-c.txt`: backend PASS (Release build 0 warnings / 0 errors; 15 test runs successful).
+- e2e job is opt-in; it is covered by the terminal re-verify (11/11).
+**At:** 481e635 / 2026-09-29
