@@ -1,7 +1,7 @@
 # DoD Ledger — E-01b.F-03.S-02 web-admin app shell
 
 **Slice:** `2026-09-28-e01b-s2-web-admin-shell` · **Branch:** `feat/e01b-s2-web-admin-shell` · **HEAD:** `c3800f6`
-**PR:** <#NN / url> · **Last updated:** 2026-09-29
+**PR:** #101 https://github.com/diablo39/Roman.Kartova/pull/101 · **Last updated:** 2026-09-29
 **Spec:** `docs/superpowers/specs/2026-09-28-e01b-s2-web-admin-shell-design.md`
 **Plan:** `docs/superpowers/plans/2026-09-28-e01b-s2-web-admin-shell-plan.md`
 **Findings telemetry:** `./gate-findings.yaml` — per-gate issues × severity × real/delusion (copy from `templates/gate-findings-template.yaml`)
@@ -24,7 +24,7 @@
 | 8 `deep-review` | ✅ PASS | 2026-09-28 |
 | Terminal re-verify (build + suite) | ✅ PASS | 2026-09-29 |
 | 9 Visual / API verification (ADR-0084) | ✅ PASS | 2026-09-29 |
-| 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING | — |
+| 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ✅ PASS | 2026-09-29 |
 
 ## Gate detail
 
@@ -79,6 +79,6 @@
 **At:** c3800f6 / 2026-09-29
 
 ### 10 — CI green on the PR (terminal; `scripts/ci-local.sh` = required pre-push mirror)
-**Status:** ⏳ PENDING (pre-push mirror ✅; PR CI not yet run)
-**Evidence:** pre-push `scripts/ci-local.sh` on 8a744c8 (2026-09-29): backend PASS (Release build 0 warnings/0 errors, 15 test runs successful, 1817 tests), frontend PASS (170 files / 1231 tests, typecheck, build), helm PASS (lint 0 failed, `render-check: OK`), stryker PASS, images PASS (migrator, api, web, web-admin). e2e job opt-in — covered by the terminal re-verify (11/11). PR CI run URL: pending push.
-**At:** 8a744c8 / 2026-09-29
+**Status:** ✅ PASS
+**Evidence:** pre-push `scripts/ci-local.sh` on 8a744c8 (2026-09-29): backend PASS (Release build 0 warnings/0 errors, 15 test runs successful, 1817 tests), frontend PASS (170 files / 1231 tests, typecheck, build), helm PASS (lint 0 failed, `render-check: OK`), stryker PASS, images PASS (migrator, api, web, web-admin). e2e job opt-in — covered by the terminal re-verify (11/11). PR #101 CI run https://github.com/diablo39/Roman.Kartova/actions/runs/36525653704 — all 5 jobs green: Backend (arch + unit + integration) 4m57s, Container images 2m59s, Frontend 4m36s, Helm 41s, Stryker config drift 6s.
+**At:** 512ea69 / 2026-09-29
