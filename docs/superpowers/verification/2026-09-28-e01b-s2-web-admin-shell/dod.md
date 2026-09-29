@@ -79,6 +79,6 @@
 **At:** c3800f6 / 2026-09-29
 
 ### 10 — CI green on the PR (terminal; `scripts/ci-local.sh` = required pre-push mirror)
-**Status:** ⏳ PENDING
-**Evidence:** <PR CI run URL (all jobs green — the runner is the source of truth) + pre-push `ci-local.sh` result. A CI-only failure → fix determinism, don't re-push blindly.>
-**At:** <commit / date>
+**Status:** ⏳ PENDING (pre-push mirror ✅; PR CI not yet run)
+**Evidence:** pre-push `scripts/ci-local.sh` on 8a744c8 (2026-09-29): backend PASS (Release build 0 warnings/0 errors, 15 test runs successful, 1817 tests), frontend PASS (170 files / 1231 tests, typecheck, build), helm PASS (lint 0 failed, `render-check: OK`), stryker PASS, images PASS (migrator, api, web, web-admin). e2e job opt-in — covered by the terminal re-verify (11/11). PR CI run URL: pending push.
+**At:** 8a744c8 / 2026-09-29
