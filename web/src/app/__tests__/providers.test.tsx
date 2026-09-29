@@ -7,7 +7,7 @@ import { markReauthAttempt } from "@/shared/oidc/reauthMarker";
 // vi.hoisted so the spies exist when the (hoisted) vi.mock factory runs.
 const { setAccessTokenProvider, setUnauthorizedHandler } = vi.hoisted(() => ({
   setAccessTokenProvider: vi.fn<(p: () => string | null) => void>(),
-  setUnauthorizedHandler: vi.fn<(h: () => void) => void>(),
+  setUnauthorizedHandler: vi.fn<(h: (ctx: { hadToken: boolean }) => void) => void>(),
 }));
 vi.mock("@/features/catalog/api/client", async (orig) => {
   const actual = await orig<typeof import("@/features/catalog/api/client")>();
@@ -55,7 +55,7 @@ describe("ApiAuthBridge", () => {
     render(<ApiAuthBridge>x</ApiAuthBridge>);
 
     const handler = setUnauthorizedHandler.mock.calls.at(-1)![0];
-    handler();
+    handler({ hadToken: true });
 
     expect(signinRedirect).toHaveBeenCalledWith({
       state: { returnTo: "/catalog/applications/abc-123?tab=deps#graph" },
@@ -92,7 +92,7 @@ describe("ApiAuthBridge", () => {
     };
     rerender(<ApiAuthBridge>x</ApiAuthBridge>);
 
-    handlerInstalledWhileLoading();
+    handlerInstalledWhileLoading({ hadToken: true });
     expect(signinRedirectNew).toHaveBeenCalledTimes(1);
     expect(signinRedirectOld).not.toHaveBeenCalled();
   });
@@ -103,7 +103,7 @@ describe("ApiAuthBridge", () => {
     authValue = { ...authedAuth(), signoutRedirect };
     render(<ApiAuthBridge>app-content</ApiAuthBridge>);
 
-    act(() => setUnauthorizedHandler.mock.calls.at(-1)![0]());
+    act(() => setUnauthorizedHandler.mock.calls.at(-1)![0]({ hadToken: true }));
 
     expect(screen.getByRole("heading", { name: "Signed in, but the session was rejected" })).toBeInTheDocument();
     expect(screen.queryByText("app-content")).not.toBeInTheDocument();

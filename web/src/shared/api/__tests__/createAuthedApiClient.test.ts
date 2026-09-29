@@ -56,6 +56,26 @@ describe("createAuthedApiClient", () => {
     expect(onUnauthorized).toHaveBeenCalledTimes(1);
   });
 
+  it("calls onUnauthorized with hadToken: false when the request carried no token", async () => {
+    const onUnauthorized = vi.fn();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(401));
+    const client = createAuthedApiClient("http://api.test", () => null, onUnauthorized);
+
+    await client.GET("/api/v1/admin/session/me");
+
+    expect(onUnauthorized).toHaveBeenCalledWith({ hadToken: false });
+  });
+
+  it("calls onUnauthorized with hadToken: true when the request carried a token", async () => {
+    const onUnauthorized = vi.fn();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(401));
+    const client = createAuthedApiClient("http://api.test", () => "t", onUnauthorized);
+
+    await client.GET("/api/v1/admin/session/me");
+
+    expect(onUnauthorized).toHaveBeenCalledWith({ hadToken: true });
+  });
+
   it("an authenticated non-401 response clears the re-auth marker (403 counts: the token was accepted)", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     const client = createAuthedApiClient("http://api.test", () => "t", vi.fn());

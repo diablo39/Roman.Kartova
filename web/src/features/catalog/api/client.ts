@@ -10,14 +10,14 @@ export function setAccessTokenProvider(p: TokenProvider): void {
   tokenProvider = p;
 }
 
-let unauthorizedHandler: () => void = () => {};
+let unauthorizedHandler: (ctx: { hadToken: boolean }) => void = () => {};
 
-export function setUnauthorizedHandler(h: () => void): void {
+export function setUnauthorizedHandler(h: (ctx: { hadToken: boolean }) => void): void {
   unauthorizedHandler = h;
 }
 
 export function createApiClient(baseUrl: string) {
-  return createAuthedApiClient(baseUrl, () => tokenProvider(), () => unauthorizedHandler());
+  return createAuthedApiClient(baseUrl, () => tokenProvider(), (ctx) => unauthorizedHandler(ctx));
 }
 
 export function createAnonymousApiClient(baseUrl: string) {

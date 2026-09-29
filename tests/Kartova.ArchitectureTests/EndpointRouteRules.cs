@@ -211,16 +211,20 @@ public class EndpointRouteRules
             "Program.cs no longer adds SystemEndpoints — the file layout changed; update this guard.");
 
         // Matches any `.Map…(` call except `.MapEndpoints(` (the one call this composition root
-        // is allowed to make — it grafts each IModuleEndpoints in, it does not map routes itself).
+        // is allowed to make — it grafts each IModuleEndpoints in, it does not map routes itself),
+        // plus the middleware-shaped route mappers `.UseHealthChecks(` and `.UseEndpoints(`, which
+        // create terminal endpoints without going through `.Map…` and would otherwise bypass both
+        // endpoint authorization and this sweep.
         // A narrower allowlist of verb-specific method names (MapGet/MapPost/…) missed this repo's
         // own route-mapping helpers (MapAdminModule/MapTenantScopedModule in
         // ModuleRouteExtensions.cs) along with plain .Map(...), MapControllers, MapHub, etc.
-        var direct = Regex.Matches(source, @"\.Map(?!Endpoints\()\w*\(")
+        var direct = Regex.Matches(source, @"\.(Map(?!Endpoints\()\w*|UseHealthChecks|UseEndpoints)\(")
             .Select(m => m.Value)
             .ToArray();
 
         Assert.AreEqual(0, direct.Length,
-            "routes mapped directly in Program.cs are invisible to EndpointRouteRules — map them in SystemEndpoints: " +
+            "routes mapped directly in Program.cs are invisible to EndpointRouteRules — map them in SystemEndpoints " +
+            "(a middleware-shaped mapper like UseHealthChecks/UseEndpoints counts as direct mapping too): " +
             string.Join(", ", direct));
     }
 

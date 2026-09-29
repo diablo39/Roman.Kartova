@@ -29,7 +29,7 @@ function TestHost({
   setUnauthorizedHandler,
 }: {
   setTokenProvider: (p: () => string | null) => void;
-  setUnauthorizedHandler: (h: () => void) => void;
+  setUnauthorizedHandler: (h: (ctx: { hadToken: boolean }) => void) => void;
 }) {
   bridge = useApiAuthBridge(setTokenProvider, setUnauthorizedHandler);
   return null;
@@ -55,8 +55,8 @@ describe("useApiAuthBridge", () => {
     render(<TestHost setTokenProvider={setTokenProvider} setUnauthorizedHandler={setUnauthorizedHandler} />);
 
     const handler = setUnauthorizedHandler.mock.calls.at(-1)![0];
-    handler();
-    handler();
+    handler({ hadToken: true });
+    handler({ hadToken: true });
 
     expect(signinRedirect).toHaveBeenCalledTimes(1);
   });
@@ -73,7 +73,7 @@ describe("useApiAuthBridge", () => {
       <TestHost setTokenProvider={setTokenProvider} setUnauthorizedHandler={setUnauthorizedHandler} />,
     );
 
-    setUnauthorizedHandler.mock.calls.at(-1)![0]();
+    setUnauthorizedHandler.mock.calls.at(-1)![0]({ hadToken: true });
     expect(signinRedirect).toHaveBeenCalledTimes(1);
 
     const error = { source: "signinRedirect", message: "x" };
@@ -81,7 +81,7 @@ describe("useApiAuthBridge", () => {
     rerender(<TestHost setTokenProvider={setTokenProvider} setUnauthorizedHandler={setUnauthorizedHandler} />);
     expect(consoleError).toHaveBeenCalledWith("Re-authentication redirect failed:", error);
 
-    setUnauthorizedHandler.mock.calls.at(-1)![0]();
+    setUnauthorizedHandler.mock.calls.at(-1)![0]({ hadToken: true });
     expect(signinRedirect).toHaveBeenCalledTimes(2);
   });
 
@@ -94,11 +94,11 @@ describe("useApiAuthBridge", () => {
     const { rerender } = render(
       <TestHost setTokenProvider={setTokenProvider} setUnauthorizedHandler={setUnauthorizedHandler} />,
     );
-    setUnauthorizedHandler.mock.calls.at(-1)![0]();
+    setUnauthorizedHandler.mock.calls.at(-1)![0]({ hadToken: true });
 
     authValue = { ...authedAuth(), error: { source: "renewSilent", message: "x" } };
     rerender(<TestHost setTokenProvider={setTokenProvider} setUnauthorizedHandler={setUnauthorizedHandler} />);
-    setUnauthorizedHandler.mock.calls.at(-1)![0]();
+    setUnauthorizedHandler.mock.calls.at(-1)![0]({ hadToken: true });
 
     expect(signinRedirect).toHaveBeenCalledTimes(1);
     expect(consoleError).not.toHaveBeenCalled();
@@ -125,7 +125,7 @@ describe("useApiAuthBridge", () => {
     authValue = authedAuth();
     render(<TestHost setTokenProvider={vi.fn()} setUnauthorizedHandler={setUnauthorizedHandler} />);
 
-    setUnauthorizedHandler.mock.calls.at(-1)![0]();
+    setUnauthorizedHandler.mock.calls.at(-1)![0]({ hadToken: true });
 
     expect(isRecentReauthAttempt()).toBe(true);
     expect(signinRedirect).toHaveBeenCalledTimes(1);
@@ -139,11 +139,24 @@ describe("useApiAuthBridge", () => {
     authValue = authedAuth();
     render(<TestHost setTokenProvider={vi.fn()} setUnauthorizedHandler={setUnauthorizedHandler} />);
 
-    act(() => setUnauthorizedHandler.mock.calls.at(-1)![0]());
+    act(() => setUnauthorizedHandler.mock.calls.at(-1)![0]({ hadToken: true }));
 
     expect(signinRedirect).not.toHaveBeenCalled();
     expect(bridge!.reauthFailed).toBe(true);
     expect(consoleError).toHaveBeenCalled();
+  });
+
+  it("a tokenless 401 never trips the breaker, even right after a marked re-auth", () => {
+    markReauthAttempt(); // the previous page load redirected moments ago
+    signinRedirect.mockReturnValue(new Promise(() => {}));
+    const setUnauthorizedHandler = vi.fn();
+    authValue = authedAuth();
+    render(<TestHost setTokenProvider={vi.fn()} setUnauthorizedHandler={setUnauthorizedHandler} />);
+
+    act(() => setUnauthorizedHandler.mock.calls.at(-1)![0]({ hadToken: false }));
+
+    expect(signinRedirect).toHaveBeenCalledTimes(1);
+    expect(bridge!.reauthFailed).toBe(false);
   });
 
   it("a stale marker (older than the window, e.g. slow password entry) redirects and re-marks", () => {
@@ -154,7 +167,7 @@ describe("useApiAuthBridge", () => {
     authValue = authedAuth();
     render(<TestHost setTokenProvider={vi.fn()} setUnauthorizedHandler={setUnauthorizedHandler} />);
 
-    setUnauthorizedHandler.mock.calls.at(-1)![0]();
+    setUnauthorizedHandler.mock.calls.at(-1)![0]({ hadToken: true });
 
     expect(signinRedirect).toHaveBeenCalledTimes(1);
     expect(bridge!.reauthFailed).toBe(false);
@@ -167,14 +180,14 @@ describe("useApiAuthBridge", () => {
     const setUnauthorizedHandler = vi.fn();
     authValue = authedAuth();
     const { rerender } = render(<TestHost setTokenProvider={vi.fn()} setUnauthorizedHandler={setUnauthorizedHandler} />);
-    setUnauthorizedHandler.mock.calls.at(-1)![0]();
+    setUnauthorizedHandler.mock.calls.at(-1)![0]({ hadToken: true });
     expect(isRecentReauthAttempt()).toBe(true);
 
     authValue = { ...authedAuth(), error: { source: "signinRedirect", message: "x" } };
     rerender(<TestHost setTokenProvider={vi.fn()} setUnauthorizedHandler={setUnauthorizedHandler} />);
 
     expect(isRecentReauthAttempt()).toBe(false);
-    act(() => setUnauthorizedHandler.mock.calls.at(-1)![0]());
+    act(() => setUnauthorizedHandler.mock.calls.at(-1)![0]({ hadToken: true }));
     expect(signinRedirect).toHaveBeenCalledTimes(2);
     expect(bridge!.reauthFailed).toBe(false);
   });
@@ -187,7 +200,7 @@ describe("useApiAuthBridge", () => {
     const setUnauthorizedHandler = vi.fn();
     authValue = authedAuth();
     render(<TestHost setTokenProvider={vi.fn()} setUnauthorizedHandler={setUnauthorizedHandler} />);
-    act(() => setUnauthorizedHandler.mock.calls.at(-1)![0]());
+    act(() => setUnauthorizedHandler.mock.calls.at(-1)![0]({ hadToken: true }));
     expect(bridge!.reauthFailed).toBe(true);
 
     act(() => bridge!.retry());

@@ -3,7 +3,7 @@ import { resolveConfigValue } from "@/shared/config/runtimeConfig";
 
 type TokenProvider = () => string | null;
 let tokenProvider: TokenProvider = () => null;
-let unauthorizedHandler: () => void = () => {};
+let unauthorizedHandler: (ctx: { hadToken: boolean }) => void = () => {};
 
 /** Installed by AdminApiAuthBridge — the operator session's live access token. */
 export function setAdminAccessTokenProvider(p: TokenProvider): void {
@@ -11,7 +11,7 @@ export function setAdminAccessTokenProvider(p: TokenProvider): void {
 }
 
 /** Installed by AdminApiAuthBridge — re-authenticates against kartova-platform on any 401. */
-export function setAdminUnauthorizedHandler(h: () => void): void {
+export function setAdminUnauthorizedHandler(h: (ctx: { hadToken: boolean }) => void): void {
   unauthorizedHandler = h;
 }
 
@@ -28,5 +28,5 @@ export const ADMIN_API_BASE_URL: string = resolveConfigValue(
 export const adminApiClient = createAuthedApiClient(
   ADMIN_API_BASE_URL,
   () => tokenProvider(),
-  () => unauthorizedHandler(),
+  (ctx) => unauthorizedHandler(ctx),
 );

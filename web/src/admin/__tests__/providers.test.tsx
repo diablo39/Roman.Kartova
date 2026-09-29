@@ -5,7 +5,7 @@ import { markReauthAttempt } from "@/shared/oidc/reauthMarker";
 
 const { setAdminAccessTokenProvider, setAdminUnauthorizedHandler } = vi.hoisted(() => ({
   setAdminAccessTokenProvider: vi.fn<(p: () => string | null) => void>(),
-  setAdminUnauthorizedHandler: vi.fn<(h: () => void) => void>(),
+  setAdminUnauthorizedHandler: vi.fn<(h: (ctx: { hadToken: boolean }) => void) => void>(),
 }));
 vi.mock("@/admin/api/client", async (orig) => {
   const actual = await orig<typeof import("@/admin/api/client")>();
@@ -46,7 +46,7 @@ describe("AdminApiAuthBridge", () => {
     authValue = { isAuthenticated: true, isLoading: false, user: { access_token: "t" }, signinRedirect };
     render(<AdminApiAuthBridge>x</AdminApiAuthBridge>);
 
-    setAdminUnauthorizedHandler.mock.calls.at(-1)![0]();
+    setAdminUnauthorizedHandler.mock.calls.at(-1)![0]({ hadToken: true });
 
     expect(signinRedirect).toHaveBeenCalledWith({ state: { returnTo: "/organizations?q=acme#top" } });
   });
@@ -68,7 +68,7 @@ describe("AdminApiAuthBridge", () => {
     authValue = { isAuthenticated: true, isLoading: false, user: { access_token: "t" }, signinRedirect, signoutRedirect };
     render(<AdminApiAuthBridge>console-content</AdminApiAuthBridge>);
 
-    act(() => setAdminUnauthorizedHandler.mock.calls.at(-1)![0]());
+    act(() => setAdminUnauthorizedHandler.mock.calls.at(-1)![0]({ hadToken: true }));
 
     expect(screen.getByRole("heading", { name: "Signed in, but the session was rejected" })).toBeInTheDocument();
     expect(screen.queryByText("console-content")).not.toBeInTheDocument();

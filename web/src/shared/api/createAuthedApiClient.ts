@@ -11,15 +11,15 @@ export const deferredFetch: typeof fetch = (input, init) => globalThis.fetch(inp
 
 /**
  * openapi-fetch client that sends `Authorization: Bearer <getToken()>` (read per request) and calls
- * `onUnauthorized` on any 401. Shared by the tenant SPA and the admin console. Each app owns its
- * token source and 401 handler, because each has its own OIDC session on its own origin (ADR-0118).
- * Any non-401 response to a request that carried a token clears the TD-017 re-auth marker — only an
- * authenticated success proves the session works.
+ * `onUnauthorized` on any 401, telling it whether the request carried a token. Shared by the tenant
+ * SPA and the admin console. Each app owns its token source and 401 handler, because each has its own
+ * OIDC session on its own origin (ADR-0118). Any non-401 response to a request that carried a token
+ * clears the TD-017 re-auth marker — only an authenticated success proves the session works.
  */
 export function createAuthedApiClient(
   baseUrl: string,
   getToken: () => string | null,
-  onUnauthorized: () => void,
+  onUnauthorized: (ctx: { hadToken: boolean }) => void,
 ) {
   const authMiddleware: Middleware = {
     async onRequest({ request }) {
@@ -28,7 +28,7 @@ export function createAuthedApiClient(
       return request;
     },
     async onResponse({ request, response }) {
-      if (response.status === 401) onUnauthorized();
+      if (response.status === 401) onUnauthorized({ hadToken: request.headers.has("Authorization") });
       else if (request.headers.has("Authorization")) clearReauthMarker();
       return response;
     },

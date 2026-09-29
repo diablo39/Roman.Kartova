@@ -28,7 +28,7 @@ function currentReturnTo(): string {
  */
 export function useApiAuthBridge(
   setTokenProvider: (p: () => string | null) => void,
-  setUnauthorizedHandler: (h: () => void) => void,
+  setUnauthorizedHandler: (h: (ctx: { hadToken: boolean }) => void) => void,
 ): { reauthFailed: boolean; retry: () => void } {
   const auth = useAuth();
   const tokenRef = useRef<string | null>(null);
@@ -64,9 +64,14 @@ export function useApiAuthBridge(
 
   useEffect(() => {
     setTokenProvider(() => tokenRef.current);
-    setUnauthorizedHandler(() => {
+    setUnauthorizedHandler(({ hadToken }) => {
       if (redirectingRef.current) return;
       redirectingRef.current = true;
+      if (!hadToken) {
+        // A tokenless 401 is "not signed in", not "session rejected" — never trips the breaker.
+        reauthenticate();
+        return;
+      }
       // TD-017 circuit breaker: we redirected moments ago, SSO came back, and the API still says 401 —
       // redirecting again would loop forever. Keep the guard held and hand over to the panel.
       if (isRecentReauthAttempt()) {
