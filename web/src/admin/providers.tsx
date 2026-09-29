@@ -4,12 +4,17 @@ import { ThemeProvider } from "next-themes";
 import { buildOidcConfig } from "@/shared/oidc/authConfig";
 import { useApiAuthBridge } from "@/shared/oidc/useApiAuthBridge";
 import { setAdminAccessTokenProvider, setAdminUnauthorizedHandler } from "./api/client";
+import { resolveConfigValue } from "@/shared/config/runtimeConfig";
 
 // ADR-0118: operator identities live in the kartova-platform realm; PKCE public client kartova-admin-web.
 // Tokens sit in this origin's own sessionStorage — unreachable from the tenant SPA's origin.
 const oidcConfig = buildOidcConfig({
-  authority: import.meta.env.VITE_ADMIN_OIDC_AUTHORITY ?? "http://localhost:8180/realms/kartova-platform",
-  clientId: import.meta.env.VITE_ADMIN_OIDC_CLIENT_ID ?? "kartova-admin-web",
+  authority: resolveConfigValue(
+    "oidcAuthority",
+    import.meta.env.VITE_ADMIN_OIDC_AUTHORITY,
+    "http://localhost:8180/realms/kartova-platform",
+  ),
+  clientId: resolveConfigValue("oidcClientId", import.meta.env.VITE_ADMIN_OIDC_CLIENT_ID, "kartova-admin-web"),
   redirectUri: `${window.location.origin}/callback`,
   postLogoutRedirectUri: window.location.origin,
   storage: window.sessionStorage,
