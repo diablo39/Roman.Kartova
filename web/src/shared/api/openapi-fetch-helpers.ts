@@ -61,3 +61,9 @@ export function unwrapData<T>(
   }
   throw new Error("API returned neither data nor error");
 }
+
+/** HTTP status attached by `throwWithStatus`/`unwrapData`; `undefined` for network failures (fetch rejected). */
+export function statusOf(error: unknown): number | undefined {
+  const s = (error as { __status?: unknown } | null | undefined)?.__status;
+  return typeof s === "number" ? s : undefined;
+}

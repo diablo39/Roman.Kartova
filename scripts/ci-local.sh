@@ -37,28 +37,31 @@ job_backend() {  # ci.yml: restore -> build Release -> test Release --no-build
   && cmd //c "dotnet test Kartova.slnx --configuration Release --no-build --verbosity normal -m:1"
 }
 
-job_images() {  # ci.yml: compose build migrator+api, then web image
+job_images() {  # ci.yml: compose build migrator+api, then web + web-admin images
   docker compose build migrator api \
-  && docker build -f web/Dockerfile -t kartova/web:ci web
+  && docker build -f web/Dockerfile -t kartova/web:ci web \
+  && docker build -f web/Dockerfile --build-arg APP=admin -t kartova/web-admin:ci web
 }
 
 job_stryker() {  # ci.yml: validate per-module + root Stryker configs
   python3 scripts/generate-stryker-configs.py --validate
 }
 
-job_frontend() {  # ci.yml: npm ci -> codegen -> typecheck -> test -> build (in web/)
+job_frontend() {  # ci.yml: npm ci -> codegen -> typecheck -> test -> build -> build:admin (in web/)
   ( cd web \
     && npm ci \
     && npm run codegen \
     && npm run typecheck \
     && npm test \
-    && npm run build )
+    && npm run build \
+    && npm run build:admin )
 }
 
 job_helm() {  # ci.yml: lint + template with a dummy connection string
   local cs="Host=x;Database=x;Username=x;Password=x"
   helm lint deploy/helm/kartova/ --set database.connectionString="$cs" \
-  && helm template deploy/helm/kartova/ --set database.connectionString="$cs" > /tmp/kartova-rendered.yaml
+  && helm template deploy/helm/kartova/ --set database.connectionString="$cs" > /tmp/kartova-rendered.yaml \
+  && bash deploy/helm/render-check.sh
 }
 
 job_e2e() {  # e2e.yml (nightly, opt-in): full stack + playwright

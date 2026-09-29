@@ -16,6 +16,7 @@ using Kartova.SharedKernel.AspNetCore.HealthChecks;
 using Kartova.SharedKernel.Identity;
 using Kartova.SharedKernel.Postgres;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -104,34 +105,56 @@ public class Program
                 new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
         });
 
-        // CORS — allow configured SPA origins (e.g. http://localhost:5173 in dev).
-        // Production default: empty array → all origins blocked (safe default).
-        // No AllowCredentials: SPA carries the access token in the `Authorization: Bearer` header,
+        // CORS — two disjoint allow-lists (ADR-0118, amended 2026-09-28):
+        //   KartovaWeb      (Cors:AllowedOrigins)       — tenant SPA; middleware default for every route.
+        //   KartovaAdminWeb (Cors:AdminAllowedOrigins)  — operator console; bound per endpoint on
+        //                                                 /api/v1/admin/* by MapAdminModule, overriding the default.
+        // Production default: empty arrays → all origins blocked (safe default).
+        // No AllowCredentials: SPAs carry the access token in the `Authorization: Bearer` header,
         // not in cookies. Re-introduce only when the BFF cookie-session story (E-01.F-04.S-05) lands.
-        var corsOrigins = builder.Configuration
-            .GetSection(CorsConfigKeys.AllowedOrigins).Get<string[]>() ?? [];
-        if (corsOrigins.Length == 0 && !builder.Environment.IsDevelopment())
+        var corsOrigins = CorsOriginLists.Normalize(
+            builder.Configuration.GetSection(CorsConfigKeys.AllowedOrigins).Get<string[]>() ?? []);
+        var adminCorsOrigins = CorsOriginLists.Normalize(
+            builder.Configuration.GetSection(CorsConfigKeys.AdminAllowedOrigins).Get<string[]>() ?? []);
+        CorsOriginLists.Validate(corsOrigins, adminCorsOrigins);
+        if (!builder.Environment.IsDevelopment() && (corsOrigins.Length == 0 || adminCorsOrigins.Length == 0))
         {
             // Surface misconfiguration loudly in non-Development environments.
             // Empty allowlist produces silent browser breakage (no Allow-Origin header) — log so ops sees it.
             using var startupLoggerFactory = LoggerFactory.Create(b => b.AddConsole());
-            startupLoggerFactory.CreateLogger("Kartova.Cors")
-                .LogWarning("Cors:AllowedOrigins is empty in environment {Environment}; all browser SPA requests will be blocked.",
+            var corsLogger = startupLoggerFactory.CreateLogger("Kartova.Cors");
+            if (corsOrigins.Length == 0)
+            {
+                corsLogger.LogWarning("Cors:AllowedOrigins is empty in environment {Environment}; all browser SPA requests will be blocked.",
                     builder.Environment.EnvironmentName);
+            }
+            if (adminCorsOrigins.Length == 0)
+            {
+                corsLogger.LogWarning("Cors:AdminAllowedOrigins is empty in environment {Environment}; the web-admin console will be blocked.",
+                    builder.Environment.EnvironmentName);
+            }
         }
         builder.Services.AddCors(options =>
         {
-            options.AddPolicy("KartovaWeb", policy =>
+            AddOriginPolicy(options, CorsPolicies.TenantWeb, corsOrigins);
+            AddOriginPolicy(options, CorsPolicies.AdminWeb, adminCorsOrigins);
+        });
+
+        // Registers a CORS policy that allows the given origins, or — when the list is empty — a
+        // no-origins policy (blocks every browser request; see the empty-array note above).
+        static void AddOriginPolicy(CorsOptions options, string name, string[] origins)
+        {
+            options.AddPolicy(name, policy =>
             {
-                if (corsOrigins.Length == 0)
+                if (origins.Length == 0)
                 {
                     return;
                 }
-                policy.WithOrigins(corsOrigins)
+                policy.WithOrigins(origins)
                     .AllowAnyHeader()
                     .AllowAnyMethod();
             });
-        });
+        }
 
         // Precondition-required → 428 mapping — slice 5 (ADR-0096 + spec §7).
         // Maps PreconditionRequiredException (thrown by IfMatchEndpointFilter when
@@ -248,7 +271,7 @@ public class Program
         // text/plain bodies for 4xx/5xx without explicit bodies and shadow that contract.
         app.UseExceptionHandler();
 
-        app.UseCors("KartovaWeb");
+        app.UseCors(CorsPolicies.TenantWeb);
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseRateLimiter();

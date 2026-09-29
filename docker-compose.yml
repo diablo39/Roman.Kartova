@@ -116,6 +116,9 @@ services:
       # config merges into the array on top of appsettings; index 0/5173 is left untouched
       # for the local-dev/tests contract in CorsTests.cs).
       Cors__AllowedOrigins__1: "http://localhost:4173"
+      # ADR-0118: operator console origins. appsettings.Development.json holds index 0 (localhost:5174, vite dev);
+      # the web-admin container serves on 4174.
+      Cors__AdminAllowedOrigins__1: "http://localhost:4174"
       ASPNETCORE_ENVIRONMENT: Development
       GIT_COMMIT: "${GIT_COMMIT:-dev}"
       BUILD_TIME: "${BUILD_TIME:-unknown}"
@@ -147,6 +150,25 @@ services:
         condition: service_healthy
     ports:
       - "4173:8080"
+
+  web-admin:
+    # ADR-0118: platform-operator console — same web/ project, admin entry, own image/CSP/origin.
+    build:
+      context: web
+      dockerfile: Dockerfile
+      args:
+        APP: admin
+    image: kartova/web-admin:dev
+    environment:
+      # CSP external origins the console must reach: API + KeyCloak (kartova-platform realm).
+      CSP_EXTRA_ORIGINS: "http://localhost:8080 http://localhost:8180"
+    depends_on:
+      api:
+        condition: service_started
+      keycloak:
+        condition: service_healthy
+    ports:
+      - "4174:8080"
 
 volumes:
   postgres-data:

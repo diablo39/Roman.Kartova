@@ -131,4 +131,39 @@ public sealed class KeycloakPlatformRealmSeedRules
             .ToArray();
         CollectionAssert.Contains(holders, "platform-admin@kartova.local");
     }
+
+    [TestMethod]
+    public void Admin_web_client_redirects_are_exactly_the_dev_and_container_origins()
+    {
+        using var doc = Load();
+        var web = Client(doc, "kartova-admin-web");
+
+        var redirects = web.GetProperty("redirectUris").EnumerateArray().Select(x => x.GetString()).ToArray();
+        CollectionAssert.AreEquivalent(
+            new[] { "http://localhost:5174/callback", "http://localhost:5174/silent-callback", "http://localhost:4174/callback" },
+            redirects,
+            "no wildcard redirects — exact callback URIs only (ADR-0118).");
+
+        var origins = web.GetProperty("webOrigins").EnumerateArray().Select(x => x.GetString()).ToArray();
+        CollectionAssert.AreEquivalent(new[] { "http://localhost:5174", "http://localhost:4174" }, origins);
+
+        Assert.AreEqual("http://localhost:5174/*##http://localhost:4174/*",
+            web.GetProperty("attributes").GetProperty("post.logout.redirect.uris").GetString(),
+            "post-logout redirects must be pinned exactly like the sign-in redirects — no wildcard host, dev + container origins only (ADR-0118).");
+    }
+
+    [TestMethod]
+    public void Platform_realm_has_a_dev_user_without_any_realm_role()
+    {
+        using var doc = Load();
+        var user = doc.RootElement.GetProperty("users").EnumerateArray()
+            .FirstOrDefault(u => u.GetProperty("username").GetString() == "operator-norole@kartova.local");
+        Assert.AreNotEqual(JsonValueKind.Undefined, user.ValueKind,
+            "operator-norole@kartova.local drives the no-access E2E + gate-9 path (S2).");
+
+        var roles = user.TryGetProperty("realmRoles", out var r)
+            ? r.EnumerateArray().Select(x => x.GetString()).ToArray()
+            : Array.Empty<string?>();
+        Assert.AreEqual(0, roles.Length, "the no-role dev user must hold no realm roles: " + string.Join(", ", roles));
+    }
 }

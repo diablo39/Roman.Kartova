@@ -34,11 +34,11 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
-      "redirectUris": ["http://localhost:5174/callback", "http://localhost:5174/silent-callback"],
-      "webOrigins": ["http://localhost:5174"],
+      "redirectUris": ["http://localhost:5174/callback", "http://localhost:5174/silent-callback", "http://localhost:4174/callback"],
+      "webOrigins": ["http://localhost:5174", "http://localhost:4174"],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:5174/*",
+        "post.logout.redirect.uris": "http://localhost:5174/*##http://localhost:4174/*",
         "access.token.lifespan": "300"
       },
       "protocolMappers": [
@@ -90,6 +90,18 @@
         { "type": "password", "value": "dev_password_12", "temporary": false }
       ],
       "realmRoles": ["platform-admin"]
+    },
+    {
+      "username": "operator-norole@kartova.local",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "operator-norole@kartova.local",
+      "firstName": "Operator",
+      "lastName": "NoRole",
+      "credentials": [
+        { "type": "password", "value": "dev_password_12", "temporary": false }
+      ],
+      "realmRoles": []
     }
   ]
 }

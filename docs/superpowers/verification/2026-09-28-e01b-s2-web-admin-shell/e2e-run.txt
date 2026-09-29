@@ -1,0 +1,23 @@
+E2E full-suite run — Task 9 (E-01b.F-03.S-02, ADR-0118)
+Date: 2026-09-28
+Trigger: E2E-impact trigger (Task 4 refactored the tenant shell into shared frames; realm JSON changed in Task 2 → `docker compose down -v` run first).
+Command: `docker compose down -v` then `./e2e/run.sh` (full suite, no filter), stack: postgres, keycloak-db, keycloak, migrator, api, web, web-admin.
+
+Running 11 tests using 1 worker
+
+  ✓   1 [chromium] › tests\admin-smoke.spec.ts:4:1 › admin smoke: an operator signs in and lands on the console (4.4s)
+  ✓   2 [chromium] › tests\admin-smoke.spec.ts:13:1 › admin smoke: a platform-realm user without the role sees No access (730ms)
+  ✓   3 [chromium] › tests\detail-tabs.spec.ts:5:1 › detail-tabs: API detail switches tabs, syncs ?tab, mounts only the active panel (3.3s)
+  ✓   4 [chromium] › tests\filter-value-cap.spec.ts:28:3 › over-cap teamId filter on applications is legible and clearable (4.6s)
+  ✓   5 [chromium] › tests\filter-value-cap.spec.ts:28:3 › over-cap teamId filter on services is legible and clearable (2.4s)
+  ✓   6 [chromium] › tests\lifecycle-override.spec.ts:5:1 › lifecycle: override-holder can reach the sunset-override checkbox before sunset (1.3s)
+  ✓   7 [chromium] › tests\relationship-drift.spec.ts:6:1 › drift: an unmappable relationship.type does not 500 the relationships surface (1.3s)
+  ✓   8 [chromium] › tests\smoke.spec.ts:4:1 › smoke: login and the Applications list renders (828ms)
+  ✓   9 [chromium] › tests\spec-render-readonly.spec.ts:5:1 › spec-render: API Definition tab renders the spec read-only (no live client) (1.6s)
+  ✓  10 [chromium] › tests\system-diagram-boundary.spec.ts:125:1 › every member intersects the boundary band and carries no outside marking, while every non-member does (2.2s)
+  ✓  11 [chromium] › tests\system-list-surface.spec.ts:17:3 › System list surface › System column renders, and the systemId filter round-trips through the URL (1.6s)
+
+  11 passed (31.6s)
+
+Flaky: none — all 11 specs passed on the first attempt (retries: 2 configured, none consumed).
+Result: 11/11 passed, including the 2 new admin-smoke specs. No tenant-spec regression from the Task 4 shared-frames refactor.

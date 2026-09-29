@@ -1,0 +1,39 @@
+# Terminal re-verify — HEAD c3800f6 — 2026-09-29
+
+## dotnet build Kartova.slnx
+    0 Warning(s)
+    0 Error(s)
+BUILD_EXIT=0
+
+## dotnet test Kartova.slnx --no-build -m:1 (compose stopped)
+Passed!  - Failed:     0, Passed:    66, Skipped:     0, Total:    66, Duration: 1 s - Kartova.Audit.Domain.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    35, Skipped:     0, Total:    35, Duration: 11 s - Kartova.Audit.Infrastructure.IntegrationTests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    11, Skipped:     0, Total:    11, Duration: 3 s - Kartova.Catalog.Infrastructure.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   516, Skipped:     0, Total:   516, Duration: 59 s - Kartova.Catalog.IntegrationTests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   393, Skipped:     0, Total:   393, Duration: 1 s - Kartova.Catalog.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   110, Skipped:     0, Total:   110, Duration: 2 s - Kartova.Organization.Infrastructure.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   154, Skipped:     0, Total:   154, Duration: 1 m 10 s - Kartova.Organization.IntegrationTests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    83, Skipped:     0, Total:    83, Duration: 585 ms - Kartova.Organization.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    36, Skipped:     0, Total:    36, Duration: 1 m 4 s - Kartova.Api.IntegrationTests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    93, Skipped:     0, Total:    93, Duration: 9 s - Kartova.ArchitectureTests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   131, Skipped:     0, Total:   131, Duration: 1 s - Kartova.SharedKernel.AspNetCore.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:     8, Skipped:     0, Total:     8, Duration: 28 s - Kartova.SharedKernel.Identity.IntegrationTests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    27, Skipped:     0, Total:    27, Duration: 499 ms - Kartova.SharedKernel.Identity.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:     8, Skipped:     0, Total:     8, Duration: 4 s - Kartova.SharedKernel.Postgres.IntegrationTests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   146, Skipped:     0, Total:   146, Duration: 2 s - Kartova.SharedKernel.Tests.dll (net10.0)
+TEST_EXIT=0
+Total: 1817 passed, 0 failed, 15 assemblies
+
+## web: npm test / typecheck / build / build:admin
+ Test Files  170 passed (170)
+      Tests  1231 passed (1231)
+WEBTEST_EXIT=0
+TSC_EXIT=0
+BUILD_EXIT=0
+BUILDADMIN_EXIT=0
+
+## images (gate 4 re-run): docker compose build migrator api web web-admin → all Built
+
+## E2E: npx playwright test (stack: compose up postgres keycloak-db keycloak migrator api web web-admin)
+11 passed (27.1s) — admin-smoke ×2, detail-tabs, filter-value-cap ×2, lifecycle-override, relationship-drift, smoke, spec-render-readonly, system-diagram-boundary, system-list-surface
+(first attempt via e2e/run.sh in background was killed by Claude Code memory-pressure reaper during image build; re-run in foreground stages)

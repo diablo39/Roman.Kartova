@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { throwWithStatus, unwrapData } from "@/shared/api/openapi-fetch-helpers";
+import { statusOf, throwWithStatus, unwrapData } from "@/shared/api/openapi-fetch-helpers";
 
 describe("throwWithStatus", () => {
   it("attaches __status to the error and re-throws it", () => {
@@ -64,5 +64,27 @@ describe("unwrapData", () => {
       caught = err;
     }
     expect((caught as { __status?: number }).__status).toBe(502);
+  });
+});
+
+describe("statusOf", () => {
+  it("returns the numeric __status when present", () => {
+    expect(statusOf({ __status: 404 })).toBe(404);
+  });
+
+  it("returns undefined when __status is missing", () => {
+    expect(statusOf({ title: "oops" })).toBeUndefined();
+  });
+
+  it("returns undefined when __status is not a number", () => {
+    expect(statusOf({ __status: "404" })).toBeUndefined();
+  });
+
+  it("returns undefined for null", () => {
+    expect(statusOf(null)).toBeUndefined();
+  });
+
+  it("returns undefined for undefined", () => {
+    expect(statusOf(undefined)).toBeUndefined();
   });
 });

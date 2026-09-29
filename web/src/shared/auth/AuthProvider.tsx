@@ -1,5 +1,5 @@
 import { AuthProvider as OidcAuthProvider } from "react-oidc-context";
-import { buildOidcConfig } from "./authConfig";
+import { buildOidcConfig } from "@/shared/oidc/authConfig";
 
 const DEFAULT_AUTHORITY = "http://localhost:8180/realms/kartova";
 const DEFAULT_CLIENT_ID = "kartova-web";

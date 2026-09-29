@@ -15,7 +15,7 @@ import { useRegisterEnvironment, type RegisterEnvironmentRequest } from "@/featu
 import { applyProblemDetailsToForm, type ProblemDetails } from "@/shared/forms/problemDetails";
 import { zodFieldPaths } from "@/shared/forms/zodFieldPaths";
 import { useCurrentUser } from "@/shared/auth/useCurrentUser";
-import { initialsOf } from "@/shared/auth/initials";
+import { initialsOf } from "@/lib/utils/initials";
 
 interface Props {
   open: boolean;

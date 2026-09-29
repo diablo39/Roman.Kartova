@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { RequireAuth } from "@/shared/auth/RequireAuth";
+import { RequireAuth } from "@/shared/oidc/RequireAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { CatalogListPage } from "@/features/catalog/pages/CatalogListPage";
 import { ApplicationDetailPage } from "@/features/catalog/pages/ApplicationDetailPage";

@@ -33,7 +33,8 @@ function hasControlChar(s: string): boolean {
  * never bounce back into the login round-trip.
  *
  * Returns `undefined` for anything unusable, leaving the caller to fall back to
- * its default (`/catalog`). A *present-but-rejected* value is `console.warn`-ed:
+ * its app's default (`/catalog` in the tenant SPA, `/` in the admin console). A
+ * *present-but-rejected* value is `console.warn`-ed:
  * silence there would let a blocked open-redirect — or a silent regression of
  * the round-trip back to always-`/catalog` (the very bug this restores) — pass
  * unnoticed. A genuinely absent value (no deep link to restore) is silent.

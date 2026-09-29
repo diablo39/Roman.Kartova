@@ -30,6 +30,14 @@ spec:
               value: {{ .Values.database.connectionString | quote }}
             - name: ASPNETCORE_ENVIRONMENT
               value: {{ .Values.env.ASPNETCORE_ENVIRONMENT | quote }}
+            {{- with .Values.web.origin }}
+            - name: Cors__AllowedOrigins__0
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.webAdmin.origin }}
+            - name: Cors__AdminAllowedOrigins__0
+              value: {{ . | quote }}
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /health/live

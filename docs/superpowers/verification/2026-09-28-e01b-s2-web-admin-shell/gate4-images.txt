@@ -1,0 +1,156 @@
+Task 7 — gate-4 evidence: web-admin image via APP build arg (docker build -f web/Dockerfile ... web)
+Commands run from repo root. Docker Desktop confirmed running (docker info) before each build.
+
+--- Step 5: three build variants ---
+
+$ docker build -f web/Dockerfile -t kartova/web:ci web
+web exit=0
+
+$ docker build -f web/Dockerfile --build-arg APP=admin -t kartova/web-admin:ci web
+admin exit=0
+
+$ docker build -f web/Dockerfile --build-arg APP=bogus -t kartova/web:bogus web
+bogus exit=1
+(log excerpt)
+#14 [build 6/6] RUN case "bogus" in ... esac
+#14 0.234 unknown APP=bogus (expected web|admin)
+#14 ERROR: process "/bin/sh -c case \"$APP\" in ... esac" did not complete successfully: exit code: 1
+
+$ docker run --rm kartova/web-admin:ci ls /usr/share/nginx/html
+admin.html
+assets
+favicon.svg
+icons.svg
+
+NOTE: the first pass of this build (Dockerfile copying build output straight into
+/usr/share/nginx/html without clearing it first) left the base nginx-unprivileged image's own
+stock index.html/50x.html in place alongside admin.html — COPY merges into an existing directory,
+it does not replace it. For APP=web this is invisible because dist/index.html overwrites the
+identically-named stock file, but for APP=admin (which only emits admin.html) the stock
+index.html survived and was directly reachable at GET /index.html, where nginx's
+`try_files $uri /admin.html` would find that real file and serve nginx's default welcome page
+instead of falling through to the SPA. Fixed by adding `USER root` / `RUN rm -rf
+/usr/share/nginx/html/*` / (COPY as root) / `USER 101` around the copy in the runtime stage of
+web/Dockerfile, so the directory is cleared before the build output is copied in, and the
+container still runs as the image's original unprivileged uid 101 (verified below). Rebuilt and
+re-verified after the fix — listing above is from the corrected image; both `web exit=0` /
+`admin exit=0` above are from the corrected Dockerfile.
+
+$ docker run --rm kartova/web:ci ls /usr/share/nginx/html
+assets
+favicon.svg
+icons.svg
+index.html
+
+$ docker run --rm kartova/web-admin:ci id
+uid=101(nginx) gid=101(nginx) groups=101(nginx),101(nginx)
+
+$ docker run --rm kartova/web:ci id
+uid=101(nginx) gid=101(nginx) groups=101(nginx),101(nginx)
+
+--- Step 6: container smoke (docker compose up -d --build web-admin) ---
+
+$ docker compose up -d --build web-admin
+(builds web-admin, migrator, api images; starts keycloak-db, postgres, keycloak, migrator, api,
+web-admin — full dependency chain per compose depends_on)
+ Container romangig2-web-admin-1 Started
+
+$ for i in $(seq 1 60); do curl -sf http://localhost:4174/ >/dev/null && break; sleep 2; done
+UP
+
+$ curl -sI http://localhost:4174/ | grep -i content-security-policy
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' http://localhost:8080 http://localhost:8180; frame-src http://localhost:8080 http://localhost:8180; form-action 'self' http://localhost:8080 http://localhost:8180; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
+(matches expected: connect-src 'self' http://localhost:8080 http://localhost:8180; no api.scalar.com)
+
+$ curl -s http://localhost:4174/some/deep/link | grep -o "<title>[^<]*</title>"
+<title>Kartova Admin</title>
+
+$ curl -s http://localhost:4174/index.html | grep -o "<title>[^<]*</title>"
+<title>Kartova Admin</title>
+(confirms the Dockerfile fix: /index.html now falls through to the admin SPA instead of serving
+nginx's stock default page)
+
+$ docker compose stop
+(all services stopped; no -v — postgres-data / keycloak-db-data volumes preserved)
+
+--- Re-run after gate 5 (dedicated nginx root) ---
+
+Gate-5 finding G replaced the `USER root` / `rm -rf /usr/share/nginx/html/*` / `USER 101` toggle
+above with a dedicated runtime dir the base image never populates: build output now copies to
+/usr/share/nginx/app (both default.conf.template and admin.conf.template point `root` there), so
+there is nothing to clear. Rebuilt both images from the updated web/Dockerfile and re-ran the full
+smoke pass.
+
+$ docker build -f web/Dockerfile -t kartova/web:ci web
+web exit=0
+
+$ docker build -f web/Dockerfile --build-arg APP=admin -t kartova/web-admin:ci web
+admin exit=0
+
+$ MSYS_NO_PATHCONV=1 docker run --rm kartova/web-admin:ci ls /usr/share/nginx/app
+admin.html
+assets
+favicon.svg
+icons.svg
+
+$ MSYS_NO_PATHCONV=1 docker run --rm kartova/web:ci ls /usr/share/nginx/app
+assets
+favicon.svg
+icons.svg
+index.html
+
+$ docker run --rm kartova/web-admin:ci id
+uid=101(nginx) gid=101(nginx) groups=101(nginx),101(nginx)
+
+$ docker compose up -d --build web-admin
+ Container romangig2-web-admin-1 Started
+
+$ curl -sf http://localhost:4174/
+OK 200
+
+$ curl -s http://localhost:4174/some/deep | grep -o "<title>[^<]*</title>"
+<title>Kartova Admin</title>
+
+$ curl -sI http://localhost:4174/ | grep -i content-security-policy
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' http://localhost:8080 http://localhost:8180; frame-src http://localhost:8080 http://localhost:8180; form-action 'self' http://localhost:8080 http://localhost:8180; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
+
+$ docker compose up -d --build web
+ Container romangig2-web-1 Started
+
+$ curl -s http://localhost:4173/catalog | grep -o "<title>[^<]*</title>"
+<title>Kartova</title>
+
+$ docker compose stop
+(all services stopped; no -v — postgres-data / keycloak-db-data volumes preserved)
+
+--- Re-run after gate 6 (VITE_* build args) ---
+
+Gate-6 finding I1: the build stage declared no ARG for VITE_* — a `--build-arg
+VITE_ADMIN_OIDC_AUTHORITY=...` was silently dropped and every image kept pointing at localhost.
+Fixed by adding `ARG VITE_OIDC_AUTHORITY` / `ARG VITE_OIDC_CLIENT_ID` / `ARG VITE_API_BASE_URL` /
+`ARG VITE_ADMIN_OIDC_AUTHORITY` / `ARG VITE_ADMIN_OIDC_CLIENT_ID` / `ARG VITE_ADMIN_API_BASE_URL`
+to the build stage, before the `RUN case ...` build line. Verified both directions: no arg keeps
+the code default, and a passed arg overrides the bundle.
+
+$ docker build -f web/Dockerfile --build-arg APP=admin -t kartova/web-admin:ci web
+exit=0
+
+$ docker run --rm kartova/web-admin:ci sh -c "grep -rl 'localhost:8180/realms/kartova-platform' /usr/share/nginx/app | head -1"
+/usr/share/nginx/app/assets/admin-CKnuMaAD.js
+(no --build-arg passed → code's localhost default survives in the bundle, as expected)
+
+$ docker build -f web/Dockerfile --build-arg APP=admin --build-arg VITE_ADMIN_OIDC_AUTHORITY=https://kc.example/realms/kartova-platform -t kartova/web-admin:argcheck web
+exit=0
+
+$ docker run --rm kartova/web-admin:argcheck sh -c "grep -rl 'kc.example' /usr/share/nginx/app | head -1"
+/usr/share/nginx/app/assets/admin-BRJk3Emd.js
+(--build-arg VITE_ADMIN_OIDC_AUTHORITY=https://kc.example/... → the value reaches the built bundle)
+
+$ docker build -f web/Dockerfile --build-arg APP=admin -t kartova/web-admin:ci web
+exit=0
+(rebuilt kartova/web-admin:ci with no args again, so the tag reflects defaults)
+
+$ docker image rm kartova/web-admin:argcheck
+Untagged: kartova/web-admin:argcheck
+Deleted: sha256:0ab8574fac00b4b41979e23594d17fa5904262a2c0413e27074b93afa77eda3a
+

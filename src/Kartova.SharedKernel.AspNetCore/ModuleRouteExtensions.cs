@@ -25,12 +25,15 @@ public static class ModuleRouteExtensions
     /// Admin (platform-operator) module routes at <c>/api/v1/admin/{slug}</c>.
     /// The whole admin URL space requires <see cref="PlatformAdminAuth.Policy"/>: the operator-realm
     /// scheme plus the platform-admin role. Tenant tokens are rejected by scheme, not by role
-    /// (ADR-0092 as amended by ADR-0118).
+    /// (ADR-0092 as amended by ADR-0118). It also binds the <see cref="CorsPolicies.AdminWeb"/> CORS
+    /// policy, which overrides the tenant default and admits only the web-admin origin (ADR-0118,
+    /// amended 2026-09-28).
     /// </summary>
     public static RouteGroupBuilder MapAdminModule(this IEndpointRouteBuilder app, string slug)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(slug);
         return app.MapGroup($"/api/v1/admin/{slug}")
-            .RequireAuthorization(PlatformAdminAuth.Policy);
+            .RequireAuthorization(PlatformAdminAuth.Policy)
+            .RequireCors(CorsPolicies.AdminWeb);
     }
 }

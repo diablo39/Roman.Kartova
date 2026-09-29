@@ -71,6 +71,9 @@ jobs:
       - name: Build web image
         run: docker build -f web/Dockerfile -t kartova/web:ci web
 
+      - name: Build web-admin image
+        run: docker build -f web/Dockerfile --build-arg APP=admin -t kartova/web-admin:ci web
+
   stryker-config-drift:
     name: Stryker config drift
     runs-on: ubuntu-latest
@@ -111,6 +114,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Build (admin console)
+        run: npm run build:admin
+
   helm:
     name: Helm (lint + template)
     runs-on: ubuntu-latest
@@ -127,3 +133,6 @@ jobs:
 
       - name: Template
         run: helm template deploy/helm/kartova/ --set database.connectionString="Host=x;Database=x;Username=x;Password=x" > /tmp/rendered.yaml
+
+      - name: Render check (web + web-admin, CORS env)
+        run: bash deploy/helm/render-check.sh

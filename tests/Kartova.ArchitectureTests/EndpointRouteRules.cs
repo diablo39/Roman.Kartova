@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using Kartova.SharedKernel.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
@@ -198,6 +199,45 @@ public class EndpointRouteRules
                 $"{endpoint.RoutePattern.RawText}: combined AuthenticationSchemes must be exactly [{PlatformAdminAuth.Scheme}] — " +
                 $"found [{string.Join(", ", combined.AuthenticationSchemes)}]");
         }
+    }
+
+    /// <summary>
+    /// ADR-0118 (amended 2026-09-28): every admin route binds the <c>KartovaAdminWeb</c> CORS policy, so
+    /// only the web-admin origin can read admin responses from a browser. Without it the route would fall
+    /// back to the middleware default (tenant origins).
+    /// </summary>
+    [TestMethod]
+    public void Every_admin_route_binds_the_admin_web_cors_policy()
+    {
+        var adminEndpoints = BuildArchTestEndpoints()
+            .Where(e => (e.RoutePattern.RawText ?? string.Empty).StartsWith("/api/v1/admin/", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        // Anti-vacuity: an empty set (broken endpoint discovery) would pass the offender check below.
+        CollectionAssert.Contains(adminEndpoints.Select(e => e.RoutePattern.RawText).ToArray(), "/api/v1/admin/session/me",
+            "endpoint discovery lost the known admin route — the CORS check below would pass vacuously.");
+
+        var offenders = adminEndpoints
+            .Where(e => e.Metadata.GetMetadata<ICorsMetadata>() is not IEnableCorsAttribute { PolicyName: CorsPolicies.AdminWeb })
+            .Select(e => e.RoutePattern.RawText)
+            .ToArray();
+
+        Assert.AreEqual(0, offenders.Length,
+            "admin routes without the KartovaAdminWeb CORS policy (map via MapAdminModule): " + string.Join(", ", offenders));
+    }
+
+    [TestMethod]
+    public void Admin_web_cors_policy_is_used_only_under_the_admin_prefix()
+    {
+        var offenders = BuildArchTestEndpoints()
+            .Where(e => e.Metadata.GetMetadata<ICorsMetadata>() is IEnableCorsAttribute { PolicyName: CorsPolicies.AdminWeb })
+            .Where(e => !(e.RoutePattern.RawText ?? string.Empty).StartsWith("/api/v1/admin/", StringComparison.OrdinalIgnoreCase))
+            .Select(e => e.RoutePattern.RawText)
+            .ToArray();
+
+        Assert.AreEqual(0, offenders.Length,
+            "the KartovaAdminWeb CORS policy outside /api/v1/admin/ lets the operator origin read tenant routes: " +
+            string.Join(", ", offenders));
     }
 
     /// <summary>

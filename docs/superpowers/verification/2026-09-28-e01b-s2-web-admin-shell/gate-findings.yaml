@@ -1,0 +1,252 @@
+# gate-findings.yaml — per-gate findings telemetry for one slice.
+#
+# Purpose: record every issue each DoD gate raised, with a real/delusion verdict,
+# so gate effectiveness is queryable across slices.
+#   Aggregate:  find docs/superpowers/verification -name gate-findings.yaml
+#   Rank gates by precision (real ÷ found) and by real issues caught.
+#
+# Sibling of dod.md in docs/superpowers/verification/<date>-<topic>/.
+# Copy this file there at slice start; append a finding the moment a gate raises one.
+# dod.md records each gate's PASS/FAIL/PENDING/N-A status; this file records what it FOUND.
+# A gate with status PASS and no entries here ⇒ it ran and found nothing.
+
+slice:  2026-09-28-e01b-s2-web-admin-shell      # = the verification folder name (matches spec/plan slug)
+branch: feat/e01b-s2-web-admin-shell
+terminal_commit: c3800f6   # the slice's final commit; MUST match dod.md's "Terminal commit".
+                               # .claude/hooks/dod-check.js blocks a completion claim whose
+                               # gate-findings.yaml has no terminal_commit or one that drifts from dod.md.
+
+# One entry per issue a gate raised.
+#
+# gate     — the dod.md row this finding came from (slug, not number):
+#              build              (1  Build, TreatWarningsAsErrors)
+#              reviews            (2  per-task subagent reviews)
+#              suite              (3  full test suite incl. real-seam)
+#              container          (4  container build / images CI)
+#              simplify           (5  /simplify)
+#              requesting-review  (6  requesting-code-review)
+#              review-pr          (7  review-pr)
+#              deep-review        (8  deep-review)
+#              manual             (9  visual / API verification, ADR-0084)
+#              terminal-reverify  (terminal re-verify: build + suite)
+#              ci-mirror          (10 CI green on PR / pre-push mirror, ci-local.sh)
+# severity — blocking | should-fix | nit
+# verdict  — real     : a genuine issue that warranted a change
+#            delusion : a false positive the gate raised that was not a real issue
+# title    — one-line description of the finding
+# note     — optional: resolution (fix sha), or why it was a delusion
+findings:
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "Task 5: admin dev/preview HTML fallback was Accept-based — non-browser clients got the tenant index.html on :5174/:4174"
+    note: "fixed 64510a3 (path-based adminHtmlTarget + unit tests)"
+  - gate: container
+    severity: should-fix
+    verdict: real
+    title: "nginx base image stock index.html survived next to admin.html in the web-admin image"
+    note: "fixed in bec75c1 (clear /usr/share/nginx/html before COPY); caught by the gate-4 image listing check"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "AdminApiAuthBridge duplicated the tenant ApiAuthBridge (PR #47 race fix in two copies)"
+    note: "applied d337205 — shared useApiAuthBridge"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "Centered message card markup repeated in 5 surfaces"
+    note: "applied d337205 — CenteredMessage"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "statusOf re-read the __status envelope outside openapi-fetch-helpers"
+    note: "applied d337205"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "Program.cs duplicated AddPolicy blocks for the two CORS policies"
+    note: "applied d337205 — AddOriginPolicy"
+  - gate: simplify
+    severity: should-fix
+    verdict: real
+    title: "Dockerfile USER root + rm -rf of nginx stock html was a symptom patch"
+    note: "applied d337205 — dedicated /usr/share/nginx/app root"
+  - gate: simplify
+    severity: nit
+    verdict: delusion
+    title: "8 further suggestions (token-slot factory, double normalize, vite base config, multi-page/own-root Vite, single nginx template, prebuild:admin, arch-test host caching, realm JSON caching)"
+    note: "skipped with reasons in simplify.md (bundle separation, per-app CSP decision, gitignored codegen, pre-existing patterns)"
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "VITE_* build-time config documented but Dockerfile declared no ARG — silently dropped"
+    note: "fixed 5e7b770"
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "Deploy docs still said the chart has no web Deployment; empty cspExtraOrigins breaks the SPA under enforcing CSP"
+    note: "fixed 5e7b770"
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "Terminal re-verify must include full dotnet test + e2e after gate-5 d337205"
+    note: "process — terminal re-verify"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "Tenant Cors:AllowedOrigins * lets the admin origin read tenant routes"
+    note: "fixed 5e7b770"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "Persistent 401 → endless signinRedirect loop (both SPAs)"
+    note: "TD-017"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "Direct /callback visit with no auth params hangs"
+    note: "fixed 5e7b770"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "Top-bar menu showed blank name/email while landing showed —"
+    note: "fixed 5e7b770"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "No test proves Program.cs calls CorsOriginLists.Validate"
+    note: "fixed 5e7b770"
+  - gate: requesting-review
+    severity: nit
+    verdict: delusion
+    title: "Empty admin-origin warning when webAdmin disabled"
+    note: "accepted — warning is truthful"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "ADR index row said own Helm release"
+    note: "fixed 5e7b770"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "admin.html favicon /vite.svg missing"
+    note: "fixed 5e7b770"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "Unrelated LSP/CLAUDE.md commits in branch"
+    note: "PR description"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "signinRedirect/signoutRedirect promises discarded — silent hang if KeyCloak unreachable during redirect"
+    note: "453193d fix was dead code (library never rejects) — caught by gate 8 SF1, re-fixed at gate 8"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "401 handler lacked re-entrancy guard — concurrent 401s fire signinRedirect repeatedly"
+    note: "fixed 453193d"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "Blank-identity fallback at one call site; avatar showed — initials"
+    note: "fixed 453193d"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "session/me 5xx/network errors never logged"
+    note: "fixed 453193d"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "5 test gaps (post-logout URIs, fallback branches, boundary positive control, unknown-origin preflight, web.enabled=false)"
+    note: "fixed 453193d"
+  - gate: review-pr
+    severity: should-fix
+    verdict: delusion
+    title: "ValidatedCorsOrigins wrapper type for a single composition root"
+    note: "skipped — YAGNI; wiring pinned by host test"
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "Speculative type suggestions (policy-name inequality, AdminMeResponse nullability, branded __status, bridge double-registration)"
+    note: "skipped"
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "Wildcard-admin host-boot test"
+    note: "redundant with overlap host test + unit test"
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "Move CORS startup warning onto app.Logger"
+    note: "pre-existing pattern, out of scope"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "Gate-7 redirect-rejection handling was dead code — react-oidc-context navigators never reject (resolve null + auth.error)"
+    note: "fixed 11553e7 — auth.error-driven guard reset + Sign-in unavailable panel"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "Shared RequireAuth looped signinRedirect when KeyCloak unreachable, never showed an error"
+    note: "fixed 11553e7"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "ADR-0118 body/phase criteria still said own Helm release / web-admin/ directory"
+    note: "fixed 11553e7"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "README 0118 row dropped the tenant↔admin 401 and rejected-in-SPA clauses"
+    note: "fixed 11553e7"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "No coverage include for src/admin/api/**"
+    note: "fixed 11553e7"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "Spec Impact heading still said LSP"
+    note: "fixed 11553e7"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "Spec claimed tenant DOM unchanged despite gate-6 M4 dash fallback"
+    note: "fixed 11553e7 (spec note)"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "Missing test: admin-origin 401 must carry ACAO or the SPA sees a CORS error instead of 401"
+    note: "fixed 11553e7 (passes — ACAO present)"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "Arch CORS-policy rule had no anti-vacuity guard"
+    note: "fixed 11553e7"
+  - gate: reviews
+    severity: should-fix
+    verdict: delusion
+    title: "Task 1: dod.md gates 1/3 still PENDING after targeted per-task runs"
+    note: "gates are slice-level (full build + suite on final commit); ruled not a defect"
+
+# Example entries (delete when filling in real data):
+#
+# findings:
+#   - gate: deep-review
+#     severity: blocking
+#     verdict: real
+#     title: "RLS filter missing on graph traversal query"
+#     note: "fixed in 0a1b2c3"
+#   - gate: review-pr
+#     severity: should-fix
+#     verdict: delusion
+#     title: "claimed N+1 in display-name lookup"
+#     note: "already batched over distinct refs; reviewer misread"
+#   - gate: simplify
+#     severity: nit
+#     verdict: real
+#     title: "extract duplicated dagre layout options"
+#     note: "applied"

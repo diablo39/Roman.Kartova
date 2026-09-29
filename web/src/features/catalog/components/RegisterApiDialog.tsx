@@ -22,7 +22,7 @@ import { useTeamsList } from "@/features/teams/api/teams";
 import { applyProblemDetailsToForm, type ProblemDetails } from "@/shared/forms/problemDetails";
 import { zodFieldPaths } from "@/shared/forms/zodFieldPaths";
 import { useCurrentUser } from "@/shared/auth/useCurrentUser";
-import { initialsOf } from "@/shared/auth/initials";
+import { initialsOf } from "@/lib/utils/initials";
 
 // teamId is selected via a plain <select> tracked in local state (mirrors
 // RegisterServiceDialog), not an RHF-bound field — omit it from the resolver

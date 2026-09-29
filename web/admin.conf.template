@@ -1,0 +1,21 @@
+# nginx template for the Kartova platform-operator console (web-admin, ADR-0118).
+#
+# Same mechanics as default.conf.template (envsubst of ${CSP_EXTRA_ORIGINS} at container start), but its own
+# CSP: the tenant exceptions are dropped — no https://api.scalar.com (no spec renderer here) and no blob:
+# images (no logo upload preview). The admin build emits admin.html (vite.admin.config.ts input), which is
+# the SPA fallback. CSP is set only on the HTML document response (this location).
+server {
+  listen 8080;
+  root /usr/share/nginx/app;
+  index admin.html;
+
+  location / {
+    try_files $uri /admin.html;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' ${CSP_EXTRA_ORIGINS}; frame-src ${CSP_EXTRA_ORIGINS}; form-action 'self' ${CSP_EXTRA_ORIGINS}; object-src 'none'; base-uri 'self'; frame-ancestors 'none'" always;
+  }
+
+  location ~* \.(js|css|woff2?|svg|png|jpg|ico)$ {
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+  }
+}

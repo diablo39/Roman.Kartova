@@ -1,0 +1,5 @@
+{{- if .Values.webAdmin.enabled }}
+{{ include "kartova.spa.deployment" (dict "root" . "component" "web-admin" "values" .Values.webAdmin) }}
+---
+{{ include "kartova.spa.service" (dict "root" . "component" "web-admin") }}
+{{- end }}

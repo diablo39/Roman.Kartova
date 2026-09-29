@@ -27,7 +27,10 @@ export default defineConfig({
         "src/features/**/api/**",
         "src/features/**/schemas/**",
         "src/shared/auth/**",
+        "src/shared/oidc/**",
+        "src/shared/api/**",
         "src/shared/forms/**",
+        "src/admin/api/**",
       ],
       exclude: [
         // Composition-root wiring (analogous to Program.cs); behavior covered via authConfig.

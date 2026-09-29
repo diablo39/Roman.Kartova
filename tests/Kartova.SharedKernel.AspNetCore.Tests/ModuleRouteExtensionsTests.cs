@@ -70,6 +70,23 @@ public class ModuleRouteExtensionsTests
         CollectionAssert.Contains(policies, PlatformAdminAuth.Policy);
     }
 
+    [TestMethod]
+    public async Task MapAdminModule_binds_the_admin_web_cors_policy()
+    {
+        using var host = await CreateHostAsync(app =>
+            app.MapAdminModule("catalog").MapGet("/applications", () => Results.Ok("ok")));
+
+        var endpoint = ((IEndpointRouteBuilder)host).DataSources
+            .SelectMany(d => d.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Single(e => e.RoutePattern.RawText == "/api/v1/admin/catalog/applications");
+        var cors = endpoint.Metadata.GetMetadata<Microsoft.AspNetCore.Cors.Infrastructure.ICorsMetadata>()
+            as Microsoft.AspNetCore.Cors.Infrastructure.IEnableCorsAttribute;
+
+        Assert.IsNotNull(cors, "admin routes must carry endpoint-level CORS metadata (ADR-0118).");
+        Assert.AreEqual(CorsPolicies.AdminWeb, cors.PolicyName);
+    }
+
     private static async Task<IHost> CreateHostAsync(Action<WebApplication> configure)
     {
         var builder = WebApplication.CreateBuilder();
@@ -89,8 +106,13 @@ public class ModuleRouteExtensionsTests
         // assert URL routing without dragging in EF / Postgres.
         builder.Services.AddSingleton<ITenantContext, FakeTenantContext>();
         builder.Services.AddSingleton<ITenantScope, FakeTenantScope>();
+        // MapAdminModule attaches CORS metadata (RequireCors(CorsPolicies.AdminWeb)); without
+        // UseCors() in the pipeline, EndpointMiddleware throws for any endpoint carrying that
+        // metadata as soon as a request is actually sent through the test host.
+        builder.Services.AddCors(options => options.AddPolicy(CorsPolicies.AdminWeb, _ => { }));
         var app = builder.Build();
         app.UseRouting();
+        app.UseCors();
         app.UseAuthorization();
         app.UseMiddleware<TenantScopeBeginMiddleware>();
         configure(app);

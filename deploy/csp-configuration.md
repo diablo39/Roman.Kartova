@@ -22,7 +22,7 @@ They flow into `connect-src` (XHR/fetch + OIDC token/userinfo/silent-renew), `fr
 | Environment | Set `CSP_EXTRA_ORIGINS` where | Example value |
 |-------------|-------------------------------|---------------|
 | Local compose | `docker-compose.yml` → `web.environment` (already set) | `http://localhost:8080 http://localhost:8180` |
-| k8s / Helm | the web Deployment's env (⚠️ chart has **no web deployment yet** — add the var when it lands) | `https://api.example.com https://auth.example.com` |
+| k8s / Helm | `values.yaml` → `web.cspExtraOrigins` / `webAdmin.cspExtraOrigins` (chart renders both `web` and `web-admin` Deployments, default enabled) — empty → enforcing CSP `connect-src 'self'` blocks the SPA from reaching the API/KC | `https://api.example.com https://auth.example.com` |
 
 These must match the SPA's build-time `VITE_API_BASE_URL` and `VITE_OIDC_AUTHORITY` (browser-facing origins).
 

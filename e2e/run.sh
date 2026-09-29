@@ -2,8 +2,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."   # repo root
 
-echo "==> Bringing up the stack (pg, keycloak, migrator, api, web)"
-docker compose up -d --build postgres keycloak-db keycloak migrator api web
+echo "==> Bringing up the stack (pg, keycloak, migrator, api, web, web-admin)"
+docker compose up -d --build postgres keycloak-db keycloak migrator api web web-admin
 
 # Poll a URL until it responds or the attempt budget is exhausted.
 wait_for() {  # wait_for <url> <tries> <label>
@@ -21,6 +21,9 @@ wait_for http://localhost:8080/health/ready 60 "API" || { docker compose logs ap
 
 echo "==> Waiting for web"
 wait_for http://localhost:4173/ 30 "web" || { docker compose logs web; exit 1; }
+
+echo "==> Waiting for web-admin"
+wait_for http://localhost:4174/ 30 "web-admin" || { docker compose logs web-admin; exit 1; }
 
 echo "==> Running Playwright"
 cd e2e

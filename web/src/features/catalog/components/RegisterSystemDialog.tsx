@@ -17,7 +17,7 @@ import { useTeamsList } from "@/features/teams/api/teams";
 import { applyProblemDetailsToForm, type ProblemDetails } from "@/shared/forms/problemDetails";
 import { zodFieldPaths } from "@/shared/forms/zodFieldPaths";
 import { useCurrentUser } from "@/shared/auth/useCurrentUser";
-import { initialsOf } from "@/shared/auth/initials";
+import { initialsOf } from "@/lib/utils/initials";
 
 const textFieldsSchema = registerSystemSchema.pick({ displayName: true, description: true });
 type TextFieldsInput = z.infer<typeof textFieldsSchema>;

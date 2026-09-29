@@ -30,6 +30,44 @@ migrator:
       cpu: 500m
       memory: 256Mi
 
+# Tenant SPA (nginx). Build-time VITE_* config is baked into the image (per-environment images; TD-016).
+web:
+  enabled: true
+  replicaCount: 1
+  image:
+    name: web
+  port: 8080
+  # Browser-facing origin (e.g. https://app.example.com). When set, the API gets Cors__AllowedOrigins__0.
+  # Empty → CORS comes from external config, as before this chart rendered the SPAs.
+  origin: ""
+  # Space-separated API + KeyCloak origins injected into the nginx CSP (connect-src/frame-src/form-action).
+  cspExtraOrigins: ""
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# Platform-operator console (ADR-0118): own image, CSP and origin. Its origin MUST differ from web.origin —
+# the API refuses to start if an origin appears in both CORS lists.
+webAdmin:
+  enabled: true
+  replicaCount: 1
+  image:
+    name: web-admin
+  port: 8080
+  origin: ""          # → Cors__AdminAllowedOrigins__0 on the API
+  cspExtraOrigins: ""
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
 database:
   connectionString: ""   # set via values override or external secret
 

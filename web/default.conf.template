@@ -16,7 +16,7 @@
 # To roll back to observe-only, rename the header below to Content-Security-Policy-Report-Only.
 server {
   listen 8080;
-  root /usr/share/nginx/html;
+  root /usr/share/nginx/app;
   index index.html;
 
   location / {

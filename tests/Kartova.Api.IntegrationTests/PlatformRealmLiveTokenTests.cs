@@ -143,4 +143,15 @@ public class PlatformRealmLiveTokenTests : KeycloakContainerTestBase
         Assert.AreEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
         StringAssert.Contains(resp.Headers.WwwAuthenticate.ToString(), "invalid_token");
     }
+
+    [TestMethod]
+    public async Task Real_platform_realm_token_without_the_role_gets_403_on_admin_session_me()
+    {
+        var token = await GetRealPlatformTokenAsync("operator-norole@kartova.local", "dev_password_12");
+
+        var resp = await ClientWith(token).GetAsync("/api/v1/admin/session/me");
+
+        // 403 has a single cause here (authenticated by the PlatformAdmin scheme, role missing), so status is discriminative.
+        Assert.AreEqual(HttpStatusCode.Forbidden, resp.StatusCode, await resp.Content.ReadAsStringAsync());
+    }
 }
