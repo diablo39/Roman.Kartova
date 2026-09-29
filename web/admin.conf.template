@@ -4,6 +4,7 @@
 # CSP: the tenant exceptions are dropped — no https://api.scalar.com (no spec renderer here) and no blob:
 # images (no logo upload preview). The admin build emits admin.html (vite.admin.config.ts input), which is
 # the SPA fallback. CSP is set only on the HTML document response (this location).
+# ${KARTOVA_OIDC_AUTHORITY} / ${KARTOVA_OIDC_CLIENT_ID} / ${KARTOVA_API_BASE_URL} feed /config.js (TD-016).
 server {
   listen 8080;
   root /usr/share/nginx/app;
@@ -12,6 +13,15 @@ server {
   location / {
     try_files $uri /admin.html;
     add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' ${CSP_EXTRA_ORIGINS}; frame-src ${CSP_EXTRA_ORIGINS}; form-action 'self' ${CSP_EXTRA_ORIGINS}; object-src 'none'; base-uri 'self'; frame-ancestors 'none'" always;
+  }
+
+  # Runtime SPA config (TD-016): rendered from KARTOVA_* env at container start by the same envsubst pass
+  # as ${CSP_EXTRA_ORIGINS}. Exact match beats the *.js immutable-cache rule below; no-store so a changed
+  # env takes effect on the next page load. Values are trusted operator input and must not contain quotes.
+  location = /config.js {
+    default_type application/javascript;
+    add_header Cache-Control "no-store" always;
+    return 200 'window.__KARTOVA_CONFIG__={"oidcAuthority":"${KARTOVA_OIDC_AUTHORITY}","oidcClientId":"${KARTOVA_OIDC_CLIENT_ID}","apiBaseUrl":"${KARTOVA_API_BASE_URL}"};';
   }
 
   location ~* \.(js|css|woff2?|svg|png|jpg|ico)$ {

@@ -74,6 +74,13 @@ jobs:
       - name: Build web-admin image
         run: docker build -f web/Dockerfile --build-arg APP=admin -t kartova/web-admin:ci web
 
+      # TD-016: each SPA image renders /config.js from KARTOVA_* env at start (no per-env builds).
+      - name: Check web runtime config
+        run: bash web/scripts/check-runtime-config.sh kartova/web:ci index.html
+
+      - name: Check web-admin runtime config
+        run: bash web/scripts/check-runtime-config.sh kartova/web-admin:ci admin.html
+
   stryker-config-drift:
     name: Stryker config drift
     runs-on: ubuntu-latest
