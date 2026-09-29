@@ -24,7 +24,7 @@
 | 8 `deep-review` | ✅ PASS (with fixes) | 2026-09-29 |
 | Terminal re-verify (build + suite) | ✅ PASS | 2026-09-29 |
 | 9 Visual / API verification (ADR-0084) | ✅ PASS | 2026-09-29 |
-| 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING | — |
+| 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ✅ PASS | 2026-09-29 |
 
 ## Gate detail
 
@@ -134,10 +134,11 @@
 **At:** e8213be code / 2026-09-29
 
 ### 10 — CI green on the PR (terminal; `scripts/ci-local.sh` = required pre-push mirror)
-**Status:** ⏳ PENDING — pre-push mirror green; PR CI run pending push
+**Status:** ✅ PASS
 **Evidence:** pre-push `scripts/ci-local.sh` on 481e635 (2026-09-29):
 - `gate10-ci-local-a.txt`: stryker PASS; helm PASS (lint 0 failed, `render-check: OK`); images PASS (incl. both `check-runtime-config` OK).
 - `gate10-ci-local-b.txt`: frontend PASS (173 files / 1261 tests, typecheck, both builds).
 - `gate10-ci-local-c.txt`: backend PASS (Release build 0 warnings / 0 errors; 15 test runs successful).
 - e2e job is opt-in; it is covered by the terminal re-verify (11/11).
-**At:** 481e635 / 2026-09-29
+- PR #102 CI run https://github.com/diablo39/Roman.Kartova/actions/runs/36571448637 on 89667fd: all 5 jobs green. Backend (arch + unit + integration) 4m35s, Container images 3m19s, Frontend 4m50s, Helm 8s, Stryker config drift 6s.
+**At:** 89667fd / 2026-09-29
