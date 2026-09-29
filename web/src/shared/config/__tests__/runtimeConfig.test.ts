@@ -1,8 +1,11 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { resolveConfigValue } from "../runtimeConfig";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { resetRuntimeConfigWarningsForTests, resolveConfigValue } from "../runtimeConfig";
 
 afterEach(() => {
   delete window.__KARTOVA_CONFIG__;
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+  resetRuntimeConfigWarningsForTests();
 });
 
 describe("resolveConfigValue", () => {
@@ -27,5 +30,35 @@ describe("resolveConfigValue", () => {
     window.__KARTOVA_CONFIG__ = { oidcAuthority: "https://kc.runtime/realms/r" };
     expect(resolveConfigValue("oidcAuthority", undefined, "d")).toBe("https://kc.runtime/realms/r");
     expect(resolveConfigValue("apiBaseUrl", undefined, "http://localhost:8080")).toBe("http://localhost:8080");
+  });
+});
+
+describe("resolveConfigValue production fallback warning", () => {
+  it("warns once (naming the env var) when PROD and falling back, and not again for the same key", () => {
+    vi.stubEnv("PROD", true);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    expect(resolveConfigValue("apiBaseUrl", undefined, "http://localhost:8080")).toBe("http://localhost:8080");
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy.mock.calls[0]?.[0]).toContain("KARTOVA_API_BASE_URL");
+
+    expect(resolveConfigValue("apiBaseUrl", undefined, "http://localhost:8080")).toBe("http://localhost:8080");
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not warn when PROD and a runtime value is present", () => {
+    vi.stubEnv("PROD", true);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    window.__KARTOVA_CONFIG__ = { oidcClientId: "runtime-client" };
+
+    expect(resolveConfigValue("oidcClientId", undefined, "kartova-web")).toBe("runtime-client");
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it("does not warn when falling back outside PROD (dev/test)", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    expect(resolveConfigValue("oidcAuthority", undefined, "http://localhost:8081")).toBe("http://localhost:8081");
+    expect(warnSpy).not.toHaveBeenCalled();
   });
 });
