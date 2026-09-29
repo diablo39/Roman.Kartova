@@ -7,7 +7,10 @@ import {
 } from "../reauthMarker";
 
 beforeEach(() => window.sessionStorage.clear());
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe("reauthMarker", () => {
   it("is not recent when no attempt was marked", () => {
@@ -55,6 +58,7 @@ describe("reauthMarker", () => {
       key: vi.fn(() => null),
       length: 0,
     };
+    // stubGlobal instead of vi.spyOn(Storage.prototype, …): jsdom sessionStorage doesn't reliably route through Storage.prototype in vitest
     vi.stubGlobal("sessionStorage", mockStorage);
     expect(() => markReauthAttempt(1_000)).not.toThrow();
     expect(isRecentReauthAttempt(1_000)).toBe(false);
