@@ -25,7 +25,7 @@ for (const surface of [
   { path: "/catalog/applications", heading: "Applications", label: "applications" },
   { path: "/catalog/services", heading: "Services", label: "services" },
 ] as const) {
-  test(`over-cap teamId filter on ${surface.label} is legible and clearable`, async ({ page }) => {
+  test(`over-cap teamId filter on ${surface.label} is legible and clearable`, async ({ page }, testInfo) => {
     // The page deliberately console.error()s the failed query, so a blanket "no console errors"
     // assertion cannot apply here (the existing system-list-surface spec covers the clean path).
     // Track pageerrors only — an uncaught exception would mean the guard did not hold.
@@ -46,7 +46,7 @@ for (const surface of [
     await expect(page.getByText("Try refreshing or resetting the list.")).toBeHidden();
 
     await page.screenshot({
-      path: `../docs/superpowers/verification/2026-07-30-catalog-system-membership/a2/gate9-${surface.label}-teamid-cap.png`,
+      path: testInfo.outputPath(`${surface.label}-teamid-cap.png`),
       fullPage: false,
     });
 

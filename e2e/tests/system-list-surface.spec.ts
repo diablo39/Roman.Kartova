@@ -14,7 +14,7 @@ import { assignApplicationToSystem } from "../fixtures/db";
  * (never an `f=` map — that lives inside the opaque cursor, server-side only).
  */
 test.describe("System list surface", () => {
-  test("System column renders, and the systemId filter round-trips through the URL", async ({ page }) => {
+  test("System column renders, and the systemId filter round-trips through the URL", async ({ page }, testInfo) => {
     const consoleErrors: string[] = [];
     page.on("console", (msg) => {
       if (msg.type() === "error") consoleErrors.push(msg.text());
@@ -62,7 +62,7 @@ test.describe("System list surface", () => {
     );
 
     await page.screenshot({
-      path: "../docs/superpowers/verification/2026-07-30-catalog-system-membership/a2/gate9-applications-system-column.png",
+      path: testInfo.outputPath("applications-system-column.png"),
       fullPage: false,
     });
 
@@ -74,7 +74,7 @@ test.describe("System list surface", () => {
     await page.goto("/catalog/systems");
     await expect(page.getByRole("heading", { name: "Systems" })).toBeVisible();
     await page.screenshot({
-      path: "../docs/superpowers/verification/2026-07-30-catalog-system-membership/a2/gate9-systems-list.png",
+      path: testInfo.outputPath("systems-list.png"),
       fullPage: false,
     });
 
@@ -118,7 +118,7 @@ test.describe("System list surface", () => {
       expect(await page.getByRole("row").getByText("—", { exact: true }).count()).toBe(0);
 
       await page.screenshot({
-        path: "../docs/superpowers/verification/2026-07-30-catalog-system-membership/a2/gate9-applications-system-filter.png",
+        path: testInfo.outputPath("applications-system-filter.png"),
         fullPage: false,
       });
     } finally {
