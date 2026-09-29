@@ -278,7 +278,7 @@ Convention: one `### TD-NNN` heading per item. Keep `Status: open` until done; o
 
 ### TD-015 — Endpoints mapped directly in `Program.cs` are invisible to the `EndpointRouteRules` arch sweep
 
-**Status:** open
+**Status:** done (branch `chore/tech-debt-td-015-016-017`) — system routes (health/OpenAPI/version) mapped by `SystemEndpoints : IModuleEndpoints`; `EndpointRouteRules` pins them, allowlists `/health/detailed` in `OpsAdminRoutes` (`Every_ops_admin_route_requires_PlatformAdminOnly`), and `Program_maps_no_routes_directly` guards Program.cs.
 **Origin:** E-01b.F-03.S-01 (2026-09-26) — `/simplify` altitude finding (gate 5) and gate-6 review minor.
 
 **Problem.** `BuildArchTestEndpoints()` maps only `IModuleEndpoints` types. `/health/detailed` requires `PlatformAdminOnly` (ADR-0118) but is mapped in `Program.cs`, so the admin-route rules (`Every_admin_route_requires_PlatformAdminOnly`, `PlatformAdminOnly_is_used_only_under_the_admin_prefix`) never see it. Today its binding is pinned only by `HealthCheckEndpointTests.Detailed_returns_401_for_a_tenant_realm_user` and a comment in `Program.cs`.
@@ -299,7 +299,7 @@ Convention: one `### TD-NNN` heading per item. Keep `Status: open` until done; o
 
 ### TD-016 — Frontend config is build-time (`VITE_*`), forcing per-environment images for `web` and `web-admin`
 
-**Status:** open
+**Status:** done (branch `chore/tech-debt-td-015-016-017`) — nginx renders `/config.js` (`window.__KARTOVA_CONFIG__`) from `KARTOVA_OIDC_AUTHORITY` / `KARTOVA_OIDC_CLIENT_ID` / `KARTOVA_API_BASE_URL` at container start; SPAs resolve runtime → `VITE_*` → default (`shared/config/runtimeConfig.ts`); Dockerfile `VITE_*` ARGs removed; compose + Helm (`web.config` / `webAdmin.config`) wired; CI images job runs `web/scripts/check-runtime-config.sh`.
 **Origin:** E-01b.F-03.S-02 (2026-09-28), deferred in brainstorming.
 
 **Problem.** OIDC authority/client and API base URL are inlined at `vite build`, so one image cannot be promoted across environments. It bites harder for `web-admin`, which by ADR-0118 is always cross-origin to the API.
@@ -320,7 +320,7 @@ Convention: one `### TD-NNN` heading per item. Keep `Status: open` until done; o
 
 ### TD-017 — Persistent-401 redirect loop has no circuit breaker (tenant + admin SPA)
 
-**Status:** open
+**Status:** done (branch `chore/tech-debt-td-015-016-017`) — `shared/oidc/reauthMarker.ts` (30 s window) gates the shared `useApiAuthBridge` 401 handler; authenticated non-401 responses clear it; both bridges render `ReauthFailedPanel` (Try again / Sign out) when it trips.
 **Origin:** E-01b.F-03.S-02 (2026-09-28), gate-6 review minor.
 
 **Problem.** A session/me 401 triggers `signinRedirect()`; if the SSO round-trip returns and the API answers 401 again (e.g. a stale/rejected token, clock skew, or a misconfigured realm), the SPA re-triggers `signinRedirect()` and loops indefinitely with no user-visible way out. Same pattern in both `web` (tenant session bootstrap) and `web-admin` (`AdminLayout`'s `session/me` 401 handling).
