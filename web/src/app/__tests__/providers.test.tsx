@@ -45,6 +45,7 @@ beforeEach(() => {
 
 afterEach(() => {
   window.history.pushState({}, "", "/");
+  vi.restoreAllMocks();
 });
 
 describe("ApiAuthBridge", () => {

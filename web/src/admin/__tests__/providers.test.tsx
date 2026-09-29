@@ -35,7 +35,10 @@ beforeEach(() => {
   signinRedirect.mockClear();
   signoutRedirect.mockClear();
 });
-afterEach(() => window.history.pushState({}, "", "/"));
+afterEach(() => {
+  window.history.pushState({}, "", "/");
+  vi.restoreAllMocks();
+});
 
 describe("AdminApiAuthBridge", () => {
   it("the 401 handler re-authenticates with the current deep link as returnTo", () => {
@@ -72,5 +75,9 @@ describe("AdminApiAuthBridge", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
     expect(signoutRedirect).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(signinRedirect).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("console-content")).toBeInTheDocument();
   });
 });

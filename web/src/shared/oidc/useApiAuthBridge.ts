@@ -53,6 +53,15 @@ export function useApiAuthBridge(
       clearReauthMarker();
     }
   }, [auth.error]);
+  // Redirect to sign-in, marking the attempt so a still-rejected session trips the breaker (TD-017).
+  // Round-trips the current deep link through OIDC `state` (mirrors RequireAuth) so a 401-triggered
+  // re-auth returns the user to where they were (resolveReturnTo validates it).
+  const reauthenticate = useCallback(() => {
+    redirectingRef.current = true;
+    markReauthAttempt();
+    void signinRedirectRef.current({ state: { returnTo: currentReturnTo() } });
+  }, []);
+
   useEffect(() => {
     setTokenProvider(() => tokenRef.current);
     setUnauthorizedHandler(() => {
@@ -65,20 +74,15 @@ export function useApiAuthBridge(
         setReauthFailed(true);
         return;
       }
-      markReauthAttempt();
-      // Round-trip the current deep link through OIDC `state` (mirrors RequireAuth) so a 401-triggered
-      // re-auth returns the user to where they were (resolveReturnTo validates it).
-      void signinRedirectRef.current({ state: { returnTo: currentReturnTo() } });
+      reauthenticate();
     });
-  }, [auth]);
+  }, [auth, reauthenticate]);
 
   // Panel "Try again": one more round-trip, re-marked so a still-rejected session trips again.
   const retry = useCallback(() => {
     setReauthFailed(false);
-    redirectingRef.current = true;
-    markReauthAttempt();
-    void signinRedirectRef.current({ state: { returnTo: currentReturnTo() } });
-  }, []);
+    reauthenticate();
+  }, [reauthenticate]);
 
   return { reauthFailed, retry };
 }
