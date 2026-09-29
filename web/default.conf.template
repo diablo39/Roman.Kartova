@@ -14,6 +14,7 @@
 # external fonts + telemetry are disabled in SpecRender.tsx). CSP is set only on the HTML document
 # response (this location) — sub-resource responses' CSP headers do not affect the page's policy.
 # To roll back to observe-only, rename the header below to Content-Security-Policy-Report-Only.
+# ${KARTOVA_OIDC_AUTHORITY} / ${KARTOVA_OIDC_CLIENT_ID} / ${KARTOVA_API_BASE_URL} feed /config.js (TD-016).
 server {
   listen 8080;
   root /usr/share/nginx/app;
@@ -22,6 +23,17 @@ server {
   location / {
     try_files $uri /index.html;
     add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://api.scalar.com ${CSP_EXTRA_ORIGINS}; frame-src ${CSP_EXTRA_ORIGINS}; form-action 'self' ${CSP_EXTRA_ORIGINS}; object-src 'none'; base-uri 'self'; frame-ancestors 'none'" always;
+  }
+
+  # Runtime SPA config (TD-016): rendered from KARTOVA_* env at container start by the same envsubst pass
+  # as ${CSP_EXTRA_ORIGINS}. Exact match beats the *.js immutable-cache rule below; no-store so a changed
+  # env takes effect on the next page load. Values are trusted operator input and must be plain absolute
+  # URLs / client ids — no quotes ('/"), $, or backslashes: nginx's `return` directive treats $ as a
+  # variable reference, and a \ breaks the JS string literal below.
+  location = /config.js {
+    default_type application/javascript;
+    add_header Cache-Control "no-store" always;
+    return 200 'window.__KARTOVA_CONFIG__={"oidcAuthority":"${KARTOVA_OIDC_AUTHORITY}","oidcClientId":"${KARTOVA_OIDC_CLIENT_ID}","apiBaseUrl":"${KARTOVA_API_BASE_URL}"};';
   }
 
   location ~* \.(js|css|woff2?|svg|png|jpg|ico)$ {

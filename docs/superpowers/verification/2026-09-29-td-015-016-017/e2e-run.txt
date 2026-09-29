@@ -1,0 +1,452 @@
+# e2e re-run @ e8213be 2026-09-29T12:16:20Z (final code, terminal re-verify)
+==> Bringing up the stack (pg, keycloak, migrator, api, web, web-admin)
+ Image kartova/api:dev Building 
+ Image kartova/web:dev Building 
+ Image kartova/web-admin:dev Building 
+ Image kartova/migrator:dev Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 2.03kB done
+#1 DONE 0.0s
+
+#2 [migrator internal] load build definition from Dockerfile
+#2 transferring dockerfile: 2.44kB done
+#2 DONE 0.0s
+
+#3 [web-admin internal] load build definition from Dockerfile
+#3 transferring dockerfile: 2.52kB 0.0s done
+#3 DONE 0.0s
+
+#4 [api internal] load build definition from Dockerfile
+#4 transferring dockerfile: 3.23kB done
+#4 DONE 0.1s
+
+#5 [api] resolve image config for docker-image://docker.io/docker/dockerfile:1.7
+#5 DONE 0.6s
+
+#6 [web] docker-image://docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#6 resolve docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#6 CACHED
+
+#7 [api internal] load metadata for mcr.microsoft.com/dotnet/aspnet:10.0-alpine
+#7 ...
+
+#8 [web-admin internal] load build definition from Dockerfile
+#8 transferring dockerfile: 2.52kB 0.0s done
+#8 DONE 0.0s
+
+#9 [web internal] load build definition from Dockerfile
+#9 transferring dockerfile: 2.52kB 0.0s done
+#9 DONE 0.0s
+
+#7 [migrator internal] load metadata for mcr.microsoft.com/dotnet/aspnet:10.0-alpine
+#7 DONE 0.2s
+
+#10 [api internal] load metadata for mcr.microsoft.com/dotnet/sdk:10.0-alpine
+#10 DONE 0.2s
+
+#11 [migrator internal] load .dockerignore
+#11 transferring context: 177B done
+#11 DONE 0.0s
+
+#12 [api internal] load .dockerignore
+#12 transferring context: 177B done
+#12 DONE 0.0s
+
+#13 [migrator internal] load build context
+#13 DONE 0.0s
+
+#14 [api internal] load build context
+#14 DONE 0.0s
+
+#15 [api runtime 1/4] FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine@sha256:f62a272ac1b46e83f56b8ed0416572f31cd1128e2c4a5e63eb34d348e4a36095
+#15 resolve mcr.microsoft.com/dotnet/aspnet:10.0-alpine@sha256:f62a272ac1b46e83f56b8ed0416572f31cd1128e2c4a5e63eb34d348e4a36095 0.1s done
+#15 resolve mcr.microsoft.com/dotnet/aspnet:10.0-alpine@sha256:f62a272ac1b46e83f56b8ed0416572f31cd1128e2c4a5e63eb34d348e4a36095 0.1s done
+#15 DONE 0.1s
+
+#16 [api build  1/25] FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine@sha256:3cc3bbbbf93d82104892f42aa9106b6be4d120346dea0649643a97c801525256
+#16 resolve mcr.microsoft.com/dotnet/sdk:10.0-alpine@sha256:3cc3bbbbf93d82104892f42aa9106b6be4d120346dea0649643a97c801525256 0.1s done
+#16 DONE 0.1s
+
+#13 [migrator internal] load build context
+#13 transferring context: 73.96kB 0.1s done
+#13 DONE 0.1s
+
+#14 [api internal] load build context
+#14 transferring context: 73.96kB 0.1s done
+#14 DONE 0.1s
+
+#17 [migrator build  9/25] COPY src/Kartova.SharedKernel.AspNetCore/*.csproj src/Kartova.SharedKernel.AspNetCore/
+#17 CACHED
+
+#18 [migrator build  3/25] COPY global.json ./
+#18 CACHED
+
+#19 [migrator build 16/25] COPY src/Modules/Catalog/Kartova.Catalog.Contracts/*.csproj src/Modules/Catalog/Kartova.Catalog.Contracts/
+#19 CACHED
+
+#20 [migrator build 25/25] RUN dotnet publish src/Kartova.Migrator/Kartova.Migrator.csproj     -c Release     -o /out     --no-restore
+#20 CACHED
+
+#21 [migrator build 22/25] COPY src/Modules/Audit/Kartova.Audit.Infrastructure/*.csproj src/Modules/Audit/Kartova.Audit.Infrastructure/
+#21 CACHED
+
+#22 [migrator runtime 3/4] RUN addgroup -g 1000 kartova && adduser -D -u 1000 -G kartova kartova
+#22 CACHED
+
+#23 [migrator build 12/25] COPY src/Kartova.Migrator/*.csproj src/Kartova.Migrator/
+#23 CACHED
+
+#24 [migrator build 13/25] COPY src/Modules/Catalog/Kartova.Catalog.Domain/*.csproj src/Modules/Catalog/Kartova.Catalog.Domain/
+#24 CACHED
+
+#25 [migrator build 18/25] COPY src/Modules/Organization/Kartova.Organization.Application/*.csproj src/Modules/Organization/Kartova.Organization.Application/
+#25 CACHED
+
+#26 [migrator build  8/25] COPY src/Kartova.SharedKernel/*.csproj src/Kartova.SharedKernel/
+#26 CACHED
+
+#27 [migrator build 11/25] COPY src/Kartova.SharedKernel.Postgres/*.csproj src/Kartova.SharedKernel.Postgres/
+#27 CACHED
+
+#28 [migrator build 14/25] COPY src/Modules/Catalog/Kartova.Catalog.Application/*.csproj src/Modules/Catalog/Kartova.Catalog.Application/
+#28 CACHED
+
+#29 [migrator build  5/25] COPY Directory.Packages.props ./
+#29 CACHED
+
+#30 [migrator build 10/25] COPY src/Kartova.SharedKernel.Identity/*.csproj src/Kartova.SharedKernel.Identity/
+#30 CACHED
+
+#31 [migrator build  6/25] COPY Directory.Build.props ./
+#31 CACHED
+
+#32 [migrator build 17/25] COPY src/Modules/Organization/Kartova.Organization.Domain/*.csproj src/Modules/Organization/Kartova.Organization.Domain/
+#32 CACHED
+
+#33 [migrator build 19/25] COPY src/Modules/Organization/Kartova.Organization.Contracts/*.csproj src/Modules/Organization/Kartova.Organization.Contracts/
+#33 CACHED
+
+#34 [migrator build 24/25] COPY src/ src/
+#34 CACHED
+
+#35 [migrator build 23/25] RUN dotnet restore src/Kartova.Migrator/Kartova.Migrator.csproj
+#35 CACHED
+
+#36 [migrator build  7/25] COPY NuGet.Config ./
+#36 CACHED
+
+#37 [migrator build 20/25] COPY src/Modules/Organization/Kartova.Organization.Infrastructure/*.csproj src/Modules/Organization/Kartova.Organization.Infrastructure/
+#37 CACHED
+
+#38 [migrator build 15/25] COPY src/Modules/Catalog/Kartova.Catalog.Infrastructure/*.csproj src/Modules/Catalog/Kartova.Catalog.Infrastructure/
+#38 CACHED
+
+#39 [migrator build  4/25] COPY Kartova.slnx ./
+#39 CACHED
+
+#40 [migrator build 21/25] COPY src/Modules/Audit/Kartova.Audit.Domain/*.csproj src/Modules/Audit/Kartova.Audit.Domain/
+#40 CACHED
+
+#41 [migrator runtime 4/4] COPY --from=build --chown=kartova:kartova /out ./
+#41 CACHED
+
+#42 [api build 11/28] COPY src/Kartova.SharedKernel.Postgres/*.csproj src/Kartova.SharedKernel.Postgres/
+#42 CACHED
+
+#43 [api build 25/28] COPY src/Modules/Audit/Kartova.Audit.Infrastructure/*.csproj src/Modules/Audit/Kartova.Audit.Infrastructure/
+#43 CACHED
+
+#44 [api build  7/28] COPY NuGet.Config ./
+#44 CACHED
+
+#45 [api build 14/28] COPY src/Kartova.Migrator/*.csproj src/Kartova.Migrator/
+#45 CACHED
+
+#46 [api build 22/28] COPY src/Modules/Organization/Kartova.Organization.Infrastructure/*.csproj src/Modules/Organization/Kartova.Organization.Infrastructure/
+#46 CACHED
+
+#47 [api build  2/25] WORKDIR /src
+#47 CACHED
+
+#48 [api build  6/28] COPY Directory.Build.props ./
+#48 CACHED
+
+#49 [api build 12/28] COPY src/Kartova.SharedKernel.Wolverine/*.csproj src/Kartova.SharedKernel.Wolverine/
+#49 CACHED
+
+#50 [api build 16/28] COPY src/Modules/Catalog/Kartova.Catalog.Application/*.csproj src/Modules/Catalog/Kartova.Catalog.Application/
+#50 CACHED
+
+#51 [api build  4/28] COPY Kartova.slnx ./
+#51 CACHED
+
+#52 [api build 21/28] COPY src/Modules/Organization/Kartova.Organization.Contracts/*.csproj src/Modules/Organization/Kartova.Organization.Contracts/
+#52 CACHED
+
+#53 [api build 27/28] COPY src/ src/
+#53 CACHED
+
+#54 [api build  9/28] COPY src/Kartova.SharedKernel.AspNetCore/*.csproj src/Kartova.SharedKernel.AspNetCore/
+#54 CACHED
+
+#55 [api build 28/28] RUN dotnet publish src/Kartova.Api/Kartova.Api.csproj     -c Release     -o /out     --no-restore     /p:InformationalVersion="0.1.0+dev"     /p:BuildTime="unknown"
+#55 CACHED
+
+#56 [api build 19/28] COPY src/Modules/Organization/Kartova.Organization.Domain/*.csproj src/Modules/Organization/Kartova.Organization.Domain/
+#56 CACHED
+
+#57 [api build 20/28] COPY src/Modules/Organization/Kartova.Organization.Application/*.csproj src/Modules/Organization/Kartova.Organization.Application/
+#57 CACHED
+
+#58 [api build 23/28] COPY src/Modules/Organization/Kartova.Organization.Infrastructure.Admin/*.csproj src/Modules/Organization/Kartova.Organization.Infrastructure.Admin/
+#58 CACHED
+
+#59 [api build 18/28] COPY src/Modules/Catalog/Kartova.Catalog.Contracts/*.csproj src/Modules/Catalog/Kartova.Catalog.Contracts/
+#59 CACHED
+
+#60 [api build 26/28] RUN dotnet restore src/Kartova.Api/Kartova.Api.csproj
+#60 CACHED
+
+#61 [api runtime 4/5] RUN addgroup -g 1000 kartova && adduser -D -u 1000 -G kartova kartova
+#61 CACHED
+
+#62 [api build 17/28] COPY src/Modules/Catalog/Kartova.Catalog.Infrastructure/*.csproj src/Modules/Catalog/Kartova.Catalog.Infrastructure/
+#62 CACHED
+
+#63 [api build 15/28] COPY src/Modules/Catalog/Kartova.Catalog.Domain/*.csproj src/Modules/Catalog/Kartova.Catalog.Domain/
+#63 CACHED
+
+#64 [api build 10/28] COPY src/Kartova.SharedKernel.Identity/*.csproj src/Kartova.SharedKernel.Identity/
+#64 CACHED
+
+#65 [api runtime 3/5] RUN apk add --no-cache tzdata
+#65 CACHED
+
+#66 [api build  3/28] COPY global.json ./
+#66 CACHED
+
+#67 [api build 13/28] COPY src/Kartova.Api/*.csproj src/Kartova.Api/
+#67 CACHED
+
+#68 [api runtime 2/4] WORKDIR /app
+#68 CACHED
+
+#69 [api build  8/28] COPY src/Kartova.SharedKernel/*.csproj src/Kartova.SharedKernel/
+#69 CACHED
+
+#70 [api build 24/28] COPY src/Modules/Audit/Kartova.Audit.Domain/*.csproj src/Modules/Audit/Kartova.Audit.Domain/
+#70 CACHED
+
+#71 [api build  5/28] COPY Directory.Packages.props ./
+#71 CACHED
+
+#72 [api runtime 5/5] COPY --from=build --chown=kartova:kartova /out ./
+#72 CACHED
+
+#73 [api] exporting to image
+#73 exporting layers done
+#73 exporting manifest sha256:de9f0a467cba8f6848c2388e384fd6bdbfc89a3ae39ed1c72f56aac429ba8dc2 0.0s done
+#73 exporting config sha256:e831e9cf26b7dd300cfa748d53bb402104b19315e34cc0671e7f9db52c0f38f5
+#73 ...
+
+#74 [web-admin internal] load metadata for docker.io/nginxinc/nginx-unprivileged:1.27-alpine
+#74 DONE 0.5s
+
+#75 [web internal] load metadata for docker.io/library/node:20-alpine
+#75 DONE 0.6s
+
+#76 [web-admin internal] load .dockerignore
+#76 transferring context: 86B done
+#76 DONE 0.0s
+
+#77 [web internal] load .dockerignore
+#77 transferring context: 86B done
+#77 DONE 0.0s
+
+#73 [api] exporting to image
+#73 exporting config sha256:e831e9cf26b7dd300cfa748d53bb402104b19315e34cc0671e7f9db52c0f38f5 0.0s done
+#73 exporting attestation manifest sha256:c1ce31c63416e54e3de07e5a7396470e78c84671bbdffc1e1e7f6dd2d76ecdbb
+#73 ...
+
+#78 [web-admin internal] load build context
+#78 DONE 0.0s
+
+#79 [web internal] load build context
+#79 DONE 0.0s
+
+#73 [api] exporting to image
+#73 exporting attestation manifest sha256:c1ce31c63416e54e3de07e5a7396470e78c84671bbdffc1e1e7f6dd2d76ecdbb 0.1s done
+#73 exporting manifest list sha256:19a5d0ab96511be0e58b546e55529ebbd5a55317cccc663cf2983bde8ae1baef 0.0s done
+#73 naming to docker.io/kartova/api:dev 0.0s done
+#73 unpacking to docker.io/kartova/api:dev
+#73 ...
+
+#80 [web-admin runtime 1/3] FROM docker.io/nginxinc/nginx-unprivileged:1.27-alpine@sha256:65e3e85dbaed8ba248841d9d58a899b6197106c23cb0ff1a132b7bfe0547e4c0
+#80 resolve docker.io/nginxinc/nginx-unprivileged:1.27-alpine@sha256:65e3e85dbaed8ba248841d9d58a899b6197106c23cb0ff1a132b7bfe0547e4c0 0.1s done
+#80 DONE 0.1s
+
+#81 [web-admin build 1/6] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
+#81 resolve docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 0.1s done
+#81 DONE 0.1s
+
+#82 [migrator] exporting to image
+#82 exporting layers done
+#82 exporting manifest sha256:309de95cbbeced6af58748008199e757c8e0149a57e515b0e52c0512d784225b 0.0s done
+#82 exporting config sha256:53a596425c54b07f8c9c5ac6f29dfcfcd303c62acd1065ea7085109ddaf5c55a 0.0s done
+#82 exporting attestation manifest sha256:9af5488b58ab1bee4f1d21462c9619161f90172a4c66487bbaf5d8230f89f2b6 0.1s done
+#82 exporting manifest list sha256:3e01192b770e75b46f88f7aabfa753c4b3330ea0ba9eea1092b84ba888f56584 0.0s done
+#82 naming to docker.io/kartova/migrator:dev 0.0s done
+#82 unpacking to docker.io/kartova/migrator:dev 0.0s done
+#82 DONE 0.4s
+
+#73 [api] exporting to image
+#73 unpacking to docker.io/kartova/api:dev 0.0s done
+#73 DONE 0.4s
+
+#79 [web internal] load build context
+#79 transferring context: 43.88kB 0.1s done
+#79 DONE 0.1s
+
+#78 [web-admin internal] load build context
+#78 transferring context: 43.88kB 0.1s done
+#78 DONE 0.1s
+
+#83 [web build 3/6] COPY package.json package-lock.json ./
+#83 CACHED
+
+#84 [web build 5/6] COPY . .
+#84 CACHED
+
+#85 [web runtime 2/3] COPY --from=build /out /usr/share/nginx/app
+#85 CACHED
+
+#86 [web build 2/6] WORKDIR /app
+#86 CACHED
+
+#87 [web build 6/6] RUN case "web" in       web)   npm run build       && mv dist /out       && cp default.conf.template /out.conf.template ;;       admin) npm run build:admin && mv dist-admin /out && cp admin.conf.template /out.conf.template ;;       *)     echo "unknown APP=web (expected web|admin)" >&2 && exit 1 ;;     esac
+#87 CACHED
+
+#88 [web build 4/6] RUN npm ci --ignore-scripts
+#88 CACHED
+
+#89 [web runtime 3/3] COPY --from=build /out.conf.template /etc/nginx/templates/default.conf.template
+#89 CACHED
+
+#90 [web-admin build 5/6] COPY . .
+#90 CACHED
+
+#91 [web-admin build 4/6] RUN npm ci --ignore-scripts
+#91 CACHED
+
+#92 [web-admin build 6/6] RUN case "admin" in       web)   npm run build       && mv dist /out       && cp default.conf.template /out.conf.template ;;       admin) npm run build:admin && mv dist-admin /out && cp admin.conf.template /out.conf.template ;;       *)     echo "unknown APP=admin (expected web|admin)" >&2 && exit 1 ;;     esac
+#92 CACHED
+
+#93 [web-admin runtime 2/3] COPY --from=build /out /usr/share/nginx/app
+#93 CACHED
+
+#86 [web-admin build 2/6] WORKDIR /app
+#86 CACHED
+
+#94 [web-admin build 3/6] COPY package.json package-lock.json ./
+#94 CACHED
+
+#95 [web-admin runtime 3/3] COPY --from=build /out.conf.template /etc/nginx/templates/default.conf.template
+#95 CACHED
+
+#96 [web] exporting to image
+#96 exporting layers 0.0s done
+#96 exporting manifest sha256:43c7b204b70d6600b431376dd8777ad8d7649d6eb18bff073f316769b97c3961 0.0s done
+#96 exporting config sha256:4091f67317c439ae6d1c7ff4fdea70929a47bf49f790ad6064d861530a889f7b
+#96 exporting config sha256:4091f67317c439ae6d1c7ff4fdea70929a47bf49f790ad6064d861530a889f7b 0.0s done
+#96 exporting attestation manifest sha256:50a0f21230c0019633f60784adf543535a79668044e7835c90e6e7bf005b65c7
+#96 exporting attestation manifest sha256:50a0f21230c0019633f60784adf543535a79668044e7835c90e6e7bf005b65c7 0.2s done
+#96 exporting manifest list sha256:47cdb6849bbf6fe9a5ebf3157c846a774f72988f14c97ea1635e3a9112859331
+#96 exporting manifest list sha256:47cdb6849bbf6fe9a5ebf3157c846a774f72988f14c97ea1635e3a9112859331 0.1s done
+#96 naming to docker.io/kartova/web:dev
+#96 naming to docker.io/kartova/web:dev 0.0s done
+#96 unpacking to docker.io/kartova/web:dev 0.1s done
+#96 DONE 0.7s
+
+#97 [web-admin] exporting to image
+#97 exporting layers 0.0s done
+#97 exporting manifest sha256:bcb71075a287600c8410396da12297e09bf057c83ced749531a9e7a8c26ad1de 0.0s done
+#97 exporting config sha256:93ea4cd301b07373568a03dd2f70098c3b620d322f772c007528c17c638b0a8b 0.0s done
+#97 exporting attestation manifest sha256:5cdd4e40c6234dd68121135971f8075bd598299264cffe5477b462dcbc8f594d 0.2s done
+#97 exporting manifest list sha256:fc4bda3af819b1b296570100d7d43c8f0695106d67aff0fbfaf8bb6cd4244137 0.1s done
+#97 naming to docker.io/kartova/web-admin:dev 0.0s done
+#97 unpacking to docker.io/kartova/web-admin:dev 0.1s done
+#97 DONE 0.6s
+
+#98 [migrator] resolving provenance for metadata file
+#98 DONE 0.0s
+
+#99 [api] resolving provenance for metadata file
+#99 DONE 0.0s
+
+#100 [web] resolving provenance for metadata file
+#100 DONE 0.1s
+
+#101 [web-admin] resolving provenance for metadata file
+#101 DONE 0.0s
+ Image kartova/migrator:dev Built 
+ Image kartova/api:dev Built 
+ Image kartova/web:dev Built 
+ Image kartova/web-admin:dev Built 
+ Container romangig2-keycloak-db-1 Running 
+ Container romangig2-postgres-1 Running 
+ Container romangig2-keycloak-1 Running 
+ Container romangig2-migrator-1 Recreate 
+ Container romangig2-migrator-1 Recreated 
+ Container romangig2-api-1 Recreate 
+ Container romangig2-api-1 Recreated 
+ Container romangig2-web-1 Recreate 
+ Container romangig2-web-admin-1 Recreate 
+ Container romangig2-web-1 Recreated 
+ Container romangig2-web-admin-1 Recreated 
+ Container romangig2-keycloak-db-1 Waiting 
+ Container romangig2-postgres-1 Waiting 
+ Container romangig2-postgres-1 Healthy 
+ Container romangig2-keycloak-db-1 Healthy 
+ Container romangig2-migrator-1 Starting 
+ Container romangig2-migrator-1 Started 
+ Container romangig2-keycloak-1 Waiting 
+ Container romangig2-postgres-1 Waiting 
+ Container romangig2-migrator-1 Waiting 
+ Container romangig2-keycloak-1 Healthy 
+ Container romangig2-postgres-1 Healthy 
+ Container romangig2-migrator-1 Exited 
+ Container romangig2-api-1 Starting 
+ Container romangig2-api-1 Started 
+ Container romangig2-keycloak-1 Waiting 
+ Container romangig2-keycloak-1 Waiting 
+ Container romangig2-keycloak-1 Healthy 
+ Container romangig2-web-1 Starting 
+ Container romangig2-keycloak-1 Healthy 
+ Container romangig2-web-admin-1 Starting 
+ Container romangig2-web-admin-1 Started 
+ Container romangig2-web-1 Started 
+==> Waiting for API readiness
+==> Waiting for web
+==> Waiting for web-admin
+==> Running Playwright
+
+added 20 packages, and audited 21 packages in 2s
+
+found 0 vulnerabilities
+
+Running 11 tests using 1 worker
+
+  ✓   1 [chromium] › tests\admin-smoke.spec.ts:4:1 › admin smoke: an operator signs in and lands on the console (2.6s)
+  ✓   2 [chromium] › tests\admin-smoke.spec.ts:13:1 › admin smoke: a platform-realm user without the role sees No access (800ms)
+  ✓   3 [chromium] › tests\detail-tabs.spec.ts:5:1 › detail-tabs: API detail switches tabs, syncs ?tab, mounts only the active panel (3.4s)
+  ✓   4 [chromium] › tests\filter-value-cap.spec.ts:28:3 › over-cap teamId filter on applications is legible and clearable (4.7s)
+  ✓   5 [chromium] › tests\filter-value-cap.spec.ts:28:3 › over-cap teamId filter on services is legible and clearable (2.5s)
+  ✓   6 [chromium] › tests\lifecycle-override.spec.ts:5:1 › lifecycle: override-holder can reach the sunset-override checkbox before sunset (1.6s)
+  ✓   7 [chromium] › tests\relationship-drift.spec.ts:6:1 › drift: an unmappable relationship.type does not 500 the relationships surface (1.4s)
+  ✓   8 [chromium] › tests\smoke.spec.ts:4:1 › smoke: login and the Applications list renders (1.0s)
+  ✓   9 [chromium] › tests\spec-render-readonly.spec.ts:5:1 › spec-render: API Definition tab renders the spec read-only (no live client) (2.6s)
+  ✓  10 [chromium] › tests\system-diagram-boundary.spec.ts:125:1 › every member intersects the boundary band and carries no outside marking, while every non-member does (2.3s)
+  ✓  11 [chromium] › tests\system-list-surface.spec.ts:17:3 › System list surface › System column renders, and the systemId filter round-trips through the URL (1.5s)
+
+  11 passed (27.8s)
+exit=0

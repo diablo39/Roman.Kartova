@@ -1,0 +1,253 @@
+# gate-findings.yaml — per-gate findings telemetry for one slice.
+#
+# Purpose: record every issue each DoD gate raised, with a real/delusion verdict,
+# so gate effectiveness is queryable across slices.
+#   Aggregate:  find docs/superpowers/verification -name gate-findings.yaml
+#   Rank gates by precision (real ÷ found) and by real issues caught.
+#
+# Sibling of dod.md in docs/superpowers/verification/<date>-<topic>/.
+# Copy this file there at slice start; append a finding the moment a gate raises one.
+# dod.md records each gate's PASS/FAIL/PENDING/N-A status; this file records what it FOUND.
+# A gate with status PASS and no entries here ⇒ it ran and found nothing.
+
+slice:  2026-09-29-td-015-016-017
+branch: chore/tech-debt-td-015-016-017
+terminal_commit: e8213be   # the slice's final commit; MUST match dod.md's "Terminal commit".
+                               # .claude/hooks/dod-check.js blocks a completion claim whose
+                               # gate-findings.yaml has no terminal_commit or one that drifts from dod.md.
+
+# One entry per issue a gate raised.
+#
+# gate     — the dod.md row this finding came from (slug, not number):
+#              build              (1  Build, TreatWarningsAsErrors)
+#              reviews            (2  per-task subagent reviews)
+#              suite              (3  full test suite incl. real-seam)
+#              container          (4  container build / images CI)
+#              simplify           (5  /simplify)
+#              requesting-review  (6  requesting-code-review)
+#              review-pr          (7  review-pr)
+#              deep-review        (8  deep-review)
+#              manual             (9  visual / API verification, ADR-0084)
+#              terminal-reverify  (terminal re-verify: build + suite)
+#              ci-mirror          (10 CI green on PR / pre-push mirror, ci-local.sh)
+# severity — blocking | should-fix | nit
+# verdict  — real     : a genuine issue that warranted a change
+#            delusion : a false positive the gate raised that was not a real issue
+# title    — one-line description of the finding
+# note     — optional: resolution (fix sha), or why it was a delusion
+findings:
+  - gate: reviews
+    severity: should-fix
+    verdict: delusion
+    title: "Task 0: dod.md HEAD field 224501d != 013f56d"
+    note: "a commit can't record its own SHA; HEAD tracks the verified code commit"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Task 1: dead usings left in Program.cs"
+    note: "fixed a2a2405 + 1e954d8"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Task 2: commit trailer named the implementer model, not the required Opus 5.5 attribution"
+    note: "controller reworded d9cdd66 -> 31ce4ab"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Task 3: check-runtime-config.sh HTML check piped curl|grep -q under pipefail (latent SIGPIPE false fail)"
+    note: "fixed e9630cf (temp-file pattern)"
+  - gate: reviews
+    severity: should-fix
+    verdict: real
+    title: "Task 5: vi.stubGlobal(sessionStorage) never unstubbed in reauthMarker.test.ts"
+    note: "fixed 8d5ac32"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Task 6: console.error spy not restored in providers tests"
+    note: "fixed a2a2405"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Task 6: no test that a 2nd 401 while tripped is ignored / retry uses swapped signinRedirect"
+    note: "deferred (gate 6: can-defer)"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Task 6: module-level bridge not reset in beforeEach"
+    note: "deferred (gate 6: can-defer)"
+  - gate: reviews
+    severity: nit
+    verdict: real
+    title: "Task 6: tenant path after failed retry redirect shows app with failing queries (pre-existing RequireAuth gating)"
+    note: "deferred (gate 6: can-defer)"
+  - gate: suite
+    severity: should-fix
+    verdict: real
+    title: "RestVerbPolicyRules arch host lacked AddHealthChecks/AddOpenApi after SystemEndpoints move -> No_endpoint_uses_PATCH_verb failed"
+    note: "fixed 65d0c10; caught by Task 7 full-suite run (Task 1 ran only EndpointRouteRules)"
+  - gate: container
+    severity: nit
+    verdict: real
+    title: "e2e run regenerated 5 committed gate-9 PNGs of an older slice"
+    note: "controller restored via git checkout (not committed)"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "S1 dead usings in Program.cs"
+    note: "applied a2a2405"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "S2 reauth redirect sequence duplicated between 401 handler and retry"
+    note: "applied a2a2405 (reauthenticate)"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "S3 admin panel test lacked Try-again assertion"
+    note: "applied a2a2405"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "S4 FindRepoFile duplicated across two arch rule classes"
+    note: "declined: coupling unrelated rule classes / out-of-scope shared helper"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "S5 /config.js nginx block duplicated in two templates"
+    note: "declined: include adds a build input for a 5-line block"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "S6 ApiAuthBridge/AdminApiAuthBridge near-identical"
+    note: "declined: reject-by-default shared-helper class"
+  - gate: simplify
+    severity: nit
+    verdict: delusion
+    title: "S7 in-memory mirror to skip sessionStorage removeItem per response"
+    note: "mirror desyncs across full reloads -> would stop clearing a live marker"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "S8 render-blocking /config.js -> defer"
+    note: "declined: negligible gain"
+  - gate: simplify
+    severity: nit
+    verdict: real
+    title: "S9 CI runs two config checks sequentially"
+    note: "declined: seconds of wall clock"
+  - gate: simplify
+    severity: nit
+    verdict: delusion
+    title: "S10 move /health/detailed under /api/v1/admin/"
+    note: "contradicts approved spec (ADR-0060 URL contract)"
+  - gate: simplify
+    severity: nit
+    verdict: delusion
+    title: "S11 structural instead of regex Program.cs guard"
+    note: "contradicts approved spec D4 (rejected alternative)"
+  - gate: requesting-review
+    severity: should-fix
+    verdict: real
+    title: "Program_maps_no_routes_directly regex missed .Map( and MapAdminModule("
+    note: "fixed 1e954d8 (planted violations proved)"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "last dead using (Kartova.SharedKernel.AspNetCore.HealthChecks) remained"
+    note: "fixed 1e954d8"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "unsafe config chars ($, backslash) under-documented; no VITE_* upgrade note"
+    note: "fixed 1e954d8"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "planted-violation proofs + E2E run not cited in dod.md"
+    note: "recorded in dod.md gate 3"
+  - gate: requesting-review
+    severity: nit
+    verdict: delusion
+    title: "retry briefly flashes the app before redirect"
+    note: "ruled: keeping children lets existing Sign-in-unavailable panels handle a failed retry"
+  - gate: requesting-review
+    severity: nit
+    verdict: real
+    title: "ops rule vacuous if OpsAdminRoutes emptied; combined scheme on /health/detailed not swept"
+    note: "ruled: prefix rule + real-seam integration test cover it"
+  - gate: review-pr
+    severity: should-fix
+    verdict: real
+    title: "R1 silent fallback to localhost defaults when runtime config missing in production"
+    note: "fixed e9630cf (console.warn once per key)"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "R2 no automated CSP-header assertion after nginx template edits"
+    note: "fixed e9630cf"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "R3 crash-looping container surfaced as generic 30s timeout"
+    note: "fixed e9630cf"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "R5 useApiAuthBridge boolean+callback return -> discriminated union"
+    note: "declined: union doesn't force caller branching; both sites tested"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "R6 reauthMarker catch blocks don't log"
+    note: "declined: storage failure = no marker by spec; noise in privacy mode"
+  - gate: review-pr
+    severity: nit
+    verdict: real
+    title: "R7 no negative test for malformed KARTOVA_* values"
+    note: "declined: validation out of scope per spec"
+  - gate: review-pr
+    severity: nit
+    verdict: delusion
+    title: "R8 handler call without act() in one test"
+    note: "no state update on that path; no act warning"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "ADR-0113 + README row still described runtime URL injection as a deferred gap"
+    note: "amended e8213be (owner-approved wording)"
+  - gate: deep-review
+    severity: should-fix
+    verdict: real
+    title: "DoD ledger behind: gate-findings.yaml empty, e2e/planted proofs uncited, e2e predates final code"
+    note: "ledger populated; e2e re-run at terminal re-verify"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "tokenless 401 could trip the breaker (cleared only by authed responses)"
+    note: "fixed 7eebead (hadToken)"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "spec out of sync: retry re-marks; production fallback warn; tokenless 401"
+    note: "fixed 7eebead"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "Program.cs guard missed app.UseHealthChecks / UseEndpoints"
+    note: "fixed 7eebead (planted violation proved)"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "tech-debt.md marks items done before merge"
+    note: "status updated to PR + ledger at gate 10"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "ADR-0060 security table still said Operations role for /health/detailed"
+    note: "amended e8213be"
+  - gate: deep-review
+    severity: nit
+    verdict: real
+    title: "missing test: runtime config reaches the four consumers"
+    note: "added 7eebead (runtimeConfigConsumers.test.ts)"

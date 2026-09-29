@@ -1,0 +1,42 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Kartova.SharedKernel -> C:\Projects\Private\Roman.Gig2\src\Kartova.SharedKernel\bin\Debug\net10.0\Kartova.SharedKernel.dll
+  Kartova.Catalog.Domain -> C:\Projects\Private\Roman.Gig2\src\Modules\Catalog\Kartova.Catalog.Domain\bin\Debug\net10.0\Kartova.Catalog.Domain.dll
+  Kartova.SharedKernel.Identity -> C:\Projects\Private\Roman.Gig2\src\Kartova.SharedKernel.Identity\bin\Debug\net10.0\Kartova.SharedKernel.Identity.dll
+  Kartova.SharedKernel.Postgres -> C:\Projects\Private\Roman.Gig2\src\Kartova.SharedKernel.Postgres\bin\Debug\net10.0\Kartova.SharedKernel.Postgres.dll
+  Kartova.Organization.Contracts -> C:\Projects\Private\Roman.Gig2\src\Modules\Organization\Kartova.Organization.Contracts\bin\Debug\net10.0\Kartova.Organization.Contracts.dll
+  Kartova.Audit.Domain -> C:\Projects\Private\Roman.Gig2\src\Modules\Audit\Kartova.Audit.Domain\bin\Debug\net10.0\Kartova.Audit.Domain.dll
+  Kartova.Organization.Domain -> C:\Projects\Private\Roman.Gig2\src\Modules\Organization\Kartova.Organization.Domain\bin\Debug\net10.0\Kartova.Organization.Domain.dll
+  Kartova.SharedKernel.Wolverine -> C:\Projects\Private\Roman.Gig2\src\Kartova.SharedKernel.Wolverine\bin\Debug\net10.0\Kartova.SharedKernel.Wolverine.dll
+  Kartova.SharedKernel.AspNetCore -> C:\Projects\Private\Roman.Gig2\src\Kartova.SharedKernel.AspNetCore\bin\Debug\net10.0\Kartova.SharedKernel.AspNetCore.dll
+  Kartova.Catalog.Contracts -> C:\Projects\Private\Roman.Gig2\src\Modules\Catalog\Kartova.Catalog.Contracts\bin\Debug\net10.0\Kartova.Catalog.Contracts.dll
+  Kartova.SharedKernel.Postgres.IntegrationTests -> C:\Projects\Private\Roman.Gig2\tests\Kartova.SharedKernel.Postgres.IntegrationTests\bin\Debug\net10.0\Kartova.SharedKernel.Postgres.IntegrationTests.dll
+  Kartova.Audit.Infrastructure -> C:\Projects\Private\Roman.Gig2\src\Modules\Audit\Kartova.Audit.Infrastructure\bin\Debug\net10.0\Kartova.Audit.Infrastructure.dll
+  Kartova.Audit.Domain.Tests -> C:\Projects\Private\Roman.Gig2\src\Modules\Audit\Kartova.Audit.Domain.Tests\bin\Debug\net10.0\Kartova.Audit.Domain.Tests.dll
+  Kartova.Organization.Application -> C:\Projects\Private\Roman.Gig2\src\Modules\Organization\Kartova.Organization.Application\bin\Debug\net10.0\Kartova.Organization.Application.dll
+  Kartova.SharedKernel.Identity.Tests -> C:\Projects\Private\Roman.Gig2\tests\Kartova.SharedKernel.Identity.Tests\bin\Debug\net10.0\Kartova.SharedKernel.Identity.Tests.dll
+  Kartova.SharedKernel.AspNetCore.Tests -> C:\Projects\Private\Roman.Gig2\tests\Kartova.SharedKernel.AspNetCore.Tests\bin\Debug\net10.0\Kartova.SharedKernel.AspNetCore.Tests.dll
+  Kartova.Organization.Infrastructure -> C:\Projects\Private\Roman.Gig2\src\Modules\Organization\Kartova.Organization.Infrastructure\bin\Debug\net10.0\Kartova.Organization.Infrastructure.dll
+  Kartova.SharedKernel.Tests -> C:\Projects\Private\Roman.Gig2\tests\Kartova.SharedKernel.Tests\bin\Debug\net10.0\Kartova.SharedKernel.Tests.dll
+  Kartova.Catalog.Application -> C:\Projects\Private\Roman.Gig2\src\Modules\Catalog\Kartova.Catalog.Application\bin\Debug\net10.0\Kartova.Catalog.Application.dll
+  Kartova.Organization.Infrastructure.Admin -> C:\Projects\Private\Roman.Gig2\src\Modules\Organization\Kartova.Organization.Infrastructure.Admin\bin\Debug\net10.0\Kartova.Organization.Infrastructure.Admin.dll
+  Kartova.Catalog.Infrastructure -> C:\Projects\Private\Roman.Gig2\src\Modules\Catalog\Kartova.Catalog.Infrastructure\bin\Debug\net10.0\Kartova.Catalog.Infrastructure.dll
+  Kartova.Migrator -> C:\Projects\Private\Roman.Gig2\src\Kartova.Migrator\bin\Debug\net10.0\Kartova.Migrator.dll
+  Kartova.Catalog.Tests -> C:\Projects\Private\Roman.Gig2\src\Modules\Catalog\Kartova.Catalog.Tests\bin\Debug\net10.0\Kartova.Catalog.Tests.dll
+  Kartova.Api -> C:\Projects\Private\Roman.Gig2\src\Kartova.Api\bin\Debug\net10.0\Kartova.Api.dll
+  Kartova.Catalog.Infrastructure.Tests -> C:\Projects\Private\Roman.Gig2\src\Modules\Catalog\Kartova.Catalog.Infrastructure.Tests\bin\Debug\net10.0\Kartova.Catalog.Infrastructure.Tests.dll
+  Kartova.Organization.Infrastructure.Tests -> C:\Projects\Private\Roman.Gig2\src\Modules\Organization\Kartova.Organization.Infrastructure.Tests\bin\Debug\net10.0\Kartova.Organization.Infrastructure.Tests.dll
+  Kartova.ArchitectureTests -> C:\Projects\Private\Roman.Gig2\tests\Kartova.ArchitectureTests\bin\Debug\net10.0\Kartova.ArchitectureTests.dll
+  Kartova.Testing.Auth -> C:\Projects\Private\Roman.Gig2\tests\Kartova.Testing.Auth\bin\Debug\net10.0\Kartova.Testing.Auth.dll
+  Kartova.Audit.Infrastructure.IntegrationTests -> C:\Projects\Private\Roman.Gig2\src\Modules\Audit\Kartova.Audit.Infrastructure.IntegrationTests\bin\Debug\net10.0\Kartova.Audit.Infrastructure.IntegrationTests.dll
+  Kartova.SharedKernel.Identity.IntegrationTests -> C:\Projects\Private\Roman.Gig2\tests\Kartova.SharedKernel.Identity.IntegrationTests\bin\Debug\net10.0\Kartova.SharedKernel.Identity.IntegrationTests.dll
+  Kartova.Api.IntegrationTests -> C:\Projects\Private\Roman.Gig2\tests\Kartova.Api.IntegrationTests\bin\Debug\net10.0\Kartova.Api.IntegrationTests.dll
+  Kartova.Organization.IntegrationTests -> C:\Projects\Private\Roman.Gig2\src\Modules\Organization\Kartova.Organization.IntegrationTests\bin\Debug\net10.0\Kartova.Organization.IntegrationTests.dll
+  Kartova.Catalog.IntegrationTests -> C:\Projects\Private\Roman.Gig2\src\Modules\Catalog\Kartova.Catalog.IntegrationTests\bin\Debug\net10.0\Kartova.Catalog.IntegrationTests.dll
+  Kartova.Organization.Tests -> C:\Projects\Private\Roman.Gig2\src\Modules\Organization\Kartova.Organization.Tests\bin\Debug\net10.0\Kartova.Organization.Tests.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:25.88

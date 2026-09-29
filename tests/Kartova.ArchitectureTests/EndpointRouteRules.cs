@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Text.RegularExpressions;
 using Kartova.SharedKernel.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
@@ -29,6 +30,15 @@ public class EndpointRouteRules
     private const string Post = "POST";
     private const string Put = "PUT";
 
+    // MapHealthChecks matches every verb, so its endpoints carry no HttpMethodMetadata.
+    private const string AnyMethod = "";
+
+    /// <summary>
+    /// ADR-0118 / TD-015: the only routes outside <c>/api/v1/admin/</c> allowed to carry
+    /// <c>PlatformAdminOnly</c> — operator-only ops endpoints that must keep their ADR-0060 URL.
+    /// </summary>
+    private static readonly string[] OpsAdminRoutes = ["/health/detailed"];
+
     /// <summary>
     /// The single source of truth for what HTTP routes the API must expose.
     /// Every entry here is asserted against the live <see cref="EndpointDataSource"/>;
@@ -56,6 +66,14 @@ public class EndpointRouteRules
         // Invitation accept — anonymous, tenant-less (slice 9, task 8)
         new("GetInvitationAcceptContext",  Get,  "/api/v1/invitations/accept"),
         new("AcceptInvitation",            Post, "/api/v1/invitations/accept"),
+
+        // System routes (Kartova.Api SystemEndpoints — TD-015)
+        new("HealthLive",                  AnyMethod, "/health/live"),
+        new("HealthReady",                 AnyMethod, "/health/ready"),
+        new("HealthStartup",               AnyMethod, "/health/startup"),
+        new("HealthDetailed",              AnyMethod, "/health/detailed"),
+        new("GetOpenApiDocument",          Get,  "/openapi/{documentName}.json"),
+        new("GetVersion",                  Get,  "/api/v1/version"),
     ];
 
     [TestMethod]
@@ -146,12 +164,68 @@ public class EndpointRouteRules
         var offenders = MapEndpointAuthForArchTest()
             .Where(e => e.Policies.Contains(PlatformAdminAuth.Policy) || e.Schemes.Contains(PlatformAdminAuth.Scheme))
             .Where(e => !e.Template.StartsWith("/api/v1/admin/", StringComparison.OrdinalIgnoreCase))
+            .Where(e => !OpsAdminRoutes.Contains(e.Template, StringComparer.OrdinalIgnoreCase))
             .Select(e => $"{e.Name} {e.Template}")
             .ToArray();
 
         Assert.AreEqual(0, offenders.Length,
             "PlatformAdminOnly (or the PlatformAdmin scheme named directly) outside /api/v1/admin/ mixes operator and tenant surfaces: " +
             string.Join(", ", offenders));
+    }
+
+    /// <summary>
+    /// TD-015: each allowlisted ops-admin route must exist exactly once and require PlatformAdminOnly
+    /// without AllowAnonymous. Replaces the Program.cs comment that pinned /health/detailed by hand.
+    /// </summary>
+    [TestMethod]
+    public void Every_ops_admin_route_requires_PlatformAdminOnly()
+    {
+        var endpoints = MapEndpointAuthForArchTest();
+
+        foreach (var route in OpsAdminRoutes)
+        {
+            var matches = endpoints
+                .Where(e => string.Equals(e.Template, route, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
+            Assert.AreEqual(1, matches.Length,
+                $"ops-admin route '{route}' must be mapped exactly once — an allowlist entry for a missing route guards nothing.");
+            Assert.IsTrue(matches[0].Policies.Contains(PlatformAdminAuth.Policy),
+                $"ops-admin route '{route}' must require {PlatformAdminAuth.Policy}.");
+            Assert.IsFalse(matches[0].AllowsAnonymous,
+                $"ops-admin route '{route}' must not be AllowAnonymous (AuthorizationMiddleware would skip the policy).");
+        }
+    }
+
+    /// <summary>
+    /// TD-015: a route mapped directly in Program.cs is invisible to this sweep (which maps only
+    /// IModuleEndpoints). System routes live in SystemEndpoints; this guard keeps it that way.
+    /// </summary>
+    [TestMethod]
+    public void Program_maps_no_routes_directly()
+    {
+        var source = File.ReadAllText(FindRepoFile("src/Kartova.Api/Program.cs"));
+
+        // Anti-vacuity: prove this is the composition root that grafts SystemEndpoints in.
+        Assert.IsTrue(source.Contains("new SystemEndpoints()", StringComparison.Ordinal),
+            "Program.cs no longer adds SystemEndpoints — the file layout changed; update this guard.");
+
+        // Matches any `.Map…(` call except `.MapEndpoints(` (the one call this composition root
+        // is allowed to make — it grafts each IModuleEndpoints in, it does not map routes itself),
+        // plus the middleware-shaped route mappers `.UseHealthChecks(` and `.UseEndpoints(`, which
+        // create terminal endpoints without going through `.Map…` and would otherwise bypass both
+        // endpoint authorization and this sweep.
+        // A narrower allowlist of verb-specific method names (MapGet/MapPost/…) missed this repo's
+        // own route-mapping helpers (MapAdminModule/MapTenantScopedModule in
+        // ModuleRouteExtensions.cs) along with plain .Map(...), MapControllers, MapHub, etc.
+        var direct = Regex.Matches(source, @"\.(Map(?!Endpoints\()\w*|UseHealthChecks|UseEndpoints)\(")
+            .Select(m => m.Value)
+            .ToArray();
+
+        Assert.AreEqual(0, direct.Length,
+            "routes mapped directly in Program.cs are invisible to EndpointRouteRules — map them in SystemEndpoints " +
+            "(a middleware-shaped mapper like UseHealthChecks/UseEndpoints counts as direct mapping too): " +
+            string.Join(", ", direct));
     }
 
     [TestMethod]
@@ -263,6 +337,11 @@ public class EndpointRouteRules
         // Rate limiter must be present because InvitationAcceptRoutes calls RequireRateLimiting.
         builder.Services.AddRateLimiter(_ => { });
 
+        // SystemEndpoints (TD-015): MapHealthChecks builds its middleware pipeline at map time and needs
+        // HealthCheckService; MapOpenApi needs the OpenAPI services. No real checks are registered.
+        builder.Services.AddHealthChecks();
+        builder.Services.AddOpenApi();
+
         // The endpoint delegates take handler/DbContext/abstraction parameters that
         // RequestDelegateFactory must classify as [FromServices] rather than [FromBody].
         // RDF asks the IServiceProviderIsService whether a type is registered; without
@@ -372,6 +451,17 @@ public class EndpointRouteRules
                 }
             }
         }
+    }
+
+    private static string FindRepoFile(string relativePath)
+    {
+        var dir = new DirectoryInfo(Directory.GetCurrentDirectory());
+        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Kartova.slnx")))
+        {
+            dir = dir.Parent;
+        }
+        if (dir is null) throw new InvalidOperationException("Kartova.slnx not found walking up from current directory.");
+        return Path.Combine(dir.FullName, relativePath.Replace('/', Path.DirectorySeparatorChar));
     }
 
     private sealed record EndpointFingerprint(string Name, string HttpMethod, string Template);

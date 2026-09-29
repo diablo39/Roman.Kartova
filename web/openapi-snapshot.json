@@ -13,8 +13,9 @@
     "/api/v1/version": {
       "get": {
         "tags": [
-          "Program"
+          "SystemEndpoints"
         ],
+        "operationId": "GetVersion",
         "responses": {
           "200": {
             "description": "OK"
@@ -7166,7 +7167,7 @@
   },
   "tags": [
     {
-      "name": "Program"
+      "name": "SystemEndpoints"
     },
     {
       "name": "CatalogEndpointDelegates"

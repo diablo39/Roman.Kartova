@@ -1,0 +1,21 @@
+## gate 9 — runtime config (non-default KARTOVA_API_BASE_URL=http://127.0.0.1:8080 via compose override, same images, no rebuild)
+### GET http://localhost:4173/config.js
+HTTP/1.1 200 OK
+Server: nginx/1.27.5
+Date: Tue, 29 Sep 2026 12:18:05 GMT
+Content-Type: application/javascript
+Content-Length: 149
+Connection: keep-alive
+Cache-Control: no-store
+
+window.__KARTOVA_CONFIG__={"oidcAuthority":"http://localhost:8180/realms/kartova","oidcClientId":"kartova-web","apiBaseUrl":"http://127.0.0.1:8080"};
+### GET http://localhost:4174/config.js
+HTTP/1.1 200 OK
+Server: nginx/1.27.5
+Date: Tue, 29 Sep 2026 12:18:05 GMT
+Content-Type: application/javascript
+Content-Length: 164
+Connection: keep-alive
+Cache-Control: no-store
+
+window.__KARTOVA_CONFIG__={"oidcAuthority":"http://localhost:8180/realms/kartova-platform","oidcClientId":"kartova-admin-web","apiBaseUrl":"http://127.0.0.1:8080"};

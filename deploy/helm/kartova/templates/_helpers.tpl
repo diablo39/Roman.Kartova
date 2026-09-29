@@ -75,6 +75,12 @@ spec:
           env:
             - name: CSP_EXTRA_ORIGINS
               value: {{ $v.cspExtraOrigins | quote }}
+            - name: KARTOVA_OIDC_AUTHORITY
+              value: {{ $v.config.oidcAuthority | quote }}
+            - name: KARTOVA_OIDC_CLIENT_ID
+              value: {{ $v.config.oidcClientId | quote }}
+            - name: KARTOVA_API_BASE_URL
+              value: {{ $v.config.apiBaseUrl | quote }}
           livenessProbe:
             httpGet:
               path: /

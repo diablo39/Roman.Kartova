@@ -8,6 +8,8 @@
   </head>
   <body class="bg-background text-foreground antialiased">
     <div id="root"></div>
+    <!-- Runtime config (TD-016): rendered by nginx from KARTOVA_* env; must run before the bundle. -->
+    <script src="/config.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -1,0 +1,420 @@
+
+========== JOB: images ==========
+ Image kartova/migrator:dev Building 
+ Image kartova/api:dev Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.09kB done
+#1 DONE 0.0s
+
+#2 [migrator internal] load build definition from Dockerfile
+#2 transferring dockerfile: 2.44kB 0.0s done
+#2 DONE 0.0s
+
+#3 [api internal] load build definition from Dockerfile
+#3 transferring dockerfile: 3.23kB done
+#3 DONE 0.1s
+
+#4 [api] resolve image config for docker-image://docker.io/docker/dockerfile:1.7
+#4 DONE 0.9s
+
+#5 [migrator] docker-image://docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#5 resolve docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#5 CACHED
+
+#5 [api] docker-image://docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#5 CACHED
+
+#6 [api internal] load metadata for mcr.microsoft.com/dotnet/aspnet:10.0-alpine
+#6 DONE 1.2s
+
+#7 [api internal] load metadata for mcr.microsoft.com/dotnet/sdk:10.0-alpine
+#7 DONE 1.2s
+
+#8 [migrator internal] load .dockerignore
+#8 transferring context: 177B done
+#8 DONE 0.0s
+
+#9 [api internal] load .dockerignore
+#9 transferring context: 177B done
+#9 DONE 0.0s
+
+#10 [migrator internal] load build context
+#10 DONE 0.0s
+
+#11 [api internal] load build context
+#11 DONE 0.0s
+
+#12 [api build  1/25] FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine@sha256:3cc3bbbbf93d82104892f42aa9106b6be4d120346dea0649643a97c801525256
+#12 resolve mcr.microsoft.com/dotnet/sdk:10.0-alpine@sha256:3cc3bbbbf93d82104892f42aa9106b6be4d120346dea0649643a97c801525256 0.0s done
+#12 resolve mcr.microsoft.com/dotnet/sdk:10.0-alpine@sha256:3cc3bbbbf93d82104892f42aa9106b6be4d120346dea0649643a97c801525256 0.0s done
+#12 DONE 0.1s
+
+#13 [migrator runtime 1/4] FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine@sha256:f62a272ac1b46e83f56b8ed0416572f31cd1128e2c4a5e63eb34d348e4a36095
+#13 resolve mcr.microsoft.com/dotnet/aspnet:10.0-alpine@sha256:f62a272ac1b46e83f56b8ed0416572f31cd1128e2c4a5e63eb34d348e4a36095 0.0s done
+#13 DONE 0.1s
+
+#11 [api internal] load build context
+#11 transferring context: 73.96kB 0.1s done
+#11 DONE 0.1s
+
+#10 [migrator internal] load build context
+#10 transferring context: 73.96kB 0.1s done
+#10 DONE 0.1s
+
+#14 [migrator build 14/25] COPY src/Modules/Catalog/Kartova.Catalog.Application/*.csproj src/Modules/Catalog/Kartova.Catalog.Application/
+#14 CACHED
+
+#15 [migrator build  7/25] COPY NuGet.Config ./
+#15 CACHED
+
+#16 [migrator runtime 2/4] WORKDIR /app
+#16 CACHED
+
+#17 [migrator build 15/25] COPY src/Modules/Catalog/Kartova.Catalog.Infrastructure/*.csproj src/Modules/Catalog/Kartova.Catalog.Infrastructure/
+#17 CACHED
+
+#18 [migrator build 22/25] COPY src/Modules/Audit/Kartova.Audit.Infrastructure/*.csproj src/Modules/Audit/Kartova.Audit.Infrastructure/
+#18 CACHED
+
+#19 [migrator build  4/25] COPY Kartova.slnx ./
+#19 CACHED
+
+#20 [migrator build  8/25] COPY src/Kartova.SharedKernel/*.csproj src/Kartova.SharedKernel/
+#20 CACHED
+
+#21 [migrator build 13/25] COPY src/Modules/Catalog/Kartova.Catalog.Domain/*.csproj src/Modules/Catalog/Kartova.Catalog.Domain/
+#21 CACHED
+
+#22 [migrator build 25/25] RUN dotnet publish src/Kartova.Migrator/Kartova.Migrator.csproj     -c Release     -o /out     --no-restore
+#22 CACHED
+
+#23 [migrator build 16/25] COPY src/Modules/Catalog/Kartova.Catalog.Contracts/*.csproj src/Modules/Catalog/Kartova.Catalog.Contracts/
+#23 CACHED
+
+#24 [migrator build 23/25] RUN dotnet restore src/Kartova.Migrator/Kartova.Migrator.csproj
+#24 CACHED
+
+#25 [migrator build 21/25] COPY src/Modules/Audit/Kartova.Audit.Domain/*.csproj src/Modules/Audit/Kartova.Audit.Domain/
+#25 CACHED
+
+#26 [migrator build 19/25] COPY src/Modules/Organization/Kartova.Organization.Contracts/*.csproj src/Modules/Organization/Kartova.Organization.Contracts/
+#26 CACHED
+
+#27 [migrator build 10/25] COPY src/Kartova.SharedKernel.Identity/*.csproj src/Kartova.SharedKernel.Identity/
+#27 CACHED
+
+#28 [migrator build 20/25] COPY src/Modules/Organization/Kartova.Organization.Infrastructure/*.csproj src/Modules/Organization/Kartova.Organization.Infrastructure/
+#28 CACHED
+
+#29 [migrator runtime 3/4] RUN addgroup -g 1000 kartova && adduser -D -u 1000 -G kartova kartova
+#29 CACHED
+
+#30 [migrator build  3/25] COPY global.json ./
+#30 CACHED
+
+#31 [migrator build  2/25] WORKDIR /src
+#31 CACHED
+
+#32 [migrator build 17/25] COPY src/Modules/Organization/Kartova.Organization.Domain/*.csproj src/Modules/Organization/Kartova.Organization.Domain/
+#32 CACHED
+
+#33 [migrator build 18/25] COPY src/Modules/Organization/Kartova.Organization.Application/*.csproj src/Modules/Organization/Kartova.Organization.Application/
+#33 CACHED
+
+#34 [migrator build 12/25] COPY src/Kartova.Migrator/*.csproj src/Kartova.Migrator/
+#34 CACHED
+
+#35 [migrator build  5/25] COPY Directory.Packages.props ./
+#35 CACHED
+
+#36 [migrator build 11/25] COPY src/Kartova.SharedKernel.Postgres/*.csproj src/Kartova.SharedKernel.Postgres/
+#36 CACHED
+
+#37 [migrator build 24/25] COPY src/ src/
+#37 CACHED
+
+#38 [migrator build  6/25] COPY Directory.Build.props ./
+#38 CACHED
+
+#39 [migrator build  9/25] COPY src/Kartova.SharedKernel.AspNetCore/*.csproj src/Kartova.SharedKernel.AspNetCore/
+#39 CACHED
+
+#40 [migrator runtime 4/4] COPY --from=build --chown=kartova:kartova /out ./
+#40 CACHED
+
+#41 [api build 28/28] RUN dotnet publish src/Kartova.Api/Kartova.Api.csproj     -c Release     -o /out     --no-restore     /p:InformationalVersion="0.1.0+dev"     /p:BuildTime="unknown"
+#41 CACHED
+
+#42 [api build 27/28] COPY src/ src/
+#42 CACHED
+
+#43 [api build 26/28] RUN dotnet restore src/Kartova.Api/Kartova.Api.csproj
+#43 CACHED
+
+#44 [api build  8/28] COPY src/Kartova.SharedKernel/*.csproj src/Kartova.SharedKernel/
+#44 CACHED
+
+#45 [api build 15/28] COPY src/Modules/Catalog/Kartova.Catalog.Domain/*.csproj src/Modules/Catalog/Kartova.Catalog.Domain/
+#45 CACHED
+
+#46 [api build 12/28] COPY src/Kartova.SharedKernel.Wolverine/*.csproj src/Kartova.SharedKernel.Wolverine/
+#46 CACHED
+
+#47 [api build 20/28] COPY src/Modules/Organization/Kartova.Organization.Application/*.csproj src/Modules/Organization/Kartova.Organization.Application/
+#47 CACHED
+
+#31 [api build  2/25] WORKDIR /src
+#31 CACHED
+
+#48 [api build  5/28] COPY Directory.Packages.props ./
+#48 CACHED
+
+#49 [api build 19/28] COPY src/Modules/Organization/Kartova.Organization.Domain/*.csproj src/Modules/Organization/Kartova.Organization.Domain/
+#49 CACHED
+
+#16 [api runtime 2/4] WORKDIR /app
+#16 CACHED
+
+#50 [api build  3/28] COPY global.json ./
+#50 CACHED
+
+#51 [api build 21/28] COPY src/Modules/Organization/Kartova.Organization.Contracts/*.csproj src/Modules/Organization/Kartova.Organization.Contracts/
+#51 CACHED
+
+#52 [api build 11/28] COPY src/Kartova.SharedKernel.Postgres/*.csproj src/Kartova.SharedKernel.Postgres/
+#52 CACHED
+
+#53 [api build 17/28] COPY src/Modules/Catalog/Kartova.Catalog.Infrastructure/*.csproj src/Modules/Catalog/Kartova.Catalog.Infrastructure/
+#53 CACHED
+
+#54 [api build 25/28] COPY src/Modules/Audit/Kartova.Audit.Infrastructure/*.csproj src/Modules/Audit/Kartova.Audit.Infrastructure/
+#54 CACHED
+
+#55 [api build 23/28] COPY src/Modules/Organization/Kartova.Organization.Infrastructure.Admin/*.csproj src/Modules/Organization/Kartova.Organization.Infrastructure.Admin/
+#55 CACHED
+
+#56 [api build  4/28] COPY Kartova.slnx ./
+#56 CACHED
+
+#57 [api runtime 4/5] RUN addgroup -g 1000 kartova && adduser -D -u 1000 -G kartova kartova
+#57 CACHED
+
+#58 [api runtime 3/5] RUN apk add --no-cache tzdata
+#58 CACHED
+
+#59 [api build 24/28] COPY src/Modules/Audit/Kartova.Audit.Domain/*.csproj src/Modules/Audit/Kartova.Audit.Domain/
+#59 CACHED
+
+#60 [api build  6/28] COPY Directory.Build.props ./
+#60 CACHED
+
+#61 [api build  7/28] COPY NuGet.Config ./
+#61 CACHED
+
+#62 [api build  9/28] COPY src/Kartova.SharedKernel.AspNetCore/*.csproj src/Kartova.SharedKernel.AspNetCore/
+#62 CACHED
+
+#63 [api build 14/28] COPY src/Kartova.Migrator/*.csproj src/Kartova.Migrator/
+#63 CACHED
+
+#64 [api build 13/28] COPY src/Kartova.Api/*.csproj src/Kartova.Api/
+#64 CACHED
+
+#65 [api build 22/28] COPY src/Modules/Organization/Kartova.Organization.Infrastructure/*.csproj src/Modules/Organization/Kartova.Organization.Infrastructure/
+#65 CACHED
+
+#66 [api build 10/28] COPY src/Kartova.SharedKernel.Identity/*.csproj src/Kartova.SharedKernel.Identity/
+#66 CACHED
+
+#67 [api build 16/28] COPY src/Modules/Catalog/Kartova.Catalog.Application/*.csproj src/Modules/Catalog/Kartova.Catalog.Application/
+#67 CACHED
+
+#68 [api build 18/28] COPY src/Modules/Catalog/Kartova.Catalog.Contracts/*.csproj src/Modules/Catalog/Kartova.Catalog.Contracts/
+#68 CACHED
+
+#69 [api runtime 5/5] COPY --from=build --chown=kartova:kartova /out ./
+#69 CACHED
+
+#70 [migrator] exporting to image
+#70 exporting layers done
+#70 exporting manifest sha256:309de95cbbeced6af58748008199e757c8e0149a57e515b0e52c0512d784225b done
+#70 exporting config sha256:53a596425c54b07f8c9c5ac6f29dfcfcd303c62acd1065ea7085109ddaf5c55a done
+#70 exporting attestation manifest sha256:d2805c2203799fcd7ef434f9c10b235d3e5f040042eb987cdaae182bff2b5b25 0.1s done
+#70 exporting manifest list sha256:e28098949d331d028244ccbf59200c565d1e52db11a5c2c5dfb6b332858ffe2b
+#70 exporting manifest list sha256:e28098949d331d028244ccbf59200c565d1e52db11a5c2c5dfb6b332858ffe2b 0.0s done
+#70 naming to docker.io/kartova/migrator:dev 0.0s done
+#70 unpacking to docker.io/kartova/migrator:dev 0.0s done
+#70 DONE 0.3s
+
+#71 [api] exporting to image
+#71 exporting layers done
+#71 exporting manifest sha256:628f77f0338bda417482c6598da252fe2485ca8ca3e0c7c88a4c99dc5eb865ca done
+#71 exporting config sha256:22ef44818bd17593bfc460a710fb19f441caebd0d43374de2715a4674cbf6159 0.0s done
+#71 exporting attestation manifest sha256:f0c12baefdd2f7defa03602eadc5c2dc2191e90aa54be88a7b297bd1ec753ffc 0.1s done
+#71 exporting manifest list sha256:bae7231250d4cfebcaae651a5b67acfd68c56d426cd403db879025e66c8a592f 0.0s done
+#71 naming to docker.io/kartova/api:dev done
+#71 unpacking to docker.io/kartova/api:dev 0.0s done
+#71 DONE 0.3s
+
+#72 [migrator] resolving provenance for metadata file
+#72 DONE 0.0s
+
+#73 [api] resolving provenance for metadata file
+#73 DONE 0.0s
+ Image kartova/migrator:dev Built 
+ Image kartova/api:dev Built 
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2.52kB 0.0s done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://docker.io/docker/dockerfile:1.7
+#2 DONE 0.3s
+
+#3 docker-image://docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 CACHED
+
+#4 [internal] load metadata for docker.io/nginxinc/nginx-unprivileged:1.27-alpine
+#4 ...
+
+#5 [internal] load metadata for docker.io/library/node:20-alpine
+#5 DONE 0.8s
+
+#4 [internal] load metadata for docker.io/nginxinc/nginx-unprivileged:1.27-alpine
+#4 DONE 0.8s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 86B done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 DONE 0.0s
+
+#8 [runtime 1/3] FROM docker.io/nginxinc/nginx-unprivileged:1.27-alpine@sha256:65e3e85dbaed8ba248841d9d58a899b6197106c23cb0ff1a132b7bfe0547e4c0
+#8 resolve docker.io/nginxinc/nginx-unprivileged:1.27-alpine@sha256:65e3e85dbaed8ba248841d9d58a899b6197106c23cb0ff1a132b7bfe0547e4c0 0.0s done
+#8 DONE 0.1s
+
+#9 [build 1/6] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
+#9 resolve docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
+#9 resolve docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 0.0s done
+#9 DONE 0.1s
+
+#7 [internal] load build context
+#7 transferring context: 43.80kB 0.1s done
+#7 DONE 0.1s
+
+#10 [build 3/6] COPY package.json package-lock.json ./
+#10 CACHED
+
+#11 [build 5/6] COPY . .
+#11 CACHED
+
+#12 [build 6/6] RUN case "web" in       web)   npm run build       && mv dist /out       && cp default.conf.template /out.conf.template ;;       admin) npm run build:admin && mv dist-admin /out && cp admin.conf.template /out.conf.template ;;       *)     echo "unknown APP=web (expected web|admin)" >&2 && exit 1 ;;     esac
+#12 CACHED
+
+#13 [build 2/6] WORKDIR /app
+#13 CACHED
+
+#14 [build 4/6] RUN npm ci --ignore-scripts
+#14 CACHED
+
+#15 [runtime 2/3] COPY --from=build /out /usr/share/nginx/app
+#15 CACHED
+
+#16 [runtime 3/3] COPY --from=build /out.conf.template /etc/nginx/templates/default.conf.template
+#16 CACHED
+
+#17 exporting to image
+#17 exporting layers 0.0s done
+#17 exporting manifest sha256:f289d8059fc5458bece9f1f23e7eb6d342efa0ad21654c981556210959abe586 0.0s done
+#17 exporting config sha256:efd225c6f2ecaf76184627c9d55d9c404f9f3b042681c9b08854352109a747ee 0.0s done
+#17 exporting attestation manifest sha256:ac7e466be5a6af9c27cad4a0f4ecf09871d377ec9a7aa4c23055cdc818f1980a 0.0s done
+#17 exporting manifest list sha256:6b6985657daee05878ab7c0a85839537492758b0a6c0317bf0f4411669049347
+#17 exporting manifest list sha256:6b6985657daee05878ab7c0a85839537492758b0a6c0317bf0f4411669049347 0.0s done
+#17 naming to docker.io/kartova/web:ci done
+#17 unpacking to docker.io/kartova/web:ci 0.0s done
+#17 DONE 0.2s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/8w8ikmetxmzw4c0kx1il5fg83
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2.52kB 0.0s done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://docker.io/docker/dockerfile:1.7
+#2 DONE 0.3s
+
+#3 docker-image://docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 CACHED
+
+#4 [internal] load metadata for docker.io/nginxinc/nginx-unprivileged:1.27-alpine
+#4 ...
+
+#5 [internal] load metadata for docker.io/library/node:20-alpine
+#5 DONE 0.3s
+
+#4 [internal] load metadata for docker.io/nginxinc/nginx-unprivileged:1.27-alpine
+#4 DONE 0.3s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 86B done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 DONE 0.0s
+
+#8 [runtime 1/3] FROM docker.io/nginxinc/nginx-unprivileged:1.27-alpine@sha256:65e3e85dbaed8ba248841d9d58a899b6197106c23cb0ff1a132b7bfe0547e4c0
+#8 resolve docker.io/nginxinc/nginx-unprivileged:1.27-alpine@sha256:65e3e85dbaed8ba248841d9d58a899b6197106c23cb0ff1a132b7bfe0547e4c0 0.1s done
+#8 DONE 0.1s
+
+#9 [build 1/6] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
+#9 resolve docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 0.1s done
+#9 DONE 0.1s
+
+#7 [internal] load build context
+#7 transferring context: 43.80kB 0.1s done
+#7 DONE 0.1s
+
+#10 [build 3/6] COPY package.json package-lock.json ./
+#10 CACHED
+
+#11 [build 6/6] RUN case "admin" in       web)   npm run build       && mv dist /out       && cp default.conf.template /out.conf.template ;;       admin) npm run build:admin && mv dist-admin /out && cp admin.conf.template /out.conf.template ;;       *)     echo "unknown APP=admin (expected web|admin)" >&2 && exit 1 ;;     esac
+#11 CACHED
+
+#12 [build 4/6] RUN npm ci --ignore-scripts
+#12 CACHED
+
+#13 [build 5/6] COPY . .
+#13 CACHED
+
+#14 [runtime 2/3] COPY --from=build /out /usr/share/nginx/app
+#14 CACHED
+
+#15 [build 2/6] WORKDIR /app
+#15 CACHED
+
+#16 [runtime 3/3] COPY --from=build /out.conf.template /etc/nginx/templates/default.conf.template
+#16 CACHED
+
+#17 exporting to image
+#17 exporting layers 0.0s done
+#17 exporting manifest sha256:5f52923659ca01867f7ec72359bd7cd5e14f842ae0f5e703daeb4bff351adf5b 0.0s done
+#17 exporting config sha256:b36ef426a12ed75d7280f380e12b324f008f5c8c4dafa7367b8d29365da05f7c 0.0s done
+#17 exporting attestation manifest sha256:21528a8d7c894f10ab9782db4f7983065971aa37752031e7f158bd2c16995133
+#17 exporting attestation manifest sha256:21528a8d7c894f10ab9782db4f7983065971aa37752031e7f158bd2c16995133 0.1s done
+#17 exporting manifest list sha256:2062b8fa1307101ae08fc057515e124e7150db50bcf848aa708a856ddfd89c49 0.0s done
+#17 naming to docker.io/kartova/web-admin:ci done
+#17 unpacking to docker.io/kartova/web-admin:ci 0.0s done
+#17 DONE 0.3s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/zk5e34dlm4t7r9f3igm40cp3r
+check-runtime-config(kartova/web:ci): OK
+check-runtime-config(kartova/web-admin:ci): OK
+
+========== SUMMARY ==========
+  images     PASS
+All selected CI jobs passed.

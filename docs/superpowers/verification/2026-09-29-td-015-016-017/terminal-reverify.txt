@@ -1,0 +1,24 @@
+# Terminal re-verify @ e8213be 2026-09-29T12:00:47Z
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+Passed!  - Failed:     0, Passed:    66, Skipped:     0, Total:    66, Duration: 1 s - Kartova.Audit.Domain.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    11, Skipped:     0, Total:    11, Duration: 6 s - Kartova.Catalog.Infrastructure.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   393, Skipped:     0, Total:   393, Duration: 4 s - Kartova.Catalog.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   110, Skipped:     0, Total:   110, Duration: 2 s - Kartova.Organization.Infrastructure.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    83, Skipped:     0, Total:    83, Duration: 985 ms - Kartova.Organization.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    95, Skipped:     0, Total:    95, Duration: 14 s - Kartova.ArchitectureTests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   131, Skipped:     0, Total:   131, Duration: 1 s - Kartova.SharedKernel.AspNetCore.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    27, Skipped:     0, Total:    27, Duration: 425 ms - Kartova.SharedKernel.Identity.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   146, Skipped:     0, Total:   146, Duration: 2 s - Kartova.SharedKernel.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    36, Skipped:     0, Total:    36, Duration: 1 m 30 s - Kartova.Api.IntegrationTests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   154, Skipped:     0, Total:   154, Duration: 1 m 32 s - Kartova.Organization.IntegrationTests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    35, Skipped:     0, Total:    35, Duration: 10 s - Kartova.Audit.Infrastructure.IntegrationTests.dll (net10.0)
+Passed!  - Failed:     0, Passed:     8, Skipped:     0, Total:     8, Duration: 34 s - Kartova.SharedKernel.Identity.IntegrationTests.dll (net10.0)
+Passed!  - Failed:     0, Passed:     8, Skipped:     0, Total:     8, Duration: 4 s - Kartova.SharedKernel.Postgres.IntegrationTests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   516, Skipped:     0, Total:   516, Duration: 57 s - Kartova.Catalog.IntegrationTests.dll (net10.0)
+tsc -b: exit 0
+ Test Files  173 passed (173)
+      Tests  1261 passed (1261)
+npm run build: OK
+npm run build:admin: OK

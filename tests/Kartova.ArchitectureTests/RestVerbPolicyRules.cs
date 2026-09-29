@@ -61,6 +61,11 @@ public class RestVerbPolicyRules
         // Rate limiter must be present because InvitationAcceptRoutes calls RequireRateLimiting.
         builder.Services.AddRateLimiter(_ => { });
 
+        // SystemEndpoints (TD-015): MapHealthChecks builds its middleware pipeline at map time and needs
+        // HealthCheckService; MapOpenApi needs the OpenAPI services. No real checks are registered.
+        builder.Services.AddHealthChecks();
+        builder.Services.AddOpenApi();
+
         // Stub every reference type referenced by an endpoint delegate parameter so
         // RequestDelegateFactory's IServiceProviderIsService check classifies them as
         // [FromServices] rather than [FromBody]. See EndpointRouteRules for the long-form

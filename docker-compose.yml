@@ -51,6 +51,9 @@ services:
       KC_HOSTNAME_STRICT: "false"
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       KC_HTTP_ENABLED: "true"
+      # Without a limit the JVM sizes heap as a % of the whole WSL2 VM RAM.
+      JAVA_OPTS_KC_HEAP: "-Xms256m -Xmx512m"
+    mem_limit: 1g
     ports:
       - "8180:8080"
     volumes:
@@ -141,8 +144,12 @@ services:
     environment:
       # CSP (E-01.F-04.S-06b / ADR-0116) external origins the SPA must reach: API + KeyCloak.
       # Injected into connect-src/frame-src/form-action by nginx envsubst at container start.
-      # Matches the VITE build defaults (API :8080, OIDC authority :8180). Report-Only for now.
+      # Must cover KARTOVA_API_BASE_URL + KARTOVA_OIDC_AUTHORITY origins below.
       CSP_EXTRA_ORIGINS: "http://localhost:8080 http://localhost:8180"
+      # Runtime SPA config → /config.js (TD-016); same values as the SPA's local defaults.
+      KARTOVA_OIDC_AUTHORITY: "http://localhost:8180/realms/kartova"
+      KARTOVA_OIDC_CLIENT_ID: "kartova-web"
+      KARTOVA_API_BASE_URL: "http://localhost:8080"
     depends_on:
       api:
         condition: service_started
@@ -162,6 +169,10 @@ services:
     environment:
       # CSP external origins the console must reach: API + KeyCloak (kartova-platform realm).
       CSP_EXTRA_ORIGINS: "http://localhost:8080 http://localhost:8180"
+      # Runtime console config → /config.js (TD-016).
+      KARTOVA_OIDC_AUTHORITY: "http://localhost:8180/realms/kartova-platform"
+      KARTOVA_OIDC_CLIENT_ID: "kartova-admin-web"
+      KARTOVA_API_BASE_URL: "http://localhost:8080"
     depends_on:
       api:
         condition: service_started

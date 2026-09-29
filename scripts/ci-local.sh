@@ -37,10 +37,12 @@ job_backend() {  # ci.yml: restore -> build Release -> test Release --no-build
   && cmd //c "dotnet test Kartova.slnx --configuration Release --no-build --verbosity normal -m:1"
 }
 
-job_images() {  # ci.yml: compose build migrator+api, then web + web-admin images
+job_images() {  # ci.yml: compose build migrator+api, then web + web-admin images + runtime config check
   docker compose build migrator api \
   && docker build -f web/Dockerfile -t kartova/web:ci web \
-  && docker build -f web/Dockerfile --build-arg APP=admin -t kartova/web-admin:ci web
+  && docker build -f web/Dockerfile --build-arg APP=admin -t kartova/web-admin:ci web \
+  && bash web/scripts/check-runtime-config.sh kartova/web:ci index.html \
+  && bash web/scripts/check-runtime-config.sh kartova/web-admin:ci admin.html
 }
 
 job_stryker() {  # ci.yml: validate per-module + root Stryker configs

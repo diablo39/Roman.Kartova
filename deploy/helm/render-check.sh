@@ -24,4 +24,10 @@ helm template "$chart" --set database.connectionString="$cs" --set web.enabled=f
 grep -q "app.kubernetes.io/component: web$" "$out" && fail "web rendered while disabled"
 grep -q "app.kubernetes.io/component: web-admin$" "$out" || fail "web-admin missing while only web is disabled"
 
+helm template "$chart" --set database.connectionString="$cs" \
+  --set web.config.apiBaseUrl=https://api.example --set webAdmin.config.oidcClientId=kartova-admin-web > "$out"
+grep -A1 "name: KARTOVA_API_BASE_URL" "$out"   | grep -q "https://api.example"  || fail "web runtime apiBaseUrl not wired"
+grep -A1 "name: KARTOVA_OIDC_CLIENT_ID" "$out" | grep -q "kartova-admin-web"    || fail "web-admin runtime oidcClientId not wired"
+[ "$(grep -c "name: KARTOVA_OIDC_AUTHORITY" "$out")" -eq 2 ] || fail "KARTOVA_OIDC_AUTHORITY must render on both SPA Deployments"
+
 echo "render-check: OK"

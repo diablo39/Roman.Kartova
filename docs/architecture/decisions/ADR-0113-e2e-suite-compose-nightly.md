@@ -67,7 +67,7 @@ an arbitrary choice. This is a hardening of the **shared production image**
 (also built by CI's existing `images` job), not an E2E-only artifact — one
 rootless base now serves both purposes.
 
-No build args and no runtime config injection: the container is built with
+*(Superseded — see amendment 2026-09-29 under Consequences.)* No build args and no runtime config injection: the container is built with
 its existing defaults (`VITE_API_BASE_URL=http://localhost:8080`,
 `VITE_OIDC_AUTHORITY=http://localhost:8180/realms/kartova`), which the host
 Playwright browser reaches via compose's published ports. This is
@@ -238,7 +238,13 @@ pass; it is not folded into or replaced by E2E — both lenses continue to run
   DevSeed's fixture rows, ADR-0101) are pinned today. This is a known,
   accepted fragility of the dev/CI seed story, not a production concern
   (production has no DevSeed).
-- **Real-k8s URL injection remains an open gap.** The web image only works
+- **Amended 2026-09-29 (TD-016):** the web and web-admin images now read
+  OIDC authority/client id and API base URL at container start from
+  `KARTOVA_OIDC_AUTHORITY`, `KARTOVA_OIDC_CLIENT_ID`, `KARTOVA_API_BASE_URL`,
+  served as `/config.js` (nginx envsubst). Compose sets them; Helm exposes
+  `web.config.*` / `webAdmin.config.*`. The "real-k8s URL injection" gap
+  below is closed; `VITE_*` build args are no longer read by the Dockerfile.
+- *(Superseded — see amendment 2026-09-29 above.)* **Real-k8s URL injection remains an open gap.** The web image only works
   correctly against `localhost` defaults (`VITE_API_BASE_URL`,
   `VITE_OIDC_AUTHORITY` baked in at build time). There is no per-environment
   build-arg matrix and no runtime `config.js`-style injection. This gap
