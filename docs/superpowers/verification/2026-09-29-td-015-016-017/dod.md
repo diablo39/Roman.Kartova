@@ -1,6 +1,6 @@
 # DoD Ledger — TD-015 / TD-016 / TD-017
 
-**Slice:** `2026-09-29-td-015-016-017` · **Branch:** `chore/tech-debt-td-015-016-017` · **HEAD:** `1e954d8`
+**Slice:** `2026-09-29-td-015-016-017` · **Branch:** `chore/tech-debt-td-015-016-017` · **HEAD:** `e9630cf`
 **PR:** <#NN / url> · **Last updated:** 2026-09-29
 **Spec:** `docs/superpowers/specs/2026-09-29-td-015-016-017-design.md`
 **Plan:** `docs/superpowers/plans/2026-09-29-td-015-016-017-plan.md`
@@ -20,7 +20,7 @@
 | 4 Container build (images CI) | ✅ PASS | 2026-09-29 |
 | 5 `/simplify` | ✅ PASS (advisory; 3 applied, 8 skipped) | 2026-09-29 |
 | 6 `requesting-code-review` | ✅ PASS (with fixes) | 2026-09-29 |
-| 7 `review-pr` | ⏳ PENDING | — |
+| 7 `review-pr` | ✅ PASS (with fixes) | 2026-09-29 |
 | 8 `deep-review` | ⏳ PENDING | — |
 | Terminal re-verify (build + suite) | ⏳ PENDING | — |
 | 9 Visual / API verification (ADR-0084) | ⏳ PENDING | — |
@@ -68,9 +68,18 @@
 **At:** 1e954d8 / 2026-09-29
 
 ### 7 — `review-pr` (pr-review-toolkit)
-**Status:** ⏳ PENDING
-**Evidence:** <link to review-pr.md / PR review>
-**At:** <commit / date>
+**Status:** ✅ PASS (with fixes)
+**Evidence:** `review-pr.md`. Agents: standing set (code-reviewer, pr-test-analyzer, type-design-analyzer) plus silent-failure-hunter, since the diff adds try/catch and auth-error branches. comment-analyzer skipped (code-heavy diff).
+- code-reviewer: 0 new findings.
+- pr-test-analyzer: all 5 Review Focus items pinned.
+- Fixed in e9630cf:
+  - R1: production `console.warn` once per key when falling back to the built-in default.
+  - R2: container check now asserts the CSP header still carries `script-src 'self'`; the new assert was proven discriminating.
+  - R3: container check fails fast when the container dies.
+  - R4: no `curl | grep -q` pipelines left (closes gate-6 deferred T3).
+- Skipped with reasons: R5–R8.
+- Scoped re-review: all addressed, no new breakage.
+**At:** e9630cf / 2026-09-29
 
 ### 8 — `deep-review`
 **Status:** ⏳ PENDING
