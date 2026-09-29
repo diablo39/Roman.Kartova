@@ -12,7 +12,7 @@
 
 slice:  2026-09-28-e01b-s2-web-admin-shell      # = the verification folder name (matches spec/plan slug)
 branch: feat/e01b-s2-web-admin-shell
-terminal_commit: 11553e7   # the slice's final commit; MUST match dod.md's "Terminal commit".
+terminal_commit: c3800f6   # the slice's final commit; MUST match dod.md's "Terminal commit".
                                # .claude/hooks/dod-check.js blocks a completion claim whose
                                # gate-findings.yaml has no terminal_commit or one that drifts from dod.md.
 

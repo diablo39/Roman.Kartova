@@ -130,7 +130,7 @@
 
 **E-01b.F-03: Platform Admin Isolation (ADR-0118)**
 - [x] E-01b.F-03.S-01 — Platform admin identity & API isolation (separate realm + `PlatformAdmin` scheme + `/api/v1/admin/session/me`)
-- [ ] E-01b.F-03.S-02 — `web-admin` app shell (own origin, same visual shell)
+- [x] E-01b.F-03.S-02 — `web-admin` app shell (own origin, same visual shell)
 
 ---
 

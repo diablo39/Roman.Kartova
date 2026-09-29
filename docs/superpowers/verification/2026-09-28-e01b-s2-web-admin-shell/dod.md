@@ -1,7 +1,7 @@
 # DoD Ledger — E-01b.F-03.S-02 web-admin app shell
 
-**Slice:** `2026-09-28-e01b-s2-web-admin-shell` · **Branch:** `feat/e01b-s2-web-admin-shell` · **HEAD:** `11553e7`
-**PR:** <#NN / url> · **Last updated:** 2026-09-28
+**Slice:** `2026-09-28-e01b-s2-web-admin-shell` · **Branch:** `feat/e01b-s2-web-admin-shell` · **HEAD:** `c3800f6`
+**PR:** <#NN / url> · **Last updated:** 2026-09-29
 **Spec:** `docs/superpowers/specs/2026-09-28-e01b-s2-web-admin-shell-design.md`
 **Plan:** `docs/superpowers/plans/2026-09-28-e01b-s2-web-admin-shell-plan.md`
 **Findings telemetry:** `./gate-findings.yaml` — per-gate issues × severity × real/delusion (copy from `templates/gate-findings-template.yaml`)
@@ -22,8 +22,8 @@
 | 6 `requesting-code-review` | ✅ PASS | 2026-09-28 |
 | 7 `review-pr` | ✅ PASS | 2026-09-28 |
 | 8 `deep-review` | ✅ PASS | 2026-09-28 |
-| Terminal re-verify (build + suite) | ⏳ PENDING | — |
-| 9 Visual / API verification (ADR-0084) | ⏳ PENDING | — |
+| Terminal re-verify (build + suite) | ✅ PASS | 2026-09-29 |
+| 9 Visual / API verification (ADR-0084) | ✅ PASS | 2026-09-29 |
 | 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING | — |
 
 ## Gate detail
@@ -69,15 +69,14 @@
 **At:** 11553e7 / 2026-09-28
 
 ### Terminal re-verify (build + full suite after gates 5–8)
-**Status:** ⏳ PENDING
-**Evidence:** <command + output / CI run URL>
-**At:** <commit / date>
+**Status:** ✅ PASS
+**Evidence:** `terminal-reverify.txt` — `dotnet build` 0/0; `dotnet test Kartova.slnx -m:1` 1817/1817 (15 assemblies); web `npm test` 1231/1231, `tsc -b` 0, `build` + `build:admin` OK; images re-built (`docker compose build migrator api web web-admin`); full E2E 11/11 on the final stack. First background `e2e/run.sh` attempt was killed by the Claude Code memory-pressure reaper during image build (no test ran) — re-run in foreground stages.
+**At:** c3800f6 / 2026-09-29
 
 ### 9 — Visual / API verification (observe the running system)
-**Status:** ⏳ PENDING
-**Evidence:** <UI: screenshot(s) of the changed surface under verification/<slice>/ + console-clean note; API: live request/response captured against the running stack. Or N/A reason (no runtime surface — docs/pure refactor). Distinct from gate 3 (automated tests).>
-**At:** <commit / date>
-**Note:** Playwright MCP failed to connect during brainstorming (2026-09-27); reconnect before gate 9.
+**Status:** ✅ PASS
+**Evidence:** `gate9-visual.md` + `gate9-admin-landing.png`, `gate9-admin-no-access.png` — Playwright MCP (reconnected by the user), cold-started `dev:admin` on :5174 against the live stack: PKCE redirect to `kartova-platform`, operator landing in the master shell (session/me 200, console clean), user menu + sign-out, no-role user → No access (403, single call), production container :4174 deep link with enforcing CSP → 0 CSP violations.
+**At:** c3800f6 / 2026-09-29
 
 ### 10 — CI green on the PR (terminal; `scripts/ci-local.sh` = required pre-push mirror)
 **Status:** ⏳ PENDING
