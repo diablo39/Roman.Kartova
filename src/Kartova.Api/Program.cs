@@ -277,43 +277,16 @@ public class Program
         app.UseRateLimiter();
         app.UseMiddleware<TenantScopeBeginMiddleware>();
 
-        app.MapHealthChecks("/health/live", new HealthCheckOptions
-        {
-            Predicate = c => c.Tags.Contains("live"),
-            ResponseWriter = HealthCheckJsonResponseWriter.WriteCompactAsync,
-        });
-        app.MapHealthChecks("/health/ready", new HealthCheckOptions
-        {
-            Predicate = c => c.Tags.Contains("ready"),
-            ResponseWriter = HealthCheckJsonResponseWriter.WriteCompactAsync,
-        });
-        app.MapHealthChecks("/health/startup", new HealthCheckOptions
-        {
-            Predicate = c => c.Tags.Contains("startup"),
-            ResponseWriter = HealthCheckJsonResponseWriter.WriteCompactAsync,
-        });
-        // Mapped outside MapAdminModule (not under /api/v1/admin/), so EndpointRouteRules'
-        // admin arch tests don't see this route; its PlatformAdminOnly binding is pinned
-        // instead by HealthCheckEndpointTests.Detailed_returns_401_for_a_tenant_realm_user.
-        app.MapHealthChecks("/health/detailed", new HealthCheckOptions
-        {
-            ResponseWriter = HealthCheckJsonResponseWriter.WriteDetailedAsync,
-        }).RequireAuthorization(PlatformAdminAuth.Policy);
-
-        // OpenAPI document endpoint — anonymous, no auth requirement (ADR-0029/0034).
-        app.MapOpenApi("/openapi/{documentName}.json").AllowAnonymous();
-
-        // Anonymous version endpoint — system-level, not module-owned.
-        app.MapGet("/api/v1/version", GetVersion).AllowAnonymous();
-
         // Module endpoints — each module wires its own routes via IModuleEndpoints.
-        // OrganizationAdminModule is grafted in separately because its endpoints
+        // SystemEndpoints carries the health/OpenAPI/version routes (TD-015 — never map routes
+        // directly here). OrganizationAdminModule is grafted in separately because its endpoints
         // depend on IAdminOrganizationCommands from Kartova.Organization.Infrastructure.Admin,
         // which already references Kartova.Organization.Infrastructure (where IModule lives).
         // Putting MapEndpoints for admin routes inside OrganizationModule would require the
         // reverse reference, creating a project cycle.
         IModuleEndpoints[] endpointModules =
         [
+            new SystemEndpoints(),
             .. modules.OfType<IModuleEndpoints>(),
             new OrganizationAdminModule(),
         ];
@@ -357,23 +330,4 @@ public class Program
         return services.BuildServiceProvider();
     }
 #pragma warning restore ASP0000
-
-    [ExcludeFromCodeCoverage]
-    private static IResult GetVersion()
-    {
-        var assembly = Assembly.GetExecutingAssembly();
-        var version = assembly.GetName().Version?.ToString() ?? "0.1.0";
-        var informationalVersion = assembly
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-            ?.InformationalVersion;
-        var commit = Environment.GetEnvironmentVariable("GIT_COMMIT") ?? "unknown";
-        var buildTime = Environment.GetEnvironmentVariable("BUILD_TIME") ?? DateTimeOffset.UtcNow.ToString("O");
-
-        return Results.Ok(new
-        {
-            version = informationalVersion ?? version,
-            commit,
-            buildTime,
-        });
-    }
 }
