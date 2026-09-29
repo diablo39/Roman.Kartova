@@ -1,6 +1,6 @@
 # DoD Ledger — TD-015 / TD-016 / TD-017
 
-**Slice:** `2026-09-29-td-015-016-017` · **Branch:** `chore/tech-debt-td-015-016-017` · **HEAD:** `e9630cf`
+**Slice:** `2026-09-29-td-015-016-017` · **Branch:** `chore/tech-debt-td-015-016-017` · **HEAD:** `e8213be`
 **PR:** <#NN / url> · **Last updated:** 2026-09-29
 **Spec:** `docs/superpowers/specs/2026-09-29-td-015-016-017-design.md`
 **Plan:** `docs/superpowers/plans/2026-09-29-td-015-016-017-plan.md`
@@ -16,13 +16,13 @@
 |------|--------|---------|
 | 1 Build (`TreatWarningsAsErrors`) | ✅ PASS | 2026-09-29 |
 | 2 Per-task subagent reviews | ✅ PASS | 2026-09-29 |
-| 3 Full suite (+ real-seam if wiring) | ⏳ PENDING | — |
+| 3 Full suite (+ real-seam if wiring) | ✅ PASS | 2026-09-29 |
 | 4 Container build (images CI) | ✅ PASS | 2026-09-29 |
 | 5 `/simplify` | ✅ PASS (advisory; 3 applied, 8 skipped) | 2026-09-29 |
 | 6 `requesting-code-review` | ✅ PASS (with fixes) | 2026-09-29 |
 | 7 `review-pr` | ✅ PASS (with fixes) | 2026-09-29 |
-| 8 `deep-review` | ⏳ PENDING | — |
-| Terminal re-verify (build + suite) | ⏳ PENDING | — |
+| 8 `deep-review` | ✅ PASS (with fixes) | 2026-09-29 |
+| Terminal re-verify (build + suite) | ✅ PASS | 2026-09-29 |
 | 9 Visual / API verification (ADR-0084) | ⏳ PENDING | — |
 | 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING | — |
 
@@ -43,9 +43,27 @@
 **At:** 65d0c10 / 2026-09-29
 
 ### 3 — Full test suite (unit + arch + integration; real-seam if wiring)
-**Status:** ⏳ PENDING
-**Evidence:** <command + counts, or CI run URL. Note real-seam N/A with reason if frontend-only>
-**At:** <commit / date>
+**Status:** ✅ PASS
+**Evidence (final code, e8213be — `terminal-reverify.txt`):**
+- **Backend, 1819/1819 across 14 projects** (run per project, `dotnet test --no-build`):
+  - arch 95;
+  - Catalog.IntegrationTests 516;
+  - Organization.IntegrationTests 154;
+  - Api.IntegrationTests 36, incl. `HealthCheckEndpointTests` — real Postgres + real JWT seam; `/health/detailed` 401 for a tenant-realm user; version/OpenAPI/CORS unchanged;
+  - the remaining 10 unit/integration projects.
+- **Frontend:** `npx tsc -b` exit 0; `npx vitest run` 173 files / 1261 tests; `npm run build` + `npm run build:admin` OK.
+- **E2E-impact trigger:** every page load now fetches `/config.js`. Full `e2e/run.sh` re-run on the final code: **11/11 passed** (`e2e-run.txt`). An earlier run at 757980c was also 11/11.
+- **Planted-violation proofs** (temporary edits, each FAILed as expected, then reverted):
+  1. Removed `RequireAuthorization` on `/health/detailed` → `Every_ops_admin_route_requires_PlatformAdminOnly` FAIL.
+  2. Direct `app.MapGet` in Program.cs → `Program_maps_no_routes_directly` FAIL.
+  3. `OpsAdminRoutes = []` → `PlatformAdminOnly_is_used_only_under_the_admin_prefix` FAIL (HealthDetailed).
+  4. `app.MapAdminModule("x")` → guard FAIL (gate 6).
+  5. `app.Map("/x", …)` → guard FAIL (gate 6).
+  6. `app.UseHealthChecks("/x")` → guard FAIL (gate 8).
+  7. CSP grep pattern broken → `check-runtime-config.sh` FAIL (gate 7).
+  Full outputs are in the SDD task/fix reports.
+- **Regression caught in this gate:** `RestVerbPolicyRules.No_endpoint_uses_PATCH_verb` failed after Task 1 (sibling arch host lacked AddHealthChecks/AddOpenApi). Fixed in 65d0c10.
+**At:** e8213be / 2026-09-29
 
 ### 4 — Container build (images CI job)
 **Status:** ✅ PASS
@@ -82,14 +100,27 @@
 **At:** e9630cf / 2026-09-29
 
 ### 8 — `deep-review`
-**Status:** ⏳ PENDING
-**Evidence:** <link to deep-review.md>
-**At:** <commit / date>
+**Status:** ✅ PASS (with fixes)
+**Evidence:** `deep-review.md`: 0 blocking, 2 should-fix, 5 nits, 2 missing tests, 5 good. No mutation report for this slice.
+- **SF1 (ADR-0113 and its README row stale; bundled with nit 5, ADR-0060):** owner previewed and approved the amendment wording; applied in e8213be.
+- **SF2 (ledger behind):** `gate-findings.yaml` populated (43 entries); gate 3 row now cites the e2e run and the planted-violation proofs; e2e re-run at the terminal re-verify.
+- **Fixed in 7eebead:**
+  - Nit 1: a tokenless 401 never trips the breaker (`hadToken`).
+  - Nit 2: spec synced.
+  - Nit 3: the Program.cs guard also catches `UseHealthChecks` / `UseEndpoints`, proven by a planted violation.
+  - New test: config reaches the four consumers (`runtimeConfigConsumers.test.ts`).
+- **Nit 4:** `tech-debt.md` status gets the PR number and ledger path at gate 10.
+- Scoped re-review: all addressed, no new breakage.
+**At:** e8213be / 2026-09-29
 
 ### Terminal re-verify (build + full suite after gates 5–8)
-**Status:** ⏳ PENDING
-**Evidence:** <command + output / CI run URL>
-**At:** <commit / date>
+**Status:** ✅ PASS
+**Evidence:** `terminal-reverify.txt`, all on e8213be after the last fix wave (gate 8, 7eebead) and the ADR notes:
+- `dotnet build Kartova.slnx`: 0 warnings / 0 errors.
+- Backend: 1819/1819.
+- Frontend: tsc 0 errors; vitest 1261/1261; both builds OK.
+- E2E: 11/11.
+**At:** e8213be / 2026-09-29
 
 ### 9 — Visual / API verification (observe the running system)
 **Status:** ⏳ PENDING
