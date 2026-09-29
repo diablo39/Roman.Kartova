@@ -1,7 +1,7 @@
 # DoD Ledger — TD-015 / TD-016 / TD-017
 
 **Slice:** `2026-09-29-td-015-016-017` · **Branch:** `chore/tech-debt-td-015-016-017` · **HEAD:** `e8213be`
-**PR:** <#NN / url> · **Last updated:** 2026-09-29
+**PR:** pending push · **Last updated:** 2026-09-29 · **Terminal commit:** e8213be (terminal re-verify + gate 9; later commits are ledger-only)
 **Spec:** `docs/superpowers/specs/2026-09-29-td-015-016-017-design.md`
 **Plan:** `docs/superpowers/plans/2026-09-29-td-015-016-017-plan.md`
 **Findings telemetry:** `./gate-findings.yaml` — per-gate issues × severity × real/delusion (copy from `templates/gate-findings-template.yaml`)

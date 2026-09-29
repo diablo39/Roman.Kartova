@@ -12,7 +12,7 @@
 
 slice:  2026-09-29-td-015-016-017
 branch: chore/tech-debt-td-015-016-017
-terminal_commit: <short-sha>   # the slice's final commit; MUST match dod.md's "Terminal commit".
+terminal_commit: e8213be   # the slice's final commit; MUST match dod.md's "Terminal commit".
                                # .claude/hooks/dod-check.js blocks a completion claim whose
                                # gate-findings.yaml has no terminal_commit or one that drifts from dod.md.
 
