@@ -51,6 +51,9 @@ services:
       KC_HOSTNAME_STRICT: "false"
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       KC_HTTP_ENABLED: "true"
+      # Without a limit the JVM sizes heap as a % of the whole WSL2 VM RAM.
+      JAVA_OPTS_KC_HEAP: "-Xms256m -Xmx512m"
+    mem_limit: 1g
     ports:
       - "8180:8080"
     volumes:
