@@ -23,7 +23,7 @@
 | 7 `review-pr` | ✅ PASS (with fixes) | 2026-09-29 |
 | 8 `deep-review` | ✅ PASS (with fixes) | 2026-09-29 |
 | Terminal re-verify (build + suite) | ✅ PASS | 2026-09-29 |
-| 9 Visual / API verification (ADR-0084) | ⏳ PENDING | — |
+| 9 Visual / API verification (ADR-0084) | ✅ PASS | 2026-09-29 |
 | 10 CI green on PR (`ci-local.sh` = pre-push mirror) | ⏳ PENDING | — |
 
 ## Gate detail
@@ -123,9 +123,15 @@
 **At:** e8213be / 2026-09-29
 
 ### 9 — Visual / API verification (observe the running system)
-**Status:** ⏳ PENDING
-**Evidence:** <UI: screenshot(s) of the changed surface under verification/<slice>/ + console-clean note; API: live request/response captured against the running stack. Or N/A reason (no runtime surface — docs/pure refactor). Distinct from gate 3 (automated tests).>
-**At:** <commit / date>
+**Status:** ✅ PASS
+**Evidence:** `gate9-visual.md`, `gate9-api.txt`, and 4 screenshots. Playwright MCP, driven in-SPA.
+- **TD-016:** the same images were recreated with a non-default `KARTOVA_API_BASE_URL=http://127.0.0.1:8080` (no rebuild). `/config.js` rendered it with `Cache-Control: no-store`. Every API call from both SPAs went to `127.0.0.1:8080`.
+- **TD-017:** a forced persistent authed 401 gave exactly 1 SSO round-trip, then the panel, in both SPAs. The panel is centred. Try again recovers once the 401 is removed.
+- **TD-015:**
+  - `/health/detailed`: tenant token 401, anonymous 401, operator token 200.
+  - live, version and OpenAPI routes answer 200 anonymous.
+  - The live OpenAPI doc shows `GetVersion` with tag `SystemEndpoints`.
+**At:** e8213be code / 2026-09-29
 
 ### 10 — CI green on the PR (terminal; `scripts/ci-local.sh` = required pre-push mirror)
 **Status:** ⏳ PENDING
